@@ -1,0 +1,133 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseInterceptors,
+  UploadedFiles,
+} from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { SongsService } from './songs.service';
+import { UploadsService } from '../uploads/uploads.service';
+import { CreateSongDto } from './dto/create-song.dto';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { getSupabaseClient } from '../config/supabase.config';
+
+@Controller('songs')
+export class SongsController {
+  constructor(
+    private readonly songsService: SongsService,
+    private readonly uploadsService: UploadsService,
+  ) {}
+
+  @Post('upload')
+  @UseInterceptors(
+    FilesInterceptor('files', 2, {
+      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+    }),
+  )
+  async uploadSong(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFiles() files: Express.Multer.File[],
+    @Body() body: { title: string; artistName: string },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    if (!files || files.length === 0) {
+      throw new Error('No files uploaded');
+    }
+
+    // Find audio and artwork files by MIME type
+    const audioFile = files.find((f) => f.mimetype.startsWith('audio/'));
+    const artworkFile = files.find((f) => f.mimetype.startsWith('image/'));
+
+    if (!audioFile) {
+      throw new Error('Audio file is required');
+    }
+
+    const audioUrl = await this.uploadsService.uploadAudioFile(audioFile, userData.id);
+    const artworkUrl = artworkFile
+      ? await this.uploadsService.uploadArtworkFile(artworkFile, userData.id)
+      : undefined;
+
+    const createSongDto: CreateSongDto = {
+      title: body.title,
+      artistName: body.artistName,
+      audioUrl,
+      artworkUrl,
+    };
+
+    return this.songsService.createSong(userData.id, createSongDto);
+  }
+
+  @Get()
+  async getSongs(
+    @Query('artistId') artistId?: string,
+    @Query('status') status?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.songsService.getSongs({
+      artistId,
+      status,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
+  @Get(':id')
+  async getSongById(@Param('id') id: string) {
+    return this.songsService.getSongById(id);
+  }
+
+  @Post(':id/like')
+  async likeSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.songsService.likeSong(userData.id, songId);
+  }
+
+  @Delete(':id/like')
+  async unlikeSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.songsService.likeSong(userData.id, songId);
+  }
+}

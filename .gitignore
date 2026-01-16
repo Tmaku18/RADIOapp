@@ -1,0 +1,58 @@
+# Dependencies
+node_modules/
+.pub-cache/
+.dart_tool/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+mobile/.env
+
+# Build outputs
+dist/
+build/
+*.log
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/build/
+mobile/.metadata
+mobile/.idea/
+mobile/*.iml
+mobile/.gradle/
+mobile/local.properties
+mobile/.fvm/
+
+# Firebase
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist
+firebase-debug.log
+firestore-debug.log
+firebase-service-account.json
+
+# Next.js
+admin/.next/
+admin/out/
+admin/.vercel
+
+# NestJS
+backend/dist/
+backend/.env
