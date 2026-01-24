@@ -22,6 +22,7 @@ The web app provides:
 - Firebase Authentication (Email/Password, Google Sign-In)
 - HTTP-only session cookies for SSR security
 - Automatic token refresh for API calls
+- Sign out with loading state (sidebar + profile page)
 
 ### Listener Features
 - Web radio player with Hls.js
@@ -125,7 +126,7 @@ web/
 │   │   ├── api.ts            # Axios client with interceptors
 │   │   ├── firebase-client.ts
 │   │   └── firebase-admin.ts
-│   └── middleware.ts         # Route protection
+│   └── proxy.ts              # Next.js 16 routing proxy
 ├── .env.local.example
 ├── package.json
 └── tsconfig.json

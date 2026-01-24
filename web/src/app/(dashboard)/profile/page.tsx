@@ -1,14 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi } from '@/lib/api';
 
 export default function ProfilePage() {
-  const { user, profile, refreshProfile } = useAuth();
+  const router = useRouter();
+  const { user, profile, refreshProfile, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -34,6 +37,16 @@ export default function ProfilePage() {
     setDisplayName(profile?.displayName || '');
     setIsEditing(false);
     setError(null);
+  };
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      router.push('/');
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   return (
@@ -176,6 +189,27 @@ export default function ProfilePage() {
               Edit Profile
             </button>
           )}
+        </div>
+      </div>
+
+      {/* Sign Out Section */}
+      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="p-6">
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Sign Out</h3>
+          <p className="text-gray-600 text-sm mb-4">
+            Sign out of your account on this device.
+          </p>
+          <button
+            onClick={handleSignOut}
+            disabled={isSigningOut}
+            className={`px-6 py-2 rounded-lg transition-colors ${
+              isSigningOut
+                ? 'bg-gray-400 text-white cursor-not-allowed'
+                : 'bg-red-600 text-white hover:bg-red-700'
+            }`}
+          >
+            {isSigningOut ? 'Signing out...' : 'Sign Out'}
+          </button>
         </div>
       </div>
     </div>

@@ -16,6 +16,7 @@ The mobile app enables:
 - Continuous radio streaming with play/pause/skip
 - Like/unlike songs
 - View current playing track with artwork
+- Sign out with loading feedback (via Profile screen)
 
 ### For Artists
 - Upload songs with audio files and artwork
@@ -120,7 +121,7 @@ mobile/
 | Upload | Upload audio and artwork | Artists only |
 | Credits | View balance and transactions | Artists only |
 | Payment | Purchase credit packages | Artists only |
-| Profile | View and edit profile | All users |
+| Profile | View and edit profile, sign out | All users |
 
 ## Navigation
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 
@@ -11,29 +12,35 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final AuthService _authService = AuthService();
   app_user.User? _user;
   bool _isLoading = true;
+  bool _isSigningOut = false;
 
   @override
-  void initState() {
-    super.initState();
-    _loadProfile();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Load profile only once when dependencies are ready
+    if (_isLoading && _user == null) {
+      _loadProfile();
+    }
   }
 
   Future<void> _loadProfile() async {
-    final user = await _authService.getUserProfile();
-    setState(() {
-      _user = user;
-      _isLoading = false;
-    });
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final user = await authService.getUserProfile();
+    if (mounted) {
+      setState(() {
+        _user = user;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _signOut() async {
-    await _authService.signOut();
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed('/login');
-    }
+    setState(() => _isSigningOut = true);
+    final authService = Provider.of<AuthService>(context, listen: false);
+    await authService.signOut();
+    // Navigation is handled by AuthWrapper - no manual navigation needed
   }
 
   @override
@@ -103,9 +110,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.logout, color: Colors.red),
-                      title: const Text('Sign Out', style: TextStyle(color: Colors.red)),
-                      onTap: _signOut,
+                      leading: _isSigningOut 
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.logout, color: Colors.red),
+                      title: Text(
+                        _isSigningOut ? 'Signing out...' : 'Sign Out',
+                        style: TextStyle(color: _isSigningOut ? Colors.grey : Colors.red),
+                      ),
+                      onTap: _isSigningOut ? null : _signOut,
                     ),
                   ],
                 ),

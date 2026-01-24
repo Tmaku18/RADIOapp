@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,9 +46,16 @@ export default function DashboardLayout({
     ...(profile?.role === 'admin' ? adminNavigation : []),
   ];
 
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
   const handleSignOut = async () => {
-    await signOut();
-    router.push('/');
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      router.push('/');
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   if (loading) {
@@ -111,10 +118,15 @@ export default function DashboardLayout({
           </div>
           <button
             onClick={handleSignOut}
-            className="w-full flex items-center px-4 py-2 text-sm text-gray-300 hover:bg-gray-800 hover:text-white rounded-lg transition-colors"
+            disabled={isSigningOut}
+            className={`w-full flex items-center px-4 py-2 text-sm rounded-lg transition-colors ${
+              isSigningOut 
+                ? 'text-gray-500 cursor-not-allowed' 
+                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+            }`}
           >
-            <span className="mr-3">🚪</span>
-            Sign Out
+            <span className="mr-3">{isSigningOut ? '⏳' : '🚪'}</span>
+            {isSigningOut ? 'Signing out...' : 'Sign Out'}
           </button>
         </div>
       </aside>

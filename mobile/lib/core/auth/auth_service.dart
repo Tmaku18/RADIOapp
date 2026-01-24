@@ -194,6 +194,7 @@ class AuthService extends ChangeNotifier {
       }
     }
     _apiService.setAuthToken(null);
+    notifyListeners(); // Notify listeners to trigger UI rebuild (e.g., AuthWrapper)
   }
 
   Future<app_user.User?> _getUserProfile() async {
