@@ -19,28 +19,17 @@ void main() async {
     debugPrint('Warning: Could not load .env file: $e');
   }
   
-  // Initialize Firebase - this will use default config from google-services.json
-  // If the file is missing or invalid, we'll handle it gracefully
+  // Initialize Firebase with platform-specific configuration
   bool firebaseInitialized = false;
   try {
-    final options = DefaultFirebaseOptions.currentPlatform;
-    
-    if (options != null) {
-      // Use explicit options if available
-      await Firebase.initializeApp(options: options);
-      firebaseInitialized = true;
-      debugPrint('Firebase initialized successfully with explicit options');
-    } else {
-      // Try default initialization (uses google-services.json automatically)
-      await Firebase.initializeApp();
-      firebaseInitialized = true;
-      debugPrint('Firebase initialized with default config from google-services.json');
-    }
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    firebaseInitialized = true;
+    debugPrint('Firebase initialized successfully');
   } catch (e) {
     debugPrint('Error initializing Firebase: $e');
     debugPrint('App will continue but authentication features will not work');
-    debugPrint('Please set up Firebase configuration (see mobile/FIREBASE_SETUP.md)');
-    // Continue anyway - the app can still run, just without Firebase features
   }
   
   runApp(MyApp(firebaseInitialized: firebaseInitialized));

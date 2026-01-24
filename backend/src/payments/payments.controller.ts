@@ -52,13 +52,14 @@ export class PaymentsController {
       const event = await this.stripeService.verifyWebhookSignature(payload, signature);
 
       if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object as any;
+        const paymentIntent = event.data.object as { id: string };
         await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
       }
 
       return { received: true };
-    } catch (error) {
-      throw new Error(`Webhook error: ${error.message}`);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Webhook error: ${errorMessage}`);
     }
   }
 
