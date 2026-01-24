@@ -28,7 +28,7 @@ todos:
     status: completed
   - id: radio-fallback
     content: Update radio.service.ts with pre-charge model, soft-weighted random selection, and fallback playlist logic
-    status: pending
+    status: completed
   - id: admin-fallback-service
     content: Create fallback.service.ts for admin fallback playlist management
     status: pending

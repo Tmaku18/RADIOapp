@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 // Default song duration if not specified (3 minutes in seconds)
@@ -6,8 +6,24 @@ const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
 
+/**
+ * Radio service implementing:
+ * - Pre-charge model: Credits deducted BEFORE playing via atomic RPC
+ * - Soft-weighted random: Near-random with slight bias for credits + anti-repetition
+ * - Fallback playlist: Opt-in songs and admin curated when no credited songs
+ */
 @Injectable()
 export class RadioService {
+  private readonly logger = new Logger(RadioService.name);
+
+  /**
+   * Calculate credits required for a song's full play.
+   * Formula: ceil(duration_seconds / 5) = 1 credit per 5 seconds
+   */
+  private calculateCreditsRequired(durationSeconds: number): number {
+    return Math.ceil(durationSeconds / 5);
+  }
+
   /**
    * Get or create a queue state record in the database.
    * This ensures we have persistent state across server restarts.
@@ -18,7 +34,7 @@ export class RadioService {
     const { data: existing } = await supabase
       .from('rotation_queue')
       .select('*')
-      .eq('position', 0) // Use position 0 as the current playing state
+      .eq('position', 0)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -29,10 +45,9 @@ export class RadioService {
   /**
    * Update the current playing song in the database.
    */
-  private async setCurrentSong(songId: string, priorityScore: number = 0) {
+  private async setCurrentSong(songId: string, priorityScore: number = 0, isFallback: boolean = false) {
     const supabase = getSupabaseClient();
     
-    // Upsert the current state - delete old and insert new
     await supabase
       .from('rotation_queue')
       .delete()
@@ -50,7 +65,6 @@ export class RadioService {
 
   /**
    * Get the current track with timing information for client synchronization.
-   * Returns the song with started_at, server_time, and time_remaining_ms.
    */
   async getCurrentTrack() {
     const supabase = getSupabaseClient();
@@ -72,7 +86,6 @@ export class RadioService {
       return null;
     }
 
-    // Calculate timing information
     const startedAt = new Date(queueState.played_at).getTime();
     const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
     const endTime = startedAt + durationMs;
@@ -84,27 +97,131 @@ export class RadioService {
       started_at: queueState.played_at,
       server_time: new Date(now).toISOString(),
       time_remaining_ms: timeRemainingMs,
-      // Position in seconds for seeking
       position_seconds: Math.floor((now - startedAt) / 1000),
     };
   }
 
   /**
+   * Soft-weighted random selection.
+   * Close to pure random with minor nudges:
+   * - +0.1 weight for above-average credits (reward investment)
+   * - +0.1 weight for not played in last hour (anti-repetition)
+   * - Max weight 1.2 (no song >20% more likely than another)
+   */
+  private selectWeightedRandom(songs: any[], currentSongId?: string): any | null {
+    if (!songs || songs.length === 0) return null;
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const avgCredits = songs.reduce((sum, s) => sum + (s.credits_remaining || 0), 0) / songs.length;
+
+    const weightedSongs = songs.map(song => {
+      let weight = 1.0; // Base weight
+
+      // +0.1 for above-average credits
+      if ((song.credits_remaining || 0) > avgCredits) weight += 0.1;
+
+      // +0.1 for not played recently
+      if (!song.last_played_at || new Date(song.last_played_at) < oneHourAgo) weight += 0.1;
+
+      // Exclude current song to avoid immediate repeat
+      if (song.id === currentSongId) weight = 0;
+
+      return { song, weight };
+    });
+
+    const totalWeight = weightedSongs.reduce((sum, w) => sum + w.weight, 0);
+    if (totalWeight === 0) return songs[0];
+
+    let random = Math.random() * totalWeight;
+    for (const { song, weight } of weightedSongs) {
+      random -= weight;
+      if (random <= 0) return song;
+    }
+
+    return songs[0];
+  }
+
+  /**
+   * Get credited song using soft-weighted random selection.
+   * Only returns songs with enough credits for their full play duration.
+   */
+  private async getCreditedSong(currentSongId?: string): Promise<any | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('status', 'approved')
+      .gt('credits_remaining', 0);
+
+    if (!songs || songs.length === 0) return null;
+
+    // Filter to songs with ENOUGH credits for full play
+    const eligibleSongs = songs.filter(song => {
+      const creditsRequired = this.calculateCreditsRequired(song.duration_seconds || DEFAULT_DURATION_SECONDS);
+      return (song.credits_remaining || 0) >= creditsRequired;
+    });
+
+    if (eligibleSongs.length === 0) return null;
+
+    return this.selectWeightedRandom(eligibleSongs, currentSongId);
+  }
+
+  /**
+   * Get opt-in song from artists who enabled free play.
+   */
+  private async getOptInSong(currentSongId?: string): Promise<any | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('status', 'approved')
+      .eq('opt_in_free_play', true)
+      .order('last_played_at', { ascending: true, nullsFirst: true })
+      .limit(10);
+
+    if (!songs || songs.length === 0) return null;
+
+    // Filter out current song
+    const eligible = songs.filter(s => s.id !== currentSongId);
+    if (eligible.length === 0) return songs[0];
+
+    // Random from oldest-played
+    return eligible[Math.floor(Math.random() * eligible.length)];
+  }
+
+  /**
+   * Get admin-curated fallback song.
+   */
+  private async getAdminFallbackSong(): Promise<any | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('admin_fallback_songs')
+      .select('*')
+      .eq('is_active', true)
+      .order('play_count', { ascending: true })
+      .limit(10);
+
+    if (!songs || songs.length === 0) return null;
+
+    // Random from least-played
+    const song = songs[Math.floor(Math.random() * songs.length)];
+    return { ...song, is_admin_fallback: true };
+  }
+
+  /**
    * Get the next track for the global radio stream.
-   * 
-   * IMPORTANT: This implements global synchronization:
-   * - If a song is currently playing, returns the same song with timing info
-   * - Only picks a new song and deducts credits when the current song ends
-   * - All listeners hear the same song at the same time
+   * Implements pre-charge model with fallback cascade.
    */
   async getNextTrack(): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
 
-    // Get current state
     const currentState = await this.getQueueState();
     
-    // Check if there's a song currently playing
+    // Check if song currently playing
     if (currentState?.song_id && currentState?.played_at) {
       const { data: currentSong } = await supabase
         .from('songs')
@@ -118,7 +235,6 @@ export class RadioService {
         const endTime = startedAt + durationMs;
         const timeRemainingMs = endTime - now;
 
-        // If song is still playing (with buffer), return it without picking a new one
         if (timeRemainingMs > SONG_END_BUFFER_MS) {
           return {
             ...currentSong,
@@ -132,81 +248,63 @@ export class RadioService {
       }
     }
 
-    // Current song has ended (or no song playing) - pick a new one
     const currentSongId = currentState?.song_id;
 
-    // Get all approved songs with credits > 0
-    let query = supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .gt('credits_remaining', 0)
-      .order('created_at', { ascending: true });
-
-    // Exclude current song to avoid immediate repeat
-    if (currentSongId) {
-      query = query.neq('id', currentSongId);
+    // 1. Try credited songs (pre-charge model)
+    const creditedSong = await this.getCreditedSong(currentSongId);
+    if (creditedSong) {
+      const result = await this.playCreditedSong(creditedSong);
+      if (result) return result;
     }
 
-    const { data: songs } = await query.limit(1);
-
-    // If no other songs available, check if current song can repeat
-    if (!songs || songs.length === 0) {
-      if (currentSongId) {
-        const { data: currentSong } = await supabase
-          .from('songs')
-          .select('*')
-          .eq('id', currentSongId)
-          .eq('status', 'approved')
-          .gt('credits_remaining', 0)
-          .single();
-        
-        if (currentSong) {
-          // Allow repeat if it's the only song with credits
-          return await this.playSong(currentSong);
-        }
-      }
-      return null;
+    // 2. Fall back to opt-in songs (free play)
+    const optInSong = await this.getOptInSong(currentSongId);
+    if (optInSong) {
+      this.logger.log(`Playing opt-in fallback: ${optInSong.title}`);
+      return await this.playFallbackSong(optInSong);
     }
 
-    const nextSong = songs[0];
-    return await this.playSong(nextSong);
+    // 3. Fall back to admin curated playlist
+    const fallbackSong = await this.getAdminFallbackSong();
+    if (fallbackSong) {
+      this.logger.log(`Playing admin fallback: ${fallbackSong.title}`);
+      return await this.playAdminFallbackSong(fallbackSong);
+    }
+
+    this.logger.warn('No songs available for playback');
+    return null;
   }
 
   /**
-   * Internal method to handle playing a NEW song.
-   * This is called ONLY when the current song ends.
-   * Credits are deducted once per song play cycle, not per listener.
+   * Play a credited song using pre-charge model (atomic RPC).
    */
-  private async playSong(song: any) {
+  private async playCreditedSong(song: any) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
+    const creditsToDeduct = this.calculateCreditsRequired(song.duration_seconds || DEFAULT_DURATION_SECONDS);
 
-    // Calculate priority score based on engagement
-    const priorityScore = this.calculatePriorityScore(song);
+    // Atomic deduction via RPC (pre-charge)
+    const { data, error } = await supabase.rpc('deduct_play_credits', {
+      p_song_id: song.id,
+      p_credits_required: creditsToDeduct,
+    });
 
-    // Update current playing state in database
-    await this.setCurrentSong(song.id, priorityScore);
+    if (error || !data?.success) {
+      this.logger.warn(`Failed to deduct credits for ${song.id}: ${error?.message || data?.error}`);
+      return null;
+    }
 
-    // Decrement credits (ONLY happens once per song cycle)
-    await supabase
-      .from('songs')
-      .update({
-        credits_remaining: song.credits_remaining - 1,
-        play_count: (song.play_count || 0) + 1,
-      })
-      .eq('id', song.id);
+    await this.setCurrentSong(song.id, 0);
 
-    // Log play (once per song broadcast)
+    // Log play
     await supabase.from('plays').insert({
       song_id: song.id,
       played_at: startedAt,
     });
 
-    // Return song with timing information
     const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
-    
+
     return {
       ...song,
       is_playing: true,
@@ -214,24 +312,89 @@ export class RadioService {
       server_time: startedAt,
       time_remaining_ms: durationMs,
       position_seconds: 0,
+      credits_deducted: creditsToDeduct,
     };
   }
 
   /**
-   * Calculate a priority score based on engagement metrics.
-   * Higher scores = better engagement.
+   * Play a fallback song (opt-in from artist, no credits deducted).
    */
-  private calculatePriorityScore(song: any): number {
-    const likeCount = song.like_count || 0;
-    const skipCount = song.skip_count || 0;
-    const playCount = song.play_count || 1;
+  private async playFallbackSong(song: any) {
+    const supabase = getSupabaseClient();
+    const now = Date.now();
+    const startedAt = new Date(now).toISOString();
+
+    await this.setCurrentSong(song.id, 0, true);
+
+    // Update play count and last_played_at (no credit deduction)
+    await supabase
+      .from('songs')
+      .update({ 
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
+      .eq('id', song.id);
+
+    await supabase.from('plays').insert({
+      song_id: song.id,
+      played_at: startedAt,
+    });
+
+    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+
+    return {
+      ...song,
+      is_playing: true,
+      started_at: startedAt,
+      server_time: startedAt,
+      time_remaining_ms: durationMs,
+      position_seconds: 0,
+      is_fallback: true,
+    };
+  }
+
+  /**
+   * Play an admin-curated fallback song.
+   */
+  private async playAdminFallbackSong(song: any) {
+    const supabase = getSupabaseClient();
+    const now = Date.now();
+    const startedAt = new Date(now).toISOString();
+
+    // Note: admin_fallback_songs use their own ID, not songs table
+    await supabase
+      .from('rotation_queue')
+      .delete()
+      .eq('position', 0);
+
+    // We can't reference admin_fallback_songs.id in rotation_queue.song_id (FK constraint)
+    // So we just clear state and track separately
     
-    // Simple engagement formula: likes increase score, skips decrease it
-    // Normalized by play count to not penalize new songs
-    const skipRate = playCount > 0 ? skipCount / playCount : 0;
-    const likeRate = playCount > 0 ? likeCount / playCount : 0;
-    
-    return (likeRate * 100) - (skipRate * 50);
+    await supabase
+      .from('admin_fallback_songs')
+      .update({ 
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
+      .eq('id', song.id);
+
+    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+
+    return {
+      id: song.id,
+      title: song.title,
+      artist_name: song.artist_name,
+      audio_url: song.audio_url,
+      artwork_url: song.artwork_url,
+      duration_seconds: song.duration_seconds,
+      is_playing: true,
+      started_at: startedAt,
+      server_time: startedAt,
+      time_remaining_ms: durationMs,
+      position_seconds: 0,
+      is_fallback: true,
+      is_admin_fallback: true,
+    };
   }
 
   async reportPlay(songId: string, skipped: boolean = false) {
@@ -244,7 +407,6 @@ export class RadioService {
     });
 
     if (skipped) {
-      // Get current skip count and increment
       const { data: song } = await supabase
         .from('songs')
         .select('skip_count')
@@ -254,9 +416,7 @@ export class RadioService {
       if (song) {
         await supabase
           .from('songs')
-          .update({
-            skip_count: (song.skip_count || 0) + 1,
-          })
+          .update({ skip_count: (song.skip_count || 0) + 1 })
           .eq('id', songId);
       }
     }
@@ -271,20 +431,23 @@ export class RadioService {
     const currentState = await this.getQueueState();
     const currentSongId = currentState?.song_id;
 
-    let query = supabase
+    // Get credited songs
+    const { data: creditedSongs } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artwork_url, credits_remaining, play_count, like_count')
+      .select('id, title, artist_name, artwork_url, credits_remaining, play_count, like_count, duration_seconds')
       .eq('status', 'approved')
-      .gt('credits_remaining', 0)
-      .order('created_at', { ascending: true });
+      .gt('credits_remaining', 0);
 
-    if (currentSongId) {
-      query = query.neq('id', currentSongId);
-    }
+    // Filter eligible songs
+    const eligible = (creditedSongs || []).filter(song => {
+      const creditsRequired = this.calculateCreditsRequired(song.duration_seconds || DEFAULT_DURATION_SECONDS);
+      return song.credits_remaining >= creditsRequired && song.id !== currentSongId;
+    });
 
-    const { data: songs } = await query.limit(limit);
-    
-    return songs || [];
+    // Sort by credits (higher first for preview)
+    eligible.sort((a, b) => (b.credits_remaining || 0) - (a.credits_remaining || 0));
+
+    return eligible.slice(0, limit);
   }
 
   /**
