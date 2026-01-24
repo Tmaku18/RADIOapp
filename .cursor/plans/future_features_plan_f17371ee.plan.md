@@ -4,19 +4,19 @@ overview: Document future implementation plans for Live Radio Chat and Artist So
 todos:
   - id: phase5a-chat-db
     content: "Phase 5A: Create chat_messages table and add shadow ban columns to users"
-    status: pending
+    status: completed
   - id: phase5a-chat-gatekeeper
     content: "Phase 5A: Implement Backend Gatekeeper pattern - clients NEVER broadcast directly"
-    status: pending
+    status: completed
   - id: phase5a-chat-api
     content: "Phase 5A: Implement chat API endpoints with rate limiting and shadow ban logic"
-    status: pending
+    status: completed
   - id: phase5a-chat-hydration
     content: "Phase 5A: Add GET /chat/history endpoint for client hydration on connect"
-    status: pending
+    status: completed
   - id: phase5a-chat-realtime
     content: "Phase 5A: Set up Supabase Realtime - backend broadcasts only, clients subscribe"
-    status: pending
+    status: completed
   - id: phase5a-emoji-aggregation
     content: "Phase 5A: Implement aggregated emoji reactions with Redis counter (broadcast every 2s)"
     status: pending
@@ -25,34 +25,34 @@ todos:
     status: pending
   - id: phase5a-chat-web
     content: "Phase 5A: Build web chat sidebar component"
-    status: pending
+    status: completed
   - id: phase5a-chat-moderation
     content: "Phase 5A: Add admin moderation controls including Kill Switch endpoint"
-    status: pending
+    status: completed
   - id: phase5a-chat-cleanup
     content: "Phase 5A: Create cron job for cleaning up old chat messages"
     status: pending
   - id: phase5b-notif-db
     content: "Phase 5B: Create user_device_tokens and artist_notification_cooldowns tables"
-    status: pending
+    status: completed
   - id: phase5b-notif-fcm
     content: "Phase 5B: Set up Firebase Cloud Messaging in backend (mobile-first)"
-    status: pending
+    status: completed
   - id: phase5b-notif-endpoints
     content: "Phase 5B: Add device token registration endpoints"
-    status: pending
+    status: completed
   - id: phase5b-notif-mobile
     content: "Phase 5B: Integrate FCM in mobile app with deep link to Chat Tab"
     status: pending
   - id: phase5b-notif-web
     content: "Phase 5B: Build in-app notification center for web (deprioritize browser push)"
-    status: pending
+    status: completed
   - id: phase5b-notif-trigger
     content: "Phase 5B: Implement Two-Stage notification (Up Next T-60s + Live Now toast)"
-    status: pending
+    status: completed
   - id: phase5b-notif-cooldown
     content: "Phase 5B: Implement 4-hour notification cooldown per artist"
-    status: pending
+    status: completed
   - id: phase5b-notif-settings
     content: "Phase 5B: Add notification preferences/settings screen"
     status: pending
@@ -315,7 +315,7 @@ Add collapsible chat panel below the player controls:
 - Emoji reaction bar (fire, heart, clap, 100)
 - Reaction count display with animation
 
-### Web UI ([web/app/(dashboard)/listen/](web/app/\\(dashboard)/listen/))
+### Web UI ([web/app/(dashboard)/listen/](web/app/\\\\(dashboard)/listen/))
 
 Sidebar chat panel next to the radio player:
 
@@ -702,91 +702,91 @@ const NotificationBell = () => {
 
 1. **Database Setup**
 
-                                                - Add `is_shadow_banned` and `shadow_banned_until` columns to `users` table
-                                                - Create `chat_messages` table
-                                                - Create `chat_config` table (for Kill Switch)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Add `is_shadow_banned` and `shadow_banned_until` columns to `users` table
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Create `chat_messages` table
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Create `chat_config` table (for Kill Switch)
 
 2. **Infrastructure**
 
-                                                - Set up Redis for rate limiting and emoji aggregation
-                                                - Configure Supabase Realtime channel (backend broadcast only)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Set up Redis for rate limiting and emoji aggregation
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Configure Supabase Realtime channel (backend broadcast only)
 
 3. **Backend Gatekeeper**
 
-                                                - Implement `POST /api/v1/chat/send` with rate limiting
-                                                - Implement `GET /api/v1/chat/history` for hydration
-                                                - Implement `POST /api/v1/chat/reactions` with aggregation
-                                                - Implement shadow ban logic (200 OK but no broadcast)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Implement `POST /api/v1/chat/send` with rate limiting
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Implement `GET /api/v1/chat/history` for hydration
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Implement `POST /api/v1/chat/reactions` with aggregation
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Implement shadow ban logic (200 OK but no broadcast)
 
 4. **Admin Controls**
 
-                                                - `POST /api/v1/admin/chat/toggle` - Kill Switch
-                                                - `POST /api/v1/admin/chat/shadow-ban/:userId`
-                                                - `POST /api/v1/admin/chat/unban/:userId`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `POST /api/v1/admin/chat/toggle` - Kill Switch
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `POST /api/v1/admin/chat/shadow-ban/:userId`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `POST /api/v1/admin/chat/unban/:userId`
 
 5. **Emoji Aggregation Service**
 
-                                                - Redis counters for reaction counts
-                                                - Cron job broadcasting sums every 2 seconds
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Redis counters for reaction counts
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Cron job broadcasting sums every 2 seconds
 
 6. **Mobile UI**
 
-                                                - Chat panel in player screen
-                                                - Emoji reaction bar with animated counts
-                                                - Subscribe-only Supabase connection
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Chat panel in player screen
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Emoji reaction bar with animated counts
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Subscribe-only Supabase connection
 
 7. **Web UI**
 
-                                                - Chat sidebar component
-                                                - Reaction buttons with live counts
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Chat sidebar component
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Reaction buttons with live counts
 
 8. **Cleanup**
 
-                                                - Cron job to delete messages older than 24 hours
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Cron job to delete messages older than 24 hours
 
 ### Phase 5B: Push Notifications (After Phase 5A)
 
 1. **Database Setup**
 
-                                                - Create `user_device_tokens` table
-                                                - Create `artist_notification_cooldowns` table
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Create `user_device_tokens` table
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Create `artist_notification_cooldowns` table
 
 2. **FCM Integration**
 
-                                                - Set up Firebase Cloud Messaging in NestJS
-                                                - Configure Android notification channel (`song_alerts`)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Set up Firebase Cloud Messaging in NestJS
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Configure Android notification channel (`song_alerts`)
 
 3. **Device Registration**
 
-                                                - `POST /api/v1/notifications/register-device`
-                                                - `POST /api/v1/notifications/unregister-device`
-                                                - `GET/PUT /api/v1/notifications/preferences`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `POST /api/v1/notifications/register-device`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `POST /api/v1/notifications/unregister-device`
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - `GET/PUT /api/v1/notifications/preferences`
 
 4. **Two-Stage Notification Logic**
 
-                                                - "Up Next" scheduler with 30s debounce
-                                                - "Live Now" toast broadcaster
-                                                - 4-hour cooldown enforcement
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - "Up Next" scheduler with 30s debounce
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - "Live Now" toast broadcaster
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - 4-hour cooldown enforcement
 
 5. **Mobile Integration**
 
-                                                - Add `firebase_messaging` package
-                                                - Request permissions on first launch
-                                                - **Critical:** `onMessageOpenedApp` deep links to Chat Tab, not App Home
-                                                - In-app toast for "Live Now" updates
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Add `firebase_messaging` package
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Request permissions on first launch
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - **Critical:** `onMessageOpenedApp` deep links to Chat Tab, not App Home
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - In-app toast for "Live Now" updates
 
 6. **Web Notification Center**
 
-                                                - Bell icon with unread badge
-                                                - Notification dropdown panel
-                                                - Real-time subscription to notifications table
-                                                - (No browser push for Phase 1)
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Bell icon with unread badge
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Notification dropdown panel
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Real-time subscription to notifications table
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - (No browser push for Phase 1)
 
 7. **Notification Settings Screen**
 
-                                                - Toggle push notifications on/off
-                                                - Configure quiet hours
-                                                - Choose notification types
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Toggle push notifications on/off
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Configure quiet hours
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Choose notification types
 
 ---
 
@@ -839,8 +839,8 @@ const NotificationBell = () => {
 ### Infrastructure (New)
 
 - **Redis:** Required for rate limiting and emoji reaction aggregation
-                                - Options: Upstash Redis (serverless), Railway Redis, or self-hosted
-                                - Minimal usage: ~100MB should suffice for MVP
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Options: Upstash Redis (serverless), Railway Redis, or self-hosted
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                - Minimal usage: ~100MB should suffice for MVP
 
 ### Mobile (New)
 

@@ -133,4 +133,20 @@ export const notificationsApi = {
   markAllAsRead: () => api.post('/notifications/mark-all-read'),
 };
 
+export const chatApi = {
+  sendMessage: (message: string, songId?: string) => 
+    api.post('/chat/send', { message, songId }),
+  getHistory: (params?: { limit?: number }) => 
+    api.get('/chat/history', { params }),
+  getStatus: () => api.get('/chat/status'),
+};
+
+export const pushNotificationsApi = {
+  registerDevice: (fcmToken: string, deviceType: 'ios' | 'android' | 'web') =>
+    api.post('/push-notifications/register-device', { fcmToken, deviceType }),
+  unregisterDevice: (fcmToken: string) =>
+    api.post('/push-notifications/unregister-device', { fcmToken }),
+  getDevices: () => api.get('/push-notifications/devices'),
+};
+
 export default api;
