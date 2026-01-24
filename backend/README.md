@@ -10,9 +10,10 @@ The backend handles:
 - **User Management**: Profile creation, updates, and role management
 - **Song Management**: Upload, metadata, likes, and approval workflow
 - **Radio System**: Track rotation queue with persistent state
-- **Payments**: Stripe integration for credit purchases
+- **Payments**: Stripe integration with dual flows (PaymentIntent + Checkout Sessions)
 - **Credits**: Artist credit balance and transaction tracking
 - **Admin Operations**: Song approval, analytics, user management
+- **Observability**: Structured logging, request tracing, and Sentry error reporting
 
 ## Tech Stack
 
@@ -20,8 +21,10 @@ The backend handles:
 - **Database**: Supabase (PostgreSQL)
 - **Storage**: Supabase Storage
 - **Authentication**: Firebase Admin SDK
-- **Payments**: Stripe
-- **File Upload**: Multer
+- **Payments**: Stripe (dual flows)
+- **File Upload**: Multer + Signed URLs
+- **Logging**: Winston (structured JSON)
+- **Error Tracking**: Sentry
 
 ## Prerequisites
 
@@ -39,9 +42,9 @@ The backend handles:
    ```
 
 2. **Configure environment**:
-   Create `.env` file:
+   Create `.env` file (copy from `.env.example`):
    ```env
-   # Firebase Admin
+   # Firebase Admin (from Firebase Console > Project Settings > Service Accounts)
    FIREBASE_PROJECT_ID=your-project-id
    FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
    FIREBASE_CLIENT_EMAIL=firebase-adminsdk-xxx@your-project.iam.gserviceaccount.com
@@ -56,7 +59,15 @@ The backend handles:
 
    # Server
    PORT=3000
+   NODE_ENV=development
+   WEB_URL=http://localhost:3001
+   CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+
+   # Error Tracking (optional)
+   SENTRY_DSN=https://your-key@sentry.io/your-project
    ```
+
+   > **Security Note**: Never commit `.env` files or Firebase service account JSON files to git. These are already in `.gitignore`.
 
 3. **Run the server**:
    ```bash
@@ -125,10 +136,16 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 | `/api/radio/next` | GET | Get and play next track |
 | `/api/radio/play` | POST | Report play event |
 
+### Songs (Additional)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/songs/upload-url` | POST | Get signed upload URL (artists) |
+
 ### Payments
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/payments/create-intent` | POST | Create Stripe payment |
+| `/api/payments/create-intent` | POST | Create Stripe PaymentIntent (mobile) |
+| `/api/payments/create-checkout-session` | POST | Create Stripe Checkout (web) |
 | `/api/payments/webhook` | POST | Stripe webhook handler |
 | `/api/payments/transactions` | GET | Transaction history |
 
@@ -180,6 +197,22 @@ The radio service implements global stream synchronization:
 - All listeners hear the same song at the same time
 - Credits are only deducted once per song broadcast (not per listener)
 - Clients receive `started_at` and `server_time` for accurate playback sync
+
+## Observability
+
+The backend includes comprehensive observability features:
+
+- **Structured Logging**: Winston logger outputs JSON in production, colorized console in development
+- **Request Tracing**: Unique request ID (`x-request-id`) attached to all requests and logs
+- **Error Reporting**: Sentry integration captures 5xx errors with full context
+- **Global Exception Filter**: Consistent error response format across all endpoints
+
+## Security
+
+- **Never commit secrets**: `.env` files and Firebase JSON keys are git-ignored
+- **Credential rotation**: If credentials are ever exposed, rotate them immediately via Firebase/Google Cloud Console
+- **Token verification**: All protected endpoints verify Firebase ID tokens
+- **Role-based access**: Guards enforce user roles (listener, artist, admin)
 
 ## Database Schema
 

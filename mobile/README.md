@@ -25,21 +25,27 @@ The mobile app enables:
 
 ## Tech Stack
 
-- **Framework**: Flutter 3.x
+- **Framework**: Flutter 3.38+
 - **State Management**: Provider
 - **Authentication**: Firebase Auth
 - **Audio Playback**: just_audio
-- **Payments**: flutter_stripe
+- **Payments**: flutter_stripe (PaymentIntent flow)
 - **HTTP**: http package
 - **Image Caching**: cached_network_image
 
 ## Prerequisites
 
-- Flutter SDK 3.0+
+- Flutter SDK 3.38+
 - Dart SDK 3.0+
 - Android Studio or Xcode
 - Firebase project configured
 - Backend API running
+
+## Security
+
+- Never commit `google-services.json` or `GoogleService-Info.plist` to git
+- Keep `.env` files local and add to `.gitignore`
+- Firebase configuration files are already ignored
 
 ## Setup
 

@@ -741,6 +741,29 @@ See `docs/api-spec.md` for detailed API endpoint documentation, request/response
 
 See `docs/database-schema.md` for complete database schema, table definitions, relationships, and migration SQL scripts.
 
+## Security Best Practices
+
+### Credential Management
+- **Never commit secrets**: All `.env` files, Firebase service account JSON files, and API keys are git-ignored
+- **Use environment variables**: Store all sensitive data in `.env` files (not in code)
+- **Rotate compromised keys**: If credentials are ever exposed, rotate them immediately via the respective console (Firebase, Stripe, Supabase)
+
+### Git-Ignored Sensitive Files
+The following are automatically ignored by `.gitignore`:
+- `*.env` / `.env.*` (environment variables)
+- `**/config/*.json` (Firebase service accounts)
+- `google-services.json` (Android Firebase config)
+- `GoogleService-Info.plist` (iOS Firebase config)
+- `*firebase*admin*.json` (Admin SDK credentials)
+- `*service*account*.json` (Service account keys)
+- `*private*key*` (Private key files)
+
+### Security Checklist
+- [ ] All `.env` files created locally (not from git)
+- [ ] Firebase credentials obtained from Firebase Console
+- [ ] Stripe keys obtained from Stripe Dashboard
+- [ ] No secrets in git history (use `git log -p` to verify)
+
 ## Contributing
 
 This is a private project. For internal contributors:
