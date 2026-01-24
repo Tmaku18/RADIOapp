@@ -83,46 +83,54 @@ class AuthWrapper extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AuthService>(
       builder: (context, authService, child) {
+        // Check if Firebase is initialized
+        if (!authService.firebaseInitialized) {
+          debugPrint('AuthWrapper: Firebase not initialized');
+          return const LoginScreen();
+        }
+
         return StreamBuilder(
           stream: authService.authStateChanges,
           builder: (context, snapshot) {
-        // Show loading indicator while checking auth state
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
-          );
-        }
+            debugPrint('AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}');
+            
+            // Show loading indicator while checking auth state
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Scaffold(
+                body: Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
 
-        // Handle errors
-        if (snapshot.hasError) {
-          return Scaffold(
-            body: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Error: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => Navigator.of(context).pushReplacementNamed('/login'),
-                    child: const Text('Go to Login'),
+            // Handle errors
+            if (snapshot.hasError) {
+              return Scaffold(
+                body: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Error: ${snapshot.error}'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => Navigator.of(context).pushReplacementNamed('/login'),
+                        child: const Text('Go to Login'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          );
-        }
+                ),
+              );
+            }
 
-        // User is authenticated - show home with navigation
-        if (snapshot.hasData && snapshot.data != null) {
-          return const HomeScreen();
-        }
+            // User is authenticated - show home with navigation
+            if (snapshot.hasData && snapshot.data != null) {
+              return const HomeScreen();
+            }
 
-        // User is not authenticated - show login
-        return const LoginScreen();
+            // User is not authenticated - show login
+            return const LoginScreen();
           },
         );
       },
