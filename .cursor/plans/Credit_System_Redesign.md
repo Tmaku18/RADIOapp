@@ -4,7 +4,7 @@ overview: Implement a hybrid credit system where artists maintain a credit bank,
 todos:
   - id: fix-user-creation
     content: "CRITICAL BUG: Add missing POST /users endpoint to UsersController"
-    status: pending
+    status: completed
   - id: db-constraints
     content: "Add CHECK (balance >= 0) constraint to credits table"
     status: pending
