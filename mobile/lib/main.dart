@@ -9,6 +9,7 @@ import 'features/player/player_screen.dart';
 import 'features/upload/upload_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/payment/payment_screen.dart';
+import 'features/settings/settings_screen.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
 import 'firebase_options.dart';
@@ -75,6 +76,7 @@ class MyApp extends StatelessWidget {
           '/upload': (context) => const UploadScreen(),
           '/profile': (context) => const ProfileScreen(),
           '/payment': (context) => const PaymentScreen(),
+          '/settings': (context) => const SettingsScreen(),
         },
       ),
     );

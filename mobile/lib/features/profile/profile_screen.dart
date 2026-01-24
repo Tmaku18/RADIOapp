@@ -149,7 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: const Text('Settings'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        // Navigate to settings
+                        Navigator.pushNamed(context, '/settings');
                       },
                     ),
                     const Divider(),

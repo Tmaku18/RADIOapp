@@ -55,7 +55,7 @@ todos:
     status: completed
   - id: phase5b-notif-settings
     content: "Phase 5B: Add notification preferences/settings screen"
-    status: pending
+    status: completed
 isProject: false
 ---
 
