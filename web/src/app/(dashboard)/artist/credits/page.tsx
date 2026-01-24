@@ -1,16 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { creditsApi, paymentsApi } from '@/lib/api';
 import { loadStripe } from '@stripe/stripe-js';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 const creditPackages = [
-  { credits: 10, price: 999, label: '10 Credits', description: '$9.99' },
-  { credits: 25, price: 1999, label: '25 Credits', description: '$19.99', popular: false },
-  { credits: 50, price: 3499, label: '50 Credits', description: '$34.99', popular: true },
-  { credits: 100, price: 5999, label: '100 Credits', description: '$59.99' },
+  { credits: 100, price: 999, label: '100 Credits', description: '$9.99', minutes: '~8 min' },
+  { credits: 300, price: 1999, label: '300 Credits', description: '$19.99', minutes: '~25 min' },
+  { credits: 600, price: 3499, label: '600 Credits', description: '$34.99', minutes: '~50 min', popular: true },
+  { credits: 1200, price: 5999, label: '1200 Credits', description: '$59.99', minutes: '~100 min' },
 ];
 
 interface CreditBalance {
@@ -93,18 +94,40 @@ export default function CreditsPage() {
     <div className="space-y-8">
       {/* Balance Card */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-2xl p-8 text-white">
-        <h2 className="text-lg font-medium text-purple-200 mb-2">Credit Balance</h2>
-        <div className="text-5xl font-bold mb-4">{balance?.balance || 0}</div>
-        <div className="grid grid-cols-2 gap-4 text-sm">
+        <div className="flex items-start justify-between">
           <div>
-            <span className="text-purple-200">Total Purchased:</span>
-            <span className="ml-2 font-medium">{balance?.totalPurchased || 0}</span>
+            <h2 className="text-lg font-medium text-purple-200 mb-2">Credit Bank</h2>
+            <div className="text-5xl font-bold mb-4">{balance?.balance || 0}</div>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-purple-200">Total Purchased:</span>
+                <span className="ml-2 font-medium">{balance?.totalPurchased || 0}</span>
+              </div>
+              <div>
+                <span className="text-purple-200">Total Used:</span>
+                <span className="ml-2 font-medium">{balance?.totalUsed || 0}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <span className="text-purple-200">Total Used:</span>
-            <span className="ml-2 font-medium">{balance?.totalUsed || 0}</span>
-          </div>
+          <Link
+            href="/artist/songs"
+            className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <span>Allocate to Songs</span>
+            <span>→</span>
+          </Link>
         </div>
+      </div>
+      
+      {/* How It Works */}
+      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
+        <h3 className="font-semibold text-blue-900 mb-3">How Credits Work</h3>
+        <ol className="list-decimal list-inside space-y-2 text-blue-800">
+          <li><strong>Buy credits</strong> below to add them to your Credit Bank</li>
+          <li><strong>Allocate credits</strong> to specific songs via the "My Songs" page</li>
+          <li><strong>Songs with credits</strong> get priority in the radio rotation</li>
+          <li><strong>1 credit = 5 seconds</strong> of airtime (a 3-min song costs ~36 credits per play)</li>
+        </ol>
       </div>
 
       {error && (
@@ -136,7 +159,8 @@ export default function CreditsPage() {
               )}
               <div className="text-center">
                 <div className="text-3xl font-bold text-gray-900">{pkg.credits}</div>
-                <div className="text-sm text-gray-500 mb-2">credits</div>
+                <div className="text-sm text-gray-500 mb-1">credits</div>
+                <div className="text-xs text-purple-600 font-medium mb-2">{pkg.minutes} airtime</div>
                 <div className="text-xl font-semibold text-gray-900 mb-4">
                   {pkg.description}
                 </div>
@@ -157,7 +181,7 @@ export default function CreditsPage() {
         </div>
 
         <p className="text-sm text-gray-500 text-center mt-6">
-          Credits are used to promote your tracks. 1 credit = 1 play to a real listener.
+          Credits go to your Credit Bank. Allocate them to songs via "My Songs" to get radio airtime.
         </p>
       </div>
 

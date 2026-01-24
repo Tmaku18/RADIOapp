@@ -9,8 +9,15 @@ interface Song {
   artist_name: string;
   artwork_url: string | null;
   audio_url: string;
+  duration_seconds?: number;
+  credits_remaining?: number;
   status: 'pending' | 'approved' | 'rejected';
+  rejection_reason?: string;
   created_at: string;
+  users?: {
+    display_name: string;
+    email: string;
+  };
 }
 
 export default function AdminSongsPage() {
@@ -19,6 +26,10 @@ export default function AdminSongsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  
+  // Rejection modal state
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     loadSongs();
@@ -55,19 +66,35 @@ export default function AdminSongsPage() {
     }
   };
 
-  const handleReject = async (songId: string) => {
-    setActionLoading(songId);
+  const openRejectModal = (songId: string) => {
+    setRejectingId(songId);
+    setRejectionReason('');
+  };
+
+  const handleReject = async () => {
+    if (!rejectingId) return;
+    
+    setActionLoading(rejectingId);
     try {
-      await adminApi.updateSongStatus(songId, 'rejected');
+      await adminApi.updateSongStatus(rejectingId, 'rejected', rejectionReason || undefined);
       setSongs(songs.map(s => 
-        s.id === songId ? { ...s, status: 'rejected' } : s
+        s.id === rejectingId ? { ...s, status: 'rejected', rejection_reason: rejectionReason } : s
       ));
+      setRejectingId(null);
+      setRejectionReason('');
     } catch (err) {
       console.error('Failed to reject song:', err);
       alert('Failed to reject song');
     } finally {
       setActionLoading(null);
     }
+  };
+
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -111,6 +138,8 @@ export default function AdminSongsPage() {
               <tr>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Song</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Status</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Submitted</th>
                 <th className="text-right px-6 py-3 text-sm font-medium text-gray-600">Actions</th>
@@ -142,7 +171,24 @@ export default function AdminSongsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-gray-600">{song.artist_name}</td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-gray-900">{song.artist_name}</p>
+                      {song.users && (
+                        <p className="text-xs text-gray-500">{song.users.email}</p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm font-mono">
+                    {formatDuration(song.duration_seconds)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`font-medium ${
+                      (song.credits_remaining || 0) > 0 ? 'text-green-600' : 'text-gray-400'
+                    }`}>
+                      {song.credits_remaining || 0}
+                    </span>
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       song.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -151,6 +197,11 @@ export default function AdminSongsPage() {
                     }`}>
                       {song.status}
                     </span>
+                    {song.status === 'rejected' && song.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-1 max-w-[150px] truncate" title={song.rejection_reason}>
+                        {song.rejection_reason}
+                      </p>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">
                     {new Date(song.created_at).toLocaleDateString()}
@@ -166,7 +217,7 @@ export default function AdminSongsPage() {
                           Approve
                         </button>
                         <button
-                          onClick={() => handleReject(song.id)}
+                          onClick={() => openRejectModal(song.id)}
                           disabled={actionLoading === song.id}
                           className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
                         >
@@ -181,6 +232,43 @@ export default function AdminSongsPage() {
           </table>
         )}
       </div>
+
+      {/* Rejection Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
+            <p className="text-gray-600 mb-4">
+              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectionReason('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading === rejectingId}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

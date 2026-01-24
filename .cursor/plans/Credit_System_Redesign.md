@@ -46,13 +46,13 @@ todos:
     status: completed
   - id: web-credits-ui
     content: Update artist credits page with bank balance and link to allocation
-    status: pending
+    status: completed
   - id: admin-songs-view
     content: Ensure admin can view all uploaded songs with status and manage allocations
-    status: pending
+    status: completed
   - id: admin-fallback-ui
     content: Create admin fallback playlist management page
-    status: pending
+    status: completed
   - id: rejection-schema
     content: Add rejection_reason, rejected_at columns to songs table
     status: completed
