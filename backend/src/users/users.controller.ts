@@ -1,12 +1,14 @@
 import {
   Controller,
   Get,
+  Post,
   Put,
   Body,
   Param,
   UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
+import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -14,6 +16,18 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  /**
+   * Create a new user in Supabase after Firebase authentication.
+   * Called by frontend after successful Firebase sign-up.
+   */
+  @Post()
+  async createUser(
+    @CurrentUser() user: FirebaseUser,
+    @Body() createUserDto: CreateUserDto,
+  ) {
+    return this.usersService.createUser(user.uid, createUserDto);
+  }
 
   @Get('me')
   async getCurrentUser(@CurrentUser() user: FirebaseUser) {

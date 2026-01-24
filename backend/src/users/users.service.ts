@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -7,6 +7,18 @@ import { UpdateUserDto } from './dto/update-user.dto';
 export class UsersService {
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {
     const supabase = getSupabaseClient();
+    
+    // Check if user already exists
+    const { data: existingUser } = await supabase
+      .from('users')
+      .select('*')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (existingUser) {
+      // User already exists - return existing user (idempotent)
+      return existingUser;
+    }
     
     const { data, error } = await supabase
       .from('users')
@@ -20,6 +32,15 @@ export class UsersService {
       .single();
 
     if (error) {
+      // Handle race condition where user was created between check and insert
+      if (error.code === '23505') { // unique_violation
+        const { data: raceUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('firebase_uid', firebaseUid)
+          .single();
+        if (raceUser) return raceUser;
+      }
       throw new Error(`Failed to create user: ${error.message}`);
     }
 
