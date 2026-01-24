@@ -55,7 +55,7 @@ todos:
     status: pending
   - id: rejection-schema
     content: Add rejection_reason, rejected_at columns to songs table
-    status: pending
+    status: completed
   - id: email-service
     content: Create email service for sending rejection notifications
     status: pending
