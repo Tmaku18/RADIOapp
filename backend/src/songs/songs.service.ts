@@ -7,15 +7,15 @@ export class SongsService {
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
 
-    // Verify user is an artist
+    // Verify user is an artist or admin
     const { data: user } = await supabase
       .from('users')
       .select('role')
       .eq('id', userId)
       .single();
 
-    if (!user || user.role !== 'artist') {
-      throw new ForbiddenException('Only artists can upload songs');
+    if (!user || (user.role !== 'artist' && user.role !== 'admin')) {
+      throw new ForbiddenException('Only artists and admins can upload songs');
     }
 
     const { data, error } = await supabase

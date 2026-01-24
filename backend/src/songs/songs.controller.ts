@@ -14,6 +14,7 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateSongDto } from './dto/create-song.dto';
+import { CreateSongFromPathDto } from './dto/create-song-from-path.dto';
 import { GetUploadUrlDto } from './dto/get-upload-url.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -106,6 +107,51 @@ export class SongsController {
       dto.filename,
       dto.contentType,
     );
+  }
+
+  /**
+   * Create a song record after files have been uploaded via signed URLs.
+   * This endpoint accepts storage paths and converts them to full URLs.
+   */
+  @Post()
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async createSong(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CreateSongFromPathDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    // Convert storage paths to public URLs
+    const { data: audioUrlData } = supabase.storage
+      .from('songs')
+      .getPublicUrl(dto.audioPath);
+
+    let artworkUrl: string | undefined;
+    if (dto.artworkPath) {
+      const { data: artworkUrlData } = supabase.storage
+        .from('artwork')
+        .getPublicUrl(dto.artworkPath);
+      artworkUrl = artworkUrlData.publicUrl;
+    }
+
+    const createSongDto: CreateSongDto = {
+      title: dto.title,
+      artistName: dto.artistName,
+      audioUrl: audioUrlData.publicUrl,
+      artworkUrl,
+    };
+
+    return this.songsService.createSong(userData.id, createSongDto);
   }
 
   @Get()

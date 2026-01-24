@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi } from '@/lib/api';
@@ -14,6 +14,13 @@ export default function ProfilePage() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  // Sync local displayName state when profile changes (e.g., after refreshProfile)
+  useEffect(() => {
+    if (!isEditing && profile?.displayName !== undefined) {
+      setDisplayName(profile.displayName || '');
+    }
+  }, [profile?.displayName, isEditing]);
 
   const handleSave = async () => {
     setError(null);
