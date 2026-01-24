@@ -3,12 +3,53 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { getSupabaseClient } from '../config/supabase.config';
 
 /**
- * Service for cleaning up rejected songs after 48 hours.
- * Deletes both database records and storage files.
+ * Service for cleaning up:
+ * - Rejected songs after 48 hours (deletes records and storage files)
+ * - Old chat messages after 24 hours (archives to chat_archives table)
  */
 @Injectable()
 export class CleanupService {
   private readonly logger = new Logger(CleanupService.name);
+
+  /**
+   * Archive old chat messages (preserves business value for artist sentiment analysis)
+   * Runs every hour, moves messages older than 24 hours to chat_archives table
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async archiveOldChatMessages() {
+    this.logger.log('Starting chat message archival...');
+
+    const supabase = getSupabaseClient();
+    const cutoffTime = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+
+    try {
+      // Step 1: Call RPC function to archive messages atomically
+      const { data: archivedCount, error: archiveError } = await supabase.rpc(
+        'archive_old_chat_messages',
+        { cutoff_timestamp: cutoffTime.toISOString() },
+      );
+
+      if (archiveError) {
+        this.logger.error(`Archive RPC failed: ${archiveError.message}`);
+        return;
+      }
+
+      // Step 2: Delete the archived messages from live table
+      const { error: deleteError } = await supabase
+        .from('chat_messages')
+        .delete()
+        .lt('created_at', cutoffTime.toISOString());
+
+      if (deleteError) {
+        this.logger.error(`Delete failed after archive: ${deleteError.message}`);
+        return;
+      }
+
+      this.logger.log(`Archived ${archivedCount || 0} chat messages to cold storage`);
+    } catch (error) {
+      this.logger.error(`Chat archival error: ${error.message}`);
+    }
+  }
 
   /**
    * Run cleanup every hour to check for expired rejected songs.

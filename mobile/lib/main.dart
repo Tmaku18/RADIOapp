@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'core/auth/auth_service.dart';
+import 'core/services/push_notification_service.dart';
 import 'features/player/player_screen.dart';
 import 'features/upload/upload_screen.dart';
 import 'features/profile/profile_screen.dart';
@@ -38,6 +39,10 @@ void main() async {
     );
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
+    
+    // Initialize push notifications after Firebase (lazy permission strategy)
+    await PushNotificationService().initialize();
+    debugPrint('Push notifications initialized');
   } catch (e) {
     debugPrint('Error initializing Firebase: $e');
     debugPrint('App will continue but authentication features will not work');

@@ -38,8 +38,15 @@ dependencies:
   # Firebase
   firebase_core: ^3.6.0
   firebase_auth: ^5.3.1
+  firebase_messaging: ^15.1.0
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^6.1.2
+  
+  # Supabase Realtime
+  supabase_flutter: ^2.8.0
+  
+  # Local notifications (for foreground FCM)
+  flutter_local_notifications: ^17.2.2
 
   # Audio playback
   just_audio: ^0.9.42

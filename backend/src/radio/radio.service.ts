@@ -1,6 +1,7 @@
 import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
+import { EmojiService } from '../chat/emoji.service';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -21,6 +22,8 @@ export class RadioService {
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
     private readonly pushNotificationService: PushNotificationService,
+    @Inject(forwardRef(() => EmojiService))
+    private readonly emojiService: EmojiService,
   ) {}
 
   /**
@@ -304,6 +307,9 @@ export class RadioService {
     }
 
     await this.setCurrentSong(song.id, 0);
+
+    // Update emoji service with current song for aggregation
+    this.emojiService.setCurrentSong(song.id);
 
     // Log play
     await supabase.from('plays').insert({

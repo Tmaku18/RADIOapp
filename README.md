@@ -20,9 +20,11 @@ Independent artists struggle to get their music heard through traditional channe
 - 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
 - 💰 **Payment Processing**: Full Stripe integration with dual payment flows
 - ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
-- 📊 **Admin Dashboard**: Full management interface with song moderation and fallback playlist
+- 💬 **Live Radio Chat**: Real-time chat with Supabase Realtime, emoji reactions, and smart scroll
+- 📲 **Push Notifications**: FCM integration with "Up Next" and "Live Now" artist alerts
+- 📊 **Admin Dashboard**: Full management interface with song moderation, chat moderation, and fallback playlist
 - 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
-- 🔔 **Notifications**: In-app and email notifications for song approval/rejection
+- 🔔 **Notifications**: In-app, email, and push notifications for song events
 - 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
 
 ## Architecture
@@ -32,6 +34,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Frontend (Mobile)**: Flutter app for iOS and Android
   - Cross-platform mobile development
   - Real-time audio streaming with `just_audio`
+  - Live chat with Supabase Realtime subscriptions
+  - Push notifications via Firebase Cloud Messaging (FCM)
   - State management with Provider
   - Firebase Authentication integration
   - Stripe Payment Sheet for payments
@@ -45,10 +49,12 @@ Independent artists struggle to get their music heard through traditional channe
   
 - **Backend**: NestJS API server
   - RESTful API architecture with `/api/v1` versioning
-  - Firebase Admin SDK for token verification
-  - Supabase client for database operations
+  - Firebase Admin SDK for token verification and FCM push notifications
+  - Supabase client for database operations and Realtime broadcasting
+  - Redis for horizontally-scalable emoji aggregation (ioredis)
   - Stripe integration with dual payment flows (PaymentIntent + Checkout Sessions)
   - Signed upload URLs for direct-to-storage uploads
+  - Scheduled tasks: chat archival (24h), rejected song cleanup (48h)
   - Structured logging with Winston
   - Request ID tracing and Sentry error reporting
   

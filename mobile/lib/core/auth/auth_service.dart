@@ -3,6 +3,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/foundation.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
 import '../models/user.dart' as app_user;
 
 class AuthService extends ChangeNotifier {
@@ -185,6 +186,13 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    // Unregister push notification token before signing out
+    try {
+      await PushNotificationService().unregisterToken();
+    } catch (e) {
+      debugPrint('Error unregistering push token: $e');
+    }
+    
     await _googleSignIn.signOut();
     if (_auth != null) {
       try {

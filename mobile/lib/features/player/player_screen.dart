@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import '../../core/models/song.dart';
 import '../../core/services/radio_service.dart';
+import '../../core/services/chat_service.dart';
+import 'widgets/chat_panel.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -19,6 +22,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _isLoading = true;
   bool _isLiked = false;
   bool _isLikeLoading = false;
+  bool _isChatExpanded = false;
 
   @override
   void initState() {
@@ -129,111 +133,133 @@ class _PlayerScreenState extends State<PlayerScreen> {
     super.dispose();
   }
 
+  void _toggleChat() {
+    setState(() {
+      _isChatExpanded = !_isChatExpanded;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Radio'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _currentSong == null
-              ? const Center(child: Text('No tracks available'))
-              : Column(
-                  children: [
-                    Expanded(
-                      child: Center(
-                        child: Column(
+    return ChangeNotifierProvider(
+      create: (_) => ChatService()..initialize(),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Radio'),
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _currentSong == null
+                ? const Center(child: Text('No tracks available'))
+                : Column(
+                    children: [
+                      Expanded(
+                        child: Center(
+                          child: SingleChildScrollView(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                if (_currentSong!.artworkUrl != null)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(16),
+                                    child: CachedNetworkImage(
+                                      imageUrl: _currentSong!.artworkUrl!,
+                                      width: 250,
+                                      height: 250,
+                                      fit: BoxFit.cover,
+                                      placeholder: (context, url) =>
+                                          const CircularProgressIndicator(),
+                                      errorWidget: (context, url, error) =>
+                                          const Icon(Icons.music_note, size: 250),
+                                    ),
+                                  )
+                                else
+                                  const Icon(Icons.music_note, size: 250),
+                                const SizedBox(height: 24),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                  child: Text(
+                                    _currentSong!.title,
+                                    style: Theme.of(context).textTheme.headlineSmall,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _currentSong!.artistName,
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 16),
+                                // Like button
+                                IconButton(
+                                  icon: _isLikeLoading
+                                      ? const SizedBox(
+                                          width: 28,
+                                          height: 28,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Icon(
+                                          _isLiked
+                                              ? Icons.favorite
+                                              : Icons.favorite_border,
+                                          color: _isLiked
+                                              ? Colors.red
+                                              : Colors.grey.shade600,
+                                        ),
+                                  iconSize: 32,
+                                  onPressed: _isLikeLoading ? null : _toggleLike,
+                                  tooltip: _isLiked
+                                      ? 'Remove from favorites'
+                                      : 'Add to favorites',
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Playback controls
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (_currentSong!.artworkUrl != null)
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(16),
-                                child: CachedNetworkImage(
-                                  imageUrl: _currentSong!.artworkUrl!,
-                                  width: 300,
-                                  height: 300,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) =>
-                                      const CircularProgressIndicator(),
-                                  errorWidget: (context, url, error) =>
-                                      const Icon(Icons.music_note, size: 300),
-                                ),
-                              )
-                            else
-                              const Icon(Icons.music_note, size: 300),
-                            const SizedBox(height: 32),
-                            Text(
-                              _currentSong!.title,
-                              style: Theme.of(context).textTheme.headlineMedium,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              _currentSong!.artistName,
-                              style: Theme.of(context).textTheme.titleLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            // Like button
                             IconButton(
-                              icon: _isLikeLoading
-                                  ? const SizedBox(
-                                      width: 32,
-                                      height: 32,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : Icon(
-                                      _isLiked
-                                          ? Icons.favorite
-                                          : Icons.favorite_border,
-                                      color: _isLiked
-                                          ? Colors.red
-                                          : Colors.grey.shade600,
-                                    ),
-                              iconSize: 36,
-                              onPressed: _isLikeLoading ? null : _toggleLike,
-                              tooltip: _isLiked
-                                  ? 'Remove from favorites'
-                                  : 'Add to favorites',
+                              icon: const Icon(Icons.skip_previous),
+                              iconSize: 40,
+                              onPressed: null, // Not implemented in MVP
+                            ),
+                            const SizedBox(width: 24),
+                            IconButton(
+                              icon: Icon(
+                                _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                              ),
+                              iconSize: 56,
+                              onPressed: _togglePlayPause,
+                            ),
+                            const SizedBox(width: 24),
+                            IconButton(
+                              icon: const Icon(Icons.skip_next),
+                              iconSize: 40,
+                              onPressed: _skipTrack,
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(32.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.skip_previous),
-                            iconSize: 48,
-                            onPressed: null, // Not implemented in MVP
-                          ),
-                          const SizedBox(width: 32),
-                          IconButton(
-                            icon: Icon(
-                              _isPlaying ? Icons.pause_circle : Icons.play_circle,
-                            ),
-                            iconSize: 64,
-                            onPressed: _togglePlayPause,
-                          ),
-                          const SizedBox(width: 32),
-                          IconButton(
-                            icon: const Icon(Icons.skip_next),
-                            iconSize: 48,
-                            onPressed: _skipTrack,
-                          ),
-                        ],
+                      // Chat panel
+                      ChatPanel(
+                        currentSongId: _currentSong?.id,
+                        currentSongTitle: _currentSong?.title,
+                        isExpanded: _isChatExpanded,
+                        onToggleExpand: _toggleChat,
                       ),
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
+      ),
     );
   }
 }
