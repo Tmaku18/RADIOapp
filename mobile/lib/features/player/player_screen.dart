@@ -17,6 +17,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Song? _currentSong;
   bool _isPlaying = false;
   bool _isLoading = true;
+  bool _isLiked = false;
+  bool _isLikeLoading = false;
 
   @override
   void initState() {
@@ -32,6 +34,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _loadNextTrack() async {
     setState(() {
       _isLoading = true;
+      _isLiked = false;
     });
 
     try {
@@ -40,9 +43,18 @@ class _PlayerScreenState extends State<PlayerScreen> {
         await _audioPlayer.setUrl(song.audioUrl);
         await _audioPlayer.play();
         await _radioService.reportPlay(song.id);
+        
+        // Check if song is liked
+        final liked = await _radioService.isLiked(song.id);
+        
         setState(() {
           _currentSong = song;
           _isPlaying = true;
+          _isLoading = false;
+          _isLiked = liked;
+        });
+      } else {
+        setState(() {
           _isLoading = false;
         });
       }
@@ -53,6 +65,40 @@ class _PlayerScreenState extends State<PlayerScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading track: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _toggleLike() async {
+    if (_currentSong == null || _isLikeLoading) return;
+
+    setState(() {
+      _isLikeLoading = true;
+    });
+
+    try {
+      final liked = await _radioService.toggleLike(_currentSong!.id);
+      setState(() {
+        _isLiked = liked;
+        _isLikeLoading = false;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(liked ? 'Added to favorites!' : 'Removed from favorites'),
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLikeLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
         );
       }
     }
@@ -129,6 +175,31 @@ class _PlayerScreenState extends State<PlayerScreen> {
                               _currentSong!.artistName,
                               style: Theme.of(context).textTheme.titleLarge,
                               textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            // Like button
+                            IconButton(
+                              icon: _isLikeLoading
+                                  ? const SizedBox(
+                                      width: 32,
+                                      height: 32,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Icon(
+                                      _isLiked
+                                          ? Icons.favorite
+                                          : Icons.favorite_border,
+                                      color: _isLiked
+                                          ? Colors.red
+                                          : Colors.grey.shade600,
+                                    ),
+                              iconSize: 36,
+                              onPressed: _isLikeLoading ? null : _toggleLike,
+                              tooltip: _isLiked
+                                  ? 'Remove from favorites'
+                                  : 'Add to favorites',
                             ),
                           ],
                         ),

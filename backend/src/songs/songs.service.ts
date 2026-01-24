@@ -102,6 +102,58 @@ export class SongsService {
       .single();
 
     if (existingLike) {
+      // Already liked, return current status
+      return { liked: true };
+    }
+
+    // Like
+    await supabase
+      .from('likes')
+      .insert({
+        user_id: userId,
+        song_id: songId,
+      });
+    return { liked: true };
+  }
+
+  async unlikeSong(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+
+    // Delete like if it exists
+    await supabase
+      .from('likes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('song_id', songId);
+
+    return { liked: false };
+  }
+
+  async isLiked(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: existingLike } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+      .single();
+
+    return { liked: !!existingLike };
+  }
+
+  async toggleLike(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+
+    // Check if already liked
+    const { data: existingLike } = await supabase
+      .from('likes')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+      .single();
+
+    if (existingLike) {
       // Unlike
       await supabase
         .from('likes')

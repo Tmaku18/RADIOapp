@@ -34,4 +34,24 @@ class RadioService {
       // Silently fail
     }
   }
+
+  /// Check if a song is liked by the current user
+  Future<bool> isLiked(String songId) async {
+    try {
+      final response = await _apiService.get('songs/$songId/like');
+      return response['liked'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Toggle like status for a song (like if not liked, unlike if liked)
+  Future<bool> toggleLike(String songId) async {
+    try {
+      final response = await _apiService.post('songs/$songId/like', {});
+      return response['liked'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
 }

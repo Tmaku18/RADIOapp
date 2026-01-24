@@ -93,8 +93,8 @@ export class SongsController {
     return this.songsService.getSongById(id);
   }
 
-  @Post(':id/like')
-  async likeSong(
+  @Get(':id/like')
+  async getLikeStatus(
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
   ) {
@@ -109,7 +109,26 @@ export class SongsController {
       throw new Error('User not found');
     }
 
-    return this.songsService.likeSong(userData.id, songId);
+    return this.songsService.isLiked(userData.id, songId);
+  }
+
+  @Post(':id/like')
+  async toggleLike(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.songsService.toggleLike(userData.id, songId);
   }
 
   @Delete(':id/like')
@@ -128,6 +147,6 @@ export class SongsController {
       throw new Error('User not found');
     }
 
-    return this.songsService.likeSong(userData.id, songId);
+    return this.songsService.unlikeSong(userData.id, songId);
   }
 }

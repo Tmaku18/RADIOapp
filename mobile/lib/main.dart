@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'core/auth/auth_service.dart';
 import 'features/player/player_screen.dart';
 import 'features/upload/upload_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/payment/payment_screen.dart';
 import 'widgets/login_screen.dart';
+import 'widgets/home_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -17,6 +19,15 @@ void main() async {
     await dotenv.load(fileName: '.env');
   } catch (e) {
     debugPrint('Warning: Could not load .env file: $e');
+  }
+  
+  // Initialize Stripe
+  final stripePublishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
+  if (stripePublishableKey != null && stripePublishableKey.isNotEmpty) {
+    Stripe.publishableKey = stripePublishableKey;
+    debugPrint('Stripe initialized successfully');
+  } else {
+    debugPrint('Warning: STRIPE_PUBLISHABLE_KEY not found in .env');
   }
   
   // Initialize Firebase with platform-specific configuration
@@ -54,6 +65,7 @@ class MyApp extends StatelessWidget {
         routes: {
           '/': (context) => const AuthWrapper(),
           '/login': (context) => const LoginScreen(),
+          '/home': (context) => const HomeScreen(),
           '/player': (context) => const PlayerScreen(),
           '/upload': (context) => const UploadScreen(),
           '/profile': (context) => const ProfileScreen(),
@@ -104,9 +116,9 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // User is authenticated - show player
+        // User is authenticated - show home with navigation
         if (snapshot.hasData && snapshot.data != null) {
-          return const PlayerScreen();
+          return const HomeScreen();
         }
 
         // User is not authenticated - show login

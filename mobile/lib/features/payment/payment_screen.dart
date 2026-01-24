@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import '../../core/services/api_service.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -10,34 +11,109 @@ class PaymentScreen extends StatefulWidget {
 
 class _PaymentScreenState extends State<PaymentScreen> {
   final ApiService _apiService = ApiService();
+  bool _isProcessing = false;
+  int? _selectedPackageIndex;
+
   final List<Map<String, dynamic>> _creditPackages = [
-    {'credits': 10, 'price': 999, 'label': '10 Credits - \$9.99'},
-    {'credits': 25, 'price': 1999, 'label': '25 Credits - \$19.99'},
-    {'credits': 50, 'price': 3499, 'label': '50 Credits - \$34.99'},
-    {'credits': 100, 'price': 5999, 'label': '100 Credits - \$59.99'},
+    {
+      'credits': 10,
+      'price': 999,
+      'label': '10 Credits',
+      'priceLabel': '\$9.99',
+      'description': 'Perfect for trying out the platform',
+    },
+    {
+      'credits': 25,
+      'price': 1999,
+      'label': '25 Credits',
+      'priceLabel': '\$19.99',
+      'description': 'Great value for new artists',
+    },
+    {
+      'credits': 50,
+      'price': 3499,
+      'label': '50 Credits',
+      'priceLabel': '\$34.99',
+      'description': 'Most popular choice',
+      'popular': true,
+    },
+    {
+      'credits': 100,
+      'price': 5999,
+      'label': '100 Credits',
+      'priceLabel': '\$59.99',
+      'description': 'Best value for serious artists',
+    },
   ];
 
   Future<void> _purchaseCredits(int credits, int price) async {
+    setState(() {
+      _isProcessing = true;
+    });
+
     try {
+      // Step 1: Create payment intent on backend
       final response = await _apiService.post('payments/create-intent', {
         'amount': price,
         'credits': credits,
       });
 
-      // In a real app, you would use Stripe SDK here
-      // For now, just show a message
+      final clientSecret = response['clientSecret'] as String?;
+      if (clientSecret == null || clientSecret.isEmpty) {
+        throw Exception('Failed to get payment client secret');
+      }
+
+      // Step 2: Initialize the payment sheet
+      await Stripe.instance.initPaymentSheet(
+        paymentSheetParameters: SetupPaymentSheetParameters(
+          paymentIntentClientSecret: clientSecret,
+          merchantDisplayName: 'Radio App',
+          style: ThemeMode.system,
+          appearance: const PaymentSheetAppearance(
+            colors: PaymentSheetAppearanceColors(
+              primary: Colors.deepPurple,
+            ),
+          ),
+        ),
+      );
+
+      // Step 3: Present the payment sheet
+      await Stripe.instance.presentPaymentSheet();
+
+      // Step 4: Payment successful
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Payment intent created. Client secret: ${response['clientSecret']}'),
+            content: Text('Successfully purchased $credits credits!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } on StripeException catch (e) {
+      if (mounted) {
+        final message = e.error.localizedMessage ?? 'Payment was cancelled';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: Colors.orange,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Payment failed: $e')),
+          SnackBar(
+            content: Text('Payment failed: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isProcessing = false;
+          _selectedPackageIndex = null;
+        });
       }
     }
   }
@@ -49,30 +125,240 @@ class _PaymentScreenState extends State<PaymentScreen> {
         title: const Text('Purchase Credits'),
         backgroundColor: Colors.deepPurple,
         foregroundColor: Colors.white,
+        automaticallyImplyLeading: false,
       ),
-      body: ListView.builder(
-        padding: const EdgeInsets.all(16),
-        itemCount: _creditPackages.length,
-        itemBuilder: (context, index) {
-          final package = _creditPackages[index];
-          return Card(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: ListTile(
-              title: Text(package['label']),
-              trailing: ElevatedButton(
-                onPressed: () => _purchaseCredits(
-                  package['credits'],
-                  package['price'],
+      body: Column(
+        children: [
+          // Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.deepPurple.shade50,
+            ),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.monetization_on,
+                  size: 48,
+                  color: Colors.deepPurple,
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
+                const SizedBox(height: 16),
+                Text(
+                  'Buy Credits for Airplay',
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                 ),
-                child: const Text('Purchase'),
+                const SizedBox(height: 8),
+                Text(
+                  'Each credit gives your song one play in the radio rotation',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.grey.shade700,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+
+          // Credit packages
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(16),
+              itemCount: _creditPackages.length,
+              itemBuilder: (context, index) {
+                final package = _creditPackages[index];
+                final isPopular = package['popular'] == true;
+                final isSelected = _selectedPackageIndex == index;
+
+                return Stack(
+                  children: [
+                    Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      elevation: isSelected ? 4 : 1,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: BorderSide(
+                          color: isSelected
+                              ? Colors.deepPurple
+                              : isPopular
+                                  ? Colors.deepPurple.shade200
+                                  : Colors.transparent,
+                          width: isSelected ? 2 : 1,
+                        ),
+                      ),
+                      child: InkWell(
+                        onTap: _isProcessing
+                            ? null
+                            : () {
+                                setState(() {
+                                  _selectedPackageIndex = index;
+                                });
+                              },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            children: [
+                              // Credit amount
+                              Container(
+                                width: 60,
+                                height: 60,
+                                decoration: BoxDecoration(
+                                  color: Colors.deepPurple.shade100,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '${package['credits']}',
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.deepPurple,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+
+                              // Details
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      package['label'],
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      package['description'],
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+
+                              // Price
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    package['priceLabel'],
+                                    style: const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.deepPurple,
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    const Icon(
+                                      Icons.check_circle,
+                                      color: Colors.deepPurple,
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    // Popular badge
+                    if (isPopular)
+                      Positioned(
+                        top: 0,
+                        right: 16,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.deepPurple,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'POPULAR',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ),
+
+          // Purchase button
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade200,
+                  blurRadius: 10,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _selectedPackageIndex == null || _isProcessing
+                      ? null
+                      : () {
+                          final package = _creditPackages[_selectedPackageIndex!];
+                          _purchaseCredits(
+                            package['credits'],
+                            package['price'],
+                          );
+                        },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    disabledBackgroundColor: Colors.grey.shade300,
+                  ),
+                  child: _isProcessing
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(
+                          _selectedPackageIndex != null
+                              ? 'Purchase ${_creditPackages[_selectedPackageIndex!]['label']}'
+                              : 'Select a Package',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
               ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
