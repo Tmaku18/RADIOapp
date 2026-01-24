@@ -14,10 +14,10 @@ const api: AxiosInstance = axios.create({
 // Request interceptor: Always send fresh ID token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Skip token for public endpoints
-    const publicEndpoints = ['/radio/current', '/songs'];
+    // Skip token for public endpoints (exact matches only)
+    const publicEndpoints = ['/radio/current'];
     const isPublicEndpoint = publicEndpoints.some(endpoint => 
-      config.url?.startsWith(endpoint) && config.method?.toLowerCase() === 'get'
+      config.url === endpoint && config.method?.toLowerCase() === 'get'
     );
     
     if (!isPublicEndpoint) {

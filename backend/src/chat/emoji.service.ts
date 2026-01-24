@@ -105,7 +105,7 @@ export class EmojiService {
 
   /**
    * Broadcast aggregated emoji counts every 2 seconds
-   * Cron pattern: */2 * * * * * = every 2 seconds
+   * Cron pattern: "star/2 * * * * *" = every 2 seconds
    */
   @Cron('*/2 * * * * *')
   async broadcastEmojiCounts() {

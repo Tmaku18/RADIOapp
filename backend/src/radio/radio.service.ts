@@ -75,6 +75,7 @@ export class RadioService {
 
   /**
    * Get the current track with timing information for client synchronization.
+   * If nothing is playing, automatically starts the next track.
    */
   async getCurrentTrack() {
     const supabase = getSupabaseClient();
@@ -82,8 +83,10 @@ export class RadioService {
     
     const queueState = await this.getQueueState();
     
+    // If nothing is playing, start the next track
     if (!queueState || !queueState.song_id) {
-      return null;
+      this.logger.log('No current track, auto-starting next track');
+      return this.getNextTrack();
     }
 
     const { data: song } = await supabase
@@ -93,7 +96,9 @@ export class RadioService {
       .single();
 
     if (!song) {
-      return null;
+      // Song was deleted, get next track
+      this.logger.log('Current song not found, auto-starting next track');
+      return this.getNextTrack();
     }
 
     const startedAt = new Date(queueState.played_at).getTime();
@@ -101,9 +106,15 @@ export class RadioService {
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
+    // If song has ended, get next track
+    if (timeRemainingMs <= 0) {
+      this.logger.log('Current song ended, auto-starting next track');
+      return this.getNextTrack();
+    }
+
     return {
       ...song,
-      is_playing: timeRemainingMs > 0,
+      is_playing: true,
       started_at: queueState.played_at,
       server_time: new Date(now).toISOString(),
       time_remaining_ms: timeRemainingMs,

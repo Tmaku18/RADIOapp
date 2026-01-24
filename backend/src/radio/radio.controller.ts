@@ -1,16 +1,19 @@
 import { Controller, Get, Post, Delete, Body, Query } from '@nestjs/common';
 import { RadioService } from './radio.service';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('radio')
 export class RadioController {
   constructor(private readonly radioService: RadioService) {}
 
+  @Public()
   @Get('current')
   async getCurrentTrack() {
     return this.radioService.getCurrentTrack();
   }
 
+  @Public()
   @Get('next')
   async getNextTrack() {
     return this.radioService.getNextTrack();
