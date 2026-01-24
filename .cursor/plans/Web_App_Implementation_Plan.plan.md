@@ -148,6 +148,7 @@ graph TD
 ### Authentication Model (Hardened)
 
 **The Rule (Explicit):**
+
 - **Session Cookie** → UI rendering, SSR personalization, middleware protection
 - **Fresh ID Token** → Every API call to NestJS (via interceptor)
 
@@ -178,12 +179,14 @@ This prevents the "Split Brain" problem where cookie is valid but token is expir
 ```
 
 **Why this choice:**
+
 - No build pipeline changes required
 - Backend is source of truth for types
 - Works immediately with existing Vercel/Render setup
 - Migrate to Turborepo later if needed
 
 **Shared types location:** `backend/src/shared/`
+
 - `user.ts` - User, Role interfaces
 - `song.ts` - Song, UploadResponse interfaces
 - `payment.ts` - PaymentIntent, CheckoutSession interfaces
@@ -194,20 +197,33 @@ This prevents the "Split Brain" problem where cookie is valid but token is expir
 Explicit definition of endpoint access requirements:
 
 | Endpoint | Auth | Role | Token Type |
+
 |----------|------|------|------------|
+
 | `GET /api/v1/radio/current` | No | Any | None |
+
 | `GET /api/v1/radio/stream` | Yes | Any | ID Token |
+
 | `POST /api/v1/radio/heartbeat` | Yes | Any | ID Token + StreamToken |
+
 | `POST /api/v1/songs/upload-url` | Yes | Artist | ID Token |
+
 | `POST /api/v1/songs` | Yes | Artist | ID Token |
+
 | `GET /api/v1/songs` | No | Any | None |
+
 | `POST /api/v1/payments/create-intent` | Yes | Artist | ID Token |
+
 | `POST /api/v1/payments/create-checkout-session` | Yes | Artist | ID Token |
+
 | `POST /api/v1/payments/webhook` | No | N/A | Stripe Signature |
+
 | `GET /api/v1/admin/*` | Yes | Admin | ID Token |
+
 | `PATCH /api/v1/admin/*` | Yes | Admin | ID Token |
 
 **Public-read endpoints:** radio/current, songs list, artist profiles, song pages
+
 **Session cookie only:** Next.js SSR/middleware (never sent to NestJS)
 
 ## 3. Authentication & Authorization Flow
@@ -537,6 +553,7 @@ async processHeartbeat(userId: string, dto: HeartbeatDto) {
 ```
 
 **Why this works:**
+
 - Token ties heartbeats to a specific session
 - Cannot fake 2 heartbeats without waiting 30+ seconds
 - Server controls play counting authority
@@ -549,10 +566,10 @@ async processHeartbeat(userId: string, dto: HeartbeatDto) {
 **Decision:** Remove howler.js. Hls.js directly on `<audio>` tag is cleaner.
 
 **Why:**
+
 - Howler wraps HTML5 Audio; Hls.js also wraps audio element
 - Combining them adds complexity without benefit
 - Custom React hook gives us all the state management we need
-
 ```typescript
 // components/radio/useRadioState.ts
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -615,7 +632,6 @@ export function useRadioState() {
   return { audioRef, state, loadStream, play, pause, setVolume };
 }
 ```
-
 ```tsx
 // components/radio/RadioPlayer.tsx
 export function RadioPlayer() {
@@ -653,13 +669,17 @@ export function RadioPlayer() {
 }
 ```
 
+
 ## 8. Payments: Dual-Flow Architecture
 
 ### Mobile vs Web Flows
 
 | Platform | Endpoint | Stripe Product | UX |
+
 |----------|----------|----------------|-----|
+
 | Mobile | `POST /payments/create-intent` | PaymentIntent | Native flutter_stripe UI |
+
 | Web | `POST /payments/create-checkout-session` | Checkout Session | Redirect to stripe.com |
 
 ### Backend: POST /api/v1/payments/create-checkout-session
@@ -751,12 +771,19 @@ async function getHomepageData() {
 Documented system behavior during failures:
 
 | Failure | Behavior | Recovery |
+
 |---------|----------|----------|
+
 | **Stripe webhook delayed** | Transaction stays `pending` | Webhook eventually fires; idempotent handling |
+
 | **Upload succeeds, metadata write fails** | Orphaned file in storage | Cron job cleans orphans after 24h |
+
 | **Session cookie valid, token expired** | Token interceptor refreshes | If refresh fails, redirect to login |
+
 | **Stream server down** | Player shows error state | Polling retries every 10s |
+
 | **Supabase DB unavailable** | API returns 503 | Circuit breaker; cached data where possible |
+
 | **Payment succeeds, credit update fails** | Transaction logged as `payment_received` | Admin alert; manual reconciliation |
 
 ## 11. Observability & Logging
@@ -815,13 +842,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
 ## 12. Deployment & CI/CD
 
 | Component | Platform |
+
 |-----------|----------|
+
 | Web (Next.js) | Vercel |
+
 | Backend (NestJS) | Render / Railway / AWS |
+
 | Database | Supabase |
+
 | Storage | Supabase Storage |
+
 | Streaming | Supabase + CDN |
+
 | Error Tracking | Sentry |
+
 | CI/CD | GitHub Actions |
 
 ## 13. Phased Rollout
@@ -888,14 +923,25 @@ export class AllExceptionsFilter implements ExceptionFilter {
 ## Summary: v2.2 Changes from v2.1
 
 | Issue | v2.1 | v2.2 |
+
 |-------|------|------|
+
 | Token/Cookie drift | Mentioned | **Token refresh interceptor with forceRefresh** |
+
 | Upload endpoint | GET | **POST (no caching, no log leaks, batch-ready)** |
+
 | Play counting | Duration-based | **Signed heartbeat pattern (abuse-proof)** |
+
 | Shared types | 3 options listed | **Locked: TSConfig path mapping** |
+
 | Audio player | howler.js + Hls.js | **Simplified: Hls.js + React hook only** |
+
 | API versioning | Not mentioned | **All endpoints at /api/v1/** |
+
 | Marketing cache | Not mentioned | **Precomputed homepage payload** |
+
 | Failure modes | Not documented | **Explicit failure/recovery table** |
+
 | Observability | Not mentioned | **Structured logs, request IDs, Sentry** |
+
 | Contract layer | Implicit | **Explicit endpoint auth requirements** |
