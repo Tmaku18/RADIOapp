@@ -111,12 +111,26 @@ export const adminApi = {
   getAnalytics: () => api.get('/admin/analytics'),
   getSongs: (params?: { status?: string; limit?: number; offset?: number }) => 
     api.get('/admin/songs', { params }),
-  updateSongStatus: (id: string, status: 'approved' | 'rejected') => 
-    api.patch(`/admin/songs/${id}`, { status }),
+  updateSongStatus: (id: string, status: 'approved' | 'rejected', reason?: string) => 
+    api.patch(`/admin/songs/${id}`, { status, reason }),
   getUsers: (params?: { role?: string; limit?: number; offset?: number }) => 
     api.get('/admin/users', { params }),
   updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') => 
     api.patch(`/admin/users/${id}/role`, { role }),
+  // Fallback playlist management
+  getFallbackSongs: () => api.get('/admin/fallback-songs'),
+  addFallbackSong: (data: { title: string; artistName: string; audioUrl: string; artworkUrl?: string; durationSeconds?: number }) =>
+    api.post('/admin/fallback-songs', data),
+  updateFallbackSong: (id: string, data: { isActive?: boolean }) =>
+    api.patch(`/admin/fallback-songs/${id}`, data),
+  deleteFallbackSong: (id: string) => api.delete(`/admin/fallback-songs/${id}`),
+};
+
+export const notificationsApi = {
+  getAll: (params?: { limit?: number }) => api.get('/notifications', { params }),
+  getUnreadCount: () => api.get('/notifications/unread-count'),
+  markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
+  markAllAsRead: () => api.post('/notifications/mark-all-read'),
 };
 
 export default api;

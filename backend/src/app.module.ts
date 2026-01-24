@@ -9,6 +9,8 @@ import { RadioModule } from './radio/radio.module';
 import { PaymentsModule } from './payments/payments.module';
 import { CreditsModule } from './credits/credits.module';
 import { AdminModule } from './admin/admin.module';
+import { NotificationModule } from './notifications/notification.module';
+import { TasksModule } from './tasks/tasks.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -25,6 +27,8 @@ import { RequestIdMiddleware } from './common/middleware';
     PaymentsModule,
     CreditsModule,
     AdminModule,
+    NotificationModule,
+    TasksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

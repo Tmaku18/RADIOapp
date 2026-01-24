@@ -1,7 +1,9 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
+  Delete,
   Param,
   Body,
   Query,
@@ -35,7 +37,7 @@ export class AdminController {
     @Param('id') songId: string,
     @Body() dto: UpdateSongStatusDto,
   ) {
-    const song = await this.adminService.updateSongStatus(songId, dto.status);
+    const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason);
     return { song };
   }
 
@@ -65,5 +67,41 @@ export class AdminController {
   ) {
     const user = await this.adminService.updateUserRole(userId, role);
     return { user };
+  }
+
+  // ========== Fallback Playlist Endpoints ==========
+
+  @Get('fallback-songs')
+  async getFallbackSongs() {
+    const songs = await this.adminService.getFallbackSongs();
+    return { songs };
+  }
+
+  @Post('fallback-songs')
+  async addFallbackSong(
+    @Body() dto: {
+      title: string;
+      artistName: string;
+      audioUrl: string;
+      artworkUrl?: string;
+      durationSeconds?: number;
+    },
+  ) {
+    const song = await this.adminService.addFallbackSong(dto);
+    return { song };
+  }
+
+  @Patch('fallback-songs/:id')
+  async updateFallbackSong(
+    @Param('id') songId: string,
+    @Body() dto: { isActive?: boolean },
+  ) {
+    const song = await this.adminService.updateFallbackSong(songId, dto);
+    return { song };
+  }
+
+  @Delete('fallback-songs/:id')
+  async deleteFallbackSong(@Param('id') songId: string) {
+    return this.adminService.deleteFallbackSong(songId);
   }
 }

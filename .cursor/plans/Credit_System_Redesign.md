@@ -31,10 +31,10 @@ todos:
     status: completed
   - id: admin-fallback-service
     content: Create fallback.service.ts for admin fallback playlist management
-    status: pending
+    status: completed
   - id: admin-fallback-endpoints
     content: Add CRUD endpoints for fallback songs in admin.controller.ts
-    status: pending
+    status: completed
   - id: mobile-webview
     content: "Add 'Manage Credits' WebView bridge in Flutter app for mobile artists"
     status: completed
@@ -61,16 +61,16 @@ todos:
     status: pending
   - id: notification-service
     content: Create notification service for in-app notifications
-    status: pending
+    status: completed
   - id: cleanup-job
     content: Create scheduled cleanup job to delete rejected songs after 48 hours
-    status: pending
+    status: completed
   - id: notification-ui
     content: Add notification bell to header and notifications page
     status: pending
   - id: admin-rejection-ui
     content: Add rejection reason input to admin song approval UI
-    status: pending
+    status: completed
 isProject: false
 ---
 
