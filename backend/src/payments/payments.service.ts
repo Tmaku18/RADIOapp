@@ -70,22 +70,43 @@ export class PaymentsService {
       })
       .eq('id', transaction.id);
 
-    // Update credits balance
-    const { data: credits } = await supabase
-      .from('credits')
-      .select('*')
-      .eq('artist_id', transaction.user_id)
-      .single();
+    // Update credits balance using atomic RPC function
+    // This prevents race conditions when multiple payments complete simultaneously
+    const { error: rpcError } = await supabase.rpc('increment_credits', {
+      p_artist_id: transaction.user_id,
+      p_amount: transaction.credits_purchased,
+    });
 
-    if (credits) {
-      await supabase
+    if (rpcError) {
+      // Log error but don't fail - transaction was successful
+      console.error('Failed to increment credits via RPC:', rpcError.message);
+      
+      // Fallback to direct update if RPC doesn't exist yet
+      const { data: credits } = await supabase
         .from('credits')
-        .update({
-          balance: credits.balance + transaction.credits_purchased,
-          total_purchased: credits.total_purchased + transaction.credits_purchased,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', credits.id);
+        .select('*')
+        .eq('artist_id', transaction.user_id)
+        .single();
+
+      if (credits) {
+        await supabase
+          .from('credits')
+          .update({
+            balance: credits.balance + transaction.credits_purchased,
+            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credits.id);
+      } else {
+        // Create credit record if it doesn't exist
+        await supabase
+          .from('credits')
+          .insert({
+            artist_id: transaction.user_id,
+            balance: transaction.credits_purchased,
+            total_purchased: transaction.credits_purchased,
+          });
+      }
     }
   }
 

@@ -219,6 +219,28 @@ CREATE TRIGGER update_like_count_on_like
   FOR EACH ROW EXECUTE FUNCTION update_song_like_count();
 ```
 
+### Atomic credit increment (prevents race conditions)
+```sql
+CREATE OR REPLACE FUNCTION increment_credits(
+  p_artist_id UUID,
+  p_amount INTEGER
+) RETURNS void AS $$
+BEGIN
+  UPDATE credits 
+  SET balance = balance + p_amount,
+      total_purchased = total_purchased + p_amount,
+      updated_at = NOW()
+  WHERE artist_id = p_artist_id;
+  
+  -- Create credit record if it doesn't exist
+  IF NOT FOUND THEN
+    INSERT INTO credits (artist_id, balance, total_purchased)
+    VALUES (p_artist_id, p_amount, p_amount);
+  END IF;
+END;
+$$ LANGUAGE plpgsql;
+```
+
 ## Row Level Security (RLS)
 
 Enable RLS on all tables and create policies as needed for Supabase.

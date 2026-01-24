@@ -19,7 +19,8 @@ class ApiService {
         if (_authToken != null) 'Authorization': 'Bearer $_authToken',
       };
 
-  Future<Map<String, dynamic>> get(String endpoint) async {
+  /// GET request - returns dynamic (can be Map or List depending on endpoint)
+  Future<dynamic> get(String endpoint) async {
     final response = await http.get(
       Uri.parse('$baseUrl/api/$endpoint'),
       headers: _headers,
@@ -28,19 +29,16 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final body = response.body.trim();
       if (body.isEmpty) {
-        return {};
+        return null;
       }
-      final decoded = json.decode(body);
-      if (decoded == null) {
-        return {};
-      }
-      return decoded as Map<String, dynamic>;
+      return json.decode(body);
     } else {
       throw Exception('Failed to load: ${response.statusCode}');
     }
   }
 
-  Future<Map<String, dynamic>> post(
+  /// POST request - returns dynamic (can be Map or List depending on endpoint)
+  Future<dynamic> post(
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
@@ -51,13 +49,18 @@ class ApiService {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return json.decode(response.body);
+      final responseBody = response.body.trim();
+      if (responseBody.isEmpty) {
+        return null;
+      }
+      return json.decode(responseBody);
     } else {
       throw Exception('Failed to post: ${response.statusCode}');
     }
   }
 
-  Future<Map<String, dynamic>> put(
+  /// PUT request - returns dynamic (can be Map or List depending on endpoint)
+  Future<dynamic> put(
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
@@ -68,26 +71,36 @@ class ApiService {
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return json.decode(response.body);
+      final responseBody = response.body.trim();
+      if (responseBody.isEmpty) {
+        return null;
+      }
+      return json.decode(responseBody);
     } else {
       throw Exception('Failed to put: ${response.statusCode}');
     }
   }
 
-  Future<Map<String, dynamic>> delete(String endpoint) async {
+  /// DELETE request - returns dynamic (can be Map or List depending on endpoint)
+  Future<dynamic> delete(String endpoint) async {
     final response = await http.delete(
       Uri.parse('$baseUrl/api/$endpoint'),
       headers: _headers,
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      return json.decode(response.body);
+      final responseBody = response.body.trim();
+      if (responseBody.isEmpty) {
+        return null;
+      }
+      return json.decode(responseBody);
     } else {
       throw Exception('Failed to delete: ${response.statusCode}');
     }
   }
 
-  Future<Map<String, dynamic>> postMultipart(
+  /// Multipart POST request for file uploads - returns dynamic
+  Future<dynamic> postMultipart(
     String endpoint,
     Map<String, String> fields,
     List<http.MultipartFile> files,
@@ -108,11 +121,11 @@ class ApiService {
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body;
+      final responseBody = response.body.trim();
       if (responseBody.isEmpty) {
-        return {};
+        return null;
       }
-      return json.decode(responseBody) as Map<String, dynamic>;
+      return json.decode(responseBody);
     } else {
       throw Exception('Failed to upload: ${response.statusCode} - ${response.body}');
     }

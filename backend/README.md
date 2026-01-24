@@ -155,6 +155,32 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 - `npm run test` - Run unit tests
 - `npm run test:e2e` - Run E2E tests
 
+## Production Considerations
+
+### File Upload Memory Usage
+
+**Warning:** File uploads are buffered in memory via Multer before being sent to Supabase Storage.
+
+| File Type | Max Size | Concurrent Risk |
+|-----------|----------|-----------------|
+| Audio | 50MB | High |
+| Artwork | 5MB | Medium |
+| Profile | 2MB | Low |
+
+**Memory calculation:** If 20 artists upload songs simultaneously, that's up to 1GB of RAM usage. On servers with limited memory (e.g., AWS t3.micro with 1GB RAM), this could cause Out-of-Memory (OOM) crashes.
+
+**Mitigations:**
+- For MVP: Limit concurrent uploads or use a queue
+- For production: Implement streaming uploads directly to Supabase
+- Consider reducing audio max size to 20MB for safety
+
+### Radio Synchronization
+
+The radio service implements global stream synchronization:
+- All listeners hear the same song at the same time
+- Credits are only deducted once per song broadcast (not per listener)
+- Clients receive `started_at` and `server_time` for accurate playback sync
+
 ## Database Schema
 
 See `/docs/database-schema.md` for complete table definitions.
