@@ -5,23 +5,38 @@ todos:
   - id: fix-user-creation
     content: "CRITICAL BUG: Add missing POST /users endpoint to UsersController"
     status: pending
+  - id: db-constraints
+    content: "Add CHECK (balance >= 0) constraint to credits table"
+    status: pending
   - id: db-schema
-    content: Create database migration for new tables and columns (fallback_eligible, opt_in_free_play, admin_fallback_songs, credit_allocations)
+    content: Create database migration for new tables and columns (fallback_eligible, opt_in_free_play, admin_fallback_songs, credit_allocations, notifications)
+    status: pending
+  - id: db-rpc-allocate
+    content: "Create allocate_credits PostgreSQL RPC function (atomic ledger)"
+    status: pending
+  - id: db-rpc-withdraw
+    content: "Create withdraw_credits PostgreSQL RPC function (atomic ledger)"
+    status: pending
+  - id: ffmpeg-validation
+    content: "Add server-side FFmpeg duration validation on upload (trustless ingest)"
     status: pending
   - id: credits-service
-    content: Create credits.service.ts with allocateCreditsToSong and withdrawCreditsFromSong methods
+    content: Create credits.service.ts that calls RPC functions
     status: pending
   - id: credits-endpoints
     content: Add POST /credits/songs/:songId/allocate and /withdraw endpoints to credits.controller.ts
     status: pending
   - id: radio-fallback
-    content: Update radio.service.ts with per-5-second credit deduction and fallback playlist logic
+    content: Update radio.service.ts with pre-charge model, soft-weighted random selection, and fallback playlist logic
     status: pending
   - id: admin-fallback-service
     content: Create fallback.service.ts for admin fallback playlist management
     status: pending
   - id: admin-fallback-endpoints
     content: Add CRUD endpoints for fallback songs in admin.controller.ts
+    status: pending
+  - id: mobile-webview
+    content: "Add 'Manage Credits' WebView bridge in Flutter app for mobile artists"
     status: pending
   - id: artist-songs-page
     content: Create artist "My Songs" page showing uploaded songs with review status and allocation links
@@ -39,7 +54,7 @@ todos:
     content: Create admin fallback playlist management page
     status: pending
   - id: rejection-schema
-    content: Add rejection_reason, rejected_at columns and notifications table
+    content: Add rejection_reason, rejected_at columns to songs table
     status: pending
   - id: email-service
     content: Create email service for sending rejection notifications
@@ -60,6 +75,49 @@ isProject: false
 ---
 
 # Credit System Redesign
+
+## Architectural Decisions
+
+These decisions were made after comparing business/logic-focused and architecture/ops-focused approaches:
+
+### 1. Race Conditions: PostgreSQL RPC (Atomic Ledger)
+
+**Decision**: Use `supabase.rpc('allocate_credits')` stored procedures instead of conditional SQL updates.
+
+**Why**: For a financial application, atomicity is non-negotiable. The deduction AND audit log must happen in the exact same transaction. If an artist disputes "I allocated credits but they disappeared," we need 100% proof in the database.
+
+### 2. When to Charge: Pre-Charge Model
+
+**Decision**: Deduct credits BEFORE playing, not after.
+
+**Why**:
+- Simpler state management (no locking mechanism, no garbage collector)
+- Dispute resolution favors refunds over debt collection
+- Already mitigated by filtering songs with `credits >= full_play_cost`
+
+### 3. Duration Validation: Server-Side FFmpeg (Trustless Ingest)
+
+**Decision**: Extract real duration using `fluent-ffmpeg` or `music-metadata` on upload. Overwrite client-provided values.
+
+**Why**: Artists could upload a 10-minute song but tag it as 30 seconds to pay less. The server MUST NOT trust client metadata.
+
+### 4. Radio Selection: Soft-Weighted Random
+
+**Decision**: Use weighted random selection instead of FIFO, with minor nudges:
+- Base weight: 1.0 for all eligible songs
+- +0.1 bonus for above-average credits allocated
+- +0.1 bonus for songs not played in last hour
+- Maximum weight: 1.2 (no song >20% more likely than another)
+
+**Why**: FIFO creates predictable rotations. Soft-weighted random keeps it dynamic while giving slight edge to invested artists.
+
+### 5. Mobile UX: WebView Bridge
+
+**Decision**: Add "Manage Credits" button in Flutter that opens web dashboard in WebView/browser.
+
+**Why**: Avoids duplicating complex credit UI in Flutter for Phase 1. Mobile artists aren't locked out.
+
+---
 
 ## CRITICAL BUG FIX: Missing User Creation Endpoint
 
@@ -139,6 +197,14 @@ flowchart TD
 
 ## Phase 1: Database Schema Changes
 
+### 1.0 Add Safety Constraints
+
+Add CHECK constraint to prevent negative balances:
+
+```sql
+ALTER TABLE credits ADD CONSTRAINT credits_balance_non_negative CHECK (balance >= 0);
+```
+
 ### 1.1 Modify `songs` table
 
 Add new columns:
@@ -184,35 +250,212 @@ CREATE TABLE credit_allocations (
 );
 ```
 
+### 1.4 Create `allocate_credits` RPC Function (Atomic Ledger)
+
+This PostgreSQL function ensures the balance check, deduction, song credit addition, and audit log happen in ONE atomic transaction:
+
+```sql
+CREATE OR REPLACE FUNCTION allocate_credits(
+    p_artist_id UUID,
+    p_song_id UUID,
+    p_amount INTEGER
+)
+RETURNS JSON
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_balance_before INTEGER;
+    v_balance_after INTEGER;
+    v_song_credits_before INTEGER;
+    v_song_artist_id UUID;
+BEGIN
+    -- 1. Verify song belongs to artist
+    SELECT artist_id, credits_remaining INTO v_song_artist_id, v_song_credits_before
+    FROM songs WHERE id = p_song_id;
+    
+    IF v_song_artist_id IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'Song not found');
+    END IF;
+    
+    IF v_song_artist_id != p_artist_id THEN
+        RETURN json_build_object('success', false, 'error', 'Song does not belong to artist');
+    END IF;
+    
+    -- 2. Get current balance and check sufficiency
+    SELECT balance INTO v_balance_before FROM credits WHERE artist_id = p_artist_id;
+    
+    IF v_balance_before IS NULL OR v_balance_before < p_amount THEN
+        RETURN json_build_object('success', false, 'error', 'Insufficient balance');
+    END IF;
+    
+    v_balance_after := v_balance_before - p_amount;
+    
+    -- 3. Deduct from artist balance
+    UPDATE credits SET balance = v_balance_after, total_used = total_used + p_amount
+    WHERE artist_id = p_artist_id;
+    
+    -- 4. Add to song credits
+    UPDATE songs SET credits_remaining = COALESCE(credits_remaining, 0) + p_amount
+    WHERE id = p_song_id;
+    
+    -- 5. Log to audit trail
+    INSERT INTO credit_allocations (artist_id, song_id, amount, direction, balance_before, balance_after)
+    VALUES (p_artist_id, p_song_id, p_amount, 'allocate', v_balance_before, v_balance_after);
+    
+    RETURN json_build_object(
+        'success', true,
+        'balance_before', v_balance_before,
+        'balance_after', v_balance_after,
+        'song_credits', v_song_credits_before + p_amount
+    );
+END;
+$$;
+```
+
+### 1.5 Create `withdraw_credits` RPC Function (Atomic Ledger)
+
+```sql
+CREATE OR REPLACE FUNCTION withdraw_credits(
+    p_artist_id UUID,
+    p_song_id UUID,
+    p_amount INTEGER
+)
+RETURNS JSON
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_balance_before INTEGER;
+    v_balance_after INTEGER;
+    v_song_credits INTEGER;
+    v_song_artist_id UUID;
+BEGIN
+    -- 1. Verify song belongs to artist and has enough credits
+    SELECT artist_id, credits_remaining INTO v_song_artist_id, v_song_credits
+    FROM songs WHERE id = p_song_id;
+    
+    IF v_song_artist_id IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'Song not found');
+    END IF;
+    
+    IF v_song_artist_id != p_artist_id THEN
+        RETURN json_build_object('success', false, 'error', 'Song does not belong to artist');
+    END IF;
+    
+    IF v_song_credits IS NULL OR v_song_credits < p_amount THEN
+        RETURN json_build_object('success', false, 'error', 'Insufficient song credits');
+    END IF;
+    
+    -- 2. Get current balance
+    SELECT balance INTO v_balance_before FROM credits WHERE artist_id = p_artist_id;
+    v_balance_after := COALESCE(v_balance_before, 0) + p_amount;
+    
+    -- 3. Deduct from song credits
+    UPDATE songs SET credits_remaining = credits_remaining - p_amount
+    WHERE id = p_song_id;
+    
+    -- 4. Add to artist balance
+    UPDATE credits SET balance = v_balance_after
+    WHERE artist_id = p_artist_id;
+    
+    -- 5. Log to audit trail
+    INSERT INTO credit_allocations (artist_id, song_id, amount, direction, balance_before, balance_after)
+    VALUES (p_artist_id, p_song_id, p_amount, 'withdraw', v_balance_before, v_balance_after);
+    
+    RETURN json_build_object(
+        'success', true,
+        'balance_before', v_balance_before,
+        'balance_after', v_balance_after,
+        'song_credits', v_song_credits - p_amount
+    );
+END;
+$$;
+```
+
+### 1.6 Create `deduct_play_credits` RPC Function (Radio Pre-Charge)
+
+Used by radio service to atomically deduct credits before playing:
+
+```sql
+CREATE OR REPLACE FUNCTION deduct_play_credits(
+    p_song_id UUID,
+    p_credits_required INTEGER
+)
+RETURNS JSON
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_credits_before INTEGER;
+BEGIN
+    SELECT credits_remaining INTO v_credits_before FROM songs WHERE id = p_song_id;
+    
+    IF v_credits_before IS NULL OR v_credits_before < p_credits_required THEN
+        RETURN json_build_object('success', false, 'error', 'Insufficient credits');
+    END IF;
+    
+    UPDATE songs 
+    SET credits_remaining = credits_remaining - p_credits_required,
+        play_count = COALESCE(play_count, 0) + 1
+    WHERE id = p_song_id;
+    
+    RETURN json_build_object(
+        'success', true,
+        'credits_deducted', p_credits_required,
+        'credits_remaining', v_credits_before - p_credits_required
+    );
+END;
+$$;
+```
+
 ---
 
-## Phase 2: Credit Allocation Service
+## Phase 2: Credit Allocation Service (Uses RPC)
 
 ### 2.1 Create new service: `backend/src/credits/credits.service.ts`
 
+The service acts as a thin wrapper around the PostgreSQL RPC functions:
+
 ```typescript
-// Key methods to implement:
+import { Injectable, BadRequestException } from '@nestjs/common';
+import { getSupabaseClient } from '../config/supabase';
 
-async allocateCreditsToSong(artistId: string, songId: string, amount: number) {
-    // 1. Verify song belongs to artist
-    // 2. Check artist has sufficient balance
-    // 3. Deduct from credits.balance
-    // 4. Add to songs.credits_remaining
-    // 5. Log to credit_allocations table
-    // 6. Update credits.total_used
-}
+@Injectable()
+export class CreditsService {
+    async allocateCreditsToSong(artistId: string, songId: string, amount: number) {
+        const supabase = getSupabaseClient();
+        
+        // Call atomic RPC function
+        const { data, error } = await supabase.rpc('allocate_credits', {
+            p_artist_id: artistId,
+            p_song_id: songId,
+            p_amount: amount,
+        });
+        
+        if (error) throw new BadRequestException(error.message);
+        if (!data.success) throw new BadRequestException(data.error);
+        
+        return data;
+    }
 
-async withdrawCreditsFromSong(artistId: string, songId: string, amount: number) {
-    // 1. Verify song belongs to artist
-    // 2. Check song has sufficient credits_remaining
-    // 3. Deduct from songs.credits_remaining
-    // 4. Add to credits.balance
-    // 5. Log to credit_allocations table
-}
+    async withdrawCreditsFromSong(artistId: string, songId: string, amount: number) {
+        const supabase = getSupabaseClient();
+        
+        // Call atomic RPC function
+        const { data, error } = await supabase.rpc('withdraw_credits', {
+            p_artist_id: artistId,
+            p_song_id: songId,
+            p_amount: amount,
+        });
+        
+        if (error) throw new BadRequestException(error.message);
+        if (!data.success) throw new BadRequestException(data.error);
+        
+        return data;
+    }
 
-async calculateCreditsForDuration(durationSeconds: number): number {
-    // Per 5 seconds, rounded up
-    return Math.ceil(durationSeconds / 5);
+    calculateCreditsForDuration(durationSeconds: number): number {
+        // Per 5 seconds, rounded up
+        return Math.ceil(durationSeconds / 5);
+    }
 }
 ```
 
@@ -236,13 +479,13 @@ async withdrawCredits(
 
 ---
 
-## Phase 3: Radio Service Updates
+## Phase 3: Radio Service Updates (Pre-Charge + Soft-Weighted Random)
 
 ### 3.1 Modify `backend/src/radio/radio.service.ts`
 
-**Critical: Credit validation before playing**
+**Selection Algorithm: Soft-Weighted Random**
 
-A song will NOT be played unless it has enough credits to cover its FULL playtime. This prevents partial plays.
+Close to pure random with minor nudges to reward investment and prevent repetition:
 
 ```typescript
 private calculateCreditsRequired(durationSeconds: number): number {
@@ -258,10 +501,9 @@ private async getCreditedSong() {
         .from('songs')
         .select('*')
         .eq('status', 'approved')
-        .gt('credits_remaining', 0)
-        .order('created_at', { ascending: true });
+        .gt('credits_remaining', 0);
     
-    if (!songs) return null;
+    if (!songs || songs.length === 0) return null;
     
     // Filter to only songs with ENOUGH credits for full play
     const eligibleSongs = songs.filter(song => {
@@ -269,44 +511,88 @@ private async getCreditedSong() {
         return song.credits_remaining >= creditsRequired;
     });
     
-    // Exclude current song to avoid repeat
-    const currentSongId = (await this.getQueueState())?.song_id;
-    const nextSong = eligibleSongs.find(s => s.id !== currentSongId) || eligibleSongs[0];
+    if (eligibleSongs.length === 0) return null;
     
-    return nextSong || null;
+    // Soft-weighted random selection
+    const currentSongId = (await this.getQueueState())?.song_id;
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const avgCredits = eligibleSongs.reduce((sum, s) => sum + s.credits_remaining, 0) / eligibleSongs.length;
+    
+    const weightedSongs = eligibleSongs.map(song => {
+        let weight = 1.0; // Base weight
+        
+        // +0.1 for above-average credits (reward investment)
+        if (song.credits_remaining > avgCredits) weight += 0.1;
+        
+        // +0.1 for not played recently (anti-repetition)
+        if (!song.last_played_at || new Date(song.last_played_at) < oneHourAgo) weight += 0.1;
+        
+        // Exclude current song to avoid immediate repeat
+        if (song.id === currentSongId) weight = 0;
+        
+        return { song, weight };
+    });
+    
+    // Weighted random selection
+    const totalWeight = weightedSongs.reduce((sum, w) => sum + w.weight, 0);
+    if (totalWeight === 0) return eligibleSongs[0]; // Fallback to first
+    
+    let random = Math.random() * totalWeight;
+    for (const { song, weight } of weightedSongs) {
+        random -= weight;
+        if (random <= 0) return song;
+    }
+    
+    return eligibleSongs[0];
 }
 ```
 
-**Deduct credits after successful play:**
+**Pre-Charge Model: Deduct BEFORE playing (atomic via RPC)**
 
 ```typescript
 private async playSong(song: any) {
+    const supabase = getSupabaseClient();
     const creditsToDeduct = this.calculateCreditsRequired(song.duration_seconds || 180);
     
-    // Double-check credits (defensive)
-    if (song.credits_remaining < creditsToDeduct) {
-        return null; // Skip to fallback
+    // Atomic deduction via RPC (pre-charge)
+    const { data, error } = await supabase.rpc('deduct_play_credits', {
+        p_song_id: song.id,
+        p_credits_required: creditsToDeduct,
+    });
+    
+    if (error || !data?.success) {
+        // Insufficient credits - skip to fallback
+        return null;
     }
     
+    // Update last_played_at for anti-repetition
     await supabase
         .from('songs')
-        .update({
-            credits_remaining: song.credits_remaining - creditsToDeduct,
-            play_count: (song.play_count || 0) + 1,
-        })
+        .update({ last_played_at: new Date().toISOString() })
         .eq('id', song.id);
     
-    // ... rest of method
+    return {
+        id: song.id,
+        title: song.title,
+        artistName: song.artist_name,
+        audioUrl: song.audio_url,
+        artworkUrl: song.artwork_url,
+        duration: song.duration_seconds,
+        creditsDeducted: creditsToDeduct,
+    };
 }
 ```
 
-**Add fallback playlist logic:**
+**Fallback playlist logic:**
 
 ```typescript
 async getNextTrack() {
-    // 1. Try to get credited songs with ENOUGH credits for full play
+    // 1. Try credited songs (pre-charge model)
     const creditedSong = await this.getCreditedSong();
-    if (creditedSong) return await this.playSong(creditedSong);
+    if (creditedSong) {
+        const result = await this.playSong(creditedSong);
+        if (result) return result;
+    }
     
     // 2. Fall back to opt-in songs from artists (free play)
     const optInSong = await this.getOptInSong();
@@ -320,16 +606,55 @@ async getNextTrack() {
 }
 
 private async getOptInSong() {
-    // Songs where opt_in_free_play = true AND status = 'approved'
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('opt_in_free_play', true)
+        .order('last_played_at', { ascending: true, nullsFirst: true })
+        .limit(10);
+    
+    if (!data || data.length === 0) return null;
+    // Random from oldest-played for variety
+    return data[Math.floor(Math.random() * data.length)];
 }
 
 private async getAdminFallbackSong() {
-    // Random song from admin_fallback_songs where is_active = true
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+        .from('admin_fallback_songs')
+        .select('*')
+        .eq('is_active', true)
+        .order('play_count', { ascending: true })
+        .limit(10);
+    
+    if (!data || data.length === 0) return null;
+    // Random from least-played for variety
+    return data[Math.floor(Math.random() * data.length)];
 }
 
 private async playFallbackSong(song: any) {
-    // Play without deducting credits (free rotation)
-    // Just log the play and return song info
+    const supabase = getSupabaseClient();
+    
+    // Update play count (no credits deducted)
+    await supabase
+        .from(song.is_admin_song ? 'admin_fallback_songs' : 'songs')
+        .update({ 
+            play_count: (song.play_count || 0) + 1,
+            last_played_at: new Date().toISOString(),
+        })
+        .eq('id', song.id);
+    
+    return {
+        id: song.id,
+        title: song.title,
+        artistName: song.artist_name,
+        audioUrl: song.audio_url,
+        artworkUrl: song.artwork_url,
+        duration: song.duration_seconds,
+        isFallback: true,
+    };
 }
 ```
 
@@ -686,16 +1011,176 @@ Update admin song approval UI to include optional reason field:
 
 ---
 
+## Phase 8: Trustless Ingest (FFmpeg Duration Validation)
+
+### 8.1 Install Dependencies
+
+```bash
+cd backend
+npm install fluent-ffmpeg @types/fluent-ffmpeg music-metadata
+```
+
+Note: Requires FFmpeg binary installed on the server. For production, use a Docker image with FFmpeg.
+
+### 8.2 Create Duration Extractor Service
+
+Create `backend/src/uploads/duration.service.ts`:
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import * as ffmpeg from 'fluent-ffmpeg';
+import * as mm from 'music-metadata';
+import { Readable } from 'stream';
+
+@Injectable()
+export class DurationService {
+    /**
+     * Extract real duration from audio file.
+     * Uses music-metadata for speed, falls back to ffprobe for edge cases.
+     */
+    async extractDuration(buffer: Buffer): Promise<number> {
+        try {
+            // Fast path: music-metadata
+            const metadata = await mm.parseBuffer(buffer);
+            if (metadata.format.duration) {
+                return Math.ceil(metadata.format.duration);
+            }
+        } catch (e) {
+            // Fall through to ffprobe
+        }
+
+        // Slow path: ffprobe (more reliable for edge cases)
+        return this.extractWithFfprobe(buffer);
+    }
+
+    private extractWithFfprobe(buffer: Buffer): Promise<number> {
+        return new Promise((resolve, reject) => {
+            const stream = Readable.from(buffer);
+            ffmpeg(stream).ffprobe((err, data) => {
+                if (err) return reject(err);
+                const duration = data.format.duration;
+                resolve(Math.ceil(duration || 180)); // Default 3 min if unknown
+            });
+        });
+    }
+}
+```
+
+### 8.3 Update Song Upload Flow
+
+In `backend/src/songs/songs.controller.ts`, after file upload:
+
+```typescript
+// TRUSTLESS: Extract real duration, overwrite client value
+const realDuration = await this.durationService.extractDuration(audioBuffer);
+
+const createSongDto: CreateSongDto = {
+    title: dto.title,
+    artistName: dto.artistName,
+    audioUrl: audioUrlData.publicUrl,
+    artworkUrl,
+    durationSeconds: realDuration, // Server-validated, NOT client-provided
+};
+```
+
+---
+
+## Phase 9: Mobile WebView Bridge
+
+### 9.1 Add "Manage Credits" Button in Flutter
+
+In `mobile/lib/features/profile/profile_screen.dart`:
+
+```dart
+import 'package:url_launcher/url_launcher.dart';
+
+// Add to profile actions list
+ListTile(
+  leading: const Icon(Icons.account_balance_wallet, color: Colors.purple),
+  title: const Text('Manage Credits'),
+  subtitle: const Text('Allocate credits to your songs'),
+  trailing: const Icon(Icons.open_in_new),
+  onTap: () => _openCreditsWebView(),
+),
+
+Future<void> _openCreditsWebView() async {
+  // Get Firebase ID token for auth
+  final user = FirebaseAuth.instance.currentUser;
+  final token = await user?.getIdToken();
+  
+  // Open web dashboard with token for seamless auth
+  final uri = Uri.parse('https://your-domain.com/artist/songs');
+  if (await canLaunchUrl(uri)) {
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+}
+```
+
+### 9.2 Add url_launcher dependency
+
+In `mobile/pubspec.yaml`:
+
+```yaml
+dependencies:
+  url_launcher: ^6.2.1
+```
+
+### 9.3 Alternative: In-App WebView
+
+For a more seamless experience, use `webview_flutter`:
+
+```dart
+import 'package:webview_flutter/webview_flutter.dart';
+
+class CreditsWebView extends StatefulWidget {
+  @override
+  State<CreditsWebView> createState() => _CreditsWebViewState();
+}
+
+class _CreditsWebViewState extends State<CreditsWebView> {
+  late final WebViewController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _initWebView();
+  }
+
+  Future<void> _initWebView() async {
+    final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+    
+    _controller = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..loadRequest(
+        Uri.parse('https://your-domain.com/artist/songs'),
+        headers: {'Authorization': 'Bearer $token'},
+      );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Manage Credits')),
+      body: WebViewWidget(controller: _controller),
+    );
+  }
+}
+```
+
+---
+
 ## Future Considerations (Not Implemented Now)
 
-These features are noted for future implementation:
+These features are noted for future implementation after market research:
 
-1. **Analytics-Based Selection**: Use play data to prioritize popular songs at peak hours
-2. **Tiered Engagement Levels (1-5)**: 
-   - Monitor live listeners
-   - Scale 1 (low) to 5 (high) listener thresholds
-   - Artists pay premium for higher tiers
-   - Songs only play when listener count meets threshold
+1. **Tiered Engagement Levels (1-5)**: 
+   - Monitor live listener count in real-time
+   - Artists select tier when allocating credits (higher tier = higher cost)
+   - Songs only play when listener count meets tier threshold
+   - Example: Tier 3 requires 100+ listeners, costs 2x credits
+   
+2. **Analytics-Based Selection**: Use play data to prioritize popular songs at peak hours
+
 3. **Different Credit Rates per Tier**: Higher tiers deduct credits faster but guarantee more exposure
 
 ---
@@ -705,11 +1190,13 @@ These features are noted for future implementation:
 | File | Action | Description |
 |------|--------|-------------|
 | `backend/src/users/users.controller.ts` | Modify | Add POST /users endpoint (CRITICAL BUG FIX) |
-| `backend/src/credits/credits.service.ts` | Create | Credit allocation logic |
+| `Supabase SQL Editor` | Execute | Add CHECK constraint, RPC functions |
+| `backend/src/uploads/duration.service.ts` | Create | FFmpeg duration extraction (trustless ingest) |
+| `backend/src/credits/credits.service.ts` | Create | Credit allocation logic (calls RPC) |
 | `backend/src/credits/credits.controller.ts` | Modify | Add allocate/withdraw endpoints |
 | `backend/src/credits/dto/allocate-credits.dto.ts` | Create | DTO for allocation |
-| `backend/src/songs/songs.controller.ts` | Modify | Add GET /songs/mine endpoint |
-| `backend/src/radio/radio.service.ts` | Modify | Per-5-sec deduction + credit validation + fallback |
+| `backend/src/songs/songs.controller.ts` | Modify | Add GET /songs/mine endpoint + duration validation |
+| `backend/src/radio/radio.service.ts` | Modify | Pre-charge + soft-weighted random + fallback |
 | `backend/src/admin/fallback.service.ts` | Create | Fallback playlist management |
 | `backend/src/admin/admin.service.ts` | Modify | Add rejection reason + notifications |
 | `backend/src/admin/admin.controller.ts` | Modify | Add fallback endpoints + rejection reason |
@@ -719,6 +1206,8 @@ These features are noted for future implementation:
 | `backend/src/notifications/email.service.ts` | Create | Email notification service |
 | `backend/src/tasks/tasks.module.ts` | Create | Task scheduling module |
 | `backend/src/tasks/cleanup.service.ts` | Create | Scheduled job for rejected song cleanup |
+| `mobile/lib/features/profile/profile_screen.dart` | Modify | Add "Manage Credits" WebView button |
+| `mobile/pubspec.yaml` | Modify | Add url_launcher dependency |
 | `web/src/app/(dashboard)/artist/songs/page.tsx` | Create | Artist "My Songs" dashboard |
 | `web/src/app/(dashboard)/artist/songs/[id]/allocate/page.tsx` | Create | Credit allocation with minute bundles |
 | `web/src/app/(dashboard)/artist/credits/page.tsx` | Modify | Simplify to bank balance + links |
