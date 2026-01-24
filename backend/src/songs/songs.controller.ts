@@ -169,6 +169,54 @@ export class SongsController {
     });
   }
 
+  /**
+   * Get all songs uploaded by the current artist.
+   * Includes status, duration, credits allocated, and play count.
+   */
+  @Get('mine')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async getMySongs(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    const { data: songs, error } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('artist_id', userData.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new Error(`Failed to fetch songs: ${error.message}`);
+    }
+
+    return songs.map((song) => ({
+      id: song.id,
+      title: song.title,
+      artistName: song.artist_name,
+      audioUrl: song.audio_url,
+      artworkUrl: song.artwork_url,
+      durationSeconds: song.duration_seconds,
+      creditsRemaining: song.credits_remaining || 0,
+      playCount: song.play_count || 0,
+      likeCount: song.like_count || 0,
+      status: song.status,
+      optInFreePlay: song.opt_in_free_play || false,
+      rejectionReason: song.rejection_reason,
+      rejectedAt: song.rejected_at,
+      createdAt: song.created_at,
+      updatedAt: song.updated_at,
+    }));
+  }
+
   @Get(':id')
   async getSongById(@Param('id') id: string) {
     return this.songsService.getSongById(id);

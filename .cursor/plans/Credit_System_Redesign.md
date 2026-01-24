@@ -19,13 +19,13 @@ todos:
     status: completed
   - id: ffmpeg-validation
     content: "Add server-side FFmpeg duration validation on upload (trustless ingest)"
-    status: pending
+    status: completed
   - id: credits-service
     content: Create credits.service.ts that calls RPC functions
-    status: pending
+    status: completed
   - id: credits-endpoints
     content: Add POST /credits/songs/:songId/allocate and /withdraw endpoints to credits.controller.ts
-    status: pending
+    status: completed
   - id: radio-fallback
     content: Update radio.service.ts with pre-charge model, soft-weighted random selection, and fallback playlist logic
     status: pending
