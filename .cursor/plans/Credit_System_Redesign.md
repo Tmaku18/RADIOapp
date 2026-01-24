@@ -40,10 +40,10 @@ todos:
     status: completed
   - id: artist-songs-page
     content: Create artist "My Songs" page showing uploaded songs with review status and allocation links
-    status: pending
+    status: completed
   - id: allocation-page
     content: Create credit allocation page with minute bundles showing "X min / Y plays" format
-    status: pending
+    status: completed
   - id: web-credits-ui
     content: Update artist credits page with bank balance and link to allocation
     status: pending

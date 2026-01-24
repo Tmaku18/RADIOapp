@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Delete,
   Body,
   Param,
@@ -9,6 +10,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   UseGuards,
+  ForbiddenException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
@@ -220,6 +222,69 @@ export class SongsController {
   @Get(':id')
   async getSongById(@Param('id') id: string) {
     return this.songsService.getSongById(id);
+  }
+
+  /**
+   * Update song settings (opt-in for free play, etc.)
+   * Only the song owner or admin can update.
+   */
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async updateSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body() body: { optInFreePlay?: boolean },
+  ) {
+    const supabase = getSupabaseClient();
+    
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    // Verify song ownership (unless admin)
+    const { data: song } = await supabase
+      .from('songs')
+      .select('artist_id')
+      .eq('id', songId)
+      .single();
+
+    if (!song) {
+      throw new Error('Song not found');
+    }
+
+    if (userData.role !== 'admin' && song.artist_id !== userData.id) {
+      throw new ForbiddenException('You can only update your own songs');
+    }
+
+    // Build update object
+    const updateData: any = { updated_at: new Date().toISOString() };
+    if (body.optInFreePlay !== undefined) {
+      updateData.opt_in_free_play = body.optInFreePlay;
+    }
+
+    const { data: updated, error } = await supabase
+      .from('songs')
+      .update(updateData)
+      .eq('id', songId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new Error(`Failed to update song: ${error.message}`);
+    }
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      optInFreePlay: updated.opt_in_free_play,
+    };
   }
 
   @Get(':id/like')

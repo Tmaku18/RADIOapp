@@ -68,6 +68,7 @@ export const songsApi = {
   getAll: (params?: { artistId?: string; status?: string; limit?: number; offset?: number }) => 
     api.get('/songs', { params }),
   getById: (id: string) => api.get(`/songs/${id}`),
+  getMine: () => api.get('/songs/mine'),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
   create: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string }) => 
@@ -75,6 +76,8 @@ export const songsApi = {
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),
   getLikeStatus: (id: string) => api.get(`/songs/${id}/like`),
+  updateOptIn: (id: string, optInFreePlay: boolean) => 
+    api.patch(`/songs/${id}`, { optInFreePlay }),
 };
 
 export const usersApi = {
@@ -90,6 +93,12 @@ export const creditsApi = {
   getBalance: () => api.get('/credits/balance'),
   getTransactions: (params?: { limit?: number; offset?: number }) => 
     api.get('/credits/transactions', { params }),
+  getAllocations: (params?: { limit?: number }) => 
+    api.get('/credits/allocations', { params }),
+  allocateToSong: (songId: string, amount: number) => 
+    api.post(`/credits/songs/${songId}/allocate`, { amount }),
+  withdrawFromSong: (songId: string, amount: number) => 
+    api.post(`/credits/songs/${songId}/withdraw`, { amount }),
 };
 
 export const paymentsApi = {
