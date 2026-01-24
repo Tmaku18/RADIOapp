@@ -32,4 +32,37 @@ export class StripeService {
 
     return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
   }
+
+  /**
+   * Create a Stripe Checkout Session for web payments.
+   * This redirects users to Stripe's hosted payment page.
+   */
+  async createCheckoutSession(
+    amount: number,
+    credits: number,
+    metadata: Record<string, string>,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<Stripe.Checkout.Session> {
+    return this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `${credits} Radio Credits`,
+              description: `Purchase ${credits} credits for radio airplay`,
+            },
+            unit_amount: amount,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+  }
 }

@@ -4,6 +4,15 @@ import { getSupabaseClient } from '../config/supabase.config';
 import * as crypto from 'crypto';
 
 /**
+ * Response from signed upload URL generation
+ */
+export interface SignedUploadUrlResponse {
+  signedUrl: string;
+  path: string;
+  expiresIn: number;
+}
+
+/**
  * Configuration options for file upload
  */
 interface UploadOptions {
@@ -133,5 +142,54 @@ export class UploadsService {
       errorPrefix: 'Profile image',
       pathPrefix: 'profiles',
     });
+  }
+
+  /**
+   * Generate a signed upload URL for direct client-to-Supabase uploads.
+   * This bypasses the server, reducing bandwidth and memory usage.
+   * 
+   * @param userId - The user's database ID
+   * @param bucket - Target storage bucket ('songs' or 'artwork')
+   * @param filename - Original filename (used for extension)
+   * @param contentType - MIME type of the file
+   * @returns Signed URL and path for direct upload
+   */
+  async getSignedUploadUrl(
+    userId: string,
+    bucket: 'songs' | 'artwork',
+    filename: string,
+    contentType: string,
+  ): Promise<SignedUploadUrlResponse> {
+    // Validate content type based on bucket
+    const allowedTypes: Record<string, string[]> = {
+      songs: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
+      artwork: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+    };
+
+    if (!allowedTypes[bucket]?.includes(contentType)) {
+      throw new BadRequestException(
+        `Invalid content type for ${bucket} bucket. Allowed: ${allowedTypes[bucket].join(', ')}`,
+      );
+    }
+
+    // Generate unique path
+    const extension = filename.split('.').pop() || 'bin';
+    const path = `${userId}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
+
+    // Generate signed upload URL (60 seconds expiry)
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .createSignedUploadUrl(path);
+
+    if (error) {
+      throw new BadRequestException(`Failed to generate upload URL: ${error.message}`);
+    }
+
+    return {
+      signedUrl: data.signedUrl,
+      path: data.path,
+      expiresIn: 60,
+    };
   }
 }

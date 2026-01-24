@@ -5,15 +5,19 @@ import {
   Body,
   Headers,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
 import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('payments')
 export class PaymentsController {
@@ -41,6 +45,32 @@ export class PaymentsController {
     return this.paymentsService.createPaymentIntent(userData.id, dto);
   }
 
+  /**
+   * Create a Stripe Checkout Session for web payments.
+   * This redirects users to Stripe's hosted payment page.
+   * Used by the web app (mobile app uses create-intent instead).
+   */
+  @Post('create-checkout-session')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async createCheckoutSession(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CreateCheckoutSessionDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.paymentsService.createCheckoutSession(userData.id, dto);
+  }
+
   @Post('webhook')
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
@@ -51,9 +81,16 @@ export class PaymentsController {
     try {
       const event = await this.stripeService.verifyWebhookSignature(payload, signature);
 
+      // Handle PaymentIntent success (mobile app flow)
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object as { id: string };
         await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
+      }
+
+      // Handle Checkout Session completion (web app flow)
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object as { id: string };
+        await this.paymentsService.handleCheckoutSessionCompleted(session.id);
       }
 
       return { received: true };

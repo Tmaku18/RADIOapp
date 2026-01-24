@@ -1,11 +1,16 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 
 @Injectable()
 export class PaymentsService {
-  constructor(private stripeService: StripeService) {}
+  constructor(
+    private stripeService: StripeService,
+    private configService: ConfigService,
+  ) {}
 
   async createPaymentIntent(userId: string, dto: CreatePaymentIntentDto) {
     const supabase = getSupabaseClient();
@@ -124,5 +129,122 @@ export class PaymentsService {
     }
 
     return data;
+  }
+
+  /**
+   * Create a Stripe Checkout Session for web payments.
+   * This is used by the web app instead of PaymentIntents.
+   */
+  async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
+    const supabase = getSupabaseClient();
+    const webUrl = this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+
+    // Create transaction record
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        amount_cents: dto.amount,
+        credits_purchased: dto.credits,
+        status: 'pending',
+        payment_method: 'checkout_session',
+      })
+      .select()
+      .single();
+
+    if (txError) {
+      throw new Error(`Failed to create transaction: ${txError.message}`);
+    }
+
+    // Create Stripe Checkout Session
+    const session = await this.stripeService.createCheckoutSession(
+      dto.amount,
+      dto.credits,
+      {
+        userId,
+        transactionId: transaction.id,
+        credits: dto.credits.toString(),
+      },
+      `${webUrl}/artist/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      `${webUrl}/artist/credits?canceled=true`,
+    );
+
+    // Update transaction with checkout session ID
+    await supabase
+      .from('transactions')
+      .update({
+        stripe_checkout_session_id: session.id,
+      })
+      .eq('id', transaction.id);
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+      transactionId: transaction.id,
+    };
+  }
+
+  /**
+   * Handle successful checkout session completion.
+   * Called from webhook when checkout.session.completed fires.
+   */
+  async handleCheckoutSessionCompleted(sessionId: string) {
+    const supabase = getSupabaseClient();
+
+    // Find transaction by checkout session ID
+    const { data: transaction } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('stripe_checkout_session_id', sessionId)
+      .single();
+
+    if (!transaction || transaction.status === 'succeeded') {
+      return; // Already processed or not found
+    }
+
+    // Update transaction status
+    await supabase
+      .from('transactions')
+      .update({
+        status: 'succeeded',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transaction.id);
+
+    // Update credits balance using atomic RPC function
+    const { error: rpcError } = await supabase.rpc('increment_credits', {
+      p_artist_id: transaction.user_id,
+      p_amount: transaction.credits_purchased,
+    });
+
+    if (rpcError) {
+      console.error('Failed to increment credits via RPC:', rpcError.message);
+      
+      // Fallback to direct update
+      const { data: credits } = await supabase
+        .from('credits')
+        .select('*')
+        .eq('artist_id', transaction.user_id)
+        .single();
+
+      if (credits) {
+        await supabase
+          .from('credits')
+          .update({
+            balance: credits.balance + transaction.credits_purchased,
+            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credits.id);
+      } else {
+        await supabase
+          .from('credits')
+          .insert({
+            artist_id: transaction.user_id,
+            balance: transaction.credits_purchased,
+            total_purchased: transaction.credits_purchased,
+          });
+      }
+    }
   }
 }

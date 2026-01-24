@@ -8,14 +8,18 @@ import {
   Query,
   UseInterceptors,
   UploadedFiles,
+  UseGuards,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateSongDto } from './dto/create-song.dto';
+import { GetUploadUrlDto } from './dto/get-upload-url.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('songs')
 export class SongsController {
@@ -71,6 +75,37 @@ export class SongsController {
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
+  }
+
+  /**
+   * Generate a signed upload URL for direct client-to-Supabase uploads.
+   * This endpoint allows artists to upload files directly to storage,
+   * bypassing the server and reducing bandwidth/memory usage.
+   */
+  @Post('upload-url')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async getUploadUrl(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: GetUploadUrlDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.uploadsService.getSignedUploadUrl(
+      userData.id,
+      dto.bucket,
+      dto.filename,
+      dto.contentType,
+    );
   }
 
   @Get()
