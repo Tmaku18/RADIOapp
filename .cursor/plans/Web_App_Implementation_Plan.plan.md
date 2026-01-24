@@ -1,261 +1,440 @@
 ---
 name: Web App Implementation
-overview: Create a new Next.js web application named "web" with full functionality for listeners, artists, and admins, plus a marketing homepage. Priority is user features first, then marketing.
+overview: Create a Next.js web application with server-side session auth, signed uploads, and full functionality for listeners, artists, and admins. Includes data-driven marketing homepage with SSR/ISR for SEO.
 todos:
-  - id: setup
-    content: Initialize Next.js project with TypeScript and Tailwind CSS in web/ directory
+  - id: phase1-setup
+    content: "Phase 1: Initialize Next.js project with TypeScript, Tailwind CSS, and project structure"
     status: pending
-  - id: firebase-auth
-    content: Set up Firebase authentication context and hooks
+  - id: phase1-firebase-client
+    content: "Phase 1: Set up Firebase client SDK authentication (Google, Email, Apple)"
     status: pending
-  - id: api-client
-    content: Create typed API client for backend communication
+  - id: phase1-session-api
+    content: "Phase 1: Create /api/session endpoint with Firebase Admin SDK for HTTP-only session cookies"
     status: pending
-  - id: auth-pages
-    content: Build login and signup pages with role selection
+  - id: phase1-middleware
+    content: "Phase 1: Implement Next.js middleware for route protection using session cookies"
     status: pending
-  - id: dashboard-layout
-    content: Create dashboard layout with role-based sidebar navigation
+  - id: phase1-marketing
+    content: "Phase 1: Build SSR/ISR marketing pages (homepage, about, pricing, FAQ, contact)"
     status: pending
-  - id: radio-player
-    content: Implement radio player page with audio controls and like functionality
+  - id: phase2-auth-pages
+    content: "Phase 2: Build login and signup pages with role selection"
     status: pending
-  - id: profile-page
-    content: Build user profile page with edit capabilities
+  - id: phase2-dashboard
+    content: "Phase 2: Create role-aware dashboard layout with sidebar navigation"
     status: pending
-  - id: upload-page
-    content: Create artist song upload page with file handling
+  - id: phase2-radio-player
+    content: "Phase 2: Implement web radio player with HTML5 Audio and real-time state"
     status: pending
-  - id: credits-page
-    content: Build credits management page with Stripe integration
+  - id: phase2-signed-uploads-backend
+    content: "Phase 2: Add signed upload URL endpoint to NestJS backend"
     status: pending
-  - id: admin-dashboard
-    content: Implement admin dashboard with analytics
+  - id: phase2-artist-upload
+    content: "Phase 2: Build artist upload page with signed URL direct-to-Supabase uploads"
     status: pending
-  - id: admin-songs
-    content: Build admin song management page
+  - id: phase2-payments
+    content: "Phase 2: Implement credits page with Stripe Checkout session flow"
     status: pending
-  - id: admin-users
-    content: Build admin user management page
+  - id: phase3-admin-dashboard
+    content: "Phase 3: Build admin dashboard with platform analytics"
     status: pending
-  - id: marketing-homepage
-    content: Design and build marketing homepage
+  - id: phase3-admin-songs
+    content: "Phase 3: Build admin song moderation page (approve/reject/feature)"
+    status: pending
+  - id: phase3-admin-users
+    content: "Phase 3: Build admin user management page with role controls"
+    status: pending
+  - id: phase3-artist-analytics
+    content: "Phase 3: Build artist analytics page (plays, credits, engagement)"
+    status: pending
+  - id: phase4-security
+    content: "Phase 4: Implement rate limiting, abuse prevention, and audit logging"
+    status: pending
+  - id: phase4-streaming
+    content: "Phase 4: Optimize streaming with CDN and optional HLS/Icecast"
     status: pending
 isProject: false
 ---
 
-# Web Application Implementation Plan
+# Web Application Implementation Plan (v2)
+
+This plan creates a Next.js web application with improved security (session cookies), scalability (signed uploads), and SEO (SSR/ISR marketing pages). The web app serves three purposes: marketing website, full listener/artist experience, and admin control panel.
 
 ## Architecture Overview
 
 ```mermaid
 graph TD
-    subgraph web [Web App - Next.js]
-        Public[Public Pages]
-        Auth[Auth Pages]
-        Listener[Listener Dashboard]
-        Artist[Artist Dashboard]
-        Admin[Admin Dashboard]
+    subgraph web [Next.js Web App]
+        Marketing[Marketing Pages SSR/ISR]
+        AuthPages[Auth Pages]
+        Dashboard[Dashboard Client]
+        AdminPanel[Admin Panel]
     end
     
-    subgraph backend [Existing Backend]
-        API[NestJS API]
-        Firebase[Firebase Auth]
-        Supabase[Supabase DB]
-        Storage[File Storage]
+    subgraph auth [Authentication Flow]
+        FirebaseClient[Firebase Client SDK]
+        SessionAPI["/api/session"]
+        SessionCookie[HTTP-only Cookie]
     end
     
-    Public --> API
-    Auth --> Firebase
-    Listener --> API
-    Artist --> API
-    Admin --> API
+    subgraph backend [NestJS Backend]
+        API[REST API]
+        FirebaseAdmin[Firebase Admin SDK]
+        SignedURLs[Signed Upload URLs]
+        StripeWebhook[Stripe Webhooks]
+    end
+    
+    subgraph storage [Data Layer]
+        Supabase[(Supabase Postgres)]
+        SupaStorage[Supabase Storage]
+        CDN[CDN Distribution]
+    end
+    
+    AuthPages --> FirebaseClient
+    FirebaseClient --> SessionAPI
+    SessionAPI --> SessionCookie
+    Dashboard --> API
+    AdminPanel --> API
+    API --> FirebaseAdmin
+    API --> SignedURLs
+    SignedURLs --> SupaStorage
+    SupaStorage --> CDN
+    API --> Supabase
 ```
 
-## Project Structure
+## 1. Core Architecture
+
+### Frontend (Web)
+
+- **Framework:** Next.js 14+ (App Router)
+- **Styling:** Tailwind CSS
+- **Rendering Strategy:**
+  - SSR/ISR for marketing pages and public artist/song pages (SEO)
+  - Client components for interactive dashboards and uploads
+- **Deployment:** Vercel
+
+### Backend
+
+- **Framework:** NestJS (existing)
+- **New Responsibilities:**
+  - Signed upload URL generation for Supabase Storage
+  - Session validation support (optional)
+- **Existing:** Firebase token verification, role guards, payments, analytics
+
+### Authentication Model (Improved)
+
+- Client-side Firebase login (Google, Email, Apple)
+- Server-side session cookies for SSR and route protection
+- Firebase Admin SDK in Next.js API routes for session creation
+- NestJS continues to verify Firebase ID tokens on API calls
+
+### Database & Storage
+
+- **Database:** Supabase Postgres
+- **Storage:** Supabase Storage
+  - `songs` bucket (audio files)
+  - `artwork` bucket (images)
+- **Access Model:** Backend-generated signed upload URLs
+
+## 2. Authentication & Authorization Flow
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant NextJS as Next.js Client
+    participant Firebase as Firebase Auth
+    participant SessionAPI as /api/session
+    participant NestJS as NestJS Backend
+    
+    User->>NextJS: Click Login
+    NextJS->>Firebase: signInWithPopup/Email
+    Firebase-->>NextJS: ID Token
+    NextJS->>SessionAPI: POST /api/session (ID Token)
+    SessionAPI->>Firebase: Verify Token (Admin SDK)
+    SessionAPI-->>NextJS: Set HTTP-only Cookie
+    NextJS->>NestJS: API calls with ID Token header
+    NestJS->>Firebase: Verify Token (Admin SDK)
+    NestJS-->>NextJS: Protected Data
+```
+
+### Session Flow
+
+1. User logs in via Firebase client SDK (Google, Email, Apple)
+2. Firebase returns an ID token
+3. Client sends ID token to `/api/session`
+4. Next.js verifies token via Firebase Admin and issues HTTP-only session cookie
+5. Session cookie enables:
+
+   - SSR personalization
+   - Middleware route protection
+   - Secure server-side API calls
+
+### Role Enforcement
+
+- Roles stored in Supabase (`listener`, `artist`, `admin`)
+- Role guards enforced in:
+  - Next.js middleware (UI access)
+  - NestJS guards (API access)
+
+## 3. Project Structure
 
 ```
 RadioApp/
-├── web/                          # NEW - Main web application
+├── web/                              # NEW - Main web application
 │   ├── app/
-│   │   ├── (public)/            # Public routes (no auth)
-│   │   │   ├── page.tsx         # Marketing homepage
-│   │   │   └── layout.tsx
-│   │   ├── (auth)/              # Auth routes
+│   │   ├── (marketing)/              # Public SSR/ISR pages
+│   │   │   ├── page.tsx              # Homepage (featured artists, trending)
+│   │   │   ├── about/page.tsx
+│   │   │   ├── pricing/page.tsx
+│   │   │   ├── faq/page.tsx
+│   │   │   ├── contact/page.tsx
+│   │   │   ├── artist/[slug]/page.tsx  # Public artist profile
+│   │   │   └── song/[id]/page.tsx      # Shareable song page
+│   │   ├── (auth)/                   # Auth pages
 │   │   │   ├── login/page.tsx
 │   │   │   ├── signup/page.tsx
 │   │   │   └── layout.tsx
-│   │   ├── (dashboard)/         # Protected routes
-│   │   │   ├── radio/page.tsx   # Radio player (all users)
-│   │   │   ├── profile/page.tsx # User profile
-│   │   │   ├── upload/page.tsx  # Artist: song upload
-│   │   │   ├── credits/page.tsx # Artist: credits management
-│   │   │   ├── admin/           # Admin section
-│   │   │   │   ├── page.tsx     # Admin dashboard
+│   │   ├── (dashboard)/              # Protected client pages
+│   │   │   ├── dashboard/page.tsx    # Role-aware home
+│   │   │   ├── listen/page.tsx       # Radio player + discovery
+│   │   │   ├── profile/page.tsx
+│   │   │   ├── artist/
+│   │   │   │   ├── upload/page.tsx
+│   │   │   │   ├── stats/page.tsx    # Artist analytics
+│   │   │   │   └── credits/page.tsx
+│   │   │   ├── admin/
+│   │   │   │   ├── page.tsx          # Admin dashboard
 │   │   │   │   ├── songs/page.tsx
-│   │   │   │   └── users/page.tsx
-│   │   │   └── layout.tsx       # Sidebar + auth guard
-│   │   ├── layout.tsx           # Root layout
+│   │   │   │   ├── users/page.tsx
+│   │   │   │   └── analytics/page.tsx
+│   │   │   └── layout.tsx            # Sidebar + auth guard
+│   │   ├── api/
+│   │   │   └── session/route.ts      # Session cookie management
+│   │   ├── layout.tsx
 │   │   └── globals.css
 │   ├── components/
-│   │   ├── ui/                  # Reusable UI components
-│   │   ├── radio/               # Radio player components
-│   │   ├── auth/                # Auth forms
-│   │   └── dashboard/           # Dashboard components
+│   │   ├── ui/                       # Reusable UI components
+│   │   ├── marketing/                # Marketing page components
+│   │   ├── radio/                    # Audio player components
+│   │   ├── auth/                     # Auth forms
+│   │   └── dashboard/                # Dashboard components
 │   ├── lib/
-│   │   ├── api.ts               # API client
-│   │   ├── firebase.ts          # Firebase config
-│   │   └── hooks/               # Custom hooks
+│   │   ├── api.ts                    # Backend API client
+│   │   ├── firebase-client.ts        # Firebase client config
+│   │   ├── firebase-admin.ts         # Firebase Admin SDK (server)
+│   │   └── hooks/
+│   ├── middleware.ts                 # Route protection
 │   └── contexts/
 │       └── AuthContext.tsx
-├── admin/                        # EXISTING - Keep as-is for now
-├── backend/                      # EXISTING - No changes needed
-└── mobile/                       # EXISTING - No changes needed
+├── backend/                          # EXISTING - Minor additions
+│   └── src/
+│       └── uploads/
+│           └── uploads.service.ts    # Add signed URL generation
+├── admin/                            # EXISTING - Deprecate after Phase 3
+└── mobile/                           # EXISTING - No changes
 ```
 
-## Phase 1: Project Setup and Core Infrastructure
+## 4. File Upload Flow (Signed URLs)
 
-### 1.1 Initialize Next.js Project
+```mermaid
+sequenceDiagram
+    participant Artist
+    participant NextJS as Next.js
+    participant NestJS as NestJS Backend
+    participant Supabase as Supabase Storage
+    
+    Artist->>NextJS: Select file to upload
+    NextJS->>NestJS: POST /api/uploads/signed-url
+    NestJS->>NestJS: Verify artist role
+    NestJS->>Supabase: Generate signed PUT URL
+    Supabase-->>NestJS: Signed URL (5 min expiry)
+    NestJS-->>NextJS: Return signed URL
+    NextJS->>Supabase: PUT file directly
+    Supabase-->>NextJS: Upload complete
+    NextJS->>NestJS: POST /api/songs (metadata)
+    NestJS->>NestJS: Store song record
+    NestJS-->>NextJS: Song created
+```
 
-- Create new Next.js 14+ app with TypeScript in `web/` directory
-- Configure Tailwind CSS for styling
-- Set up ESLint and project structure
+### Benefits
 
-### 1.2 Firebase Authentication Integration
+- Reduced backend bandwidth (files bypass server)
+- Faster uploads (direct to storage)
+- Improved security (time-limited URLs)
+- Better scaling (backend handles only metadata)
 
-- Copy and adapt Firebase config from existing admin app
-- Create AuthContext with login, signup, logout, Google auth
-- Implement auth state persistence
+### Backend Changes Required
 
-### 1.3 API Client Setup
+Add to `uploads.service.ts`:
 
-- Create typed API client matching backend endpoints
-- Implement token injection for authenticated requests
-- Handle error responses consistently
+```typescript
+async getSignedUploadUrl(
+  userId: string,
+  bucket: 'songs' | 'artwork',
+  filename: string,
+  contentType: string,
+): Promise<{ signedUrl: string; path: string }> {
+  const path = `${userId}/${Date.now()}-${filename}`;
+  const { data, error } = await supabase.storage
+    .from(bucket)
+    .createSignedUploadUrl(path);
+  
+  if (error) throw error;
+  return { signedUrl: data.signedUrl, path };
+}
+```
 
-**Key files to reference:**
+## 5. Audio Streaming & Playback
 
-- [`admin/app/lib/firebase.ts`](admin/app/lib/firebase.ts) - Firebase config
-- [`admin/app/lib/api.ts`](admin/app/lib/api.ts) - API client pattern
-- [`admin/app/contexts/AuthContext.tsx`](admin/app/contexts/AuthContext.tsx) - Auth context
+### Web Player Implementation
 
-## Phase 2: Authentication Pages
+- HTML5 Audio API for basic playback
+- Hls.js fallback for HLS streams (future)
+- Persistent player component across navigation
 
-### 2.1 Login Page (`/login`)
+### Real-time State Sync
 
-- Email/password login form
-- Google sign-in button
-- Link to signup page
-- Redirect to dashboard on success
+- `GET /api/radio/current` - Current track + timing
+- Polling interval: 5-10 seconds
+- Future: SSE/WebSocket for instant updates
 
-### 2.2 Signup Page (`/signup`)
+### CDN Strategy (Phase 4)
 
-- Email/password registration
-- Role selection (Listener/Artist)
-- Call `POST /api/users` to create user record
-- Auto-login after signup
+- Cloudflare or similar for audio file delivery
+- Cache audio files at edge locations
+- Reduced latency for global listeners
 
-**Reference mobile implementation:**
+## 6. Payments & Monetization
 
-- [`mobile/lib/widgets/login_screen.dart`](mobile/lib/widgets/login_screen.dart) - Auth flow logic
+### Flow
 
-## Phase 3: Dashboard Layout and Navigation
+1. Artist selects credit package
+2. Next.js calls NestJS to create Stripe Checkout session
+3. User redirects to Stripe Checkout
+4. Stripe webhook confirms payment
+5. Backend credits artist's play balance
 
-### 3.1 Dashboard Layout
+### Safeguards
 
-- Responsive sidebar navigation
-- Role-based menu items:
-  - **All users:** Radio, Profile
-  - **Artists:** + Upload, Credits
-  - **Admins:** + Admin section
-- Header with user info and logout
+- Idempotent webhook handling (prevent double credits)
+- Transaction logging for audit trail
+- Admin review tools for disputes
 
-### 3.2 Auth Guard
+## 7. Admin Dashboard Features
 
-- Protect dashboard routes
-- Redirect unauthenticated users to login
-- Role-based route protection
+### Capabilities
 
-## Phase 4: Listener Features
+- Approve/reject uploaded songs
+- Feature artists and tracks on homepage
+- Monitor payments and revenue
+- Moderate abuse and fraud
+- View platform analytics
+- Manage user roles
 
-### 4.1 Radio Player Page (`/radio`)
+### Migration Strategy
 
-- Persistent audio player component
-- Current track display (title, artist, artwork)
-- Play/Pause/Skip controls
-- Like/Unlike functionality
-- Uses `GET /api/radio/current`, `GET /api/radio/next`, `POST /api/radio/play`
+- Phase 1-2: Existing admin (`/admin`) remains active
+- Phase 3: New admin built in web app
+- Phase 4: Deprecate old admin folder
 
-### 4.2 Profile Page (`/profile`)
+## 8. Analytics & Insights
 
-- Display user info (name, email, role)
-- Edit display name
-- Avatar display
-- Account settings
+### Artist Analytics (`/artist/stats`)
 
-**API endpoints used:**
+- Total plays (all-time, weekly, daily)
+- Plays over time chart
+- Credits spent vs exposure gained
+- Listener engagement metrics
+- Top performing songs
 
-- `GET /api/users/me`
-- `PUT /api/users/me`
+### Admin Analytics (`/admin/analytics`)
 
-## Phase 5: Artist Features
+- Platform usage metrics
+- Revenue tracking
+- User growth charts
+- Abuse detection alerts
 
-### 5.1 Upload Page (`/upload`)
+## 9. Security & Abuse Prevention
 
-- Audio file selector (drag-drop + click)
-- Optional artwork upload
-- Song title and artist name inputs
-- Upload progress indicator
-- Uses `POST /api/songs/upload`
+### Authentication Security
 
-### 5.2 Credits Page (`/credits`)
+- Firebase token verification on all protected endpoints
+- HTTP-only session cookies (not accessible to JS)
+- Secure cookie flags (SameSite, Secure)
 
-- Credit balance display
-- Purchase credit packages (10, 25, 50, 100 credits)
-- Transaction history table
-- Stripe checkout integration
-- Uses `GET /api/credits/balance`, `POST /api/payments/create-intent`, `GET /api/credits/transactions`
+### Rate Limiting
 
-**Reference mobile implementation:**
+- Likes: Max 100/hour per user
+- Uploads: Max 10/day per artist
+- Play reports: Max 1/song/user/minute
 
-- [`mobile/lib/features/payment/payment_screen.dart`](mobile/lib/features/payment/payment_screen.dart) - Stripe integration
+### File Validation
 
-## Phase 6: Admin Features
+- Type checking (audio/mpeg, audio/wav, image/*)
+- Size limits (50MB audio, 5MB images)
+- Content scanning (future)
 
-### 6.1 Admin Dashboard (`/admin`)
+### Play Counting
 
-- Platform analytics cards
-- Pending songs count
-- User statistics
-- Uses `GET /api/admin/analytics`
+- Minimum play duration before counting (30 seconds)
+- Duplicate play prevention per user per hour
 
-### 6.2 Song Management (`/admin/songs`)
+### Audit Logging
 
-- Songs table with filters (pending/approved/rejected)
-- Approve/Reject actions
-- Song preview player
-- Uses `GET /api/admin/songs`, `PATCH /api/admin/songs/:id`
+- Admin actions logged with timestamp and user
+- Payment events logged
+- Moderation decisions tracked
 
-### 6.3 User Management (`/admin/users`)
+## 10. Deployment & CI/CD
 
-- Users table with role filter
-- Role update functionality
-- Uses `GET /api/admin/users`, `PATCH /api/admin/users/:id/role`
+| Component | Platform |
 
-**Reference existing admin:**
+|-----------|----------|
 
-- [`admin/app/page.tsx`](admin/app/page.tsx) - Dashboard implementation
-- [`admin/app/songs/page.tsx`](admin/app/songs/page.tsx) - Songs management
+| Web (Next.js) | Vercel |
 
-## Phase 7: Marketing Homepage
+| Backend (NestJS) | Render / Railway / AWS |
 
-### 7.1 Public Homepage (`/`)
+| Database | Supabase |
 
-- Hero section with value proposition
-- Feature highlights (for artists and listeners)
-- How it works section
-- Call-to-action buttons (Sign Up as Artist / Listen Now)
-- Modern, visually appealing design
+| Storage | Supabase Storage |
+
+| Streaming | Supabase + CDN |
+
+| CI/CD | GitHub Actions |
+
+## 11. Phased Rollout
+
+### Phase 1 - Foundation
+
+- Next.js project setup with TypeScript and Tailwind
+- Firebase client auth integration
+- Server-side session cookies (`/api/session`)
+- Next.js middleware for route protection
+- Marketing pages (SSR/ISR): homepage, about, pricing, FAQ, contact
+
+### Phase 2 - Web App Parity
+
+- Login/signup pages with role selection
+- Dashboard layout with role-based navigation
+- Web radio player with real-time state
+- Signed upload URL endpoint (backend)
+- Artist upload page (direct to Supabase)
+- Credits and payment page (Stripe Checkout)
+
+### Phase 3 - Admin & Analytics
+
+- Admin dashboard with platform metrics
+- Song moderation page
+- User management page
+- Artist analytics page
+
+### Phase 4 - Scale & Optimize
+
+- Rate limiting and abuse prevention
+- CDN integration for audio streaming
+- Performance optimization
+- Old admin deprecation
 
 ## Dependencies
 
@@ -266,8 +445,10 @@ RadioApp/
     "react": "^18.3.0",
     "react-dom": "^18.3.0",
     "firebase": "^11.1.0",
+    "firebase-admin": "^12.0.0",
     "@stripe/stripe-js": "^4.0.0",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "hls.js": "^1.5.0"
   },
   "devDependencies": {
     "typescript": "^5",
@@ -278,9 +459,24 @@ RadioApp/
 }
 ```
 
-## Notes
+## Summary of v2 Improvements
 
-- The existing `admin/` folder will remain functional during development
-- Once `web/` is complete with admin features, the old `admin/` can be deprecated
-- No backend changes required - all endpoints already exist
-- Audio playback will use HTML5 Audio API (no external library needed for basic playback)
+| Area | v1 | v2 |
+
+|------|----|----|
+
+| Auth | Client-only tokens | + Server-side session cookies |
+
+| Uploads | Direct to backend | Signed URLs (bypass server) |
+
+| Marketing | Static homepage | SSR/ISR with dynamic content |
+
+| Streaming | Basic polling | + Real-time state, CDN roadmap |
+
+| Analytics | Admin only | + Artist analytics dashboard |
+
+| Security | Basic guards | + Rate limiting, abuse prevention |
+
+| Admin | Separate app | Migration + deprecation plan |
+
+| Rollout | Feature-based | Phased with clear milestones |
