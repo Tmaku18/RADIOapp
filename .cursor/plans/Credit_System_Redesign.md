@@ -37,7 +37,7 @@ todos:
     status: pending
   - id: mobile-webview
     content: "Add 'Manage Credits' WebView bridge in Flutter app for mobile artists"
-    status: pending
+    status: completed
   - id: artist-songs-page
     content: Create artist "My Songs" page showing uploaded songs with review status and allocation links
     status: pending

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 
@@ -41,6 +42,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final authService = Provider.of<AuthService>(context, listen: false);
     await authService.signOut();
     // Navigation is handled by AuthWrapper - no manual navigation needed
+  }
+
+  /// Open the web dashboard for credit management.
+  /// This allows mobile artists to manage their credits without
+  /// needing a full Flutter implementation of the credit UI.
+  Future<void> _openCreditsWebView() async {
+    // TODO: Replace with your actual web dashboard URL
+    const webDashboardUrl = 'http://localhost:3001/artist/credits';
+    final uri = Uri.parse(webDashboardUrl);
+    
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open web dashboard')),
+        );
+      }
+    }
+  }
+
+  /// Open the web dashboard for viewing and managing songs.
+  Future<void> _openMySongsWebView() async {
+    // TODO: Replace with your actual web dashboard URL
+    const webDashboardUrl = 'http://localhost:3001/artist/songs';
+    final uri = Uri.parse(webDashboardUrl);
+    
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open web dashboard')),
+        );
+      }
+    }
   }
 
   @override
@@ -91,15 +128,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    if (_user!.role == 'artist')
+                    if (_user!.role == 'artist') ...[
                       ListTile(
-                        leading: const Icon(Icons.credit_card),
-                        title: const Text('Credits'),
-                        trailing: const Icon(Icons.chevron_right),
-                        onTap: () {
-                          // Navigate to credits screen
-                        },
+                        leading: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
+                        title: const Text('Manage Credits'),
+                        subtitle: const Text('Allocate credits to your songs'),
+                        trailing: const Icon(Icons.open_in_new),
+                        onTap: () => _openCreditsWebView(),
                       ),
+                      ListTile(
+                        leading: const Icon(Icons.library_music, color: Colors.deepPurple),
+                        title: const Text('My Songs'),
+                        subtitle: const Text('View your uploaded songs'),
+                        trailing: const Icon(Icons.open_in_new),
+                        onTap: () => _openMySongsWebView(),
+                      ),
+                    ],
                     ListTile(
                       leading: const Icon(Icons.settings),
                       title: const Text('Settings'),
