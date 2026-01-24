@@ -13,14 +13,16 @@ Independent artists struggle to get their music heard through traditional channe
 - **For Platform**: Sustainable revenue model through credit purchases and future subscription plans
 
 ### Key Features
-- 🎵 **Continuous Radio Stream**: Seamless, uninterrupted music playback with persistent queue
-- 🎤 **Artist Uploads**: Easy song upload with artwork and metadata (direct-to-storage signed URLs)
-- 💳 **Credit System**: Pay-per-play model for artists with Stripe Payment Sheet (mobile) and Checkout Sessions (web)
+- 🎵 **Continuous Radio Stream**: Seamless, uninterrupted music playback with soft-weighted random selection
+- 🎤 **Artist Uploads**: Easy song upload with server-side duration validation (FFmpeg/music-metadata)
+- 💳 **Credit System**: Advanced credit allocation with atomic PostgreSQL RPC transactions
+- 🏦 **Credit Bank**: Artists buy credits, then allocate to individual songs for airtime
 - 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
 - 💰 **Payment Processing**: Full Stripe integration with dual payment flows
 - ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
-- 📊 **Admin Dashboard**: Full management interface with Firebase authentication
+- 📊 **Admin Dashboard**: Full management interface with song moderation and fallback playlist
 - 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
+- 🔔 **Notifications**: In-app and email notifications for song approval/rejection
 - 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
 
 ## Architecture
@@ -155,15 +157,19 @@ web/
 │   │   │   ├── dashboard/page.tsx      # Role-aware dashboard
 │   │   │   ├── listen/page.tsx         # Radio player
 │   │   │   ├── profile/page.tsx        # User profile management
+│   │   │   ├── notifications/page.tsx  # Notification center
 │   │   │   ├── artist/
+│   │   │   │   ├── songs/page.tsx      # My Songs (manage uploads)
+│   │   │   │   ├── songs/[id]/allocate/page.tsx  # Credit allocation
 │   │   │   │   ├── upload/page.tsx     # Song upload (signed URLs)
-│   │   │   │   ├── credits/page.tsx    # Credits & Stripe Checkout
+│   │   │   │   ├── credits/page.tsx    # Credit Bank & Stripe Checkout
 │   │   │   │   └── stats/page.tsx      # Artist analytics
 │   │   │   ├── admin/
 │   │   │   │   ├── page.tsx            # Admin dashboard
-│   │   │   │   ├── songs/page.tsx      # Song moderation
-│   │   │   │   └── users/page.tsx      # User management
-│   │   │   └── layout.tsx              # Dashboard layout with sidebar
+│   │   │   │   ├── songs/page.tsx      # Song moderation with rejection
+│   │   │   │   ├── users/page.tsx      # User management
+│   │   │   │   └── fallback/page.tsx   # Fallback playlist management
+│   │   │   └── layout.tsx              # Dashboard layout with sidebar + notification bell
 │   │   ├── api/auth/
 │   │   │   ├── login/route.ts          # Session cookie creation
 │   │   │   └── logout/route.ts         # Session cookie destruction
@@ -251,13 +257,26 @@ backend/
 │   │   ├── stripe.service.ts           # Stripe API integration
 │   │   └── payments.module.ts          # Payments module definition
 │   ├── credits/
-│   │   ├── credits.controller.ts       # Credit balance & transactions
-│   │   └── credits.module.ts           # Credits module definition
+│   │   ├── dto/
+│   │   │   └── allocate-credits.dto.ts   # Credit allocation DTO
+│   │   ├── credits.controller.ts         # Credit balance, allocations & transactions
+│   │   ├── credits.service.ts            # Credit allocation via PostgreSQL RPC
+│   │   └── credits.module.ts             # Credits module definition
+│   ├── notifications/
+│   │   ├── notification.controller.ts    # Notification endpoints
+│   │   ├── notification.service.ts       # In-app notification management
+│   │   └── notification.module.ts        # Notifications module definition
+│   ├── email/
+│   │   ├── email.service.ts              # Email notifications (SendGrid/Resend)
+│   │   └── email.module.ts               # Email module definition
+│   ├── tasks/
+│   │   ├── cleanup.service.ts            # Scheduled cleanup (48hr rejected songs)
+│   │   └── tasks.module.ts               # Tasks module with @nestjs/schedule
 │   ├── admin/
 │   │   ├── dto/
-│   │   │   └── update-song-status.dto.ts  # Song approval DTO
-│   │   ├── admin.controller.ts         # Admin endpoints (songs, users, analytics)
-│   │   ├── admin.service.ts            # Admin business logic
+│   │   │   └── update-song-status.dto.ts  # Song approval DTO with rejection reason
+│   │   ├── admin.controller.ts         # Admin endpoints (songs, users, analytics, fallback)
+│   │   ├── admin.service.ts            # Admin business logic + fallback management
 │   │   └── admin.module.ts             # Admin module definition
 │   ├── app.module.ts                    # Root module (imports all modules)
 │   ├── app.controller.ts                # Health check endpoint
@@ -271,11 +290,16 @@ backend/
 
 **Key Components:**
 - **Firebase Auth Guard**: Validates Firebase ID tokens on protected routes
-- **Radio Service**: Database-persistent queue with priority scoring, skip tracking
-- **Uploads Service**: Multipart uploads + signed URL generation for direct uploads
+- **Radio Service**: Soft-weighted random selection, pre-charge model, fallback playlists
+- **Uploads Service**: Multipart uploads + signed URL generation + duration validation
+- **Duration Service**: Server-side audio duration extraction (music-metadata)
 - **Stripe Service**: PaymentIntents (mobile) + Checkout Sessions (web)
-- **Songs Service**: Song metadata, like/unlike, play counts, rotation eligibility
-- **Admin Service**: Analytics aggregation, song moderation, user role management
+- **Songs Service**: Song metadata, like/unlike, play counts, opt-in free play
+- **Credits Service**: Atomic credit allocation/withdrawal via PostgreSQL RPC
+- **Notification Service**: In-app notifications for song approval/rejection
+- **Email Service**: Email notifications (SendGrid/Resend) with templates
+- **Cleanup Service**: Scheduled job to delete rejected songs after 48 hours
+- **Admin Service**: Analytics, song moderation, user management, fallback playlist
 - **Logger Service**: Winston-based structured logging with request IDs
 - **Sentry Service**: Error capture and reporting
 - **AllExceptionsFilter**: Consistent error responses with tracing
@@ -375,6 +399,12 @@ CORS_ORIGIN=http://localhost:3000,http://localhost:3001
 
 # Error Tracking (Optional)
 SENTRY_DSN=https://your-key@sentry.io/your-project
+
+# Email Configuration (Optional - logs to console if not set)
+EMAIL_PROVIDER=sendgrid  # or 'resend'
+EMAIL_FROM=noreply@radioapp.com
+SENDGRID_API_KEY=SG.xxxxx  # if using SendGrid
+RESEND_API_KEY=re_xxxxx    # if using Resend
 ```
 
 4. Run database migrations (execute SQL from `docs/database-schema.md` in Supabase SQL editor)
@@ -594,19 +624,31 @@ Supabase Storage (Audio Files)
 - ✅ Song upload with metadata (title, artist, genre, duration)
 - ✅ Album artwork upload and display
 - ✅ **Signed upload URLs** for direct-to-storage uploads (web)
+- ✅ **Server-side duration validation** (music-metadata library)
 - ✅ Song listing and search
 - ✅ Play history tracking
 - ✅ Like/unlike songs functionality
-- ✅ Song approval workflow (admin moderation)
+- ✅ Song approval workflow with rejection reasons
+- ✅ **Opt-in free play** for songs without credits
+- ✅ **48-hour cleanup** of rejected songs (scheduled task)
 
 ### Radio Streaming
 - ✅ Continuous radio stream playback
-- ✅ **Persistent queue stored in database** (survives server restarts)
-- ✅ Priority scoring based on engagement metrics
+- ✅ **Soft-weighted random selection** (slight preference for more credits/less recent plays)
+- ✅ **Pre-charge model** with atomic PostgreSQL RPC transactions
+- ✅ **Three-tier fallback**: credited songs → opt-in songs → admin fallback playlist
 - ✅ Skip tracking and limits
 - ✅ Queue preview endpoint
 - ✅ Audio streaming via Supabase Storage URLs
 - ✅ **Hls.js web player** with custom React hook
+
+### Credit System
+- ✅ **Credit Bank model**: Buy credits → allocate to individual songs
+- ✅ **Atomic transactions** via PostgreSQL RPC functions
+- ✅ **Credit allocation** to songs with minute bundles
+- ✅ **Credit withdrawal** from songs back to bank
+- ✅ **Per-play cost calculation** (1 credit = 5 seconds airtime)
+- ✅ Allocation history tracking
 
 ### Payment System
 - ✅ Stripe payment integration
@@ -615,12 +657,19 @@ Supabase Storage (Audio Files)
 - ✅ Webhook handling for both payment types
 - ✅ Transaction history with status badges
 
+### Notifications
+- ✅ **In-app notifications** for song approval/rejection
+- ✅ **Email notifications** (SendGrid/Resend integration)
+- ✅ **Notification bell** with unread count
+- ✅ Mark as read / Mark all as read
+
 ### Mobile App Features
 - ✅ **Bottom navigation bar** (Player, Upload, Credits, Profile)
 - ✅ **Like button** on player screen
 - ✅ **Credits screen** with balance and transaction history
 - ✅ Stripe Payment Sheet integration
 - ✅ Role-based navigation
+- ✅ **WebView bridge** to web dashboard for credit management
 
 ### Web App Features
 - ✅ **Marketing pages** (Homepage, About, Pricing, FAQ, Contact)
@@ -629,9 +678,13 @@ Supabase Storage (Audio Files)
 - ✅ **Role-aware dashboard** with sidebar navigation
 - ✅ **Web radio player** with Hls.js
 - ✅ **Artist upload page** with signed URLs
-- ✅ **Credits page** with Stripe Checkout
+- ✅ **Credit Bank page** with Stripe Checkout and allocation link
+- ✅ **My Songs page** with status, duration, credits, and actions
+- ✅ **Credit allocation page** with minute bundles and opt-in toggle
+- ✅ **Notifications page** with unread indicator
 - ✅ **Artist analytics** (plays, credits, engagement)
-- ✅ **Admin dashboard** (analytics, song moderation, user management)
+- ✅ **Admin dashboard** (analytics, song moderation with rejection, user management)
+- ✅ **Admin fallback playlist** management page
 
 ### Observability & Infrastructure
 - ✅ RESTful API architecture with `/api/v1` versioning
