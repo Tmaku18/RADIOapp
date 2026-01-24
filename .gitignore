@@ -47,12 +47,30 @@ mobile/ios/Runner/GoogleService-Info.plist
 firebase-debug.log
 firestore-debug.log
 firebase-service-account.json
+**/firebase-service-account*.json
+**/firebase-key*.txt
+**/firebase-key*.md
+**/*-service-account*.json
+**/GoogleService-Info.plist
+**/google-services.json
+
+# Sensitive files
+**/*.pem
+**/*.key
+**/credentials.json
+**/secrets.json
+**/*secret*
+**/*credential*
 
 # Next.js
 admin/.next/
 admin/out/
 admin/.vercel
+web/.next/
+web/out/
+web/.vercel
 
 # NestJS
 backend/dist/
 backend/.env
+backend/config/*.json
