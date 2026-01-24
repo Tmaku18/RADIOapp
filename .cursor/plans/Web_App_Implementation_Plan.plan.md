@@ -6,16 +6,16 @@ todos:
     content: "Phase 1: Initialize Next.js project with TypeScript, Tailwind CSS, and project structure"
     status: pending
   - id: phase1-firebase-client
-    content: "Phase 1: Set up Firebase client SDK authentication (Google, Email, Apple)"
+    content: "Phase 1: Set up Firebase client SDK with token refresh interceptor for API calls"
     status: pending
   - id: phase1-session-api
-    content: "Phase 1: Create /api/session endpoint with Firebase Admin SDK for HTTP-only session cookies"
+    content: "Phase 1: Create /api/auth/login endpoint with Firebase Admin SDK for HTTP-only session cookies"
     status: pending
   - id: phase1-middleware
     content: "Phase 1: Implement Next.js middleware for route protection using session cookies"
     status: pending
   - id: phase1-marketing
-    content: "Phase 1: Build SSR/ISR marketing pages (homepage, about, pricing, FAQ, contact)"
+    content: "Phase 1: Build SSR/ISR marketing pages with precomputed homepage payload cache"
     status: pending
   - id: phase2-auth-pages
     content: "Phase 2: Build login and signup pages with role selection"
@@ -24,22 +24,25 @@ todos:
     content: "Phase 2: Create role-aware dashboard layout with sidebar navigation"
     status: pending
   - id: phase2-radio-player
-    content: "Phase 2: Implement web radio player with howler.js + Hls.js"
+    content: "Phase 2: Implement web radio player with Hls.js + React state hook"
     status: pending
   - id: phase2-signed-uploads-backend
-    content: "Phase 2: Add GET /api/songs/upload-url endpoint to NestJS backend"
+    content: "Phase 2: Add POST /api/v1/songs/upload-url endpoint to NestJS backend"
     status: pending
   - id: phase2-artist-upload
     content: "Phase 2: Build artist upload page with signed URL direct-to-Supabase uploads"
     status: pending
   - id: phase2-checkout-session-backend
-    content: "Phase 2: Add POST /api/payments/create-checkout-session endpoint for web payments"
+    content: "Phase 2: Add POST /api/v1/payments/create-checkout-session endpoint for web payments"
     status: pending
   - id: phase2-payments
     content: "Phase 2: Implement credits page with Stripe Checkout session flow"
     status: pending
   - id: phase2-shared-types
-    content: "Phase 2: Set up shared TypeScript DTOs between web/ and backend/"
+    content: "Phase 2: Configure TSConfig path mapping for shared types (@shared/*)"
+    status: pending
+  - id: phase2-play-heartbeat
+    content: "Phase 2: Implement signed heartbeat pattern for play counting authority"
     status: pending
   - id: phase3-admin-dashboard
     content: "Phase 3: Build admin dashboard with platform analytics"
@@ -56,13 +59,16 @@ todos:
   - id: phase4-security
     content: "Phase 4: Implement rate limiting, abuse prevention, and audit logging"
     status: pending
+  - id: phase4-observability
+    content: "Phase 4: Add structured logging, request IDs, and error reporting (Sentry)"
+    status: pending
   - id: phase4-streaming
     content: "Phase 4: Optimize streaming with CDN and HLS"
     status: pending
 isProject: false
 ---
 
-# Web Application Implementation Plan (v2.1)
+# Web Application Implementation Plan (v2.2)
 
 This plan creates a Next.js web application with improved security (session cookies), scalability (signed uploads), and SEO (SSR/ISR marketing pages). The web app serves three purposes: marketing website, full listener/artist experience, and admin control panel.
 
@@ -79,41 +85,41 @@ graph TD
     
     subgraph auth [Authentication Flow]
         FirebaseClient[Firebase Client SDK]
-        SessionAPI["/api/session"]
+        TokenRefresh[Token Refresh Interceptor]
+        SessionAPI["/api/auth/login"]
         SessionCookie[HTTP-only Cookie]
     end
     
-    subgraph backend [NestJS Backend]
+    subgraph backend [NestJS Backend /api/v1]
         API[REST API]
         FirebaseAdmin[Firebase Admin SDK]
-        SignedURLs[GET /songs/upload-url]
+        SignedURLs[POST /songs/upload-url]
         CheckoutSession[POST /payments/create-checkout-session]
+        Heartbeat[POST /radio/heartbeat]
         PaymentIntent[POST /payments/create-intent - Mobile]
-        StripeWebhook[Stripe Webhooks]
     end
     
     subgraph storage [Data Layer]
         Supabase[(Supabase Postgres)]
         SupaStorage[Supabase Storage]
+        HomepageCache[Homepage Payload Cache]
         CDN[CDN Distribution]
     end
     
     subgraph shared [Shared Code]
-        DTOs[TypeScript DTOs]
+        DTOs[backend/src/shared/*]
     end
     
     AuthPages --> FirebaseClient
-    FirebaseClient --> SessionAPI
+    FirebaseClient --> TokenRefresh
+    TokenRefresh --> SessionAPI
     SessionAPI --> SessionCookie
     Dashboard --> API
     AdminPanel --> API
     API --> FirebaseAdmin
-    API --> SignedURLs
-    SignedURLs --> SupaStorage
-    SupaStorage --> CDN
-    API --> Supabase
-    web --> DTOs
-    backend --> DTOs
+    Marketing --> HomepageCache
+    web -.-> DTOs
+    backend -.-> DTOs
 ```
 
 ## 1. Core Architecture
@@ -122,28 +128,30 @@ graph TD
 
 - **Framework:** Next.js 14+ (App Router)
 - **Styling:** Tailwind CSS
-- **Audio Player:** howler.js + Hls.js (unified API for cross-browser compatibility)
+- **Audio Player:** Hls.js + custom React hook (simplified stack)
 - **Rendering Strategy:**
   - SSR/ISR for marketing pages and public artist/song pages (SEO)
   - Client components for interactive dashboards and uploads
 - **Deployment:** Vercel
 
-### Backend (NestJS - Existing + New Endpoints)
+### Backend (NestJS - Versioned API)
 
 - **Framework:** NestJS (existing)
+- **API Version:** `/api/v1/...` (all endpoints versioned)
 - **New Endpoints Required:**
-  - `GET /api/songs/upload-url` - Signed URL generation for direct uploads
-  - `POST /api/payments/create-checkout-session` - Stripe Checkout for web
+  - `POST /api/v1/songs/upload-url` - Signed URL generation
+  - `POST /api/v1/payments/create-checkout-session` - Stripe Checkout for web
+  - `POST /api/v1/radio/heartbeat` - Play counting authority
 - **Existing (Mobile):**
-  - `POST /api/payments/create-intent` - PaymentIntent for flutter_stripe
-  - Firebase token verification, role guards, analytics
+  - `POST /api/v1/payments/create-intent` - PaymentIntent for flutter_stripe
 
-### Authentication Model (Improved)
+### Authentication Model (Hardened)
 
-- Client-side Firebase login (Google, Email, Apple)
-- Server-side session cookies for SSR and route protection
-- Firebase Admin SDK in Next.js API routes (`createSessionCookie()`)
-- NestJS continues to verify Firebase ID tokens on API calls
+**The Rule (Explicit):**
+- **Session Cookie** → UI rendering, SSR personalization, middleware protection
+- **Fresh ID Token** → Every API call to NestJS (via interceptor)
+
+This prevents the "Split Brain" problem where cookie is valid but token is expired.
 
 ### Database & Storage
 
@@ -151,24 +159,65 @@ graph TD
 - **Storage:** Supabase Storage
   - `songs` bucket (audio files)
   - `artwork` bucket (images)
+- **Homepage Cache:** Precomputed JSON payload for marketing pages
 - **Access Model:** Backend-generated signed upload URLs
 
-### Shared Code (Type Safety)
+### Shared Code (Decision: TSConfig Path Mapping)
 
-- **Shared DTOs** between `web/` and `backend/`
-- Options:
+**Chosen Strategy:** TSConfig path mapping (Option 2)
 
-  1. `shared/` folder at project root with TypeScript interfaces
-  2. Configure `web/tsconfig.json` to import from `../backend/src/`
-  3. Turborepo for monorepo management (future)
+```json
+// web/tsconfig.json
+{
+  "compilerOptions": {
+    "paths": {
+      "@shared/*": ["../backend/src/shared/*"]
+    }
+  }
+}
+```
 
-## 2. Authentication & Authorization Flow
+**Why this choice:**
+- No build pipeline changes required
+- Backend is source of truth for types
+- Works immediately with existing Vercel/Render setup
+- Migrate to Turborepo later if needed
+
+**Shared types location:** `backend/src/shared/`
+- `user.ts` - User, Role interfaces
+- `song.ts` - Song, UploadResponse interfaces
+- `payment.ts` - PaymentIntent, CheckoutSession interfaces
+- `radio.ts` - StreamToken, Heartbeat interfaces
+
+## 2. Contract Layer (API Authorization)
+
+Explicit definition of endpoint access requirements:
+
+| Endpoint | Auth | Role | Token Type |
+|----------|------|------|------------|
+| `GET /api/v1/radio/current` | No | Any | None |
+| `GET /api/v1/radio/stream` | Yes | Any | ID Token |
+| `POST /api/v1/radio/heartbeat` | Yes | Any | ID Token + StreamToken |
+| `POST /api/v1/songs/upload-url` | Yes | Artist | ID Token |
+| `POST /api/v1/songs` | Yes | Artist | ID Token |
+| `GET /api/v1/songs` | No | Any | None |
+| `POST /api/v1/payments/create-intent` | Yes | Artist | ID Token |
+| `POST /api/v1/payments/create-checkout-session` | Yes | Artist | ID Token |
+| `POST /api/v1/payments/webhook` | No | N/A | Stripe Signature |
+| `GET /api/v1/admin/*` | Yes | Admin | ID Token |
+| `PATCH /api/v1/admin/*` | Yes | Admin | ID Token |
+
+**Public-read endpoints:** radio/current, songs list, artist profiles, song pages
+**Session cookie only:** Next.js SSR/middleware (never sent to NestJS)
+
+## 3. Authentication & Authorization Flow
 
 ```mermaid
 sequenceDiagram
     participant User
     participant NextJS as Next.js Client
     participant Firebase as Firebase Auth
+    participant Interceptor as Token Interceptor
     participant SessionAPI as /api/auth/login
     participant NestJS as NestJS Backend
     
@@ -178,29 +227,59 @@ sequenceDiagram
     NextJS->>SessionAPI: POST /api/auth/login (ID Token)
     SessionAPI->>Firebase: verifyIdToken + createSessionCookie
     SessionAPI-->>NextJS: Set HTTP-only Cookie (5 days)
-    NextJS->>NestJS: API calls with ID Token header
-    NestJS->>Firebase: Verify Token (Admin SDK)
+    
+    Note over NextJS,NestJS: Later: API Call
+    NextJS->>Interceptor: Request to NestJS
+    Interceptor->>Firebase: getIdToken(forceRefresh)
+    Firebase-->>Interceptor: Fresh ID Token
+    Interceptor->>NestJS: Request + Bearer Token
+    NestJS->>Firebase: Verify Token
     NestJS-->>NextJS: Protected Data
 ```
 
-### Session Flow
+### Token Refresh Interceptor (Critical)
 
-1. User logs in via Firebase client SDK (Google, Email, Apple)
-2. Firebase returns an ID token
-3. Client sends ID token to `/api/auth/login`
-4. Next.js API route:
+Prevents Cookie/Token drift where UI thinks user is logged in but API rejects calls.
 
-   - Verifies token with `firebase-admin.auth().verifyIdToken()`
-   - Creates session cookie with `firebase-admin.auth().createSessionCookie()`
-   - Sets HTTP-only cookie in response
+```typescript
+// lib/api.ts
+import axios from 'axios';
+import { getAuth } from 'firebase/auth';
 
-5. Session cookie enables:
+const api = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL + '/api/v1',
+});
 
-   - SSR personalization
-   - Middleware route protection
-   - Secure server-side API calls
+// Interceptor: Always send fresh ID token
+api.interceptors.request.use(async (config) => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  
+  if (user) {
+    // forceRefresh ensures token is valid even if cached one expired
+    const token = await user.getIdToken(/* forceRefresh */ true);
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  
+  return config;
+});
 
-### Session API Route Implementation
+// Response interceptor: Handle 401 gracefully
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      // Token truly invalid - redirect to login
+      window.location.href = '/login?session_expired=true';
+    }
+    return Promise.reject(error);
+  }
+);
+
+export { api };
+```
+
+### Session Cookie Implementation
 
 ```typescript
 // app/api/auth/login/route.ts
@@ -234,79 +313,81 @@ export async function POST(request: Request) {
 
 - Roles stored in Supabase (`listener`, `artist`, `admin`)
 - Role guards enforced in:
-  - Next.js middleware (UI access)
-  - NestJS guards (API access)
+  - Next.js middleware (UI access via session cookie)
+  - NestJS guards (API access via ID token)
 
-## 3. Project Structure
+## 4. Project Structure
 
 ```
 RadioApp/
-├── shared/                           # NEW - Shared TypeScript types
-│   └── types/
-│       ├── user.ts                   # User, Role interfaces
-│       ├── song.ts                   # Song, UploadResponse interfaces
-│       ├── payment.ts                # PaymentIntent, CheckoutSession interfaces
-│       └── index.ts                  # Barrel export
 ├── web/                              # NEW - Main web application
 │   ├── app/
 │   │   ├── (marketing)/              # Public SSR/ISR pages
-│   │   │   ├── page.tsx              # Homepage (featured artists, trending)
+│   │   │   ├── page.tsx              # Homepage (uses cached payload)
 │   │   │   ├── about/page.tsx
 │   │   │   ├── pricing/page.tsx
 │   │   │   ├── faq/page.tsx
 │   │   │   ├── contact/page.tsx
-│   │   │   ├── artist/[slug]/page.tsx  # Public artist profile
-│   │   │   └── song/[id]/page.tsx      # Shareable song page
-│   │   ├── (auth)/                   # Auth pages
+│   │   │   ├── artist/[slug]/page.tsx
+│   │   │   └── song/[id]/page.tsx
+│   │   ├── (auth)/
 │   │   │   ├── login/page.tsx
 │   │   │   ├── signup/page.tsx
 │   │   │   └── layout.tsx
-│   │   ├── (dashboard)/              # Protected client pages
-│   │   │   ├── dashboard/page.tsx    # Role-aware home
-│   │   │   ├── listen/page.tsx       # Radio player + discovery
+│   │   ├── (dashboard)/
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── listen/page.tsx       # Radio player
 │   │   │   ├── profile/page.tsx
 │   │   │   ├── artist/
 │   │   │   │   ├── upload/page.tsx
-│   │   │   │   ├── stats/page.tsx    # Artist analytics
+│   │   │   │   ├── stats/page.tsx
 │   │   │   │   └── credits/page.tsx
 │   │   │   ├── admin/
-│   │   │   │   ├── page.tsx          # Admin dashboard
+│   │   │   │   ├── page.tsx
 │   │   │   │   ├── songs/page.tsx
 │   │   │   │   ├── users/page.tsx
 │   │   │   │   └── analytics/page.tsx
-│   │   │   └── layout.tsx            # Sidebar + auth guard
+│   │   │   └── layout.tsx
 │   │   ├── api/
 │   │   │   └── auth/
-│   │   │       ├── login/route.ts    # Session cookie creation
-│   │   │       └── logout/route.ts   # Session cookie deletion
+│   │   │       ├── login/route.ts
+│   │   │       └── logout/route.ts
 │   │   ├── layout.tsx
 │   │   └── globals.css
 │   ├── components/
-│   │   ├── ui/                       # Reusable UI components
-│   │   ├── marketing/                # Marketing page components
-│   │   ├── radio/                    # Audio player (howler.js)
-│   │   ├── auth/                     # Auth forms
-│   │   └── dashboard/                # Dashboard components
+│   │   ├── ui/
+│   │   ├── marketing/
+│   │   ├── radio/
+│   │   │   ├── RadioPlayer.tsx       # Hls.js + useRadioState hook
+│   │   │   └── useRadioState.ts      # Custom hook for controls
+│   │   ├── auth/
+│   │   └── dashboard/
 │   ├── lib/
-│   │   ├── api.ts                    # Backend API client
-│   │   ├── firebase-client.ts        # Firebase client config
-│   │   ├── firebase-admin.ts         # Firebase Admin SDK (server)
+│   │   ├── api.ts                    # Axios with token interceptor
+│   │   ├── firebase-client.ts
+│   │   ├── firebase-admin.ts
 │   │   └── hooks/
-│   ├── middleware.ts                 # Route protection
-│   ├── tsconfig.json                 # Extends shared types
-│   └── contexts/
-│       └── AuthContext.tsx
-├── backend/                          # EXISTING - New endpoints added
+│   ├── middleware.ts
+│   └── tsconfig.json                 # Includes @shared/* path mapping
+├── backend/
 │   └── src/
+│       ├── shared/                   # Shared TypeScript types
+│       │   ├── user.ts
+│       │   ├── song.ts
+│       │   ├── payment.ts
+│       │   ├── radio.ts
+│       │   └── index.ts
 │       ├── songs/
-│       │   └── songs.controller.ts   # Add GET /songs/upload-url
-│       └── payments/
-│           └── payments.controller.ts # Add POST /payments/create-checkout-session
+│       │   └── songs.controller.ts   # POST /songs/upload-url
+│       ├── payments/
+│       │   └── payments.controller.ts # POST /payments/create-checkout-session
+│       └── radio/
+│           └── radio.controller.ts   # POST /radio/heartbeat
 ├── admin/                            # EXISTING - Deprecate after Phase 3
-└── mobile/                           # EXISTING - No changes (uses create-intent)
+└── mobile/                           # EXISTING - No changes
 ```
 
-## 4. File Upload Flow (Signed URLs)
+## 5. File Upload Flow (Signed URLs)
 
 ```mermaid
 sequenceDiagram
@@ -316,45 +397,61 @@ sequenceDiagram
     participant Supabase as Supabase Storage
     
     Artist->>NextJS: Select file to upload
-    NextJS->>NestJS: GET /api/songs/upload-url?filename=song.mp3
+    NextJS->>NestJS: POST /api/v1/songs/upload-url
+    Note right of NextJS: Body: { filename, contentType, bucket }
     NestJS->>NestJS: Verify artist role
     NestJS->>Supabase: createSignedUploadUrl()
     Supabase-->>NestJS: Signed URL (60s expiry)
-    NestJS-->>NextJS: { url, path }
+    NestJS-->>NextJS: { signedUrl, path, expiresIn }
     NextJS->>Supabase: PUT file directly to signed URL
     Supabase-->>NextJS: Upload complete
-    NextJS->>NestJS: POST /api/songs (metadata + path)
+    NextJS->>NestJS: POST /api/v1/songs (metadata + path)
     NestJS->>NestJS: Store song record
     NestJS-->>NextJS: Song created
 ```
 
-### Benefits
+### Why POST instead of GET
 
-- Reduced backend bandwidth (files bypass server)
-- Faster uploads (direct to storage)
-- Improved security (time-limited URLs)
-- Better scaling (backend handles only metadata)
-- **Prevents OOM crashes** (no RAM buffering)
+- **No accidental caching** (GET requests can be cached by CDN/browser)
+- **No filename leaks in logs** (query params are logged, body is not)
+- **Supports batch uploads** (array of files in body, no URL length limits)
+- **Better validation** (can enforce contentType, size limits in body)
 
-### Backend Endpoint: GET /api/songs/upload-url
-
-Add to `songs.controller.ts`:
+### Backend Endpoint: POST /api/v1/songs/upload-url
 
 ```typescript
-@Get('upload-url')
+// songs.controller.ts
+@Post('upload-url')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 @Roles('artist')
 async getUploadUrl(
   @CurrentUser() user: FirebaseUser,
-  @Query('filename') filename: string,
-  @Query('bucket') bucket: 'songs' | 'artwork' = 'songs',
+  @Body() dto: GetUploadUrlDto,
 ) {
-  const supabase = getSupabaseClient();
-  const path = `${user.uid}/${Date.now()}-${filename}`;
+  return this.songsService.getSignedUploadUrl(user.uid, dto);
+}
+
+// GetUploadUrlDto
+export class GetUploadUrlDto {
+  @IsString()
+  filename: string;
+  
+  @IsString()
+  @IsIn(['audio/mpeg', 'audio/wav', 'audio/mp3', 'image/jpeg', 'image/png'])
+  contentType: string;
+  
+  @IsString()
+  @IsIn(['songs', 'artwork'])
+  bucket: 'songs' | 'artwork';
+}
+
+// songs.service.ts
+async getSignedUploadUrl(userId: string, dto: GetUploadUrlDto) {
+  const path = `${userId}/${Date.now()}-${dto.filename}`;
   
   const { data, error } = await supabase.storage
-    .from(bucket)
-    .createSignedUploadUrl(path, 60); // 60 second expiry
+    .from(dto.bucket)
+    .createSignedUploadUrl(path, 60);
     
   if (error) throw new BadRequestException(error.message);
   
@@ -366,119 +463,210 @@ async getUploadUrl(
 }
 ```
 
-## 5. Audio Streaming & Playback
+## 6. Play Counting: Signed Heartbeat Pattern
 
-### Web Player Stack (howler.js + Hls.js)
+**The Problem:** Client-reported plays can be scripted/abused.
 
-**Why howler.js instead of native HTML5 Audio:**
-
-- Unified API across browsers (Safari quirks handled)
-- Volume fading and crossfade support
-- Sprite/playlist management
-- State management (play/pause/seek)
-- Plugin system for HLS integration
-```typescript
-// components/radio/RadioPlayer.tsx
-import { Howl } from 'howler';
-import Hls from 'hls.js';
-
-class RadioPlayer {
-  private howl: Howl | null = null;
-  private hls: Hls | null = null;
-  
-  play(streamUrl: string) {
-    // For HLS streams
-    if (streamUrl.includes('.m3u8') && Hls.isSupported()) {
-      this.hls = new Hls();
-      this.hls.loadSource(streamUrl);
-      // Connect to howler for unified controls
-    } else {
-      // Standard MP3/audio
-      this.howl = new Howl({
-        src: [streamUrl],
-        html5: true, // Required for streaming
-        volume: 1.0,
-      });
-      this.howl.play();
-    }
-  }
-  
-  pause() { this.howl?.pause(); }
-  setVolume(vol: number) { this.howl?.volume(vol); }
-  fade(from: number, to: number, duration: number) {
-    this.howl?.fade(from, to, duration);
-  }
-}
-```
-
-
-### Real-time State Sync
-
-- `GET /api/radio/current` - Current track + server timestamp
-- Polling interval: 5-10 seconds
-- Future: SSE/WebSocket for instant updates
-- Mobile and web sync via shared `played_at` timestamp
-
-### CDN Strategy (Phase 4)
-
-- Cloudflare or similar for audio file delivery
-- Cache audio files at edge locations
-- HLS segments cached individually for efficiency
-
-## 6. Payments: Dual-Flow Architecture
-
-### The Problem
-
-Mobile and web require different Stripe integrations:
-
-- **Mobile (Flutter):** Uses `flutter_stripe` which requires `PaymentIntent` client secret
-- **Web:** Better UX with Stripe Checkout (hosted payment page)
-
-### Solution: Two Endpoints
+**The Solution:** Signed heartbeat tokens that prove continuous listening.
 
 ```mermaid
-graph LR
-    subgraph mobile [Mobile App]
-        FlutterStripe[flutter_stripe SDK]
+sequenceDiagram
+    participant Listener
+    participant NextJS as Next.js
+    participant NestJS as NestJS Backend
+    participant DB as Supabase
+    
+    Listener->>NextJS: Start listening
+    NextJS->>NestJS: GET /api/v1/radio/stream
+    NestJS->>NestJS: Generate signed stream_token
+    NestJS-->>NextJS: { streamUrl, streamToken, songId }
+    
+    loop Every 30 seconds
+        NextJS->>NestJS: POST /api/v1/radio/heartbeat
+        Note right of NextJS: { streamToken, songId, timestamp }
+        NestJS->>NestJS: Validate token signature
+        NestJS->>DB: Increment heartbeat count
     end
     
-    subgraph web [Web App]
-        StripeCheckout[Stripe Checkout Redirect]
-    end
-    
-    subgraph backend [NestJS Backend]
-        CreateIntent[POST /payments/create-intent]
-        CreateCheckout[POST /payments/create-checkout-session]
-        Webhook[POST /payments/webhook]
-    end
-    
-    FlutterStripe --> CreateIntent
-    StripeCheckout --> CreateCheckout
-    CreateIntent --> Webhook
-    CreateCheckout --> Webhook
+    Note over NestJS,DB: 2 heartbeats = 1 valid play
 ```
 
-### Backend: POST /api/payments/create-checkout-session
-
-Add to `payments.controller.ts`:
+### Heartbeat Implementation
 
 ```typescript
-@Post('create-checkout-session')
-@UseGuards(FirebaseAuthGuard, RolesGuard)
-@Roles('artist')
-async createCheckoutSession(
+// radio.controller.ts
+@Post('heartbeat')
+@UseGuards(FirebaseAuthGuard)
+async reportHeartbeat(
   @CurrentUser() user: FirebaseUser,
-  @Body() dto: CreateCheckoutSessionDto,
+  @Body() dto: HeartbeatDto,
 ) {
-  return this.paymentsService.createCheckoutSession(user.uid, dto);
+  return this.radioService.processHeartbeat(user.uid, dto);
+}
+
+// radio.service.ts
+async processHeartbeat(userId: string, dto: HeartbeatDto) {
+  // Verify stream token (JWT signed with server secret)
+  const payload = this.verifyStreamToken(dto.streamToken);
+  
+  if (payload.songId !== dto.songId) {
+    throw new BadRequestException('Token/song mismatch');
+  }
+  
+  // Record heartbeat
+  await supabase.from('play_heartbeats').insert({
+    user_id: userId,
+    song_id: dto.songId,
+    stream_token: dto.streamToken,
+    timestamp: new Date(),
+  });
+  
+  // Check if this completes a play (2+ heartbeats = 60+ seconds)
+  const { count } = await supabase
+    .from('play_heartbeats')
+    .select('*', { count: 'exact' })
+    .eq('stream_token', dto.streamToken);
+  
+  if (count >= 2) {
+    // Record valid play (only once per token)
+    await this.recordPlay(dto.songId, userId, dto.streamToken);
+  }
+  
+  return { received: true, heartbeatCount: count };
 }
 ```
 
-Add to `payments.service.ts`:
+**Why this works:**
+- Token ties heartbeats to a specific session
+- Cannot fake 2 heartbeats without waiting 30+ seconds
+- Server controls play counting authority
+- Prevents scripted abuse
+
+## 7. Audio Streaming & Playback
+
+### Simplified Stack: Hls.js + React Hook
+
+**Decision:** Remove howler.js. Hls.js directly on `<audio>` tag is cleaner.
+
+**Why:**
+- Howler wraps HTML5 Audio; Hls.js also wraps audio element
+- Combining them adds complexity without benefit
+- Custom React hook gives us all the state management we need
+
+```typescript
+// components/radio/useRadioState.ts
+import { useState, useRef, useCallback, useEffect } from 'react';
+import Hls from 'hls.js';
+
+interface RadioState {
+  isPlaying: boolean;
+  volume: number;
+  currentTime: number;
+  duration: number;
+  currentTrack: Track | null;
+}
+
+export function useRadioState() {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [state, setState] = useState<RadioState>({
+    isPlaying: false,
+    volume: 1,
+    currentTime: 0,
+    duration: 0,
+    currentTrack: null,
+  });
+
+  const loadStream = useCallback((url: string, track: Track) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    // HLS stream
+    if (url.includes('.m3u8') && Hls.isSupported()) {
+      if (hlsRef.current) hlsRef.current.destroy();
+      
+      const hls = new Hls();
+      hls.loadSource(url);
+      hls.attachMedia(audio);
+      hlsRef.current = hls;
+    } else {
+      // Standard audio
+      audio.src = url;
+    }
+
+    setState(s => ({ ...s, currentTrack: track }));
+  }, []);
+
+  const play = useCallback(() => {
+    audioRef.current?.play();
+    setState(s => ({ ...s, isPlaying: true }));
+  }, []);
+
+  const pause = useCallback(() => {
+    audioRef.current?.pause();
+    setState(s => ({ ...s, isPlaying: false }));
+  }, []);
+
+  const setVolume = useCallback((vol: number) => {
+    if (audioRef.current) audioRef.current.volume = vol;
+    setState(s => ({ ...s, volume: vol }));
+  }, []);
+
+  return { audioRef, state, loadStream, play, pause, setVolume };
+}
+```
+
+```tsx
+// components/radio/RadioPlayer.tsx
+export function RadioPlayer() {
+  const { audioRef, state, play, pause, setVolume } = useRadioState();
+  
+  return (
+    <div className="radio-player">
+      <audio ref={audioRef} />
+      
+      {state.currentTrack && (
+        <div className="track-info">
+          <img src={state.currentTrack.artworkUrl} alt="" />
+          <div>
+            <h3>{state.currentTrack.title}</h3>
+            <p>{state.currentTrack.artistName}</p>
+          </div>
+        </div>
+      )}
+      
+      <div className="controls">
+        <button onClick={state.isPlaying ? pause : play}>
+          {state.isPlaying ? 'Pause' : 'Play'}
+        </button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.1}
+          value={state.volume}
+          onChange={(e) => setVolume(Number(e.target.value))}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
+## 8. Payments: Dual-Flow Architecture
+
+### Mobile vs Web Flows
+
+| Platform | Endpoint | Stripe Product | UX |
+|----------|----------|----------------|-----|
+| Mobile | `POST /payments/create-intent` | PaymentIntent | Native flutter_stripe UI |
+| Web | `POST /payments/create-checkout-session` | Checkout Session | Redirect to stripe.com |
+
+### Backend: POST /api/v1/payments/create-checkout-session
 
 ```typescript
 async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
-  // Create pending transaction in Supabase
+  // Create pending transaction
   const { data: transaction } = await supabase
     .from('transactions')
     .insert({
@@ -500,9 +688,8 @@ async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
         currency: 'usd',
         product_data: {
           name: `${dto.credits} Radio Credits`,
-          description: `Purchase ${dto.credits} credits for radio airplay`,
         },
-        unit_amount: dto.amount, // in cents
+        unit_amount: dto.amount,
       },
       quantity: 1,
     }],
@@ -511,7 +698,7 @@ async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
       user_id: userId,
       credits: dto.credits.toString(),
     },
-    success_url: `${process.env.WEB_URL}/artist/credits?success=true&session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${process.env.WEB_URL}/artist/credits?success=true`,
     cancel_url: `${process.env.WEB_URL}/artist/credits?canceled=true`,
   });
 
@@ -519,119 +706,145 @@ async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
 }
 ```
 
-### Webhook Handling (Shared)
+## 9. Marketing Homepage Cache
 
-The existing webhook handles both flows via `metadata`:
+**Problem:** Data-driven homepage with DB queries can cause slow TTFB or ISR thrashing.
+
+**Solution:** Precomputed homepage payload regenerated on admin action.
+
+### Implementation
 
 ```typescript
-// In handlePaymentSuccess()
-const transactionId = session.metadata?.transaction_id 
-  || paymentIntent.metadata?.transaction_id;
+// Supabase table: homepage_cache
+// Columns: id, payload (JSONB), updated_at
+
+// Admin action: "Publish Homepage"
+async publishHomepage() {
+  const payload = {
+    featuredArtists: await this.getFeaturedArtists(),
+    trendingTracks: await this.getTrendingTracks(),
+    stats: await this.getPlatformStats(),
+    updatedAt: new Date().toISOString(),
+  };
+  
+  await supabase
+    .from('homepage_cache')
+    .upsert({ id: 'main', payload, updated_at: new Date() });
+}
+
+// Next.js homepage (ISR)
+export const revalidate = 60; // Revalidate every 60 seconds
+
+async function getHomepageData() {
+  const { data } = await supabase
+    .from('homepage_cache')
+    .select('payload')
+    .eq('id', 'main')
+    .single();
+  
+  return data?.payload;
+}
 ```
 
-## 7. Admin Dashboard Features
+## 10. Failure Modes
 
-### Capabilities
+Documented system behavior during failures:
 
-- Approve/reject uploaded songs
-- Feature artists and tracks on homepage
-- Monitor payments and revenue
-- Moderate abuse and fraud
-- View platform analytics
-- Manage user roles
+| Failure | Behavior | Recovery |
+|---------|----------|----------|
+| **Stripe webhook delayed** | Transaction stays `pending` | Webhook eventually fires; idempotent handling |
+| **Upload succeeds, metadata write fails** | Orphaned file in storage | Cron job cleans orphans after 24h |
+| **Session cookie valid, token expired** | Token interceptor refreshes | If refresh fails, redirect to login |
+| **Stream server down** | Player shows error state | Polling retries every 10s |
+| **Supabase DB unavailable** | API returns 503 | Circuit breaker; cached data where possible |
+| **Payment succeeds, credit update fails** | Transaction logged as `payment_received` | Admin alert; manual reconciliation |
 
-### Migration Strategy
+## 11. Observability & Logging
 
-- Phase 1-2: Existing admin (`/admin`) remains active
-- Phase 3: New admin built in web app
-- Phase 4: Deprecate old admin folder
+### Structured Logging (NestJS)
 
-## 8. Analytics & Insights
+```typescript
+// main.ts
+import { Logger } from '@nestjs/common';
 
-### Artist Analytics (`/artist/stats`)
+app.useLogger(new Logger({
+  json: true, // Structured logs for cloud providers
+}));
 
-- Total plays (all-time, weekly, daily)
-- Plays over time chart
-- Credits spent vs exposure gained
-- Listener engagement metrics
-- Top performing songs
+// In services
+this.logger.log({
+  event: 'payment_completed',
+  userId: user.uid,
+  amount: dto.amount,
+  transactionId: transaction.id,
+});
+```
 
-### Admin Analytics (`/admin/analytics`)
+### Request IDs
 
-- Platform usage metrics
-- Revenue tracking
-- User growth charts
-- Abuse detection alerts
+```typescript
+// middleware/request-id.middleware.ts
+export function requestIdMiddleware(req, res, next) {
+  req.requestId = req.headers['x-request-id'] || uuidv4();
+  res.setHeader('x-request-id', req.requestId);
+  next();
+}
+```
 
-## 9. Security & Abuse Prevention
+### Error Reporting
 
-### Authentication Security
+```typescript
+// Sentry integration
+import * as Sentry from '@sentry/node';
 
-- Firebase token verification on all protected endpoints
-- HTTP-only session cookies (not accessible to JS)
-- Secure cookie flags (SameSite=lax, Secure in production)
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+});
 
-### Rate Limiting
+// Global exception filter
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost) {
+    Sentry.captureException(exception);
+    // ... handle response
+  }
+}
+```
 
-- Likes: Max 100/hour per user
-- Uploads: Max 10/day per artist
-- Play reports: Max 1/song/user/minute
-
-### File Validation
-
-- Type checking (audio/mpeg, audio/wav, image/*)
-- Size limits (50MB audio, 5MB images)
-- Content scanning (future)
-
-### Play Counting
-
-- Minimum play duration before counting (30 seconds)
-- Duplicate play prevention per user per hour
-
-### Audit Logging
-
-- Admin actions logged with timestamp and user
-- Payment events logged
-- Moderation decisions tracked
-
-## 10. Deployment & CI/CD
+## 12. Deployment & CI/CD
 
 | Component | Platform |
-
 |-----------|----------|
-
 | Web (Next.js) | Vercel |
-
 | Backend (NestJS) | Render / Railway / AWS |
-
 | Database | Supabase |
-
 | Storage | Supabase Storage |
-
 | Streaming | Supabase + CDN |
-
+| Error Tracking | Sentry |
 | CI/CD | GitHub Actions |
 
-## 11. Phased Rollout
+## 13. Phased Rollout
 
 ### Phase 1 - Foundation
 
 - Next.js project setup with TypeScript and Tailwind
-- Firebase client auth integration
+- Firebase client auth with **token refresh interceptor**
 - Server-side session cookies (`/api/auth/login`)
 - Next.js middleware for route protection
-- Marketing pages (SSR/ISR): homepage, about, pricing, FAQ, contact
+- Marketing pages with **precomputed homepage cache**
+- TSConfig path mapping for shared types
 
 ### Phase 2 - Web App Parity
 
 - Login/signup pages with role selection
 - Dashboard layout with role-based navigation
-- Web radio player (howler.js + Hls.js)
-- **Backend:** `GET /api/songs/upload-url` endpoint
+- Web radio player (**Hls.js + React hook**)
+- **Backend:** `POST /api/v1/songs/upload-url` endpoint
 - Artist upload page (direct to Supabase via signed URL)
-- **Backend:** `POST /api/payments/create-checkout-session` endpoint
+- **Backend:** `POST /api/v1/payments/create-checkout-session` endpoint
 - Credits and payment page (Stripe Checkout redirect)
-- **Shared types** setup between web/ and backend/
+- **Backend:** `POST /api/v1/radio/heartbeat` (play counting)
 
 ### Phase 3 - Admin & Analytics
 
@@ -639,10 +852,12 @@ const transactionId = session.metadata?.transaction_id
 - Song moderation page
 - User management page
 - Artist analytics page
+- Homepage publish action
 
 ### Phase 4 - Scale & Optimize
 
 - Rate limiting and abuse prevention
+- **Observability:** Structured logs, request IDs, Sentry
 - CDN integration for audio streaming (HLS)
 - Performance optimization
 - Old admin deprecation
@@ -659,31 +874,28 @@ const transactionId = session.metadata?.transaction_id
     "firebase-admin": "^12.0.0",
     "@stripe/stripe-js": "^4.0.0",
     "axios": "^1.7.0",
-    "howler": "^2.2.4",
     "hls.js": "^1.5.0"
   },
   "devDependencies": {
     "typescript": "^5",
     "tailwindcss": "^3.4.0",
     "@types/react": "^18",
-    "@types/node": "^20",
-    "@types/howler": "^2.2.0"
+    "@types/node": "^20"
   }
 }
 ```
 
-## Summary: v2.1 Changes from v2
+## Summary: v2.2 Changes from v2.1
 
-| Issue | v2 Status | v2.1 Resolution |
-
-|-------|-----------|-----------------|
-
-| Stripe Flow Mismatch | Web needed Checkout, Mobile needs Intent | Added dual-flow with `create-checkout-session` endpoint |
-
-| Audio Player Fragility | Native HTML5 Audio | Replaced with howler.js + Hls.js |
-
-| Type Safety | Not addressed | Added `shared/` folder for DTOs |
-
-| Upload Endpoint | Generic reference | Explicit `GET /songs/upload-url` with code |
-
-| Session Cookie | Mentioned | Added full `createSessionCookie()` implementation |
+| Issue | v2.1 | v2.2 |
+|-------|------|------|
+| Token/Cookie drift | Mentioned | **Token refresh interceptor with forceRefresh** |
+| Upload endpoint | GET | **POST (no caching, no log leaks, batch-ready)** |
+| Play counting | Duration-based | **Signed heartbeat pattern (abuse-proof)** |
+| Shared types | 3 options listed | **Locked: TSConfig path mapping** |
+| Audio player | howler.js + Hls.js | **Simplified: Hls.js + React hook only** |
+| API versioning | Not mentioned | **All endpoints at /api/v1/** |
+| Marketing cache | Not mentioned | **Precomputed homepage payload** |
+| Failure modes | Not documented | **Explicit failure/recovery table** |
+| Observability | Not mentioned | **Structured logs, request IDs, Sentry** |
+| Contract layer | Implicit | **Explicit endpoint auth requirements** |
