@@ -141,16 +141,19 @@ export class CreditsService {
       throw new BadRequestException(`Failed to fetch allocation history: ${error.message}`);
     }
 
-    return data.map((a) => ({
-      id: a.id,
-      songId: a.songs?.id,
-      songTitle: a.songs?.title,
-      amount: a.amount,
-      direction: a.direction,
-      balanceBefore: a.balance_before,
-      balanceAfter: a.balance_after,
-      createdAt: a.created_at,
-    }));
+    return data.map((a) => {
+      const song = a.songs as unknown as { id: string; title: string } | null;
+      return {
+        id: a.id,
+        songId: song?.id,
+        songTitle: song?.title,
+        amount: a.amount,
+        direction: a.direction,
+        balanceBefore: a.balance_before,
+        balanceAfter: a.balance_after,
+        createdAt: a.created_at,
+      };
+    });
   }
 
   /**

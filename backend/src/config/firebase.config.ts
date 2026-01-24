@@ -1,6 +1,8 @@
 import { initializeApp, cert, App } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getMessaging } from 'firebase-admin/messaging';
 import { ConfigService } from '@nestjs/config';
+import * as admin from 'firebase-admin';
 
 let firebaseApp: App;
 
@@ -50,4 +52,18 @@ export const getFirebaseAuth = (): ReturnType<typeof getAuth> => {
     throw new Error('Firebase not initialized');
   }
   return getAuth(firebaseApp);
+};
+
+export const getFirebaseAdmin = (): typeof admin => {
+  if (!firebaseApp) {
+    throw new Error('Firebase not initialized');
+  }
+  return admin;
+};
+
+export const getFirebaseMessaging = (): ReturnType<typeof getMessaging> => {
+  if (!firebaseApp) {
+    throw new Error('Firebase not initialized');
+  }
+  return getMessaging(firebaseApp);
 };
