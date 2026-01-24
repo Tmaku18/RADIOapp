@@ -4,18 +4,31 @@ import { AppModule } from './app.module';
 import { ConfigService } from '@nestjs/config';
 import { initializeFirebase } from './config/firebase.config';
 import { initializeSupabase } from './config/supabase.config';
+import { LoggerService } from './common/logger';
+import { SentryService } from './common/sentry';
+import { AllExceptionsFilter } from './common/filters';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     rawBody: true, // Enable raw body for Stripe webhooks
+    bufferLogs: true, // Buffer logs until custom logger is set
   });
+  
   const configService = app.get(ConfigService);
+  const logger = app.get(LoggerService);
+  const sentry = app.get(SentryService);
+
+  // Use custom logger for NestJS
+  app.useLogger(logger);
 
   // Initialize Firebase Admin
   initializeFirebase(configService);
 
   // Initialize Supabase
   initializeSupabase(configService);
+
+  // Enable global exception filter with logging and Sentry
+  app.useGlobalFilters(new AllExceptionsFilter(logger, sentry));
 
   // Enable global validation pipe for DTO validation
   app.useGlobalPipes(
@@ -41,6 +54,10 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
-  console.log(`Application is running on: http://localhost:${port}`);
+  
+  logger.log(
+    `Application is running on: http://localhost:${port}`,
+    'Bootstrap',
+  );
 }
 bootstrap();
