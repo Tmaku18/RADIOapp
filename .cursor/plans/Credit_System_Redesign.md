@@ -7,16 +7,16 @@ todos:
     status: completed
   - id: db-constraints
     content: "Add CHECK (balance >= 0) constraint to credits table"
-    status: pending
+    status: completed
   - id: db-schema
     content: Create database migration for new tables and columns (fallback_eligible, opt_in_free_play, admin_fallback_songs, credit_allocations, notifications)
-    status: pending
+    status: completed
   - id: db-rpc-allocate
     content: "Create allocate_credits PostgreSQL RPC function (atomic ledger)"
-    status: pending
+    status: completed
   - id: db-rpc-withdraw
     content: "Create withdraw_credits PostgreSQL RPC function (atomic ledger)"
-    status: pending
+    status: completed
   - id: ffmpeg-validation
     content: "Add server-side FFmpeg duration validation on upload (trustless ingest)"
     status: pending
