@@ -1,5 +1,6 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -11,10 +12,16 @@ const SONG_END_BUFFER_MS = 2000;
  * - Pre-charge model: Credits deducted BEFORE playing via atomic RPC
  * - Soft-weighted random: Near-random with slight bias for credits + anti-repetition
  * - Fallback playlist: Opt-in songs and admin curated when no credited songs
+ * - Two-stage artist notifications: "Up Next" (T-60s) and "Live Now"
  */
 @Injectable()
 export class RadioService {
   private readonly logger = new Logger(RadioService.name);
+
+  constructor(
+    @Inject(forwardRef(() => PushNotificationService))
+    private readonly pushNotificationService: PushNotificationService,
+  ) {}
 
   /**
    * Calculate credits required for a song's full play.
@@ -277,6 +284,7 @@ export class RadioService {
 
   /**
    * Play a credited song using pre-charge model (atomic RPC).
+   * Also sends "Live Now" notification to the artist.
    */
   private async playCreditedSong(song: any) {
     const supabase = getSupabaseClient();
@@ -302,6 +310,18 @@ export class RadioService {
       song_id: song.id,
       played_at: startedAt,
     });
+
+    // Send "Live Now" notification to artist (Stage 2)
+    try {
+      await this.pushNotificationService.sendLiveNowNotification({
+        id: song.id,
+        title: song.title,
+        artist_id: song.artist_id,
+        artist_name: song.artist_name,
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+    }
 
     const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
 
