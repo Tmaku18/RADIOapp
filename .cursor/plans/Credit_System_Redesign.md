@@ -58,7 +58,7 @@ todos:
     status: completed
   - id: email-service
     content: Create email service for sending rejection notifications
-    status: pending
+    status: completed
   - id: notification-service
     content: Create notification service for in-app notifications
     status: completed

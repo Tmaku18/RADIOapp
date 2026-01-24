@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { EmailService } from '../email/email.service';
 
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+
+  constructor(private readonly emailService: EmailService) {}
   async getSongsPendingApproval(filters: {
     status?: string;
     limit?: number;
@@ -102,6 +105,16 @@ export class AdminService {
     });
 
     this.logger.log(`Song ${songId} ${status}. Notification sent to artist.`);
+
+    // Send email notification
+    const artistEmail = (existingSong.users as any)?.email;
+    if (artistEmail) {
+      if (status === 'approved') {
+        await this.emailService.sendSongApprovedEmail(artistEmail, existingSong.title);
+      } else {
+        await this.emailService.sendSongRejectedEmail(artistEmail, existingSong.title, reason);
+      }
+    }
 
     return data;
   }
