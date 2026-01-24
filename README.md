@@ -13,12 +13,14 @@ Independent artists struggle to get their music heard through traditional channe
 - **For Platform**: Sustainable revenue model through credit purchases and future subscription plans
 
 ### Key Features
-- 🎵 **Continuous Radio Stream**: Seamless, uninterrupted music playback
+- 🎵 **Continuous Radio Stream**: Seamless, uninterrupted music playback with persistent queue
 - 🎤 **Artist Uploads**: Easy song upload with artwork and metadata
-- 💳 **Credit System**: Pay-per-play model for artists
+- 💳 **Credit System**: Pay-per-play model for artists with Stripe Payment Sheet
 - 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
-- 💰 **Payment Processing**: Stripe integration for secure transactions
-- 📊 **Admin Dashboard**: Management interface for platform oversight
+- 💰 **Payment Processing**: Full Stripe integration with Payment Sheet UI
+- ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
+- 📊 **Admin Dashboard**: Full management interface with Firebase authentication
+- 📱 **Bottom Navigation**: Easy access to Player, Upload, Credits, and Profile screens
 
 ## Architecture
 
@@ -59,9 +61,11 @@ Independent artists struggle to get their music heard through traditional channe
   - Future subscription support
   
 - **Admin Dashboard**: Next.js
-  - Web-based management interface
-  - Analytics and reporting
-  - Content moderation tools
+  - Web-based management interface with Firebase authentication
+  - Song moderation (approve/reject pending songs)
+  - User management with role editing
+  - Real-time analytics and reporting
+  - Connected to live backend API
 
 ## Project Structure
 
@@ -90,20 +94,23 @@ mobile/
 │   │   │   └── song.dart               # Song data model
 │   │   └── services/
 │   │       ├── api_service.dart        # HTTP API client
-│   │       └── radio_service.dart      # Radio streaming logic
+│   │       └── radio_service.dart      # Radio streaming + like functionality
 │   ├── features/
 │   │   ├── player/
-│   │   │   └── player_screen.dart      # Main radio player UI
+│   │   │   └── player_screen.dart      # Radio player with like button
 │   │   ├── upload/
 │   │   │   └── upload_screen.dart      # Song upload interface
 │   │   ├── profile/
 │   │   │   └── profile_screen.dart     # User profile management
+│   │   ├── credits/
+│   │   │   └── credits_screen.dart     # Credit balance & transaction history
 │   │   └── payment/
-│   │       └── payment_screen.dart     # Credit purchase UI
+│   │       └── payment_screen.dart     # Stripe Payment Sheet integration
 │   ├── widgets/
-│   │   └── login_screen.dart           # Authentication UI
+│   │   ├── login_screen.dart           # Authentication UI
+│   │   └── home_screen.dart            # Bottom navigation controller
 │   ├── firebase_options.dart           # Firebase configuration
-│   └── main.dart                       # App entry point
+│   └── main.dart                       # App entry point with Stripe init
 ├── android/                             # Android platform files
 ├── ios/                                 # iOS platform files
 ├── pubspec.yaml                         # Flutter dependencies
@@ -113,9 +120,11 @@ mobile/
 **Key Components:**
 - **AuthService**: Manages Firebase authentication state and user sessions
 - **ApiService**: Handles all HTTP requests to the NestJS backend
-- **RadioService**: Manages audio playback, queue management, and stream state
-- **PlayerScreen**: Main UI for radio playback with controls
-- **UploadScreen**: File picker and upload interface for artists
+- **RadioService**: Manages audio playback, queue management, like/unlike functionality
+- **HomeScreen**: Bottom navigation bar for Player, Upload, Credits, Profile
+- **PlayerScreen**: Radio player with play/pause/skip and like button
+- **CreditsScreen**: View balance, total purchased/used, transaction history
+- **PaymentScreen**: Stripe Payment Sheet for credit purchases
 
 ### Backend Structure (`backend/`)
 
@@ -163,8 +172,14 @@ backend/
 │   │   ├── stripe.service.ts           # Stripe API integration
 │   │   └── payments.module.ts          # Payments module definition
 │   ├── credits/
-│   │   ├── credits.controller.ts       # Credit management endpoints
+│   │   ├── credits.controller.ts       # Credit balance & transactions
 │   │   └── credits.module.ts           # Credits module definition
+│   ├── admin/
+│   │   ├── dto/
+│   │   │   └── update-song-status.dto.ts  # Song approval DTO
+│   │   ├── admin.controller.ts         # Admin endpoints (songs, users, analytics)
+│   │   ├── admin.service.ts            # Admin business logic
+│   │   └── admin.module.ts             # Admin module definition
 │   ├── app.module.ts                    # Root module (imports all modules)
 │   ├── app.controller.ts                # Health check endpoint
 │   ├── app.service.ts                   # App-level services
@@ -179,26 +194,51 @@ backend/
 
 **Key Components:**
 - **Firebase Auth Guard**: Validates Firebase ID tokens on protected routes
-- **Radio Service**: Manages FIFO queue, handles skip logic, tracks play history
+- **Radio Service**: Database-persistent queue with priority scoring, skip tracking
 - **Uploads Service**: Handles multipart file uploads to Supabase Storage
 - **Stripe Service**: Creates payment intents and handles webhook events
-- **Songs Service**: Manages song metadata, play counts, and rotation eligibility
+- **Songs Service**: Song metadata, like/unlike, play counts, rotation eligibility
+- **Admin Service**: Analytics aggregation, song moderation, user role management
+- **Credits Controller**: Balance queries and transaction history endpoints
 
 ### Admin Dashboard Structure (`admin/`)
 
 ```
 admin/
 ├── app/
-│   ├── layout.tsx                       # Root layout component
-│   ├── page.tsx                          # Dashboard home page
-│   └── globals.css                       # Global styles
+│   ├── components/
+│   │   ├── AuthGuard.tsx                # Route protection component
+│   │   ├── DashboardLayout.tsx          # Conditional sidebar layout
+│   │   ├── Sidebar.tsx                  # Navigation with sign out
+│   │   └── StatsCard.tsx                # Analytics stat display
+│   ├── contexts/
+│   │   └── AuthContext.tsx              # Firebase auth state management
+│   ├── lib/
+│   │   ├── api.ts                       # Backend API client
+│   │   └── firebase.ts                  # Firebase initialization
+│   ├── login/
+│   │   └── page.tsx                     # Login page (email/Google)
+│   ├── songs/
+│   │   └── page.tsx                     # Song moderation table
+│   ├── users/
+│   │   └── page.tsx                     # User management table
+│   ├── layout.tsx                       # Root layout with providers
+│   ├── page.tsx                         # Dashboard with analytics
+│   └── globals.css                      # Global styles
 ├── public/                               # Static assets
+├── .env.local.example                    # Environment template
 ├── package.json                          # Next.js dependencies
 ├── next.config.ts                        # Next.js configuration
 └── tsconfig.json                         # TypeScript configuration
 ```
 
-**Note**: Admin dashboard is a Git submodule and can be developed independently.
+**Key Features:**
+- **Firebase Authentication**: Email/password and Google sign-in
+- **AuthGuard**: Protects routes and verifies admin role
+- **Dashboard**: Real-time analytics (users, songs, plays, likes)
+- **Song Moderation**: Approve/reject pending songs
+- **User Management**: View users, change roles (listener/artist/admin)
+- **Live API Connection**: Fetches real data from NestJS backend
 
 ### Documentation (`docs/`)
 
@@ -306,19 +346,29 @@ cd admin
 npm install
 ```
 
-3. Create `.env.local` file:
+3. Create `.env.local` file (copy from `.env.local.example`):
 ```bash
+# Backend API URL
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
+# Firebase Configuration (Web)
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-sender-id
 NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-NEXT_PUBLIC_API_URL=http://localhost:3000
+NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
 4. Start the development server:
 ```bash
 npm run dev
 ```
+
+5. Access the dashboard at `http://localhost:3001`
+   - Sign in with an admin account (email/password or Google)
+   - Non-admin users will see an "Access Denied" message
 
 ## How It Works
 
@@ -340,16 +390,25 @@ npm run dev
 
 3. **Radio Playback**
    - Song is added to rotation queue when credits are available
-   - Backend manages FIFO queue with skip tracking
+   - **Queue is stored in database** (persists across server restarts)
+   - **Priority scoring** based on likes, skips, and engagement
    - Mobile app requests next song from radio endpoint
    - Audio stream is delivered via Supabase Storage URLs
-   - Play history is recorded for analytics
+   - Play history recorded; **like/unlike** updates engagement metrics
 
 4. **Listener Experience**
    - Listener opens app and authenticates
    - Continuous stream plays songs from rotation queue
    - Songs play automatically in sequence
    - Listener can skip songs (limited skips per hour)
+   - Like/unlike songs to influence future rotation
+
+5. **Admin Workflow**
+   - Admin signs into dashboard with Firebase (email/Google)
+   - Backend verifies admin role from database
+   - View platform analytics (total users, songs, plays, likes)
+   - Review and approve/reject pending song submissions
+   - Manage user roles (promote to artist/admin)
 
 ### Data Flow
 
@@ -377,41 +436,74 @@ Supabase Storage (Audio Files)
 ### Payment Flow
 
 ```
-1. Artist initiates payment → Mobile App
+1. Artist selects credit package → Credits Screen
 2. Payment intent created → Stripe API (via Backend)
-3. Payment processed → Stripe Checkout
-4. Webhook received → Backend endpoint
-5. Credits added → Supabase database
-6. Song eligible for rotation
+3. Stripe Payment Sheet presented → flutter_stripe
+4. User completes payment → Stripe processes
+5. Webhook received → Backend endpoint
+6. Credits added → Supabase database
+7. Song eligible for rotation
 ```
 
-## Features Implemented (Phase 1 - MVP)
+### Admin Authentication Flow
+
+```
+1. Admin visits dashboard → /login page
+2. Signs in via Firebase → Email/Password or Google
+3. Firebase ID token obtained → AuthContext
+4. Token sent to backend → /auth/verify
+5. Backend checks user role in database
+6. If role === 'admin' → Grant access
+7. Non-admins see "Access Denied" page
+```
+
+## Features Implemented (Phase 1 & 2 - MVP Complete)
 
 ### Authentication & User Management
 - ✅ Firebase Authentication (Email/Password, Google, Apple Sign-In)
 - ✅ User profile creation and management
 - ✅ Role-based access control (Artist, Listener, Admin)
 - ✅ Secure token-based API authentication
+- ✅ Admin dashboard with Firebase authentication
 
 ### Music Management
 - ✅ Song upload with metadata (title, artist, genre, duration)
 - ✅ Album artwork upload and display
 - ✅ Song listing and search
 - ✅ Play history tracking
+- ✅ Like/unlike songs functionality
+- ✅ Song approval workflow (admin moderation)
 
 ### Radio Streaming
 - ✅ Continuous radio stream playback
-- ✅ FIFO (First-In-First-Out) queue rotation
+- ✅ **Persistent queue stored in database** (survives server restarts)
+- ✅ Priority scoring based on engagement metrics
 - ✅ Skip tracking and limits
-- ✅ Real-time queue management
+- ✅ Queue preview endpoint
 - ✅ Audio streaming via Supabase Storage URLs
 
 ### Payment System
 - ✅ Stripe payment integration
-- ✅ Credit purchase system
+- ✅ **Stripe Payment Sheet UI** (full payment flow)
+- ✅ Credit purchase system with package selection
 - ✅ Payment intent creation
 - ✅ Webhook handling for payment events
-- ✅ Transaction history
+- ✅ Transaction history with status badges
+
+### Mobile App Features
+- ✅ **Bottom navigation bar** (Player, Upload, Credits, Profile)
+- ✅ **Like button** on player screen
+- ✅ **Credits screen** with balance and transaction history
+- ✅ Stripe Payment Sheet integration
+- ✅ Role-based navigation (Artists see Upload/Credits, Listeners see Profile)
+
+### Admin Dashboard
+- ✅ Firebase authentication (email/Google sign-in)
+- ✅ Route protection with admin role verification
+- ✅ **Analytics dashboard** (users, songs, plays, likes)
+- ✅ **Song moderation** (approve/reject pending songs)
+- ✅ **User management** (view users, change roles)
+- ✅ Live backend API connection
 
 ### Infrastructure
 - ✅ RESTful API architecture
@@ -419,20 +511,19 @@ Supabase Storage (Audio Files)
 - ✅ CORS configuration
 - ✅ Environment-based configuration
 - ✅ Error handling and validation
+- ✅ Global ValidationPipe for DTO validation
 
-## Next Steps (Phase 2+)
+## Next Steps (Phase 3+)
 
 ### Enhanced Features
-- 🔄 Advanced rotation algorithm with engagement metrics (likes, play count, skip rate)
-- ❤️ Like/unlike songs functionality
-- 📊 Artist dashboard with analytics (plays, credits, earnings)
+- 🔄 Advanced rotation algorithm with weighted scoring
 - 👑 Subscription plans (monthly/yearly unlimited plays)
-- 🎯 Content moderation and review system
-- 📈 Admin dashboard with platform analytics
-- 🔔 Push notifications for new releases
+- 🔔 Push notifications for new releases and song approvals
 - 🎨 Enhanced UI/UX with animations
 - 🌐 Web player version
 - 📱 Social sharing features
+- 📈 Artist analytics dashboard (plays, credits, earnings)
+- 🔍 Search and discovery features
 
 ## Development Workflow
 
@@ -495,11 +586,18 @@ Each component requires specific environment variables:
 - **Build errors**: Run `flutter clean` and `flutter pub get`
 - **Android SDK errors**: See `ANDROID_SDK_SETUP.md` and `QUICK_ANDROID_SDK_FIX.md`
 
+### Admin Dashboard Issues
+
+- **"next dev is not recognized"**: Run `npm install` in the `admin/` directory first
+- **Access Denied after login**: User's role must be 'admin' in the database
+- **Can't sign in**: Verify Firebase environment variables in `.env.local`
+- **API errors**: Ensure backend is running on the correct port and CORS is configured
+
 ### General Issues
 
 - **Git submodule issues**: If `admin/` shows as modified, commit changes separately in that directory
 - **Port conflicts**: Change `PORT` in backend `.env` or use different ports for each service
-- **CORS errors**: Update `CORS_ORIGIN` in backend `.env` to include your frontend URLs
+- **CORS errors**: Update `CORS_ORIGIN` in backend `.env` to include your frontend URLs (including `http://localhost:3001` for admin)
 
 For more detailed troubleshooting, see:
 - `mobile/TROUBLESHOOTING.md`
