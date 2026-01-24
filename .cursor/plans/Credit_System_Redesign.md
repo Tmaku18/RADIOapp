@@ -67,7 +67,7 @@ todos:
     status: completed
   - id: notification-ui
     content: Add notification bell to header and notifications page
-    status: pending
+    status: completed
   - id: admin-rejection-ui
     content: Add rejection reason input to admin song approval UI
     status: completed

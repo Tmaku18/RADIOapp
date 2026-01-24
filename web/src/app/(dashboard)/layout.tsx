@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { notificationsApi } from '@/lib/api';
 
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
@@ -12,6 +13,7 @@ const baseNavigation = [
 ];
 
 const artistNavigation = [
+  { name: 'My Songs', href: '/artist/songs', icon: '🎵' },
   { name: 'Upload', href: '/artist/upload', icon: '📤' },
   { name: 'Credits', href: '/artist/credits', icon: '💰' },
   { name: 'Stats', href: '/artist/stats', icon: '📈' },
@@ -47,6 +49,25 @@ export default function DashboardLayout({
   ];
 
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread notification count
+  useEffect(() => {
+    if (user) {
+      const fetchUnreadCount = async () => {
+        try {
+          const response = await notificationsApi.getUnreadCount();
+          setUnreadCount(response.data.count);
+        } catch (error) {
+          console.error('Failed to fetch notification count:', error);
+        }
+      };
+      fetchUnreadCount();
+      // Refresh every 60 seconds
+      const interval = setInterval(fetchUnreadCount, 60000);
+      return () => clearInterval(interval);
+    }
+  }, [user]);
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -134,10 +155,23 @@ export default function DashboardLayout({
       {/* Main content */}
       <main className="ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center px-8">
+        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
           <h1 className="text-xl font-semibold text-gray-900">
             {navigation.find(n => pathname.startsWith(n.href))?.name || 'Dashboard'}
           </h1>
+          
+          {/* Notification Bell */}
+          <Link
+            href="/notifications"
+            className="relative p-2 text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <span className="text-xl">🔔</span>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </Link>
         </header>
 
         {/* Page content */}
