@@ -71,6 +71,17 @@ export class PaymentsController {
     return this.paymentsService.createCheckoutSession(userData.id, dto);
   }
 
+  /**
+   * Stripe webhook handler for payment events.
+   * 
+   * Events handled:
+   * - payment_intent.succeeded: Mobile app payment completed
+   * - payment_intent.payment_failed: Mobile app payment failed
+   * - checkout.session.completed: Web app payment completed
+   * - checkout.session.expired: Web app checkout session expired
+   * - checkout.session.async_payment_succeeded: Async payment completed (e.g., bank transfers)
+   * - checkout.session.async_payment_failed: Async payment failed
+   */
   @Post('webhook')
   async handleWebhook(
     @Req() req: RawBodyRequest<Request>,
@@ -81,16 +92,46 @@ export class PaymentsController {
     try {
       const event = await this.stripeService.verifyWebhookSignature(payload, signature);
 
-      // Handle PaymentIntent success (mobile app flow)
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object as { id: string };
-        await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
-      }
+      switch (event.type) {
+        // Mobile app flow - PaymentIntent events
+        case 'payment_intent.succeeded': {
+          const paymentIntent = event.data.object as { id: string };
+          await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
+          break;
+        }
+        
+        case 'payment_intent.payment_failed': {
+          const paymentIntent = event.data.object as { id: string };
+          await this.paymentsService.handlePaymentFailed(paymentIntent.id);
+          break;
+        }
 
-      // Handle Checkout Session completion (web app flow)
-      if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as { id: string };
-        await this.paymentsService.handleCheckoutSessionCompleted(session.id);
+        // Web app flow - Checkout Session events
+        case 'checkout.session.completed': {
+          const session = event.data.object as { id: string; payment_status?: string };
+          // Only process if payment is complete (handles async payments)
+          if (session.payment_status === 'paid') {
+            await this.paymentsService.handleCheckoutSessionCompleted(session.id);
+          }
+          break;
+        }
+        
+        case 'checkout.session.async_payment_succeeded': {
+          const session = event.data.object as { id: string };
+          await this.paymentsService.handleCheckoutSessionCompleted(session.id);
+          break;
+        }
+        
+        case 'checkout.session.async_payment_failed':
+        case 'checkout.session.expired': {
+          const session = event.data.object as { id: string };
+          await this.paymentsService.handleCheckoutSessionFailed(session.id);
+          break;
+        }
+
+        default:
+          // Log unhandled events for debugging (but don't fail)
+          console.log(`Unhandled Stripe event type: ${event.type}`);
       }
 
       return { received: true };

@@ -52,6 +52,9 @@ export class PaymentsService {
     };
   }
 
+  /**
+   * Handle successful PaymentIntent (mobile app flow).
+   */
   async handlePaymentSuccess(paymentIntentId: string) {
     const supabase = getSupabaseClient();
 
@@ -63,7 +66,7 @@ export class PaymentsService {
       .single();
 
     if (!transaction || transaction.status === 'succeeded') {
-      return;
+      return; // Already processed or not found
     }
 
     // Update transaction status
@@ -113,6 +116,33 @@ export class PaymentsService {
           });
       }
     }
+  }
+
+  /**
+   * Handle failed PaymentIntent (mobile app flow).
+   */
+  async handlePaymentFailed(paymentIntentId: string) {
+    const supabase = getSupabaseClient();
+
+    // Find transaction
+    const { data: transaction } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('stripe_payment_intent_id', paymentIntentId)
+      .single();
+
+    if (!transaction || transaction.status !== 'pending') {
+      return; // Already processed or not found
+    }
+
+    // Update transaction status to failed
+    await supabase
+      .from('transactions')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transaction.id);
   }
 
   async getTransactions(userId: string) {
@@ -246,5 +276,33 @@ export class PaymentsService {
           });
       }
     }
+  }
+
+  /**
+   * Handle failed or expired checkout session (web app flow).
+   * Called when checkout.session.expired or checkout.session.async_payment_failed fires.
+   */
+  async handleCheckoutSessionFailed(sessionId: string) {
+    const supabase = getSupabaseClient();
+
+    // Find transaction by checkout session ID
+    const { data: transaction } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('stripe_checkout_session_id', sessionId)
+      .single();
+
+    if (!transaction || transaction.status !== 'pending') {
+      return; // Already processed or not found
+    }
+
+    // Update transaction status to failed/expired
+    await supabase
+      .from('transactions')
+      .update({
+        status: 'failed',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', transaction.id);
   }
 }
