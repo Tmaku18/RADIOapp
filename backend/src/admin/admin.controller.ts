@@ -12,11 +12,27 @@ import {
 import { AdminService } from './admin.service';
 import { UpdateSongStatusDto } from './dto/update-song-status.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('admin')
 @Roles('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
+
+  /**
+   * Helper to get admin's database user ID from Firebase UID.
+   */
+  private async getAdminDbId(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    return data?.id;
+  }
 
   @Get('songs')
   async getSongs(
@@ -103,5 +119,60 @@ export class AdminController {
   @Delete('fallback-songs/:id')
   async deleteFallbackSong(@Param('id') songId: string) {
     return this.adminService.deleteFallbackSong(songId);
+  }
+
+  // ========== User Ban Management Endpoints ==========
+
+  /**
+   * Get all banned users (hard and shadow banned).
+   */
+  @Get('users/banned')
+  async getBannedUsers() {
+    const users = await this.adminService.getBannedUsers();
+    return { users };
+  }
+
+  /**
+   * Hard ban a user - full lockout with token revocation.
+   * Use for ToS violators.
+   */
+  @Post('users/:id/hard-ban')
+  async hardBanUser(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') userId: string,
+    @Body() dto: { reason: string; deleteData?: boolean },
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    const result = await this.adminService.hardBanUser(
+      userId,
+      adminId,
+      dto.reason,
+      dto.deleteData ?? false,
+    );
+    return result;
+  }
+
+  /**
+   * Shadow ban a user - user thinks they're active but invisible.
+   * Use for chat trolls.
+   */
+  @Post('users/:id/shadow-ban')
+  async shadowBanUser(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') userId: string,
+    @Body() dto: { reason: string },
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    const result = await this.adminService.shadowBanUser(userId, adminId, dto.reason);
+    return result;
+  }
+
+  /**
+   * Restore a banned user's access (undo hard or shadow ban).
+   */
+  @Post('users/:id/restore')
+  async restoreUser(@Param('id') userId: string) {
+    const result = await this.adminService.restoreUser(userId);
+    return result;
   }
 }

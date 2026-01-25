@@ -15,6 +15,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
 import { UploadsService } from '../uploads/uploads.service';
+import { DurationService } from '../uploads/duration.service';
 import { CreateSongDto } from './dto/create-song.dto';
 import { CreateSongFromPathDto } from './dto/create-song-from-path.dto';
 import { GetUploadUrlDto } from './dto/get-upload-url.dto';
@@ -29,6 +30,7 @@ export class SongsController {
   constructor(
     private readonly songsService: SongsService,
     private readonly uploadsService: UploadsService,
+    private readonly durationService: DurationService,
   ) {}
 
   @Post('upload')
@@ -65,6 +67,13 @@ export class SongsController {
       throw new Error('Audio file is required');
     }
 
+    // SECURITY: Extract real duration server-side to prevent spoofing
+    // Artists could otherwise claim shorter durations to pay fewer credits
+    const durationSeconds = await this.durationService.extractDuration(
+      audioFile.buffer,
+      audioFile.mimetype,
+    );
+
     const audioUrl = await this.uploadsService.uploadAudioFile(audioFile, userData.id);
     const artworkUrl = artworkFile
       ? await this.uploadsService.uploadArtworkFile(artworkFile, userData.id)
@@ -75,6 +84,7 @@ export class SongsController {
       artistName: body.artistName,
       audioUrl,
       artworkUrl,
+      durationSeconds, // Server-validated duration
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -151,6 +161,9 @@ export class SongsController {
       artistName: dto.artistName,
       audioUrl: audioUrlData.publicUrl,
       artworkUrl,
+      // For direct uploads, client provides duration (less secure than server-side extraction)
+      // TODO: Add background job to verify duration from storage
+      durationSeconds: dto.durationSeconds,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);

@@ -3,6 +3,29 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
+// Transform snake_case DB response to camelCase for frontend
+interface UserResponse {
+  id: string;
+  email: string;
+  displayName: string | null;
+  role: 'listener' | 'artist' | 'admin';
+  avatarUrl: string | null;
+  createdAt: string;
+  firebaseUid: string;
+}
+
+function transformUser(data: any): UserResponse {
+  return {
+    id: data.id,
+    email: data.email,
+    displayName: data.display_name,
+    role: data.role,
+    avatarUrl: data.avatar_url,
+    createdAt: data.created_at,
+    firebaseUid: data.firebase_uid,
+  };
+}
+
 @Injectable()
 export class UsersService {
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {
@@ -17,7 +40,7 @@ export class UsersService {
 
     if (existingUser) {
       // User already exists - return existing user (idempotent)
-      return existingUser;
+      return transformUser(existingUser);
     }
     
     const { data, error } = await supabase
@@ -39,7 +62,7 @@ export class UsersService {
           .select('*')
           .eq('firebase_uid', firebaseUid)
           .single();
-        if (raceUser) return raceUser;
+        if (raceUser) return transformUser(raceUser);
       }
       throw new Error(`Failed to create user: ${error.message}`);
     }
@@ -52,10 +75,10 @@ export class UsersService {
       });
     }
 
-    return data;
+    return transformUser(data);
   }
 
-  async getUserByFirebaseUid(firebaseUid: string) {
+  async getUserByFirebaseUid(firebaseUid: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     
     const { data, error } = await supabase
@@ -68,10 +91,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return data;
+    return transformUser(data);
   }
 
-  async getUserById(userId: string) {
+  async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     
     const { data, error } = await supabase
@@ -84,10 +107,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    return data;
+    return transformUser(data);
   }
 
-  async updateUser(firebaseUid: string, updateUserDto: UpdateUserDto) {
+  async updateUser(firebaseUid: string, updateUserDto: UpdateUserDto): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     
     const { data: user } = await supabase
@@ -115,6 +138,6 @@ export class UsersService {
       throw new Error(`Failed to update user: ${error.message}`);
     }
 
-    return data;
+    return transformUser(data);
   }
 }

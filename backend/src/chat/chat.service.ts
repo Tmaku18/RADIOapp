@@ -1,5 +1,6 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ChatMessage {
   id: string;
@@ -22,10 +23,16 @@ interface RateLimitEntry {
  * CRITICAL: Clients must NEVER broadcast directly to Supabase Realtime.
  * All messages flow through this service for validation, rate limiting,
  * and shadow ban checks.
+ * 
+ * IMPORTANT: The broadcast channel must be SUBSCRIBED before sending.
+ * This service maintains a persistent subscription on module init.
  */
 @Injectable()
-export class ChatService {
+export class ChatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChatService.name);
+  
+  // Persistent Realtime channel for broadcasting
+  private chatChannel: RealtimeChannel | null = null;
 
   // In-memory rate limiting (use Redis in production for multi-instance)
   private rateLimits: Map<string, RateLimitEntry> = new Map();
@@ -36,6 +43,37 @@ export class ChatService {
   private readonly MIN_MESSAGE_INTERVAL_MS = 3000; // Min 3 seconds between messages
 
   private lastMessageTime: Map<string, number> = new Map();
+
+  /**
+   * Initialize the Realtime channel subscription on module start.
+   * The channel MUST be subscribed before we can broadcast to it.
+   */
+  async onModuleInit() {
+    const supabase = getSupabaseClient();
+    
+    this.chatChannel = supabase.channel('radio-chat');
+    
+    // Subscribe to the channel (required before sending)
+    this.chatChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        this.logger.log('Chat broadcast channel subscribed and ready');
+      } else if (status === 'CHANNEL_ERROR') {
+        this.logger.error('Chat channel subscription error');
+      } else if (status === 'TIMED_OUT') {
+        this.logger.warn('Chat channel subscription timed out');
+      }
+    });
+  }
+
+  /**
+   * Clean up channel subscription on module destroy.
+   */
+  async onModuleDestroy() {
+    if (this.chatChannel) {
+      await this.chatChannel.unsubscribe();
+      this.logger.log('Chat broadcast channel unsubscribed');
+    }
+  }
 
   /**
    * Send a chat message (Backend Gatekeeper)
@@ -162,15 +200,20 @@ export class ChatService {
   /**
    * Broadcast message to Supabase Realtime channel
    * ONLY the backend should call this - never clients
+   * 
+   * IMPORTANT: Uses the persistent chatChannel which was subscribed on init.
+   * Creating a new channel each time does NOT work - the channel must be
+   * subscribed before broadcasting.
    */
   private async broadcast(message: ChatMessage) {
-    const supabase = getSupabaseClient();
+    if (!this.chatChannel) {
+      this.logger.error('Chat channel not initialized - cannot broadcast');
+      return;
+    }
 
     try {
-      // Use Supabase Realtime broadcast
-      const channel = supabase.channel('radio-chat');
-      
-      await channel.send({
+      // Use the persistent, already-subscribed channel
+      await this.chatChannel.send({
         type: 'broadcast',
         event: 'new_message',
         payload: {

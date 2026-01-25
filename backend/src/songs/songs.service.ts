@@ -26,6 +26,7 @@ export class SongsService {
         artist_name: createSongDto.artistName,
         audio_url: createSongDto.audioUrl,
         artwork_url: createSongDto.artworkUrl,
+        duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
         status: 'pending',
       })
       .select()

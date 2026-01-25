@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsNumber, Min } from 'class-validator';
 
 export class CreateSongDto {
   @IsString()
@@ -16,4 +16,9 @@ export class CreateSongDto {
   @IsUrl()
   @IsOptional()
   artworkUrl?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(1)
+  durationSeconds?: number;
 }

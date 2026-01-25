@@ -3,13 +3,18 @@ import {
   CanActivate,
   ExecutionContext,
   UnauthorizedException,
+  ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { getFirebaseAuth } from '../../config/firebase.config';
+import { getSupabaseClient } from '../../config/supabase.config';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
+  private readonly logger = new Logger(FirebaseAuthGuard.name);
+
   constructor(private reflector: Reflector) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -36,6 +41,23 @@ export class FirebaseAuthGuard implements CanActivate {
       const auth = getFirebaseAuth();
       const decodedToken = await auth.verifyIdToken(token);
       
+      // Check if user is banned in database
+      const supabase = getSupabaseClient();
+      const { data: user } = await supabase
+        .from('users')
+        .select('id, is_banned, ban_reason')
+        .eq('firebase_uid', decodedToken.uid)
+        .single();
+
+      if (user?.is_banned) {
+        this.logger.warn(`Banned user attempted access: ${decodedToken.uid}`);
+        throw new ForbiddenException(
+          user.ban_reason 
+            ? `Account suspended: ${user.ban_reason}` 
+            : 'Your account has been suspended'
+        );
+      }
+
       request.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
@@ -44,6 +66,9 @@ export class FirebaseAuthGuard implements CanActivate {
 
       return true;
     } catch (error) {
+      if (error instanceof ForbiddenException) {
+        throw error;
+      }
       throw new UnauthorizedException('Invalid token');
     }
   }

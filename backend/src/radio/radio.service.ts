@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
+import { RadioStateService, RadioState, PlayDecision } from './radio-state.service';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -14,6 +15,7 @@ const SONG_END_BUFFER_MS = 2000;
  * - Soft-weighted random: Near-random with slight bias for credits + anti-repetition
  * - Fallback playlist: Opt-in songs and admin curated when no credited songs
  * - Two-stage artist notifications: "Up Next" (T-60s) and "Live Now"
+ * - Redis-backed state management for scalability
  */
 @Injectable()
 export class RadioService {
@@ -24,6 +26,7 @@ export class RadioService {
     private readonly pushNotificationService: PushNotificationService,
     @Inject(forwardRef(() => EmojiService))
     private readonly emojiService: EmojiService,
+    private readonly radioStateService: RadioStateService,
   ) {}
 
   /**
@@ -35,42 +38,36 @@ export class RadioService {
   }
 
   /**
-   * Get or create a queue state record in the database.
-   * This ensures we have persistent state across server restarts.
+   * Get queue state from Redis (with DB fallback).
    */
-  private async getQueueState() {
-    const supabase = getSupabaseClient();
-    
-    const { data: existing } = await supabase
-      .from('rotation_queue')
-      .select('*')
-      .eq('position', 0)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    return existing;
+  private async getQueueState(): Promise<RadioState | null> {
+    return this.radioStateService.getCurrentState();
   }
 
   /**
-   * Update the current playing song in the database.
+   * Update the current playing song in Redis + DB.
    */
-  private async setCurrentSong(songId: string, priorityScore: number = 0, isFallback: boolean = false) {
-    const supabase = getSupabaseClient();
+  private async setCurrentSong(
+    songId: string, 
+    durationSeconds: number,
+    priorityScore: number = 0, 
+    isFallback: boolean = false,
+    isAdminFallback: boolean = false,
+  ): Promise<void> {
+    const now = Date.now();
+    const playedAt = new Date(now).toISOString();
     
-    await supabase
-      .from('rotation_queue')
-      .delete()
-      .eq('position', 0);
-
-    await supabase
-      .from('rotation_queue')
-      .insert({
-        song_id: songId,
-        priority_score: priorityScore,
-        position: 0,
-        played_at: new Date().toISOString(),
-      });
+    const state: RadioState = {
+      songId,
+      startedAt: now,
+      durationMs: durationSeconds * 1000,
+      priorityScore,
+      isFallback,
+      isAdminFallback,
+      playedAt,
+    };
+    
+    await this.radioStateService.setCurrentState(state);
   }
 
   /**
@@ -84,7 +81,7 @@ export class RadioService {
     const queueState = await this.getQueueState();
     
     // If nothing is playing, start the next track
-    if (!queueState || !queueState.song_id) {
+    if (!queueState || !queueState.songId) {
       this.logger.log('No current track, auto-starting next track');
       return this.getNextTrack();
     }
@@ -92,7 +89,7 @@ export class RadioService {
     const { data: song } = await supabase
       .from('songs')
       .select('*')
-      .eq('id', queueState.song_id)
+      .eq('id', queueState.songId)
       .single();
 
     if (!song) {
@@ -101,8 +98,8 @@ export class RadioService {
       return this.getNextTrack();
     }
 
-    const startedAt = new Date(queueState.played_at).getTime();
-    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+    const startedAt = queueState.startedAt;
+    const durationMs = queueState.durationMs || (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
@@ -115,7 +112,7 @@ export class RadioService {
     return {
       ...song,
       is_playing: true,
-      started_at: queueState.played_at,
+      started_at: queueState.playedAt,
       server_time: new Date(now).toISOString(),
       time_remaining_ms: timeRemainingMs,
       position_seconds: Math.floor((now - startedAt) / 1000),
@@ -165,8 +162,9 @@ export class RadioService {
   /**
    * Get credited song using soft-weighted random selection.
    * Only returns songs with enough credits for their full play duration.
+   * Returns both the song and metadata for logging.
    */
-  private async getCreditedSong(currentSongId?: string): Promise<any | null> {
+  private async getCreditedSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
 
     const { data: songs } = await supabase
@@ -185,7 +183,8 @@ export class RadioService {
 
     if (eligibleSongs.length === 0) return null;
 
-    return this.selectWeightedRandom(eligibleSongs, currentSongId);
+    const selectedSong = this.selectWeightedRandom(eligibleSongs, currentSongId);
+    return { song: selectedSong, competingSongs: eligibleSongs.length };
   }
 
   /**
@@ -243,16 +242,16 @@ export class RadioService {
     const currentState = await this.getQueueState();
     
     // Check if song currently playing
-    if (currentState?.song_id && currentState?.played_at) {
+    if (currentState?.songId && currentState?.startedAt) {
       const { data: currentSong } = await supabase
         .from('songs')
         .select('*')
-        .eq('id', currentState.song_id)
+        .eq('id', currentState.songId)
         .single();
 
       if (currentSong) {
-        const startedAt = new Date(currentState.played_at).getTime();
-        const durationMs = (currentSong.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+        const startedAt = currentState.startedAt;
+        const durationMs = currentState.durationMs || (currentSong.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
         const endTime = startedAt + durationMs;
         const timeRemainingMs = endTime - now;
 
@@ -260,7 +259,7 @@ export class RadioService {
           return {
             ...currentSong,
             is_playing: true,
-            started_at: currentState.played_at,
+            started_at: currentState.playedAt,
             server_time: new Date(now).toISOString(),
             time_remaining_ms: timeRemainingMs,
             position_seconds: Math.floor((now - startedAt) / 1000),
@@ -269,12 +268,12 @@ export class RadioService {
       }
     }
 
-    const currentSongId = currentState?.song_id;
+    const currentSongId = currentState?.songId;
 
     // 1. Try credited songs (pre-charge model)
-    const creditedSong = await this.getCreditedSong(currentSongId);
-    if (creditedSong) {
-      const result = await this.playCreditedSong(creditedSong);
+    const creditedResult = await this.getCreditedSong(currentSongId);
+    if (creditedResult) {
+      const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
       if (result) return result;
     }
 
@@ -298,13 +297,14 @@ export class RadioService {
 
   /**
    * Play a credited song using pre-charge model (atomic RPC).
-   * Also sends "Live Now" notification to the artist.
+   * Also sends "Live Now" notification to the artist and logs the decision.
    */
-  private async playCreditedSong(song: any) {
+  private async playCreditedSong(song: any, competingSongs: number = 0) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
-    const creditsToDeduct = this.calculateCreditsRequired(song.duration_seconds || DEFAULT_DURATION_SECONDS);
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+    const creditsToDeduct = this.calculateCreditsRequired(durationSeconds);
 
     // Atomic deduction via RPC (pre-charge)
     const { data, error } = await supabase.rpc('deduct_play_credits', {
@@ -317,10 +317,20 @@ export class RadioService {
       return null;
     }
 
-    await this.setCurrentSong(song.id, 0);
+    await this.setCurrentSong(song.id, durationSeconds, 0, false, false);
 
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id);
+
+    // Log play decision for transparency
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'credits',
+      listenerCount,
+      competingSongs,
+    });
 
     // Log play
     await supabase.from('plays').insert({
@@ -340,7 +350,7 @@ export class RadioService {
       this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
     }
 
-    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+    const durationMs = durationSeconds * 1000;
 
     return {
       ...song,
@@ -360,8 +370,18 @@ export class RadioService {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
 
-    await this.setCurrentSong(song.id, 0, true);
+    await this.setCurrentSong(song.id, durationSeconds, 0, true, false);
+
+    // Log play decision
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'opt_in',
+      listenerCount,
+    });
 
     // Update play count and last_played_at (no credit deduction)
     await supabase
@@ -377,7 +397,7 @@ export class RadioService {
       played_at: startedAt,
     });
 
-    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+    const durationMs = durationSeconds * 1000;
 
     return {
       ...song,
@@ -397,15 +417,28 @@ export class RadioService {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
 
-    // Note: admin_fallback_songs use their own ID, not songs table
-    await supabase
-      .from('rotation_queue')
-      .delete()
-      .eq('position', 0);
+    // Set state in Redis (admin fallback songs have different IDs)
+    // We use a special marker for admin fallback
+    await this.radioStateService.setCurrentState({
+      songId: `admin:${song.id}`,
+      startedAt: now,
+      durationMs: durationSeconds * 1000,
+      priorityScore: 0,
+      isFallback: true,
+      isAdminFallback: true,
+      playedAt: startedAt,
+    });
 
-    // We can't reference admin_fallback_songs.id in rotation_queue.song_id (FK constraint)
-    // So we just clear state and track separately
+    // Log play decision
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'admin_fallback',
+      listenerCount,
+    });
     
     await supabase
       .from('admin_fallback_songs')
@@ -415,7 +448,7 @@ export class RadioService {
       })
       .eq('id', song.id);
 
-    const durationMs = (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+    const durationMs = durationSeconds * 1000;
 
     return {
       id: song.id,
@@ -423,7 +456,7 @@ export class RadioService {
       artist_name: song.artist_name,
       audio_url: song.audio_url,
       artwork_url: song.artwork_url,
-      duration_seconds: song.duration_seconds,
+      duration_seconds: durationSeconds,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -466,7 +499,7 @@ export class RadioService {
     const supabase = getSupabaseClient();
 
     const currentState = await this.getQueueState();
-    const currentSongId = currentState?.song_id;
+    const currentSongId = currentState?.songId;
 
     // Get credited songs
     const { data: creditedSongs } = await supabase
@@ -491,13 +524,7 @@ export class RadioService {
    * Clear the current queue state (useful for admin operations).
    */
   async clearQueueState() {
-    const supabase = getSupabaseClient();
-    
-    await supabase
-      .from('rotation_queue')
-      .delete()
-      .eq('position', 0);
-      
+    await this.radioStateService.clearState();
     return { cleared: true };
   }
 }

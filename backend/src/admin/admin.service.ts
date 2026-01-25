@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
+
+export interface BanResult {
+  success: boolean;
+  userId: string;
+  banType: 'hard' | 'shadow';
+  tokenRevoked: boolean;
+}
 
 @Injectable()
 export class AdminService {
@@ -310,5 +318,173 @@ export class AdminService {
     }
 
     return data;
+  }
+
+  // ========== User Ban Management ==========
+
+  /**
+   * Hard ban a user: revoke Firebase tokens, set ban flag, optionally delete data.
+   * Use for ToS violators - fully locks them out.
+   */
+  async hardBanUser(
+    userId: string,
+    adminId: string,
+    reason: string,
+    deleteUserData: boolean = false,
+  ): Promise<BanResult> {
+    const supabase = getSupabaseClient();
+
+    // 1. Get the user's Firebase UID
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, firebase_uid, email, display_name')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // 2. Set ban flags in database
+    const { error: banError } = await supabase
+      .from('users')
+      .update({
+        is_banned: true,
+        banned_at: new Date().toISOString(),
+        ban_reason: reason,
+        banned_by: adminId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (banError) {
+      throw new BadRequestException(`Failed to ban user: ${banError.message}`);
+    }
+
+    // 3. Revoke all Firebase refresh tokens (forces logout everywhere)
+    let tokenRevoked = false;
+    if (user.firebase_uid) {
+      try {
+        const auth = getFirebaseAuth();
+        await auth.revokeRefreshTokens(user.firebase_uid);
+        tokenRevoked = true;
+        this.logger.log(`Revoked refresh tokens for user ${userId} (Firebase: ${user.firebase_uid})`);
+      } catch (firebaseError) {
+        this.logger.error(`Failed to revoke Firebase tokens: ${firebaseError.message}`);
+      }
+    }
+
+    // 4. Delete FCM push tokens (stop notifications)
+    await supabase
+      .from('push_tokens')
+      .delete()
+      .eq('user_id', userId);
+
+    // 5. Optionally delete user data (songs, likes, etc.) while preserving credentials
+    if (deleteUserData) {
+      // Delete user's songs
+      await supabase.from('songs').delete().eq('artist_id', userId);
+      // Delete user's likes
+      await supabase.from('likes').delete().eq('user_id', userId);
+      // Delete user's notifications
+      await supabase.from('notifications').delete().eq('user_id', userId);
+      // Delete user's chat messages (soft delete - mark as deleted)
+      await supabase
+        .from('chat_messages')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('user_id', userId);
+
+      this.logger.log(`Deleted data for banned user ${userId}`);
+    }
+
+    this.logger.log(`Hard banned user ${userId}. Reason: ${reason}`);
+
+    return {
+      success: true,
+      userId,
+      banType: 'hard',
+      tokenRevoked,
+    };
+  }
+
+  /**
+   * Shadow ban a user: user thinks they're active but no one sees their messages.
+   * Use for chat trolls - reduces Alt Account creation.
+   */
+  async shadowBanUser(userId: string, adminId: string, reason: string): Promise<BanResult> {
+    const supabase = getSupabaseClient();
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        is_shadow_banned: true,
+        shadow_banned_at: new Date().toISOString(),
+        shadow_ban_reason: reason,
+        shadow_banned_by: adminId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) {
+      throw new BadRequestException(`Failed to shadow ban user: ${error.message}`);
+    }
+
+    this.logger.log(`Shadow banned user ${userId}. Reason: ${reason}`);
+
+    return {
+      success: true,
+      userId,
+      banType: 'shadow',
+      tokenRevoked: false,
+    };
+  }
+
+  /**
+   * Restore a banned user's access.
+   */
+  async restoreUser(userId: string): Promise<{ success: boolean; userId: string }> {
+    const supabase = getSupabaseClient();
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        is_banned: false,
+        banned_at: null,
+        ban_reason: null,
+        banned_by: null,
+        is_shadow_banned: false,
+        shadow_banned_at: null,
+        shadow_ban_reason: null,
+        shadow_banned_by: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (error) {
+      throw new BadRequestException(`Failed to restore user: ${error.message}`);
+    }
+
+    this.logger.log(`Restored user ${userId}`);
+
+    return { success: true, userId };
+  }
+
+  /**
+   * Get all banned users (both hard and shadow banned).
+   */
+  async getBannedUsers(): Promise<any[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, display_name, is_banned, banned_at, ban_reason, is_shadow_banned, shadow_banned_at, shadow_ban_reason')
+      .or('is_banned.eq.true,is_shadow_banned.eq.true')
+      .order('banned_at', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      throw new BadRequestException(`Failed to fetch banned users: ${error.message}`);
+    }
+
+    return data || [];
   }
 }
