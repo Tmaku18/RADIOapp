@@ -177,4 +177,62 @@ export class AdminController {
     const result = await this.adminService.restoreUser(userId);
     return result;
   }
+
+  // =============================================
+  // FREE ROTATION SEARCH ENDPOINTS (Item 5)
+  // =============================================
+
+  /**
+   * Search songs by title for free rotation management.
+   */
+  @Get('free-rotation/search/songs')
+  async searchSongsForFreeRotation(@Query('q') query: string) {
+    if (!query || query.trim().length < 2) {
+      return { songs: [] };
+    }
+    const songs = await this.adminService.searchSongsForFreeRotation(query);
+    return { songs };
+  }
+
+  /**
+   * Search users by name or email.
+   */
+  @Get('free-rotation/search/users')
+  async searchUsersForFreeRotation(@Query('q') query: string) {
+    if (!query || query.trim().length < 2) {
+      return { users: [] };
+    }
+    const users = await this.adminService.searchUsersForFreeRotation(query);
+    return { users };
+  }
+
+  /**
+   * Get songs by a specific user for free rotation management.
+   */
+  @Get('free-rotation/users/:id/songs')
+  async getUserSongsForFreeRotation(@Param('id') userId: string) {
+    const songs = await this.adminService.getUserSongsForFreeRotation(userId);
+    return { songs };
+  }
+
+  /**
+   * Toggle free rotation for a song.
+   */
+  @Patch('free-rotation/songs/:id')
+  async toggleFreeRotation(
+    @Param('id') songId: string,
+    @Body() body: { enabled: boolean },
+  ) {
+    const song = await this.adminService.toggleFreeRotation(songId, body.enabled);
+    return { song };
+  }
+
+  /**
+   * Get all songs currently in free rotation.
+   */
+  @Get('free-rotation/songs')
+  async getSongsInFreeRotation() {
+    const songs = await this.adminService.getSongsInFreeRotation();
+    return { songs, total: songs.length };
+  }
 }

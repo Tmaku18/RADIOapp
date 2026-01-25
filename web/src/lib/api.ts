@@ -124,6 +124,16 @@ export const adminApi = {
   updateFallbackSong: (id: string, data: { isActive?: boolean }) =>
     api.patch(`/admin/fallback-songs/${id}`, data),
   deleteFallbackSong: (id: string) => api.delete(`/admin/fallback-songs/${id}`),
+  // Free rotation management (Item 5)
+  searchSongsForFreeRotation: (query: string) => 
+    api.get('/admin/free-rotation/search/songs', { params: { q: query } }),
+  searchUsersForFreeRotation: (query: string) => 
+    api.get('/admin/free-rotation/search/users', { params: { q: query } }),
+  getUserSongsForFreeRotation: (userId: string) => 
+    api.get(`/admin/free-rotation/users/${userId}/songs`),
+  toggleFreeRotation: (songId: string, enabled: boolean) => 
+    api.patch(`/admin/free-rotation/songs/${songId}`, { enabled }),
+  getSongsInFreeRotation: () => api.get('/admin/free-rotation/songs'),
 };
 
 export const notificationsApi = {

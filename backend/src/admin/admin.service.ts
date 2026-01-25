@@ -519,4 +519,180 @@ export class AdminService {
 
     return data || [];
   }
+
+  // =============================================
+  // FREE ROTATION SEARCH (Item 5)
+  // =============================================
+
+  /**
+   * Search songs by title for free rotation management.
+   * Returns songs with eligibility status for free rotation.
+   */
+  async searchSongsForFreeRotation(query: string, limit = 20): Promise<any[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('songs')
+      .select(`
+        id, title, status, duration_seconds,
+        opt_in_free_play, admin_free_rotation, paid_play_count,
+        credits_remaining, play_count, like_count,
+        artist_id, created_at,
+        users!songs_artist_id_fkey(id, display_name, email)
+      `)
+      .ilike('title', `%${query}%`)
+      .eq('status', 'approved')
+      .order('title', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      throw new BadRequestException(`Failed to search songs: ${error.message}`);
+    }
+
+    // Add eligibility status to each song
+    return (data || []).map(song => ({
+      ...song,
+      isEligibleForFreeRotation: 
+        song.paid_play_count > 0 && 
+        song.opt_in_free_play === true && 
+        song.admin_free_rotation === true,
+      eligibilityChecks: {
+        hasPaidPlay: song.paid_play_count > 0,
+        artistOptedIn: song.opt_in_free_play === true,
+        adminApproved: song.admin_free_rotation === true,
+      },
+    }));
+  }
+
+  /**
+   * Search users by name or email.
+   */
+  async searchUsersForFreeRotation(query: string, limit = 20): Promise<any[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, display_name, email, role, created_at')
+      .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+      .order('display_name', { ascending: true })
+      .limit(limit);
+
+    if (error) {
+      throw new BadRequestException(`Failed to search users: ${error.message}`);
+    }
+
+    return data || [];
+  }
+
+  /**
+   * Get songs by a specific user for free rotation management.
+   */
+  async getUserSongsForFreeRotation(userId: string): Promise<any[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('songs')
+      .select(`
+        id, title, status, duration_seconds,
+        opt_in_free_play, admin_free_rotation, paid_play_count,
+        credits_remaining, play_count, like_count,
+        created_at
+      `)
+      .eq('artist_id', userId)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(`Failed to fetch user songs: ${error.message}`);
+    }
+
+    // Add eligibility status to each song
+    return (data || []).map(song => ({
+      ...song,
+      isEligibleForFreeRotation: 
+        song.paid_play_count > 0 && 
+        song.opt_in_free_play === true && 
+        song.admin_free_rotation === true,
+      eligibilityChecks: {
+        hasPaidPlay: song.paid_play_count > 0,
+        artistOptedIn: song.opt_in_free_play === true,
+        adminApproved: song.admin_free_rotation === true,
+      },
+    }));
+  }
+
+  /**
+   * Toggle free rotation status for a song (admin side).
+   * Validates that song has at least 1 paid play before enabling.
+   */
+  async toggleFreeRotation(songId: string, enabled: boolean): Promise<any> {
+    const supabase = getSupabaseClient();
+
+    // If enabling, verify song has at least 1 paid play
+    if (enabled) {
+      const { data: song, error: fetchError } = await supabase
+        .from('songs')
+        .select('paid_play_count, opt_in_free_play, title')
+        .eq('id', songId)
+        .single();
+
+      if (fetchError || !song) {
+        throw new BadRequestException('Song not found');
+      }
+
+      if (song.paid_play_count < 1) {
+        throw new BadRequestException(
+          'Song must have at least 1 paid play before being added to free rotation'
+        );
+      }
+
+      if (!song.opt_in_free_play) {
+        throw new BadRequestException(
+          'Artist must opt-in to free play before admin can enable free rotation'
+        );
+      }
+    }
+
+    const { data, error } = await supabase
+      .from('songs')
+      .update({ admin_free_rotation: enabled })
+      .eq('id', songId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to toggle free rotation: ${error.message}`);
+    }
+
+    this.logger.log(`Free rotation ${enabled ? 'enabled' : 'disabled'} for song ${songId}`);
+    return data;
+  }
+
+  /**
+   * Get all songs currently in free rotation (all 3 conditions met).
+   */
+  async getSongsInFreeRotation(): Promise<any[]> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('songs')
+      .select(`
+        id, title, status, duration_seconds,
+        opt_in_free_play, admin_free_rotation, paid_play_count,
+        play_count, like_count, last_played_at,
+        artist_id, created_at,
+        users!songs_artist_id_fkey(id, display_name, email)
+      `)
+      .eq('status', 'approved')
+      .eq('opt_in_free_play', true)
+      .eq('admin_free_rotation', true)
+      .gt('paid_play_count', 0)
+      .order('last_played_at', { ascending: true, nullsFirst: true });
+
+    if (error) {
+      throw new BadRequestException(`Failed to fetch free rotation songs: ${error.message}`);
+    }
+
+    return data || [];
+  }
 }

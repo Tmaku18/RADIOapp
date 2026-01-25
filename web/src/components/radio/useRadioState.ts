@@ -20,6 +20,10 @@ export interface RadioState {
   currentTrack: Track | null;
   isLoading: boolean;
   error: string | null;
+  // True Radio sync state
+  serverPosition: number;
+  pausedAt: number | null;  // Timestamp when paused (for soft pause)
+  isLive: boolean;          // Whether synced to live position
 }
 
 export function useRadioState() {
@@ -35,6 +39,9 @@ export function useRadioState() {
     currentTrack: null,
     isLoading: false,
     error: null,
+    serverPosition: 0,
+    pausedAt: null,
+    isLive: true,
   });
 
   // Initialize audio element
@@ -202,6 +209,89 @@ export function useRadioState() {
     setState(s => ({ ...s, error: null }));
   }, []);
 
+  /**
+   * Sync to server position (True Radio).
+   * Called when loading track or periodically to handle drift.
+   */
+  const syncToPosition = useCallback((positionSeconds: number) => {
+    if (audioRef.current && positionSeconds > 0) {
+      const currentPos = audioRef.current.currentTime;
+      const drift = Math.abs(currentPos - positionSeconds);
+      
+      // Only seek if drift is more than 2 seconds
+      if (drift > 2) {
+        audioRef.current.currentTime = positionSeconds;
+      }
+      
+      setState(s => ({ 
+        ...s, 
+        serverPosition: positionSeconds,
+        isLive: true,
+      }));
+    }
+  }, []);
+
+  /**
+   * Handle soft pause - track when user pauses for DVR-style buffer.
+   */
+  const softPause = useCallback(() => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    setState(s => ({ 
+      ...s, 
+      pausedAt: Date.now(),
+      isLive: false,
+    }));
+  }, []);
+
+  /**
+   * Resume from soft pause - if within 30s, resume from buffer.
+   */
+  const softResume = useCallback(async () => {
+    if (!audioRef.current) return;
+    
+    const pauseDuration = state.pausedAt ? (Date.now() - state.pausedAt) / 1000 : 0;
+    
+    // If paused less than 30s, just resume (DVR buffer)
+    if (pauseDuration <= 30) {
+      try {
+        await audioRef.current.play();
+        setState(s => ({ ...s, pausedAt: null }));
+      } catch (error) {
+        console.error('Failed to resume:', error);
+      }
+    }
+    // If paused more than 30s, caller should use jumpToLive instead
+  }, [state.pausedAt]);
+
+  /**
+   * Jump to live - re-sync to current server position.
+   */
+  const jumpToLive = useCallback(async (positionSeconds: number) => {
+    if (!audioRef.current) return;
+    
+    audioRef.current.currentTime = positionSeconds;
+    try {
+      await audioRef.current.play();
+      setState(s => ({ 
+        ...s, 
+        pausedAt: null,
+        isLive: true,
+        serverPosition: positionSeconds,
+      }));
+    } catch (error) {
+      console.error('Failed to jump to live:', error);
+    }
+  }, []);
+
+  /**
+   * Check if user needs to "Jump to Live" (paused > 30s).
+   */
+  const needsJumpToLive = useCallback(() => {
+    if (!state.pausedAt) return false;
+    return (Date.now() - state.pausedAt) / 1000 > 30;
+  }, [state.pausedAt]);
+
   return {
     state,
     loadTrack,
@@ -211,5 +301,11 @@ export function useRadioState() {
     setVolume,
     seek,
     clearError,
+    // True Radio functions
+    syncToPosition,
+    softPause,
+    softResume,
+    jumpToLive,
+    needsJumpToLive,
   };
 }

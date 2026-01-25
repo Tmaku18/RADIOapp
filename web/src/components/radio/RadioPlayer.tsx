@@ -1,16 +1,30 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRadioState, Track } from './useRadioState';
 import { radioApi, songsApi } from '@/lib/api';
 
 export function RadioPlayer() {
-  const { state, loadTrack, togglePlay, setVolume } = useRadioState();
+  const { 
+    state, 
+    loadTrack, 
+    togglePlay, 
+    setVolume,
+    syncToPosition,
+    softPause,
+    softResume,
+    jumpToLive,
+    needsJumpToLive,
+    play,
+  } = useRadioState();
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [listenerCount, setListenerCount] = useState(0);
+  const [showJumpToLive, setShowJumpToLive] = useState(false);
+  const lastServerPosition = useRef(0);
 
   // Fetch current track on mount and periodically
-  const fetchCurrentTrack = useCallback(async () => {
+  const fetchCurrentTrack = useCallback(async (shouldSync = false) => {
     try {
       const response = await radioApi.getCurrentTrack();
       const trackData = response.data;
@@ -25,9 +39,21 @@ export function RadioPlayer() {
           durationSeconds: trackData.duration_seconds || 180,
         };
         
+        // Save server position for sync
+        const serverPosition = trackData.position_seconds || 0;
+        lastServerPosition.current = serverPosition;
+        
         // Only load if different track
         if (!state.currentTrack || state.currentTrack.id !== track.id) {
           loadTrack(track);
+          // Wait a bit for audio to load, then sync and autoplay
+          setTimeout(async () => {
+            syncToPosition(serverPosition);
+            await play();
+          }, 500);
+        } else if (shouldSync && state.isLive) {
+          // Same track, just sync position (handle drift)
+          syncToPosition(serverPosition);
         }
 
         // Check like status
@@ -41,39 +67,66 @@ export function RadioPlayer() {
     } catch (error) {
       console.error('Failed to fetch current track:', error);
     }
-  }, [loadTrack, state.currentTrack]);
+  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play]);
 
+  // Initial fetch and periodic polling
   useEffect(() => {
-    fetchCurrentTrack();
+    fetchCurrentTrack(true);
     
     // Poll for track changes every 10 seconds
-    const interval = setInterval(fetchCurrentTrack, 10000);
+    const interval = setInterval(() => fetchCurrentTrack(true), 10000);
     
     return () => clearInterval(interval);
   }, [fetchCurrentTrack]);
 
-  const handleSkip = async () => {
-    try {
-      const response = await radioApi.getNextTrack();
-      const trackData = response.data;
-      
-      if (trackData && trackData.id) {
-        const track: Track = {
-          id: trackData.id,
-          title: trackData.title,
-          artistName: trackData.artist_name,
-          artworkUrl: trackData.artwork_url,
-          audioUrl: trackData.audio_url,
-          durationSeconds: trackData.duration_seconds || 180,
-        };
-        loadTrack(track);
-        
-        // Report skip
-        await radioApi.reportPlay({ songId: trackData.id, skipped: true });
-      }
-    } catch (error) {
-      console.error('Failed to skip:', error);
+  // Re-sync every 30 seconds to handle drift (only when live)
+  useEffect(() => {
+    if (!state.isLive) return;
+    
+    const syncInterval = setInterval(() => {
+      fetchCurrentTrack(true);
+    }, 30000);
+    
+    return () => clearInterval(syncInterval);
+  }, [state.isLive, fetchCurrentTrack]);
+
+  // Check for "Jump to Live" state when paused
+  useEffect(() => {
+    if (!state.pausedAt) {
+      setShowJumpToLive(false);
+      return;
     }
+    
+    // Check every second if we've exceeded 30s pause
+    const checkInterval = setInterval(() => {
+      if (needsJumpToLive()) {
+        setShowJumpToLive(true);
+      }
+    }, 1000);
+    
+    return () => clearInterval(checkInterval);
+  }, [state.pausedAt, needsJumpToLive]);
+
+  // Handle soft pause toggle
+  const handlePauseToggle = async () => {
+    if (state.isPlaying) {
+      softPause();
+    } else if (showJumpToLive) {
+      // Need to jump to live
+      await fetchCurrentTrack(false);
+      await jumpToLive(lastServerPosition.current);
+      setShowJumpToLive(false);
+    } else {
+      // Within 30s buffer, just resume
+      await softResume();
+    }
+  };
+
+  // Handle jump to live
+  const handleJumpToLive = async () => {
+    await fetchCurrentTrack(false);
+    await jumpToLive(lastServerPosition.current);
+    setShowJumpToLive(false);
   };
 
   const handleLike = async () => {
@@ -158,6 +211,33 @@ export function RadioPlayer() {
           </div>
         </div>
 
+        {/* LIVE Indicator */}
+        <div className="flex items-center justify-center mb-4">
+          {state.isLive && state.isPlaying ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-full">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+              </span>
+              <span className="font-semibold text-sm">LIVE</span>
+            </div>
+          ) : showJumpToLive ? (
+            <button
+              onClick={handleJumpToLive}
+              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z" />
+              </svg>
+              <span className="font-semibold text-sm">Jump to Live</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full">
+              <span className="font-semibold text-sm">PAUSED</span>
+            </div>
+          )}
+        </div>
+
         {/* Controls */}
         <div className="flex items-center justify-center space-x-6">
           {/* Like Button */}
@@ -185,15 +265,23 @@ export function RadioPlayer() {
             </svg>
           </button>
 
-          {/* Play/Pause Button */}
+          {/* Pause/Resume Button (Soft Pause) */}
           <button
-            onClick={togglePlay}
+            onClick={handlePauseToggle}
             disabled={!state.currentTrack || state.isLoading}
-            className="w-16 h-16 bg-purple-600 text-white rounded-full flex items-center justify-center hover:bg-purple-700 transition-colors disabled:opacity-50"
+            className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
+              showJumpToLive 
+                ? 'bg-purple-600 text-white hover:bg-purple-700'
+                : 'bg-purple-600 text-white hover:bg-purple-700'
+            }`}
           >
             {state.isPlaying ? (
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
+              </svg>
+            ) : showJumpToLive ? (
+              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z" />
               </svg>
             ) : (
               <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
@@ -202,16 +290,8 @@ export function RadioPlayer() {
             )}
           </button>
 
-          {/* Skip Button */}
-          <button
-            onClick={handleSkip}
-            disabled={!state.currentTrack || state.isLoading}
-            className="p-3 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors disabled:opacity-50"
-          >
-            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
-            </svg>
-          </button>
+          {/* Placeholder for symmetry (replacing skip) */}
+          <div className="w-12 h-12" />
         </div>
 
         {/* Volume Control */}

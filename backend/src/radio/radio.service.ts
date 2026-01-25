@@ -258,6 +258,10 @@ export class RadioService {
 
   /**
    * Get opt-in song from artists who enabled free play.
+   * Requires ALL THREE conditions:
+   * 1. Artist opted in (opt_in_free_play = true)
+   * 2. Admin approved (admin_free_rotation = true)
+   * 3. Has at least 1 paid play (paid_play_count > 0)
    */
   private async getOptInSong(currentSongId?: string): Promise<any | null> {
     const supabase = getSupabaseClient();
@@ -267,6 +271,8 @@ export class RadioService {
       .select('*')
       .eq('status', 'approved')
       .eq('opt_in_free_play', true)
+      .eq('admin_free_rotation', true)
+      .gt('paid_play_count', 0)
       .order('last_played_at', { ascending: true, nullsFirst: true })
       .limit(10);
 
@@ -414,6 +420,12 @@ export class RadioService {
       song_id: song.id,
       played_at: startedAt,
     });
+
+    // Increment paid_play_count for free rotation eligibility
+    await supabase
+      .from('songs')
+      .update({ paid_play_count: (song.paid_play_count || 0) + 1 })
+      .eq('id', song.id);
 
     // Send "Live Now" notification to artist (Stage 2)
     try {

@@ -24,6 +24,7 @@ const adminNavigation = [
   { name: 'Songs', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
+  { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
 ];
 
 export default function DashboardLayout({
