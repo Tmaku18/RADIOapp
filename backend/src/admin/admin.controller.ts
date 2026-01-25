@@ -50,10 +50,12 @@ export class AdminController {
 
   @Patch('songs/:id')
   async updateSongStatus(
+    @CurrentUser() admin: FirebaseUser,
     @Param('id') songId: string,
     @Body() dto: UpdateSongStatusDto,
   ) {
-    const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason);
+    const adminId = await this.getAdminDbId(admin.uid);
+    const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason, adminId);
     return { song };
   }
 

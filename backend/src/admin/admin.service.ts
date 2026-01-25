@@ -56,7 +56,12 @@ export class AdminService {
     return data;
   }
 
-  async updateSongStatus(songId: string, status: 'approved' | 'rejected', reason?: string) {
+  async updateSongStatus(
+    songId: string, 
+    status: 'pending' | 'approved' | 'rejected', 
+    reason?: string,
+    adminId?: string,
+  ) {
     const supabase = getSupabaseClient();
 
     // Get song with artist info
@@ -70,15 +75,25 @@ export class AdminService {
       throw new NotFoundException('Song not found');
     }
 
-    // Build update object
+    const previousStatus = existingSong.status;
+    const now = new Date().toISOString();
+
+    // Build update object with audit columns
     const updateData: any = {
       status,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
+      status_changed_at: now,
+      status_changed_by: adminId || null,
+      status_change_reason: reason || null,
     };
 
     if (status === 'rejected') {
       updateData.rejection_reason = reason || null;
-      updateData.rejected_at = new Date().toISOString();
+      updateData.rejected_at = now;
+    } else if (status === 'pending') {
+      // Clear rejection fields when reverting to pending
+      updateData.rejection_reason = null;
+      updateData.rejected_at = null;
     }
 
     // Update the song status
@@ -93,34 +108,51 @@ export class AdminService {
       throw new BadRequestException(`Failed to update song status: ${error.message}`);
     }
 
-    // Create notification for artist
-    const notificationType = status === 'approved' ? 'song_approved' : 'song_rejected';
-    const notificationTitle = status === 'approved' ? 'Song Approved!' : 'Song Rejected';
-    const notificationMessage = status === 'approved'
-      ? `Your song "${existingSong.title}" has been approved and is now live!`
-      : `Your song "${existingSong.title}" was not approved.${reason ? ` Reason: ${reason}` : ''} You have 48 hours to contact support.`;
+    // Only send notifications if status actually changed
+    if (previousStatus !== status) {
+      // Create notification for artist
+      let notificationType: string;
+      let notificationTitle: string;
+      let notificationMessage: string;
 
-    await supabase.from('notifications').insert({
-      user_id: existingSong.artist_id,
-      type: notificationType,
-      title: notificationTitle,
-      message: notificationMessage,
-      metadata: {
-        songId,
-        songTitle: existingSong.title,
-        reason: reason || null,
-      },
-    });
-
-    this.logger.log(`Song ${songId} ${status}. Notification sent to artist.`);
-
-    // Send email notification
-    const artistEmail = (existingSong.users as any)?.email;
-    if (artistEmail) {
       if (status === 'approved') {
-        await this.emailService.sendSongApprovedEmail(artistEmail, existingSong.title);
+        notificationType = 'song_approved';
+        notificationTitle = 'Song Approved!';
+        notificationMessage = `Your song "${existingSong.title}" has been approved and is now live!`;
+      } else if (status === 'rejected') {
+        notificationType = 'song_rejected';
+        notificationTitle = 'Song Rejected';
+        notificationMessage = `Your song "${existingSong.title}" was not approved.${reason ? ` Reason: ${reason}` : ''} You have 48 hours to contact support.`;
       } else {
-        await this.emailService.sendSongRejectedEmail(artistEmail, existingSong.title, reason);
+        notificationType = 'song_status_changed';
+        notificationTitle = 'Song Status Updated';
+        notificationMessage = `Your song "${existingSong.title}" has been moved back to pending review.`;
+      }
+
+      await supabase.from('notifications').insert({
+        user_id: existingSong.artist_id,
+        type: notificationType,
+        title: notificationTitle,
+        message: notificationMessage,
+        metadata: {
+          songId,
+          songTitle: existingSong.title,
+          previousStatus,
+          newStatus: status,
+          reason: reason || null,
+        },
+      });
+
+      this.logger.log(`Song ${songId} status changed: ${previousStatus} -> ${status}`);
+
+      // Send email notification for approve/reject
+      const artistEmail = (existingSong.users as any)?.email;
+      if (artistEmail) {
+        if (status === 'approved') {
+          await this.emailService.sendSongApprovedEmail(artistEmail, existingSong.title);
+        } else if (status === 'rejected') {
+          await this.emailService.sendSongRejectedEmail(artistEmail, existingSong.title, reason);
+        }
       }
     }
 

@@ -188,6 +188,32 @@ export class RadioService {
   }
 
   /**
+   * Get trial song - newly approved songs with remaining trial plays.
+   * Trial plays give new artists exposure before requiring credits.
+   */
+  private async getTrialSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('status', 'approved')
+      .gt('trial_plays_remaining', 0)
+      .order('created_at', { ascending: true }) // Oldest first (FIFO fairness)
+      .limit(20);
+
+    if (!songs || songs.length === 0) return null;
+
+    // Filter out current song
+    const eligible = songs.filter(s => s.id !== currentSongId);
+    if (eligible.length === 0) return null;
+
+    // Weighted random favoring newest uploads slightly
+    const selectedSong = this.selectWeightedRandom(eligible, currentSongId);
+    return { song: selectedSong, competingSongs: eligible.length };
+  }
+
+  /**
    * Get opt-in song from artists who enabled free play.
    */
   private async getOptInSong(currentSongId?: string): Promise<any | null> {
@@ -277,14 +303,22 @@ export class RadioService {
       if (result) return result;
     }
 
-    // 2. Fall back to opt-in songs (free play)
+    // 2. Try trial songs (new artists get free exposure)
+    const trialResult = await this.getTrialSong(currentSongId);
+    if (trialResult) {
+      this.logger.log(`Playing trial song: ${trialResult.song.title}`);
+      const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
+      if (result) return result;
+    }
+
+    // 3. Fall back to opt-in songs (free play)
     const optInSong = await this.getOptInSong(currentSongId);
     if (optInSong) {
       this.logger.log(`Playing opt-in fallback: ${optInSong.title}`);
       return await this.playFallbackSong(optInSong);
     }
 
-    // 3. Fall back to admin curated playlist
+    // 4. Fall back to admin curated playlist
     const fallbackSong = await this.getAdminFallbackSong();
     if (fallbackSong) {
       this.logger.log(`Playing admin fallback: ${fallbackSong.title}`);
@@ -360,6 +394,79 @@ export class RadioService {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       credits_deducted: creditsToDeduct,
+    };
+  }
+
+  /**
+   * Play a trial song - new artist gets free exposure.
+   * Decrements trial_plays_remaining, no credits deducted.
+   */
+  private async playTrialSong(song: any, competingSongs: number = 0) {
+    const supabase = getSupabaseClient();
+    const now = Date.now();
+    const startedAt = new Date(now).toISOString();
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+
+    // Check and decrement trial plays atomically
+    const { data: updated, error } = await supabase
+      .from('songs')
+      .update({
+        trial_plays_remaining: Math.max(0, (song.trial_plays_remaining || 0) - 1),
+        trial_plays_used: (song.trial_plays_used || 0) + 1,
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
+      .eq('id', song.id)
+      .gt('trial_plays_remaining', 0) // Only update if still has trials
+      .select()
+      .single();
+
+    if (error || !updated) {
+      this.logger.warn(`Failed to decrement trial plays for ${song.id}: ${error?.message || 'No trial plays remaining'}`);
+      return null;
+    }
+
+    await this.setCurrentSong(song.id, durationSeconds, 0, true, false);
+
+    // Log play decision
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'trial',
+      listenerCount,
+      competingSongs,
+    });
+
+    // Log play
+    await supabase.from('plays').insert({
+      song_id: song.id,
+      played_at: startedAt,
+    });
+
+    // Notify artist of trial play
+    try {
+      await this.pushNotificationService.sendLiveNowNotification({
+        id: song.id,
+        title: song.title,
+        artist_id: song.artist_id,
+        artist_name: song.artist_name,
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to send trial play notification: ${e.message}`);
+    }
+
+    const durationMs = durationSeconds * 1000;
+
+    return {
+      ...song,
+      is_playing: true,
+      started_at: startedAt,
+      server_time: startedAt,
+      time_remaining_ms: durationMs,
+      position_seconds: 0,
+      is_trial_play: true,
+      trial_plays_remaining: updated.trial_plays_remaining,
     };
   }
 

@@ -14,6 +14,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { EmailModule } from './email/email.module';
 import { ChatModule } from './chat/chat.module';
 import { PushNotificationModule } from './push-notifications/push-notification.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -35,6 +36,7 @@ import { RequestIdMiddleware } from './common/middleware';
     EmailModule,
     ChatModule,
     PushNotificationModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,8 +2,8 @@ import { IsString, IsIn, IsOptional } from 'class-validator';
 
 export class UpdateSongStatusDto {
   @IsString()
-  @IsIn(['approved', 'rejected'])
-  status: 'approved' | 'rejected';
+  @IsIn(['pending', 'approved', 'rejected'])
+  status: 'pending' | 'approved' | 'rejected';
 
   @IsString()
   @IsOptional()
