@@ -2,12 +2,55 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
-import { RadioStateService, RadioState, PlayDecision } from './radio-state.service';
+import { RadioStateService, RadioState, PlayDecision, PlaylistState } from './radio-state.service';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
+
+/**
+ * Simple seeded random number generator (Mulberry32).
+ * Produces deterministic sequence for reproducible shuffles.
+ */
+function seededRandom(seed: number): () => number {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * Convert string seed to numeric seed.
+ */
+function stringToSeed(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash);
+}
+
+/**
+ * Deterministic shuffle using Fisher-Yates with seeded random.
+ * Same seed always produces same shuffle order (for debugging/audit).
+ */
+function seededShuffle<T>(array: T[], seed: string): T[] {
+  const numericSeed = stringToSeed(seed);
+  const rng = seededRandom(numericSeed);
+  const shuffled = [...array];
+  
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  
+  return shuffled;
+}
 
 /**
  * Radio service implementing:

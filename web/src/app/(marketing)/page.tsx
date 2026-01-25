@@ -3,20 +3,44 @@ import Link from 'next/link';
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
 
-// This would fetch from homepage_cache table in production
+// Fetch platform stats from the API
 async function getHomepageData() {
-  // TODO: Fetch from Supabase homepage_cache table
-  // For now, return static data
+  try {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+    const response = await fetch(`${apiUrl}/analytics/platform`, {
+      next: { revalidate: 60 }, // Cache for 60 seconds
+    });
+    
+    if (response.ok) {
+      const stats = await response.json();
+      return {
+        featuredArtists: [
+          { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
+          { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
+          { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
+        ],
+        stats: {
+          totalArtists: stats.totalArtists || 0,
+          totalSongs: stats.totalSongs || 0,
+          totalPlays: stats.totalPlays || 0,
+        },
+      };
+    }
+  } catch (error) {
+    console.error('Failed to fetch platform stats:', error);
+  }
+  
+  // Fallback to default data
   return {
     featuredArtists: [
-      { id: '1', name: 'DJ Shadow', genre: 'Electronic', imageUrl: null },
-      { id: '2', name: 'MF DOOM', genre: 'Hip Hop', imageUrl: null },
-      { id: '3', name: 'Flying Lotus', genre: 'Experimental', imageUrl: null },
+      { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
+      { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
+      { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
     ],
     stats: {
-      totalArtists: 1250,
-      totalSongs: 8500,
-      totalPlays: 2500000,
+      totalArtists: 0,
+      totalSongs: 0,
+      totalPlays: 0,
     },
   };
 }

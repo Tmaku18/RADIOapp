@@ -11,6 +11,7 @@ const REDIS_KEYS = {
   CURRENT_STATE: 'radio:current',
   LISTENER_COUNT: 'radio:listeners',
   PRIME_TIME_ACTIVE: 'radio:prime_time',
+  PLAYLIST_STATE: 'radio:playlist',
 } as const;
 
 export interface RadioState {
@@ -31,6 +32,15 @@ export interface PlayDecision {
   listenerCount?: number;
   weightScore?: number;
   competingSongs?: number;
+  shuffleSeed?: string;
+}
+
+export interface PlaylistState {
+  shuffleSeed: string;
+  songIds: string[];
+  currentIndex: number;
+  loopCount: number;
+  lastUpdated: string;
 }
 
 @Injectable()
@@ -136,6 +146,69 @@ export class RadioStateService implements OnModuleInit {
       return 0;
     }
     return newCount;
+  }
+
+  // === Playlist State Management (for continuous playback) ===
+
+  /**
+   * Get or create playlist state for continuous playback.
+   */
+  async getPlaylistState(): Promise<PlaylistState | null> {
+    if (!this.redisAvailable) return null;
+    
+    const redis = getRedisClient();
+    const data = await redis.get(REDIS_KEYS.PLAYLIST_STATE);
+    
+    if (!data) return null;
+    
+    try {
+      return JSON.parse(data) as PlaylistState;
+    } catch (e) {
+      this.logger.error(`Failed to parse playlist state: ${e.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Save playlist state (shuffle order, current position).
+   */
+  async setPlaylistState(state: PlaylistState): Promise<void> {
+    if (!this.redisAvailable) return;
+    
+    const redis = getRedisClient();
+    await redis.setex(
+      REDIS_KEYS.PLAYLIST_STATE,
+      3600, // 1 hour TTL (refreshed on each update)
+      JSON.stringify(state)
+    );
+  }
+
+  /**
+   * Advance to next song in playlist, reshuffle if at end.
+   * Returns the new current index and whether we looped.
+   */
+  async advancePlaylist(): Promise<{ newIndex: number; looped: boolean } | null> {
+    const state = await this.getPlaylistState();
+    if (!state || state.songIds.length === 0) {
+      return null;
+    }
+
+    const nextIndex = state.currentIndex + 1;
+    const looped = nextIndex >= state.songIds.length;
+
+    if (looped) {
+      // We've completed a full loop - increment count
+      state.loopCount++;
+      state.currentIndex = 0;
+      // New shuffle seed will be set by caller (generates new order)
+    } else {
+      state.currentIndex = nextIndex;
+    }
+
+    state.lastUpdated = new Date().toISOString();
+    await this.setPlaylistState(state);
+
+    return { newIndex: state.currentIndex, looped };
   }
 
   // === Private Redis Methods ===

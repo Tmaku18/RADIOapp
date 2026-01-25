@@ -131,6 +131,17 @@ export const notificationsApi = {
   getUnreadCount: () => api.get('/notifications/unread-count'),
   markAsRead: (id: string) => api.patch(`/notifications/${id}/read`),
   markAllAsRead: () => api.post('/notifications/mark-all-read'),
+  delete: (id: string) => api.delete(`/notifications/${id}`),
+  deleteAll: () => api.delete('/notifications'),
+};
+
+export const analyticsApi = {
+  // Artist analytics (authenticated)
+  getMyAnalytics: (days?: number) => api.get('/analytics/me', { params: { days } }),
+  getSongAnalytics: (songId: string, days?: number) => 
+    api.get(`/analytics/songs/${songId}`, { params: { days } }),
+  // Platform stats (public)
+  getPlatformStats: () => api.get('/analytics/platform'),
 };
 
 export const chatApi = {

@@ -3,6 +3,7 @@ import {
   Get,
   Patch,
   Post,
+  Delete,
   Param,
   Query,
 } from '@nestjs/common';
@@ -75,5 +76,27 @@ export class NotificationController {
   async markAllAsRead(@CurrentUser() user: FirebaseUser) {
     const userId = await this.getUserId(user.uid);
     return this.notificationService.markAllAsRead(userId);
+  }
+
+  /**
+   * Soft delete a single notification.
+   */
+  @Delete(':id')
+  async deleteNotification(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') notificationId: string,
+  ) {
+    const userId = await this.getUserId(user.uid);
+    await this.notificationService.delete(notificationId, userId);
+    return { success: true };
+  }
+
+  /**
+   * Soft delete all notifications for the current user.
+   */
+  @Delete()
+  async deleteAllNotifications(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.getUserId(user.uid);
+    return this.notificationService.deleteAll(userId);
   }
 }
