@@ -13,19 +13,23 @@ Independent artists struggle to get their music heard through traditional channe
 - **For Platform**: Sustainable revenue model through credit purchases and future subscription plans
 
 ### Key Features
-- 🎵 **Continuous Radio Stream**: Seamless, uninterrupted music playback with soft-weighted random selection
-- 🎤 **Artist Uploads**: Easy song upload with server-side duration validation (FFmpeg/music-metadata)
+- 🎵 **True Radio Experience**: Synchronized playback across all clients with LIVE indicator and soft pause (30s DVR buffer)
+- 🔄 **Continuous Playback**: Auto-advance with deterministic shuffle, no skipping (true radio style)
+- 🎤 **Artist Uploads**: Easy song upload with server-side duration validation (music-metadata)
 - 💳 **Credit System**: Advanced credit allocation with atomic PostgreSQL RPC transactions
 - 🏦 **Credit Bank**: Artists buy credits, then allocate to individual songs for airtime
+- 🆓 **Trial Rotation**: New approved songs get 3 free plays before requiring credits
 - 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
 - 💰 **Payment Processing**: Full Stripe integration with dual payment flows
 - ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
 - 💬 **Live Radio Chat**: Real-time chat with Supabase Realtime, emoji reactions, and smart scroll
-- 📲 **Push Notifications**: FCM integration with "Up Next" and "Live Now" artist alerts
-- 📊 **Admin Dashboard**: Full management interface with song moderation, chat moderation, and fallback playlist
+- 📲 **Push Notifications**: FCM integration with debounced "Up Next" (1 per 4hrs) and "Live Now" artist alerts
+- 📊 **Admin Dashboard**: Full management with song moderation, user bans (hard + shadow), free rotation search, and fallback playlist
 - 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
-- 🔔 **Notifications**: In-app, email, and push notifications for song events
+- 🔔 **Notifications**: In-app, email, and push notifications with soft delete
 - 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
+- 📈 **Algorithm Transparency**: `play_decision_log` table for auditing song selection fairness
+- ⚡ **Scalable State**: Redis-backed radio state management for horizontal scaling
 
 ## Architecture
 
@@ -49,12 +53,13 @@ Independent artists struggle to get their music heard through traditional channe
   
 - **Backend**: NestJS API server
   - RESTful API architecture with `/api/v1` versioning
-  - Firebase Admin SDK for token verification and FCM push notifications
+  - Firebase Admin SDK for token verification, FCM push notifications, and token revocation
   - Supabase client for database operations and Realtime broadcasting
-  - Redis for horizontally-scalable emoji aggregation (ioredis)
+  - Redis for stateless radio state management, emoji aggregation, and listener counts (ioredis)
   - Stripe integration with dual payment flows (PaymentIntent + Checkout Sessions)
   - Signed upload URLs for direct-to-storage uploads
   - Scheduled tasks: chat archival (24h), rejected song cleanup (48h)
+  - Algorithm transparency logging (`play_decision_log` table)
   - Structured logging with Winston
   - Request ID tracing and Sentry error reporting
   
@@ -173,8 +178,9 @@ web/
 │   │   │   ├── admin/
 │   │   │   │   ├── page.tsx            # Admin dashboard
 │   │   │   │   ├── songs/page.tsx      # Song moderation with rejection
-│   │   │   │   ├── users/page.tsx      # User management
-│   │   │   │   └── fallback/page.tsx   # Fallback playlist management
+│   │   │   │   ├── users/page.tsx      # User management with ban controls
+│   │   │   │   ├── fallback/page.tsx   # Fallback playlist management
+│   │   │   │   └── free-rotation/page.tsx  # Free rotation search & toggle
 │   │   │   └── layout.tsx              # Dashboard layout with sidebar + notification bell
 │   │   ├── api/auth/
 │   │   │   ├── login/route.ts          # Session cookie creation
@@ -250,6 +256,7 @@ backend/
 │   ├── radio/
 │   │   ├── radio.controller.ts         # Radio stream endpoints
 │   │   ├── radio.service.ts            # Queue management & rotation logic
+│   │   ├── radio-state.service.ts      # Redis-backed state management
 │   │   └── radio.module.ts             # Radio module definition
 │   ├── uploads/
 │   │   ├── uploads.service.ts          # File upload + signed URL generation
@@ -295,17 +302,20 @@ backend/
 ```
 
 **Key Components:**
-- **Firebase Auth Guard**: Validates Firebase ID tokens on protected routes
-- **Radio Service**: Soft-weighted random selection, pre-charge model, fallback playlists
+- **Firebase Auth Guard**: Validates Firebase ID tokens, checks ban status, rejects banned users
+- **Radio Service**: Soft-weighted random selection, pre-charge model, trial rotation, fallback playlists
+- **Radio State Service**: Redis-backed state management for horizontal scaling
 - **Uploads Service**: Multipart uploads + signed URL generation + duration validation
 - **Duration Service**: Server-side audio duration extraction (music-metadata)
 - **Stripe Service**: PaymentIntents (mobile) + Checkout Sessions (web)
-- **Songs Service**: Song metadata, like/unlike, play counts, opt-in free play
+- **Songs Service**: Song metadata, like/unlike, play counts, opt-in free play, trial plays
 - **Credits Service**: Atomic credit allocation/withdrawal via PostgreSQL RPC
-- **Notification Service**: In-app notifications for song approval/rejection
+- **Notification Service**: In-app notifications with soft delete for song approval/rejection
+- **Push Notification Service**: FCM with debounced "Up Next" (1 per 4hrs) and "Live Now" alerts
 - **Email Service**: Email notifications (SendGrid/Resend) with templates
 - **Cleanup Service**: Scheduled job to delete rejected songs after 48 hours
-- **Admin Service**: Analytics, song moderation, user management, fallback playlist
+- **Admin Service**: Analytics, song moderation, user bans (hard + shadow), free rotation search
+- **Analytics Service**: Artist stats, song analytics, platform metrics, play decision audit
 - **Logger Service**: Winston-based structured logging with request IDs
 - **Sentry Service**: Error capture and reporting
 - **AllExceptionsFilter**: Consistent error responses with tracing
@@ -402,6 +412,9 @@ PORT=3000
 NODE_ENV=development
 WEB_URL=http://localhost:3001
 CORS_ORIGIN=http://localhost:3000,http://localhost:3001
+
+# Redis Configuration (Optional - for scaling)
+REDIS_URL=redis://localhost:6379
 
 # Error Tracking (Optional)
 SENTRY_DSN=https://your-key@sentry.io/your-project
@@ -639,11 +652,18 @@ Supabase Storage (Audio Files)
 - ✅ **48-hour cleanup** of rejected songs (scheduled task)
 
 ### Radio Streaming
-- ✅ Continuous radio stream playback
+- ✅ **True Radio Sync**: All clients synchronized to server time with position tracking
+- ✅ **Soft Pause (DVR buffer)**: 30-second pause buffer, "Jump to Live" after expiry
+- ✅ **LIVE indicator**: Animated indicator when synced to live stream
+- ✅ Continuous radio stream playback with auto-advance
+- ✅ **Deterministic shuffle**: Seeded random for reproducible playlist order
 - ✅ **Soft-weighted random selection** (slight preference for more credits/less recent plays)
 - ✅ **Pre-charge model** with atomic PostgreSQL RPC transactions
-- ✅ **Three-tier fallback**: credited songs → opt-in songs → admin fallback playlist
-- ✅ Skip tracking and limits
+- ✅ **Trial rotation**: New approved songs get 3 free plays before requiring credits
+- ✅ **Four-tier fallback**: credited songs → trial songs → opt-in songs → admin fallback
+- ✅ **Free rotation eligibility**: Requires paid play + artist opt-in + admin approval
+- ✅ **Algorithm transparency**: `play_decision_log` table for auditing song selection
+- ✅ **Redis state management**: Stateless backend for horizontal scaling
 - ✅ Queue preview endpoint
 - ✅ Audio streaming via Supabase Storage URLs
 - ✅ **Hls.js web player** with custom React hook
@@ -666,8 +686,10 @@ Supabase Storage (Audio Files)
 ### Notifications
 - ✅ **In-app notifications** for song approval/rejection
 - ✅ **Email notifications** (SendGrid/Resend integration)
-- ✅ **Notification bell** with unread count
+- ✅ **Push notifications**: "Up Next" (T-60s) and "Live Now" with 4-hour debounce per artist
+- ✅ **Notification bell** with unread count (styled as button)
 - ✅ Mark as read / Mark all as read
+- ✅ **Soft delete**: Delete single or all notifications (audit trail preserved)
 
 ### Mobile App Features
 - ✅ **Bottom navigation bar** (Player, Upload, Credits, Profile)
@@ -678,19 +700,21 @@ Supabase Storage (Audio Files)
 - ✅ **WebView bridge** to web dashboard for credit management
 
 ### Web App Features
-- ✅ **Marketing pages** (Homepage, About, Pricing, FAQ, Contact)
-- ✅ **SSR/ISR** for SEO optimization
+- ✅ **Marketing pages** (Homepage with real platform stats, About, Pricing, FAQ, Contact)
+- ✅ **SSR/ISR** for SEO optimization with 60-second revalidation
 - ✅ **Session cookie authentication** for SSR
 - ✅ **Role-aware dashboard** with sidebar navigation
-- ✅ **Web radio player** with Hls.js
+- ✅ **Web radio player** with Hls.js, LIVE indicator, soft pause, and "Jump to Live"
 - ✅ **Artist upload page** with signed URLs
 - ✅ **Credit Bank page** with Stripe Checkout and allocation link
-- ✅ **My Songs page** with status, duration, credits, and actions
+- ✅ **My Songs page** with status, duration, credits, trial plays, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
-- ✅ **Notifications page** with unread indicator
-- ✅ **Artist analytics** (plays, credits, engagement)
-- ✅ **Admin dashboard** (analytics, song moderation with rejection, user management)
+- ✅ **Notifications page** with unread indicator and delete functionality
+- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown)
+- ✅ **Admin dashboard** (analytics, song moderation with status transitions)
+- ✅ **Admin user management** with hard ban and shadow ban controls
 - ✅ **Admin fallback playlist** management page
+- ✅ **Admin free rotation search** with eligibility indicators and toggle
 
 ### Observability & Infrastructure
 - ✅ RESTful API architecture with `/api/v1` versioning
@@ -698,10 +722,12 @@ Supabase Storage (Audio Files)
 - ✅ **Request ID middleware** for distributed tracing
 - ✅ **Sentry integration** for error reporting
 - ✅ **Global exception filter** with consistent error responses
+- ✅ **Redis integration** for stateless scaling (radio state, emoji aggregation, listener counts)
 - ✅ File upload handling (multipart/form-data + signed URLs)
 - ✅ CORS configuration
 - ✅ Environment-based configuration
 - ✅ Global ValidationPipe for DTO validation
+- ✅ **Algorithm audit trail** via `play_decision_log` table
 
 ## Development Workflow
 
@@ -790,11 +816,17 @@ See `docs/api-spec.md` for detailed API endpoint documentation, request/response
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/api/radio/current` | GET | No | Get current playing track |
+| `/api/radio/current` | GET | No | Get current playing track with position |
 | `/api/songs/upload-url` | POST | Artist | Get signed upload URL |
 | `/api/payments/create-intent` | POST | Artist | Create PaymentIntent (mobile) |
 | `/api/payments/create-checkout-session` | POST | Artist | Create Checkout Session (web) |
-| `/api/admin/*` | GET/PATCH | Admin | Admin endpoints |
+| `/api/analytics/me` | GET | Artist | Get artist analytics |
+| `/api/analytics/platform` | GET | No | Get platform-wide statistics |
+| `/api/notifications` | DELETE | User | Soft delete notifications |
+| `/api/admin/songs/:id` | PATCH | Admin | Update song status (pending/approved/rejected) |
+| `/api/admin/users/:id/hard-ban` | POST | Admin | Hard ban with token revocation |
+| `/api/admin/users/:id/shadow-ban` | POST | Admin | Shadow ban for chat trolls |
+| `/api/admin/free-rotation/*` | GET/PATCH | Admin | Free rotation search and toggle |
 
 ## Database Schema
 
