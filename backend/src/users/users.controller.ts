@@ -42,6 +42,15 @@ export class UsersController {
     return this.usersService.updateUser(user.uid, updateUserDto);
   }
 
+  /**
+   * Upgrade current listener account to artist.
+   * Initializes credits record for the new artist.
+   */
+  @Post('upgrade-to-artist')
+  async upgradeToArtist(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.upgradeToArtist(user.uid);
+  }
+
   @Get(':id')
   async getUserById(@Param('id') id: string) {
     return this.usersService.getUserById(id);

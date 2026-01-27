@@ -18,6 +18,8 @@ interface ChatMessage {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
+
 export default function ChatSidebar() {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -27,8 +29,11 @@ export default function ChatSidebar() {
   const [error, setError] = useState<string | null>(null);
   const [chatEnabled, setChatEnabled] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -64,24 +69,114 @@ export default function ChatSidebar() {
 
   // Subscribe to Supabase Realtime for new messages
   useEffect(() => {
-    if (!supabaseUrl || !supabaseAnonKey) return;
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.warn('Supabase credentials missing, chat realtime disabled');
+      setConnectionStatus('error');
+      return;
+    }
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    let connectionTimeoutId: NodeJS.Timeout | null = null;
+    let hasConnected = false;
     
-    const channel = supabase
-      .channel('radio-chat')
-      .on('broadcast', { event: 'new_message' }, (payload) => {
-        const newMsg = payload.payload as ChatMessage;
-        setMessages((prev) => [...prev.slice(-99), newMsg]); // Keep last 100 messages
-      })
-      .on('broadcast', { event: 'message_deleted' }, (payload) => {
-        const { messageId } = payload.payload as { messageId: string };
-        setMessages((prev) => prev.filter((m) => m.id !== messageId));
-      })
-      .subscribe();
+    const setupChannel = () => {
+      // Clean up existing channel if any
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      
+      hasConnected = false;
+      setConnectionStatus('connecting');
+      
+      // Set a timeout - if we don't get SUBSCRIBED within 10s, assume connected
+      // (some Supabase configurations don't fire the callback reliably)
+      connectionTimeoutId = setTimeout(() => {
+        if (!hasConnected) {
+          console.log('Chat connection timeout - assuming connected');
+          hasConnected = true;
+          setConnectionStatus('connected');
+        }
+      }, 10000);
+      
+      const channel = supabase
+        .channel('radio-chat')
+        .on('broadcast', { event: 'new_message' }, (payload) => {
+          const newMsg = payload.payload as ChatMessage;
+          setMessages((prev) => [...prev.slice(-99), newMsg]); // Keep last 100 messages
+          // If we receive a message, we're definitely connected
+          if (!hasConnected) {
+            hasConnected = true;
+            setConnectionStatus('connected');
+            if (connectionTimeoutId) {
+              clearTimeout(connectionTimeoutId);
+              connectionTimeoutId = null;
+            }
+          }
+        })
+        .on('broadcast', { event: 'message_deleted' }, (payload) => {
+          const { messageId } = payload.payload as { messageId: string };
+          setMessages((prev) => prev.filter((m) => m.id !== messageId));
+        })
+        .subscribe((status) => {
+          console.log('Chat channel status:', status);
+          if (status === 'SUBSCRIBED') {
+            console.log('Chat channel connected');
+            hasConnected = true;
+            setConnectionStatus('connected');
+            // Clear timeouts
+            if (connectionTimeoutId) {
+              clearTimeout(connectionTimeoutId);
+              connectionTimeoutId = null;
+            }
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+              reconnectTimeoutRef.current = null;
+            }
+          } else if (status === 'CHANNEL_ERROR') {
+            console.error('Chat channel error');
+            setConnectionStatus('error');
+            if (connectionTimeoutId) {
+              clearTimeout(connectionTimeoutId);
+              connectionTimeoutId = null;
+            }
+            // Attempt reconnect after 5 seconds
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log('Attempting to reconnect chat...');
+              setupChannel();
+            }, 5000);
+          } else if (status === 'TIMED_OUT') {
+            console.warn('Chat channel timed out');
+            setConnectionStatus('disconnected');
+            if (connectionTimeoutId) {
+              clearTimeout(connectionTimeoutId);
+              connectionTimeoutId = null;
+            }
+            // Attempt reconnect after 3 seconds
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log('Attempting to reconnect chat...');
+              setupChannel();
+            }, 3000);
+          } else if (status === 'CLOSED') {
+            console.log('Chat channel closed');
+            setConnectionStatus('disconnected');
+          }
+        });
+      
+      channelRef.current = channel;
+    };
+
+    setupChannel();
 
     return () => {
-      channel.unsubscribe();
+      if (channelRef.current) {
+        channelRef.current.unsubscribe();
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+      }
+      if (connectionTimeoutId) {
+        clearTimeout(connectionTimeoutId);
+      }
     };
   }, []);
 
@@ -140,7 +235,19 @@ export default function ChatSidebar() {
         <div className="flex items-center gap-2">
           <span className="text-lg">💬</span>
           <h2 className="font-semibold text-white">Live Chat</h2>
-          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          {/* Connection status indicator */}
+          {connectionStatus === 'connected' && (
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
+          )}
+          {connectionStatus === 'connecting' && (
+            <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" title="Connecting..."></span>
+          )}
+          {connectionStatus === 'disconnected' && (
+            <span className="w-2 h-2 bg-gray-500 rounded-full" title="Disconnected - Reconnecting..."></span>
+          )}
+          {connectionStatus === 'error' && (
+            <span className="w-2 h-2 bg-red-500 rounded-full" title="Connection error - Reconnecting..."></span>
+          )}
         </div>
         <button
           onClick={() => setIsCollapsed(true)}

@@ -5,6 +5,74 @@ import { useRadioState, Track } from './useRadioState';
 import { radioApi, songsApi } from '@/lib/api';
 
 export function RadioPlayer() {
+  const [isLiked, setIsLiked] = useState(false);
+  const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [listenerCount, setListenerCount] = useState(0);
+  const [showJumpToLive, setShowJumpToLive] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [noContent, setNoContent] = useState(false);
+  const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
+  const lastServerPosition = useRef(0);
+  const isFetchingNextTrack = useRef(false);
+  
+  // Refs for accessing radio functions in callback
+  const loadTrackRef = useRef<typeof loadTrack | null>(null);
+  const syncToPositionRef = useRef<typeof syncToPosition | null>(null);
+  const playRef = useRef<typeof play | null>(null);
+
+  // Callback for when track ends - immediately fetch next track
+  const handleTrackEnded = useCallback(async () => {
+    // Prevent multiple concurrent fetches
+    if (isFetchingNextTrack.current) return;
+    isFetchingNextTrack.current = true;
+    
+    try {
+      // Immediately fetch and play next track
+      const response = await radioApi.getCurrentTrack();
+      const trackData = response.data;
+      
+      // Check for no_content flag
+      if (trackData?.no_content) {
+        setNoContent(true);
+        setNoContentMessage(trackData.message || 'No songs are currently available.');
+        return;
+      }
+      
+      // Reset no_content state if we have content
+      setNoContent(false);
+      setNoContentMessage(null);
+      
+      if (trackData && trackData.id) {
+        const track: Track = {
+          id: trackData.id,
+          title: trackData.title,
+          artistName: trackData.artist_name,
+          artworkUrl: trackData.artwork_url,
+          audioUrl: trackData.audio_url,
+          durationSeconds: trackData.duration_seconds || 180,
+        };
+        
+        const serverPosition = trackData.position_seconds || 0;
+        lastServerPosition.current = serverPosition;
+        
+        // Load and immediately play the next track (user has already interacted)
+        if (loadTrackRef.current) loadTrackRef.current(track);
+        if (syncToPositionRef.current) syncToPositionRef.current(serverPosition);
+        if (playRef.current) {
+          try {
+            await playRef.current();
+          } catch (err) {
+            console.log('Failed to auto-play next track:', err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch next track:', error);
+    } finally {
+      isFetchingNextTrack.current = false;
+    }
+  }, []);
+
   const { 
     state, 
     loadTrack, 
@@ -16,18 +84,31 @@ export function RadioPlayer() {
     jumpToLive,
     needsJumpToLive,
     play,
-  } = useRadioState();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isLoadingLike, setIsLoadingLike] = useState(false);
-  const [listenerCount, setListenerCount] = useState(0);
-  const [showJumpToLive, setShowJumpToLive] = useState(false);
-  const lastServerPosition = useRef(0);
+  } = useRadioState({ onTrackEnded: handleTrackEnded });
+
+  // Keep refs in sync with latest functions
+  useEffect(() => {
+    loadTrackRef.current = loadTrack;
+    syncToPositionRef.current = syncToPosition;
+    playRef.current = play;
+  }, [loadTrack, syncToPosition, play]);
 
   // Fetch current track on mount and periodically
-  const fetchCurrentTrack = useCallback(async (shouldSync = false) => {
+  const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
     try {
       const response = await radioApi.getCurrentTrack();
       const trackData = response.data;
+      
+      // Check for no_content flag
+      if (trackData?.no_content) {
+        setNoContent(true);
+        setNoContentMessage(trackData.message || 'No songs are currently available.');
+        return;
+      }
+      
+      // Reset no_content state if we have content
+      setNoContent(false);
+      setNoContentMessage(null);
       
       if (trackData && trackData.id) {
         const track: Track = {
@@ -46,11 +127,19 @@ export function RadioPlayer() {
         // Only load if different track
         if (!state.currentTrack || state.currentTrack.id !== track.id) {
           loadTrack(track);
-          // Wait a bit for audio to load, then sync and autoplay
-          setTimeout(async () => {
-            syncToPosition(serverPosition);
-            await play();
-          }, 500);
+          // Sync position
+          syncToPosition(serverPosition);
+          // Only auto-play if user has already interacted (clicked play before)
+          if (autoPlay && hasUserInteracted) {
+            requestAnimationFrame(async () => {
+              try {
+                await play();
+              } catch (err) {
+                // Autoplay was blocked - this is expected on initial load
+                console.log('Autoplay blocked by browser policy');
+              }
+            });
+          }
         } else if (shouldSync && state.isLive) {
           // Same track, just sync position (handle drift)
           syncToPosition(serverPosition);
@@ -67,24 +156,26 @@ export function RadioPlayer() {
     } catch (error) {
       console.error('Failed to fetch current track:', error);
     }
-  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play]);
+  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
-    fetchCurrentTrack(true);
+    // Initial fetch - don't auto-play (wait for user interaction)
+    fetchCurrentTrack(true, false);
     
     // Poll for track changes every 10 seconds
-    const interval = setInterval(() => fetchCurrentTrack(true), 10000);
+    // Auto-play only if user has already started playing
+    const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), 10000);
     
     return () => clearInterval(interval);
-  }, [fetchCurrentTrack]);
+  }, [fetchCurrentTrack, hasUserInteracted]);
 
   // Re-sync every 30 seconds to handle drift (only when live)
   useEffect(() => {
     if (!state.isLive) return;
     
     const syncInterval = setInterval(() => {
-      fetchCurrentTrack(true);
+      fetchCurrentTrack(true, false); // Don't auto-play during sync, just update position
     }, 30000);
     
     return () => clearInterval(syncInterval);
@@ -109,11 +200,16 @@ export function RadioPlayer() {
 
   // Handle soft pause toggle
   const handlePauseToggle = async () => {
+    // Mark that user has interacted - enables auto-play for subsequent tracks
+    if (!hasUserInteracted) {
+      setHasUserInteracted(true);
+    }
+    
     if (state.isPlaying) {
       softPause();
     } else if (showJumpToLive) {
       // Need to jump to live
-      await fetchCurrentTrack(false);
+      await fetchCurrentTrack(false, true);
       await jumpToLive(lastServerPosition.current);
       setShowJumpToLive(false);
     } else {
@@ -124,7 +220,10 @@ export function RadioPlayer() {
 
   // Handle jump to live
   const handleJumpToLive = async () => {
-    await fetchCurrentTrack(false);
+    if (!hasUserInteracted) {
+      setHasUserInteracted(true);
+    }
+    await fetchCurrentTrack(false, true);
     await jumpToLive(lastServerPosition.current);
     setShowJumpToLive(false);
   };
@@ -153,6 +252,51 @@ export function RadioPlayer() {
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  // Show "no content" state when free rotation is empty
+  if (noContent) {
+    return (
+      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+        {/* No Content Art */}
+        <div className="aspect-square bg-gradient-to-br from-gray-400 to-gray-600 relative">
+          <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-8">
+            <span className="text-8xl">📻</span>
+            <div className="text-center">
+              <h3 className="text-white text-xl font-bold">No Content Available</h3>
+              <p className="text-gray-200 text-sm mt-2">
+                {noContentMessage || 'Sorry for the inconvenience. No songs are currently available.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Info */}
+        <div className="p-6">
+          <div className="text-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">
+              Station Offline
+            </h2>
+            <p className="text-gray-600">
+              Please check back soon!
+            </p>
+          </div>
+
+          {/* Retry Button */}
+          <div className="flex items-center justify-center">
+            <button
+              onClick={() => fetchCurrentTrack(true, false)}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-2xl shadow-lg overflow-hidden">

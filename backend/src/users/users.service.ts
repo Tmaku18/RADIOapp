@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
 // Transform snake_case DB response to camelCase for frontend
-interface UserResponse {
+export interface UserResponse {
   id: string;
   email: string;
   displayName: string | null;
@@ -136,6 +136,57 @@ export class UsersService {
 
     if (error) {
       throw new Error(`Failed to update user: ${error.message}`);
+    }
+
+    return transformUser(data);
+  }
+
+  async upgradeToArtist(firebaseUid: string): Promise<UserResponse> {
+    const supabase = getSupabaseClient();
+    
+    // Get current user
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (fetchError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Check if already an artist or admin
+    if (user.role === 'artist') {
+      throw new BadRequestException('User is already an artist');
+    }
+    if (user.role === 'admin') {
+      throw new BadRequestException('Admin users cannot be upgraded to artist');
+    }
+
+    // Update role to artist
+    const { data, error: updateError } = await supabase
+      .from('users')
+      .update({
+        role: 'artist',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new Error(`Failed to upgrade user: ${updateError.message}`);
+    }
+
+    // Initialize credits record for new artist
+    const { error: creditsError } = await supabase.from('credits').insert({
+      artist_id: user.id,
+      balance: 0,
+    });
+
+    // If credits record already exists (shouldn't happen), that's fine
+    if (creditsError && creditsError.code !== '23505') {
+      console.error('Failed to create credits record:', creditsError);
     }
 
     return transformUser(data);

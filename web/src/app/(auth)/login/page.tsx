@@ -4,11 +4,20 @@ import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signInWithGoogle, signInWithEmail, loading, error } = useAuth();
+  const { 
+    signInWithGoogle, 
+    signInWithEmail, 
+    loading, 
+    error,
+    pendingGoogleUser,
+    completeGoogleSignUp,
+    cancelGoogleSignUp,
+  } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -39,7 +48,11 @@ function LoginForm() {
 
     try {
       await signInWithGoogle();
-      router.push(redirectTo);
+      // If pendingGoogleUser is set, the modal will show
+      // Otherwise, user exists and we redirect
+      if (!pendingGoogleUser) {
+        router.push(redirectTo);
+      }
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign in with Google');
     } finally {
@@ -47,14 +60,33 @@ function LoginForm() {
     }
   };
 
+  const handleRoleSelect = async (role: 'listener' | 'artist') => {
+    try {
+      await completeGoogleSignUp(role);
+      router.push(redirectTo);
+    } catch (err) {
+      setLocalError(err instanceof Error ? err.message : 'Failed to complete sign up');
+    }
+  };
+
   const displayError = localError || error;
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-        <p className="text-gray-600 mt-2">Sign in to your account</p>
-      </div>
+    <>
+      {/* Role Selection Modal for Google Sign-In */}
+      {pendingGoogleUser && (
+        <RoleSelectionModal
+          onSelect={handleRoleSelect}
+          onCancel={cancelGoogleSignUp}
+          loading={loading}
+        />
+      )}
+
+      <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
+          <p className="text-gray-600 mt-2">Sign in to your account</p>
+        </div>
 
       {sessionExpired && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
@@ -151,7 +183,8 @@ function LoginForm() {
           Sign up
         </Link>
       </p>
-    </div>
+      </div>
+    </>
   );
 }
 

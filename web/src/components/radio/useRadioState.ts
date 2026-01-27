@@ -26,10 +26,20 @@ export interface RadioState {
   isLive: boolean;          // Whether synced to live position
 }
 
-export function useRadioState() {
+interface UseRadioStateOptions {
+  onTrackEnded?: () => void;
+}
+
+export function useRadioState(options?: UseRadioStateOptions) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const onTrackEndedRef = useRef(options?.onTrackEnded);
+
+  // Keep onTrackEnded callback ref in sync
+  useEffect(() => {
+    onTrackEndedRef.current = options?.onTrackEnded;
+  }, [options?.onTrackEnded]);
   
   const [state, setState] = useState<RadioState>({
     isPlaying: false,
@@ -91,6 +101,13 @@ export function useRadioState() {
 
       audioRef.current.addEventListener('canplay', () => {
         setState(s => ({ ...s, isLoading: false }));
+      });
+
+      // Track ended listener - immediately trigger next track fetch
+      audioRef.current.addEventListener('ended', () => {
+        if (onTrackEndedRef.current) {
+          onTrackEndedRef.current();
+        }
       });
     }
 

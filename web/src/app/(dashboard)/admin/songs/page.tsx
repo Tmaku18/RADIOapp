@@ -11,6 +11,10 @@ interface Song {
   audio_url: string;
   duration_seconds?: number;
   credits_remaining?: number;
+  trial_plays_remaining?: number;
+  opt_in_free_play?: boolean;
+  admin_free_rotation?: boolean;
+  paid_play_count?: number;
   status: 'pending' | 'approved' | 'rejected';
   rejection_reason?: string;
   created_at: string;
@@ -20,9 +24,15 @@ interface Song {
   };
 }
 
+type SortField = 'title' | 'created_at' | 'status';
+type SortOrder = 'asc' | 'desc';
+
 export default function AdminSongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -30,17 +40,30 @@ export default function AdminSongsPage() {
   // Rejection modal state
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  
+  // Debounce search
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   useEffect(() => {
     loadSongs();
-  }, [filter]);
+  }, [filter, debouncedSearch, sortBy, sortOrder]);
 
   const loadSongs = async () => {
     setLoading(true);
     try {
       const response = await adminApi.getSongs({
-        status: filter === 'all' ? undefined : filter,
-        limit: 50,
+        status: filter,
+        search: debouncedSearch || undefined,
+        sortBy,
+        sortOrder,
+        limit: 100,
       });
       setSongs(response.data.songs || []);
     } catch (err) {
@@ -48,6 +71,44 @@ export default function AdminSongsPage() {
       setError('Failed to load songs');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="text-purple-600 ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const handleToggleFreeRotation = async (song: Song) => {
+    if (!song.opt_in_free_play) {
+      alert('Artist has not opted into free play');
+      return;
+    }
+    if ((song.paid_play_count || 0) < 1) {
+      alert('Song must have at least 1 paid play');
+      return;
+    }
+
+    setActionLoading(song.id);
+    try {
+      await adminApi.toggleFreeRotation(song.id, !song.admin_free_rotation);
+      setSongs(songs.map(s => 
+        s.id === song.id ? { ...s, admin_free_rotation: !song.admin_free_rotation } : s
+      ));
+    } catch (err) {
+      console.error('Failed to toggle free rotation:', err);
+      alert('Failed to toggle free rotation');
+    } finally {
+      setActionLoading(null);
     }
   };
 
@@ -99,21 +160,55 @@ export default function AdminSongsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Filters */}
-      <div className="flex gap-2">
-        {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
-          <button
-            key={status}
-            onClick={() => setFilter(status)}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
-              filter === status
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-            }`}
+      {/* Filters and Search */}
+      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
+                filter === status
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex gap-3 items-center">
+          {/* Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search songs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"
+            />
+            <svg className="w-5 h-5 text-gray-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          {/* Sort Dropdown */}
+          <select
+            value={`${sortBy}-${sortOrder}`}
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-') as [SortField, SortOrder];
+              setSortBy(field);
+              setSortOrder(order);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
-            {status}
-          </button>
-        ))}
+            <option value="created_at-desc">Newest First</option>
+            <option value="created_at-asc">Oldest First</option>
+            <option value="title-asc">A-Z</option>
+            <option value="title-desc">Z-A</option>
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -136,12 +231,28 @@ export default function AdminSongsPage() {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Song</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('title')}
+                >
+                  Song <SortIcon field="title" />
+                </th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Submitted</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('status')}
+                >
+                  Status <SortIcon field="status" />
+                </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Free Rotation</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('created_at')}
+                >
+                  Submitted <SortIcon field="created_at" />
+                </th>
                 <th className="text-right px-6 py-3 text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -201,6 +312,35 @@ export default function AdminSongsPage() {
                       <p className="text-xs text-red-600 mt-1 max-w-[150px] truncate" title={song.rejection_reason}>
                         {song.rejection_reason}
                       </p>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {song.status === 'approved' ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleFreeRotation(song)}
+                          disabled={actionLoading === song.id}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            song.admin_free_rotation ? 'bg-purple-600' : 'bg-gray-200'
+                          } ${(!song.opt_in_free_play || (song.paid_play_count || 0) < 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={
+                            !song.opt_in_free_play ? 'Artist has not opted in' :
+                            (song.paid_play_count || 0) < 1 ? 'No paid plays yet' :
+                            song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'
+                          }
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              song.admin_free_rotation ? 'translate-x-4' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-500">
+                          {song.paid_play_count || 0} plays
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">N/A</span>
                     )}
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">

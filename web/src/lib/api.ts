@@ -87,6 +87,7 @@ export const usersApi = {
   getById: (id: string) => api.get(`/users/${id}`),
   create: (data: { email: string; displayName?: string; role: 'listener' | 'artist' }) => 
     api.post('/users', data),
+  upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
 };
 
 export const creditsApi = {
@@ -109,12 +110,24 @@ export const paymentsApi = {
 
 export const adminApi = {
   getAnalytics: () => api.get('/admin/analytics'),
-  getSongs: (params?: { status?: string; limit?: number; offset?: number }) => 
-    api.get('/admin/songs', { params }),
-  updateSongStatus: (id: string, status: 'approved' | 'rejected', reason?: string) => 
+  getSongs: (params?: { 
+    status?: string; 
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    limit?: number; 
+    offset?: number;
+  }) => api.get('/admin/songs', { params }),
+  updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) => 
     api.patch(`/admin/songs/${id}`, { status, reason }),
-  getUsers: (params?: { role?: string; limit?: number; offset?: number }) => 
-    api.get('/admin/users', { params }),
+  getUsers: (params?: { 
+    role?: string; 
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    limit?: number; 
+    offset?: number;
+  }) => api.get('/admin/users', { params }),
   updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') => 
     api.patch(`/admin/users/${id}/role`, { role }),
   // Fallback playlist management

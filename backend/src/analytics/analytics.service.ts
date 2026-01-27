@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
-interface DailyPlayCount {
+export interface DailyPlayCount {
   date: string;
   plays: number;
 }
@@ -18,7 +18,7 @@ interface SongAnalytics {
   lastPlayedAt: string | null;
 }
 
-interface ArtistAnalytics {
+export interface ArtistAnalytics {
   totalPlays: number;
   totalSongs: number;
   totalLikes: number;

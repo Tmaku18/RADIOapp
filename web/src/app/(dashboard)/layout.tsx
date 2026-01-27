@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationsApi } from '@/lib/api';
+import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
@@ -34,7 +35,8 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
+  const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -53,9 +55,9 @@ export default function DashboardLayout({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch unread notification count
+  // Fetch unread notification count - only when user has a profile
   useEffect(() => {
-    if (user) {
+    if (user && profile) {
       const fetchUnreadCount = async () => {
         try {
           const response = await notificationsApi.getUnreadCount();
@@ -69,7 +71,19 @@ export default function DashboardLayout({
       const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [user, profile]);
+
+  // Handle role selection for pending Google users
+  const handleRoleSelect = async (role: 'listener' | 'artist') => {
+    setIsCompletingSignUp(true);
+    try {
+      await completeGoogleSignUp(role);
+    } catch (error) {
+      console.error('Failed to complete sign up:', error);
+    } finally {
+      setIsCompletingSignUp(false);
+    }
+  };
 
   const handleSignOut = async () => {
     setIsSigningOut(true);
@@ -91,6 +105,19 @@ export default function DashboardLayout({
 
   if (!user) {
     return null; // Will redirect in useEffect
+  }
+
+  // Show role selection modal if user has Firebase auth but no Supabase profile
+  if (pendingGoogleUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <RoleSelectionModal
+          onSelect={handleRoleSelect}
+          onCancel={cancelGoogleSignUp}
+          loading={isCompletingSignUp}
+        />
+      </div>
+    );
   }
 
   return (

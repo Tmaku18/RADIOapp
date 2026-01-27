@@ -9,6 +9,15 @@ const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
 
+// === Hysteresis Thresholds ===
+// Uses different thresholds for entering vs exiting paid mode to prevent rapid oscillation
+// when listener count hovers at the boundary (e.g., 4-5-4-5)
+const THRESHOLD_ENTER_PAID = parseInt(process.env.THRESHOLD_ENTER_PAID || '5', 10);
+const THRESHOLD_EXIT_PAID = parseInt(process.env.THRESHOLD_EXIT_PAID || '3', 10);
+
+// Checkpoint frequency: save position to database every N songs during free rotation
+const CHECKPOINT_INTERVAL = parseInt(process.env.CHECKPOINT_INTERVAL || '5', 10);
+
 /**
  * Simple seeded random number generator (Mulberry32).
  * Produces deterministic sequence for reproducible shuffles.
@@ -230,85 +239,144 @@ export class RadioService {
     return { song: selectedSong, competingSongs: eligibleSongs.length };
   }
 
-  /**
-   * Get trial song - newly approved songs with remaining trial plays.
-   * Trial plays give new artists exposure before requiring credits.
-   */
-  private async getTrialSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
-    const supabase = getSupabaseClient();
-
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .gt('trial_plays_remaining', 0)
-      .order('created_at', { ascending: true }) // Oldest first (FIFO fairness)
-      .limit(20);
-
-    if (!songs || songs.length === 0) return null;
-
-    // Filter out current song
-    const eligible = songs.filter(s => s.id !== currentSongId);
-    if (eligible.length === 0) return null;
-
-    // Weighted random favoring newest uploads slightly
-    const selectedSong = this.selectWeightedRandom(eligible, currentSongId);
-    return { song: selectedSong, competingSongs: eligible.length };
-  }
+  // === Free Rotation Stack Methods ===
 
   /**
-   * Get opt-in song from artists who enabled free play.
-   * Requires ALL THREE conditions:
-   * 1. Artist opted in (opt_in_free_play = true)
-   * 2. Admin approved (admin_free_rotation = true)
-   * 3. Has at least 1 paid play (paid_play_count > 0)
+   * Get all active songs from the free rotation (admin_fallback_songs) table.
    */
-  private async getOptInSong(currentSongId?: string): Promise<any | null> {
+  private async getAllFreeRotationSongs(): Promise<any[]> {
     const supabase = getSupabaseClient();
 
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .eq('opt_in_free_play', true)
-      .eq('admin_free_rotation', true)
-      .gt('paid_play_count', 0)
-      .order('last_played_at', { ascending: true, nullsFirst: true })
-      .limit(10);
-
-    if (!songs || songs.length === 0) return null;
-
-    // Filter out current song
-    const eligible = songs.filter(s => s.id !== currentSongId);
-    if (eligible.length === 0) return songs[0];
-
-    // Random from oldest-played
-    return eligible[Math.floor(Math.random() * eligible.length)];
-  }
-
-  /**
-   * Get admin-curated fallback song.
-   */
-  private async getAdminFallbackSong(): Promise<any | null> {
-    const supabase = getSupabaseClient();
-
-    const { data: songs } = await supabase
+    const { data, error } = await supabase
       .from('admin_fallback_songs')
       .select('*')
-      .eq('is_active', true)
-      .order('play_count', { ascending: true })
-      .limit(10);
+      .eq('is_active', true);
 
-    if (!songs || songs.length === 0) return null;
+    if (error) {
+      this.logger.error(`Failed to fetch free rotation songs: ${error.message}`);
+      return [];
+    }
 
-    // Random from least-played
-    const song = songs[Math.floor(Math.random() * songs.length)];
-    return { ...song, is_admin_fallback: true };
+    return data || [];
+  }
+
+  /**
+   * Get a specific free rotation song by ID.
+   */
+  private async getFreeRotationSongById(songId: string): Promise<any | null> {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('admin_fallback_songs')
+      .select('*')
+      .eq('id', songId)
+      .single();
+
+    if (error || !data) {
+      this.logger.warn(`Free rotation song ${songId} not found`);
+      return null;
+    }
+
+    return data;
+  }
+
+  /**
+   * Shuffle an array using Fisher-Yates algorithm.
+   */
+  private shuffleArray<T>(array: T[]): T[] {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+
+  /**
+   * Get the next song from the free rotation stack.
+   * If the stack is empty, fetches all songs from admin_fallback_songs,
+   * shuffles them, and stores in the stack.
+   * Uses stack_version_hash to only write full stack when content changes.
+   * Returns null if no free rotation songs are available.
+   */
+  private async getNextFreeRotationSong(): Promise<any | null> {
+    // Try to pop from the existing stack
+    let songId = await this.radioStateService.popFreeRotationSong();
+    
+    if (!songId) {
+      // Stack is empty - refill from admin_fallback_songs table
+      const allSongs = await this.getAllFreeRotationSongs();
+      
+      if (allSongs.length === 0) {
+        this.logger.warn('No free rotation songs available in admin_fallback_songs table');
+        return null;
+      }
+      
+      // Shuffle all song IDs
+      const shuffledIds = this.shuffleArray(allSongs.map(s => s.id));
+      
+      // Set in Redis for fast access
+      await this.radioStateService.setFreeRotationStack(shuffledIds);
+      
+      // Check if we need to save the full stack to Supabase
+      // (Only if the content has changed - compare hashes)
+      await this.saveStackIfChanged(shuffledIds);
+      
+      // Reset position to 0 since we're starting fresh
+      await this.radioStateService.setFallbackPosition(0);
+      
+      this.logger.log(`Refilled free rotation stack with ${shuffledIds.length} shuffled songs`);
+      
+      // Pop the first one
+      songId = await this.radioStateService.popFreeRotationSong();
+    }
+    
+    if (!songId) {
+      return null;
+    }
+    
+    // Fetch the full song data
+    return await this.getFreeRotationSongById(songId);
+  }
+
+  /**
+   * Save stack to Supabase only if the content has changed.
+   * Uses stack_version_hash to detect changes.
+   * This optimizes JSONB writes by avoiding unnecessary full-stack updates.
+   */
+  private async saveStackIfChanged(newStack: string[]): Promise<void> {
+    const supabase = getSupabaseClient();
+    const crypto = require('crypto');
+    
+    // Compute hash of new stack
+    const newHash = crypto.createHash('md5').update(newStack.sort().join(',')).digest('hex');
+    
+    // Get current hash from database
+    const { data } = await supabase
+      .from('radio_playlist_state')
+      .select('stack_version_hash')
+      .eq('id', 'global')
+      .single();
+    
+    const currentHash = data?.stack_version_hash;
+    
+    // Only write full stack if hash changed (content changed)
+    if (currentHash !== newHash) {
+      await this.radioStateService.saveFullPlaylistState(newStack, 0);
+      this.logger.log(`Stack content changed - saved full stack to Supabase (${newStack.length} songs)`);
+    } else {
+      this.logger.log('Stack content unchanged - skipping full stack write');
+    }
   }
 
   /**
    * Get the next track for the global radio stream.
-   * Implements pre-charge model with fallback cascade.
+   * Production-ready flow with hysteresis:
+   * 1. Check if song currently playing - if so, return it
+   * 2. Get listener count and current playlist type
+   * 3. Apply hysteresis logic to determine target playlist type
+   * 4. Handle playlist switch if needed (save/restore positions)
+   * 5. Play from appropriate playlist with checkpointing
    */
   async getNextTrack(): Promise<any> {
     const supabase = getSupabaseClient();
@@ -318,11 +386,28 @@ export class RadioService {
     
     // Check if song currently playing
     if (currentState?.songId && currentState?.startedAt) {
-      const { data: currentSong } = await supabase
-        .from('songs')
-        .select('*')
-        .eq('id', currentState.songId)
-        .single();
+      // Handle admin fallback songs (prefixed with "admin:")
+      const isAdminSong = currentState.songId.startsWith('admin:');
+      const actualSongId = isAdminSong 
+        ? currentState.songId.replace('admin:', '')
+        : currentState.songId;
+      
+      let currentSong;
+      if (isAdminSong) {
+        const { data } = await supabase
+          .from('admin_fallback_songs')
+          .select('*')
+          .eq('id', actualSongId)
+          .single();
+        currentSong = data;
+      } else {
+        const { data } = await supabase
+          .from('songs')
+          .select('*')
+          .eq('id', actualSongId)
+          .single();
+        currentSong = data;
+      }
 
       if (currentSong) {
         const startedAt = currentState.startedAt;
@@ -338,6 +423,8 @@ export class RadioService {
             server_time: new Date(now).toISOString(),
             time_remaining_ms: timeRemainingMs,
             position_seconds: Math.floor((now - startedAt) / 1000),
+            is_fallback: currentState.isFallback,
+            is_admin_fallback: currentState.isAdminFallback,
           };
         }
       }
@@ -345,37 +432,85 @@ export class RadioService {
 
     const currentSongId = currentState?.songId;
 
-    // 1. Try credited songs (pre-charge model)
-    const creditedResult = await this.getCreditedSong(currentSongId);
-    if (creditedResult) {
-      const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
-      if (result) return result;
+    // Get listener count and current playlist type
+    const listenerCount = await this.radioStateService.getListenerCount();
+    const currentType = await this.radioStateService.getCurrentPlaylistType();
+    
+    // Apply hysteresis logic to determine target playlist type
+    let targetType = currentType;
+    
+    if (currentType === 'free_rotation' && listenerCount >= THRESHOLD_ENTER_PAID) {
+      targetType = 'paid';
+      this.logger.log(`Switching to PAID playlist (listeners: ${listenerCount} >= ${THRESHOLD_ENTER_PAID})`);
+    } else if (currentType === 'paid' && listenerCount <= THRESHOLD_EXIT_PAID) {
+      targetType = 'free_rotation';
+      this.logger.log(`Switching to FREE playlist (listeners: ${listenerCount} <= ${THRESHOLD_EXIT_PAID})`);
     }
 
-    // 2. Try trial songs (new artists get free exposure)
-    const trialResult = await this.getTrialSong(currentSongId);
-    if (trialResult) {
-      this.logger.log(`Playing trial song: ${trialResult.song.title}`);
-      const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
-      if (result) return result;
+    // Handle playlist switch if type changed
+    if (currentType !== targetType) {
+      await this.handlePlaylistSwitch(currentType, targetType);
     }
 
-    // 3. Fall back to opt-in songs (free play)
-    const optInSong = await this.getOptInSong(currentSongId);
-    if (optInSong) {
-      this.logger.log(`Playing opt-in fallback: ${optInSong.title}`);
-      return await this.playFallbackSong(optInSong);
+    this.logger.log(`Current listener count: ${listenerCount}, playlist type: ${targetType}`);
+
+    // Play from appropriate playlist
+    if (targetType === 'paid') {
+      // Try credited songs (pre-charge model)
+      const creditedResult = await this.getCreditedSong(currentSongId);
+      if (creditedResult) {
+        const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
+        if (result) return result;
+      }
+      // No credited songs available - fall back to free rotation
+      this.logger.log('No credited songs available in paid mode, falling back to free rotation');
     }
 
-    // 4. Fall back to admin curated playlist
-    const fallbackSong = await this.getAdminFallbackSong();
-    if (fallbackSong) {
-      this.logger.log(`Playing admin fallback: ${fallbackSong.title}`);
-      return await this.playAdminFallbackSong(fallbackSong);
+    // Free rotation mode (or fallback from paid mode)
+    const freeRotationSong = await this.getNextFreeRotationSong();
+    if (freeRotationSong) {
+      this.logger.log(`Playing free rotation song: ${freeRotationSong.title}`);
+      const result = await this.playFreeRotationSong(freeRotationSong);
+      
+      // Checkpoint position after playing free rotation song
+      const position = await this.radioStateService.getFallbackPosition();
+      await this.radioStateService.checkpointPosition(position + 1);
+      
+      return result;
     }
 
-    this.logger.warn('No songs available for playback');
-    return null;
+    // No content available
+    this.logger.warn('No songs available for playback - free rotation table is empty');
+    return this.buildNoContentResponse();
+  }
+
+  /**
+   * Handle playlist switch with state persistence.
+   * Saves current position before switching, loads saved position when returning.
+   */
+  private async handlePlaylistSwitch(from: 'free_rotation' | 'paid', to: 'free_rotation' | 'paid'): Promise<void> {
+    if (from === 'free_rotation' && to === 'paid') {
+      // Switching TO paid: save current free rotation state immediately
+      const position = await this.radioStateService.getFallbackPosition();
+      await this.radioStateService.syncPositionToSupabase(position);
+      this.logger.log(`Saved free rotation position before switching to paid: ${position}`);
+    } 
+    else if (from === 'paid' && to === 'free_rotation') {
+      // Switching TO free: load saved state from Supabase
+      const state = await this.radioStateService.loadPlaylistStateFromDb();
+      if (state) {
+        // Restore the stack and position to Redis
+        if (state.fallbackStack.length > 0) {
+          await this.radioStateService.setFreeRotationStack(state.fallbackStack);
+        }
+        await this.radioStateService.setFallbackPosition(state.fallbackPosition);
+        this.logger.log(`Restored free rotation at position: ${state.fallbackPosition}`);
+      }
+    }
+    
+    // Update the playlist type
+    await this.radioStateService.setCurrentPlaylistType(to);
+    await this.radioStateService.resetCheckpointCounter();
   }
 
   /**
@@ -453,136 +588,17 @@ export class RadioService {
   }
 
   /**
-   * Play a trial song - new artist gets free exposure.
-   * Decrements trial_plays_remaining, no credits deducted.
+   * Play a song from the free rotation (admin_fallback_songs table).
+   * Uses the shuffled stack pattern - songs are played in random order
+   * and the stack is refilled when empty.
    */
-  private async playTrialSong(song: any, competingSongs: number = 0) {
+  private async playFreeRotationSong(song: any) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
 
-    // Check and decrement trial plays atomically
-    const { data: updated, error } = await supabase
-      .from('songs')
-      .update({
-        trial_plays_remaining: Math.max(0, (song.trial_plays_remaining || 0) - 1),
-        trial_plays_used: (song.trial_plays_used || 0) + 1,
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id)
-      .gt('trial_plays_remaining', 0) // Only update if still has trials
-      .select()
-      .single();
-
-    if (error || !updated) {
-      this.logger.warn(`Failed to decrement trial plays for ${song.id}: ${error?.message || 'No trial plays remaining'}`);
-      return null;
-    }
-
-    await this.setCurrentSong(song.id, durationSeconds, 0, true, false);
-
-    // Log play decision
-    const listenerCount = await this.radioStateService.getListenerCount();
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'trial',
-      listenerCount,
-      competingSongs,
-    });
-
-    // Log play
-    await supabase.from('plays').insert({
-      song_id: song.id,
-      played_at: startedAt,
-    });
-
-    // Notify artist of trial play
-    try {
-      await this.pushNotificationService.sendLiveNowNotification({
-        id: song.id,
-        title: song.title,
-        artist_id: song.artist_id,
-        artist_name: song.artist_name,
-      });
-    } catch (e) {
-      this.logger.warn(`Failed to send trial play notification: ${e.message}`);
-    }
-
-    const durationMs = durationSeconds * 1000;
-
-    return {
-      ...song,
-      is_playing: true,
-      started_at: startedAt,
-      server_time: startedAt,
-      time_remaining_ms: durationMs,
-      position_seconds: 0,
-      is_trial_play: true,
-      trial_plays_remaining: updated.trial_plays_remaining,
-    };
-  }
-
-  /**
-   * Play a fallback song (opt-in from artist, no credits deducted).
-   */
-  private async playFallbackSong(song: any) {
-    const supabase = getSupabaseClient();
-    const now = Date.now();
-    const startedAt = new Date(now).toISOString();
-    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
-
-    await this.setCurrentSong(song.id, durationSeconds, 0, true, false);
-
-    // Log play decision
-    const listenerCount = await this.radioStateService.getListenerCount();
-    await this.radioStateService.logPlayDecision({
-      songId: song.id,
-      selectedAt: startedAt,
-      selectionReason: 'opt_in',
-      listenerCount,
-    });
-
-    // Update play count and last_played_at (no credit deduction)
-    await supabase
-      .from('songs')
-      .update({ 
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
-
-    await supabase.from('plays').insert({
-      song_id: song.id,
-      played_at: startedAt,
-    });
-
-    const durationMs = durationSeconds * 1000;
-
-    return {
-      ...song,
-      is_playing: true,
-      started_at: startedAt,
-      server_time: startedAt,
-      time_remaining_ms: durationMs,
-      position_seconds: 0,
-      is_fallback: true,
-    };
-  }
-
-  /**
-   * Play an admin-curated fallback song.
-   */
-  private async playAdminFallbackSong(song: any) {
-    const supabase = getSupabaseClient();
-    const now = Date.now();
-    const startedAt = new Date(now).toISOString();
-    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
-
-    // Set state in Redis (admin fallback songs have different IDs)
-    // We use a special marker for admin fallback
+    // Set state in Redis (free rotation songs use "admin:" prefix to differentiate)
     await this.radioStateService.setCurrentState({
       songId: `admin:${song.id}`,
       startedAt: now,
@@ -602,6 +618,7 @@ export class RadioService {
       listenerCount,
     });
     
+    // Update play count in the free rotation table
     await supabase
       .from('admin_fallback_songs')
       .update({ 
@@ -626,6 +643,32 @@ export class RadioService {
       position_seconds: 0,
       is_fallback: true,
       is_admin_fallback: true,
+    };
+  }
+
+  /**
+   * Build response when no content is available.
+   * This happens when the free rotation table is empty.
+   */
+  private buildNoContentResponse(): any {
+    const now = new Date().toISOString();
+    
+    return {
+      id: null,
+      title: 'No Content Available',
+      artist_name: 'RadioApp',
+      audio_url: null,
+      artwork_url: null,
+      duration_seconds: 0,
+      is_playing: false,
+      started_at: now,
+      server_time: now,
+      time_remaining_ms: 0,
+      position_seconds: 0,
+      is_fallback: true,
+      is_admin_fallback: true,
+      no_content: true,
+      message: 'Sorry for the inconvenience. No songs are currently available.',
     };
   }
 

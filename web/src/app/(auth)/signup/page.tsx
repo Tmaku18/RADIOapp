@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,14 @@ import { useAuth } from '@/contexts/AuthContext';
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUpWithEmail, signInWithGoogle, loading, error } = useAuth();
+  const { 
+    signUpWithEmail, 
+    signInWithGoogle, 
+    completeGoogleSignUp,
+    pendingGoogleUser,
+    loading, 
+    error 
+  } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,13 +58,29 @@ function SignupForm() {
 
     try {
       await signInWithGoogle();
-      router.push('/dashboard');
+      // If existing user, signInWithGoogle will fetch profile and we can redirect
+      // If new user, pendingGoogleUser will be set
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up with Google');
-    } finally {
       setIsSubmitting(false);
     }
   };
+
+  // When pendingGoogleUser is set (new Google user), complete signup with selected role
+  useEffect(() => {
+    if (pendingGoogleUser && isSubmitting) {
+      completeGoogleSignUp(role)
+        .then(() => {
+          router.push('/dashboard');
+        })
+        .catch((err) => {
+          setLocalError(err instanceof Error ? err.message : 'Failed to complete sign up');
+        })
+        .finally(() => {
+          setIsSubmitting(false);
+        });
+    }
+  }, [pendingGoogleUser, isSubmitting, role, completeGoogleSignUp, router]);
 
   const displayError = localError || error;
 

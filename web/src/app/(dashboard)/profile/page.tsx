@@ -12,8 +12,10 @@ export default function ProfilePage() {
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
 
   // Sync local displayName state when profile changes (e.g., after refreshProfile)
   useEffect(() => {
@@ -53,6 +55,25 @@ export default function ProfilePage() {
       router.push('/');
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const handleUpgradeToArtist = async () => {
+    setError(null);
+    setIsUpgrading(true);
+
+    try {
+      await usersApi.upgradeToArtist();
+      await refreshProfile();
+      setUpgradeSuccess(true);
+      // Redirect to artist dashboard after short delay
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to upgrade account');
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
@@ -150,9 +171,11 @@ export default function ProfilePage() {
               disabled
               className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Contact support to change your account type
-            </p>
+            {profile?.role === 'listener' && (
+              <p className="text-xs text-gray-500 mt-1">
+                Want to share your music? Upgrade to an artist account below.
+              </p>
+            )}
           </div>
 
           {/* Member Since */}
@@ -198,6 +221,54 @@ export default function ProfilePage() {
           )}
         </div>
       </div>
+
+      {/* Upgrade to Artist Section - Only for Listeners */}
+      {profile?.role === 'listener' && (
+        <div className="mt-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm border border-purple-200">
+          <div className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">🎤</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900 mb-1">
+                  Become an Artist
+                </h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  Upgrade your account to share your music with the world. As an artist, you can upload tracks, 
+                  purchase airtime credits, and get your music on the radio.
+                </p>
+
+                {upgradeSuccess ? (
+                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
+                    Congratulations! Your account has been upgraded to Artist. Redirecting to dashboard...
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <button
+                      onClick={handleUpgradeToArtist}
+                      disabled={isUpgrading}
+                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+                        isUpgrading
+                          ? 'bg-purple-400 text-white cursor-not-allowed'
+                          : 'bg-purple-600 text-white hover:bg-purple-700'
+                      }`}
+                    >
+                      {isUpgrading ? (
+                        <span className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Upgrading...
+                        </span>
+                      ) : (
+                        'Upgrade to Artist'
+                      )}
+                    </button>
+                    <span className="text-sm text-gray-500">Free to upgrade</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Sign Out Section */}
       <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">

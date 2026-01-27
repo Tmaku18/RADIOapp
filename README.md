@@ -661,7 +661,7 @@ Supabase Storage (Audio Files)
 - ✅ **Pre-charge model** with atomic PostgreSQL RPC transactions
 - ✅ **Trial rotation**: New approved songs get 3 free plays before requiring credits
 - ✅ **Four-tier fallback**: credited songs → trial songs → opt-in songs → admin fallback
-- ✅ **Free rotation eligibility**: Requires paid play + artist opt-in + admin approval
+- ✅ **Free rotation eligibility**: Requires artist opt-in + admin approval (paid play check temporarily disabled)
 - ✅ **Algorithm transparency**: `play_decision_log` table for auditing song selection
 - ✅ **Redis state management**: Stateless backend for horizontal scaling
 - ✅ Queue preview endpoint
@@ -777,6 +777,26 @@ Each component requires specific environment variables:
 - **Adding a new mobile screen**: Create feature folder in `mobile/lib/features/`
 - **Database changes**: Update `docs/database-schema.md` and run migrations in Supabase
 - **Firebase changes**: Regenerate `firebase_options.dart` with FlutterFire CLI
+
+## Temporarily Disabled Features
+
+The following features have been temporarily disabled for development/testing purposes and are planned for future implementation:
+
+### Paid Play Requirement for Free Rotation
+
+**Status**: Commented out (easy to restore)
+
+**Original behavior**: Songs must have at least 1 paid play (`paid_play_count > 0`) before they can be added to free rotation. This ensures artists "invest" in the platform before getting free airplay.
+
+**Current behavior**: Songs can be added to free rotation without any paid plays. Only requires:
+- Artist opt-in (`opt_in_free_play = true`)
+- Admin approval (`admin_free_rotation = true`)
+
+**Files affected**:
+- `backend/src/admin/admin.service.ts` - Eligibility checks and toggle validation
+- `backend/src/radio/radio.service.ts` - `getOptInSong()` query filter
+
+**To restore**: Search for `DISABLED: Paid play requirement` in the backend codebase and uncomment the relevant lines.
 
 ## Troubleshooting
 

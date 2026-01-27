@@ -37,11 +37,17 @@ export class AdminController {
   @Get('songs')
   async getSongs(
     @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     const songs = await this.adminService.getSongsPendingApproval({
       status,
+      search,
+      sortBy,
+      sortOrder,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
@@ -67,11 +73,17 @@ export class AdminController {
   @Get('users')
   async getUsers(
     @Query('role') role?: string,
+    @Query('search') search?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'asc' | 'desc',
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
   ) {
     const users = await this.adminService.getAllUsers({
       role,
+      search,
+      sortBy,
+      sortOrder,
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });

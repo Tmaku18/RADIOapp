@@ -22,14 +22,22 @@ interface UserProfile {
   createdAt: string;
 }
 
+interface PendingGoogleUser {
+  firebaseUser: User;
+  idToken: string;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  pendingGoogleUser: PendingGoogleUser | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist') => Promise<void>;
+  completeGoogleSignUp: (role: 'listener' | 'artist') => Promise<void>;
+  cancelGoogleSignUp: () => void;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
@@ -42,6 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState<PendingGoogleUser | null>(null);
 
   // Fetch user profile from backend
   const fetchProfile = useCallback(async () => {
@@ -60,17 +69,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(firebaseUser);
       
       if (firebaseUser) {
-        // User is signed in, fetch profile
-        await fetchProfile();
+        // User is signed in, try to fetch profile
+        try {
+          const response = await usersApi.getMe();
+          if (response.data) {
+            setProfile(response.data);
+          } else {
+            // No profile data - user needs to complete registration
+            const idToken = await firebaseUser.getIdToken();
+            setPendingGoogleUser({ firebaseUser, idToken });
+            setProfile(null);
+          }
+        } catch (err) {
+          // Profile fetch failed - user likely doesn't exist in Supabase
+          // Set pending state so they can complete registration
+          console.log('User exists in Firebase but not in Supabase - prompting for registration');
+          try {
+            const idToken = await firebaseUser.getIdToken();
+            setPendingGoogleUser({ firebaseUser, idToken });
+          } catch {
+            console.error('Failed to get ID token for pending user');
+          }
+          setProfile(null);
+        }
       } else {
         setProfile(null);
+        setPendingGoogleUser(null);
       }
       
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [fetchProfile]);
+  }, []);
 
   const handleSignInWithGoogle = async () => {
     setError(null);
@@ -82,25 +113,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
       
-      // Try to fetch existing profile or create new one
+      // Try to fetch existing profile
       try {
-        await fetchProfile();
+        const response = await usersApi.getMe();
+        if (response.data) {
+          // Existing user, just set profile
+          setProfile(response.data);
+          setLoading(false);
+          return;
+        }
       } catch {
-        // Profile doesn't exist, create one
-        await usersApi.create({
-          email: firebaseUser.email!,
-          displayName: firebaseUser.displayName || undefined,
-          role: 'listener', // Default role for Google sign-in
-        });
-        await fetchProfile();
+        // Profile doesn't exist - this is a new user
+        // Store pending state and show role selection modal
+        setPendingGoogleUser({ firebaseUser, idToken });
+        setLoading(false);
+        return;
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with Google';
+      setError(message);
+      setLoading(false);
+      throw err;
+    }
+  };
+
+  const completeGoogleSignUp = async (role: 'listener' | 'artist') => {
+    if (!pendingGoogleUser) {
+      setError('No pending Google sign-up');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { firebaseUser } = pendingGoogleUser;
+      
+      // Create user profile in backend with selected role
+      await usersApi.create({
+        email: firebaseUser.email!,
+        displayName: firebaseUser.displayName || undefined,
+        role,
+      });
+      
+      await fetchProfile();
+      setPendingGoogleUser(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to complete sign up';
       setError(message);
       throw err;
     } finally {
       setLoading(false);
     }
+  };
+
+  const cancelGoogleSignUp = () => {
+    setPendingGoogleUser(null);
+    // Sign out of Firebase since they cancelled
+    signOut().catch(console.error);
   };
 
   const handleSignInWithEmail = async (email: string, password: string) => {
@@ -171,9 +240,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     loading,
     error,
+    pendingGoogleUser,
     signInWithGoogle: handleSignInWithGoogle,
     signInWithEmail: handleSignInWithEmail,
     signUpWithEmail: handleSignUpWithEmail,
+    completeGoogleSignUp,
+    cancelGoogleSignUp,
     signOut: handleSignOut,
     getIdToken,
     refreshProfile: fetchProfile,

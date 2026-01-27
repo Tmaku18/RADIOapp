@@ -17,6 +17,9 @@ export class AdminService {
   constructor(private readonly emailService: EmailService) {}
   async getSongsPendingApproval(filters: {
     status?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
     limit?: number;
     offset?: number;
   }) {
@@ -33,11 +36,36 @@ export class AdminService {
         )
       `);
 
-    // Default to pending if no status specified
-    const status = filters.status || 'pending';
-    query = query.eq('status', status);
+    // Only filter by status if explicitly provided and NOT 'all'
+    if (filters.status && filters.status !== 'all') {
+      query = query.eq('status', filters.status);
+    }
+    // If no status specified, default to pending for backwards compatibility
+    else if (!filters.status) {
+      query = query.eq('status', 'pending');
+    }
+    // When status is 'all', no filter is applied
 
-    query = query.order('created_at', { ascending: true });
+    // Search by title or artist name
+    if (filters.search && filters.search.trim()) {
+      query = query.ilike('title', `%${filters.search.trim()}%`);
+    }
+
+    // Sorting
+    const sortBy = filters.sortBy || 'created_at';
+    const sortOrder = filters.sortOrder || 'asc';
+    const ascending = sortOrder === 'asc';
+    
+    // Map frontend sort keys to database columns
+    const sortColumnMap: Record<string, string> = {
+      title: 'title',
+      artist: 'title', // Will sort by title as artist is joined
+      created_at: 'created_at',
+      status: 'status',
+    };
+    const sortColumn = sortColumnMap[sortBy] || 'created_at';
+    
+    query = query.order(sortColumn, { ascending });
 
     if (filters.limit) {
       query = query.limit(filters.limit);
@@ -303,6 +331,9 @@ export class AdminService {
 
   async getAllUsers(filters: {
     role?: string;
+    search?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
     limit?: number;
     offset?: number;
   }) {
@@ -312,11 +343,30 @@ export class AdminService {
       .from('users')
       .select('id, email, display_name, role, avatar_url, created_at');
 
-    if (filters.role) {
+    if (filters.role && filters.role !== 'all') {
       query = query.eq('role', filters.role);
     }
 
-    query = query.order('created_at', { ascending: false });
+    // Search by display name or email
+    if (filters.search && filters.search.trim()) {
+      query = query.or(`display_name.ilike.%${filters.search.trim()}%,email.ilike.%${filters.search.trim()}%`);
+    }
+
+    // Sorting
+    const sortBy = filters.sortBy || 'created_at';
+    const sortOrder = filters.sortOrder || 'desc';
+    const ascending = sortOrder === 'asc';
+    
+    // Map frontend sort keys to database columns
+    const sortColumnMap: Record<string, string> = {
+      name: 'display_name',
+      email: 'email',
+      role: 'role',
+      created_at: 'created_at',
+    };
+    const sortColumn = sortColumnMap[sortBy] || 'created_at';
+    
+    query = query.order(sortColumn, { ascending });
 
     if (filters.limit) {
       query = query.limit(filters.limit);
@@ -550,14 +600,15 @@ export class AdminService {
     }
 
     // Add eligibility status to each song
+    // NOTE: paid_play_count check is commented out for now - see README for details
     return (data || []).map(song => ({
       ...song,
       isEligibleForFreeRotation: 
-        song.paid_play_count > 0 && 
+        // song.paid_play_count > 0 && // DISABLED: Paid play requirement temporarily removed
         song.opt_in_free_play === true && 
         song.admin_free_rotation === true,
       eligibilityChecks: {
-        hasPaidPlay: song.paid_play_count > 0,
+        hasPaidPlay: true, // song.paid_play_count > 0, // DISABLED: Always true for now
         artistOptedIn: song.opt_in_free_play === true,
         adminApproved: song.admin_free_rotation === true,
       },
@@ -607,14 +658,15 @@ export class AdminService {
     }
 
     // Add eligibility status to each song
+    // NOTE: paid_play_count check is commented out for now - see README for details
     return (data || []).map(song => ({
       ...song,
       isEligibleForFreeRotation: 
-        song.paid_play_count > 0 && 
+        // song.paid_play_count > 0 && // DISABLED: Paid play requirement temporarily removed
         song.opt_in_free_play === true && 
         song.admin_free_rotation === true,
       eligibilityChecks: {
-        hasPaidPlay: song.paid_play_count > 0,
+        hasPaidPlay: true, // song.paid_play_count > 0, // DISABLED: Always true for now
         artistOptedIn: song.opt_in_free_play === true,
         adminApproved: song.admin_free_rotation === true,
       },
@@ -623,12 +675,12 @@ export class AdminService {
 
   /**
    * Toggle free rotation status for a song (admin side).
-   * Validates that song has at least 1 paid play before enabling.
+   * NOTE: Paid play validation is temporarily disabled - see README for details.
    */
   async toggleFreeRotation(songId: string, enabled: boolean): Promise<any> {
     const supabase = getSupabaseClient();
 
-    // If enabling, verify song has at least 1 paid play
+    // If enabling, verify song meets requirements
     if (enabled) {
       const { data: song, error: fetchError } = await supabase
         .from('songs')
@@ -640,11 +692,12 @@ export class AdminService {
         throw new BadRequestException('Song not found');
       }
 
-      if (song.paid_play_count < 1) {
-        throw new BadRequestException(
-          'Song must have at least 1 paid play before being added to free rotation'
-        );
-      }
+      // DISABLED: Paid play requirement temporarily removed - see README for details
+      // if (song.paid_play_count < 1) {
+      //   throw new BadRequestException(
+      //     'Song must have at least 1 paid play before being added to free rotation'
+      //   );
+      // }
 
       if (!song.opt_in_free_play) {
         throw new BadRequestException(
@@ -669,7 +722,8 @@ export class AdminService {
   }
 
   /**
-   * Get all songs currently in free rotation (all 3 conditions met).
+   * Get all songs currently in free rotation.
+   * NOTE: paid_play_count requirement is temporarily disabled - see README for details.
    */
   async getSongsInFreeRotation(): Promise<any[]> {
     const supabase = getSupabaseClient();
@@ -686,7 +740,7 @@ export class AdminService {
       .eq('status', 'approved')
       .eq('opt_in_free_play', true)
       .eq('admin_free_rotation', true)
-      .gt('paid_play_count', 0)
+      // .gt('paid_play_count', 0) // DISABLED: Paid play requirement temporarily removed
       .order('last_played_at', { ascending: true, nullsFirst: true });
 
     if (error) {

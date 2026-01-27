@@ -33,6 +33,11 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   
   // Persistent Realtime channel for broadcasting
   private chatChannel: RealtimeChannel | null = null;
+  
+  // Track if channel is ready for broadcasting
+  private isChannelReady = false;
+  private channelReadyPromise: Promise<void> | null = null;
+  private channelReadyResolve: (() => void) | null = null;
 
   // In-memory rate limiting (use Redis in production for multi-instance)
   private rateLimits: Map<string, RateLimitEntry> = new Map();
@@ -51,18 +56,90 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
     const supabase = getSupabaseClient();
     
+    // Create promise to wait for channel ready state
+    this.channelReadyPromise = new Promise((resolve) => {
+      this.channelReadyResolve = resolve;
+    });
+    
     this.chatChannel = supabase.channel('radio-chat');
     
     // Subscribe to the channel (required before sending)
     this.chatChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         this.logger.log('Chat broadcast channel subscribed and ready');
+        this.isChannelReady = true;
+        if (this.channelReadyResolve) {
+          this.channelReadyResolve();
+        }
       } else if (status === 'CHANNEL_ERROR') {
         this.logger.error('Chat channel subscription error');
+        this.isChannelReady = false;
+        // Try to reconnect after error
+        setTimeout(() => this.reconnectChannel(), 5000);
       } else if (status === 'TIMED_OUT') {
         this.logger.warn('Chat channel subscription timed out');
+        this.isChannelReady = false;
+        // Try to reconnect after timeout
+        setTimeout(() => this.reconnectChannel(), 5000);
+      } else if (status === 'CLOSED') {
+        this.logger.warn('Chat channel closed');
+        this.isChannelReady = false;
       }
     });
+  }
+
+  /**
+   * Reconnect the chat channel after an error or timeout.
+   */
+  private async reconnectChannel() {
+    this.logger.log('Attempting to reconnect chat channel...');
+    
+    if (this.chatChannel) {
+      await this.chatChannel.unsubscribe();
+    }
+    
+    // Reset ready state
+    this.isChannelReady = false;
+    this.channelReadyPromise = new Promise((resolve) => {
+      this.channelReadyResolve = resolve;
+    });
+    
+    const supabase = getSupabaseClient();
+    this.chatChannel = supabase.channel('radio-chat');
+    
+    this.chatChannel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        this.logger.log('Chat channel reconnected successfully');
+        this.isChannelReady = true;
+        if (this.channelReadyResolve) {
+          this.channelReadyResolve();
+        }
+      } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        this.logger.error(`Chat channel reconnection failed: ${status}`);
+        // Retry with exponential backoff could be added here
+      }
+    });
+  }
+
+  /**
+   * Wait for channel to be ready (with timeout).
+   */
+  private async waitForChannel(timeoutMs = 5000): Promise<boolean> {
+    if (this.isChannelReady) return true;
+    
+    if (!this.channelReadyPromise) return false;
+    
+    try {
+      await Promise.race([
+        this.channelReadyPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Channel ready timeout')), timeoutMs)
+        ),
+      ]);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -209,6 +286,16 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     if (!this.chatChannel) {
       this.logger.error('Chat channel not initialized - cannot broadcast');
       return;
+    }
+
+    // Wait for channel to be ready before broadcasting
+    if (!this.isChannelReady) {
+      this.logger.warn('Chat channel not ready, waiting...');
+      const ready = await this.waitForChannel(5000);
+      if (!ready) {
+        this.logger.error('Chat channel not ready after timeout - message not broadcasted');
+        return;
+      }
     }
 
     try {
