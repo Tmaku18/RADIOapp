@@ -19,7 +19,7 @@ export const initializeFirebase = (configService: ConfigService): App => {
     // Handle different formats of the private key
     // Replace escaped newlines with actual newlines
     privateKey = privateKey.replace(/\\n/g, '\n');
-    
+
     // If the key doesn't start with -----BEGIN, it might need the header/footer
     if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
       throw new Error(
@@ -36,7 +36,8 @@ export const initializeFirebase = (configService: ConfigService): App => {
         }),
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(
         `Failed to initialize Firebase: ${errorMessage}. Please check your FIREBASE_PRIVATE_KEY format in .env file.`,
       );

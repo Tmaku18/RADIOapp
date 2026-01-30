@@ -74,8 +74,9 @@ export default function AllocatePage() {
       setSong(foundSong);
       setBalance(balanceResponse.data);
       setOptInFreePlay(foundSong.optInFreePlay || false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load data';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -118,8 +119,18 @@ export default function AllocatePage() {
       await loadData();
       setSelectedBundle(null);
       setCustomAmount('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to allocate credits');
+    } catch (err: unknown) {
+      const msg =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof (err.response as { data?: { message?: string } }).data?.message === 'string'
+          ? (err.response as { data: { message: string } }).data.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to allocate credits';
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -142,8 +153,18 @@ export default function AllocatePage() {
       
       setSuccess(`Successfully withdrew ${amount} credits!`);
       await loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to withdraw credits');
+    } catch (err: unknown) {
+      const msg =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof (err.response as { data?: { message?: string } }).data?.message === 'string'
+          ? (err.response as { data: { message: string } }).data.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to withdraw credits';
+      setError(msg);
     } finally {
       setSubmitting(false);
     }
@@ -155,8 +176,18 @@ export default function AllocatePage() {
       await songsApi.updateOptIn(songId, !optInFreePlay);
       setOptInFreePlay(!optInFreePlay);
       setSuccess(optInFreePlay ? 'Opted out of free play' : 'Opted in for free play');
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to update setting');
+    } catch (err: unknown) {
+      const msg =
+        err &&
+        typeof err === 'object' &&
+        'response' in err &&
+        err.response &&
+        typeof (err.response as { data?: { message?: string } }).data?.message === 'string'
+          ? (err.response as { data: { message: string } }).data.message
+          : err instanceof Error
+            ? err.message
+            : 'Failed to update setting';
+      setError(msg);
     } finally {
       setSubmitting(false);
     }

@@ -50,7 +50,8 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      await signInWithGoogle();
+      // Pass the selected role to Google signup
+      await signInWithGoogle(role);
       router.push('/dashboard');
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up with Google');

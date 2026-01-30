@@ -22,17 +22,35 @@ export class LoggerService implements NestLoggerService {
           ? winston.format.json()
           : winston.format.combine(
               winston.format.colorize(),
-              winston.format.printf(({ level, message, timestamp, context, requestId, ...meta }) => {
-                const ctx = context ? `[${context}]` : '';
-                const reqId = requestId ? `[${requestId}]` : '';
-                const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-                return `${timestamp} ${level} ${ctx}${reqId} ${message}${metaStr}`;
-              }),
+              winston.format.printf(
+                ({
+                  level,
+                  message,
+                  timestamp,
+                  context,
+                  requestId,
+                  ...meta
+                }: {
+                  level: string;
+                  message: string;
+                  timestamp: string;
+                  context?: string;
+                  requestId?: string;
+                  [key: string]: unknown;
+                }) => {
+                  const ctx =
+                    context != null ? `[${String(context)}]` : '';
+                  const reqId =
+                    requestId != null ? `[${String(requestId)}]` : '';
+                  const metaStr = Object.keys(meta).length
+                    ? ` ${JSON.stringify(meta)}`
+                    : '';
+                  return `${timestamp} ${level} ${ctx}${reqId} ${message}${metaStr}`;
+                },
+              ),
             ),
       ),
-      transports: [
-        new winston.transports.Console(),
-      ],
+      transports: [new winston.transports.Console()],
       defaultMeta: { service: 'radioapp-backend' },
     });
   }
@@ -40,7 +58,11 @@ export class LoggerService implements NestLoggerService {
   /**
    * Log with custom context and metadata
    */
-  private formatMessage(message: string, context?: string, meta?: Record<string, unknown>) {
+  private formatMessage(
+    message: string,
+    context?: string,
+    meta?: Record<string, unknown>,
+  ) {
     return {
       message,
       context,
@@ -52,10 +74,15 @@ export class LoggerService implements NestLoggerService {
     this.logger.info(this.formatMessage(message, context, meta));
   }
 
-  error(message: string, trace?: string, context?: string, meta?: Record<string, unknown>) {
+  error(
+    message: string,
+    trace?: string,
+    context?: string,
+    meta?: Record<string, unknown>,
+  ) {
     this.logger.error({
       ...this.formatMessage(message, context, meta),
-      stack: trace,
+      stack: trace != null ? String(trace) : undefined,
     });
   }
 

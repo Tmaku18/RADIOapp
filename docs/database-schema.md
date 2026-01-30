@@ -158,6 +158,26 @@ CREATE INDEX idx_rotation_queue_priority ON rotation_queue(priority_score DESC);
 CREATE INDEX idx_rotation_queue_played_at ON rotation_queue(played_at DESC NULLS LAST);
 ```
 
+### notifications
+User notifications for system events (song approvals, credits, etc.).
+
+```sql
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT,
+  metadata JSONB,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_read ON notifications(user_id, read) WHERE read = FALSE;
+CREATE INDEX idx_notifications_created_at ON notifications(created_at DESC);
+```
+
 ## Functions and Triggers
 
 ### Update updated_at timestamp
@@ -254,4 +274,5 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE rotation_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ```

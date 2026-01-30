@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Metadata } from 'next';
+import Link from 'next/link';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -44,12 +44,12 @@ export default function ContactPage() {
           <p className="text-gray-600 mb-6">
             Thank you for reaching out. We&apos;ll get back to you within 24-48 hours.
           </p>
-          <a
+          <Link
             href="/"
             className="inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
           >
             Back to Home
-          </a>
+          </Link>
         </div>
       </div>
     );

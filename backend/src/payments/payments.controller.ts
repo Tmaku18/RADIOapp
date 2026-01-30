@@ -73,7 +73,7 @@ export class PaymentsController {
 
   /**
    * Stripe webhook handler for payment events.
-   * 
+   *
    * Events handled:
    * - payment_intent.succeeded: Mobile app payment completed
    * - payment_intent.payment_failed: Mobile app payment failed
@@ -88,9 +88,12 @@ export class PaymentsController {
     @Headers('stripe-signature') signature: string,
   ) {
     const payload = req.rawBody?.toString() || '';
-    
+
     try {
-      const event = await this.stripeService.verifyWebhookSignature(payload, signature);
+      const event = this.stripeService.verifyWebhookSignature(
+        payload,
+        signature,
+      );
 
       switch (event.type) {
         // Mobile app flow - PaymentIntent events
@@ -99,7 +102,7 @@ export class PaymentsController {
           await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
           break;
         }
-        
+
         case 'payment_intent.payment_failed': {
           const paymentIntent = event.data.object as { id: string };
           await this.paymentsService.handlePaymentFailed(paymentIntent.id);
@@ -108,20 +111,25 @@ export class PaymentsController {
 
         // Web app flow - Checkout Session events
         case 'checkout.session.completed': {
-          const session = event.data.object as { id: string; payment_status?: string };
+          const session = event.data.object as {
+            id: string;
+            payment_status?: string;
+          };
           // Only process if payment is complete (handles async payments)
           if (session.payment_status === 'paid') {
-            await this.paymentsService.handleCheckoutSessionCompleted(session.id);
+            await this.paymentsService.handleCheckoutSessionCompleted(
+              session.id,
+            );
           }
           break;
         }
-        
+
         case 'checkout.session.async_payment_succeeded': {
           const session = event.data.object as { id: string };
           await this.paymentsService.handleCheckoutSessionCompleted(session.id);
           break;
         }
-        
+
         case 'checkout.session.async_payment_failed':
         case 'checkout.session.expired': {
           const session = event.data.object as { id: string };
@@ -136,7 +144,8 @@ export class PaymentsController {
 
       return { received: true };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Webhook error: ${errorMessage}`);
     }
   }

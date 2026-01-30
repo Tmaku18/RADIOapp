@@ -1,5 +1,29 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+
+interface SongWithArtist {
+  id: string;
+  title?: string;
+  artist_id?: string;
+  [key: string]: unknown;
+}
+
+interface SongUpdatePayload {
+  status: 'approved' | 'rejected';
+  updated_at: string;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
+}
+
+interface FallbackSongUpdate {
+  updated_at: string;
+  is_active?: boolean;
+}
 
 @Injectable()
 export class AdminService {
@@ -10,10 +34,8 @@ export class AdminService {
     offset?: number;
   }) {
     const supabase = getSupabaseClient();
-    
-    let query = supabase
-      .from('songs')
-      .select(`
+
+    let query = supabase.from('songs').select(`
         *,
         users:artist_id (
           id,
@@ -33,7 +55,10 @@ export class AdminService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 50) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -42,16 +67,22 @@ export class AdminService {
       throw new BadRequestException(`Failed to fetch songs: ${error.message}`);
     }
 
-    return data;
+    return (data ?? []) as SongWithArtist[];
   }
 
-  async updateSongStatus(songId: string, status: 'approved' | 'rejected', reason?: string) {
+  async updateSongStatus(
+    songId: string,
+    status: 'approved' | 'rejected',
+    reason?: string,
+  ) {
     const supabase = getSupabaseClient();
 
     // Get song with artist info
     const { data: existingSong, error: fetchError } = await supabase
       .from('songs')
-      .select('id, status, title, artist_id, users:artist_id(id, email, display_name)')
+      .select(
+        'id, status, title, artist_id, users:artist_id(id, email, display_name)',
+      )
       .eq('id', songId)
       .single();
 
@@ -59,8 +90,10 @@ export class AdminService {
       throw new NotFoundException('Song not found');
     }
 
+    const song = existingSong as SongWithArtist & { title?: string };
+
     // Build update object
-    const updateData: any = {
+    const updateData: SongUpdatePayload = {
       status,
       updated_at: new Date().toISOString(),
     };
@@ -79,31 +112,36 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update song status: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update song status: ${error.message}`,
+      );
     }
 
     // Create notification for artist
-    const notificationType = status === 'approved' ? 'song_approved' : 'song_rejected';
-    const notificationTitle = status === 'approved' ? 'Song Approved!' : 'Song Rejected';
-    const notificationMessage = status === 'approved'
-      ? `Your song "${existingSong.title}" has been approved and is now live!`
-      : `Your song "${existingSong.title}" was not approved.${reason ? ` Reason: ${reason}` : ''} You have 48 hours to contact support.`;
+    const notificationType =
+      status === 'approved' ? 'song_approved' : 'song_rejected';
+    const notificationTitle =
+      status === 'approved' ? 'Song Approved!' : 'Song Rejected';
+    const notificationMessage =
+      status === 'approved'
+        ? `Your song "${song.title ?? ''}" has been approved and is now live!`
+        : `Your song "${song.title ?? ''}" was not approved.${reason ? ` Reason: ${reason}` : ''} You have 48 hours to contact support.`;
 
     await supabase.from('notifications').insert({
-      user_id: existingSong.artist_id,
+      user_id: song.artist_id,
       type: notificationType,
       title: notificationTitle,
       message: notificationMessage,
       metadata: {
         songId,
-        songTitle: existingSong.title,
+        songTitle: song.title,
         reason: reason || null,
       },
     });
 
     this.logger.log(`Song ${songId} ${status}. Notification sent to artist.`);
 
-    return data;
+    return data as SongWithArtist;
   }
 
   // ========== Fallback Playlist Management ==========
@@ -117,10 +155,12 @@ export class AdminService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch fallback songs: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch fallback songs: ${error.message}`,
+      );
     }
 
-    return data;
+    return (data ?? []) as Record<string, unknown>[];
   }
 
   async addFallbackSong(dto: {
@@ -146,16 +186,20 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to add fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to add fallback song: ${error.message}`,
+      );
     }
 
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async updateFallbackSong(songId: string, dto: { isActive?: boolean }) {
     const supabase = getSupabaseClient();
 
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: FallbackSongUpdate = {
+      updated_at: new Date().toISOString(),
+    };
     if (dto.isActive !== undefined) {
       updateData.is_active = dto.isActive;
     }
@@ -168,10 +212,12 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update fallback song: ${error.message}`,
+      );
     }
 
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async deleteFallbackSong(songId: string) {
@@ -183,7 +229,9 @@ export class AdminService {
       .eq('id', songId);
 
     if (error) {
-      throw new BadRequestException(`Failed to delete fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to delete fallback song: ${error.message}`,
+      );
     }
 
     return { deleted: true };
@@ -198,12 +246,15 @@ export class AdminService {
       .select('role');
 
     if (userError) {
-      throw new BadRequestException(`Failed to fetch user analytics: ${userError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch user analytics: ${userError.message}`,
+      );
     }
 
-    const totalUsers = userCounts?.length || 0;
-    const totalArtists = userCounts?.filter(u => u.role === 'artist').length || 0;
-    const totalListeners = userCounts?.filter(u => u.role === 'listener').length || 0;
+    const users = (userCounts ?? []) as { role?: string }[];
+    const totalUsers = users.length;
+    const totalArtists = users.filter((u) => u.role === 'artist').length;
+    const totalListeners = users.filter((u) => u.role === 'listener').length;
 
     // Get song counts by status
     const { data: songCounts, error: songError } = await supabase
@@ -211,12 +262,15 @@ export class AdminService {
       .select('status');
 
     if (songError) {
-      throw new BadRequestException(`Failed to fetch song analytics: ${songError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch song analytics: ${songError.message}`,
+      );
     }
 
-    const totalSongs = songCounts?.length || 0;
-    const pendingSongs = songCounts?.filter(s => s.status === 'pending').length || 0;
-    const approvedSongs = songCounts?.filter(s => s.status === 'approved').length || 0;
+    const songs = (songCounts ?? []) as { status?: string }[];
+    const totalSongs = songs.length;
+    const pendingSongs = songs.filter((s) => s.status === 'pending').length;
+    const approvedSongs = songs.filter((s) => s.status === 'approved').length;
 
     // Get total plays
     const { count: totalPlays, error: playsError } = await supabase
@@ -224,7 +278,9 @@ export class AdminService {
       .select('*', { count: 'exact', head: true });
 
     if (playsError) {
-      throw new BadRequestException(`Failed to fetch play analytics: ${playsError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch play analytics: ${playsError.message}`,
+      );
     }
 
     // Get total likes
@@ -233,7 +289,9 @@ export class AdminService {
       .select('*', { count: 'exact', head: true });
 
     if (likesError) {
-      throw new BadRequestException(`Failed to fetch likes analytics: ${likesError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch likes analytics: ${likesError.message}`,
+      );
     }
 
     return {
@@ -270,7 +328,10 @@ export class AdminService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 50) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -279,7 +340,7 @@ export class AdminService {
       throw new BadRequestException(`Failed to fetch users: ${error.message}`);
     }
 
-    return data;
+    return (data ?? []) as Record<string, unknown>[];
   }
 
   async updateUserRole(userId: string, role: 'listener' | 'artist' | 'admin') {
@@ -293,9 +354,11 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update user role: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update user role: ${error.message}`,
+      );
     }
 
-    return data;
+    return data as Record<string, unknown>;
   }
 }

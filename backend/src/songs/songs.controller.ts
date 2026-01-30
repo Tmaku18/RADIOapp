@@ -24,6 +24,33 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+interface UserIdRow {
+  id: string;
+}
+
+interface UserIdRoleRow extends UserIdRow {
+  role?: string;
+}
+
+interface SongRow {
+  id: string;
+  title: string;
+  artist_name: string;
+  artist_id: string;
+  audio_url: string;
+  artwork_url?: string | null;
+  duration_seconds?: number | null;
+  credits_remaining?: number | null;
+  play_count?: number | null;
+  like_count?: number | null;
+  status: string;
+  opt_in_free_play?: boolean | null;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
 @Controller('songs')
 export class SongsController {
   constructor(
@@ -43,12 +70,13 @@ export class SongsController {
     @Body() body: { title: string; artistName: string },
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
@@ -65,7 +93,10 @@ export class SongsController {
       throw new Error('Audio file is required');
     }
 
-    const audioUrl = await this.uploadsService.uploadAudioFile(audioFile, userData.id);
+    const audioUrl = await this.uploadsService.uploadAudioFile(
+      audioFile,
+      userData.id,
+    );
     const artworkUrl = artworkFile
       ? await this.uploadsService.uploadArtworkFile(artworkFile, userData.id)
       : undefined;
@@ -93,12 +124,13 @@ export class SongsController {
     @Body() dto: GetUploadUrlDto,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
@@ -123,12 +155,13 @@ export class SongsController {
     @Body() dto: CreateSongFromPathDto,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
@@ -180,17 +213,18 @@ export class SongsController {
   @Roles('artist', 'admin')
   async getMySongs(@CurrentUser() user: FirebaseUser) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
 
-    const { data: songs, error } = await supabase
+    const { data: songsData, error } = await supabase
       .from('songs')
       .select('*')
       .eq('artist_id', userData.id)
@@ -200,6 +234,7 @@ export class SongsController {
       throw new Error(`Failed to fetch songs: ${error.message}`);
     }
 
+    const songs = (songsData ?? []) as SongRow[];
     return songs.map((song) => ({
       id: song.id,
       title: song.title,
@@ -237,24 +272,26 @@ export class SongsController {
     @Body() body: { optInFreePlay?: boolean },
   ) {
     const supabase = getSupabaseClient();
-    
-    const { data: userData } = await supabase
+
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id, role')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRoleRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
 
     // Verify song ownership (unless admin)
-    const { data: song } = await supabase
+    const { data: songData } = await supabase
       .from('songs')
       .select('artist_id')
       .eq('id', songId)
       .single();
 
+    const song = songData as { artist_id: string } | null;
     if (!song) {
       throw new Error('Song not found');
     }
@@ -264,12 +301,15 @@ export class SongsController {
     }
 
     // Build update object
-    const updateData: any = { updated_at: new Date().toISOString() };
+    const updateData: {
+      updated_at: string;
+      opt_in_free_play?: boolean;
+    } = { updated_at: new Date().toISOString() };
     if (body.optInFreePlay !== undefined) {
       updateData.opt_in_free_play = body.optInFreePlay;
     }
 
-    const { data: updated, error } = await supabase
+    const { data: updatedRaw, error } = await supabase
       .from('songs')
       .update(updateData)
       .eq('id', songId)
@@ -280,10 +320,11 @@ export class SongsController {
       throw new Error(`Failed to update song: ${error.message}`);
     }
 
+    const updated = updatedRaw as SongRow;
     return {
       id: updated.id,
       title: updated.title,
-      optInFreePlay: updated.opt_in_free_play,
+      optInFreePlay: updated.opt_in_free_play ?? false,
     };
   }
 
@@ -293,12 +334,13 @@ export class SongsController {
     @Param('id') songId: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
@@ -312,12 +354,13 @@ export class SongsController {
     @Param('id') songId: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }
@@ -331,12 +374,13 @@ export class SongsController {
     @Param('id') songId: string,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
+    const { data: userDataRaw } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
+    const userData = userDataRaw as UserIdRow | null;
     if (!userData) {
       throw new Error('User not found');
     }

@@ -3,16 +3,6 @@ import { Request, Response, NextFunction } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { LoggerService } from '../logger';
 
-// Extend Express Request to include requestId
-declare global {
-  namespace Express {
-    interface Request {
-      requestId: string;
-      startTime: number;
-    }
-  }
-}
-
 export const REQUEST_ID_HEADER = 'x-request-id';
 
 /**
@@ -27,11 +17,11 @@ export class RequestIdMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     // Use existing request ID from header or generate new one
     const requestId = (req.headers[REQUEST_ID_HEADER] as string) || uuidv4();
-    
+
     // Attach to request object for use in handlers
     req.requestId = requestId;
     req.startTime = Date.now();
-    
+
     // Set response header for client correlation
     res.setHeader(REQUEST_ID_HEADER, requestId);
 
@@ -50,8 +40,8 @@ export class RequestIdMiddleware implements NestMiddleware {
     // Log response when finished
     res.on('finish', () => {
       const duration = Date.now() - req.startTime;
-      const userId = (req as any).user?.uid; // From Firebase auth if available
-      
+      const userId = req.user?.uid;
+
       this.logger.logRequest(
         req.method,
         req.originalUrl,

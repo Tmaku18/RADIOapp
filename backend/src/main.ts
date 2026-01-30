@@ -13,7 +13,7 @@ async function bootstrap() {
     rawBody: true, // Enable raw body for Stripe webhooks
     bufferLogs: true, // Buffer logs until custom logger is set
   });
-  
+
   const configService = app.get(ConfigService);
   const logger = app.get(LoggerService);
   const sentry = app.get(SentryService);
@@ -54,10 +54,13 @@ async function bootstrap() {
 
   const port = configService.get<number>('PORT') || 3000;
   await app.listen(port);
-  
+
   logger.log(
     `Application is running on: http://localhost:${port}`,
     'Bootstrap',
   );
 }
-bootstrap();
+void bootstrap().catch((err) => {
+  console.error('Bootstrap failed:', err);
+  process.exit(1);
+});

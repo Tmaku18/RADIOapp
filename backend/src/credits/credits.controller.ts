@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Query, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Param,
+  Body,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -14,18 +23,19 @@ export class CreditsController {
   @Get('balance')
   async getBalance(@CurrentUser() user: FirebaseUser) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
-    if (!userData) {
+    const userId = (userData as { id: string } | null)?.id;
+    if (!userId) {
       throw new NotFoundException('User not found');
     }
 
-    return this.creditsService.getArtistCredits(userData.id);
+    return this.creditsService.getArtistCredits(userId);
   }
 
   @Get('transactions')
@@ -35,26 +45,27 @@ export class CreditsController {
     @Query('offset') offset?: string,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
-    if (!userData) {
+    const userId = (userData as { id: string } | null)?.id;
+    if (!userId) {
       throw new NotFoundException('User not found');
     }
 
     let query = supabase
       .from('transactions')
       .select('*')
-      .eq('user_id', userData.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const parsedOffset = offset ? parseInt(offset, 10) : 0;
-    
+
     query = query.range(parsedOffset, parsedOffset + parsedLimit - 1);
 
     const { data: transactions, error } = await query;
@@ -63,8 +74,16 @@ export class CreditsController {
       throw new Error(`Failed to fetch transactions: ${error.message}`);
     }
 
+    const rows = (transactions ?? []) as {
+      id: string;
+      amount_cents: number;
+      currency: string;
+      credits_purchased: number;
+      status: string;
+      created_at: string;
+    }[];
     return {
-      transactions: transactions.map((t) => ({
+      transactions: rows.map((t) => ({
         id: t.id,
         amountCents: t.amount_cents,
         currency: t.currency,
@@ -86,19 +105,20 @@ export class CreditsController {
     @Query('limit') limit?: string,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
-    if (!userData) {
+    const userId = (userData as { id: string } | null)?.id;
+    if (!userId) {
       throw new NotFoundException('User not found');
     }
 
     const parsedLimit = limit ? parseInt(limit, 10) : 50;
-    return this.creditsService.getAllocationHistory(userData.id, parsedLimit);
+    return this.creditsService.getAllocationHistory(userId, parsedLimit);
   }
 
   /**
@@ -113,18 +133,23 @@ export class CreditsController {
     @Body() dto: AllocateCreditsDto,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
-    if (!userData) {
+    const userId = (userData as { id: string } | null)?.id;
+    if (!userId) {
       throw new NotFoundException('User not found');
     }
 
-    return this.creditsService.allocateCreditsToSong(userData.id, songId, dto.amount);
+    return this.creditsService.allocateCreditsToSong(
+      userId,
+      songId,
+      dto.amount,
+    );
   }
 
   /**
@@ -139,17 +164,22 @@ export class CreditsController {
     @Body() dto: AllocateCreditsDto,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', user.uid)
       .single();
 
-    if (!userData) {
+    const userId = (userData as { id: string } | null)?.id;
+    if (!userId) {
       throw new NotFoundException('User not found');
     }
 
-    return this.creditsService.withdrawCreditsFromSong(userData.id, songId, dto.amount);
+    return this.creditsService.withdrawCreditsFromSong(
+      userId,
+      songId,
+      dto.amount,
+    );
   }
 }

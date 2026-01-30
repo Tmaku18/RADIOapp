@@ -22,7 +22,8 @@ export class SentryService implements OnModuleInit {
 
   private initialize() {
     const dsn = this.configService.get<string>('SENTRY_DSN');
-    const environment = this.configService.get<string>('NODE_ENV') || 'development';
+    const environment =
+      this.configService.get<string>('NODE_ENV') || 'development';
 
     if (!dsn) {
       this.logger.warn(
@@ -37,10 +38,8 @@ export class SentryService implements OnModuleInit {
         dsn,
         environment,
         tracesSampleRate: environment === 'production' ? 0.1 : 1.0,
-        integrations: [
-          Sentry.httpIntegration(),
-        ],
-        beforeSend(event, hint) {
+        integrations: [Sentry.httpIntegration()],
+        beforeSend(event) {
           // Filter out sensitive data
           if (event.request?.headers) {
             delete event.request.headers['authorization'];
@@ -83,7 +82,11 @@ export class SentryService implements OnModuleInit {
   /**
    * Capture a message (non-exception) and send to Sentry
    */
-  captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, unknown>) {
+  captureMessage(
+    message: string,
+    level: Sentry.SeverityLevel = 'info',
+    context?: Record<string, unknown>,
+  ) {
     if (!this.isInitialized) {
       return;
     }

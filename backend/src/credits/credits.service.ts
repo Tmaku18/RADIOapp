@@ -1,5 +1,19 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+
+interface AllocateRpcResult {
+  success: boolean;
+  error?: string;
+  balance_before: number;
+  balance_after: number;
+  song_credits: number;
+}
+
+interface CreditsRow {
+  balance: number;
+  total_purchased: number;
+  total_used: number;
+}
 
 /**
  * Service for managing credit allocations between artist bank and songs.
@@ -32,15 +46,16 @@ export class CreditsService {
       throw new BadRequestException(`Failed to allocate credits: ${error.message}`);
     }
 
-    if (!data.success) {
-      throw new BadRequestException(data.error);
+    const result = data as AllocateRpcResult;
+    if (!result.success) {
+      throw new BadRequestException(result.error ?? 'Allocation failed');
     }
 
     return {
       success: true,
-      balanceBefore: data.balance_before,
-      balanceAfter: data.balance_after,
-      songCredits: data.song_credits,
+      balanceBefore: result.balance_before,
+      balanceAfter: result.balance_after,
+      songCredits: result.song_credits,
     };
   }
 
@@ -69,15 +84,16 @@ export class CreditsService {
       throw new BadRequestException(`Failed to withdraw credits: ${error.message}`);
     }
 
-    if (!data.success) {
-      throw new BadRequestException(data.error);
+    const result = data as AllocateRpcResult;
+    if (!result.success) {
+      throw new BadRequestException(result.error ?? 'Withdrawal failed');
     }
 
     return {
       success: true,
-      balanceBefore: data.balance_before,
-      balanceAfter: data.balance_after,
-      songCredits: data.song_credits,
+      balanceBefore: result.balance_before,
+      balanceAfter: result.balance_after,
+      songCredits: result.song_credits,
     };
   }
 
@@ -95,7 +111,8 @@ export class CreditsService {
       .eq('artist_id', artistId)
       .single();
 
-    if (!credits) {
+    const row = credits as CreditsRow | null;
+    if (!row) {
       return {
         balance: 0,
         totalPurchased: 0,
@@ -104,9 +121,9 @@ export class CreditsService {
     }
 
     return {
-      balance: credits.balance,
-      totalPurchased: credits.total_purchased,
-      totalUsed: credits.total_used,
+      balance: row.balance,
+      totalPurchased: row.total_purchased,
+      totalUsed: row.total_used,
     };
   }
 
@@ -141,10 +158,20 @@ export class CreditsService {
       throw new BadRequestException(`Failed to fetch allocation history: ${error.message}`);
     }
 
-    return data.map((a) => ({
+    interface AllocationRow {
+      id: string;
+      amount: number;
+      direction: string;
+      balance_before: number;
+      balance_after: number;
+      created_at: string;
+      songs: { id: string; title: string } | null;
+    }
+    const rows = (data ?? []) as AllocationRow[];
+    return rows.map((a) => ({
       id: a.id,
-      songId: a.songs?.id,
-      songTitle: a.songs?.title,
+      songId: a.songs?.id ?? null,
+      songTitle: a.songs?.title ?? null,
       amount: a.amount,
       direction: a.direction,
       balanceBefore: a.balance_before,

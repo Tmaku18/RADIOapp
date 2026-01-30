@@ -5,7 +5,14 @@ export class GetUploadUrlDto {
   filename: string;
 
   @IsString()
-  @IsIn(['audio/mpeg', 'audio/wav', 'audio/mp3', 'image/jpeg', 'image/png', 'image/webp'])
+  @IsIn([
+    'audio/mpeg',
+    'audio/wav',
+    'audio/mp3',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+  ])
   contentType: string;
 
   @IsString()

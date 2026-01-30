@@ -53,8 +53,8 @@ export default function MySongsPage() {
       setLoading(true);
       const response = await songsApi.getMine();
       setSongs(response.data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load songs');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load songs');
     } finally {
       setLoading(false);
     }

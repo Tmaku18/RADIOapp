@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
 
@@ -78,7 +82,10 @@ export class SongsService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 20) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -107,12 +114,10 @@ export class SongsService {
     }
 
     // Like
-    await supabase
-      .from('likes')
-      .insert({
-        user_id: userId,
-        song_id: songId,
-      });
+    await supabase.from('likes').insert({
+      user_id: userId,
+      song_id: songId,
+    });
     return { liked: true };
   }
 
@@ -153,21 +158,17 @@ export class SongsService {
       .eq('song_id', songId)
       .single();
 
-    if (existingLike) {
+    const likeRow = existingLike as { id: string } | null;
+    if (likeRow) {
       // Unlike
-      await supabase
-        .from('likes')
-        .delete()
-        .eq('id', existingLike.id);
+      await supabase.from('likes').delete().eq('id', likeRow.id);
       return { liked: false };
     } else {
       // Like
-      await supabase
-        .from('likes')
-        .insert({
-          user_id: userId,
-          song_id: songId,
-        });
+      await supabase.from('likes').insert({
+        user_id: userId,
+        song_id: songId,
+      });
       return { liked: true };
     }
   }

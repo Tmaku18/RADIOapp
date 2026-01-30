@@ -35,7 +35,7 @@ export class UploadsService {
   /**
    * Internal method to handle file uploads to Supabase Storage.
    * Consolidates validation and upload logic for all file types.
-   * 
+   *
    * WARNING: Files are buffered in RAM via Multer. With maxSize of 50MB,
    * concurrent uploads could cause OOM on low-memory servers.
    * Consider streaming uploads for production at scale.
@@ -53,7 +53,7 @@ export class UploadsService {
     // Validate file type
     if (!options.allowedMimeTypes.includes(file.mimetype)) {
       const allowedTypes = options.allowedMimeTypes
-        .map(t => t.split('/')[1].toUpperCase())
+        .map((t) => t.split('/')[1].toUpperCase())
         .join(', ');
       throw new BadRequestException(
         `Invalid ${options.errorPrefix.toLowerCase()} type. Allowed: ${allowedTypes}`,
@@ -83,7 +83,9 @@ export class UploadsService {
       });
 
     if (error) {
-      throw new Error(`Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`);
+      throw new Error(
+        `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
+      );
     }
 
     // Get public URL
@@ -147,7 +149,7 @@ export class UploadsService {
   /**
    * Generate a signed upload URL for direct client-to-Supabase uploads.
    * This bypasses the server, reducing bandwidth and memory usage.
-   * 
+   *
    * @param userId - The user's database ID
    * @param bucket - Target storage bucket ('songs' or 'artwork')
    * @param filename - Original filename (used for extension)
@@ -183,7 +185,9 @@ export class UploadsService {
       .createSignedUploadUrl(path);
 
     if (error) {
-      throw new BadRequestException(`Failed to generate upload URL: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to generate upload URL: ${error.message}`,
+      );
     }
 
     return {

@@ -27,7 +27,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
-  signInWithGoogle: () => Promise<void>;
+  signInWithGoogle: (role?: 'listener' | 'artist') => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist') => Promise<void>;
   signOut: () => Promise<void>;
@@ -48,8 +48,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await usersApi.getMe();
       setProfile(response.data);
-    } catch (err) {
-      console.error('Failed to fetch profile:', err);
+    } catch (err: unknown) {
+      // 404 means user exists in Firebase but not in Supabase
+      // This is expected during signup - profile will be created separately
+      const axiosError = err as { response?: { status?: number } };
+      if (axiosError.response?.status === 404) {
+        console.log('User profile not found in database');
+      } else {
+        console.error('Failed to fetch profile:', err);
+      }
       setProfile(null);
     }
   }, []);
@@ -72,7 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [fetchProfile]);
 
-  const handleSignInWithGoogle = async () => {
+  const handleSignInWithGoogle = async (role?: 'listener' | 'artist') => {
     setError(null);
     setLoading(true);
     try {
@@ -82,18 +89,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
       
-      // Try to fetch existing profile or create new one
-      try {
-        await fetchProfile();
-      } catch {
-        // Profile doesn't exist, create one
-        await usersApi.create({
-          email: firebaseUser.email!,
-          displayName: firebaseUser.displayName || undefined,
-          role: 'listener', // Default role for Google sign-in
-        });
-        await fetchProfile();
+      // If role is provided, this is a signup - create the user profile
+      if (role && firebaseUser.email) {
+        try {
+          await usersApi.create({
+            email: firebaseUser.email,
+            displayName: firebaseUser.displayName || undefined,
+            role,
+          });
+        } catch (createErr: unknown) {
+          // Ignore if user already exists (409 conflict)
+          const axiosError = createErr as { response?: { status?: number } };
+          if (axiosError.response?.status !== 409) {
+            throw createErr;
+          }
+        }
       }
+      
+      // Fetch profile
+      await fetchProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in with Google';
       setError(message);
@@ -113,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
       
+      // Fetch profile
       await fetchProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign in';

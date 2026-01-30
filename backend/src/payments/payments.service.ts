@@ -5,6 +5,27 @@ import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 
+interface TransactionRow {
+  id: string;
+  user_id: string;
+  amount_cents: number;
+  credits_purchased: number;
+  status: string;
+  stripe_payment_intent_id?: string | null;
+  stripe_checkout_session_id?: string | null;
+  payment_method?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface CreditsRow {
+  id: string;
+  artist_id: string;
+  balance: number;
+  total_purchased: number;
+  updated_at?: string;
+}
+
 @Injectable()
 export class PaymentsService {
   constructor(
@@ -16,7 +37,7 @@ export class PaymentsService {
     const supabase = getSupabaseClient();
 
     // Create transaction record
-    const { data: transaction, error: txError } = await supabase
+    const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert({
         user_id: userId,
@@ -31,12 +52,17 @@ export class PaymentsService {
       throw new Error(`Failed to create transaction: ${txError.message}`);
     }
 
+    const transaction = txData as TransactionRow;
+
     // Create Stripe payment intent
-    const paymentIntent = await this.stripeService.createPaymentIntent(dto.amount, {
-      userId,
-      transactionId: transaction.id,
-      credits: dto.credits.toString(),
-    });
+    const paymentIntent = await this.stripeService.createPaymentIntent(
+      dto.amount,
+      {
+        userId,
+        transactionId: transaction.id,
+        credits: dto.credits.toString(),
+      },
+    );
 
     // Update transaction with payment intent ID
     await supabase
@@ -59,12 +85,13 @@ export class PaymentsService {
     const supabase = getSupabaseClient();
 
     // Find transaction
-    const { data: transaction } = await supabase
+    const { data: txData } = await supabase
       .from('transactions')
       .select('*')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .single();
 
+    const transaction = txData as TransactionRow | null;
     if (!transaction || transaction.status === 'succeeded') {
       return; // Already processed or not found
     }
@@ -88,32 +115,32 @@ export class PaymentsService {
     if (rpcError) {
       // Log error but don't fail - transaction was successful
       console.error('Failed to increment credits via RPC:', rpcError.message);
-      
+
       // Fallback to direct update if RPC doesn't exist yet
-      const { data: credits } = await supabase
+      const { data: creditsData } = await supabase
         .from('credits')
         .select('*')
         .eq('artist_id', transaction.user_id)
         .single();
 
+      const credits = creditsData as CreditsRow | null;
       if (credits) {
         await supabase
           .from('credits')
           .update({
             balance: credits.balance + transaction.credits_purchased,
-            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            total_purchased:
+              credits.total_purchased + transaction.credits_purchased,
             updated_at: new Date().toISOString(),
           })
           .eq('id', credits.id);
       } else {
         // Create credit record if it doesn't exist
-        await supabase
-          .from('credits')
-          .insert({
-            artist_id: transaction.user_id,
-            balance: transaction.credits_purchased,
-            total_purchased: transaction.credits_purchased,
-          });
+        await supabase.from('credits').insert({
+          artist_id: transaction.user_id,
+          balance: transaction.credits_purchased,
+          total_purchased: transaction.credits_purchased,
+        });
       }
     }
   }
@@ -125,12 +152,13 @@ export class PaymentsService {
     const supabase = getSupabaseClient();
 
     // Find transaction
-    const { data: transaction } = await supabase
+    const { data: txData } = await supabase
       .from('transactions')
       .select('*')
       .eq('stripe_payment_intent_id', paymentIntentId)
       .single();
 
+    const transaction = txData as TransactionRow | null;
     if (!transaction || transaction.status !== 'pending') {
       return; // Already processed or not found
     }
@@ -158,7 +186,7 @@ export class PaymentsService {
       throw new Error(`Failed to fetch transactions: ${error.message}`);
     }
 
-    return data;
+    return (data ?? []) as TransactionRow[];
   }
 
   /**
@@ -167,10 +195,11 @@ export class PaymentsService {
    */
   async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
     const supabase = getSupabaseClient();
-    const webUrl = this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+    const webUrl =
+      this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
 
     // Create transaction record
-    const { data: transaction, error: txError } = await supabase
+    const { data: txData, error: txError } = await supabase
       .from('transactions')
       .insert({
         user_id: userId,
@@ -185,6 +214,8 @@ export class PaymentsService {
     if (txError) {
       throw new Error(`Failed to create transaction: ${txError.message}`);
     }
+
+    const transaction = txData as TransactionRow;
 
     // Create Stripe Checkout Session
     const session = await this.stripeService.createCheckoutSession(
@@ -222,12 +253,13 @@ export class PaymentsService {
     const supabase = getSupabaseClient();
 
     // Find transaction by checkout session ID
-    const { data: transaction } = await supabase
+    const { data: txData } = await supabase
       .from('transactions')
       .select('*')
       .eq('stripe_checkout_session_id', sessionId)
       .single();
 
+    const transaction = txData as TransactionRow | null;
     if (!transaction || transaction.status === 'succeeded') {
       return; // Already processed or not found
     }
@@ -249,31 +281,31 @@ export class PaymentsService {
 
     if (rpcError) {
       console.error('Failed to increment credits via RPC:', rpcError.message);
-      
+
       // Fallback to direct update
-      const { data: credits } = await supabase
+      const { data: creditsData } = await supabase
         .from('credits')
         .select('*')
         .eq('artist_id', transaction.user_id)
         .single();
 
+      const credits = creditsData as CreditsRow | null;
       if (credits) {
         await supabase
           .from('credits')
           .update({
             balance: credits.balance + transaction.credits_purchased,
-            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            total_purchased:
+              credits.total_purchased + transaction.credits_purchased,
             updated_at: new Date().toISOString(),
           })
           .eq('id', credits.id);
       } else {
-        await supabase
-          .from('credits')
-          .insert({
-            artist_id: transaction.user_id,
-            balance: transaction.credits_purchased,
-            total_purchased: transaction.credits_purchased,
-          });
+        await supabase.from('credits').insert({
+          artist_id: transaction.user_id,
+          balance: transaction.credits_purchased,
+          total_purchased: transaction.credits_purchased,
+        });
       }
     }
   }
@@ -286,12 +318,13 @@ export class PaymentsService {
     const supabase = getSupabaseClient();
 
     // Find transaction by checkout session ID
-    const { data: transaction } = await supabase
+    const { data: txData } = await supabase
       .from('transactions')
       .select('*')
       .eq('stripe_checkout_session_id', sessionId)
       .single();
 
+    const transaction = txData as TransactionRow | null;
     if (!transaction || transaction.status !== 'pending') {
       return; // Already processed or not found
     }

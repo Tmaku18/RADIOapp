@@ -58,8 +58,8 @@ export default function NotificationsPage() {
       setLoading(true);
       const response = await notificationsApi.getAll();
       setNotifications(response.data.notifications);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load notifications');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load notifications');
     } finally {
       setLoading(false);
     }
@@ -71,7 +71,7 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to mark as read:', err);
     }
   };
@@ -80,7 +80,7 @@ export default function NotificationsPage() {
     try {
       await notificationsApi.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to mark all as read:', err);
     }
   };
@@ -130,7 +130,7 @@ export default function NotificationsPage() {
           <div className="text-6xl mb-4">🔔</div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No notifications yet</h3>
           <p className="text-gray-600">
-            We'll notify you when something important happens.
+            We&apos;ll notify you when something important happens.
           </p>
         </div>
       ) : (

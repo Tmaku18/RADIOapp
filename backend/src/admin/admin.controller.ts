@@ -7,7 +7,6 @@ import {
   Param,
   Body,
   Query,
-  UseGuards,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UpdateSongStatusDto } from './dto/update-song-status.dto';
@@ -37,7 +36,11 @@ export class AdminController {
     @Param('id') songId: string,
     @Body() dto: UpdateSongStatusDto,
   ) {
-    const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason);
+    const song = await this.adminService.updateSongStatus(
+      songId,
+      dto.status,
+      dto.reason,
+    );
     return { song };
   }
 
@@ -79,7 +82,8 @@ export class AdminController {
 
   @Post('fallback-songs')
   async addFallbackSong(
-    @Body() dto: {
+    @Body()
+    dto: {
       title: string;
       artistName: string;
       audioUrl: string;

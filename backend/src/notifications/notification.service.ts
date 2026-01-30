@@ -6,14 +6,14 @@ export interface CreateNotificationDto {
   type: string;
   title: string;
   message?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 @Injectable()
 export class NotificationService {
   private readonly logger = new Logger(NotificationService.name);
 
-  async create(dto: CreateNotificationDto) {
+  async create(dto: CreateNotificationDto): Promise<Record<string, unknown>> {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -35,10 +35,13 @@ export class NotificationService {
     }
 
     this.logger.log(`Notification created for user ${dto.userId}: ${dto.type}`);
-    return data;
+    return data as Record<string, unknown>;
   }
 
-  async getForUser(userId: string, limit = 50) {
+  async getForUser(
+    userId: string,
+    limit = 50,
+  ): Promise<Array<Record<string, unknown>>> {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -52,7 +55,7 @@ export class NotificationService {
       throw new Error(`Failed to fetch notifications: ${error.message}`);
     }
 
-    return data;
+    return (data ?? []) as Array<Record<string, unknown>>;
   }
 
   async getUnreadCount(userId: string): Promise<number> {
@@ -71,7 +74,10 @@ export class NotificationService {
     return count || 0;
   }
 
-  async markAsRead(notificationId: string, userId: string) {
+  async markAsRead(
+    notificationId: string,
+    userId: string,
+  ): Promise<Record<string, unknown>> {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -86,7 +92,7 @@ export class NotificationService {
       throw new Error(`Failed to mark notification as read: ${error.message}`);
     }
 
-    return data;
+    return data as Record<string, unknown>;
   }
 
   async markAllAsRead(userId: string) {

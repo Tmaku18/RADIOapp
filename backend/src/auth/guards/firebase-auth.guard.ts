@@ -4,13 +4,28 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 import { getFirebaseAuth } from '../../config/firebase.config';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
 export class FirebaseAuthGuard implements CanActivate {
+  constructor(private reflector: Reflector) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
-    const authHeader = request.headers.authorization;
+    // Check if route is marked as public
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+
+    if (isPublic) {
+      return true;
+    }
+
+    const request = context.switchToHttp().getRequest<Request>();
+    const authHeader = request.headers.authorization as string | undefined;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedException('Missing or invalid authorization header');
@@ -21,7 +36,7 @@ export class FirebaseAuthGuard implements CanActivate {
     try {
       const auth = getFirebaseAuth();
       const decodedToken = await auth.verifyIdToken(token);
-      
+
       request.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
@@ -29,7 +44,7 @@ export class FirebaseAuthGuard implements CanActivate {
       };
 
       return true;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException('Invalid token');
     }
   }

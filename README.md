@@ -685,6 +685,12 @@ Each component requires specific environment variables:
 - **Mobile**: See `mobile/.env` (create from template)
 - **Admin**: See `admin/.env.local.example`
 
+### Code Quality
+
+- **Backend**: ESLint with TypeScript strict rules. Run `npm run lint` in `backend/` (zero errors enforced; warnings allowed for `no-img-element`, hook deps).
+- **Web**: ESLint with Next.js and React rules. Run `npm run lint` in `web/`.
+- **Type safety**: Backend uses typed Supabase row interfaces and explicit return types; web uses typed API responses and `unknown` in catch blocks.
+
 ### Common Development Tasks
 
 - **Adding a new API endpoint**: Create controller, service, and module in `backend/src/`
