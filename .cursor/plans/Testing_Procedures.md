@@ -1,6 +1,6 @@
 ---
 name: Testing Procedures
-overview: Comprehensive testing and debugging procedures covering all 58 API endpoints, web/mobile UI components, database operations, and end-to-end scenarios for the RadioApp platform.
+overview: Comprehensive testing and debugging procedures covering backend APIs, web/mobile UI components, database operations, and end-to-end scenarios for the RadioApp platform.
 todos:
   - id: test-env-setup
     content: Set up test environment with all required env vars
@@ -9,7 +9,10 @@ todos:
     content: Create seed script for test users, songs, and credits
     status: pending
   - id: test-unit
-    content: Write unit tests for RadioService, CreditsService, ChatService
+    content: Write unit tests for all backend services, controllers, and guards (see Section 6)
+    status: pending
+  - id: test-unit-infra
+    content: Add shared test mocks for Supabase, Redis, Firebase used across unit tests
     status: pending
   - id: test-integration
     content: Write integration tests for payment and upload flows
@@ -51,6 +54,14 @@ This document provides comprehensive testing and debugging procedures for the Ra
 | Live Chat | Implemented | [chat.controller.ts](backend/src/chat/chat.controller.ts), [chat.service.ts](backend/src/chat/chat.service.ts) |
 | Push Notifications | Implemented | [push-notification.controller.ts](backend/src/push-notifications/push-notification.controller.ts) |
 | In-App Notifications | Implemented | [notification.controller.ts](backend/src/notifications/notification.controller.ts) |
+| Analytics | Implemented | [analytics.controller.ts](backend/src/analytics/analytics.controller.ts), [analytics.service.ts](backend/src/analytics/analytics.service.ts) |
+| Email | Implemented | [email.service.ts](backend/src/email/email.service.ts) |
+| Uploads / Duration | Implemented | [uploads.service.ts](backend/src/uploads/uploads.service.ts), [duration.service.ts](backend/src/uploads/duration.service.ts) |
+| Tasks (Cleanup) | Implemented | [cleanup.service.ts](backend/src/tasks/cleanup.service.ts) |
+| Chat Admin | Implemented | [chat-admin.controller.ts](backend/src/chat/chat-admin.controller.ts), [chat-admin.service.ts](backend/src/chat/chat-admin.service.ts) |
+| Emoji | Implemented | [emoji.controller.ts](backend/src/chat/emoji.controller.ts), [emoji.service.ts](backend/src/chat/emoji.service.ts) |
+| Radio State | Implemented | [radio-state.service.ts](backend/src/radio/radio-state.service.ts) |
+| Push Notifications (service) | Implemented | [push-notification.service.ts](backend/src/push-notifications/push-notification.service.ts) |
 
 ### 1.2 Web Application (Next.js)
 
@@ -125,6 +136,7 @@ This document provides comprehensive testing and debugging procedures for the Ra
 - `withdraw_credits` - Song to bank transfer
 - `deduct_play_credits` - Pre-charge before playback (1 credit per 5 seconds)
 - `increment_credits` - Add purchased credits to bank
+- `archive_old_chat_messages(cutoff_timestamp)` - Copy messages older than cutoff to `chat_archives`; returns count. Used by [cleanup.service.ts](backend/src/tasks/cleanup.service.ts).
 
 ---
 
@@ -244,20 +256,20 @@ The radio uses **hysteresis** and a **hybrid paid/free** model. State is in **Re
    - **Free → Paid:** Save `fallback_position` to Supabase; set `playlist_type=paid`.
    - **Paid → Free:** Load `fallback_stack` and `fallback_position` from Supabase into Redis; set `playlist_type=free_rotation`.
 5. **Selection**:
-   - **Paid mode:** Try credited songs (approved, `credits_remaining >= ceil(duration/5)`). Soft-weighted random. Pre-charge via `deduct_play_credits` RPC. If none, fall through to free rotation.
+   - **Paid mode:** Try credited songs (approved, `credits_remaining >= ceil(duration/5)`). Soft-weighted random. Pre-charge via `deduct_play_credits` RPC. If none, try **trial** songs (`trial_plays_remaining > 0`, no credits). If none, try **opt-in** songs (`opt_in_free_play=true`, `trial_plays_remaining=0`, no credits). If still none, fall through to free rotation.
    - **Free rotation:** Pop from `radio:free_rotation_stack`. If empty, refill from `admin_fallback_songs` (is_active), shuffle, save to Redis; optionally persist full stack to `radio_playlist_state` only when content changes (stack_version_hash). Play from `admin_fallback_songs`; log `admin_fallback`. After each free-rotation play, checkpoint: every `CHECKPOINT_INTERVAL` songs, write `fallback_position` to Supabase.
 6. **No content:** If `admin_fallback_songs` is empty (and no credited songs), return `no_content: true` and `message: 'Sorry for the inconvenience. No songs are currently available.'`. Frontend shows “Station Offline” / retry.
 
 ### Data sources
 
-- **Paid:** `songs` (status=approved, enough credits). Deduction via `deduct_play_credits`.
+- **Paid:** `songs` (status=approved) with tiers: credited (enough credits), trial (trial plays remaining), opt-in (opt_in_free_play=true, no credits).
 - **Free:** `admin_fallback_songs` (is_active). `radio:free_rotation_stack` holds shuffled IDs; refill when stack empty.
 
 ### Notes
 
-- **Trial rotation** and **opt-in free play** are removed. Free rotation is **only** `admin_fallback_songs`.
+- **Trial rotation** and **opt-in free play** are active tiers within paid mode (before free rotation fallback).
 - **Paid-play check** before free-rotation eligibility is **commented out** (see README “Temporarily Disabled”); easy to restore later.
-- `play_decision_log` records `selection_reason`: `credits` or `admin_fallback`.
+- `play_decision_log` records `selection_reason`: `credits`, `trial`, `opt_in`, or `admin_fallback`.
 - **Redis optional:** If Redis is unavailable, backend falls back to DB; `radio:listeners` may be 0 and `radio:free_rotation_stack` empty, so behavior may differ (e.g. always free rotation or more no_content).
 
 ---
@@ -282,6 +294,41 @@ Use these to verify hysteresis, persistence, and fallbacks. Prefer backend/integ
 | R12 | **Current track returned when time left** | `radio:current` has song with 30s left | GET /api/radio/current | Same song, `is_playing: true`, `time_remaining_ms` ~30000, no getNextTrack |
 | R13 | **play_decision_log** | Play credited song | After play | `play_decision_log` has row: `selection_reason=credits`, song_id, listener_count |
 | R14 | **play_decision_log admin_fallback** | Play free rotation song | After play | `play_decision_log` has row: `selection_reason=admin_fallback` |
+
+### 4.1 Trial Rotation Tests
+
+| ID | Scenario | Preconditions | Steps | Expected |
+|----|----------|---------------|-------|----------|
+| T1 | **Trial initialized on approval** | Song status pending | Approve song | `trial_plays_remaining=3`, `trial_plays_used=0` |
+| T2 | **Trial plays decrement** | Approved song, `trial_plays_remaining=3`, no credits | Trigger 3 plays via paid mode | `trial_plays_remaining` decrements to 0, `trial_plays_used` increments to 3 |
+| T3 | **Trial exhausted → opt-in** | `trial_plays_remaining=0`, `opt_in_free_play=true`, no credits | getNextTrack in paid mode | Song selected via opt-in tier |
+| T4 | **play_decision_log trial** | Play trial song | After play | `play_decision_log` has row: `selection_reason=trial` |
+
+### 4.2 Opt-in Selection Tests
+
+| ID | Scenario | Preconditions | Steps | Expected |
+|----|----------|---------------|-------|----------|
+| O1 | **Opt-in song eligible** | `opt_in_free_play=true`, `trial_plays_remaining=0`, no credits | getNextTrack | Song selected via opt-in tier |
+| O2 | **Opt-in off** | `opt_in_free_play=false`, `trial_plays_remaining=0`, no credits | getNextTrack | Song not selected via opt-in; falls to free rotation |
+| O3 | **play_decision_log opt_in** | Play opt-in song | After play | `play_decision_log` has row: `selection_reason=opt_in` |
+
+### 4.3 Up Next Notification Tests
+
+| ID | Scenario | Preconditions | Steps | Expected |
+|----|----------|---------------|-------|----------|
+| U1 | **Schedule Up Next** | Credited/trial/opt-in song playing, 60s remaining | GET /api/radio/current | `scheduleUpNextNotification` called once |
+| U2 | **No duplicate Up Next** | Same song transition queried twice | Call /current at T-60s and T-45s | Only one notification scheduled |
+| U3 | **Cooldown enforced** | Artist notified < 4 hours ago | Schedule Up Next again | Push suppressed; in-app only |
+| U4 | **No Up Next for free rotation** | Admin fallback song playing | GET /api/radio/current | No Up Next scheduled |
+
+### 4.4 Chat Archival Tests
+
+| ID | Scenario | Preconditions | Steps | Expected |
+|----|----------|---------------|-------|----------|
+| C1 | **Archive old messages** | Messages older than 24h | Run cleanup cron/RPC | Rows moved to `chat_archives` |
+| C2 | **Archive RPC count** | Multiple old messages | Call `archive_old_chat_messages` | Returns count of archived messages |
+| C3 | **Delete after archive** | Messages archived | Cleanup job continues | Old rows removed from `chat_messages` |
+| C4 | **Chat kill switch** | `chat_config.enabled=false` | Send chat message | Message rejected; status shows disabled |
 
 **Clarification:** If any of the above (e.g. “position” semantics, or when `stack_version_hash` is written) does not match your implementation, adjust the test steps or expected results accordingly.
 
@@ -536,10 +583,14 @@ sequenceDiagram
 
 ## 6. Unit Test Scenarios
 
+Implementation of these tests is tracked by the backend unit-test plan (unit tests for all services, controllers, and guards).
+
+**Test file convention:** Jest is configured with `rootDir: "src"` and `testRegex: ".*\\.spec\\.ts$"`. Place spec files next to the unit under test (e.g. `users.service.spec.ts` next to `users.service.ts`). No `__tests__` directory required.
+
 ### 6.1 Radio Service Tests
 
 ```typescript
-// backend/src/radio/__tests__/radio.service.spec.ts
+// backend/src/radio/radio.service.spec.ts
 
 describe('RadioService', () => {
   describe('calculateCreditsRequired', () => {
@@ -560,6 +611,19 @@ describe('RadioService', () => {
     it('should not return unapproved songs');
     it('should use soft-weighted random (credits, recency)');
     it('should exclude current song from selection');
+  });
+
+  describe('trial and opt-in tiers', () => {
+    it('getTrialSong returns approved songs with trial_plays_remaining > 0 and no credits');
+    it('playTrialSong decrements trial_plays_remaining, increments trial_plays_used, logs selection_reason: trial');
+    it('getOptInSong returns approved songs with opt_in_free_play=true, trial_plays_remaining <= 0, no credits');
+    it('playOptInSong logs selection_reason: opt_in and does not deduct credits');
+  });
+
+  describe('Up Next notification', () => {
+    it('preSelectNextSong returns next credited/trial/opt-in song without changing state');
+    it('checkAndScheduleUpNext calls scheduleUpNextNotification only when time remaining in window (e.g. 30–60s) and not already notified for current song');
+    it('does not schedule Up Next for admin fallback songs');
   });
 
   describe('getNextTrack / hysteresis', () => {
@@ -623,6 +687,39 @@ describe('ChatService', () => {
   });
 });
 ```
+
+### 6.5 Full Backend Unit Test Scope
+
+This subsection defines the full set of units to test so the doc matches "unit tests for everything."
+
+**Services** (mock Supabase/Redis/Firebase where used):
+
+- **UsersService** – createUser (idempotent, role artist creates credits), getMe, updateMe, upgradeToArtist; transformUser.
+- **CreditsService** – allocateCreditsToSong / withdrawCreditsFromSong (validation, RPC success/error), getArtistCredits, getAllocationHistory, calculateCreditsForPlay.
+- **SongsService** – createSong (role check), getSongById, getSongs (filters), updateSong, like/unlike; admin status transitions if in scope.
+- **RadioService** – (see 6.1) plus trial, opt-in, and Up Next as above.
+- **RadioStateService** – (see 6.2) getCurrentState, setCurrentState, logPlayDecision, getListenerCount, playlist type, checkpointPosition, free rotation stack, loadPlaylistStateFromDb.
+- **PaymentsService** – createPaymentIntent, createCheckoutSession, webhook handling (signature validation, idempotency); Stripe calls mocked.
+- **NotificationService** – create, getForUser, getUnreadCount, markAsRead, markAllAsRead, delete (soft).
+- **PushNotificationService** – scheduleUpNextNotification (debounce), sendUpNextNotification (cooldown/daily limit), sendLiveNowNotification, sendPushNotification (FCM mocked).
+- **ChatService** – sendMessage (length, rate limit, shadow ban, Realtime broadcast), getHistory, getChatStatus; chat_config enabled check.
+- **ChatAdminService** – toggleChat, shadowBan, deleteMessage.
+- **EmojiService** – addReaction, getAggregatedReactions (Redis/Supabase mocked).
+- **AdminService** – getSongs (search, sort, status), updateSongStatus, getUsers, getFallbackSongs, add/update/delete fallback, free-rotation search/toggle, getAnalytics.
+- **AnalyticsService** – getDashboard, artist analytics (if public methods).
+- **EmailService** – send (provider mocked).
+- **UploadsService** – getUploadUrl, createSongFromPath (if applicable); storage APIs mocked.
+- **DurationService** – extractDuration (buffer/mimeType), calculateCreditsForPlay (pure).
+- **CleanupService** – cleanupOldChatMessages (calls archive RPC + delete), rejected song cleanup (logic and cutoff).
+
+**Controllers** (optional, thin): Test that they call the correct service method with request/query/body and return the right status/body. Alternatively, rely on service tests and E2E.
+
+**Guards:**
+
+- **FirebaseAuthGuard** – canActivate with valid/invalid/missing token (Firebase Admin mocked).
+- **RolesGuard** – canActivate with required roles vs user role from Supabase (getSupabaseClient mocked).
+
+**Test file convention:** Jest is configured with `rootDir: "src"` and `testRegex: ".*\\.spec\\.ts$"`. Place spec files next to the unit under test (e.g. `users.service.spec.ts` next to `users.service.ts`). No `__tests__` directory required.
 
 ---
 
@@ -775,6 +872,7 @@ FIREBASE_PRIVATE_KEY=
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
 EMAIL_PROVIDER=console
+REDIS_URL=   # optional for development; required in production for radio state, listener count, and emoji aggregation
 
 # Radio: hysteresis and persistence
 THRESHOLD_ENTER_PAID=5

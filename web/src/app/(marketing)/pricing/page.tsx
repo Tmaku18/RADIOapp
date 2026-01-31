@@ -6,6 +6,8 @@ export const metadata: Metadata = {
   description: 'Simple, transparent pricing for artists. Listeners always free.',
 };
 
+export const revalidate = 3600;
+
 const creditPackages = [
   {
     credits: 10,

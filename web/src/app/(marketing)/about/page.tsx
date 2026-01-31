@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   description: 'Learn about RadioApp, the underground music radio platform helping artists get discovered.',
 };
 
+export const revalidate = 3600;
+
 export default function AboutPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

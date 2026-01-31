@@ -72,6 +72,7 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 @Injectable()
 export class RadioService {
   private readonly logger = new Logger(RadioService.name);
+  private nextSongNotifiedFor: string | null = null;
 
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
@@ -155,6 +156,12 @@ export class RadioService {
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
+    if (!queueState.isAdminFallback && timeRemainingMs <= 60000 && timeRemainingMs > SONG_END_BUFFER_MS) {
+      this.checkAndScheduleUpNext(timeRemainingMs, song.id).catch((e) =>
+        this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
+      );
+    }
+
     // If song has ended, get next track
     if (timeRemainingMs <= 0) {
       this.logger.log('Current song ended, auto-starting next track');
@@ -237,6 +244,46 @@ export class RadioService {
 
     const selectedSong = this.selectWeightedRandom(eligibleSongs, currentSongId);
     return { song: selectedSong, competingSongs: eligibleSongs.length };
+  }
+
+  /**
+   * Get trial song for artists with free trial plays remaining.
+   * Only returns songs with trial plays available and no credits.
+   */
+  private async getTrialSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('status', 'approved')
+      .gt('trial_plays_remaining', 0)
+      .lte('credits_remaining', 0);
+
+    if (!songs || songs.length === 0) return null;
+
+    const selectedSong = this.selectWeightedRandom(songs, currentSongId);
+    return { song: selectedSong, competingSongs: songs.length };
+  }
+
+  /**
+   * Get opt-in song for free rotation after trial plays are exhausted.
+   */
+  private async getOptInSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+    const supabase = getSupabaseClient();
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('status', 'approved')
+      .eq('opt_in_free_play', true)
+      .lte('trial_plays_remaining', 0)
+      .lte('credits_remaining', 0);
+
+    if (!songs || songs.length === 0) return null;
+
+    const selectedSong = this.selectWeightedRandom(songs, currentSongId);
+    return { song: selectedSong, competingSongs: songs.length };
   }
 
   // === Free Rotation Stack Methods ===
@@ -431,6 +478,7 @@ export class RadioService {
     }
 
     const currentSongId = currentState?.songId;
+    this.nextSongNotifiedFor = null;
 
     // Get listener count and current playlist type
     const listenerCount = await this.radioStateService.getListenerCount();
@@ -462,8 +510,23 @@ export class RadioService {
         const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
         if (result) return result;
       }
-      // No credited songs available - fall back to free rotation
-      this.logger.log('No credited songs available in paid mode, falling back to free rotation');
+
+      // Try trial songs (3 free plays)
+      const trialResult = await this.getTrialSong(currentSongId);
+      if (trialResult) {
+        const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
+        if (result) return result;
+      }
+
+      // Try opt-in songs (free rotation opt-in)
+      const optInResult = await this.getOptInSong(currentSongId);
+      if (optInResult) {
+        const result = await this.playOptInSong(optInResult.song, optInResult.competingSongs);
+        if (result) return result;
+      }
+
+      // No credited, trial, or opt-in songs available - fall back to free rotation
+      this.logger.log('No credited, trial, or opt-in songs available in paid mode, falling back to free rotation');
     }
 
     // Free rotation mode (or fallback from paid mode)
@@ -584,6 +647,127 @@ export class RadioService {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       credits_deducted: creditsToDeduct,
+    };
+  }
+
+  /**
+   * Play a trial song (free plays before credits are required).
+   */
+  private async playTrialSong(song: any, competingSongs: number = 0) {
+    const supabase = getSupabaseClient();
+    const now = Date.now();
+    const startedAt = new Date(now).toISOString();
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+
+    await this.setCurrentSong(song.id, durationSeconds, 0, false, false);
+
+    // Update emoji service with current song for aggregation
+    this.emojiService.setCurrentSong(song.id);
+
+    // Decrement trial plays and increment used counter
+    const remaining = Math.max(0, (song.trial_plays_remaining || 0) - 1);
+    const used = (song.trial_plays_used || 0) + 1;
+    await supabase
+      .from('songs')
+      .update({
+        trial_plays_remaining: remaining,
+        trial_plays_used: used,
+      })
+      .eq('id', song.id);
+
+    // Log play decision
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'trial',
+      listenerCount,
+      competingSongs,
+    });
+
+    // Log play
+    await supabase.from('plays').insert({
+      song_id: song.id,
+      played_at: startedAt,
+    });
+
+    // Send "Live Now" notification to artist
+    try {
+      await this.pushNotificationService.sendLiveNowNotification({
+        id: song.id,
+        title: song.title,
+        artist_id: song.artist_id,
+        artist_name: song.artist_name,
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+    }
+
+    const durationMs = durationSeconds * 1000;
+
+    return {
+      ...song,
+      is_playing: true,
+      started_at: startedAt,
+      server_time: startedAt,
+      time_remaining_ms: durationMs,
+      position_seconds: 0,
+      trial_plays_remaining: remaining,
+      trial_plays_used: used,
+    };
+  }
+
+  /**
+   * Play an opt-in song (free rotation opt-in).
+   */
+  private async playOptInSong(song: any, competingSongs: number = 0) {
+    const supabase = getSupabaseClient();
+    const now = Date.now();
+    const startedAt = new Date(now).toISOString();
+    const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+
+    await this.setCurrentSong(song.id, durationSeconds, 0, false, false);
+
+    // Update emoji service with current song for aggregation
+    this.emojiService.setCurrentSong(song.id);
+
+    // Log play decision
+    const listenerCount = await this.radioStateService.getListenerCount();
+    await this.radioStateService.logPlayDecision({
+      songId: song.id,
+      selectedAt: startedAt,
+      selectionReason: 'opt_in',
+      listenerCount,
+      competingSongs,
+    });
+
+    // Log play
+    await supabase.from('plays').insert({
+      song_id: song.id,
+      played_at: startedAt,
+    });
+
+    // Send "Live Now" notification to artist
+    try {
+      await this.pushNotificationService.sendLiveNowNotification({
+        id: song.id,
+        title: song.title,
+        artist_id: song.artist_id,
+        artist_name: song.artist_name,
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to send Live Now notification: ${e.message}`);
+    }
+
+    const durationMs = durationSeconds * 1000;
+
+    return {
+      ...song,
+      is_playing: true,
+      started_at: startedAt,
+      server_time: startedAt,
+      time_remaining_ms: durationMs,
+      position_seconds: 0,
     };
   }
 
@@ -731,5 +915,35 @@ export class RadioService {
   async clearQueueState() {
     await this.radioStateService.clearState();
     return { cleared: true };
+  }
+
+  /**
+   * Preview the next song for Up Next notifications without changing state.
+   */
+  private async preSelectNextSong(currentSongId?: string): Promise<any | null> {
+    const creditedResult = await this.getCreditedSong(currentSongId);
+    if (creditedResult) return creditedResult.song;
+
+    const trialResult = await this.getTrialSong(currentSongId);
+    if (trialResult) return trialResult.song;
+
+    const optInResult = await this.getOptInSong(currentSongId);
+    if (optInResult) return optInResult.song;
+
+    return null;
+  }
+
+  /**
+   * Schedule Up Next notification around 60 seconds before the song ends.
+   */
+  private async checkAndScheduleUpNext(timeRemainingMs: number, currentSongId: string): Promise<void> {
+    if (timeRemainingMs > 60000 || timeRemainingMs < 30000) return;
+    if (this.nextSongNotifiedFor === currentSongId) return;
+
+    const nextSong = await this.preSelectNextSong(currentSongId);
+    if (nextSong) {
+      await this.pushNotificationService.scheduleUpNextNotification(nextSong, 60);
+      this.nextSongNotifiedFor = currentSongId;
+    }
   }
 }

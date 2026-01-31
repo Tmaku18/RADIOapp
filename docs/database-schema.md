@@ -13,12 +13,23 @@ CREATE TABLE users (
   display_name TEXT,
   role TEXT NOT NULL DEFAULT 'listener' CHECK (role IN ('listener', 'artist', 'admin')),
   avatar_url TEXT,
+  is_banned BOOLEAN DEFAULT FALSE,
+  banned_at TIMESTAMPTZ,
+  ban_reason TEXT,
+  banned_by UUID REFERENCES users(id),
+  is_shadow_banned BOOLEAN DEFAULT FALSE,
+  shadow_banned_at TIMESTAMPTZ,
+  shadow_ban_reason TEXT,
+  shadow_banned_by UUID REFERENCES users(id),
+  shadow_banned_until TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_users_firebase_uid ON users(firebase_uid);
 CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_banned ON users(is_banned) WHERE is_banned = TRUE;
+CREATE INDEX idx_users_shadow_banned ON users(is_shadow_banned) WHERE is_shadow_banned = TRUE;
 ```
 
 ### songs
@@ -39,6 +50,18 @@ CREATE TABLE songs (
   like_count INTEGER DEFAULT 0,
   skip_count INTEGER DEFAULT 0,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  fallback_eligible BOOLEAN DEFAULT FALSE,
+  opt_in_free_play BOOLEAN DEFAULT FALSE,
+  last_played_at TIMESTAMPTZ,
+  rejection_reason TEXT,
+  rejected_at TIMESTAMPTZ,
+  trial_plays_remaining INTEGER DEFAULT 3,
+  trial_plays_used INTEGER DEFAULT 0,
+  status_changed_by UUID REFERENCES users(id),
+  status_changed_at TIMESTAMPTZ,
+  status_change_reason TEXT,
+  admin_free_rotation BOOLEAN DEFAULT FALSE,
+  paid_play_count INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -47,6 +70,9 @@ CREATE INDEX idx_songs_artist_id ON songs(artist_id);
 CREATE INDEX idx_songs_status ON songs(status);
 CREATE INDEX idx_songs_credits ON songs(credits_remaining) WHERE credits_remaining > 0;
 CREATE INDEX idx_songs_created_at ON songs(created_at DESC);
+CREATE INDEX idx_songs_free_rotation 
+  ON songs(admin_free_rotation, opt_in_free_play, paid_play_count) 
+  WHERE status = 'approved';
 ```
 
 ### plays
@@ -82,7 +108,7 @@ CREATE INDEX idx_likes_song_id ON likes(song_id);
 ```
 
 ### subscriptions
-Artist subscription plans.
+Artist subscription plans (planned; schema reserved).
 
 ```sql
 CREATE TABLE subscriptions (
@@ -156,6 +182,148 @@ CREATE TABLE rotation_queue (
 
 CREATE INDEX idx_rotation_queue_priority ON rotation_queue(priority_score DESC);
 CREATE INDEX idx_rotation_queue_played_at ON rotation_queue(played_at DESC NULLS LAST);
+```
+
+### notifications
+In-app notification records with soft delete support.
+
+```sql
+CREATE TABLE notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT,
+  metadata JSONB,
+  read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+```
+
+### play_decision_log
+Audit trail for radio song selection decisions.
+
+```sql
+CREATE TABLE play_decision_log (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  selected_at TIMESTAMPTZ DEFAULT NOW(),
+  selection_reason TEXT NOT NULL,
+  tier_at_selection TEXT,
+  listener_count INTEGER,
+  weight_score DECIMAL(10, 4),
+  random_seed TEXT,
+  competing_songs INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### admin_fallback_songs
+Admin-curated free rotation tracks.
+
+```sql
+CREATE TABLE admin_fallback_songs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  artist_name TEXT NOT NULL,
+  audio_url TEXT NOT NULL,
+  artwork_url TEXT,
+  duration_seconds INTEGER DEFAULT 180,
+  is_active BOOLEAN DEFAULT TRUE,
+  play_count INTEGER DEFAULT 0,
+  last_played_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### radio_playlist_state
+Persistent state for free rotation stack and playlist type.
+
+```sql
+CREATE TABLE radio_playlist_state (
+  id TEXT PRIMARY KEY,
+  playlist_type TEXT NOT NULL DEFAULT 'free_rotation',
+  fallback_stack JSONB DEFAULT '[]'::jsonb,
+  fallback_position INTEGER DEFAULT 0,
+  stack_version_hash TEXT,
+  songs_played_since_checkpoint INTEGER DEFAULT 0,
+  last_switched_at TIMESTAMPTZ,
+  last_checkpoint_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### credit_allocations
+Ledger for credit allocation/withdrawal events.
+
+```sql
+CREATE TABLE credit_allocations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  artist_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  amount INTEGER NOT NULL,
+  direction TEXT NOT NULL,
+  balance_before INTEGER NOT NULL,
+  balance_after INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### artist_notification_cooldowns
+Per-artist cooldown tracking for push notifications.
+
+```sql
+CREATE TABLE artist_notification_cooldowns (
+  artist_id UUID PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+  last_push_sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  notification_count_today INTEGER DEFAULT 1
+);
+```
+
+### chat_messages
+Live chat messages (hot storage).
+
+```sql
+CREATE TABLE chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  display_name TEXT NOT NULL,
+  avatar_url TEXT,
+  message TEXT NOT NULL CHECK (char_length(message) <= 280),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ
+);
+```
+
+### chat_archives
+Archived chat messages (cold storage).
+
+```sql
+CREATE TABLE chat_archives (
+  id UUID PRIMARY KEY,
+  user_id UUID NOT NULL,
+  song_id UUID,
+  display_name TEXT NOT NULL,
+  avatar_url TEXT,
+  message TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL,
+  archived_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### chat_config
+Global chat configuration and kill switch.
+
+```sql
+CREATE TABLE chat_config (
+  id TEXT PRIMARY KEY DEFAULT 'global',
+  enabled BOOLEAN DEFAULT TRUE,
+  disabled_reason TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 ```
 
 ## Functions and Triggers

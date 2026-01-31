@@ -10,11 +10,11 @@ Independent artists struggle to get their music heard through traditional channe
 ### The Solution
 - **For Artists**: Upload music, purchase credits, and get guaranteed airplay in a continuous radio stream
 - **For Listeners**: Discover new music through a curated, continuous stream without ads or interruptions
-- **For Platform**: Sustainable revenue model through credit purchases and future subscription plans
+- **For Platform**: Sustainable revenue model through credit purchases (subscriptions planned)
 
 ### Key Features
 - 🎵 **True Radio Experience**: Synchronized playback across all clients with LIVE indicator and soft pause (30s DVR buffer)
-- 🔄 **Continuous Playback**: Auto-advance with deterministic shuffle, no skipping (true radio style)
+- 🔄 **Continuous Playback**: Auto-advance with deterministic shuffle, no user-initiated skipping in UI (true radio style)
 - 🎤 **Artist Uploads**: Easy song upload with server-side duration validation (music-metadata)
 - 💳 **Credit System**: Advanced credit allocation with atomic PostgreSQL RPC transactions
 - 🏦 **Credit Bank**: Artists buy credits, then allocate to individual songs for airtime
@@ -52,7 +52,7 @@ Independent artists struggle to get their music heard through traditional channe
   - Stripe Checkout for web payments
   
 - **Backend**: NestJS API server
-  - RESTful API architecture with `/api/v1` versioning
+  - RESTful API architecture under `/api`
   - Firebase Admin SDK for token verification, FCM push notifications, and token revocation
   - Supabase client for database operations and Realtime broadcasting
   - Redis for stateless radio state management, emoji aggregation, and listener counts (ioredis)
@@ -66,7 +66,7 @@ Independent artists struggle to get their music heard through traditional channe
 - **Database**: Supabase (PostgreSQL)
   - User profiles and authentication data
   - Song metadata and play history
-  - Credit transactions and subscriptions
+  - Credit transactions (subscriptions planned)
   - Rotation queue management
   
 - **Storage**: Supabase Storage
@@ -87,9 +87,8 @@ Independent artists struggle to get their music heard through traditional channe
   - Webhook handling for payment events
   - Future subscription support
   
-- **Admin Dashboard**: Next.js (legacy)
-  - Web-based management interface with Firebase authentication
-  - Being migrated to unified web app
+- **Admin Dashboard**: Next.js (legacy) + unified admin in web app
+  - Legacy admin remains functional; new features live in `web/` dashboard
 
 - **Observability**
   - Winston structured logging (JSON in production)
@@ -358,8 +357,21 @@ admin/
 ```
 docs/
 ├── api-spec.md                           # Complete API endpoint documentation
-└── database-schema.md                    # Database schema and migrations
+├── database-schema.md                    # Database schema and migrations
+├── deliverables-verification.md          # README vs codebase verification
+└── notion/                               # Notion workspace (project categories, views, onboarding)
+    ├── 01-information-architecture.md     # IA and hierarchy
+    ├── notion-workspace-created.md        # Workspace setup notes
+    ├── notion-workspace-review-project-categories.md   # Project ID (Radio App / NBA ML) review
+    └── notion-views-and-onboarding.md    # View setup + onboarding (By Project ID, Uncategorized tasks)
 ```
+
+### Notion Workspace
+
+Planning and tracking use a **Notion** workspace with **Project ID** (Radio App | NBA ML) on Projects, Tasks, Goals, and App Production. See:
+
+- **Project categories & linking:** `docs/notion/notion-workspace-review-project-categories.md`
+- **Views & onboarding:** `docs/notion/notion-views-and-onboarding.md` (App Production “By Project ID”, Tasks “Uncategorized”, Projects “By Project ID” default; onboarding: new doc → set Project ID; new task → set Project/Project ID)
 
 ### Additional Documentation Files
 
@@ -562,7 +574,7 @@ npm run dev
    - Listener opens app/website and authenticates
    - Continuous stream plays songs from rotation queue
    - Songs play automatically in sequence
-   - Listener can skip songs (limited skips per hour)
+   - No user-initiated skipping in UI (skip events tracked for analytics)
    - Like/unlike songs to influence future rotation
 
 5. **Admin Workflow**
@@ -691,6 +703,13 @@ Supabase Storage (Audio Files)
 - ✅ Mark as read / Mark all as read
 - ✅ **Soft delete**: Delete single or all notifications (audit trail preserved)
 
+### Chat Features
+- ✅ **Real-time messaging** with Supabase Realtime
+- ✅ **Emoji reactions** with Redis aggregation (8 allowed emojis)
+- ✅ **Chat moderation**: Kill switch, shadow ban, and message deletion
+- ✅ **Chat archival**: 24-hour cleanup to cold storage
+- ✅ **Connection indicators** and smart scroll behavior
+
 ### Mobile App Features
 - ✅ **Bottom navigation bar** (Player, Upload, Credits, Profile)
 - ✅ **Like button** on player screen
@@ -717,7 +736,7 @@ Supabase Storage (Audio Files)
 - ✅ **Admin free rotation search** with eligibility indicators and toggle
 
 ### Observability & Infrastructure
-- ✅ RESTful API architecture with `/api/v1` versioning
+- ✅ RESTful API architecture under `/api`
 - ✅ **Structured logging** with Winston (JSON in production)
 - ✅ **Request ID middleware** for distributed tracing
 - ✅ **Sentry integration** for error reporting

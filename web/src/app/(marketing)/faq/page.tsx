@@ -5,6 +5,8 @@ export const metadata: Metadata = {
   description: 'Frequently asked questions about RadioApp.',
 };
 
+export const revalidate = 3600;
+
 const faqs = [
   {
     category: 'General',
