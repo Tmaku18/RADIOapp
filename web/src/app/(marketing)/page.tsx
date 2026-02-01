@@ -6,8 +6,8 @@ export const revalidate = 60;
 // Fetch platform stats from the API
 async function getHomepageData() {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
-    const response = await fetch(`${apiUrl}/analytics/platform`, {
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const response = await fetch(`${backendUrl}/api/analytics/platform`, {
       next: { revalidate: 60 }, // Cache for 60 seconds
     });
     

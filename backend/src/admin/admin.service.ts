@@ -270,6 +270,92 @@ export class AdminService {
     return { deleted: true };
   }
 
+  /**
+   * Add a song from admin upload to the songs table (free rotation database).
+   * Song is created with status='pending' and admin_free_rotation=false.
+   * Admin must approve and enable for free rotation via Admin Songs page.
+   */
+  async addFallbackSongFromUpload(
+    adminId: string,
+    dto: {
+      title: string;
+      artistName: string;
+      audioPath: string;
+      artworkPath?: string;
+      durationSeconds?: number;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+
+    const { data: audioUrlData } = supabase.storage
+      .from('songs')
+      .getPublicUrl(dto.audioPath);
+    const audioUrl = audioUrlData.publicUrl;
+
+    let artworkUrl: string | undefined;
+    if (dto.artworkPath) {
+      const { data: artworkUrlData } = supabase.storage
+        .from('artwork')
+        .getPublicUrl(dto.artworkPath);
+      artworkUrl = artworkUrlData.publicUrl;
+    }
+
+    const { data, error } = await supabase
+      .from('songs')
+      .insert({
+        artist_id: adminId,
+        title: dto.title,
+        artist_name: dto.artistName,
+        audio_url: audioUrl,
+        artwork_url: artworkUrl,
+        duration_seconds: dto.durationSeconds || 180,
+        status: 'pending',
+        admin_free_rotation: false,
+        opt_in_free_play: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to add song from upload: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  async addFallbackSongFromSong(songId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: song, error: fetchError } = await supabase
+      .from('songs')
+      .select('title, artist_name, audio_url, artwork_url, duration_seconds')
+      .eq('id', songId)
+      .single();
+
+    if (fetchError || !song) {
+      throw new BadRequestException('Song not found');
+    }
+
+    const { data, error } = await supabase
+      .from('admin_fallback_songs')
+      .insert({
+        title: song.title,
+        artist_name: song.artist_name,
+        audio_url: song.audio_url,
+        artwork_url: song.artwork_url ?? null,
+        duration_seconds: song.duration_seconds || 180,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to add fallback song from song: ${error.message}`);
+    }
+
+    return data;
+  }
+
   async getAnalytics() {
     const supabase = getSupabaseClient();
 

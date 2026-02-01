@@ -289,42 +289,97 @@ export class RadioService {
   // === Free Rotation Stack Methods ===
 
   /**
-   * Get all active songs from the free rotation (admin_fallback_songs) table.
+   * Get all active songs from free rotation: admin_fallback_songs + songs table (admin_free_rotation).
    */
-  private async getAllFreeRotationSongs(): Promise<any[]> {
+  private async getAllFreeRotationSongs(): Promise<{ id: string; _stackId: string }[]> {
     const supabase = getSupabaseClient();
+    const result: { id: string; _stackId: string }[] = [];
 
-    const { data, error } = await supabase
+    const { data: adminSongs, error: adminError } = await supabase
       .from('admin_fallback_songs')
-      .select('*')
+      .select('id')
       .eq('is_active', true);
 
-    if (error) {
-      this.logger.error(`Failed to fetch free rotation songs: ${error.message}`);
-      return [];
+    if (adminError) {
+      this.logger.error(`Failed to fetch admin fallback songs: ${adminError.message}`);
+    } else if (adminSongs?.length) {
+      for (const s of adminSongs) {
+        result.push({ id: s.id, _stackId: `admin:${s.id}` });
+      }
     }
 
-    return data || [];
+    const { data: songsData, error: songsError } = await supabase
+      .from('songs')
+      .select('id')
+      .eq('status', 'approved')
+      .eq('admin_free_rotation', true)
+      .eq('opt_in_free_play', true);
+
+    if (songsError) {
+      this.logger.error(`Failed to fetch admin-free-rotation songs: ${songsError.message}`);
+    } else if (songsData?.length) {
+      for (const s of songsData) {
+        result.push({ id: s.id, _stackId: `song:${s.id}` });
+      }
+    }
+
+    return result;
   }
 
   /**
-   * Get a specific free rotation song by ID.
+   * Get a specific free rotation song by stack ID (admin:uuid, song:uuid, or legacy plain uuid).
    */
-  private async getFreeRotationSongById(songId: string): Promise<any | null> {
+  private async getFreeRotationSongById(stackId: string): Promise<any | null> {
     const supabase = getSupabaseClient();
+    const isAdmin = stackId.startsWith('admin:');
+    const isSong = stackId.startsWith('song:');
+    const actualId = stackId.replace(/^admin:|^song:/, '');
 
-    const { data, error } = await supabase
-      .from('admin_fallback_songs')
-      .select('*')
-      .eq('id', songId)
-      .single();
-
-    if (error || !data) {
-      this.logger.warn(`Free rotation song ${songId} not found`);
-      return null;
+    if (isAdmin) {
+      const { data, error } = await supabase
+        .from('admin_fallback_songs')
+        .select('*')
+        .eq('id', actualId)
+        .single();
+      if (error || !data) {
+        this.logger.warn(`Admin fallback song ${actualId} not found`);
+        return null;
+      }
+      return { ...data, _source: 'admin_fallback' as const };
     }
 
-    return data;
+    if (isSong) {
+      const { data, error } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', actualId)
+        .single();
+      if (error || !data) {
+        this.logger.warn(`Free rotation song ${actualId} not found`);
+        return null;
+      }
+      return { ...data, _source: 'songs' as const };
+    }
+
+    // Legacy: plain uuid (try admin_fallback first, then songs)
+    const { data: adminData } = await supabase
+      .from('admin_fallback_songs')
+      .select('*')
+      .eq('id', stackId)
+      .single();
+    if (adminData) return { ...adminData, _source: 'admin_fallback' as const };
+
+    const { data: songData } = await supabase
+      .from('songs')
+      .select('*')
+      .eq('id', stackId)
+      .eq('status', 'approved')
+      .eq('admin_free_rotation', true)
+      .eq('opt_in_free_play', true)
+      .single();
+    if (songData) return { ...songData, _source: 'songs' as const };
+
+    return null;
   }
 
   /**
@@ -347,20 +402,20 @@ export class RadioService {
    * Returns null if no free rotation songs are available.
    */
   private async getNextFreeRotationSong(): Promise<any | null> {
-    // Try to pop from the existing stack
+    // Try to pop from the existing stack (Redis)
     let songId = await this.radioStateService.popFreeRotationSong();
     
     if (!songId) {
-      // Stack is empty - refill from admin_fallback_songs table
+      // Stack is empty - refill from admin_fallback_songs + songs (admin_free_rotation)
       const allSongs = await this.getAllFreeRotationSongs();
       
       if (allSongs.length === 0) {
-        this.logger.warn('No free rotation songs available in admin_fallback_songs table');
+        this.logger.warn('No free rotation songs available (admin_fallback_songs or songs with admin_free_rotation)');
         return null;
       }
       
-      // Shuffle all song IDs
-      const shuffledIds = this.shuffleArray(allSongs.map(s => s.id));
+      // Shuffle stack IDs (admin:uuid or song:uuid)
+      const shuffledIds = this.shuffleArray(allSongs.map(s => s._stackId));
       
       // Set in Redis for fast access
       await this.radioStateService.setFreeRotationStack(shuffledIds);
@@ -374,8 +429,14 @@ export class RadioService {
       
       this.logger.log(`Refilled free rotation stack with ${shuffledIds.length} shuffled songs`);
       
-      // Pop the first one
+      // Pop the first one (returns null when Redis is unavailable)
       songId = await this.radioStateService.popFreeRotationSong();
+      
+      // Fallback when Redis is unavailable: pick random song directly from shuffled list
+      if (!songId && shuffledIds.length > 0) {
+        songId = shuffledIds[Math.floor(Math.random() * shuffledIds.length)];
+        this.logger.log('Redis unavailable - picked random song directly from pool');
+      }
     }
     
     if (!songId) {
@@ -433,12 +494,9 @@ export class RadioService {
     
     // Check if song currently playing
     if (currentState?.songId && currentState?.startedAt) {
-      // Handle admin fallback songs (prefixed with "admin:")
       const isAdminSong = currentState.songId.startsWith('admin:');
-      const actualSongId = isAdminSong 
-        ? currentState.songId.replace('admin:', '')
-        : currentState.songId;
-      
+      const actualSongId = currentState.songId.replace(/^admin:|^song:/, '');
+
       let currentSong;
       if (isAdminSong) {
         const { data } = await supabase
@@ -772,7 +830,7 @@ export class RadioService {
   }
 
   /**
-   * Play a song from the free rotation (admin_fallback_songs table).
+   * Play a song from the free rotation (admin_fallback_songs or songs table).
    * Uses the shuffled stack pattern - songs are played in random order
    * and the stack is refilled when empty.
    */
@@ -781,10 +839,11 @@ export class RadioService {
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
+    const isFromAdminTable = song._source === 'admin_fallback';
+    const stateSongId = isFromAdminTable ? `admin:${song.id}` : song.id;
 
-    // Set state in Redis (free rotation songs use "admin:" prefix to differentiate)
     await this.radioStateService.setCurrentState({
-      songId: `admin:${song.id}`,
+      songId: stateSongId,
       startedAt: now,
       durationMs: durationSeconds * 1000,
       priorityScore: 0,
@@ -793,7 +852,6 @@ export class RadioService {
       playedAt: startedAt,
     });
 
-    // Log play decision
     const listenerCount = await this.radioStateService.getListenerCount();
     await this.radioStateService.logPlayDecision({
       songId: song.id,
@@ -801,15 +859,21 @@ export class RadioService {
       selectionReason: 'admin_fallback',
       listenerCount,
     });
-    
-    // Update play count in the free rotation table
-    await supabase
-      .from('admin_fallback_songs')
-      .update({ 
-        play_count: (song.play_count || 0) + 1,
-        last_played_at: startedAt,
-      })
-      .eq('id', song.id);
+
+    if (isFromAdminTable) {
+      await supabase
+        .from('admin_fallback_songs')
+        .update({
+          play_count: (song.play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
+    } else {
+      await supabase.from('plays').insert({
+        song_id: song.id,
+        played_at: startedAt,
+      });
+    }
 
     const durationMs = durationSeconds * 1000;
 

@@ -444,7 +444,12 @@ RESEND_API_KEY=re_xxxxx    # if using Resend
    - `songs` - for audio files
    - `artwork` - for album artwork
 
-6. Start the server:
+6. **(Optional) Activate Redis** for radio state, listener count, and emoji aggregation:
+   - Start Redis (e.g. Docker): `docker run -d --name radioapp-redis -p 6379:6379 redis:7-alpine`
+   - In `backend/.env`, set `REDIS_URL=redis://localhost:6379` (or leave unset to use that default).
+   - Restart the backend; logs will show "RadioStateService using Redis for state management" when connected.
+
+7. Start the server:
 ```bash
 npm run start:dev
 ```

@@ -34,6 +34,7 @@ export default function ChatSidebar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const setupChannelRef = useRef<(() => void) | null>(null);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -159,12 +160,22 @@ export default function ChatSidebar() {
           } else if (status === 'CLOSED') {
             console.log('Chat channel closed');
             setConnectionStatus('disconnected');
+            if (connectionTimeoutId) {
+              clearTimeout(connectionTimeoutId);
+              connectionTimeoutId = null;
+            }
+            // Attempt reconnect after 3 seconds (same as TIMED_OUT)
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log('Attempting to reconnect chat after close...');
+              setupChannel();
+            }, 3000);
           }
         });
       
       channelRef.current = channel;
     };
 
+    setupChannelRef.current = setupChannel;
     setupChannel();
 
     return () => {
@@ -243,10 +254,26 @@ export default function ChatSidebar() {
             <span className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" title="Connecting..."></span>
           )}
           {connectionStatus === 'disconnected' && (
-            <span className="w-2 h-2 bg-gray-500 rounded-full" title="Disconnected - Reconnecting..."></span>
+            <>
+              <span className="w-2 h-2 bg-gray-500 rounded-full" title="Disconnected"></span>
+              <button
+                onClick={() => setupChannelRef.current?.()}
+                className="text-xs text-purple-400 hover:text-purple-300"
+              >
+                Reconnect
+              </button>
+            </>
           )}
           {connectionStatus === 'error' && (
-            <span className="w-2 h-2 bg-red-500 rounded-full" title="Connection error - Reconnecting..."></span>
+            <>
+              <span className="w-2 h-2 bg-red-500 rounded-full" title="Connection error"></span>
+              <button
+                onClick={() => setupChannelRef.current?.()}
+                className="text-xs text-purple-400 hover:text-purple-300"
+              >
+                Retry
+              </button>
+            </>
           )}
         </div>
         <button

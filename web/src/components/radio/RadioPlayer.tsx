@@ -43,12 +43,19 @@ export function RadioPlayer() {
       setNoContentMessage(null);
       
       if (trackData && trackData.id) {
+        const audioUrl = trackData.audio_url;
+        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
+          console.warn('Next track has no audio URL, fetching again');
+          isFetchingNextTrack.current = false;
+          setTimeout(() => handleTrackEnded(), 500);
+          return;
+        }
         const track: Track = {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
           artworkUrl: trackData.artwork_url,
-          audioUrl: trackData.audio_url,
+          audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
         };
         
@@ -111,12 +118,18 @@ export function RadioPlayer() {
       setNoContentMessage(null);
       
       if (trackData && trackData.id) {
+        const audioUrl = trackData.audio_url;
+        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
+          setNoContent(true);
+          setNoContentMessage('Track has no playable source.');
+          return;
+        }
         const track: Track = {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
           artworkUrl: trackData.artwork_url,
-          audioUrl: trackData.audio_url,
+          audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
         };
         

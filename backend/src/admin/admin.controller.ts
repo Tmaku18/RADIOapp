@@ -8,6 +8,7 @@ import {
   Body,
   Query,
   UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { UpdateSongStatusDto } from './dto/update-song-status.dto';
@@ -118,6 +119,31 @@ export class AdminController {
     },
   ) {
     const song = await this.adminService.addFallbackSong(dto);
+    return { song };
+  }
+
+  @Post('fallback-songs/from-upload')
+  async addFallbackSongFromUpload(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: {
+      title: string;
+      artistName: string;
+      audioPath: string;
+      artworkPath?: string;
+      durationSeconds?: number;
+    },
+  ) {
+    const adminId = await this.getAdminDbId(user.uid);
+    if (!adminId) {
+      throw new BadRequestException('Admin user not found');
+    }
+    const song = await this.adminService.addFallbackSongFromUpload(adminId, dto);
+    return { song };
+  }
+
+  @Post('fallback-songs/from-song/:songId')
+  async addFallbackSongFromSong(@Param('songId') songId: string) {
+    const song = await this.adminService.addFallbackSongFromSong(songId);
     return { song };
   }
 

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 
 interface FallbackSong {
@@ -15,24 +17,23 @@ interface FallbackSong {
 }
 
 export default function AdminFallbackPage() {
+  const searchParams = useSearchParams();
   const [songs, setSongs] = useState<FallbackSong[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-
-  // Form state
-  const [formData, setFormData] = useState({
-    title: '',
-    artistName: '',
-    audioUrl: '',
-    artworkUrl: '',
-    durationSeconds: 180,
-  });
+  const [uploadSuccess, setUploadSuccess] = useState(false);
 
   useEffect(() => {
     loadSongs();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('upload') === 'success') {
+      setUploadSuccess(true);
+      window.history.replaceState({}, '', '/admin/fallback');
+    }
+  }, [searchParams]);
 
   const loadSongs = async () => {
     try {
@@ -43,32 +44,6 @@ export default function AdminFallbackPage() {
       setError('Failed to load fallback playlist');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleAdd = async () => {
-    if (!formData.title || !formData.artistName || !formData.audioUrl) {
-      setError('Please fill in all required fields');
-      return;
-    }
-
-    setActionLoading('add');
-    try {
-      const response = await adminApi.addFallbackSong({
-        title: formData.title,
-        artistName: formData.artistName,
-        audioUrl: formData.audioUrl,
-        artworkUrl: formData.artworkUrl || undefined,
-        durationSeconds: formData.durationSeconds,
-      });
-      setSongs([response.data.song, ...songs]);
-      setShowAddModal(false);
-      setFormData({ title: '', artistName: '', audioUrl: '', artworkUrl: '', durationSeconds: 180 });
-    } catch (err) {
-      console.error('Failed to add song:', err);
-      setError('Failed to add song');
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -131,13 +106,30 @@ export default function AdminFallbackPage() {
             {activeCount > 0 && ` ${activeCount} active songs.`}
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          + Add Song
-        </button>
+        <div className="flex gap-2">
+          <Link
+            href="/admin/fallback/upload"
+            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Upload Song
+          </Link>
+          <Link
+            href="/admin/fallback/song-database"
+            className="bg-white text-purple-600 border border-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors"
+          >
+            View Song Database
+          </Link>
+        </div>
       </div>
+
+      {uploadSuccess && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          Song uploaded successfully.
+          <button onClick={() => setUploadSuccess(false)} className="ml-2 text-green-600 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
@@ -234,102 +226,6 @@ export default function AdminFallbackPage() {
           </table>
         )}
       </div>
-
-      {/* Add Song Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Fallback Song</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Title *
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Song title"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Artist Name *
-                </label>
-                <input
-                  type="text"
-                  value={formData.artistName}
-                  onChange={(e) => setFormData({ ...formData, artistName: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Artist or creator name"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Audio URL *
-                </label>
-                <input
-                  type="url"
-                  value={formData.audioUrl}
-                  onChange={(e) => setFormData({ ...formData, audioUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="https://..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Artwork URL
-                </label>
-                <input
-                  type="url"
-                  value={formData.artworkUrl}
-                  onChange={(e) => setFormData({ ...formData, artworkUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="https://..."
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration (seconds)
-                </label>
-                <input
-                  type="number"
-                  value={formData.durationSeconds}
-                  onChange={(e) => setFormData({ ...formData, durationSeconds: parseInt(e.target.value) || 180 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  min={30}
-                  max={600}
-                />
-              </div>
-            </div>
-            
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setFormData({ title: '', artistName: '', audioUrl: '', artworkUrl: '', durationSeconds: 180 });
-                }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAdd}
-                disabled={actionLoading === 'add'}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
-              >
-                {actionLoading === 'add' ? 'Adding...' : 'Add Song'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

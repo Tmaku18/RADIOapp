@@ -57,20 +57,26 @@ export class NotificationService {
   }
 
   async getUnreadCount(userId: string): Promise<number> {
-    const supabase = getSupabaseClient();
+    try {
+      const supabase = getSupabaseClient();
 
-    const { count, error } = await supabase
-      .from('notifications')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .eq('read', false)
-      .is('deleted_at', null); // Exclude soft-deleted
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('read', false)
+        .is('deleted_at', null); // Exclude soft-deleted
 
-    if (error) {
-      throw new Error(`Failed to count notifications: ${error.message}`);
+      if (error) {
+        this.logger.warn(`Failed to count notifications for user ${userId}: ${error.message}`);
+        return 0;
+      }
+
+      return count ?? 0;
+    } catch (err) {
+      this.logger.warn(`getUnreadCount failed for user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
+      return 0;
     }
-
-    return count || 0;
   }
 
   async markAsRead(notificationId: string, userId: string) {

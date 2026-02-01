@@ -26,7 +26,7 @@ async function createBucket(name: string, isPublic: boolean = true) {
     public: isPublic,
     fileSizeLimit: name === 'songs' ? 52428800 : 5242880, // 50MB for songs, 5MB for others
     allowedMimeTypes: name === 'songs' 
-      ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav']
+      ? ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/aac', 'audio/ogg', 'audio/flac', 'audio/webm']
       : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
   });
 
@@ -49,7 +49,7 @@ async function setupStorage() {
 
   // Create buckets
   const buckets = [
-    { name: 'songs', description: 'Audio files (MP3, WAV) - max 50MB' },
+    { name: 'songs', description: 'Audio files (MP3, WAV, M4A, AAC, OGG, FLAC, WebM) - max 50MB' },
     { name: 'artwork', description: 'Album artwork (JPEG, PNG, WebP) - max 5MB' },
   ];
 

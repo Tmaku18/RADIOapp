@@ -3,9 +3,23 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationsApi } from '@/lib/api';
 import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { HugeiconsIcon } from '@hugeicons/react';
+import { ComputerSettingsIcon, Sun01Icon, DarkModeIcon, ComputerIcon } from '@hugeicons/core-free-icons';
 
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
@@ -54,6 +68,7 @@ export default function DashboardLayout({
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const { theme, setTheme } = useTheme();
 
   // Fetch unread notification count - only when user has a profile
   useEffect(() => {
@@ -62,8 +77,8 @@ export default function DashboardLayout({
         try {
           const response = await notificationsApi.getUnreadCount();
           setUnreadCount(response.data.count);
-        } catch (error) {
-          console.error('Failed to fetch notification count:', error);
+        } catch {
+          setUnreadCount(0);
         }
       };
       fetchUnreadCount();
@@ -121,9 +136,9 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-gray-900 text-white">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-gray-900 dark:bg-gray-950 text-white border-r border-gray-800 dark:border-gray-900">
         {/* Logo */}
         <div className="h-16 flex items-center px-6 border-b border-gray-800">
           <Link href="/" className="flex items-center space-x-2">
@@ -184,27 +199,60 @@ export default function DashboardLayout({
       {/* Main content */}
       <main className="ml-64 min-h-screen">
         {/* Top bar */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8">
-          <h1 className="text-xl font-semibold text-gray-900">
+        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-8">
+          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
             {navigation.find(n => pathname.startsWith(n.href))?.name || 'Dashboard'}
           </h1>
           
-          {/* Notification Bell - Styled as button */}
-          <Link
-            href="/notifications"
-            className="relative p-2 text-gray-600 hover:text-gray-800 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition-all shadow-sm hover:shadow"
-          >
-            <span className="text-xl">🔔</span>
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
-                {unreadCount > 9 ? '9+' : unreadCount}
-              </span>
-            )}
-          </Link>
+          <div className="flex items-center gap-2">
+            {/* Notification Bell */}
+            <Link
+              href="/notifications"
+              className="relative p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 rounded-lg transition-all shadow-sm hover:shadow"
+            >
+              <span className="text-xl">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
+
+            {/* Settings - Theme switcher */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-gray-300 dark:border-gray-700"
+                >
+                  <HugeiconsIcon icon={ComputerSettingsIcon} strokeWidth={2} />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Theme</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+                  <DropdownMenuRadioItem value="light">
+                    <HugeiconsIcon icon={Sun01Icon} strokeWidth={2} className="mr-2" />
+                    Light
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="dark">
+                    <HugeiconsIcon icon={DarkModeIcon} strokeWidth={2} className="mr-2" />
+                    Dark
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="system">
+                    <HugeiconsIcon icon={ComputerIcon} strokeWidth={2} className="mr-2" />
+                    System
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </header>
 
         {/* Page content */}
-        <div className="p-8">
+        <div className="p-8 bg-gray-100 dark:bg-gray-950">
           {children}
         </div>
       </main>

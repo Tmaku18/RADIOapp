@@ -2,9 +2,10 @@
 
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { songsApi } from '@/lib/api';
+import Link from 'next/link';
+import { songsApi, adminApi } from '@/lib/api';
 
-export default function UploadPage() {
+export default function AdminFallbackUploadPage() {
   const router = useRouter();
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
@@ -55,16 +56,14 @@ export default function UploadPage() {
     file: File,
     bucket: 'songs' | 'artwork'
   ): Promise<string> => {
-    // Get signed URL from backend
     const response = await songsApi.getUploadUrl({
       filename: file.name,
       contentType: file.type,
       bucket,
     });
-    
+
     const { signedUrl, path } = response.data;
 
-    // Upload directly to Supabase
     const uploadResponse = await fetch(signedUrl, {
       method: 'PUT',
       body: file,
@@ -82,7 +81,7 @@ export default function UploadPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!audioFile || !title || !artistName) {
       setError('Please fill in all required fields');
       return;
@@ -93,21 +92,18 @@ export default function UploadPage() {
     setUploadProgress(10);
 
     try {
-      // Upload audio file
       setUploadProgress(20);
       const audioPath = await uploadToSignedUrl(audioFile, 'songs');
       setUploadProgress(50);
 
-      // Upload artwork if provided
       let artworkPath: string | undefined;
       if (artworkFile) {
         artworkPath = await uploadToSignedUrl(artworkFile, 'artwork');
         setUploadProgress(70);
       }
 
-      // Create song record
       setUploadProgress(80);
-      await songsApi.create({
+      await adminApi.addFallbackSongFromUpload({
         title,
         artistName,
         audioPath,
@@ -116,8 +112,7 @@ export default function UploadPage() {
 
       setUploadProgress(100);
 
-      // Redirect to dashboard with success message
-      router.push('/dashboard?upload=success');
+      router.push('/admin/songs?upload=success');
     } catch (err) {
       console.error('Upload failed:', err);
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
@@ -127,12 +122,20 @@ export default function UploadPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl">
+      <div className="mb-4">
+        <Link
+          href="/admin/fallback"
+          className="text-purple-600 hover:text-purple-800 text-sm"
+        >
+          ← Back to Fallback Playlist
+        </Link>
+      </div>
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Upload Music</h2>
+          <h2 className="text-xl font-semibold text-gray-900">Upload Song for Free Rotation</h2>
           <p className="text-gray-600 mt-1">
-            Submit your track for review and radio rotation
+            Uploads go to the song database. You must approve and enable free rotation in Admin Songs before the song can play.
           </p>
         </div>
 
@@ -143,7 +146,6 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Audio File */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Audio File <span className="text-red-500">*</span>
@@ -178,7 +180,6 @@ export default function UploadPage() {
             </button>
           </div>
 
-          {/* Artwork */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Artwork (Optional)
@@ -216,7 +217,6 @@ export default function UploadPage() {
             </button>
           </div>
 
-          {/* Title */}
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
               Song Title <span className="text-red-500">*</span>
@@ -232,7 +232,6 @@ export default function UploadPage() {
             />
           </div>
 
-          {/* Artist Name */}
           <div>
             <label htmlFor="artistName" className="block text-sm font-medium text-gray-700 mb-1">
               Artist Name <span className="text-red-500">*</span>
@@ -248,7 +247,6 @@ export default function UploadPage() {
             />
           </div>
 
-          {/* Upload Progress */}
           {isUploading && (
             <div>
               <div className="flex justify-between text-sm text-gray-600 mb-1">
@@ -264,18 +262,13 @@ export default function UploadPage() {
             </div>
           )}
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={isUploading || !audioFile}
             className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isUploading ? 'Uploading...' : 'Submit for Review'}
+            {isUploading ? 'Uploading...' : 'Add to Song Database'}
           </button>
-
-          <p className="text-sm text-gray-500 text-center">
-            Your track will be reviewed by our team within 24-48 hours.
-          </p>
         </form>
       </div>
     </div>

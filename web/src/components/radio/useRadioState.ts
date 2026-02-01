@@ -85,13 +85,22 @@ export function useRadioState(options?: UseRadioStateOptions) {
         setState(s => ({ ...s, isPlaying: false }));
       });
 
-      // Error listener
+      // Error listener (NotSupportedError = no supported source; MEDIA_ERR_SRC_NOT_SUPPORTED = 4)
       audioRef.current.addEventListener('error', () => {
-        setState(s => ({ 
-          ...s, 
-          error: 'Failed to load audio',
+        const mediaError = audioRef.current?.error;
+        const isUnsupportedSource = mediaError?.code === 4 || mediaError?.message?.includes('supported source');
+        const message = isUnsupportedSource
+          ? 'Audio source not available. Trying next track…'
+          : 'Failed to load audio';
+        setState(s => ({
+          ...s,
+          error: message,
           isLoading: false,
         }));
+        // Auto-advance to next track when source is unsupported (e.g. after playlist cycle)
+        if (isUnsupportedSource && onTrackEndedRef.current) {
+          onTrackEndedRef.current();
+        }
       });
 
       // Loading listeners
@@ -129,20 +138,31 @@ export function useRadioState(options?: UseRadioStateOptions) {
   const loadTrack = useCallback((track: Track) => {
     if (!audioRef.current) return;
 
-    setState(s => ({ 
-      ...s, 
-      currentTrack: track, 
+    const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
+    if (!url) {
+      setState(s => ({
+        ...s,
+        currentTrack: track,
+        isLoading: false,
+        error: 'No audio source available for this track.',
+      }));
+      return;
+    }
+
+    setState(s => ({
+      ...s,
+      currentTrack: track,
       isLoading: true,
       error: null,
     }));
 
-    // Clean up previous HLS instance
+    // Clean up previous HLS instance and clear audio source to avoid "no supported source"
     if (hlsRef.current) {
       hlsRef.current.destroy();
       hlsRef.current = null;
     }
-
-    const url = track.audioUrl;
+    audioRef.current.removeAttribute('src');
+    audioRef.current.load();
 
     // Check if HLS stream
     if (url.includes('.m3u8')) {

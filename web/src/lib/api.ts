@@ -1,11 +1,10 @@
 import axios, { AxiosInstance, InternalAxiosRequestConfig } from 'axios';
 import { getIdToken } from './firebase-client';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
-// Create axios instance
+// API calls use same-origin /api; Next.js rewrites proxy to backend.
+// Set BACKEND_URL or NEXT_PUBLIC_API_URL to match your backend (e.g. http://localhost:3005).
 const api: AxiosInstance = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -134,6 +133,10 @@ export const adminApi = {
   getFallbackSongs: () => api.get('/admin/fallback-songs'),
   addFallbackSong: (data: { title: string; artistName: string; audioUrl: string; artworkUrl?: string; durationSeconds?: number }) =>
     api.post('/admin/fallback-songs', data),
+  addFallbackSongFromUpload: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) =>
+    api.post('/admin/fallback-songs/from-upload', data),
+  addFallbackSongFromSong: (songId: string) =>
+    api.post(`/admin/fallback-songs/from-song/${songId}`),
   updateFallbackSong: (id: string, data: { isActive?: boolean }) =>
     api.patch(`/admin/fallback-songs/${id}`, data),
   deleteFallbackSong: (id: string) => api.delete(`/admin/fallback-songs/${id}`),

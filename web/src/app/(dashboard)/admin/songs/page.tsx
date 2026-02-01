@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 
 interface Song {
@@ -28,8 +29,10 @@ type SortField = 'title' | 'created_at' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function AdminSongsPage() {
+  const searchParams = useSearchParams();
   const [songs, setSongs] = useState<Song[]>([]);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -91,10 +94,6 @@ export default function AdminSongsPage() {
   const handleToggleFreeRotation = async (song: Song) => {
     if (!song.opt_in_free_play) {
       alert('Artist has not opted into free play');
-      return;
-    }
-    if ((song.paid_play_count || 0) < 1) {
-      alert('Song must have at least 1 paid play');
       return;
     }
 
@@ -160,6 +159,14 @@ export default function AdminSongsPage() {
 
   return (
     <div className="space-y-6">
+      {uploadSuccess && (
+        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          Song added. Approve it and enable free rotation below.
+          <button onClick={() => setUploadSuccess(false)} className="ml-2 text-green-600 hover:underline">
+            Dismiss
+          </button>
+        </div>
+      )}
       {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
@@ -319,13 +326,12 @@ export default function AdminSongsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleToggleFreeRotation(song)}
-                          disabled={actionLoading === song.id}
+                          disabled={actionLoading === song.id || !song.opt_in_free_play}
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                             song.admin_free_rotation ? 'bg-purple-600' : 'bg-gray-200'
-                          } ${(!song.opt_in_free_play || (song.paid_play_count || 0) < 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          } ${!song.opt_in_free_play ? 'opacity-50 cursor-not-allowed' : ''}`}
                           title={
                             !song.opt_in_free_play ? 'Artist has not opted in' :
-                            (song.paid_play_count || 0) < 1 ? 'No paid plays yet' :
                             song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'
                           }
                         >

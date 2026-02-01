@@ -83,6 +83,18 @@ Keep this visible in the [Canonical Workspace Map](https://www.notion.so/2f87fab
 
 ---
 
+## Repo setup: Redis (optional)
+
+For radio state, listener count, and emoji aggregation:
+
+1. **Run Redis (Docker):** `docker run -d --name radioapp-redis -p 6379:6379 redis:7-alpine`
+2. In `backend/.env`, set `REDIS_URL=redis://localhost:6379` (or leave unset to use that default).
+3. Restart the backend; logs show "RadioStateService using Redis for state management" when connected.
+
+See **README** → Backend Setup step 6.
+
+---
+
 ## Quick links
 
 | Item | Link |

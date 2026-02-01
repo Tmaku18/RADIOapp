@@ -6,6 +6,7 @@ import {
   Delete,
   Param,
   Query,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
@@ -18,14 +19,14 @@ export class NotificationController {
 
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', firebaseUid)
       .single();
 
-    if (!data) {
-      throw new Error('User not found');
+    if (error || !data) {
+      throw new UnauthorizedException('User not found');
     }
 
     return data.id;
@@ -57,9 +58,16 @@ export class NotificationController {
 
   @Get('unread-count')
   async getUnreadCount(@CurrentUser() user: FirebaseUser) {
-    const userId = await this.getUserId(user.uid);
-    const count = await this.notificationService.getUnreadCount(userId);
-    return { count };
+    try {
+      if (!user?.uid) {
+        return { count: 0 };
+      }
+      const userId = await this.getUserId(user.uid);
+      const count = await this.notificationService.getUnreadCount(userId);
+      return { count };
+    } catch {
+      return { count: 0 };
+    }
   }
 
   @Patch(':id/read')

@@ -96,7 +96,7 @@ export class UploadsService {
 
   /**
    * Upload an audio file (song) to storage.
-   * Accepts MP3 and WAV files up to 50MB.
+   * Accepts MP3, WAV, M4A, AAC, OGG, FLAC, WebM up to 50MB.
    */
   async uploadAudioFile(
     file: Express.Multer.File,
@@ -104,7 +104,11 @@ export class UploadsService {
   ): Promise<string> {
     return this._uploadFile(file, userId, {
       bucket: 'songs',
-      allowedMimeTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
+      allowedMimeTypes: [
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
+        'audio/mp4', 'audio/x-m4a', 'audio/aac',
+        'audio/ogg', 'audio/flac', 'audio/webm',
+      ],
       maxSizeBytes: 50 * 1024 * 1024, // 50MB
       errorPrefix: 'Audio file',
     });
@@ -162,7 +166,11 @@ export class UploadsService {
   ): Promise<SignedUploadUrlResponse> {
     // Validate content type based on bucket
     const allowedTypes: Record<string, string[]> = {
-      songs: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav'],
+      songs: [
+        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
+        'audio/mp4', 'audio/x-m4a', 'audio/aac',
+        'audio/ogg', 'audio/flac', 'audio/webm',
+      ],
       artwork: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
     };
 
