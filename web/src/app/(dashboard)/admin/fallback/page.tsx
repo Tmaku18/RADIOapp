@@ -4,6 +4,11 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FallbackSong {
   id: string;
@@ -90,7 +95,7 @@ export default function AdminFallbackPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -107,64 +112,53 @@ export default function AdminFallbackPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Link
-            href="/admin/fallback/upload"
-            className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Upload Song
-          </Link>
-          <Link
-            href="/admin/fallback/song-database"
-            className="bg-white text-purple-600 border border-purple-600 px-4 py-2 rounded-lg hover:bg-purple-50 transition-colors"
-          >
-            View Song Database
-          </Link>
+          <Button asChild><Link href="/admin/fallback/upload">Upload Song</Link></Button>
+          <Button variant="outline" asChild><Link href="/admin/fallback/song-database">View Song Database</Link></Button>
         </div>
       </div>
 
       {uploadSuccess && (
-        <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
-          Song uploaded successfully.
-          <button onClick={() => setUploadSuccess(false)} className="ml-2 text-green-600 hover:underline">
-            Dismiss
-          </button>
-        </div>
+        <Alert>
+          <AlertDescription>
+            Song uploaded successfully.
+            <Button variant="link" className="ml-2 p-0 h-auto" onClick={() => setUploadSuccess(false)}>Dismiss</Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          {error}
-          <button onClick={() => setError(null)} className="ml-2 text-red-600 hover:underline">
-            Dismiss
-          </button>
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {error}
+            <Button variant="link" className="ml-2 p-0 h-auto text-destructive" onClick={() => setError(null)}>Dismiss</Button>
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Songs List */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <Card>
         {songs.length === 0 ? (
-          <div className="p-12 text-center text-gray-500">
+          <div className="p-12 text-center text-muted-foreground">
             <div className="text-4xl mb-4">🎵</div>
             <p>No fallback songs yet.</p>
             <p className="text-sm mt-2">Add royalty-free or licensed music for when no paid content is available.</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Song</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
-                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Status</th>
-                <th className="text-right px-6 py-3 text-sm font-medium text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Song</TableHead>
+                <TableHead>Artist</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {songs.map((song) => (
-                <tr key={song.id} className={`hover:bg-gray-50 ${!song.is_active ? 'opacity-50' : ''}`}>
-                  <td className="px-6 py-4">
+                <TableRow key={song.id} className={!song.is_active ? 'opacity-50' : ''}>
+                  <TableCell>
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center mr-3">
                         {song.artwork_url ? (
                           <img
                             src={song.artwork_url}
@@ -176,7 +170,7 @@ export default function AdminFallbackPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{song.title}</p>
+                        <p className="font-medium text-foreground">{song.title}</p>
                         {song.audio_url && (
                           <audio controls className="h-6 mt-1">
                             <source src={song.audio_url} type="audio/mpeg" />
@@ -184,48 +178,28 @@ export default function AdminFallbackPage() {
                         )}
                       </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{song.artist_name}</td>
-                  <td className="px-6 py-4 text-gray-600 text-sm font-mono">
-                    {formatDuration(song.duration_seconds)}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      song.is_active
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {song.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{song.artist_name}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-sm">{formatDuration(song.duration_seconds)}</TableCell>
+                  <TableCell>
+                    <Badge variant={song.is_active ? 'default' : 'secondary'}>{song.is_active ? 'Active' : 'Inactive'}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => handleToggleActive(song.id, song.is_active)}
-                        disabled={actionLoading === song.id}
-                        className={`px-3 py-1 text-sm rounded transition-colors ${
-                          song.is_active
-                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                            : 'bg-green-100 text-green-700 hover:bg-green-200'
-                        } disabled:opacity-50`}
-                      >
+                      <Button size="sm" variant={song.is_active ? 'secondary' : 'default'} onClick={() => handleToggleActive(song.id, song.is_active)} disabled={actionLoading === song.id}>
                         {song.is_active ? 'Deactivate' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={() => handleDelete(song.id)}
-                        disabled={actionLoading === song.id}
-                        className="px-3 py-1 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
-                      >
+                      </Button>
+                      <Button size="sm" variant="destructive" onClick={() => handleDelete(song.id)} disabled={actionLoading === song.id}>
                         Delete
-                      </button>
+                      </Button>
                     </div>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

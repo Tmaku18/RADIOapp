@@ -3,6 +3,11 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -128,38 +133,33 @@ export default function UploadPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Upload Music</h2>
-          <p className="text-gray-600 mt-1">
-            Submit your track for review and radio rotation
-          </p>
-        </div>
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-semibold text-foreground">Upload Music</h2>
+          <p className="text-muted-foreground mt-1">Submit your track for review and radio rotation</p>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-              {error}
-            </div>
-          )}
+          <form onSubmit={handleSubmit} className="mt-6 space-y-6">
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
 
-          {/* Audio File */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Audio File <span className="text-red-500">*</span>
-            </label>
-            <input
-              ref={audioInputRef}
-              type="file"
-              accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm"
-              onChange={handleAudioSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => audioInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors"
-            >
+            <div className="space-y-2">
+              <Label>Audio File <span className="text-destructive">*</span></Label>
+              <input
+                ref={audioInputRef}
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm"
+                onChange={handleAudioSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-auto py-8 border-dashed flex flex-col"
+                onClick={() => audioInputRef.current?.click()}
+              >
               {audioFile ? (
                 <div>
                   <span className="text-4xl mb-2 block">🎵</span>
@@ -175,26 +175,24 @@ export default function UploadPage() {
                   <p className="text-sm text-gray-400 mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 50MB</p>
                 </div>
               )}
-            </button>
-          </div>
+              </Button>
+            </div>
 
-          {/* Artwork */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Artwork (Optional)
-            </label>
-            <input
-              ref={artworkInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleArtworkSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={() => artworkInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-500 transition-colors"
-            >
+            <div className="space-y-2">
+              <Label>Artwork (Optional)</Label>
+              <input
+                ref={artworkInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleArtworkSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-auto py-4 border-dashed flex flex-col sm:flex-row"
+                onClick={() => artworkInputRef.current?.click()}
+              >
               {artworkPreview ? (
                 <div className="flex items-center space-x-4">
                   <img
@@ -213,71 +211,41 @@ export default function UploadPage() {
                   <span className="text-gray-600">Add album artwork</span>
                 </div>
               )}
-            </button>
-          </div>
-
-          {/* Title */}
-          <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-1">
-              Song Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="title"
-              type="text"
-              required
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="Enter song title"
-            />
-          </div>
-
-          {/* Artist Name */}
-          <div>
-            <label htmlFor="artistName" className="block text-sm font-medium text-gray-700 mb-1">
-              Artist Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="artistName"
-              type="text"
-              required
-              value={artistName}
-              onChange={(e) => setArtistName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="Enter artist name"
-            />
-          </div>
-
-          {/* Upload Progress */}
-          {isUploading && (
-            <div>
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
-                <span>Uploading...</span>
-                <span>{uploadProgress}%</span>
-              </div>
-              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-purple-600 transition-all duration-300"
-                  style={{ width: `${uploadProgress}%` }}
-                />
-              </div>
+              </Button>
             </div>
-          )}
 
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={isUploading || !audioFile}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isUploading ? 'Uploading...' : 'Submit for Review'}
-          </button>
+            <div className="space-y-2">
+              <Label htmlFor="title">Song Title <span className="text-destructive">*</span></Label>
+              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter song title" />
+            </div>
 
-          <p className="text-sm text-gray-500 text-center">
-            Your track will be reviewed by our team within 24-48 hours.
-          </p>
-        </form>
-      </div>
+            <div className="space-y-2">
+              <Label htmlFor="artistName">Artist Name <span className="text-destructive">*</span></Label>
+              <Input id="artistName" required value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Enter artist name" />
+            </div>
+
+            {isUploading && (
+              <div>
+                <div className="flex justify-between text-sm text-muted-foreground mb-1">
+                  <span>Uploading...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div className="h-full bg-primary transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                </div>
+              </div>
+            )}
+
+            <Button type="submit" disabled={isUploading || !audioFile} className="w-full">
+              {isUploading ? 'Uploading...' : 'Submit for Review'}
+            </Button>
+
+            <p className="text-sm text-muted-foreground text-center">
+              Your track will be reviewed by our team within 24-48 hours.
+            </p>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }

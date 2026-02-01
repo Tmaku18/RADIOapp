@@ -1,6 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface RoleSelectionModalProps {
   onSelect: (role: 'listener' | 'artist') => void;
@@ -18,38 +28,36 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-4">
-          <h2 className="text-xl font-bold text-white">Welcome! Choose Your Role</h2>
-          <p className="text-purple-100 text-sm mt-1">
-            How would you like to use RadioApp?
-          </p>
-        </div>
+    <Dialog open onOpenChange={(open) => !open && onCancel()}>
+      <DialogContent showCloseButton={!loading}>
+        <DialogHeader>
+          <DialogTitle>Welcome! Choose Your Role</DialogTitle>
+          <DialogDescription>How would you like to use RadioApp?</DialogDescription>
+        </DialogHeader>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
-          {/* Listener Option */}
+        <div className="space-y-4 py-4">
           <button
+            type="button"
             onClick={() => setSelectedRole('listener')}
             disabled={loading}
-            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+            className={cn(
+              'w-full p-4 rounded-xl border-2 text-left transition-all',
               selectedRole === 'listener'
-                ? 'border-purple-600 bg-purple-50'
-                : 'border-gray-200 hover:border-purple-300'
-            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-primary/50',
+              loading && 'opacity-50 cursor-not-allowed'
+            )}
           >
             <div className="flex items-start gap-4">
               <div className="text-3xl">🎧</div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Listener</h3>
-                <p className="text-sm text-gray-600 mt-1">
+              <div className="flex-1">
+                <h3 className="font-semibold text-foreground">Listener</h3>
+                <p className="text-sm text-muted-foreground mt-1">
                   Discover new music, like tracks, and chat with the community
                 </p>
               </div>
               {selectedRole === 'listener' && (
-                <div className="ml-auto text-purple-600">
+                <div className="text-primary">
                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -58,26 +66,28 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
             </div>
           </button>
 
-          {/* Artist Option */}
           <button
+            type="button"
             onClick={() => setSelectedRole('artist')}
             disabled={loading}
-            className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
+            className={cn(
+              'w-full p-4 rounded-xl border-2 text-left transition-all',
               selectedRole === 'artist'
-                ? 'border-purple-600 bg-purple-50'
-                : 'border-gray-200 hover:border-purple-300'
-            } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-primary/50',
+              loading && 'opacity-50 cursor-not-allowed'
+            )}
           >
             <div className="flex items-start gap-4">
               <div className="text-3xl">🎤</div>
-              <div>
-                <h3 className="font-semibold text-gray-900">Artist</h3>
-                <p className="text-sm text-gray-600 mt-1">
+              <div className="flex-1">
+                <h3 className="font-semibold text-foreground">Artist</h3>
+                <p className="text-sm text-muted-foreground mt-1">
                   Upload your music, purchase airtime, and grow your audience
                 </p>
               </div>
               {selectedRole === 'artist' && (
-                <div className="ml-auto text-purple-600">
+                <div className="text-primary">
                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
@@ -86,36 +96,27 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
             </div>
           </button>
 
-          <p className="text-xs text-gray-500 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Listeners can upgrade to artists later from their profile settings.
           </p>
         </div>
 
-        {/* Actions */}
-        <div className="px-6 py-4 bg-gray-50 flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-          >
+        <DialogFooter className="flex gap-3 sm:gap-0">
+          <Button variant="outline" onClick={onCancel} disabled={loading}>
             Cancel
-          </button>
-          <button
-            onClick={handleContinue}
-            disabled={!selectedRole || loading}
-            className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          >
+          </Button>
+          <Button onClick={handleContinue} disabled={!selectedRole || loading}>
             {loading ? (
               <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <span className="animate-spin mr-2">⏳</span>
                 Creating...
               </>
             ) : (
               'Continue'
             )}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

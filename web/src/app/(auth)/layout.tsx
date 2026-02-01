@@ -23,8 +23,8 @@ export default function AuthLayout({
   // Show loading while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
+      <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-foreground"></div>
       </div>
     );
   }
@@ -35,24 +35,21 @@ export default function AuthLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex flex-col">
-      {/* Simple Header */}
+    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
       <header className="p-4">
-        <Link href="/" className="flex items-center space-x-2 text-white">
+        <Link href="/" className="flex items-center space-x-2 text-primary-foreground">
           <span className="text-2xl">🎧</span>
           <span className="text-xl font-bold">RadioApp</span>
         </Link>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           {children}
         </div>
       </main>
 
-      {/* Simple Footer */}
-      <footer className="p-4 text-center text-purple-300 text-sm">
+      <footer className="p-4 text-center text-primary-foreground/70 text-sm">
         <p>&copy; {new Date().getFullYear()} RadioApp. All rights reserved.</p>
       </footer>
     </div>

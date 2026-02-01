@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { creditsApi } from '@/lib/api';
+import { Card, CardContent } from '@/components/ui/card';
 
 // Placeholder data - in production this would come from an analytics API
 const mockStats = {
@@ -46,7 +47,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -55,96 +56,85 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-8">
-      {/* Stats Overview */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm text-gray-600 font-medium">Total Plays</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">
-            {mockStats.totalPlays.toLocaleString()}
-          </div>
-          <div className="text-sm text-green-600 mt-2">All time</div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm text-gray-600 font-medium">This Week</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">
-            {mockStats.thisWeek.toLocaleString()}
-          </div>
-          <div className="text-sm text-green-600 mt-2">+12% from last week</div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm text-gray-600 font-medium">This Month</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">
-            {mockStats.thisMonth.toLocaleString()}
-          </div>
-          <div className="text-sm text-green-600 mt-2">+8% from last month</div>
-        </div>
-        
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <div className="text-sm text-gray-600 font-medium">Credits Used</div>
-          <div className="text-3xl font-bold text-gray-900 mt-1">
-            {credits.totalUsed.toLocaleString()}
-          </div>
-          <div className="text-sm text-purple-600 mt-2">
-            {credits.balance} remaining
-          </div>
-        </div>
+        <Card>
+          <CardContent className="pt-6">
+          <div className="text-sm text-muted-foreground font-medium">Total Plays</div>
+          <div className="text-3xl font-bold text-foreground mt-1">{mockStats.totalPlays.toLocaleString()}</div>
+          <div className="text-sm text-primary mt-2">All time</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+          <div className="text-sm text-muted-foreground font-medium">This Week</div>
+          <div className="text-3xl font-bold text-foreground mt-1">{mockStats.thisWeek.toLocaleString()}</div>
+          <div className="text-sm text-primary mt-2">+12% from last week</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+          <div className="text-sm text-muted-foreground font-medium">This Month</div>
+          <div className="text-3xl font-bold text-foreground mt-1">{mockStats.thisMonth.toLocaleString()}</div>
+          <div className="text-sm text-primary mt-2">+8% from last month</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+          <div className="text-sm text-muted-foreground font-medium">Credits Used</div>
+          <div className="text-3xl font-bold text-foreground mt-1">{credits.totalUsed.toLocaleString()}</div>
+          <div className="text-sm text-primary mt-2">{credits.balance} remaining</div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Plays Chart */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-6">Plays This Week</h2>
+      <Card>
+        <CardContent className="pt-6">
+        <h2 className="text-xl font-semibold text-foreground mb-6">Plays This Week</h2>
         
         <div className="flex items-end justify-between h-48 gap-2">
           {mockStats.playsByDay.map((day) => (
             <div key={day.day} className="flex-1 flex flex-col items-center">
-              <div 
-                className="w-full bg-purple-500 rounded-t-lg transition-all hover:bg-purple-600"
-                style={{ height: `${(day.plays / maxPlays) * 100}%` }}
-              />
-              <div className="text-sm text-gray-600 mt-2">{day.day}</div>
-              <div className="text-xs text-gray-400">{day.plays}</div>
+              <div className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary/80" style={{ height: `${(day.plays / maxPlays) * 100}%` }} />
+              <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
+              <div className="text-xs text-muted-foreground">{day.plays}</div>
             </div>
           ))}
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Top Songs */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Top Performing Songs</h2>
-        </div>
-        
-        <div className="divide-y divide-gray-200">
-          {mockStats.topSongs.map((song, index) => (
-            <div key={song.id} className="p-4 flex items-center">
-              <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-purple-600 font-bold mr-4">
-                {index + 1}
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Songs</h2>
+          <div className="divide-y divide-border">
+            {mockStats.topSongs.map((song, index) => (
+              <div key={song.id} className="py-4 flex items-center">
+                <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center text-primary font-bold mr-4">{index + 1}</div>
+                <div className="flex-1">
+                  <p className="font-medium text-foreground">{song.title}</p>
+                  <p className="text-sm text-muted-foreground">{song.plays} plays</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm text-muted-foreground">{song.credits} credits used</p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">{song.title}</p>
-                <p className="text-sm text-gray-500">{song.plays} plays</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-gray-600">{song.credits} credits used</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Coming Soon */}
-      <div className="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center">
-        <div className="text-4xl mb-4">📊</div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          More Analytics Coming Soon
-        </h3>
-        <p className="text-gray-600 max-w-md mx-auto">
-          We&apos;re working on detailed analytics including listener demographics, 
-          peak listening times, and engagement metrics.
-        </p>
-      </div>
+      <Card>
+        <CardContent className="pt-8 pb-8 text-center">
+          <div className="text-4xl mb-4">📊</div>
+          <h3 className="text-lg font-semibold text-foreground mb-2">More Analytics Coming Soon</h3>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            We&apos;re working on detailed analytics including listener demographics, peak listening times, and engagement metrics.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

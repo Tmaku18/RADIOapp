@@ -3,45 +3,40 @@
 import { useState } from 'react';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import ChatSidebar from '@/components/chat/ChatSidebar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function ListenPage() {
   const [showChat, setShowChat] = useState(true);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)]">
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-8">
+    <div className="flex min-h-0 flex-1">
+      <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 overflow-y-auto">
         <div className="max-w-lg w-full">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Now Playing</h1>
-            <p className="text-gray-600">
-              Discover underground artists on RadioApp
-            </p>
+            <h1 className="text-2xl font-bold text-foreground mb-2">Now Playing</h1>
+            <p className="text-muted-foreground">Discover underground artists on RadioApp</p>
           </div>
 
-          <RadioPlayer />
+          <Card>
+            <CardContent className="pt-6">
+              <RadioPlayer />
+            </CardContent>
+          </Card>
 
-          <div className="mt-8 text-center text-sm text-gray-500">
-            <p>
-              Everyone listening hears the same stream. <br />
-              Like a song to save it and support the artist.
-            </p>
+          <div className="mt-8 text-center text-sm text-muted-foreground">
+            <p>Everyone listening hears the same stream. Like a song to save it and support the artist.</p>
           </div>
 
-          {/* Mobile Chat Toggle */}
           <div className="mt-4 text-center lg:hidden">
-            <button
-              onClick={() => setShowChat(!showChat)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              <span>💬</span>
+            <Button onClick={() => setShowChat(!showChat)}>
+              <span className="mr-2">💬</span>
               {showChat ? 'Hide Chat' : 'Show Chat'}
-            </button>
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Chat Sidebar - Hidden on mobile unless toggled */}
       <div className={`${showChat ? 'block' : 'hidden'} lg:block`}>
         <ChatSidebar />
       </div>

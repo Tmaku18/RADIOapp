@@ -4,6 +4,13 @@ import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 function SignupForm() {
   const router = useRouter();
@@ -108,7 +115,7 @@ function SignupForm() {
             onClick={() => setRole('listener')}
             className={`p-4 rounded-lg border-2 transition-all ${
               role === 'listener'
-                ? 'border-purple-600 bg-purple-50'
+                ? 'border-primary bg-primary/10'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
@@ -121,7 +128,7 @@ function SignupForm() {
             onClick={() => setRole('artist')}
             className={`p-4 rounded-lg border-2 transition-all ${
               role === 'artist'
-                ? 'border-purple-600 bg-purple-50'
+                ? 'border-primary bg-primary/10'
                 : 'border-gray-200 hover:border-gray-300'
             }`}
           >
@@ -180,7 +187,7 @@ function SignupForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             placeholder="you@example.com"
           />
         </div>
@@ -195,7 +202,7 @@ function SignupForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             placeholder="••••••••"
             minLength={6}
           />
@@ -211,7 +218,7 @@ function SignupForm() {
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             placeholder="••••••••"
             minLength={6}
           />
@@ -220,7 +227,7 @@ function SignupForm() {
         <button
           type="submit"
           disabled={isSubmitting || loading}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? 'Creating account...' : `Create ${role === 'artist' ? 'Artist' : 'Listener'} Account`}
         </button>
@@ -228,18 +235,18 @@ function SignupForm() {
 
       <p className="mt-6 text-center text-gray-600">
         Already have an account?{' '}
-        <Link href="/login" className="text-purple-600 hover:text-purple-700 font-medium">
+        <Link href="/login" className="text-primary hover:text-primary/90 font-medium">
           Sign in
         </Link>
       </p>
 
       <p className="mt-4 text-center text-xs text-gray-500">
         By signing up, you agree to our{' '}
-        <Link href="/terms" className="text-purple-600 hover:text-purple-700">
+        <Link href="/terms" className="text-primary hover:text-primary/90">
           Terms of Service
         </Link>{' '}
         and{' '}
-        <Link href="/privacy" className="text-purple-600 hover:text-purple-700">
+        <Link href="/privacy" className="text-primary hover:text-primary/90">
           Privacy Policy
         </Link>
       </p>
@@ -250,9 +257,11 @@ function SignupForm() {
 export default function SignupPage() {
   return (
     <Suspense fallback={
-      <div className="bg-white rounded-2xl shadow-xl p-8 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-      </div>
+      <Card>
+        <CardContent className="pt-8 pb-8 flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </CardContent>
+      </Card>
     }>
       <SignupForm />
     </Suspense>

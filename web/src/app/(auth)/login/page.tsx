@@ -5,6 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 
 function LoginForm() {
   const router = useRouter();
@@ -148,7 +154,7 @@ function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             placeholder="you@example.com"
           />
         </div>
@@ -163,7 +169,7 @@ function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             placeholder="••••••••"
           />
         </div>
@@ -171,7 +177,7 @@ function LoginForm() {
         <button
           type="submit"
           disabled={isSubmitting || loading}
-          className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? 'Signing in...' : 'Sign in'}
         </button>
@@ -179,7 +185,7 @@ function LoginForm() {
 
       <p className="mt-6 text-center text-gray-600">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-purple-600 hover:text-purple-700 font-medium">
+        <Link href="/signup" className="text-primary hover:text-primary/90 font-medium">
           Sign up
         </Link>
       </p>
@@ -191,9 +197,11 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <Suspense fallback={
-      <div className="bg-white rounded-2xl shadow-xl p-8 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-      </div>
+      <Card>
+        <CardContent className="pt-8 pb-8 flex justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </CardContent>
+      </Card>
     }>
       <LoginForm />
     </Suspense>

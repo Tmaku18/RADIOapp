@@ -66,7 +66,7 @@ export default function AdminFallbackSongDatabasePage() {
   if (loading) {
     return (
       <div className="flex justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -76,7 +76,7 @@ export default function AdminFallbackSongDatabasePage() {
       <div className="mb-4">
         <Link
           href="/admin/fallback"
-          className="text-purple-600 hover:text-purple-800 text-sm"
+          className="text-primary hover:text-primary/90 text-sm"
         >
           ← Back to Fallback Playlist
         </Link>
@@ -108,7 +108,7 @@ export default function AdminFallbackSongDatabasePage() {
             </p>
             <Link
               href="/admin/free-rotation"
-              className="inline-block mt-4 text-purple-600 hover:text-purple-800"
+              className="inline-block mt-4 text-primary hover:text-primary/90"
             >
               Go to Free Rotation Management
             </Link>
@@ -141,7 +141,7 @@ export default function AdminFallbackSongDatabasePage() {
                     <button
                       onClick={() => handleAddToFallback(song.id)}
                       disabled={addingId === song.id}
-                      className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="px-4 py-2 bg-primary text-primary-foreground text-sm rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                       {addingId === song.id ? 'Adding...' : 'Add to Fallback'}
                     </button>

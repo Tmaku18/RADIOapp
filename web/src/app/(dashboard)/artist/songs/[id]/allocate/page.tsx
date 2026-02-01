@@ -3,6 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { songsApi, creditsApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 
 interface Song {
   id: string;
@@ -165,34 +171,28 @@ export default function AllocatePage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (!song) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        Song not found
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>Song not found</AlertDescription>
+      </Alert>
     );
   }
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center space-x-4">
-        <button
-          onClick={() => router.push('/artist/songs')}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          ← Back
-        </button>
-        <h1 className="text-2xl font-bold text-gray-900">Allocate Credits</h1>
+        <Button variant="ghost" onClick={() => router.push('/artist/songs')}>← Back</Button>
+        <h1 className="text-2xl font-bold text-foreground">Allocate Credits</h1>
       </div>
 
-      {/* Song Info */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <Card>
+        <CardContent className="pt-6">
         <div className="flex items-center space-x-4">
           {song.artworkUrl ? (
             <img
@@ -201,70 +201,59 @@ export default function AllocatePage() {
               className="w-20 h-20 rounded-lg object-cover"
             />
           ) : (
-            <div className="w-20 h-20 rounded-lg bg-purple-100 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-lg bg-primary/10 flex items-center justify-center">
               <span className="text-3xl">🎵</span>
             </div>
           )}
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">{song.title}</h2>
-            <p className="text-gray-600">{song.artistName}</p>
-            <p className="text-sm text-gray-500 mt-1">
+            <h2 className="text-xl font-semibold text-foreground">{song.title}</h2>
+            <p className="text-muted-foreground">{song.artistName}</p>
+            <p className="text-sm text-muted-foreground mt-1">
               Duration: {formatDuration(song.durationSeconds)} • 
               Credits per play: <span className="font-medium">{creditsPerPlay}</span>
             </p>
           </div>
         </div>
 
-        {/* Current allocation */}
-        <div className="mt-6 p-4 bg-purple-50 rounded-lg">
+        <div className="mt-6 p-4 bg-primary/10 rounded-xl">
           <div className="flex justify-between items-center">
             <div>
-              <p className="text-sm text-purple-600">Current Allocation</p>
-              <p className="text-2xl font-bold text-purple-900">{song.creditsRemaining} credits</p>
-              <p className="text-sm text-purple-600">
-                ~{calculatePlaysForBundle(song.creditsRemaining)} plays remaining
-              </p>
+              <p className="text-sm text-primary">Current Allocation</p>
+              <p className="text-2xl font-bold text-foreground">{song.creditsRemaining} credits</p>
+              <p className="text-sm text-primary">~{calculatePlaysForBundle(song.creditsRemaining)} plays remaining</p>
             </div>
             {song.creditsRemaining > 0 && (
-              <button
-                onClick={handleWithdraw}
-                disabled={submitting}
-                className="px-4 py-2 text-sm text-purple-600 border border-purple-300 rounded-lg hover:bg-purple-100 disabled:opacity-50"
-              >
-                Withdraw All
-              </button>
+              <Button variant="outline" size="sm" onClick={handleWithdraw} disabled={submitting}>Withdraw All</Button>
             )}
           </div>
         </div>
-      </div>
+        </CardContent>
+      </Card>
 
-      {/* Credit Bank */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">Your Credit Bank</h3>
-        <p className="text-3xl font-bold text-gray-900">{balance?.balance || 0} credits</p>
-        <button
-          onClick={() => router.push('/artist/credits')}
-          className="mt-2 text-sm text-purple-600 hover:text-purple-800"
-        >
-          Buy more credits →
-        </button>
-      </div>
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-semibold text-foreground mb-2">Your Credit Bank</h3>
+          <p className="text-3xl font-bold text-foreground">{balance?.balance || 0} credits</p>
+          <Button variant="link" className="p-0 h-auto mt-2" onClick={() => router.push('/artist/credits')}>
+            Buy more credits →
+          </Button>
+        </CardContent>
+      </Card>
 
-      {/* Alerts */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-          {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
       {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-700">
-          {success}
-        </div>
+        <Alert>
+          <AlertDescription>{success}</AlertDescription>
+        </Alert>
       )}
 
-      {/* Bundle Selection */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Select a Bundle</h3>
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-semibold text-foreground mb-4">Select a Bundle</h3>
         
         <div className="space-y-3">
           {BUNDLES.map((bundle, index) => {
@@ -276,9 +265,9 @@ export default function AllocatePage() {
                 key={index}
                 className={`flex items-center justify-between p-4 border rounded-lg cursor-pointer transition-colors ${
                   selectedBundle === index
-                    ? 'border-purple-500 bg-purple-50'
+                    ? 'border-primary bg-primary/10'
                     : canAfford
-                    ? 'border-gray-200 hover:border-purple-300'
+                    ? 'border-gray-200 hover:border-primary/50'
                     : 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                 }`}
               >
@@ -294,82 +283,61 @@ export default function AllocatePage() {
                       }
                     }}
                     disabled={!canAfford}
-                    className="h-4 w-4 text-purple-600"
+                    className="h-4 w-4 text-primary"
                   />
                   <div className="ml-3">
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-foreground">
                       {bundle.label} / ~{estimatedPlays} play{estimatedPlays !== 1 ? 's' : ''}
                     </p>
                     <p className="text-sm text-gray-500">{bundle.credits} credits</p>
                   </div>
                 </div>
                 {!canAfford && (
-                  <span className="text-xs text-red-500">Insufficient credits</span>
+                  <span className="text-xs text-destructive">Insufficient credits</span>
                 )}
               </label>
             );
           })}
         </div>
 
-        {/* Custom amount */}
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Or enter custom amount
-          </label>
+        <div className="mt-6 space-y-2">
+          <Label>Or enter custom amount</Label>
           <div className="flex items-center space-x-3">
-            <input
+            <Input
               type="number"
               value={customAmount}
-              onChange={(e) => {
-                setCustomAmount(e.target.value);
-                setSelectedBundle(null);
-              }}
+              onChange={(e) => { setCustomAmount(e.target.value); setSelectedBundle(null); }}
               placeholder="Enter credits"
-              min="1"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              min={1}
             />
-            <span className="text-gray-500">credits</span>
+            <span className="text-muted-foreground">credits</span>
           </div>
           {customAmount && parseInt(customAmount, 10) > 0 && (
-            <p className="mt-2 text-sm text-gray-500">
-              ~{calculatePlaysForBundle(parseInt(customAmount, 10))} plays
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">~{calculatePlaysForBundle(parseInt(customAmount, 10))} plays</p>
           )}
         </div>
 
-        {/* Allocate Button */}
-        <button
-          onClick={handleAllocate}
-          disabled={submitting || getAllocateAmount() <= 0}
-          className="mt-6 w-full px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-        >
+        <Button onClick={handleAllocate} disabled={submitting || getAllocateAmount() <= 0} className="mt-6 w-full">
           {submitting ? 'Allocating...' : `Allocate ${getAllocateAmount()} Credits`}
-        </button>
-      </div>
+        </Button>
+        </CardContent>
+      </Card>
 
-      {/* Opt-in Free Play */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900">Free Play Fallback</h3>
-            <p className="text-sm text-gray-600 mt-1">
-              When your credits run out, opt-in to keep your song in rotation for free.
-              This helps you get discovered even without credits.
-            </p>
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Free Play Fallback</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                When your credits run out, opt-in to keep your song in rotation for free. This helps you get discovered even without credits.
+              </p>
+            </div>
+            <Button onClick={handleOptInToggle} disabled={submitting} variant={optInFreePlay ? 'default' : 'secondary'}>
+              {optInFreePlay ? 'Opted In' : 'Opt In'}
+            </Button>
           </div>
-          <button
-            onClick={handleOptInToggle}
-            disabled={submitting}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              optInFreePlay
-                ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
-            {optInFreePlay ? 'Opted In' : 'Opt In'}
-          </button>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

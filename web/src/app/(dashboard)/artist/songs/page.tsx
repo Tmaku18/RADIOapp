@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Song {
   id: string;
@@ -27,14 +32,11 @@ function formatDuration(seconds?: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-function getStatusBadgeClass(status: string): string {
+function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
-    case 'approved':
-      return 'bg-green-100 text-green-800';
-    case 'rejected':
-      return 'bg-red-100 text-red-800';
-    default:
-      return 'bg-yellow-100 text-yellow-800';
+    case 'approved': return 'default';
+    case 'rejected': return 'destructive';
+    default: return 'secondary';
   }
 }
 
@@ -67,16 +69,16 @@ export default function MySongsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
-        {error}
-      </div>
+      <Alert variant="destructive">
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
     );
   }
 
@@ -84,120 +86,89 @@ export default function MySongsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Songs</h1>
-          <p className="text-gray-600 mt-1">Manage your uploaded songs and allocate credits</p>
+          <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
+          <p className="text-muted-foreground mt-1">Manage your uploaded songs and allocate credits</p>
         </div>
-        <button
-          onClick={() => router.push('/artist/upload')}
-          className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          Upload New Song
-        </button>
+        <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
       </div>
 
       {songs.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-          <div className="text-6xl mb-4">🎵</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No songs yet</h3>
-          <p className="text-gray-600 mb-6">Upload your first song to start promoting your music!</p>
-          <button
-            onClick={() => router.push('/artist/upload')}
-            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Upload Your First Song
-          </button>
-        </div>
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="text-6xl mb-4">🎵</div>
+            <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
+            <p className="text-muted-foreground mb-6">Upload your first song to start promoting your music!</p>
+            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Song</Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Song
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Duration
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Credits
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Plays
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Song</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Duration</TableHead>
+                <TableHead>Credits</TableHead>
+                <TableHead>Plays</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {songs.map((song) => (
-                <tr key={song.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <TableRow key={song.id}>
+                  <TableCell>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         {song.artworkUrl ? (
-                          <img
-                            className="h-10 w-10 rounded-lg object-cover"
-                            src={song.artworkUrl}
-                            alt={song.title}
-                          />
+                          <img className="h-10 w-10 rounded-lg object-cover" src={song.artworkUrl} alt={song.title} />
                         ) : (
-                          <div className="h-10 w-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                            <span className="text-purple-600">🎵</span>
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <span className="text-primary">🎵</span>
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">{song.title}</div>
-                        <div className="text-sm text-gray-500">{song.artistName}</div>
+                        <div className="text-sm font-medium text-foreground">{song.title}</div>
+                        <div className="text-sm text-muted-foreground">{song.artistName}</div>
                       </div>
                     </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeClass(song.status)}`}>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(song.status)}>
                       {song.status === 'pending' ? 'Awaiting Review' : song.status.charAt(0).toUpperCase() + song.status.slice(1)}
-                    </span>
+                    </Badge>
                     {song.status === 'rejected' && song.rejectionReason && (
-                      <div className="text-xs text-red-600 mt-1" title={song.rejectionReason}>
+                      <div className="text-xs text-destructive mt-1" title={song.rejectionReason}>
                         {song.rejectionReason.substring(0, 30)}...
                       </div>
                     )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDuration(song.durationSeconds)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{song.creditsRemaining} credits</div>
-                    <div className="text-xs text-gray-500">
-                      {calculateCreditsPerPlay(song.durationSeconds)} per play
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{song.playCount}</div>
-                    <div className="text-xs text-gray-500">{song.likeCount} likes</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
+                  <TableCell>
+                    <div className="text-sm text-foreground">{song.creditsRemaining} credits</div>
+                    <div className="text-xs text-muted-foreground">{calculateCreditsPerPlay(song.durationSeconds)} per play</div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="text-sm text-foreground">{song.playCount}</div>
+                    <div className="text-xs text-muted-foreground">{song.likeCount} likes</div>
+                  </TableCell>
+                  <TableCell>
                     {song.status === 'approved' ? (
-                      <button
-                        onClick={() => router.push(`/artist/songs/${song.id}/allocate`)}
-                        className="text-purple-600 hover:text-purple-900 font-medium"
-                      >
+                      <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/artist/songs/${song.id}/allocate`)}>
                         Allocate Credits
-                      </button>
+                      </Button>
                     ) : song.status === 'pending' ? (
-                      <span className="text-gray-400">Pending review</span>
+                      <span className="text-muted-foreground">Pending review</span>
                     ) : (
-                      <span className="text-gray-400">N/A</span>
+                      <span className="text-muted-foreground">N/A</span>
                     )}
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );

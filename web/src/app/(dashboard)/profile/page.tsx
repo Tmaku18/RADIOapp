@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -79,217 +85,114 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-2xl">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Header */}
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-900">Profile Settings</h2>
-          <p className="text-gray-600 mt-1">Manage your account information</p>
-        </div>
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-semibold text-foreground mb-1">Profile Settings</h2>
+          <p className="text-muted-foreground mb-6">Manage your account information</p>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-              {error}
-            </div>
+            <Alert variant="destructive" className="mb-6">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
           )}
 
           {success && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-              Profile updated successfully!
-            </div>
+            <Alert className="mb-6">
+              <AlertDescription>Profile updated successfully!</AlertDescription>
+            </Alert>
           )}
 
-          {/* Avatar */}
-          <div className="flex items-center space-x-4">
-            <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center">
-              {profile?.avatarUrl ? (
-                <img
-                  src={profile.avatarUrl}
-                  alt="Avatar"
-                  className="w-20 h-20 rounded-full object-cover"
-                />
+          <div className="flex items-center space-x-4 mb-6">
+            <Avatar className="h-20 w-20">
+              <AvatarImage src={profile?.avatarUrl ?? undefined} />
+              <AvatarFallback className="text-2xl">👤</AvatarFallback>
+            </Avatar>
+            <div>
+              <h3 className="font-medium text-foreground">{profile?.displayName || 'No name set'}</h3>
+              <p className="text-sm text-muted-foreground capitalize">{profile?.role}</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={user?.email || ''} disabled />
+              <p className="text-xs text-muted-foreground">Email cannot be changed</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Display Name</Label>
+              {isEditing ? (
+                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your display name" />
               ) : (
-                <span className="text-4xl">👤</span>
+                <Input value={profile?.displayName || 'Not set'} disabled />
               )}
             </div>
-            <div>
-              <h3 className="font-medium text-gray-900">
-                {profile?.displayName || 'No name set'}
-              </h3>
-              <p className="text-sm text-gray-500 capitalize">{profile?.role}</p>
+
+            <div className="space-y-2">
+              <Label>Account Type</Label>
+              <Input value={profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''} disabled />
+              {profile?.role === 'listener' && (
+                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to an artist account below.</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Member Since</Label>
+              <Input value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : ''} disabled />
             </div>
           </div>
 
-          {/* Email (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Email cannot be changed
-            </p>
-          </div>
-
-          {/* Display Name */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Display Name
-            </label>
+          <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-border">
             {isEditing ? (
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                placeholder="Enter your display name"
-              />
+              <>
+                <Button variant="ghost" onClick={handleCancel} disabled={isSaving}>Cancel</Button>
+                <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
+              </>
             ) : (
-              <input
-                type="text"
-                value={profile?.displayName || 'Not set'}
-                disabled
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-              />
+              <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
             )}
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Role (read-only) */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Account Type
-            </label>
-            <input
-              type="text"
-              value={profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-            />
-            {profile?.role === 'listener' && (
-              <p className="text-xs text-gray-500 mt-1">
-                Want to share your music? Upgrade to an artist account below.
-              </p>
-            )}
-          </div>
-
-          {/* Member Since */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Member Since
-            </label>
-            <input
-              type="text"
-              value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : ''}
-              disabled
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="p-6 border-t border-gray-200 flex justify-end space-x-4">
-          {isEditing ? (
-            <>
-              <button
-                onClick={handleCancel}
-                disabled={isSaving}
-                className="px-4 py-2 text-gray-700 hover:text-gray-900 transition-colors disabled:opacity-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </button>
-            </>
-          ) : (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              Edit Profile
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Upgrade to Artist Section - Only for Listeners */}
       {profile?.role === 'listener' && (
-        <div className="mt-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl shadow-sm border border-purple-200">
-          <div className="p-6">
+        <Card className="mt-6">
+          <CardContent className="pt-6">
             <div className="flex items-start gap-4">
               <div className="text-4xl">🎤</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">
-                  Become an Artist
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Upgrade your account to share your music with the world. As an artist, you can upload tracks, 
-                  purchase airtime credits, and get your music on the radio.
+                <h3 className="text-lg font-semibold text-foreground mb-1">Become an Artist</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Upgrade your account to share your music with the world. As an artist, you can upload tracks, purchase airtime credits, and get your music on the radio.
                 </p>
-
                 {upgradeSuccess ? (
-                  <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-green-800 text-sm">
-                    Congratulations! Your account has been upgraded to Artist. Redirecting to dashboard...
-                  </div>
+                  <Alert>
+                    <AlertDescription>Congratulations! Your account has been upgraded to Artist. Redirecting to dashboard...</AlertDescription>
+                  </Alert>
                 ) : (
                   <div className="flex items-center gap-4">
-                    <button
-                      onClick={handleUpgradeToArtist}
-                      disabled={isUpgrading}
-                      className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                        isUpgrading
-                          ? 'bg-purple-400 text-white cursor-not-allowed'
-                          : 'bg-purple-600 text-white hover:bg-purple-700'
-                      }`}
-                    >
-                      {isUpgrading ? (
-                        <span className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                          Upgrading...
-                        </span>
-                      ) : (
-                        'Upgrade to Artist'
-                      )}
-                    </button>
-                    <span className="text-sm text-gray-500">Free to upgrade</span>
+                    <Button onClick={handleUpgradeToArtist} disabled={isUpgrading}>
+                      {isUpgrading ? 'Upgrading...' : 'Upgrade to Artist'}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">Free to upgrade</span>
                   </div>
                 )}
               </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
-      {/* Sign Out Section */}
-      <div className="mt-6 bg-white rounded-xl shadow-sm border border-gray-200">
-        <div className="p-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Sign Out</h3>
-          <p className="text-gray-600 text-sm mb-4">
-            Sign out of your account on this device.
-          </p>
-          <button
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-            className={`px-6 py-2 rounded-lg transition-colors ${
-              isSigningOut
-                ? 'bg-gray-400 text-white cursor-not-allowed'
-                : 'bg-red-600 text-white hover:bg-red-700'
-            }`}
-          >
+      <Card className="mt-6">
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-medium text-foreground mb-2">Sign Out</h3>
+          <p className="text-muted-foreground text-sm mb-4">Sign out of your account on this device.</p>
+          <Button variant="destructive" onClick={handleSignOut} disabled={isSigningOut}>
             {isSigningOut ? 'Signing out...' : 'Sign Out'}
-          </button>
-        </div>
-      </div>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

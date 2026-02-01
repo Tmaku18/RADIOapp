@@ -209,18 +209,18 @@ export default function FreeRotationPage() {
       </div>
 
       {/* Current Free Rotation */}
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
-        <h2 className="font-semibold text-purple-900 mb-2">
+      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+        <h2 className="font-semibold text-foreground mb-2">
           Currently in Free Rotation ({freeRotationSongs.length} songs)
         </h2>
         {freeRotationSongs.length === 0 ? (
-          <p className="text-purple-700 text-sm">No songs currently in free rotation.</p>
+          <p className="text-muted-foreground text-sm">No songs currently in free rotation.</p>
         ) : (
           <div className="flex flex-wrap gap-2">
             {freeRotationSongs.map((song) => (
               <span 
                 key={song.id} 
-                className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
               >
                 {song.title} - {song.users?.display_name || 'Unknown'}
               </span>
@@ -237,8 +237,8 @@ export default function FreeRotationPage() {
             onClick={() => { setSearchTab('songs'); setSelectedUser(null); }}
             className={`pb-2 px-1 font-medium ${
               searchTab === 'songs' 
-                ? 'text-purple-600 border-b-2 border-purple-600' 
-                : 'text-gray-500'
+                ? 'text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground'
             }`}
           >
             Search Songs
@@ -247,8 +247,8 @@ export default function FreeRotationPage() {
             onClick={() => { setSearchTab('users'); setSelectedUser(null); }}
             className={`pb-2 px-1 font-medium ${
               searchTab === 'users' 
-                ? 'text-purple-600 border-b-2 border-purple-600' 
-                : 'text-gray-500'
+                ? 'text-primary border-b-2 border-primary' 
+                : 'text-muted-foreground'
             }`}
           >
             Search Users
@@ -263,12 +263,12 @@ export default function FreeRotationPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder={searchTab === 'songs' ? 'Search by song title...' : 'Search by name or email...'}
-            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
           />
           <button
             onClick={handleSearch}
             disabled={loading || searchQuery.trim().length < 2}
-            className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+            className="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
           >
             {loading ? 'Searching...' : 'Search'}
           </button>
@@ -292,7 +292,7 @@ export default function FreeRotationPage() {
             </div>
             <button
               onClick={() => setSelectedUser(null)}
-              className="text-purple-600 hover:text-purple-800"
+              className="text-primary hover:text-primary/90"
             >
               Back to search
             </button>
@@ -332,7 +332,7 @@ export default function FreeRotationPage() {
               </div>
               <div className="text-right">
                 <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                  user.role === 'artist' ? 'bg-purple-100 text-purple-800' :
+                  user.role === 'artist' ? 'bg-primary/10 text-primary' :
                   user.role === 'admin' ? 'bg-red-100 text-red-800' :
                   'bg-gray-100 text-gray-800'
                 }`}>

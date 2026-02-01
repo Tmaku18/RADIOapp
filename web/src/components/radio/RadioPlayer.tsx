@@ -3,6 +3,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRadioState, Track } from './useRadioState';
 import { radioApi, songsApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export function RadioPlayer() {
   const [isLiked, setIsLiked] = useState(false);
@@ -266,10 +269,9 @@ export function RadioPlayer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Show "no content" state when free rotation is empty
   if (noContent) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+      <Card className="overflow-hidden">
         {/* No Content Art */}
         <div className="aspect-square bg-gradient-to-br from-gray-400 to-gray-600 relative">
           <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-8">
@@ -283,38 +285,28 @@ export function RadioPlayer() {
           </div>
         </div>
 
-        {/* Info */}
         <div className="p-6">
           <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
-              Station Offline
-            </h2>
-            <p className="text-gray-600">
-              Please check back soon!
-            </p>
+            <h2 className="text-xl font-bold text-foreground">Station Offline</h2>
+            <p className="text-muted-foreground">Please check back soon!</p>
           </div>
-
-          {/* Retry Button */}
           <div className="flex items-center justify-center">
-            <button
-              onClick={() => fetchCurrentTrack(true, false)}
-              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-            >
+            <Button onClick={() => fetchCurrentTrack(true, false)}>
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
               Retry
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
+    <Card className="overflow-hidden">
       {/* Album Art */}
-      <div className="aspect-square bg-gradient-to-br from-purple-400 to-indigo-500 relative">
+      <div className="aspect-square bg-gradient-to-br from-primary/80 to-primary relative">
         {state.currentTrack?.artworkUrl ? (
           <img
             src={state.currentTrack.artworkUrl}
@@ -338,13 +330,13 @@ export function RadioPlayer() {
       {/* Track Info */}
       <div className="p-6">
         {state.error && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
-            {state.error}
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertDescription>{state.error}</AlertDescription>
+          </Alert>
         )}
 
         <div className="text-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900 truncate">
+          <h2 className="text-xl font-bold text-foreground truncate">
             {state.currentTrack?.title || 'No track playing'}
           </h2>
           <p className="text-gray-600 truncate">
@@ -352,17 +344,16 @@ export function RadioPlayer() {
           </p>
         </div>
 
-        {/* Progress Bar */}
         <div className="mb-6">
-          <div className="h-1 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
-              className="h-full bg-purple-600 transition-all duration-300"
+              className="h-full bg-primary transition-all duration-300"
               style={{
                 width: `${state.duration ? (state.currentTime / state.duration) * 100 : 0}%`,
               }}
             />
           </div>
-          <div className="flex justify-between text-sm text-gray-500 mt-1">
+          <div className="flex justify-between text-sm text-muted-foreground mt-1">
             <span>{formatTime(state.currentTime)}</span>
             <span>{formatTime(state.duration)}</span>
           </div>
@@ -379,17 +370,14 @@ export function RadioPlayer() {
               <span className="font-semibold text-sm">LIVE</span>
             </div>
           ) : showJumpToLive ? (
-            <button
-              onClick={handleJumpToLive}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-full hover:bg-purple-700 transition-colors"
-            >
+            <Button onClick={handleJumpToLive} className="rounded-full">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z" />
               </svg>
               <span className="font-semibold text-sm">Jump to Live</span>
-            </button>
+            </Button>
           ) : (
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-600 rounded-full">
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-full">
               <span className="font-semibold text-sm">PAUSED</span>
             </div>
           )}
@@ -428,8 +416,8 @@ export function RadioPlayer() {
             disabled={!state.currentTrack || state.isLoading}
             className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
               showJumpToLive 
-                ? 'bg-purple-600 text-white hover:bg-purple-700'
-                : 'bg-purple-600 text-white hover:bg-purple-700'
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
           >
             {state.isPlaying ? (
@@ -467,7 +455,7 @@ export function RadioPlayer() {
             step={0.05}
             value={state.volume}
             onChange={(e) => setVolume(Number(e.target.value))}
-            className="w-32 h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-600"
+            className="w-32 h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
           />
           <svg
             className="w-5 h-5 text-gray-400"
@@ -478,6 +466,6 @@ export function RadioPlayer() {
           </svg>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }

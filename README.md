@@ -24,12 +24,18 @@ Independent artists struggle to get their music heard through traditional channe
 - ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
 - 💬 **Live Radio Chat**: Real-time chat with Supabase Realtime, emoji reactions, and smart scroll
 - 📲 **Push Notifications**: FCM integration with debounced "Up Next" (1 per 4hrs) and "Live Now" artist alerts
-- 📊 **Admin Dashboard**: Full management with song moderation, user bans (hard + shadow), free rotation search, and fallback playlist
+- 📊 **Admin Dashboard**: Song moderation (approve/reject/delete), user management with lifetime ban, free rotation, fallback playlist (upload or add from song database)
 - 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
 - 🔔 **Notifications**: In-app, email, and push notifications with soft delete
 - 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
 - 📈 **Algorithm Transparency**: `play_decision_log` table for auditing song selection fairness
 - ⚡ **Scalable State**: Redis-backed radio state management for horizontal scaling
+
+### Recent Updates (February 2026)
+- **Web UI**: shadcn/ui components, Blue theme, dark mode toggle
+- **Admin Songs**: Delete songs (removes from DB + storage), sort by artist name
+- **Admin Users**: Lifetime ban / deactivate (deletes user data, blocks re-registration)
+- **Fallback**: Admin upload page and song database (add from free rotation)
 
 ## Architecture
 
@@ -46,6 +52,8 @@ Independent artists struggle to get their music heard through traditional channe
   
 - **Frontend (Web)**: Next.js 14+ web application
   - App Router with SSR/ISR for SEO-optimized marketing pages
+  - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with Blue theme, Raleway font
+  - Dark mode toggle via settings dropdown in dashboard
   - Client-side dashboards for listeners, artists, and admins
   - HTTP-only session cookies for secure SSR
   - Hls.js for streaming audio playback
@@ -88,6 +96,10 @@ Independent artists struggle to get their music heard through traditional channe
   - Future subscription support
   
 - **Admin Dashboard**: Next.js (legacy) + unified admin in web app
+  - Song moderation with Approve, Reject, Delete (permanent delete from DB + storage)
+  - Sort songs by title, artist name, status, or date
+  - User management with role dropdown and lifetime ban / deactivate (removes user data, keeps record to block re-registration)
+  - Fallback playlist: upload songs or add from free-rotation song database
   - Legacy admin remains functional; new features live in `web/` dashboard
 
 - **Observability**
@@ -176,9 +188,11 @@ web/
 │   │   │   │   └── stats/page.tsx      # Artist analytics
 │   │   │   ├── admin/
 │   │   │   │   ├── page.tsx            # Admin dashboard
-│   │   │   │   ├── songs/page.tsx      # Song moderation with rejection
-│   │   │   │   ├── users/page.tsx      # User management with ban controls
+│   │   │   │   ├── songs/page.tsx      # Song moderation (approve, reject, delete)
+│   │   │   │   ├── users/page.tsx      # User management (role, lifetime ban)
 │   │   │   │   ├── fallback/page.tsx   # Fallback playlist management
+│   │   │   │   ├── fallback/upload/page.tsx    # Admin song upload
+│   │   │   │   ├── fallback/song-database/page.tsx  # Add from free rotation
 │   │   │   │   └── free-rotation/page.tsx  # Free rotation search & toggle
 │   │   │   └── layout.tsx              # Dashboard layout with sidebar + notification bell
 │   │   ├── api/auth/
@@ -186,6 +200,9 @@ web/
 │   │   │   └── logout/route.ts         # Session cookie destruction
 │   │   └── layout.tsx                  # Root layout with AuthProvider
 │   ├── components/
+│   │   ├── ui/                         # shadcn/ui components
+│   │   ├── auth/RoleSelectionModal.tsx
+│   │   ├── chat/ChatSidebar.tsx
 │   │   └── radio/
 │   │       ├── RadioPlayer.tsx         # Web radio player component
 │   │       └── useRadioState.ts        # Audio state hook (Hls.js)

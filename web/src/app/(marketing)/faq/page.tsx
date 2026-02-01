@@ -1,4 +1,8 @@
 import { Metadata } from 'next';
+import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
   title: 'FAQ - RadioApp',
@@ -93,50 +97,46 @@ const faqs = [
 export default function FAQPage() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl font-bold text-gray-900 mb-4">
+      <h1 className="text-4xl font-bold text-foreground mb-4">
         Frequently Asked Questions
       </h1>
-      <p className="text-xl text-gray-600 mb-12">
+      <p className="text-xl text-muted-foreground mb-12">
         Everything you need to know about RadioApp.
       </p>
 
       <div className="space-y-12">
         {faqs.map((section) => (
           <div key={section.category}>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+            <h2 className="text-2xl font-bold text-foreground mb-6">
               {section.category}
             </h2>
-            <div className="space-y-6">
+            <Accordion type="single" collapsible className="w-full">
               {section.questions.map((faq, index) => (
-                <div
-                  key={index}
-                  className="bg-white rounded-lg border border-gray-200 p-6"
-                >
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                    {faq.q}
-                  </h3>
-                  <p className="text-gray-600">{faq.a}</p>
-                </div>
+                <AccordionItem key={index} value={`${section.category}-${index}`}>
+                  <AccordionTrigger className="text-left">{faq.q}</AccordionTrigger>
+                  <AccordionContent>
+                    <p className="text-muted-foreground">{faq.a}</p>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           </div>
         ))}
       </div>
 
-      <div className="mt-16 bg-purple-50 rounded-lg p-8 text-center">
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">
-          Still have questions?
-        </h3>
-        <p className="text-gray-600 mb-4">
-          We&apos;re here to help. Reach out to our support team.
-        </p>
-        <a
-          href="/contact"
-          className="inline-block bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-        >
-          Contact Us
-        </a>
-      </div>
+      <Card className="mt-16">
+        <CardContent className="pt-8 text-center">
+          <h3 className="text-xl font-semibold text-foreground mb-2">
+            Still have questions?
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            We&apos;re here to help. Reach out to our support team.
+          </p>
+          <Button asChild>
+            <Link href="/contact">Contact Us</Link>
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }

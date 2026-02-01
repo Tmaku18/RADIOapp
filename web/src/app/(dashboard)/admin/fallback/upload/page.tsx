@@ -126,7 +126,7 @@ export default function AdminFallbackUploadPage() {
       <div className="mb-4">
         <Link
           href="/admin/fallback"
-          className="text-purple-600 hover:text-purple-800 text-sm"
+          className="text-primary hover:text-primary/90 text-sm"
         >
           ← Back to Fallback Playlist
         </Link>
@@ -160,7 +160,7 @@ export default function AdminFallbackUploadPage() {
             <button
               type="button"
               onClick={() => audioInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-500 transition-colors"
+              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-primary transition-colors"
             >
               {audioFile ? (
                 <div>
@@ -194,7 +194,7 @@ export default function AdminFallbackUploadPage() {
             <button
               type="button"
               onClick={() => artworkInputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-purple-500 transition-colors"
+              className="w-full border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-primary transition-colors"
             >
               {artworkPreview ? (
                 <div className="flex items-center space-x-4">
@@ -227,7 +227,7 @@ export default function AdminFallbackUploadPage() {
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="Enter song title"
             />
           </div>
@@ -242,7 +242,7 @@ export default function AdminFallbackUploadPage() {
               required
               value={artistName}
               onChange={(e) => setArtistName(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               placeholder="Enter artist name"
             />
           </div>
@@ -255,7 +255,7 @@ export default function AdminFallbackUploadPage() {
               </div>
               <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-purple-600 transition-all duration-300"
+                  className="h-full bg-primary transition-all duration-300"
                   style={{ width: `${uploadProgress}%` }}
                 />
               </div>
@@ -265,7 +265,7 @@ export default function AdminFallbackUploadPage() {
           <button
             type="submit"
             disabled={isUploading || !audioFile}
-            className="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isUploading ? 'Uploading...' : 'Add to Song Database'}
           </button>

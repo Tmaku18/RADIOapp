@@ -66,6 +66,12 @@ export class AdminController {
     return { song };
   }
 
+  @Delete('songs/:id')
+  async deleteSong(@Param('id') songId: string) {
+    await this.adminService.deleteSong(songId);
+    return { deleted: true };
+  }
+
   @Get('analytics')
   async getAnalytics() {
     return this.adminService.getAnalytics();
@@ -213,6 +219,21 @@ export class AdminController {
   @Post('users/:id/restore')
   async restoreUser(@Param('id') userId: string) {
     const result = await this.adminService.restoreUser(userId);
+    return result;
+  }
+
+  /**
+   * Lifetime ban / deactivate account: delete all artist songs, clean storage,
+   * disable Firebase user. Keeps user record so they cannot create a new account.
+   */
+  @Post('users/:id/lifetime-ban')
+  async lifetimeBanUser(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') userId: string,
+    @Body() dto: { reason?: string },
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    const result = await this.adminService.lifetimeBanUser(userId, adminId, dto.reason || 'Lifetime ban by admin');
     return result;
   }
 

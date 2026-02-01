@@ -117,8 +117,9 @@ export const adminApi = {
     limit?: number; 
     offset?: number;
   }) => api.get('/admin/songs', { params }),
-  updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) => 
+  updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),
+  deleteSong: (id: string) => api.delete(`/admin/songs/${id}`),
   getUsers: (params?: { 
     role?: string; 
     search?: string;
@@ -127,8 +128,10 @@ export const adminApi = {
     limit?: number; 
     offset?: number;
   }) => api.get('/admin/users', { params }),
-  updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') => 
+  updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') =>
     api.patch(`/admin/users/${id}/role`, { role }),
+  lifetimeBanUser: (id: string, reason?: string) =>
+    api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
   // Fallback playlist management
   getFallbackSongs: () => api.get('/admin/fallback-songs'),
   addFallbackSong: (data: { title: string; artistName: string; audioUrl: string; artworkUrl?: string; durationSeconds?: number }) =>

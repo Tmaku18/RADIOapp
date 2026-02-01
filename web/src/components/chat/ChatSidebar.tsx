@@ -4,6 +4,11 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { chatApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatMessage {
   id: string;
@@ -219,7 +224,7 @@ export default function ChatSidebar() {
 
   if (!user) {
     return (
-      <div className="w-80 bg-gray-900 border-l border-gray-800 flex items-center justify-center text-gray-400">
+      <div className="w-80 bg-card border-l border-border flex items-center justify-center text-muted-foreground">
         Log in to join the chat
       </div>
     );
@@ -227,15 +232,15 @@ export default function ChatSidebar() {
 
   if (isCollapsed) {
     return (
-      <button
+      <Button
         onClick={() => setIsCollapsed(false)}
-        className="fixed right-0 top-1/2 -translate-y-1/2 bg-purple-600 text-white px-2 py-4 rounded-l-lg shadow-lg hover:bg-purple-700 transition-colors"
+        className="fixed right-0 top-1/2 -translate-y-1/2 rounded-l-lg"
       >
         <span className="text-lg">💬</span>
         {messages.length > 0 && (
           <span className="block text-xs mt-1">{messages.length}</span>
         )}
-      </button>
+      </Button>
     );
   }
 
@@ -245,7 +250,7 @@ export default function ChatSidebar() {
       <div className="p-4 border-b border-gray-800 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">💬</span>
-          <h2 className="font-semibold text-white">Live Chat</h2>
+          <h2 className="font-semibold text-foreground">Live Chat</h2>
           {/* Connection status indicator */}
           {connectionStatus === 'connected' && (
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
@@ -255,24 +260,18 @@ export default function ChatSidebar() {
           )}
           {connectionStatus === 'disconnected' && (
             <>
-              <span className="w-2 h-2 bg-gray-500 rounded-full" title="Disconnected"></span>
-              <button
-                onClick={() => setupChannelRef.current?.()}
-                className="text-xs text-purple-400 hover:text-purple-300"
-              >
+              <span className="w-2 h-2 bg-muted-foreground rounded-full" title="Disconnected"></span>
+              <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => setupChannelRef.current?.()}>
                 Reconnect
-              </button>
+              </Button>
             </>
           )}
           {connectionStatus === 'error' && (
             <>
-              <span className="w-2 h-2 bg-red-500 rounded-full" title="Connection error"></span>
-              <button
-                onClick={() => setupChannelRef.current?.()}
-                className="text-xs text-purple-400 hover:text-purple-300"
-              >
+              <span className="w-2 h-2 bg-destructive rounded-full" title="Connection error"></span>
+              <Button variant="link" size="sm" className="text-xs p-0 h-auto" onClick={() => setupChannelRef.current?.()}>
                 Retry
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -284,11 +283,11 @@ export default function ChatSidebar() {
         </button>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-3">
         {isLoading ? (
           <div className="flex justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : messages.length === 0 ? (
           <div className="text-center text-gray-500 py-8">
@@ -303,26 +302,16 @@ export default function ChatSidebar() {
                 msg.userId === profile?.id ? 'flex-row-reverse' : ''
               }`}
             >
-              {/* Avatar */}
-              <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm flex-shrink-0">
-                {msg.avatarUrl ? (
-                  <img
-                    src={msg.avatarUrl}
-                    alt={msg.displayName}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                ) : (
-                  msg.displayName.charAt(0).toUpperCase()
-                )}
-              </div>
+              <Avatar className="h-8 w-8 flex-shrink-0">
+                <AvatarImage src={msg.avatarUrl ?? undefined} />
+                <AvatarFallback className="text-xs">{msg.displayName.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
 
               {/* Message */}
               <div
-                className={`max-w-[200px] ${
-                  msg.userId === profile?.id
-                    ? 'bg-purple-600 text-white'
-                    : 'bg-gray-800 text-gray-100'
-                } rounded-lg px-3 py-2`}
+                className={`max-w-[200px] rounded-lg px-3 py-2 ${
+                  msg.userId === profile?.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                }`}
               >
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs font-medium opacity-75">
@@ -338,43 +327,40 @@ export default function ChatSidebar() {
           ))
         )}
         <div ref={messagesEndRef} />
-      </div>
+        </div>
+      </ScrollArea>
 
-      {/* Error Toast */}
       {error && (
-        <div className="mx-4 mb-2 p-2 bg-red-500/20 border border-red-500 rounded text-red-400 text-sm">
-          {error}
+        <div className="mx-4 mb-2">
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         </div>
       )}
 
-      {/* Input */}
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-gray-800">
+      <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
         {!chatEnabled ? (
-          <div className="text-center text-gray-500 text-sm py-2">
+          <div className="text-center text-muted-foreground text-sm py-2">
             Chat is currently disabled
           </div>
         ) : (
           <div className="flex gap-2">
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Type a message..."
               maxLength={280}
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm"
               disabled={isSending}
+              className="flex-1"
             />
-            <button
-              type="submit"
-              disabled={!newMessage.trim() || isSending}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
+            <Button type="submit" size="icon" disabled={!newMessage.trim() || isSending}>
               {isSending ? '...' : '→'}
-            </button>
+            </Button>
           </div>
         )}
-        <div className="text-right text-xs text-gray-500 mt-1">
+        <div className="text-right text-xs text-muted-foreground mt-1">
           {newMessage.length}/280
         </div>
       </form>

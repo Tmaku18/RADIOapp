@@ -1,8 +1,8 @@
 # Deliverables Verification Report
 
-**Generated:** January 30, 2026  
+**Generated:** February 1, 2026  
 **Project:** Radio Streaming Platform  
-**Overall Status:** ~92% Implemented
+**Overall Status:** ~95% Implemented
 
 ---
 
@@ -90,15 +90,18 @@ This report verifies the features claimed in the README against the actual codeb
 | Soft delete (audit trail) | ✅ | `notification.service.ts:delete()` |
 | 4-hour debounce logic | ✅ | `push-notification.service.ts:77-89` |
 
-### Admin Features (5/5 - 100%)
+### Admin Features (8/8 - 100%)
 
 | Feature | Status | Evidence |
 |---------|--------|----------|
 | Live chat (Supabase Realtime) | ✅ | `chat.service.ts:56-89` |
 | Song moderation + rejection reasons | ✅ | `admin.service.ts:updateSongStatus()` |
+| Song delete (permanent, DB + storage) | ✅ | `admin.service.ts:deleteSong()` |
+| Sort songs by artist name | ✅ | `admin.service.ts` sortColumnMap |
 | Hard/shadow ban controls | ✅ | `admin.service.ts:411-522` |
+| Lifetime ban / deactivate account | ✅ | `admin.service.ts:lifetimeBanUser()` |
 | Free rotation search/toggle | ✅ | `admin.service.ts:581-751` |
-| Fallback playlist management | ✅ | `admin.service.ts:192-271` |
+| Fallback playlist (upload + song database) | ✅ | `admin.service.ts`, `fallback/upload`, `fallback/song-database` |
 
 ---
 

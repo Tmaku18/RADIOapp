@@ -112,8 +112,8 @@ export default function DashboardLayout({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function DashboardLayout({
   // Show role selection modal if user has Firebase auth but no Supabase profile
   if (pendingGoogleUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
+      <div className="min-h-screen flex items-center justify-center bg-muted/50">
         <RoleSelectionModal
           onSelect={handleRoleSelect}
           onCancel={cancelGoogleSignUp}
@@ -136,96 +136,75 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-950">
+    <div className="min-h-screen bg-muted/50">
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-gray-900 dark:bg-gray-950 text-white border-r border-gray-800 dark:border-gray-900">
-        {/* Logo */}
-        <div className="h-16 flex items-center px-6 border-b border-gray-800">
+      <aside className="fixed inset-y-0 left-0 w-64 bg-card border-r border-border">
+        <div className="h-16 flex items-center px-6 border-b border-border">
           <Link href="/" className="flex items-center space-x-2">
             <span className="text-2xl">🎧</span>
-            <span className="text-xl font-bold">RadioApp</span>
+            <span className="text-xl font-bold text-foreground">RadioApp</span>
           </Link>
         </div>
 
-        {/* Navigation */}
         <nav className="mt-6 px-3">
           <div className="space-y-1">
             {navigation.map((item) => {
-              const isActive = pathname === item.href || 
-                (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
               return (
-                <Link
+                <Button
                   key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-purple-600 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-                  }`}
+                  variant={isActive ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  asChild
                 >
-                  <span className="mr-3 text-lg">{item.icon}</span>
-                  <span className="font-medium">{item.name}</span>
-                </Link>
+                  <Link href={item.href} className="flex items-center">
+                    <span className="mr-3 text-lg">{item.icon}</span>
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                </Button>
               );
             })}
           </div>
         </nav>
 
-        {/* User info & Sign out */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-800">
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
           <div className="mb-3">
-            <p className="text-sm text-white truncate">
-              {profile?.displayName || user.email}
-            </p>
-            <p className="text-xs text-gray-400 capitalize">
-              {profile?.role || 'Loading...'}
-            </p>
+            <p className="text-sm text-foreground truncate">{profile?.displayName || user.email}</p>
+            <p className="text-xs text-muted-foreground capitalize">{profile?.role || 'Loading...'}</p>
           </div>
-          <button
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
             onClick={handleSignOut}
             disabled={isSigningOut}
-            className={`w-full flex items-center px-4 py-2 text-sm rounded-lg transition-colors ${
-              isSigningOut 
-                ? 'text-gray-500 cursor-not-allowed' 
-                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
-            }`}
           >
             <span className="mr-3">{isSigningOut ? '⏳' : '🚪'}</span>
             {isSigningOut ? 'Signing out...' : 'Sign Out'}
-          </button>
+          </Button>
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="ml-64 min-h-screen">
-        {/* Top bar */}
-        <header className="h-16 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-8">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
+      <main className="ml-64 flex flex-col h-screen">
+        <header className="h-16 shrink-0 bg-card border-b border-border flex items-center justify-between px-8">
+          <h1 className="text-xl font-semibold text-foreground">
             {navigation.find(n => pathname.startsWith(n.href))?.name || 'Dashboard'}
           </h1>
-          
-          <div className="flex items-center gap-2">
-            {/* Notification Bell */}
-            <Link
-              href="/notifications"
-              className="relative p-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-white bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 border border-gray-300 dark:border-gray-700 rounded-lg transition-all shadow-sm hover:shadow"
-            >
-              <span className="text-xl">🔔</span>
-              {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </Link>
 
-            {/* Settings - Theme switcher */}
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/notifications" className="relative">
+                <span className="text-xl">🔔</span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Link>
+            </Button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="border-gray-300 dark:border-gray-700"
-                >
+                <Button variant="outline" size="icon">
                   <HugeiconsIcon icon={ComputerSettingsIcon} strokeWidth={2} />
                 </Button>
               </DropdownMenuTrigger>
@@ -251,8 +230,7 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        {/* Page content */}
-        <div className="p-8 bg-gray-100 dark:bg-gray-950">
+        <div className="flex-1 min-h-0 overflow-auto p-8 bg-muted/50 flex flex-col">
           {children}
         </div>
       </main>
