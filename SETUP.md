@@ -1,5 +1,18 @@
 # Quick Setup Guide
 
+## Running with Docker (WSL)
+
+To run **backend + Redis** in Docker (for mobile testing and local API):
+
+1. **Install Docker in WSL** — see README “[Running with Docker (WSL)](README.md#running-with-docker-wsl)” for the full `apt-get` and Docker repo steps, or use Docker Desktop for Windows with WSL 2.
+2. **From repo root (WSL):**  
+   `docker compose up -d redis backend`  
+   (Ensure `backend/.env` exists with Supabase, Firebase, Stripe, etc.)
+3. **Backend:** http://localhost:3000  
+   **Android emulator:** In `mobile/.env` set `API_BASE_URL=http://10.0.2.2:3000`.  
+   **Physical device:** Use your machine’s LAN IP (e.g. `http://192.168.1.x:3000`).
+4. Run the Flutter app on the host: `cd mobile && flutter pub get && flutter run` (select Android). iOS requires macOS or a device cloud.
+
 ## Prerequisites Setup
 
 ### 1. Firebase Setup

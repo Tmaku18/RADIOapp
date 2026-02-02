@@ -1,10 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { adminApi } from '@/lib/api';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface Song {
   id: string;
+  artist_id?: string;
   title: string;
   status: string;
   duration_seconds: number;
@@ -15,13 +20,15 @@ interface Song {
   play_count: number;
   like_count: number;
   created_at: string;
+  last_played_at?: string | null;
+  artwork_url?: string | null;
   users?: {
     id: string;
     display_name: string | null;
     email: string;
   };
-  isEligibleForFreeRotation: boolean;
-  eligibilityChecks: {
+  isEligibleForFreeRotation?: boolean;
+  eligibilityChecks?: {
     hasPaidPlay: boolean;
     artistOptedIn: boolean;
     adminApproved: boolean;
@@ -134,22 +141,22 @@ export default function FreeRotationPage() {
 
   // Render eligibility badge
   const EligibilityBadge = ({ song }: { song: Song }) => {
-    if (song.isEligibleForFreeRotation) {
+    if (song.isEligibleForFreeRotation ?? song.admin_free_rotation) {
       return (
-        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 rounded-full">
+        <span className="px-2 py-1 text-xs font-semibold bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 rounded-full">
           In Free Rotation
         </span>
       );
     }
     return (
-      <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full">
+      <span className="px-2 py-1 text-xs font-semibold bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 rounded-full">
         Not Eligible
       </span>
     );
   };
 
   // Render eligibility checklist
-  const EligibilityChecklist = ({ song }: { song: Song }) => (
+  const EligibilityChecklist = ({ song }: { song: Song }) => song.eligibilityChecks ? (
     <div className="flex gap-3 text-xs mt-1">
       <span className={song.eligibilityChecks.hasPaidPlay ? 'text-green-600' : 'text-gray-400'}>
         {song.eligibilityChecks.hasPaidPlay ? '✓' : '○'} {song.paid_play_count} paid plays
@@ -161,7 +168,7 @@ export default function FreeRotationPage() {
         {song.eligibilityChecks.adminApproved ? '✓' : '○'} Admin approved
       </span>
     </div>
-  );
+  ) : null;
 
   // Render song row
   const SongRow = ({ song, showArtist = false }: { song: Song; showArtist?: boolean }) => (
@@ -183,11 +190,11 @@ export default function FreeRotationPage() {
         </div>
         <button
           onClick={() => toggleFreeRotation(song)}
-          disabled={!song.eligibilityChecks.hasPaidPlay || !song.eligibilityChecks.artistOptedIn}
+          disabled={song.eligibilityChecks ? (!song.eligibilityChecks.hasPaidPlay || !song.eligibilityChecks.artistOptedIn) : false}
           className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
             song.admin_free_rotation
               ? 'bg-red-100 text-red-700 hover:bg-red-200'
-              : song.eligibilityChecks.hasPaidPlay && song.eligibilityChecks.artistOptedIn
+              : song.eligibilityChecks && song.eligibilityChecks.hasPaidPlay && song.eligibilityChecks.artistOptedIn
                 ? 'bg-green-100 text-green-700 hover:bg-green-200'
                 : 'bg-gray-100 text-gray-400 cursor-not-allowed'
           }`}
@@ -200,37 +207,8 @@ export default function FreeRotationPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Free Rotation Management</h1>
-        <p className="text-gray-600 mt-1">
-          Search songs or users to manage the free rotation playlist. 
-          Songs require: 1+ paid play, artist opt-in, and admin approval.
-        </p>
-      </div>
-
-      {/* Current Free Rotation */}
-      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
-        <h2 className="font-semibold text-foreground mb-2">
-          Currently in Free Rotation ({freeRotationSongs.length} songs)
-        </h2>
-        {freeRotationSongs.length === 0 ? (
-          <p className="text-muted-foreground text-sm">No songs currently in free rotation.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {freeRotationSongs.map((song) => (
-              <span 
-                key={song.id} 
-                className="px-3 py-1 bg-primary/10 text-primary rounded-full text-sm"
-              >
-                {song.title} - {song.users?.display_name || 'Unknown'}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Search Section */}
-      <div className="bg-white border rounded-lg p-4">
+      {/* Search Section - at top */}
+      <div className="bg-card border border-border rounded-lg p-4">
         {/* Tab Navigation */}
         <div className="flex gap-4 mb-4 border-b">
           <button
@@ -275,9 +253,103 @@ export default function FreeRotationPage() {
         </div>
 
         {error && (
-          <p className="mt-2 text-red-600 text-sm">{error}</p>
+          <p className="mt-2 text-destructive text-sm">{error}</p>
         )}
       </div>
+
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Free Rotation Management</h1>
+        <p className="text-muted-foreground mt-1">
+          Search songs or users to manage the free rotation playlist. 
+          Songs require: 1+ paid play, artist opt-in, and admin approval.
+        </p>
+      </div>
+
+      {/* Free Rotation Queue Table */}
+      <Card>
+        <div className="p-4 border-b">
+          <h2 className="font-semibold text-foreground">
+            Free Rotation Queue ({freeRotationSongs.length} songs)
+          </h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Songs currently in the free rotation playback queue
+          </p>
+        </div>
+        {freeRotationSongs.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">
+            No songs in free rotation. Search above to add songs.
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Song</TableHead>
+                <TableHead>Artist</TableHead>
+                <TableHead className="text-right">Plays</TableHead>
+                <TableHead className="text-right">Likes</TableHead>
+                <TableHead>Last Played</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {freeRotationSongs.map((song) => (
+                <TableRow key={song.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center flex-shrink-0">
+                        {song.artwork_url ? (
+                          <img src={song.artwork_url} alt="" className="w-10 h-10 rounded object-cover" />
+                        ) : (
+                          <span className="text-muted-foreground">🎵</span>
+                        )}
+                      </div>
+                      {(song.artist_id ?? song.users?.id) ? (
+                        <Link
+                          href={`/admin/users/${song.artist_id ?? song.users!.id}`}
+                          className="font-medium text-primary hover:underline"
+                        >
+                          {song.title}
+                        </Link>
+                      ) : (
+                        <span className="font-medium">{song.title}</span>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {(song.artist_id ?? song.users?.id) ? (
+                      <Link
+                        href={`/admin/users/${song.artist_id ?? song.users!.id}`}
+                        className="text-primary hover:underline"
+                      >
+                        {song.users?.display_name || song.users?.email || 'Unknown'}
+                      </Link>
+                    ) : (
+                      <span>{song.users?.display_name || song.users?.email || 'Unknown'}</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right">{song.play_count ?? 0}</TableCell>
+                  <TableCell className="text-right">{song.like_count ?? 0}</TableCell>
+                  <TableCell className="text-muted-foreground text-sm">
+                    {song.last_played_at
+                      ? new Date(song.last_played_at).toLocaleString()
+                      : '—'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => toggleFreeRotation(song)}
+                      disabled={loading}
+                    >
+                      Remove from Rotation
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </Card>
 
       {/* Results */}
       {selectedUser ? (

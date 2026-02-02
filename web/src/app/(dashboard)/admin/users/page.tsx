@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { adminApi } from '@/lib/api';
 import {
   DropdownMenu,
@@ -43,6 +44,7 @@ export default function AdminUsersPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [lifetimeBanUser, setLifetimeBanUser] = useState<User | null>(null);
   const [banReason, setBanReason] = useState('');
+  const [deleteAccountUser, setDeleteAccountUser] = useState<User | null>(null);
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -119,6 +121,22 @@ export default function AdminUsersPage() {
     } catch (err) {
       console.error('Failed to lifetime ban:', err);
       toast.error('Failed to deactivate account');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deleteAccountUser) return;
+    setActionLoading(deleteAccountUser.id);
+    try {
+      await adminApi.deleteUserAccount(deleteAccountUser.id);
+      setUsers(users.filter(u => u.id !== deleteAccountUser.id));
+      setDeleteAccountUser(null);
+      toast.success('Account deleted');
+    } catch (err) {
+      console.error('Failed to delete account:', err);
+      toast.error('Failed to delete account');
     } finally {
       setActionLoading(null);
     }
@@ -236,9 +254,12 @@ export default function AdminUsersPage() {
                           {(user.display_name || user.email)[0].toUpperCase()}
                         </span>
                       </div>
-                      <p className="font-medium text-gray-900">
+                      <Link
+                        href={`/admin/users/${user.id}`}
+                        className="font-medium text-primary hover:underline"
+                      >
                         {user.display_name || 'No name'}
-                      </p>
+                      </Link>
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600">{user.email}</td>
@@ -292,6 +313,12 @@ export default function AdminUsersPage() {
                         >
                           Lifetime Ban / Deactivate
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setDeleteAccountUser(user)}
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                        >
+                          Delete Account
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -329,6 +356,27 @@ export default function AdminUsersPage() {
               onClick={() => handleLifetimeBan()}
             >
               Deactivate & Ban
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteAccountUser} onOpenChange={(open) => !open && setDeleteAccountUser(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete {deleteAccountUser?.display_name || deleteAccountUser?.email}&apos;s account and all associated data.
+              Login credentials will be removed, so the user can sign up again if desired. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={() => handleDeleteAccount()}
+            >
+              Delete Account
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

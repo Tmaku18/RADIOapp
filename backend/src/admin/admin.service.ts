@@ -59,8 +59,7 @@ export class AdminService {
     // Map frontend sort keys to database columns
     const sortColumnMap: Record<string, string> = {
       title: 'title',
-      artist: 'artist_name',
-      artist_name: 'artist_name',
+      artist: 'title', // Will sort by title as artist is joined
       created_at: 'created_at',
       status: 'status',
     };
@@ -188,51 +187,6 @@ export class AdminService {
     return data;
   }
 
-  /**
-   * Delete a song from the database and storage. Removes audio/artwork files
-   * and any admin_fallback_songs entry. Database cascades handle plays, likes, etc.
-   */
-  async deleteSong(songId: string) {
-    const supabase = getSupabaseClient();
-
-    const { data: song, error: fetchError } = await supabase
-      .from('songs')
-      .select('id, audio_url, artwork_url')
-      .eq('id', songId)
-      .single();
-
-    if (fetchError || !song) {
-      throw new NotFoundException('Song not found');
-    }
-
-    // Delete audio from storage
-    if (song.audio_url) {
-      const audioPath = this.extractStoragePathFromUrl(song.audio_url, 'songs');
-      if (audioPath) {
-        await supabase.storage.from('songs').remove([audioPath]);
-      }
-    }
-    // Delete artwork from storage
-    if (song.artwork_url) {
-      const artworkPath = this.extractStoragePathFromUrl(song.artwork_url, 'artwork');
-      if (artworkPath) {
-        await supabase.storage.from('artwork').remove([artworkPath]);
-      }
-    }
-
-    // Remove from admin_fallback_songs if present
-    await supabase.from('admin_fallback_songs').delete().eq('audio_url', song.audio_url);
-
-    // Delete song (cascades: plays, rotation_queue, play_decision_log, credit_allocations, likes)
-    const { error: deleteError } = await supabase.from('songs').delete().eq('id', songId);
-
-    if (deleteError) {
-      throw new BadRequestException(`Failed to delete song: ${deleteError.message}`);
-    }
-
-    this.logger.log(`Admin deleted song ${songId}`);
-  }
-
   // ========== Fallback Playlist Management ==========
 
   async getFallbackSongs() {
@@ -316,92 +270,6 @@ export class AdminService {
     return { deleted: true };
   }
 
-  /**
-   * Add a song from admin upload to the songs table (free rotation database).
-   * Song is created with status='pending' and admin_free_rotation=false.
-   * Admin must approve and enable for free rotation via Admin Songs page.
-   */
-  async addFallbackSongFromUpload(
-    adminId: string,
-    dto: {
-      title: string;
-      artistName: string;
-      audioPath: string;
-      artworkPath?: string;
-      durationSeconds?: number;
-    },
-  ) {
-    const supabase = getSupabaseClient();
-
-    const { data: audioUrlData } = supabase.storage
-      .from('songs')
-      .getPublicUrl(dto.audioPath);
-    const audioUrl = audioUrlData.publicUrl;
-
-    let artworkUrl: string | undefined;
-    if (dto.artworkPath) {
-      const { data: artworkUrlData } = supabase.storage
-        .from('artwork')
-        .getPublicUrl(dto.artworkPath);
-      artworkUrl = artworkUrlData.publicUrl;
-    }
-
-    const { data, error } = await supabase
-      .from('songs')
-      .insert({
-        artist_id: adminId,
-        title: dto.title,
-        artist_name: dto.artistName,
-        audio_url: audioUrl,
-        artwork_url: artworkUrl,
-        duration_seconds: dto.durationSeconds || 180,
-        status: 'pending',
-        admin_free_rotation: false,
-        opt_in_free_play: true,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new BadRequestException(`Failed to add song from upload: ${error.message}`);
-    }
-
-    return data;
-  }
-
-  async addFallbackSongFromSong(songId: string) {
-    const supabase = getSupabaseClient();
-
-    const { data: song, error: fetchError } = await supabase
-      .from('songs')
-      .select('title, artist_name, audio_url, artwork_url, duration_seconds')
-      .eq('id', songId)
-      .single();
-
-    if (fetchError || !song) {
-      throw new BadRequestException('Song not found');
-    }
-
-    const { data, error } = await supabase
-      .from('admin_fallback_songs')
-      .insert({
-        title: song.title,
-        artist_name: song.artist_name,
-        audio_url: song.audio_url,
-        artwork_url: song.artwork_url ?? null,
-        duration_seconds: song.duration_seconds || 180,
-        is_active: true,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw new BadRequestException(`Failed to add fallback song from song: ${error.message}`);
-    }
-
-    return data;
-  }
-
   async getAnalytics() {
     const supabase = getSupabaseClient();
 
@@ -473,8 +341,7 @@ export class AdminService {
 
     let query = supabase
       .from('users')
-      .select('id, email, display_name, role, avatar_url, created_at')
-      .or('is_banned.eq.false,is_banned.is.null');
+      .select('id, email, display_name, role, avatar_url, created_at');
 
     if (filters.role && filters.role !== 'all') {
       query = query.eq('role', filters.role);
@@ -682,131 +549,6 @@ export class AdminService {
     this.logger.log(`Restored user ${userId}`);
 
     return { success: true, userId };
-  }
-
-  /**
-   * Lifetime ban / deactivate account: delete all artist songs and storage files,
-   * clean user data, disable Firebase user. Keeps user record to prevent new signups.
-   */
-  async lifetimeBanUser(userId: string, adminId: string, reason: string): Promise<{ success: boolean; userId: string }> {
-    const supabase = getSupabaseClient();
-
-    // 1. Get user with firebase_uid
-    const { data: user, error: userError } = await supabase
-      .from('users')
-      .select('id, firebase_uid, email, display_name, avatar_url')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !user) {
-      throw new NotFoundException('User not found');
-    }
-
-    // 2. Get all songs by this artist
-    const { data: songs, error: songsError } = await supabase
-      .from('songs')
-      .select('id, audio_url, artwork_url')
-      .eq('artist_id', userId);
-
-    if (!songsError && songs?.length) {
-      const audioPaths: string[] = [];
-      const artworkPaths: string[] = [];
-
-      for (const song of songs) {
-        if (song.audio_url) {
-          const path = this.extractStoragePathFromUrl(song.audio_url, 'songs');
-          if (path) audioPaths.push(path);
-        }
-        if (song.artwork_url) {
-          const path = this.extractStoragePathFromUrl(song.artwork_url, 'artwork');
-          if (path) artworkPaths.push(path);
-        }
-      }
-
-      // Delete audio files from storage
-      if (audioPaths.length) {
-        const { error: audioErr } = await supabase.storage.from('songs').remove(audioPaths);
-        if (audioErr) this.logger.warn(`Failed to delete some audio files: ${audioErr.message}`);
-      }
-      // Delete artwork files from storage
-      if (artworkPaths.length) {
-        const { error: artworkErr } = await supabase.storage.from('artwork').remove(artworkPaths);
-        if (artworkErr) this.logger.warn(`Failed to delete some artwork files: ${artworkErr.message}`);
-      }
-
-      // Delete from admin_fallback_songs if any of these songs were added
-      const audioUrls = songs.map((s) => s.audio_url).filter(Boolean);
-      if (audioUrls.length) {
-        for (const url of audioUrls) {
-          await supabase.from('admin_fallback_songs').delete().eq('audio_url', url);
-        }
-      }
-    }
-
-    // 3. Delete user's avatar from storage if present
-    if (user.avatar_url) {
-      const avatarPath = this.extractStoragePathFromUrl(user.avatar_url, 'avatars');
-      if (avatarPath) {
-        await supabase.storage.from('avatars').remove([avatarPath]);
-      }
-    }
-
-    // 4. Delete related data (order matters for FKs)
-    await supabase.from('likes').delete().eq('user_id', userId);
-    await supabase.from('notifications').delete().eq('user_id', userId);
-    await supabase.from('push_tokens').delete().eq('user_id', userId);
-    await supabase.from('credit_allocations').delete().eq('artist_id', userId);
-    await supabase.from('credits').delete().eq('artist_id', userId);
-    await supabase
-      .from('chat_messages')
-      .update({ deleted_at: new Date().toISOString() })
-      .eq('user_id', userId);
-    await supabase.from('songs').delete().eq('artist_id', userId);
-
-    // 5. Revoke Firebase tokens
-    if (user.firebase_uid) {
-      try {
-        const auth = getFirebaseAuth();
-        await auth.revokeRefreshTokens(user.firebase_uid);
-        await auth.updateUser(user.firebase_uid, { disabled: true });
-        this.logger.log(`Disabled Firebase user ${user.firebase_uid} and revoked tokens`);
-      } catch (firebaseErr: any) {
-        this.logger.error(`Firebase update failed: ${firebaseErr?.message}`);
-      }
-    }
-
-    // 6. Update user record: ban flags, clear PII, keep email/firebase_uid for blocking
-    const { error: updateError } = await supabase
-      .from('users')
-      .update({
-        is_banned: true,
-        banned_at: new Date().toISOString(),
-        ban_reason: reason,
-        banned_by: adminId,
-        display_name: null,
-        avatar_url: null,
-        role: 'listener',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', userId);
-
-    if (updateError) {
-      throw new BadRequestException(`Failed to update user: ${updateError.message}`);
-    }
-
-    this.logger.log(`Lifetime banned user ${userId}. Reason: ${reason}`);
-    return { success: true, userId };
-  }
-
-  /**
-   * Extract storage path from Supabase public URL.
-   * URL format: https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
-   */
-  private extractStoragePathFromUrl(url: string, bucket: string): string | null {
-    if (!url || typeof url !== 'string') return null;
-    const pattern = new RegExp(`/object/public/${bucket}/(.+)$`);
-    const match = url.match(pattern);
-    return match ? decodeURIComponent(match[1]) : null;
   }
 
   /**

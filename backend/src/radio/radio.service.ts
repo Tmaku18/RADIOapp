@@ -677,10 +677,14 @@ export class RadioService {
       played_at: startedAt,
     });
 
-    // Increment paid_play_count for free rotation eligibility
+    // Increment paid_play_count, play_count, last_played_at
     await supabase
       .from('songs')
-      .update({ paid_play_count: (song.paid_play_count || 0) + 1 })
+      .update({
+        paid_play_count: (song.paid_play_count || 0) + 1,
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
       .eq('id', song.id);
 
     // Send "Live Now" notification to artist (Stage 2)
@@ -722,7 +726,7 @@ export class RadioService {
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id);
 
-    // Decrement trial plays and increment used counter
+    // Decrement trial plays, increment used counter, update last_played_at and play_count
     const remaining = Math.max(0, (song.trial_plays_remaining || 0) - 1);
     const used = (song.trial_plays_used || 0) + 1;
     await supabase
@@ -730,6 +734,8 @@ export class RadioService {
       .update({
         trial_plays_remaining: remaining,
         trial_plays_used: used,
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
       })
       .eq('id', song.id);
 
@@ -805,6 +811,15 @@ export class RadioService {
       played_at: startedAt,
     });
 
+    // Update play_count and last_played_at
+    await supabase
+      .from('songs')
+      .update({
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
+      .eq('id', song.id);
+
     // Send "Live Now" notification to artist
     try {
       await this.pushNotificationService.sendLiveNowNotification({
@@ -873,6 +888,14 @@ export class RadioService {
         song_id: song.id,
         played_at: startedAt,
       });
+      // Update songs table play_count and last_played_at
+      await supabase
+        .from('songs')
+        .update({
+          play_count: (song.play_count || 0) + 1,
+          last_played_at: startedAt,
+        })
+        .eq('id', song.id);
     }
 
     const durationMs = durationSeconds * 1000;

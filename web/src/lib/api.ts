@@ -120,6 +120,7 @@ export const adminApi = {
   updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),
   deleteSong: (id: string) => api.delete(`/admin/songs/${id}`),
+  getUserProfile: (id: string) => api.get(`/admin/users/${id}`),
   getUsers: (params?: { 
     role?: string; 
     search?: string;
@@ -132,6 +133,7 @@ export const adminApi = {
     api.patch(`/admin/users/${id}/role`, { role }),
   lifetimeBanUser: (id: string, reason?: string) =>
     api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
+  deleteUserAccount: (id: string) => api.delete(`/admin/users/${id}`),
   // Fallback playlist management
   getFallbackSongs: () => api.get('/admin/fallback-songs'),
   addFallbackSong: (data: { title: string; artistName: string; audioUrl: string; artworkUrl?: string; durationSeconds?: number }) =>

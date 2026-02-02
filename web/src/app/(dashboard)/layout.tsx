@@ -18,8 +18,32 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Separator } from '@/components/ui/separator';
 import { HugeiconsIcon } from '@hugeicons/react';
-import { ComputerSettingsIcon, Sun01Icon, DarkModeIcon, ComputerIcon } from '@hugeicons/core-free-icons';
+import {
+  ComputerSettingsIcon,
+  Sun01Icon,
+  DarkModeIcon,
+  ComputerIcon,
+  ArrowUp01Icon,
+} from '@hugeicons/core-free-icons';
 
 const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
@@ -34,13 +58,29 @@ const artistNavigation = [
   { name: 'Stats', href: '/artist/stats', icon: '📈' },
 ];
 
-const adminNavigation = [
-  { name: 'Admin', href: '/admin', icon: '⚙️' },
+const adminSubNavigation = [
   { name: 'Songs', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
 ];
+
+// Flattened nav for page title lookup
+function getPageTitle(pathname: string, profileRole?: string): string {
+  if (pathname.startsWith('/admin/songs')) return 'Songs';
+  if (pathname.startsWith('/admin/users')) return 'Users';
+  if (pathname.startsWith('/admin/fallback')) return 'Fallback';
+  if (pathname.startsWith('/admin/free-rotation')) return 'Free Rotation';
+  if (pathname.startsWith('/admin')) return 'Admin';
+  if (pathname.startsWith('/dashboard')) return 'Dashboard';
+  if (pathname.startsWith('/listen')) return 'Listen';
+  if (pathname.startsWith('/profile')) return 'Profile';
+  if (pathname.startsWith('/artist/songs')) return 'My Songs';
+  if (pathname.startsWith('/artist/upload')) return 'Upload';
+  if (pathname.startsWith('/artist/credits')) return 'Credits';
+  if (pathname.startsWith('/artist/stats')) return 'Stats';
+  return 'Dashboard';
+}
 
 export default function DashboardLayout({
   children,
@@ -52,25 +92,16 @@ export default function DashboardLayout({
   const { user, profile, loading, signOut, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
   const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login?redirect=' + encodeURIComponent(pathname));
     }
   }, [loading, user, router, pathname]);
 
-  // Build navigation based on role
-  const navigation = [
-    ...baseNavigation,
-    ...(profile?.role === 'artist' || profile?.role === 'admin' ? artistNavigation : []),
-    ...(profile?.role === 'admin' ? adminNavigation : []),
-  ];
-
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { theme, setTheme } = useTheme();
 
-  // Fetch unread notification count - only when user has a profile
   useEffect(() => {
     if (user && profile) {
       const fetchUnreadCount = async () => {
@@ -82,13 +113,11 @@ export default function DashboardLayout({
         }
       };
       fetchUnreadCount();
-      // Refresh every 60 seconds
       const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
   }, [user, profile]);
 
-  // Handle role selection for pending Google users
   const handleRoleSelect = async (role: 'listener' | 'artist') => {
     setIsCompletingSignUp(true);
     try {
@@ -119,10 +148,9 @@ export default function DashboardLayout({
   }
 
   if (!user) {
-    return null; // Will redirect in useEffect
+    return null;
   }
 
-  // Show role selection modal if user has Firebase auth but no Supabase profile
   if (pendingGoogleUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted/50">
@@ -135,62 +163,118 @@ export default function DashboardLayout({
     );
   }
 
+  const isAdminPath = pathname.startsWith('/admin');
+
   return (
-    <div className="min-h-screen bg-muted/50">
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 w-64 bg-card border-r border-border">
-        <div className="h-16 flex items-center px-6 border-b border-border">
-          <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl">🎧</span>
-            <span className="text-xl font-bold text-foreground">RadioApp</span>
-          </Link>
-        </div>
+    <SidebarProvider>
+      <Sidebar>
+        <SidebarHeader>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" asChild>
+                <Link href="/" className="flex items-center gap-2">
+                  <span className="text-2xl">🎧</span>
+                  <span className="font-bold text-foreground">RadioApp</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarHeader>
 
-        <nav className="mt-6 px-3">
-          <div className="space-y-1">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-              return (
-                <Button
-                  key={item.name}
-                  variant={isActive ? 'default' : 'ghost'}
-                  className="w-full justify-start"
-                  asChild
-                >
-                  <Link href={item.href} className="flex items-center">
-                    <span className="mr-3 text-lg">{item.icon}</span>
-                    <span className="font-medium">{item.name}</span>
-                  </Link>
-                </Button>
-              );
-            })}
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarMenu>
+              {baseNavigation.map((item) => {
+                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
+                return (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.href} className="flex items-center">
+                        <span className="mr-3 text-lg">{item.icon}</span>
+                        <span>{item.name}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+
+              {(profile?.role === 'artist' || profile?.role === 'admin') &&
+                artistNavigation.map((item) => {
+                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href} className="flex items-center">
+                          <span className="mr-3 text-lg">{item.icon}</span>
+                          <span>{item.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+
+              {profile?.role === 'admin' && (
+                <Collapsible defaultOpen={isAdminPath} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton>
+                        <span className="mr-3 text-lg">⚙️</span>
+                        <span>Admin</span>
+                        <HugeiconsIcon
+                          icon={ArrowUp01Icon}
+                          strokeWidth={2}
+                          className="ml-auto size-4 group-data-[state=closed]/collapsible:rotate-180"
+                        />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname === '/admin'}>
+                            <Link href="/admin">Overview</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                        {adminSubNavigation.map((item) => (
+                          <SidebarMenuSubItem key={item.name}>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith(item.href)}>
+                              <Link href={item.href}>{item.name}</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
+            </SidebarMenu>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarFooter>
+          <div className="p-2">
+            <p className="text-sm text-foreground truncate px-2">{profile?.displayName || user.email}</p>
+            <p className="text-xs text-muted-foreground capitalize px-2">{profile?.role || 'Loading...'}</p>
           </div>
-        </nav>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton onClick={handleSignOut} disabled={isSigningOut}>
+                <span className="mr-3">{isSigningOut ? '⏳' : '🚪'}</span>
+                <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarFooter>
+      </Sidebar>
 
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border">
-          <div className="mb-3">
-            <p className="text-sm text-foreground truncate">{profile?.displayName || user.email}</p>
-            <p className="text-xs text-muted-foreground capitalize">{profile?.role || 'Loading...'}</p>
-          </div>
-          <Button
-            variant="ghost"
-            className="w-full justify-start"
-            onClick={handleSignOut}
-            disabled={isSigningOut}
-          >
-            <span className="mr-3">{isSigningOut ? '⏳' : '🚪'}</span>
-            {isSigningOut ? 'Signing out...' : 'Sign Out'}
-          </Button>
-        </div>
-      </aside>
-
-      <main className="ml-64 flex flex-col h-screen">
-        <header className="h-16 shrink-0 bg-card border-b border-border flex items-center justify-between px-8">
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4 md:px-8 bg-card">
+          <SidebarTrigger className="-ml-1" />
+          <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">
-            {navigation.find(n => pathname.startsWith(n.href))?.name || 'Dashboard'}
+            {getPageTitle(pathname, profile?.role)}
           </h1>
 
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <Button variant="outline" size="icon" asChild>
               <Link href="/notifications" className="relative">
                 <span className="text-xl">🔔</span>
@@ -233,7 +317,7 @@ export default function DashboardLayout({
         <div className="flex-1 min-h-0 overflow-auto p-8 bg-muted/50 flex flex-col">
           {children}
         </div>
-      </main>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }

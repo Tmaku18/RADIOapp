@@ -3,26 +3,40 @@ import { getAuth } from 'firebase-admin/auth';
 import { getMessaging } from 'firebase-admin/messaging';
 import { ConfigService } from '@nestjs/config';
 import * as admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 let firebaseApp: App;
 
 export const initializeFirebase = (configService: ConfigService): App => {
   if (!firebaseApp) {
+    const jsonPath = configService.get<string>('FIREBASE_SERVICE_ACCOUNT_PATH');
+
+    if (jsonPath) {
+      try {
+        const resolved = resolve(jsonPath);
+        const serviceAccount = JSON.parse(readFileSync(resolved, 'utf8'));
+        firebaseApp = initializeApp({ credential: cert(serviceAccount) });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Firebase: failed to load service account from FIREBASE_SERVICE_ACCOUNT_PATH: ${msg}`,
+        );
+      }
+      return firebaseApp;
+    }
+
     const projectId = configService.get<string>('FIREBASE_PROJECT_ID');
     const clientEmail = configService.get<string>('FIREBASE_CLIENT_EMAIL');
     let privateKey = configService.get<string>('FIREBASE_PRIVATE_KEY');
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error(
-        'Firebase configuration missing. Please set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in your .env file.',
+        'Firebase configuration missing. Set FIREBASE_SERVICE_ACCOUNT_PATH (path to JSON in home dir) or FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, and FIREBASE_PRIVATE_KEY in .env.',
       );
     }
 
-    // Handle different formats of the private key
-    // Replace escaped newlines with actual newlines
     privateKey = privateKey.replace(/\\n/g, '\n');
-    
-    // If the key doesn't start with -----BEGIN, it might need the header/footer
     if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
       throw new Error(
         'FIREBASE_PRIVATE_KEY appears to be invalid. It should start with "-----BEGIN PRIVATE KEY-----"',

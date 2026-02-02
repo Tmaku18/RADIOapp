@@ -11,7 +11,8 @@ export default function ListenPage() {
 
   return (
     <div className="flex min-h-0 flex-1">
-      <div className="flex-1 min-h-0 flex flex-col items-center justify-center p-8 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto p-8">
+        <div className="min-h-full flex flex-col items-center justify-center">
         <div className="max-w-lg w-full">
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-2">Now Playing</h1>
@@ -34,6 +35,7 @@ export default function ListenPage() {
               {showChat ? 'Hide Chat' : 'Show Chat'}
             </Button>
           </div>
+        </div>
         </div>
       </div>
 

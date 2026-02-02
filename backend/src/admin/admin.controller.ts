@@ -97,6 +97,11 @@ export class AdminController {
     return { users, total: users.length };
   }
 
+  @Get('users/:id')
+  async getUserProfile(@Param('id') userId: string) {
+    return this.adminService.getUserProfile(userId);
+  }
+
   @Patch('users/:id/role')
   async updateUserRole(
     @Param('id') userId: string,
@@ -170,15 +175,6 @@ export class AdminController {
   // ========== User Ban Management Endpoints ==========
 
   /**
-   * Get all banned users (hard and shadow banned).
-   */
-  @Get('users/banned')
-  async getBannedUsers() {
-    const users = await this.adminService.getBannedUsers();
-    return { users };
-  }
-
-  /**
    * Hard ban a user - full lockout with token revocation.
    * Use for ToS violators.
    */
@@ -220,6 +216,23 @@ export class AdminController {
   async restoreUser(@Param('id') userId: string) {
     const result = await this.adminService.restoreUser(userId);
     return result;
+  }
+
+  /**
+   * Delete account: remove all user data and Firebase credentials.
+   * User can sign up again after deletion.
+   */
+  @Delete('users/:id')
+  async deleteUserAccount(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('id') userId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    if (adminId === userId) {
+      throw new BadRequestException('Cannot delete your own account');
+    }
+    await this.adminService.deleteUserAccount(userId);
+    return { deleted: true };
   }
 
   /**

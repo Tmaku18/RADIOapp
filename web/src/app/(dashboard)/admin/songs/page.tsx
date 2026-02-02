@@ -1,33 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { toast } from 'sonner';
 
 interface Song {
   id: string;
@@ -50,14 +24,12 @@ interface Song {
   };
 }
 
-type SortField = 'title' | 'artist' | 'created_at' | 'status';
+type SortField = 'title' | 'created_at' | 'status';
 type SortOrder = 'asc' | 'desc';
 
 export default function AdminSongsPage() {
-  const searchParams = useSearchParams();
   const [songs, setSongs] = useState<Song[]>([]);
   const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
-  const [uploadSuccess, setUploadSuccess] = useState(false);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<SortField>('created_at');
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
@@ -68,8 +40,6 @@ export default function AdminSongsPage() {
   // Rejection modal state
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
-  // Delete confirmation state
-  const [deletingId, setDeletingId] = useState<string | null>(null);
   
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -114,13 +84,17 @@ export default function AdminSongsPage() {
   };
 
   const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortBy !== field) return <span className="text-muted-foreground ml-1">↕</span>;
-    return <span className="text-primary ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+    if (sortBy !== field) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="text-purple-600 ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
   };
 
   const handleToggleFreeRotation = async (song: Song) => {
     if (!song.opt_in_free_play) {
-      toast.error('Artist has not opted into free play');
+      alert('Artist has not opted into free play');
+      return;
+    }
+    if ((song.paid_play_count || 0) < 1) {
+      alert('Song must have at least 1 paid play');
       return;
     }
 
@@ -130,10 +104,9 @@ export default function AdminSongsPage() {
       setSongs(songs.map(s => 
         s.id === song.id ? { ...s, admin_free_rotation: !song.admin_free_rotation } : s
       ));
-      toast.success('Free rotation updated');
     } catch (err) {
       console.error('Failed to toggle free rotation:', err);
-      toast.error('Failed to toggle free rotation');
+      alert('Failed to toggle free rotation');
     } finally {
       setActionLoading(null);
     }
@@ -146,10 +119,9 @@ export default function AdminSongsPage() {
       setSongs(songs.map(s => 
         s.id === songId ? { ...s, status: 'approved' } : s
       ));
-      toast.success('Song approved');
     } catch (err) {
       console.error('Failed to approve song:', err);
-      toast.error('Failed to approve song');
+      alert('Failed to approve song');
     } finally {
       setActionLoading(null);
     }
@@ -162,36 +134,18 @@ export default function AdminSongsPage() {
 
   const handleReject = async () => {
     if (!rejectingId) return;
-
+    
     setActionLoading(rejectingId);
     try {
       await adminApi.updateSongStatus(rejectingId, 'rejected', rejectionReason || undefined);
-      setSongs(songs.map(s =>
+      setSongs(songs.map(s => 
         s.id === rejectingId ? { ...s, status: 'rejected', rejection_reason: rejectionReason } : s
       ));
       setRejectingId(null);
       setRejectionReason('');
-      toast.success('Song rejected');
     } catch (err) {
       console.error('Failed to reject song:', err);
-      toast.error('Failed to reject song');
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deletingId) return;
-
-    setActionLoading(deletingId);
-    try {
-      await adminApi.deleteSong(deletingId);
-      setSongs(songs.filter(s => s.id !== deletingId));
-      setDeletingId(null);
-      toast.success('Song deleted');
-    } catch (err) {
-      console.error('Failed to delete song:', err);
-      toast.error('Failed to delete song');
+      alert('Failed to reject song');
     } finally {
       setActionLoading(null);
     }
@@ -206,94 +160,108 @@ export default function AdminSongsPage() {
 
   return (
     <div className="space-y-6">
-      {uploadSuccess && (
-        <Alert>
-          <AlertDescription>
-            Song added. Approve it and enable free rotation below.
-            <Button variant="link" className="ml-2 p-0 h-auto" onClick={() => setUploadSuccess(false)}>Dismiss</Button>
-          </AlertDescription>
-        </Alert>
-      )}
+      {/* Filters and Search */}
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex gap-2 flex-wrap">
           {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
-            <Button
+            <button
               key={status}
-              variant={filter === status ? 'default' : 'secondary'}
-              size="sm"
               onClick={() => setFilter(status)}
-              className="capitalize"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
+                filter === status
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
             >
               {status}
-            </Button>
+            </button>
           ))}
         </div>
+        
         <div className="flex gap-3 items-center">
-          <Input
-            type="text"
-            placeholder="Search songs..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-64"
-          />
-          <Select
+          {/* Search Input */}
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search songs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"
+            />
+            <svg className="w-5 h-5 text-gray-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          {/* Sort Dropdown */}
+          <select
             value={`${sortBy}-${sortOrder}`}
-            onValueChange={(v) => {
-              const [field, order] = v.split('-') as [SortField, SortOrder];
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-') as [SortField, SortOrder];
               setSortBy(field);
               setSortOrder(order);
             }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
           >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="created_at-desc">Newest First</SelectItem>
-              <SelectItem value="created_at-asc">Oldest First</SelectItem>
-              <SelectItem value="title-asc">Title A-Z</SelectItem>
-              <SelectItem value="title-desc">Title Z-A</SelectItem>
-              <SelectItem value="artist-asc">Artist A-Z</SelectItem>
-              <SelectItem value="artist-desc">Artist Z-A</SelectItem>
-            </SelectContent>
-          </Select>
+            <option value="created_at-desc">Newest First</option>
+            <option value="created_at-asc">Oldest First</option>
+            <option value="title-asc">A-Z</option>
+            <option value="title-desc">Z-A</option>
+          </select>
         </div>
       </div>
 
       {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          {error}
+        </div>
       )}
 
-      <Card>
+      {/* Songs List */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
           <div className="flex justify-center py-12">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
           </div>
         ) : songs.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
+          <div className="p-8 text-center text-gray-500">
             No songs found with status: {filter}
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="cursor-pointer" onClick={() => handleSort('title')}>Song <SortIcon field="title" /></TableHead>
-                <TableHead className="cursor-pointer" onClick={() => handleSort('artist')}>Artist <SortIcon field="artist" /></TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Credits</TableHead>
-                <TableHead className="cursor-pointer" onClick={() => handleSort('status')}>Status <SortIcon field="status" /></TableHead>
-                <TableHead>Free Rotation</TableHead>
-                <TableHead className="cursor-pointer" onClick={() => handleSort('created_at')}>Submitted <SortIcon field="created_at" /></TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="w-full">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('title')}
+                >
+                  Song <SortIcon field="title" />
+                </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('status')}
+                >
+                  Status <SortIcon field="status" />
+                </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Free Rotation</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('created_at')}
+                >
+                  Submitted <SortIcon field="created_at" />
+                </th>
+                <th className="text-right px-6 py-3 text-sm font-medium text-gray-600">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
               {songs.map((song) => (
-                <TableRow key={song.id}>
-                  <TableCell>
+                <tr key={song.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-muted rounded flex items-center justify-center mr-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
                         {song.artwork_url ? (
                           <img
                             src={song.artwork_url}
@@ -305,7 +273,7 @@ export default function AdminSongsPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-foreground">{song.title}</p>
+                        <p className="font-medium text-gray-900">{song.title}</p>
                         {song.audio_url && (
                           <audio controls className="h-6 mt-1">
                             <source src={song.audio_url} type="audio/mpeg" />
@@ -313,127 +281,134 @@ export default function AdminSongsPage() {
                         )}
                       </div>
                     </div>
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="px-6 py-4">
                     <div>
-                      <p className="text-foreground">{song.artist_name}</p>
+                      <p className="text-gray-900">{song.artist_name}</p>
                       {song.users && (
-                        <p className="text-xs text-muted-foreground">{song.users.email}</p>
+                        <p className="text-xs text-gray-500">{song.users.email}</p>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-sm">
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm font-mono">
                     {formatDuration(song.duration_seconds)}
-                  </TableCell>
-                  <TableCell>
-                    <span className={`font-medium ${(song.credits_remaining || 0) > 0 ? 'text-primary' : 'text-muted-foreground'}`}>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`font-medium ${
+                      (song.credits_remaining || 0) > 0 ? 'text-green-600' : 'text-gray-400'
+                    }`}>
                       {song.credits_remaining || 0}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={song.status === 'pending' ? 'secondary' : song.status === 'approved' ? 'default' : 'destructive'}>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      song.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      song.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
                       {song.status}
-                    </Badge>
+                    </span>
                     {song.status === 'rejected' && song.rejection_reason && (
-                      <p className="text-xs text-destructive mt-1 max-w-[150px] truncate" title={song.rejection_reason}>
+                      <p className="text-xs text-red-600 mt-1 max-w-[150px] truncate" title={song.rejection_reason}>
                         {song.rejection_reason}
                       </p>
                     )}
-                  </TableCell>
-                  <TableCell>
+                  </td>
+                  <td className="px-6 py-4">
                     {song.status === 'approved' ? (
                       <div className="flex items-center gap-2">
-                        <Switch
-                          checked={!!song.admin_free_rotation}
-                          onCheckedChange={() => handleToggleFreeRotation(song)}
-                          disabled={actionLoading === song.id || !song.opt_in_free_play}
-                          title={!song.opt_in_free_play ? 'Artist has not opted in' : song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'}
-                        />
-                        <span className="text-xs text-muted-foreground">{song.paid_play_count || 0} plays</span>
+                        <button
+                          onClick={() => handleToggleFreeRotation(song)}
+                          disabled={actionLoading === song.id}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            song.admin_free_rotation ? 'bg-purple-600' : 'bg-gray-200'
+                          } ${(!song.opt_in_free_play || (song.paid_play_count || 0) < 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          title={
+                            !song.opt_in_free_play ? 'Artist has not opted in' :
+                            (song.paid_play_count || 0) < 1 ? 'No paid plays yet' :
+                            song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'
+                          }
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              song.admin_free_rotation ? 'translate-x-4' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-500">
+                          {song.paid_play_count || 0} plays
+                        </span>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">N/A</span>
+                      <span className="text-xs text-gray-400">N/A</span>
                     )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm">
                     {new Date(song.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      {song.status === 'pending' && (
-                        <>
-                          <Button size="sm" onClick={() => handleApprove(song.id)} disabled={actionLoading === song.id}>
-                            Approve
-                          </Button>
-                          <Button size="sm" variant="outline" onClick={() => openRejectModal(song.id)} disabled={actionLoading === song.id}>
-                            Reject
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => setDeletingId(song.id)}
-                        disabled={actionLoading === song.id}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    {song.status === 'pending' && (
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleApprove(song.id)}
+                          disabled={actionLoading === song.id}
+                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => openRejectModal(song.id)}
+                          disabled={actionLoading === song.id}
+                          className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
+            </tbody>
+          </table>
         )}
-      </Card>
+      </div>
 
-      <AlertDialog open={!!rejectingId} onOpenChange={(open) => { if (!open) { setRejectingId(null); setRejectionReason(''); } }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reject Song</AlertDialogTitle>
-            <AlertDialogDescription>
+      {/* Rejection Modal */}
+      {rejectingId && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
+            <p className="text-gray-600 mb-4">
               Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Textarea
-            value={rejectionReason}
-            onChange={(e) => setRejectionReason(e.target.value)}
-            placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
-            rows={3}
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={handleReject}
-              disabled={actionLoading === rejectingId}
-            >
-              {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      <AlertDialog open={!!deletingId} onOpenChange={(open) => !open && setDeletingId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Song</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the song from the database and remove all associated files. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={actionLoading === deletingId}
-            >
-              {actionLoading === deletingId ? 'Deleting...' : 'Delete Song'}
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectionReason('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading === rejectingId}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -64,16 +64,10 @@ export class UsersService {
           .single();
         if (raceUser) return transformUser(raceUser);
       }
-      throw new Error(`Failed to create user: ${error.message}`);
+      throw new BadRequestException(`Failed to create user: ${error.message}`);
     }
 
-    // Initialize credits if artist
-    if (createUserDto.role === 'artist') {
-      await supabase.from('credits').insert({
-        artist_id: data.id,
-        balance: 0,
-      });
-    }
+    // Credits for artists are created by DB trigger initialize_credits_on_user_create
 
     return transformUser(data);
   }

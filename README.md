@@ -409,6 +409,43 @@ Planning and tracking use a **Notion** workspace with **Project ID** (Radio App 
 - Supabase project
 - Stripe account
 
+### Running with Docker (WSL)
+
+Run the backend and Redis in Docker for local development and mobile testing (no code changes: `backend` already reads `REDIS_URL`; in Compose it is set to `redis://redis:6379`).
+
+1. **Install Docker in WSL** (Debian/Ubuntu). From a WSL terminal:
+   ```bash
+   sudo apt-get update && sudo apt-get install -y ca-certificates curl gnupg
+   sudo install -m 0755 -d /etc/apt/keyrings
+   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+   sudo chmod a+r /etc/apt/keyrings/docker.gpg
+   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+   sudo apt-get update && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+   sudo service docker start
+   ```
+   Optional: `sudo usermod -aG docker $USER` then log out and back in to run Docker without `sudo`. Alternatively, use Docker Desktop for Windows with “Use WSL 2 based engine” and use `docker` / `docker compose` from WSL.
+
+2. **Create `.env` at repo root** (Compose uses `env_file: .env`). Copy from `.env.example` and fill in Supabase, Stripe, etc. For Firebase: keep the service account JSON in your home directory (e.g. `firebase-service-account.json`); it is gitignored. Set `FIREBASE_SERVICE_ACCOUNT_PATH` to that path for local runs, and `FIREBASE_JSON_PATH` to the same path for Docker (WSL: `/mnt/c/Users/.../firebase-service-account.json`) so the file is mounted into the container.
+   ```bash
+   cp .env.example .env
+   # Edit .env: SUPABASE_SERVICE_KEY, STRIPE_*, FIREBASE_JSON_PATH; never commit .env
+   ```
+
+3. **Start backend + Redis** from the repo root in WSL:
+   ```bash
+   cd /path/to/RadioApp   # e.g. /mnt/c/Users/tmaku/OneDrive/Documents/GSU/Projects/RadioApp
+   docker compose up -d redis backend
+   # Or build and run: docker compose up --build -d
+   ```
+   Backend: **http://localhost:3000**. Redis: port 6379. Check logs: `docker compose logs -f backend`; you should see “Redis client connected”.
+
+4. **Mobile app (Android)** — point the app at the backend:
+   - **Android emulator**: In `mobile/.env` set `API_BASE_URL=http://10.0.2.2:3000` (emulator’s alias to host).
+   - **Physical device on same LAN**: Use the host machine’s IP, e.g. `API_BASE_URL=http://192.168.1.x:3000`.
+   Run the app on the host: `cd mobile && flutter pub get && flutter run` (select Android). The app is not run inside Docker.
+
+5. **iOS**: Simulator requires macOS (Xcode). On Windows-only use cloud macOS (e.g. GitHub Actions `macos-latest`) or a device cloud (Firebase Test Lab, BrowserStack, etc.).
+
 ### Backend Setup
 
 1. Navigate to backend directory:
@@ -466,7 +503,9 @@ RESEND_API_KEY=re_xxxxx    # if using Resend
    - In `backend/.env`, set `REDIS_URL=redis://localhost:6379` (or leave unset to use that default).
    - Restart the backend; logs will show "RadioStateService using Redis for state management" when connected.
 
-7. Start the server:
+7. **Running with Docker (WSL)** — Backend + Redis in one stack (see [Running with Docker (WSL)](#running-with-docker-wsl) above).
+
+8. Start the server:
 ```bash
 npm run start:dev
 ```
@@ -538,6 +577,7 @@ FIREBASE_APP_ID=your-app-id
 API_BASE_URL=http://localhost:3000
 STRIPE_PUBLISHABLE_KEY=pk_test_xxxxx
 ```
+   For **Android emulator** with the backend running in Docker (or on host), use `API_BASE_URL=http://10.0.2.2:3000`. For a **physical device** on the same LAN, use your machine’s IP (e.g. `http://192.168.1.x:3000`).
 
 5. Run the app:
 ```bash

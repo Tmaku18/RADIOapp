@@ -41,16 +41,18 @@ mobile/.gradle/
 mobile/local.properties
 mobile/.fvm/
 
-# Firebase
-mobile/android/app/google-services.json
-mobile/ios/Runner/GoogleService-Info.plist
-firebase-debug.log
-firestore-debug.log
+# Firebase / service account JSON (keep in home dir or outside repo; never commit)
 firebase-service-account.json
 **/firebase-service-account*.json
 **/firebase-key*.txt
 **/firebase-key*.md
 **/*-service-account*.json
+**/service-account*.json
+**/*adminsdk*.json
+mobile/android/app/google-services.json
+mobile/ios/Runner/GoogleService-Info.plist
+firebase-debug.log
+firestore-debug.log
 **/GoogleService-Info.plist
 **/google-services.json
 

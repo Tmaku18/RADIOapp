@@ -1,0 +1,30 @@
+# Backend + Redis for local development and mobile testing.
+# From repo root (WSL): copy .env.example to .env, fill in Supabase/Firebase/Stripe, then:
+#   docker compose up -d redis backend
+# Backend: http://localhost:3000  |  Redis: localhost:6379
+
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      PORT: "3000"
+      REDIS_URL: redis://redis:6379
+      # Backend reads Firebase from this path (file mounted from host)
+      FIREBASE_SERVICE_ACCOUNT_PATH: /app/firebase-service-account.json
+    volumes:
+      # Mount Firebase JSON from home dir. Set FIREBASE_JSON_PATH in .env (e.g. /mnt/c/Users/tmaku/firebase-service-account.json).
+      - "${FIREBASE_JSON_PATH}:/app/firebase-service-account.json:ro"
+    depends_on:
+      - redis
+    restart: unless-stopped
