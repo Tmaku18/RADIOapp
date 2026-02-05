@@ -879,6 +879,21 @@ The following features have been temporarily disabled for development/testing pu
 
 **To restore**: Search for `DISABLED: Paid play requirement` in the backend codebase and uncomment the relevant lines.
 
+## Planned Implementation
+
+The platform is evolving into an **online music popularity competition** (freshman-cypher style) with community artist engagement and later live shows/events. Planned features (in implementation):
+
+- **Competition/spotlight as first page after login** — Leaderboards (by likes and by listens), featured artists, voting (Top 7, rank 1–7), news and promotions, and dynamic shifting/moving UI (shadcn, Supabase, Firebase).
+- **Unlimited listening** — Featured song on artist page (unlimited replays); Artist of the Week (all music for that week); Artist of the Month (all music for next month); listens counted for a separate listens leaderboard.
+- **Location** — “Artists in your area” (country + optional region/city) with user preference toggle.
+- **Week → Month → Year** — Weekly vote, Artist of the Week, monthly/yearly winners and prizes.
+- **Artist bios** — Bio section on artist (and provider) pages; editable in profile/settings.
+- **Admin live broadcast** — Go live during the stream from the admin dashboard; stream switches to live feed.
+- **Live services** — Artists promote performances/sessions; listeners follow artists and see upcoming live services.
+- **Service providers** — Distinct user type with own dashboard; bio and portfolio (audio/visual); artists get a Services tab to search/filter by service type and location, send messages, and post requests; marketplace with listings and orders (payments later).
+
+**Full plan:** [docs/planned-implementation-competition.md](docs/planned-implementation-competition.md)
+
 ## Troubleshooting
 
 ### Backend Issues

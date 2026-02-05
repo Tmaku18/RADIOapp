@@ -8,10 +8,13 @@ export interface UserResponse {
   id: string;
   email: string;
   displayName: string | null;
-  role: 'listener' | 'artist' | 'admin';
+  role: 'listener' | 'artist' | 'admin' | 'service_provider';
   avatarUrl: string | null;
   createdAt: string;
   firebaseUid: string;
+  region?: string | null;
+  suggestLocalArtists?: boolean;
+  bio?: string | null;
 }
 
 function transformUser(data: any): UserResponse {
@@ -23,6 +26,9 @@ function transformUser(data: any): UserResponse {
     avatarUrl: data.avatar_url,
     createdAt: data.created_at,
     firebaseUid: data.firebase_uid,
+    region: data.region ?? null,
+    suggestLocalArtists: data.suggest_local_artists ?? true,
+    bio: data.bio ?? null,
   };
 }
 
@@ -117,13 +123,18 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const updatePayload: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (updateUserDto.displayName !== undefined) updatePayload.display_name = updateUserDto.displayName;
+    if (updateUserDto.avatarUrl !== undefined) updatePayload.avatar_url = updateUserDto.avatarUrl;
+    if (updateUserDto.region !== undefined) updatePayload.region = updateUserDto.region;
+    if (updateUserDto.suggestLocalArtists !== undefined) updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
+    if (updateUserDto.bio !== undefined) updatePayload.bio = updateUserDto.bio;
+
     const { data, error } = await supabase
       .from('users')
-      .update({
-        display_name: updateUserDto.displayName,
-        avatar_url: updateUserDto.avatarUrl,
-        updated_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', user.id)
       .select()
       .single();

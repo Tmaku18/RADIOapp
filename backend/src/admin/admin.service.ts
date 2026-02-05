@@ -187,6 +187,60 @@ export class AdminService {
     return data;
   }
 
+  /**
+   * Delete a song (admin). Removes DB record and storage files.
+   */
+  async deleteSong(songId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: song, error: fetchError } = await supabase
+      .from('songs')
+      .select('id, audio_url, artwork_url')
+      .eq('id', songId)
+      .single();
+
+    if (fetchError || !song) {
+      throw new NotFoundException('Song not found');
+    }
+
+    if (song.audio_url) {
+      await this.deleteFromStorage('songs', song.audio_url);
+    }
+    if (song.artwork_url) {
+      await this.deleteFromStorage('artwork', song.artwork_url);
+    }
+
+    const { error: deleteError } = await supabase
+      .from('songs')
+      .delete()
+      .eq('id', songId);
+
+    if (deleteError) {
+      throw new BadRequestException(`Failed to delete song: ${deleteError.message}`);
+    }
+
+    this.logger.log(`Deleted song ${songId}`);
+  }
+
+  /**
+   * Get a single user's profile by ID.
+   */
+  async getUserProfile(userId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, display_name, role, avatar_url, created_at, updated_at, is_banned, banned_at, ban_reason, is_shadow_banned')
+      .eq('id', userId)
+      .single();
+
+    if (error || !data) {
+      throw new NotFoundException('User not found');
+    }
+
+    return data;
+  }
+
   // ========== Fallback Playlist Management ==========
 
   async getFallbackSongs() {
@@ -228,6 +282,93 @@ export class AdminService {
 
     if (error) {
       throw new BadRequestException(`Failed to add fallback song: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Add a fallback song from uploaded file paths (storage paths → public URLs).
+   */
+  async addFallbackSongFromUpload(
+    adminId: string,
+    dto: {
+      title: string;
+      artistName: string;
+      audioPath: string;
+      artworkPath?: string;
+      durationSeconds?: number;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+
+    const { data: audioUrlData } = supabase.storage
+      .from('songs')
+      .getPublicUrl(dto.audioPath);
+    const audioUrl = audioUrlData.publicUrl;
+
+    let artworkUrl: string | undefined;
+    if (dto.artworkPath) {
+      const { data: artworkUrlData } = supabase.storage
+        .from('artwork')
+        .getPublicUrl(dto.artworkPath);
+      artworkUrl = artworkUrlData.publicUrl;
+    }
+
+    const { data, error } = await supabase
+      .from('admin_fallback_songs')
+      .insert({
+        title: dto.title,
+        artist_name: dto.artistName,
+        audio_url: audioUrl,
+        artwork_url: artworkUrl,
+        duration_seconds: dto.durationSeconds ?? 180,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to add fallback song from upload: ${error.message}`);
+    }
+
+    return data;
+  }
+
+  /**
+   * Add a fallback song by copying an existing approved song.
+   */
+  async addFallbackSongFromSong(songId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: song, error: fetchError } = await supabase
+      .from('songs')
+      .select('id, title, audio_url, artwork_url, duration_seconds, artist_id, users:artist_id(display_name)')
+      .eq('id', songId)
+      .eq('status', 'approved')
+      .single();
+
+    if (fetchError || !song) {
+      throw new NotFoundException('Song not found or not approved');
+    }
+
+    const artistName = (song.users as any)?.display_name ?? 'Unknown Artist';
+
+    const { data, error } = await supabase
+      .from('admin_fallback_songs')
+      .insert({
+        title: song.title,
+        artist_name: artistName,
+        audio_url: song.audio_url,
+        artwork_url: song.artwork_url ?? undefined,
+        duration_seconds: song.duration_seconds ?? 180,
+        is_active: true,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to add fallback song from song: ${error.message}`);
     }
 
     return data;
@@ -549,6 +690,145 @@ export class AdminService {
     this.logger.log(`Restored user ${userId}`);
 
     return { success: true, userId };
+  }
+
+  /**
+   * Delete a user account: remove all user data and Firebase user.
+   * User can sign up again after deletion.
+   */
+  async deleteUserAccount(userId: string) {
+    const supabase = getSupabaseClient();
+    const auth = getFirebaseAuth();
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, firebase_uid')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Delete user's songs (and storage)
+    const { data: songs } = await supabase.from('songs').select('id, audio_url, artwork_url').eq('artist_id', userId);
+    if (songs?.length) {
+      for (const song of songs) {
+        if (song.audio_url) await this.deleteFromStorage('songs', song.audio_url);
+        if (song.artwork_url) await this.deleteFromStorage('artwork', song.artwork_url);
+      }
+    }
+    await supabase.from('songs').delete().eq('artist_id', userId);
+
+    await supabase.from('likes').delete().eq('user_id', userId);
+    await supabase.from('notifications').delete().eq('user_id', userId);
+    await supabase.from('push_tokens').delete().eq('user_id', userId);
+    await supabase
+      .from('chat_messages')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('user_id', userId);
+
+    if (user.firebase_uid) {
+      try {
+        await auth.deleteUser(user.firebase_uid);
+        this.logger.log(`Deleted Firebase user ${user.firebase_uid} for account ${userId}`);
+      } catch (firebaseError) {
+        this.logger.warn(`Firebase deleteUser failed: ${firebaseError.message}`);
+      }
+    }
+
+    const { error: deleteError } = await supabase.from('users').delete().eq('id', userId);
+    if (deleteError) {
+      throw new BadRequestException(`Failed to delete user: ${deleteError.message}`);
+    }
+
+    this.logger.log(`Deleted user account ${userId}`);
+  }
+
+  /**
+   * Lifetime ban: delete all artist songs and storage, revoke tokens, keep user record so they cannot re-register.
+   */
+  async lifetimeBanUser(userId: string, adminId: string, reason: string): Promise<BanResult> {
+    const supabase = getSupabaseClient();
+    const auth = getFirebaseAuth();
+
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, firebase_uid')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Delete all artist songs and storage
+    const { data: songs } = await supabase.from('songs').select('id, audio_url, artwork_url').eq('artist_id', userId);
+    if (songs?.length) {
+      for (const song of songs) {
+        if (song.audio_url) await this.deleteFromStorage('songs', song.audio_url);
+        if (song.artwork_url) await this.deleteFromStorage('artwork', song.artwork_url);
+      }
+    }
+    await supabase.from('songs').delete().eq('artist_id', userId);
+
+    await supabase.from('likes').delete().eq('user_id', userId);
+    await supabase.from('notifications').delete().eq('user_id', userId);
+    await supabase.from('push_tokens').delete().eq('user_id', userId);
+
+    const { error: banError } = await supabase
+      .from('users')
+      .update({
+        is_banned: true,
+        banned_at: new Date().toISOString(),
+        ban_reason: reason,
+        banned_by: adminId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId);
+
+    if (banError) {
+      throw new BadRequestException(`Failed to lifetime ban user: ${banError.message}`);
+    }
+
+    let tokenRevoked = false;
+    if (user.firebase_uid) {
+      try {
+        await auth.revokeRefreshTokens(user.firebase_uid);
+        tokenRevoked = true;
+      } catch (firebaseError) {
+        this.logger.warn(`Failed to revoke tokens: ${firebaseError.message}`);
+      }
+    }
+
+    this.logger.log(`Lifetime banned user ${userId}. Reason: ${reason}`);
+    return {
+      success: true,
+      userId,
+      banType: 'hard',
+      tokenRevoked,
+    };
+  }
+
+  /**
+   * Extract storage path from public URL and delete the file.
+   * URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
+   */
+  private async deleteFromStorage(bucket: string, url: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    try {
+      const urlObj = new URL(url);
+      const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)/);
+      if (!pathMatch) {
+        this.logger.warn(`Could not extract path from URL: ${url}`);
+        return;
+      }
+      const filePath = pathMatch[1];
+      const { error } = await supabase.storage.from(bucket).remove([filePath]);
+      if (error) this.logger.warn(`Failed to delete from ${bucket}: ${error.message}`);
+    } catch {
+      this.logger.warn(`Could not parse storage URL: ${url}`);
+    }
   }
 
   /**

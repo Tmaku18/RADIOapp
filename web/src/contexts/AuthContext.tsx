@@ -17,9 +17,12 @@ interface UserProfile {
   id: string;
   email: string;
   displayName: string | null;
-  role: 'listener' | 'artist' | 'admin';
+  role: 'listener' | 'artist' | 'admin' | 'service_provider';
   avatarUrl: string | null;
   createdAt: string;
+  region?: string | null;
+  suggestLocalArtists?: boolean;
+  bio?: string | null;
 }
 
 interface PendingGoogleUser {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -32,12 +33,15 @@ void main() async {
     debugPrint('Warning: STRIPE_PUBLISHABLE_KEY not found in .env');
   }
   
-  // Initialize Firebase with platform-specific configuration
+  // Initialize Firebase with timeout so app doesn't hang on emulator/slow network
   bool firebaseInitialized = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    );
+    ).timeout(const Duration(seconds: 12), onTimeout: () {
+      debugPrint('Firebase init timed out (e.g. emulator) – showing login anyway');
+      throw TimeoutException('Firebase initialization timed out');
+    });
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
     

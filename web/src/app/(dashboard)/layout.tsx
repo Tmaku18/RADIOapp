@@ -79,6 +79,8 @@ function getPageTitle(pathname: string, profileRole?: string): string {
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'Stats';
+  if (pathname.startsWith('/competition')) return 'Competition';
+  if (pathname.match(/^\/artist\/[^/]+$/)) return 'Artist';
   return 'Dashboard';
 }
 

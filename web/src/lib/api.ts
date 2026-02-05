@@ -81,12 +81,45 @@ export const songsApi = {
 
 export const usersApi = {
   getMe: () => api.get('/users/me'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string }) => 
+  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string }) => 
     api.put('/users/me', data),
   getById: (id: string) => api.get(`/users/${id}`),
   create: (data: { email: string; displayName?: string; role: 'listener' | 'artist' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
+};
+
+export const suggestionsApi = {
+  getLocalArtists: (limit?: number) => api.get('/suggestions/local-artists', { params: { limit } }),
+};
+
+export const leaderboardApi = {
+  getSongs: (params: { by: 'likes' | 'listens'; limit?: number; offset?: number }) => 
+    api.get('/leaderboard/songs', { params }),
+  addLeaderboardLike: (songId: string, playId?: string) => 
+    api.post(`/leaderboard/songs/${songId}/like`, { playId }),
+};
+
+export const feedApi = {
+  getNewsPromotions: (limit?: number) => api.get('/feed/news-promotions', { params: { limit } }),
+};
+
+export const spotlightApi = {
+  getToday: () => api.get('/spotlight/today'),
+  getWeek: (start?: string) => api.get('/spotlight/week', { params: { start } }),
+  canListenUnlimited: (artistId: string, songId: string) => 
+    api.get('/spotlight/can-listen-unlimited', { params: { artistId, songId } }),
+  recordListen: (data: { songId: string; artistId: string; context: 'featured_replay' | 'artist_of_week' | 'artist_of_month' }) => 
+    api.post('/spotlight/listen', data),
+};
+
+export const competitionApi = {
+  getCurrentWeek: () => api.get('/competition/current-week'),
+  vote: (songIds: string[]) => api.post('/competition/vote', { songIds }),
+  getWeeklyResults: (period?: string) => api.get('/competition/weekly-results', { params: { period } }),
+  getMonthlyWinners: (year?: number, month?: number) => 
+    api.get('/competition/monthly-winners', { params: { year, month } }),
+  getYearlyWinners: (year?: number) => api.get('/competition/yearly-winners', { params: { year } }),
 };
 
 export const creditsApi = {

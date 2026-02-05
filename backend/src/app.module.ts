@@ -15,6 +15,11 @@ import { EmailModule } from './email/email.module';
 import { ChatModule } from './chat/chat.module';
 import { PushNotificationModule } from './push-notifications/push-notification.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { SuggestionsModule } from './suggestions/suggestions.module';
+import { LeaderboardModule } from './leaderboard/leaderboard.module';
+import { FeedModule } from './feed/feed.module';
+import { SpotlightModule } from './spotlight/spotlight.module';
+import { CompetitionModule } from './competition/competition.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -37,6 +42,11 @@ import { RequestIdMiddleware } from './common/middleware';
     ChatModule,
     PushNotificationModule,
     AnalyticsModule,
+    SuggestionsModule,
+    LeaderboardModule,
+    FeedModule,
+    SpotlightModule,
+    CompetitionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

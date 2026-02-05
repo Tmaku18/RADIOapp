@@ -23,8 +23,8 @@ services:
       # Backend reads Firebase from this path (file mounted from host)
       FIREBASE_SERVICE_ACCOUNT_PATH: /app/firebase-service-account.json
     volumes:
-      # Mount Firebase JSON from home dir. Set FIREBASE_JSON_PATH in .env (e.g. /mnt/c/Users/tmaku/firebase-service-account.json).
-      - "${FIREBASE_JSON_PATH}:/app/firebase-service-account.json:ro"
+      # Mount Firebase service account JSON from docs/
+      - "./docs/radioapp-4c14a-firebase-adminsdk-fbsvc-3b9bd6b762.json:/app/firebase-service-account.json:ro"
     depends_on:
       - redis
     restart: unless-stopped

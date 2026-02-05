@@ -30,7 +30,7 @@ function LoginForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = searchParams.get('redirect') || '/competition';
   const sessionExpired = searchParams.get('session_expired') === 'true';
 
   const handleEmailLogin = async (e: React.FormEvent) => {

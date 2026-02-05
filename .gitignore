@@ -42,6 +42,7 @@ mobile/local.properties
 mobile/.fvm/
 
 # Firebase / service account JSON (keep in home dir or outside repo; never commit)
+docs/**/firebase*.json
 firebase-service-account.json
 **/firebase-service-account*.json
 **/firebase-key*.txt
