@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
+import { CreatorNetworkService } from '../creator-network/creator-network.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 
@@ -10,6 +11,7 @@ export class PaymentsService {
   constructor(
     private stripeService: StripeService,
     private configService: ConfigService,
+    private creatorNetwork: CreatorNetworkService,
   ) {}
 
   async createPaymentIntent(userId: string, dto: CreatePaymentIntentDto) {
@@ -143,6 +145,73 @@ export class PaymentsService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
+  }
+
+  /**
+   * Create a Stripe Checkout Session for Creator Network subscription.
+   */
+  async createCreatorNetworkCheckoutSession(userId: string, successUrl: string, cancelUrl: string) {
+    const session = await this.stripeService.createCreatorNetworkCheckoutSession(userId, successUrl, cancelUrl);
+    return { sessionId: session.id, url: session.url };
+  }
+
+  private isCreatorNetworkSubscription(subscription: { items?: { data?: Array<{ price?: { id?: string } }> } }): boolean {
+    const priceId = this.stripeService.getCreatorNetworkPriceId();
+    if (!priceId) return false;
+    const itemPriceId = subscription.items?.data?.[0]?.price?.id;
+    return itemPriceId === priceId;
+  }
+
+  private mapStripeStatus(stripeStatus: string): 'active' | 'canceled' | 'past_due' {
+    if (stripeStatus === 'active') return 'active';
+    if (stripeStatus === 'canceled' || stripeStatus === 'unpaid') return 'canceled';
+    return 'past_due';
+  }
+
+  async handleCreatorNetworkCheckoutCompleted(subscriptionId: string, userId: string): Promise<void> {
+    const priceId = this.stripeService.getCreatorNetworkPriceId();
+    if (!priceId) return;
+    const subscription = await this.stripeService.getSubscription(subscriptionId);
+    if (!this.isCreatorNetworkSubscription(subscription)) return;
+    const status = this.mapStripeStatus(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    await this.creatorNetwork.setSubscription({
+      userId,
+      stripeSubscriptionId: subscriptionId,
+      status,
+      currentPeriodEnd,
+    });
+  }
+
+  async handleCreatorNetworkSubscriptionUpdated(
+    subscription: { id: string; status: string; current_period_end?: number; items?: { data?: Array<{ price?: { id?: string } }> } },
+  ): Promise<void> {
+    const userId = await this.creatorNetwork.getUserIdByStripeSubscriptionId(subscription.id);
+    if (!userId) return;
+    if (!this.isCreatorNetworkSubscription(subscription)) return;
+    const status = this.mapStripeStatus(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    await this.creatorNetwork.setSubscription({
+      userId,
+      stripeSubscriptionId: subscription.id,
+      status,
+      currentPeriodEnd,
+    });
+  }
+
+  async handleCreatorNetworkSubscriptionDeleted(subscriptionId: string): Promise<void> {
+    const userId = await this.creatorNetwork.getUserIdByStripeSubscriptionId(subscriptionId);
+    if (!userId) return;
+    await this.creatorNetwork.setSubscription({
+      userId,
+      stripeSubscriptionId: subscriptionId,
+      status: 'canceled',
+      currentPeriodEnd: null,
+    });
   }
 
   async getTransactions(userId: string) {

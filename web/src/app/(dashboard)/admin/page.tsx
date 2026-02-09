@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 interface Analytics {
   totalUsers: number;
@@ -25,6 +26,8 @@ export default function AdminDashboardPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [liveStatus, setLiveStatus] = useState<{ active: boolean; startedAt?: string } | null>(null);
+  const [liveActionLoading, setLiveActionLoading] = useState(false);
 
   useEffect(() => {
     // Redirect non-admins
@@ -35,6 +38,37 @@ export default function AdminDashboardPage() {
 
     loadAnalytics();
   }, [profile, router]);
+
+  useEffect(() => {
+    if (profile?.role !== 'admin') return;
+    adminApi.getLiveStatus()
+      .then((res) => setLiveStatus(res.data))
+      .catch(() => setLiveStatus({ active: false }));
+  }, [profile?.role]);
+
+  const handleStartLive = async () => {
+    setLiveActionLoading(true);
+    try {
+      await adminApi.startLive();
+      setLiveStatus({ active: true, startedAt: new Date().toISOString() });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLiveActionLoading(false);
+    }
+  };
+
+  const handleStopLive = async () => {
+    setLiveActionLoading(true);
+    try {
+      await adminApi.stopLive();
+      setLiveStatus({ active: false });
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLiveActionLoading(false);
+    }
+  };
 
   const loadAnalytics = async () => {
     try {
@@ -115,6 +149,30 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Live broadcast</h2>
+          <p className="text-muted-foreground text-sm mb-4">Start or stop a live broadcast. Listeners will see a &quot;Live broadcast&quot; indicator on the Listen page.</p>
+          {liveStatus?.active ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="destructive" className="animate-pulse">Live now</Badge>
+              {liveStatus.startedAt && (
+                <span className="text-sm text-muted-foreground">
+                  Started {new Date(liveStatus.startedAt).toLocaleString()}
+                </span>
+              )}
+              <Button variant="destructive" size="sm" onClick={handleStopLive} disabled={liveActionLoading}>
+                {liveActionLoading ? 'Stopping…' : 'Stop broadcast'}
+              </Button>
+            </div>
+          ) : (
+            <Button onClick={handleStartLive} disabled={liveActionLoading}>
+              {liveActionLoading ? 'Starting…' : 'Go live'}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card>

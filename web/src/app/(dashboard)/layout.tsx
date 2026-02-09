@@ -46,14 +46,20 @@ import {
 } from '@hugeicons/core-free-icons';
 
 const baseNavigation = [
+  { name: 'Browse', href: '/browse', icon: '🔍' },
+  { name: 'Discover', href: '/discover', icon: '✨' },
+  { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { name: 'Listen', href: '/listen', icon: '🎵' },
   { name: 'Profile', href: '/profile', icon: '👤' },
+  { name: 'Messages', href: '/messages', icon: '💬' },
+  { name: 'Job board', href: '/job-board', icon: '📋' },
 ];
 
 const artistNavigation = [
   { name: 'My Songs', href: '/artist/songs', icon: '🎵' },
   { name: 'Upload', href: '/artist/upload', icon: '📤' },
+  { name: 'Live services', href: '/artist/live-services', icon: '📅' },
+  { name: 'Services', href: '/artist/services', icon: '🛠️' },
   { name: 'Credits', href: '/artist/credits', icon: '💰' },
   { name: 'Stats', href: '/artist/stats', icon: '📈' },
 ];
@@ -61,6 +67,7 @@ const artistNavigation = [
 const adminSubNavigation = [
   { name: 'Songs', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
+  { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
 ];
@@ -69,17 +76,25 @@ const adminSubNavigation = [
 function getPageTitle(pathname: string, profileRole?: string): string {
   if (pathname.startsWith('/admin/songs')) return 'Songs';
   if (pathname.startsWith('/admin/users')) return 'Users';
+  if (pathname.startsWith('/admin/feed')) return 'Feed';
   if (pathname.startsWith('/admin/fallback')) return 'Fallback';
   if (pathname.startsWith('/admin/free-rotation')) return 'Free Rotation';
   if (pathname.startsWith('/admin')) return 'Admin';
+  if (pathname.startsWith('/browse')) return 'Browse';
+  if (pathname.startsWith('/discover')) return 'Discover';
+  if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
-  if (pathname.startsWith('/listen')) return 'Listen';
+  if (pathname.startsWith('/listen')) return 'Radio';
   if (pathname.startsWith('/profile')) return 'Profile';
   if (pathname.startsWith('/artist/songs')) return 'My Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'Stats';
+  if (pathname.startsWith('/artist/live-services')) return 'Live services';
+  if (pathname.startsWith('/artist/services')) return 'Services';
+  if (pathname.startsWith('/browse/saved')) return 'Saved';
   if (pathname.startsWith('/competition')) return 'Competition';
+  if (pathname.startsWith('/job-board')) return 'Job board';
   if (pathname.match(/^\/artist\/[^/]+$/)) return 'Artist';
   return 'Dashboard';
 }
@@ -120,7 +135,7 @@ export default function DashboardLayout({
     }
   }, [user, profile]);
 
-  const handleRoleSelect = async (role: 'listener' | 'artist') => {
+  const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
     setIsCompletingSignUp(true);
     try {
       await completeGoogleSignUp(role);
@@ -174,9 +189,9 @@ export default function DashboardLayout({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/" className="flex items-center gap-2">
+                <Link href="/browse" className="flex items-center gap-2">
                   <span className="text-2xl">🎧</span>
-                  <span className="font-bold text-foreground">RadioApp</span>
+                  <span className="font-bold text-foreground">Discover Me</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -316,7 +331,7 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-auto p-8 bg-muted/50 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 md:p-8 bg-muted/30 flex flex-col">
           {children}
         </div>
       </SidebarInset>

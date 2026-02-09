@@ -307,4 +307,41 @@ export class AdminController {
     const songs = await this.adminService.getSongsInFreeRotation();
     return { songs, total: songs.length };
   }
+
+  // ========== Live Broadcast ==========
+
+  @Post('live/start')
+  async startLive(@CurrentUser() admin: FirebaseUser) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    return this.adminService.startLiveBroadcast(adminId);
+  }
+
+  @Post('live/stop')
+  async stopLive() {
+    return this.adminService.stopLiveBroadcast();
+  }
+
+  @Get('live/status')
+  async getLiveStatus() {
+    return this.adminService.getLiveBroadcastStatus();
+  }
+
+  // ========== Browse Feed Management ==========
+
+  @Get('feed-media')
+  async getFeedMedia(@Query('reportedOnly') reportedOnly?: string) {
+    return this.adminService.getFeedMedia(reportedOnly === 'true');
+  }
+
+  @Patch('feed-media/:contentId/remove')
+  async removeFromFeed(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('contentId') contentId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    await this.adminService.removeFromFeed(contentId, adminId);
+    return { removed: true };
+  }
 }

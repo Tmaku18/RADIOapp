@@ -123,6 +123,17 @@ export class RadioService {
     await this.radioStateService.setCurrentState(state);
   }
 
+  /** Check if an admin live broadcast is currently active. */
+  private async isLiveBroadcastActive(): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('live_broadcast')
+      .select('id')
+      .eq('status', 'active')
+      .maybeSingle();
+    return !!data;
+  }
+
   /**
    * Get the current track with timing information for client synchronization.
    * If nothing is playing, automatically starts the next track.
@@ -130,7 +141,8 @@ export class RadioService {
   async getCurrentTrack() {
     const supabase = getSupabaseClient();
     const now = Date.now();
-    
+    const isLive = await this.isLiveBroadcastActive();
+
     const queueState = await this.getQueueState();
     
     // If nothing is playing, start the next track
@@ -175,6 +187,7 @@ export class RadioService {
       server_time: new Date(now).toISOString(),
       time_remaining_ms: timeRemainingMs,
       position_seconds: Math.floor((now - startedAt) / 1000),
+      is_live: isLive,
     };
   }
 
@@ -489,6 +502,7 @@ export class RadioService {
   async getNextTrack(): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
+    const isLive = await this.isLiveBroadcastActive();
 
     const currentState = await this.getQueueState();
     
@@ -530,6 +544,7 @@ export class RadioService {
             position_seconds: Math.floor((now - startedAt) / 1000),
             is_fallback: currentState.isFallback,
             is_admin_fallback: currentState.isAdminFallback,
+            is_live: isLive,
           };
         }
       }
@@ -566,21 +581,21 @@ export class RadioService {
       const creditedResult = await this.getCreditedSong(currentSongId);
       if (creditedResult) {
         const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
-        if (result) return result;
+        if (result) return { ...result, is_live: isLive };
       }
 
       // Try trial songs (3 free plays)
       const trialResult = await this.getTrialSong(currentSongId);
       if (trialResult) {
         const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
-        if (result) return result;
+        if (result) return { ...result, is_live: isLive };
       }
 
       // Try opt-in songs (free rotation opt-in)
       const optInResult = await this.getOptInSong(currentSongId);
       if (optInResult) {
         const result = await this.playOptInSong(optInResult.song, optInResult.competingSongs);
-        if (result) return result;
+        if (result) return { ...result, is_live: isLive };
       }
 
       // No credited, trial, or opt-in songs available - fall back to free rotation
@@ -592,17 +607,17 @@ export class RadioService {
     if (freeRotationSong) {
       this.logger.log(`Playing free rotation song: ${freeRotationSong.title}`);
       const result = await this.playFreeRotationSong(freeRotationSong);
-      
+
       // Checkpoint position after playing free rotation song
       const position = await this.radioStateService.getFallbackPosition();
       await this.radioStateService.checkpointPosition(position + 1);
-      
-      return result;
+
+      return { ...result, is_live: isLive };
     }
 
     // No content available
     this.logger.warn('No songs available for playback - free rotation table is empty');
-    return this.buildNoContentResponse();
+    return { ...this.buildNoContentResponse(), is_live: isLive };
   }
 
   /**

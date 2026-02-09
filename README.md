@@ -36,6 +36,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Admin Songs**: Delete songs (removes from DB + storage), sort by artist name
 - **Admin Users**: Lifetime ban / deactivate (deletes user data, blocks re-registration)
 - **Fallback**: Admin upload page and song database (add from free rotation)
+- **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
+- **Leaderboards**: Competition page leaderboards use actual stats (by likes from `leaderboard_likes`, by plays from `songs.play_count`); Artist Stats “Top Performing Songs” and summary cards use real analytics API data
 
 ## Architecture
 
@@ -92,8 +94,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Payments**: Stripe
   - PaymentIntent flow for mobile (native UI)
   - Checkout Sessions flow for web (hosted UI)
-  - Webhook handling for payment events
-  - Future subscription support
+  - Webhook handling for payment events and Creator Network subscriptions
+  - Creator Network subscription (Stripe Price ID, checkout + webhook: `checkout.session.completed`, `customer.subscription.updated/deleted`)
   
 - **Admin Dashboard**: Next.js (legacy) + unified admin in web app
   - Song moderation with Approve, Reject, Delete (permanent delete from DB + storage)
@@ -178,8 +180,12 @@ web/
 │   │   ├── (dashboard)/                # Authenticated app pages
 │   │   │   ├── dashboard/page.tsx      # Role-aware dashboard
 │   │   │   ├── listen/page.tsx         # Radio player
-│   │   │   ├── profile/page.tsx        # User profile management
+│   │   │   ├── profile/page.tsx        # User profile + Creator Network upgrade
 │   │   │   ├── notifications/page.tsx  # Notification center
+│   │   │   ├── discover/page.tsx      # Discover providers/artists (filters, search)
+│   │   │   ├── messages/page.tsx       # DMs (conversations, thread, paywall CTA)
+│   │   │   ├── job-board/page.tsx      # Service requests + apply / My requests + applications
+│   │   │   ├── competition/page.tsx   # Leaderboards (likes/plays), spotlight, vote Top 7
 │   │   │   ├── artist/
 │   │   │   │   ├── songs/page.tsx      # My Songs (manage uploads)
 │   │   │   │   ├── songs/[id]/allocate/page.tsx  # Credit allocation
@@ -791,7 +797,12 @@ Supabase Storage (Audio Files)
 - ✅ **My Songs page** with status, duration, credits, trial plays, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
 - ✅ **Notifications page** with unread indicator and delete functionality
-- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown)
+- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Songs from real API)
+- ✅ **Discover** (providers/artists with service type, location, search; link to profile and Messages)
+- ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
+- ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)
+- ✅ **Creator Network** (Profile: subscribe via Stripe; DMs gated; webhook syncs subscription status)
+- ✅ **Competition** (leaderboards by likes and by plays with actual stats; spotlight, vote Top 7)
 - ✅ **Admin dashboard** (analytics, song moderation with status transitions)
 - ✅ **Admin user management** with hard ban and shadow ban controls
 - ✅ **Admin fallback playlist** management page
@@ -938,6 +949,13 @@ See `docs/api-spec.md` for detailed API endpoint documentation, request/response
 | `/api/payments/create-checkout-session` | POST | Artist | Create Checkout Session (web) |
 | `/api/analytics/me` | GET | Artist | Get artist analytics |
 | `/api/analytics/platform` | GET | No | Get platform-wide statistics |
+| `/api/discovery/people` | GET | User | List providers/artists (filters, search) |
+| `/api/creator-network/access` | GET | User | Check Creator Network subscription |
+| `/api/messages/conversations` | GET | User | List DM conversations |
+| `/api/messages/conversations/:id` | GET/POST | User | Thread + send message (paywall) |
+| `/api/job-board/requests` | GET | User | List service requests (optional ?mine=true) |
+| `/api/job-board/requests/:id/applications` | GET/POST | User | Applications (artist: list; provider: apply) |
+| `/api/payments/create-creator-network-checkout-session` | POST | User | Create Creator Network subscription checkout |
 | `/api/notifications` | DELETE | User | Soft delete notifications |
 | `/api/admin/songs/:id` | PATCH | Admin | Update song status (pending/approved/rejected) |
 | `/api/admin/users/:id/hard-ban` | POST | Admin | Hard ban with token revocation |

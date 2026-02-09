@@ -15,6 +15,7 @@ export function RadioPlayer() {
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
+  const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
   
@@ -44,6 +45,7 @@ export function RadioPlayer() {
       // Reset no_content state if we have content
       setNoContent(false);
       setNoContentMessage(null);
+      setIsLiveBroadcast(!!trackData?.is_live);
       
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
@@ -119,6 +121,7 @@ export function RadioPlayer() {
       // Reset no_content state if we have content
       setNoContent(false);
       setNoContentMessage(null);
+      setIsLiveBroadcast(!!trackData?.is_live);
       
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
@@ -336,6 +339,15 @@ export function RadioPlayer() {
         )}
 
         <div className="text-center mb-6">
+          {isLiveBroadcast && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-medium mb-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              </span>
+              Live broadcast
+            </div>
+          )}
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.currentTrack?.title || 'No track playing'}
           </h2>

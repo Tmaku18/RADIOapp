@@ -12,14 +12,16 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+type OnboardingRole = 'listener' | 'artist' | 'service_provider';
+
 interface RoleSelectionModalProps {
-  onSelect: (role: 'listener' | 'artist') => void;
+  onSelect: (role: OnboardingRole) => void;
   onCancel: () => void;
   loading?: boolean;
 }
 
 export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectionModalProps) {
-  const [selectedRole, setSelectedRole] = useState<'listener' | 'artist' | null>(null);
+  const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
 
   const handleContinue = () => {
     if (selectedRole) {
@@ -32,7 +34,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
       <DialogContent showCloseButton={!loading}>
         <DialogHeader>
           <DialogTitle>Welcome! Choose Your Role</DialogTitle>
-          <DialogDescription>How would you like to use RadioApp?</DialogDescription>
+          <DialogDescription>How would you like to use Discover Me?</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -96,8 +98,38 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
             </div>
           </button>
 
+          <button
+            type="button"
+            onClick={() => setSelectedRole('service_provider')}
+            disabled={loading}
+            className={cn(
+              'w-full p-4 rounded-xl border-2 text-left transition-all',
+              selectedRole === 'service_provider'
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-primary/50',
+              loading && 'opacity-50 cursor-not-allowed'
+            )}
+          >
+            <div className="flex items-start gap-4">
+              <div className="text-3xl">🛠️</div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-foreground">Service provider</h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Offer beats, mixing, photography, design, or other creative services to artists
+                </p>
+              </div>
+              {selectedRole === 'service_provider' && (
+                <div className="text-primary">
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              )}
+            </div>
+          </button>
+
           <p className="text-xs text-muted-foreground text-center">
-            Listeners can upgrade to artists later from their profile settings.
+            Listeners can upgrade to artists or service providers later from their profile settings.
           </p>
         </div>
 

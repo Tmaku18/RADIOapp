@@ -9,6 +9,6 @@ export class CreateUserDto {
   displayName?: string;
 
   @IsString()
-  @IsIn(['listener', 'artist'])
-  role: 'listener' | 'artist';
+  @IsIn(['listener', 'artist', 'service_provider'])
+  role: 'listener' | 'artist' | 'service_provider';
 }

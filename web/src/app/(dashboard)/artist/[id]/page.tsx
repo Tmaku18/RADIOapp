@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { usersApi, songsApi, spotlightApi } from '@/lib/api';
+import { usersApi, songsApi, spotlightApi, liveServicesApi, artistFollowsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,9 @@ export default function ArtistProfilePage() {
   const [unlimitedBySong, setUnlimitedBySong] = useState<Record<string, { allowed: boolean; context?: string }>>({});
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [recordedListen, setRecordedListen] = useState<Set<string>>(new Set());
+  const [liveServices, setLiveServices] = useState<Array<{ id: string; title: string; description?: string | null; type: string; scheduledAt?: string | null; linkOrPlace?: string | null }>>([]);
+  const [following, setFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -84,6 +87,42 @@ export default function ArtistProfilePage() {
       ignore = true;
     };
   }, [artistId]);
+
+  useEffect(() => {
+    if (!artistId || !artist) return;
+    let ignore = false;
+    liveServicesApi.listByArtist(artistId).then((res) => {
+      if (!ignore) setLiveServices(res.data || []);
+    }).catch(() => { if (!ignore) setLiveServices([]); });
+    return () => { ignore = true; };
+  }, [artistId, artist]);
+
+  useEffect(() => {
+    if (!artistId || !profile?.id || profile.id === artistId) return;
+    let ignore = false;
+    artistFollowsApi.isFollowing(artistId).then((res) => {
+      if (!ignore) setFollowing(res.data?.following ?? false);
+    }).catch(() => { if (!ignore) setFollowing(false); });
+    return () => { ignore = true; };
+  }, [artistId, profile?.id]);
+
+  const handleFollowToggle = async () => {
+    if (!artistId || profile?.id === artistId || followLoading) return;
+    setFollowLoading(true);
+    try {
+      if (following) {
+        await artistFollowsApi.unfollow(artistId);
+        setFollowing(false);
+      } else {
+        await artistFollowsApi.follow(artistId);
+        setFollowing(true);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFollowLoading(false);
+    }
+  };
 
   // Check unlimited listening for each song
   useEffect(() => {
@@ -197,10 +236,44 @@ export default function ArtistProfilePage() {
             <p className="text-muted-foreground">Artist profile</p>
           </div>
         </div>
-        <Link href="/competition">
-          <Button variant="outline">Back to Competition</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {profile?.id && profile.id !== artistId && (
+            <Button variant={following ? 'secondary' : 'default'} size="sm" onClick={handleFollowToggle} disabled={followLoading}>
+              {followLoading ? '…' : following ? 'Unfollow' : 'Follow'}
+            </Button>
+          )}
+          <Link href="/competition">
+            <Button variant="outline" size="sm">Back to Competition</Button>
+          </Link>
+        </div>
       </div>
+
+      {liveServices.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Upcoming live</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {liveServices.map((ev) => (
+                <li key={ev.id} className="flex flex-col gap-1 p-2 rounded-lg border border-border">
+                  <span className="font-medium">{ev.title}</span>
+                  {ev.scheduledAt && (
+                    <span className="text-sm text-muted-foreground">
+                      {new Date(ev.scheduledAt).toLocaleString()}
+                    </span>
+                  )}
+                  {ev.linkOrPlace && (
+                    <a href={ev.linkOrPlace} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                      {ev.linkOrPlace}
+                    </a>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {artist.bio && (
         <Card>

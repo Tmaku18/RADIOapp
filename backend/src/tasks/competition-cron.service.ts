@@ -81,4 +81,65 @@ export class CompetitionCronService {
     }
     this.logger.log(`Assigned spotlight for week starting ${thisWeekStart} (${toSpotlight.length} days)`);
   }
+
+  /**
+   * Run daily at 00:10 UTC. On the 1st of the month, assign Artist of the Month
+   * from the previous month's weekly winners (last week's winner in that month).
+   */
+  @Cron('10 0 * * *')
+  async assignMonthlyWinner() {
+    const now = new Date();
+    if (now.getUTCDate() !== 1) return;
+
+    const supabase = getSupabaseClient();
+    const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const year = prev.getUTCFullYear();
+    const month = prev.getUTCMonth() + 1;
+    const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+    const monthEnd = new Date(Date.UTC(year, month, 0));
+    const monthEndStr = monthEnd.toISOString().slice(0, 10);
+
+    const { data: weekly } = await supabase
+      .from('weekly_winners')
+      .select('period_start_date, artist_id')
+      .gte('period_start_date', monthStart)
+      .lte('period_start_date', monthEndStr)
+      .order('period_start_date', { ascending: false })
+      .limit(1);
+    if (!weekly?.length) {
+      this.logger.log(`No weekly winner for ${year}-${month}, skipping monthly winner`);
+      return;
+    }
+    await supabase.from('monthly_winners').upsert(
+      { year, month, artist_id: weekly[0].artist_id },
+      { onConflict: 'year,month' },
+    );
+    this.logger.log(`Assigned monthly winner for ${year}-${month}: artist ${weekly[0].artist_id}`);
+  }
+
+  /**
+   * Run daily at 00:15 UTC. On Jan 1, assign Artist of the Year
+   * from the previous year's monthly winners (last month's winner).
+   */
+  @Cron('15 0 1 * *')
+  async assignYearlyWinner() {
+    const now = new Date();
+    const year = now.getUTCFullYear() - 1;
+    const supabase = getSupabaseClient();
+    const { data: monthly } = await supabase
+      .from('monthly_winners')
+      .select('artist_id')
+      .eq('year', year)
+      .order('month', { ascending: false })
+      .limit(1);
+    if (!monthly?.length) {
+      this.logger.log(`No monthly winner for year ${year}, skipping yearly winner`);
+      return;
+    }
+    await supabase.from('yearly_winners').upsert(
+      { year, artist_id: monthly[0].artist_id },
+      { onConflict: 'year' },
+    );
+    this.logger.log(`Assigned yearly winner for ${year}: artist ${monthly[0].artist_id}`);
+  }
 }

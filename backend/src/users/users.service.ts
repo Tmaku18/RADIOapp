@@ -15,6 +15,8 @@ export interface UserResponse {
   region?: string | null;
   suggestLocalArtists?: boolean;
   bio?: string | null;
+  headline?: string | null;
+  locationRegion?: string | null;
 }
 
 function transformUser(data: any): UserResponse {
@@ -29,6 +31,8 @@ function transformUser(data: any): UserResponse {
     region: data.region ?? null,
     suggestLocalArtists: data.suggest_local_artists ?? true,
     bio: data.bio ?? null,
+    headline: data.headline ?? null,
+    locationRegion: data.location_region ?? null,
   };
 }
 
@@ -131,6 +135,8 @@ export class UsersService {
     if (updateUserDto.region !== undefined) updatePayload.region = updateUserDto.region;
     if (updateUserDto.suggestLocalArtists !== undefined) updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
     if (updateUserDto.bio !== undefined) updatePayload.bio = updateUserDto.bio;
+    if (updateUserDto.headline !== undefined) updatePayload.headline = updateUserDto.headline;
+    if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
 
     const { data, error } = await supabase
       .from('users')

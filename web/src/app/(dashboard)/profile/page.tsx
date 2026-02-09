@@ -1,34 +1,67 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usersApi } from '@/lib/api';
+import { usersApi, creatorNetworkApi, paymentsApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [region, setRegion] = useState(profile?.region ?? '');
+  const [suggestLocalArtists, setSuggestLocalArtists] = useState(profile?.suggestLocalArtists !== false);
+  const [bio, setBio] = useState(profile?.bio ?? '');
+  const [headline, setHeadline] = useState(profile?.headline ?? '');
+  const [locationRegion, setLocationRegion] = useState(profile?.locationRegion ?? '');
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
+  const [hasCreatorAccess, setHasCreatorAccess] = useState<boolean | null>(null);
+  const [creatorNetworkLoading, setCreatorNetworkLoading] = useState(false);
 
-  // Sync local displayName state when profile changes (e.g., after refreshProfile)
+  const searchParams = useSearchParams();
   useEffect(() => {
-    if (!isEditing && profile?.displayName !== undefined) {
-      setDisplayName(profile.displayName || '');
+    const cn = searchParams.get('creator_network');
+    if (cn === 'success') setSuccess(true);
+    if (cn === 'canceled') setError('Creator Network checkout was canceled.');
+  }, [searchParams]);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await creatorNetworkApi.getAccess();
+        setHasCreatorAccess((res.data as { hasAccess: boolean }).hasAccess);
+      } catch {
+        setHasCreatorAccess(false);
+      }
+    };
+    if (profile) load();
+  }, [profile]);
+
+  // Sync local state when profile changes (e.g., after refreshProfile)
+  useEffect(() => {
+    if (!isEditing) {
+      if (profile?.displayName !== undefined) setDisplayName(profile.displayName || '');
+      if (profile?.region !== undefined) setRegion(profile.region ?? '');
+      if (profile?.suggestLocalArtists !== undefined) setSuggestLocalArtists(profile.suggestLocalArtists !== false);
+      if (profile?.bio !== undefined) setBio(profile.bio ?? '');
+      if (profile?.headline !== undefined) setHeadline(profile.headline ?? '');
+      if (profile?.locationRegion !== undefined) setLocationRegion(profile.locationRegion ?? '');
     }
-  }, [profile?.displayName, isEditing]);
+  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, isEditing]);
 
   const handleSave = async () => {
     setError(null);
@@ -36,7 +69,14 @@ export default function ProfilePage() {
     setIsSaving(true);
 
     try {
-      await usersApi.updateMe({ displayName });
+      await usersApi.updateMe({
+        displayName,
+        region: region.trim() || undefined,
+        suggestLocalArtists,
+        bio: bio.trim() || undefined,
+        headline: headline.trim() || undefined,
+        locationRegion: locationRegion.trim() || undefined,
+      });
       await refreshProfile();
       setIsEditing(false);
       setSuccess(true);
@@ -50,6 +90,11 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setDisplayName(profile?.displayName || '');
+    setRegion(profile?.region ?? '');
+    setSuggestLocalArtists(profile?.suggestLocalArtists !== false);
+    setBio(profile?.bio ?? '');
+    setHeadline(profile?.headline ?? '');
+    setLocationRegion(profile?.locationRegion ?? '');
     setIsEditing(false);
     setError(null);
   };
@@ -130,6 +175,70 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-2">
+              <Label>Headline</Label>
+              {isEditing ? (
+                <Input value={headline} onChange={(e) => setHeadline(e.target.value)} placeholder="Short tagline (e.g. Producer, Photographer)" />
+              ) : (
+                <Input value={headline || 'Not set'} disabled />
+              )}
+              <p className="text-xs text-muted-foreground">Shown on your profile and in discovery</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Location</Label>
+              {isEditing ? (
+                <Input value={locationRegion} onChange={(e) => setLocationRegion(e.target.value)} placeholder="e.g. Atlanta, GA or London, UK" />
+              ) : (
+                <Input value={locationRegion || 'Not set'} disabled />
+              )}
+              <p className="text-xs text-muted-foreground">Used for discovery and &quot;Artists in your area&quot;</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Region</Label>
+              {isEditing ? (
+                <Input
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                  placeholder="e.g. US, US-Georgia, UK-London"
+                />
+              ) : (
+                <Input value={region || 'Not set'} disabled />
+              )}
+              <p className="text-xs text-muted-foreground">Used for &quot;Artists in your area&quot; on the Competition page</p>
+            </div>
+
+            <div className="flex items-center justify-between space-x-2 rounded-lg border border-border p-4">
+              <div className="space-y-0.5">
+                <Label className="text-base">Suggest artists in my area</Label>
+                <p className="text-sm text-muted-foreground">Show local artist suggestions on the Competition page</p>
+              </div>
+              {isEditing ? (
+                <Switch checked={suggestLocalArtists} onCheckedChange={setSuggestLocalArtists} />
+              ) : (
+                <Switch checked={suggestLocalArtists} disabled />
+              )}
+            </div>
+
+            {(profile?.role === 'artist' || profile?.role === 'admin' || profile?.role === 'service_provider') && (
+              <div className="space-y-2">
+                <Label>Bio</Label>
+                {isEditing ? (
+                  <Textarea
+                    value={bio}
+                    onChange={(e) => setBio(e.target.value)}
+                    placeholder="Tell listeners about yourself..."
+                    rows={4}
+                    className="resize-y"
+                  />
+                ) : (
+                  <Textarea value={bio || 'Not set'} disabled rows={4} className="resize-none" />
+                )}
+                <p className="text-xs text-muted-foreground">Shown on your artist or provider profile</p>
+              </div>
+            )}
+
+            <div className="space-y-2">
               <Label>Account Type</Label>
               <Input value={profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''} disabled />
               {profile?.role === 'listener' && (
@@ -183,6 +292,44 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
       )}
+
+      <Card className="mt-6">
+        <CardContent className="pt-6">
+          <div className="flex items-start gap-4">
+            <div className="text-4xl">✨</div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-foreground mb-1">Creator Network</h3>
+              <p className="text-muted-foreground text-sm mb-4">
+                Unlock direct messages with other artists and providers. Subscribe to send and receive DMs.
+              </p>
+              {hasCreatorAccess === null ? (
+                <span className="text-sm text-muted-foreground">Checking...</span>
+              ) : hasCreatorAccess ? (
+                <p className="text-sm text-green-600 font-medium">You have Creator Network access. You can send messages from Discover or Messages.</p>
+              ) : (
+                <Button
+                  onClick={async () => {
+                    setCreatorNetworkLoading(true);
+                    try {
+                      const res = await paymentsApi.createCreatorNetworkCheckoutSession();
+                      const url = (res.data as { url?: string })?.url;
+                      if (url) window.location.href = url;
+                      else setError('Checkout is not configured. Contact support.');
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : 'Failed to start checkout');
+                    } finally {
+                      setCreatorNetworkLoading(false);
+                    }
+                  }}
+                  disabled={creatorNetworkLoading}
+                >
+                  {creatorNetworkLoading ? 'Redirecting...' : 'Subscribe to Creator Network'}
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="mt-6">
         <CardContent className="pt-6">

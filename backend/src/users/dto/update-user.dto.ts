@@ -23,4 +23,14 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   bio?: string;
+
+  /** Short tagline (LinkedIn-style headline) */
+  @IsString()
+  @IsOptional()
+  headline?: string;
+
+  /** Location for discovery (e.g. city, region) */
+  @IsString()
+  @IsOptional()
+  locationRegion?: string;
 }

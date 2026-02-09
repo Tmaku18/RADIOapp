@@ -1029,4 +1029,173 @@ export class AdminService {
 
     return data || [];
   }
+
+  // ========== Live Broadcast ==========
+
+  async startLiveBroadcast(adminUserId: string): Promise<{ id: string; startedAt: string }> {
+    const supabase = getSupabaseClient();
+    const { data: existing } = await supabase
+      .from('live_broadcast')
+      .select('id')
+      .eq('status', 'active')
+      .maybeSingle();
+    if (existing) {
+      throw new BadRequestException('A live broadcast is already active. Stop it first.');
+    }
+    const { data, error } = await supabase
+      .from('live_broadcast')
+      .insert({
+        status: 'active',
+        started_by_user_id: adminUserId,
+      })
+      .select('id, started_at')
+      .single();
+    if (error) throw new BadRequestException(`Failed to start live broadcast: ${error.message}`);
+    this.logger.log(`Live broadcast started by admin ${adminUserId}`);
+    return { id: data.id, startedAt: data.started_at };
+  }
+
+  async stopLiveBroadcast(): Promise<{ endedAt: string }> {
+    const supabase = getSupabaseClient();
+    const { data: row } = await supabase
+      .from('live_broadcast')
+      .select('id')
+      .eq('status', 'active')
+      .maybeSingle();
+    if (!row) {
+      throw new BadRequestException('No active live broadcast to stop.');
+    }
+    const endedAt = new Date().toISOString();
+    const { error } = await supabase
+      .from('live_broadcast')
+      .update({ status: 'ended', ended_at: endedAt })
+      .eq('id', row.id);
+    if (error) throw new BadRequestException(`Failed to stop live broadcast: ${error.message}`);
+    this.logger.log('Live broadcast ended');
+    return { endedAt };
+  }
+
+  async getLiveBroadcastStatus(): Promise<{ active: boolean; startedAt?: string }> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('live_broadcast')
+      .select('started_at')
+      .eq('status', 'active')
+      .maybeSingle();
+    return data ? { active: true, startedAt: data.started_at } : { active: false };
+  }
+
+  // ========== Browse Feed Management ==========
+
+  async getFeedMedia(reportedOnly?: boolean): Promise<{
+    items: Array<{
+      id: string;
+      type: string;
+      fileUrl: string;
+      title: string | null;
+      description: string | null;
+      createdAt: string;
+      optInFeed: boolean;
+      feedRemovedAt: string | null;
+      provider: { userId: string; displayName: string | null };
+      likeCount: number;
+      reportCount: number;
+      reports: Array<{ reason: string; createdAt: string; userId: string }>;
+    }>;
+  }> {
+    const supabase = getSupabaseClient();
+    let query = supabase
+      .from('provider_portfolio_items')
+      .select(
+        `
+        id,
+        user_id,
+        type,
+        file_url,
+        title,
+        description,
+        created_at,
+        opt_in_feed,
+        feed_removed_at,
+        users (
+          id,
+          display_name
+        )
+      `,
+      )
+      .eq('opt_in_feed', true);
+
+    const { data: rows, error } = await query.order('created_at', { ascending: false });
+    if (error) throw new Error(`Failed to fetch feed media: ${error.message}`);
+    const items = (rows || []) as any[];
+
+    if (items.length === 0) {
+      return { items: [] };
+    }
+
+    const contentIds = items.map((r) => r.id);
+    const { data: likeRows } = await supabase
+      .from('browse_likes')
+      .select('content_id')
+      .in('content_id', contentIds);
+    const likeCounts = new Map<string, number>();
+    for (const row of likeRows || []) {
+      likeCounts.set(row.content_id, (likeCounts.get(row.content_id) ?? 0) + 1);
+    }
+
+    const { data: reportRows } = await supabase
+      .from('browse_reports')
+      .select('content_id, reason, created_at, user_id')
+      .in('content_id', contentIds)
+      .order('created_at', { ascending: false });
+    const reportsByContent = new Map<string, Array<{ reason: string; createdAt: string; userId: string }>>();
+    for (const r of reportRows || []) {
+      const list = reportsByContent.get(r.content_id) ?? [];
+      list.push({ reason: r.reason, createdAt: r.created_at, userId: r.user_id });
+      reportsByContent.set(r.content_id, list);
+    }
+
+    let result = items.map((row) => {
+      const u = row.users;
+      const reports = reportsByContent.get(row.id) ?? [];
+      return {
+        id: row.id,
+        type: row.type,
+        fileUrl: row.file_url,
+        title: row.title ?? null,
+        description: row.description ?? null,
+        createdAt: row.created_at,
+        optInFeed: row.opt_in_feed ?? true,
+        feedRemovedAt: row.feed_removed_at ?? null,
+        provider: { userId: row.user_id, displayName: u?.display_name ?? null },
+        likeCount: likeCounts.get(row.id) ?? 0,
+        reportCount: reports.length,
+        reports,
+      };
+    });
+
+    result = result.sort((a, b) => b.likeCount - a.likeCount);
+    if (reportedOnly) {
+      result = result.filter((r) => r.reportCount > 0);
+    }
+    return { items: result };
+  }
+
+  async removeFromFeed(contentId: string, adminId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: item } = await supabase
+      .from('provider_portfolio_items')
+      .select('id')
+      .eq('id', contentId)
+      .single();
+    if (!item) throw new NotFoundException('Content not found');
+    const { error } = await supabase
+      .from('provider_portfolio_items')
+      .update({
+        feed_removed_at: new Date().toISOString(),
+        feed_removed_by: adminId,
+      })
+      .eq('id', contentId);
+    if (error) throw new Error(`Failed to remove from feed: ${error.message}`);
+  }
 }

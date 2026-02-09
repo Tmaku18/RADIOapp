@@ -20,6 +20,12 @@ import { LeaderboardModule } from './leaderboard/leaderboard.module';
 import { FeedModule } from './feed/feed.module';
 import { SpotlightModule } from './spotlight/spotlight.module';
 import { CompetitionModule } from './competition/competition.module';
+import { LiveServicesModule } from './live-services/live-services.module';
+import { DiscoveryModule } from './discovery/discovery.module';
+import { CreatorNetworkModule } from './creator-network/creator-network.module';
+import { ServiceMessagesModule } from './service-messages/service-messages.module';
+import { JobBoardModule } from './job-board/job-board.module';
+import { BrowseModule } from './browse/browse.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -47,6 +53,12 @@ import { RequestIdMiddleware } from './common/middleware';
     FeedModule,
     SpotlightModule,
     CompetitionModule,
+    LiveServicesModule,
+    DiscoveryModule,
+    CreatorNetworkModule,
+    ServiceMessagesModule,
+    JobBoardModule,
+    BrowseModule,
   ],
   controllers: [AppController],
   providers: [AppService],

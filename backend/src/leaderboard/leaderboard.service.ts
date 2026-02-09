@@ -8,6 +8,7 @@ export interface LeaderboardSong {
   artistId: string;
   artworkUrl: string | null;
   likeCount?: number;
+  playCount?: number;
   spotlightListenCount?: number;
 }
 
@@ -33,10 +34,10 @@ export class LeaderboardService {
     if (songIds.length === 0 && offset === 0) {
       const { data: anySongs } = await supabase
         .from('songs')
-        .select('id, title, artist_name, artist_id, artwork_url')
+        .select('id, title, artist_name, artist_id, artwork_url, play_count')
         .eq('status', 'approved')
-        .range(0, limit - 1)
-        .order('created_at', { ascending: false });
+        .order('play_count', { ascending: false, nullsFirst: false })
+        .range(0, limit - 1);
       return (anySongs || []).map((s: any) => ({
         id: s.id,
         title: s.title,
@@ -44,6 +45,7 @@ export class LeaderboardService {
         artistId: s.artist_id,
         artworkUrl: s.artwork_url,
         likeCount: 0,
+        playCount: s.play_count ?? 0,
       }));
     }
 
@@ -51,7 +53,7 @@ export class LeaderboardService {
 
     const { data: songs } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url')
+      .select('id, title, artist_name, artist_id, artwork_url, play_count')
       .in('id', songIds)
       .eq('status', 'approved');
 
@@ -64,19 +66,20 @@ export class LeaderboardService {
       artistId: s.artist_id,
       artworkUrl: s.artwork_url,
       likeCount: countBySong[s.id] ?? 0,
+      playCount: s.play_count ?? 0,
     }));
   }
 
   /**
-   * Songs ordered by spotlight_listen_count (listens leaderboard).
+   * Songs ordered by play_count (radio plays). Returns actual stats for the leaderboard.
    */
   async getSongsByListens(limit: number, offset: number): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
     const { data: songs, error } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url, spotlight_listen_count')
+      .select('id, title, artist_name, artist_id, artwork_url, play_count, spotlight_listen_count')
       .eq('status', 'approved')
-      .order('spotlight_listen_count', { ascending: false, nullsFirst: false })
+      .order('play_count', { ascending: false, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
     if (error) throw new Error(`Failed to fetch listens leaderboard: ${error.message}`);
@@ -86,6 +89,7 @@ export class LeaderboardService {
       artistName: s.artist_name,
       artistId: s.artist_id,
       artworkUrl: s.artwork_url,
+      playCount: s.play_count ?? 0,
       spotlightListenCount: s.spotlight_listen_count ?? 0,
     }));
   }

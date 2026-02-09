@@ -65,4 +65,37 @@ export class StripeService {
       cancel_url: cancelUrl,
     });
   }
+
+  /**
+   * Create a Stripe Checkout Session for Creator Network subscription.
+   * Uses STRIPE_CREATOR_NETWORK_PRICE_ID (required). client_reference_id = internal user id (UUID).
+   */
+  async createCreatorNetworkCheckoutSession(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<Stripe.Checkout.Session> {
+    const priceId = this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID');
+    if (!priceId) {
+      throw new Error('STRIPE_CREATOR_NETWORK_PRICE_ID is not configured');
+    }
+    return this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: userId,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+  }
+
+  /** Return the configured Creator Network price ID, or null if not set. */
+  getCreatorNetworkPriceId(): string | null {
+    return this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID') ?? null;
+  }
+
+  /** Fetch a subscription by ID (for webhook handling). */
+  async getSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
+    return this.stripe.subscriptions.retrieve(subscriptionId);
+  }
 }

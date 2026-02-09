@@ -16,6 +16,7 @@ import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
@@ -72,6 +73,29 @@ export class PaymentsController {
   }
 
   /**
+   * Create a Stripe Checkout Session for Creator Network subscription.
+   * Redirects to Stripe hosted checkout. Requires STRIPE_CREATOR_NETWORK_PRICE_ID.
+   */
+  @Post('create-creator-network-checkout-session')
+  @UseGuards(FirebaseAuthGuard)
+  async createCreatorNetworkCheckoutSession(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { successUrl?: string; cancelUrl?: string },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    const webUrl = process.env.WEB_URL || 'http://localhost:3001';
+    const successUrl = body.successUrl || `${webUrl}/profile?creator_network=success`;
+    const cancelUrl = body.cancelUrl || `${webUrl}/profile?creator_network=canceled`;
+    return this.paymentsService.createCreatorNetworkCheckoutSession(userData.id, successUrl, cancelUrl);
+  }
+
+  /**
    * Stripe webhook handler for payment events.
    * 
    * Events handled:
@@ -108,9 +132,19 @@ export class PaymentsController {
 
         // Web app flow - Checkout Session events
         case 'checkout.session.completed': {
-          const session = event.data.object as { id: string; payment_status?: string };
-          // Only process if payment is complete (handles async payments)
-          if (session.payment_status === 'paid') {
+          const session = event.data.object as {
+            id: string;
+            mode?: string;
+            payment_status?: string;
+            subscription?: string;
+            client_reference_id?: string | null;
+          };
+          if (session.mode === 'subscription' && session.subscription && session.client_reference_id) {
+            await this.paymentsService.handleCreatorNetworkCheckoutCompleted(
+              session.subscription,
+              session.client_reference_id,
+            );
+          } else if (session.payment_status === 'paid') {
             await this.paymentsService.handleCheckoutSessionCompleted(session.id);
           }
           break;
@@ -126,6 +160,23 @@ export class PaymentsController {
         case 'checkout.session.expired': {
           const session = event.data.object as { id: string };
           await this.paymentsService.handleCheckoutSessionFailed(session.id);
+          break;
+        }
+
+        case 'customer.subscription.updated': {
+          const subscription = event.data.object as {
+            id: string;
+            status: string;
+            current_period_end?: number;
+            items?: { data?: Array<{ price?: { id?: string } }> };
+          };
+          await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(subscription);
+          break;
+        }
+
+        case 'customer.subscription.deleted': {
+          const subscription = event.data.object as { id: string };
+          await this.paymentsService.handleCreatorNetworkSubscriptionDeleted(subscription.id);
           break;
         }
 

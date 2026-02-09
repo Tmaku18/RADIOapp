@@ -66,7 +66,7 @@ function LoginForm() {
     }
   };
 
-  const handleRoleSelect = async (role: 'listener' | 'artist') => {
+  const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
     try {
       await completeGoogleSignUp(role);
       router.push(redirectTo);

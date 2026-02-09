@@ -81,10 +81,10 @@ export const songsApi = {
 
 export const usersApi = {
   getMe: () => api.get('/users/me'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string }) => 
+  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string }) => 
     api.put('/users/me', data),
   getById: (id: string) => api.get(`/users/${id}`),
-  create: (data: { email: string; displayName?: string; role: 'listener' | 'artist' }) => 
+  create: (data: { email: string; displayName?: string; role: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
 };
@@ -113,6 +113,68 @@ export const spotlightApi = {
     api.post('/spotlight/listen', data),
 };
 
+export const liveServicesApi = {
+  listByArtist: (artistId: string) => api.get(`/live-services/artist/${artistId}`),
+  listMine: () => api.get('/live-services'),
+  upcoming: (limit?: number) => api.get('/live-services/upcoming', { params: { limit } }),
+  create: (data: { title: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string }) =>
+    api.post('/live-services', data),
+  getById: (id: string) => api.get(`/live-services/${id}`),
+  update: (id: string, data: { title?: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string }) =>
+    api.patch(`/live-services/${id}`, data),
+  delete: (id: string) => api.delete(`/live-services/${id}`),
+};
+export const artistFollowsApi = {
+  follow: (artistId: string) => api.post(`/artists/${artistId}/follow`),
+  unfollow: (artistId: string) => api.delete(`/artists/${artistId}/follow`),
+  isFollowing: (artistId: string) => api.get(`/artists/${artistId}/follow`),
+};
+
+export const discoveryApi = {
+  listPeople: (params?: {
+    serviceType?: string;
+    location?: string;
+    search?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    limit?: number;
+    offset?: number;
+  }) => api.get('/discovery/people', { params }),
+};
+
+export const creatorNetworkApi = {
+  getAccess: () => api.get<{ hasAccess: boolean }>('/creator-network/access'),
+};
+
+export const messagesApi = {
+  listConversations: () => api.get('/messages/conversations'),
+  getThread: (otherUserId: string, params?: { limit?: number; before?: string }) =>
+    api.get(`/messages/conversations/${otherUserId}`, { params }),
+  sendMessage: (otherUserId: string, body: string, requestId?: string | null) =>
+    api.post(`/messages/conversations/${otherUserId}`, { body, requestId }),
+};
+
+export const jobBoardApi = {
+  listRequests: (params?: { serviceType?: string; status?: 'open' | 'closed' | 'all'; mine?: boolean; limit?: number; offset?: number }) =>
+    api.get('/job-board/requests', { params }),
+  getRequest: (requestId: string) => api.get(`/job-board/requests/${requestId}`),
+  apply: (requestId: string, message?: string | null) =>
+    api.post(`/job-board/requests/${requestId}/applications`, { message }),
+  listApplications: (requestId: string) => api.get(`/job-board/requests/${requestId}/applications`),
+};
+
+export const browseApi = {
+  getFeed: (params?: { limit?: number; cursor?: string; seed?: string }) =>
+    api.get('/browse/feed', { params }),
+  toggleLike: (contentId: string) => api.post(`/browse/feed/${contentId}/like`),
+  addBookmark: (contentId: string) => api.post(`/browse/feed/${contentId}/bookmark`),
+  removeBookmark: (contentId: string) => api.delete(`/browse/feed/${contentId}/bookmark`),
+  report: (contentId: string, reason: string) =>
+    api.post(`/browse/feed/${contentId}/report`, { reason }),
+  getBookmarks: (params?: { limit?: number }) => api.get('/browse/bookmarks', { params }),
+  getLeaderboard: (params?: { limitPerCategory?: number }) =>
+    api.get('/browse/leaderboard', { params }),
+};
+
 export const competitionApi = {
   getCurrentWeek: () => api.get('/competition/current-week'),
   vote: (songIds: string[]) => api.post('/competition/vote', { songIds }),
@@ -137,6 +199,8 @@ export const creditsApi = {
 export const paymentsApi = {
   createCheckoutSession: (data: { amount: number; credits: number }) => 
     api.post('/payments/create-checkout-session', data),
+  createCreatorNetworkCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
+    api.post<{ url: string; sessionId: string }>('/payments/create-creator-network-checkout-session', data ?? {}),
   getTransactions: () => api.get('/payments/transactions'),
 };
 
@@ -188,6 +252,13 @@ export const adminApi = {
   toggleFreeRotation: (songId: string, enabled: boolean) => 
     api.patch(`/admin/free-rotation/songs/${songId}`, { enabled }),
   getSongsInFreeRotation: () => api.get('/admin/free-rotation/songs'),
+  // Live broadcast
+  startLive: () => api.post('/admin/live/start'),
+  stopLive: () => api.post('/admin/live/stop'),
+  getLiveStatus: () => api.get('/admin/live/status'),
+  getFeedMedia: (reportedOnly?: boolean) =>
+    api.get('/admin/feed-media', { params: reportedOnly ? { reportedOnly: 'true' } : undefined }),
+  removeFromFeed: (contentId: string) => api.patch(`/admin/feed-media/${contentId}/remove`),
 };
 
 export const notificationsApi = {

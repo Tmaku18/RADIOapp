@@ -23,6 +23,8 @@ interface UserProfile {
   region?: string | null;
   suggestLocalArtists?: boolean;
   bio?: string | null;
+  headline?: string | null;
+  locationRegion?: string | null;
 }
 
 interface PendingGoogleUser {
@@ -38,8 +40,8 @@ interface AuthContextType {
   pendingGoogleUser: PendingGoogleUser | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist') => Promise<void>;
-  completeGoogleSignUp: (role: 'listener' | 'artist') => Promise<void>;
+  signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
+  completeGoogleSignUp: (role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
   cancelGoogleSignUp: () => void;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
@@ -140,7 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const completeGoogleSignUp = async (role: 'listener' | 'artist') => {
+  const completeGoogleSignUp = async (role: 'listener' | 'artist' | 'service_provider') => {
     if (!pendingGoogleUser) {
       setError('No pending Google sign-up');
       return;
@@ -198,7 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleSignUpWithEmail = async (
     email: string, 
     password: string, 
-    role: 'listener' | 'artist'
+    role: 'listener' | 'artist' | 'service_provider'
   ) => {
     setError(null);
     setLoading(true);
