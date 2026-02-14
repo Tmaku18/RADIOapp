@@ -38,7 +38,7 @@ export default function Sidebar() {
                 flex items-center px-4 py-3 text-sm font-medium rounded-lg
                 ${isActive
                   ? 'bg-gray-800 text-white'
-                  : 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                  : 'text-gray-300 hover:bg-orange-500/20 hover:text-orange-200'
                 }
               `}
             >
@@ -57,7 +57,7 @@ export default function Sidebar() {
         )}
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
+          className="w-full flex items-center px-4 py-2 text-sm font-medium text-gray-300 hover:bg-orange-500/20 hover:text-orange-200 rounded-lg transition-colors"
         >
           <span className="mr-3">🚪</span>
           Sign Out

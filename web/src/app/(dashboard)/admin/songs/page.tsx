@@ -36,6 +36,7 @@ export default function AdminSongsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   
   // Rejection modal state
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -54,6 +55,54 @@ export default function AdminSongsPage() {
   useEffect(() => {
     loadSongs();
   }, [filter, debouncedSearch, sortBy, sortOrder]);
+
+  // If backend duration_seconds is missing/default, try to read duration from the audio URL metadata.
+  // This fixes legacy rows that were stored with the 180s fallback.
+  useEffect(() => {
+    let cancelled = false;
+
+    const candidates = songs.filter((s) => {
+      const existingOverride = durationOverrides[s.id];
+      if (existingOverride && existingOverride > 0) return false;
+      if (!s.audio_url) return false;
+      return !s.duration_seconds || s.duration_seconds === 180;
+    });
+
+    candidates.forEach((song) => {
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      audio.src = song.audio_url;
+
+      const onLoaded = () => {
+        if (cancelled) return;
+        const seconds = Math.ceil(audio.duration || 0);
+        if (seconds > 0) {
+          setDurationOverrides((prev) => ({ ...prev, [song.id]: seconds }));
+        }
+        cleanup();
+      };
+
+      const onError = () => {
+        cleanup();
+      };
+
+      const cleanup = () => {
+        audio.removeEventListener('loadedmetadata', onLoaded);
+        audio.removeEventListener('error', onError);
+        // Release any network resources.
+        audio.src = '';
+      };
+
+      audio.addEventListener('loadedmetadata', onLoaded);
+      audio.addEventListener('error', onError);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally not depending on durationOverrides to avoid retrigger loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songs]);
 
   const loadSongs = async () => {
     setLoading(true);
@@ -291,7 +340,7 @@ export default function AdminSongsPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm font-mono">
-                    {formatDuration(song.duration_seconds)}
+                    {formatDuration(durationOverrides[song.id] ?? song.duration_seconds)}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`font-medium ${

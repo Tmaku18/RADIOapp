@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -288,6 +287,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// Cleanup when service is disposed
+  @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _unsubscribe();

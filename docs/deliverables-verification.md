@@ -4,6 +4,8 @@
 **Project:** Radio Streaming Platform  
 **Overall Status:** ~95% Implemented
 
+> **Update (February 2026)**: Web signed-upload song creation now captures and submits audio duration so Admin Songs no longer shows `3:00` for every track. Legacy rows may still have `duration_seconds=180` in DB, but the admin table can display real duration from audio metadata.
+
 ---
 
 ## Executive Summary

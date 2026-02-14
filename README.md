@@ -33,9 +33,12 @@ Independent artists struggle to get their music heard through traditional channe
 
 ### Recent Updates (February 2026)
 - **Web UI**: shadcn/ui components, Blue theme, dark mode toggle
+- **Web UI**: Left sidebar nav hover states updated to orange
 - **Admin Songs**: Delete songs (removes from DB + storage), sort by artist name
+- **Admin Songs**: Song durations no longer default to 3:00 for signed-upload songs (web now captures duration on upload; admin table can read audio metadata for legacy rows)
 - **Admin Users**: Lifetime ban / deactivate (deletes user data, blocks re-registration)
 - **Fallback**: Admin upload page and song database (add from free rotation)
+- **Mobile Player**: Landscape-first horizontal player layout with chat docked below (fits without scrolling)
 - **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
 - **Leaderboards**: Competition page leaderboards use actual stats (by likes from `leaderboard_likes`, by plays from `songs.play_count`); Artist Stats “Top Performing Songs” and summary cards use real analytics API data
 
@@ -723,7 +726,7 @@ Supabase Storage (Audio Files)
 - ✅ Song upload with metadata (title, artist, genre, duration)
 - ✅ Album artwork upload and display
 - ✅ **Signed upload URLs** for direct-to-storage uploads (web)
-- ✅ **Server-side duration validation** (music-metadata library)
+- ✅ **Duration extraction/validation**: server-side for multipart uploads; for signed uploads the web client captures duration and the backend can validate/extract as available
 - ✅ Song listing and search
 - ✅ Play history tracking
 - ✅ Like/unlike songs functionality

@@ -17,11 +17,46 @@ export default function UploadPage() {
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
+  const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  const extractDurationSeconds = (file: File): Promise<number | null> => {
+    return new Promise((resolve) => {
+      try {
+        const url = URL.createObjectURL(file);
+        const audio = new Audio();
+        audio.preload = 'metadata';
+
+        const cleanup = () => {
+          audio.removeEventListener('loadedmetadata', onLoaded);
+          audio.removeEventListener('error', onError);
+          URL.revokeObjectURL(url);
+          audio.src = '';
+        };
+
+        const onLoaded = () => {
+          const seconds = Math.ceil(audio.duration || 0);
+          cleanup();
+          resolve(seconds > 0 ? seconds : null);
+        };
+
+        const onError = () => {
+          cleanup();
+          resolve(null);
+        };
+
+        audio.addEventListener('loadedmetadata', onLoaded);
+        audio.addEventListener('error', onError);
+        audio.src = url;
+      } catch {
+        resolve(null);
+      }
+    });
+  };
 
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,6 +71,12 @@ export default function UploadPage() {
       }
       setAudioFile(file);
       setError(null);
+
+      // Best-effort: extract duration in browser so backend doesn't fall back to 180s.
+      setDurationSeconds(null);
+      void extractDurationSeconds(file).then((secs) => {
+        setDurationSeconds(secs);
+      });
     }
   };
 
@@ -117,6 +158,7 @@ export default function UploadPage() {
         artistName,
         audioPath,
         artworkPath,
+        durationSeconds: durationSeconds ?? undefined,
       });
 
       setUploadProgress(100);

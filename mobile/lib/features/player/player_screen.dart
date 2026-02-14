@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -27,6 +28,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    // Force landscape for a split player + chat view that fits without scrolling.
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     _loadNextTrack();
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
@@ -129,6 +135,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   @override
   void dispose() {
+    // Restore default orientation behavior when leaving the player.
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -153,111 +161,222 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ? const Center(child: CircularProgressIndicator())
             : _currentSong == null
                 ? const Center(child: Text('No tracks available'))
-                : Column(
-                    children: [
-                      Expanded(
-                        child: Center(
-                          child: SingleChildScrollView(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                if (_currentSong!.artworkUrl != null)
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(16),
-                                    child: CachedNetworkImage(
-                                      imageUrl: _currentSong!.artworkUrl!,
-                                      width: 250,
-                                      height: 250,
-                                      fit: BoxFit.cover,
-                                      placeholder: (context, url) =>
-                                          const CircularProgressIndicator(),
-                                      errorWidget: (context, url, error) =>
-                                          const Icon(Icons.music_note, size: 250),
+                : OrientationBuilder(
+                    builder: (context, orientation) {
+                      // Primary target: landscape split view with horizontal player + chat dock.
+                      if (orientation == Orientation.landscape) {
+                        return Column(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    AspectRatio(
+                                      aspectRatio: 1,
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(16),
+                                        child: _currentSong!.artworkUrl != null
+                                            ? CachedNetworkImage(
+                                                imageUrl: _currentSong!.artworkUrl!,
+                                                fit: BoxFit.cover,
+                                                placeholder: (context, url) =>
+                                                    const Center(child: CircularProgressIndicator()),
+                                                errorWidget: (context, url, error) =>
+                                                    const Icon(Icons.music_note, size: 64),
+                                              )
+                                            : const ColoredBox(
+                                                color: Colors.black12,
+                                                child: Center(
+                                                  child: Icon(Icons.music_note, size: 64),
+                                                ),
+                                              ),
+                                      ),
                                     ),
-                                  )
-                                else
-                                  const Icon(Icons.music_note, size: 250),
-                                const SizedBox(height: 24),
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                                  child: Text(
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            _currentSong!.title,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.headlineSmall,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            _currentSong!.artistName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.titleMedium,
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.skip_previous),
+                                                iconSize: 34,
+                                                onPressed: null, // Not implemented in MVP
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                icon: Icon(
+                                                  _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                                                ),
+                                                iconSize: 52,
+                                                onPressed: _togglePlayPause,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                icon: const Icon(Icons.skip_next),
+                                                iconSize: 34,
+                                                onPressed: _skipTrack,
+                                              ),
+                                              const Spacer(),
+                                              IconButton(
+                                                icon: _isLikeLoading
+                                                    ? const SizedBox(
+                                                        width: 22,
+                                                        height: 22,
+                                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                                      )
+                                                    : Icon(
+                                                        _isLiked ? Icons.favorite : Icons.favorite_border,
+                                                        color: _isLiked ? Colors.red : Colors.grey.shade600,
+                                                      ),
+                                                iconSize: 28,
+                                                onPressed: _isLikeLoading ? null : _toggleLike,
+                                                tooltip: _isLiked
+                                                    ? 'Remove from favorites'
+                                                    : 'Add to favorites',
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 4,
+                              child: ChatPanel(
+                                currentSongId: _currentSong?.id,
+                                currentSongTitle: _currentSong?.title,
+                                // In landscape we always show chat and size it to the remaining height.
+                                isExpanded: true,
+                                onToggleExpand: null,
+                                fillHeightWhenExpanded: true,
+                              ),
+                            ),
+                          ],
+                        );
+                      }
+
+                      // Portrait fallback (keeps chat collapsible).
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 220,
+                                    height: 220,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: _currentSong!.artworkUrl != null
+                                          ? CachedNetworkImage(
+                                              imageUrl: _currentSong!.artworkUrl!,
+                                              fit: BoxFit.cover,
+                                              placeholder: (context, url) =>
+                                                  const Center(child: CircularProgressIndicator()),
+                                              errorWidget: (context, url, error) =>
+                                                  const Icon(Icons.music_note, size: 64),
+                                            )
+                                          : const ColoredBox(
+                                              color: Colors.black12,
+                                              child: Center(child: Icon(Icons.music_note, size: 64)),
+                                            ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
                                     _currentSong!.title,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: Theme.of(context).textTheme.headlineSmall,
                                     textAlign: TextAlign.center,
                                   ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _currentSong!.artistName,
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                  textAlign: TextAlign.center,
-                                ),
-                                const SizedBox(height: 16),
-                                // Like button
-                                IconButton(
-                                  icon: _isLikeLoading
-                                      ? const SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _currentSong!.artistName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  IconButton(
+                                    icon: _isLikeLoading
+                                        ? const SizedBox(
+                                            width: 28,
+                                            height: 28,
+                                            child: CircularProgressIndicator(strokeWidth: 2),
+                                          )
+                                        : Icon(
+                                            _isLiked ? Icons.favorite : Icons.favorite_border,
+                                            color: _isLiked ? Colors.red : Colors.grey.shade600,
                                           ),
-                                        )
-                                      : Icon(
-                                          _isLiked
-                                              ? Icons.favorite
-                                              : Icons.favorite_border,
-                                          color: _isLiked
-                                              ? Colors.red
-                                              : Colors.grey.shade600,
-                                        ),
-                                  iconSize: 32,
-                                  onPressed: _isLikeLoading ? null : _toggleLike,
-                                  tooltip: _isLiked
-                                      ? 'Remove from favorites'
-                                      : 'Add to favorites',
+                                    iconSize: 32,
+                                    onPressed: _isLikeLoading ? null : _toggleLike,
+                                    tooltip: _isLiked ? 'Remove from favorites' : 'Add to favorites',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.skip_previous),
+                                  iconSize: 40,
+                                  onPressed: null, // Not implemented in MVP
+                                ),
+                                const SizedBox(width: 18),
+                                IconButton(
+                                  icon: Icon(_isPlaying ? Icons.pause_circle : Icons.play_circle),
+                                  iconSize: 56,
+                                  onPressed: _togglePlayPause,
+                                ),
+                                const SizedBox(width: 18),
+                                IconButton(
+                                  icon: const Icon(Icons.skip_next),
+                                  iconSize: 40,
+                                  onPressed: _skipTrack,
                                 ),
                               ],
                             ),
                           ),
-                        ),
-                      ),
-                      // Playback controls
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.skip_previous),
-                              iconSize: 40,
-                              onPressed: null, // Not implemented in MVP
-                            ),
-                            const SizedBox(width: 24),
-                            IconButton(
-                              icon: Icon(
-                                _isPlaying ? Icons.pause_circle : Icons.play_circle,
-                              ),
-                              iconSize: 56,
-                              onPressed: _togglePlayPause,
-                            ),
-                            const SizedBox(width: 24),
-                            IconButton(
-                              icon: const Icon(Icons.skip_next),
-                              iconSize: 40,
-                              onPressed: _skipTrack,
-                            ),
-                          ],
-                        ),
-                      ),
-                      // Chat panel
-                      ChatPanel(
-                        currentSongId: _currentSong?.id,
-                        currentSongTitle: _currentSong?.title,
-                        isExpanded: _isChatExpanded,
-                        onToggleExpand: _toggleChat,
-                      ),
-                    ],
+                          ChatPanel(
+                            currentSongId: _currentSong?.id,
+                            currentSongTitle: _currentSong?.title,
+                            isExpanded: _isChatExpanded,
+                            onToggleExpand: _toggleChat,
+                          ),
+                        ],
+                      );
+                    },
                   ),
       ),
     );

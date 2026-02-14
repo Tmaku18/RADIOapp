@@ -70,7 +70,7 @@ export const songsApi = {
   getMine: () => api.get('/songs/mine'),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
-  create: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string }) => 
+  create: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) => 
     api.post('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),

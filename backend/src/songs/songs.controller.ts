@@ -11,6 +11,7 @@ import {
   UploadedFiles,
   UseGuards,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
@@ -27,6 +28,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 
 @Controller('songs')
 export class SongsController {
+  private readonly logger = new Logger(SongsController.name);
+
   constructor(
     private readonly songsService: SongsService,
     private readonly uploadsService: UploadsService,
@@ -156,14 +159,57 @@ export class SongsController {
       artworkUrl = artworkUrlData.publicUrl;
     }
 
+    // SECURITY + DATA QUALITY:
+    // For direct-to-storage uploads, compute the real duration server-side from the stored file.
+    // This prevents spoofing and avoids the UI/credits falling back to the default 180s.
+    let durationSeconds = dto.durationSeconds;
+    try {
+      const audioUrl = audioUrlData.publicUrl;
+      if (audioUrl) {
+        const abortController = new AbortController();
+        const timeout = setTimeout(() => abortController.abort(), 15000);
+        const res = await fetch(audioUrl, { signal: abortController.signal });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const contentLength = res.headers.get('content-length');
+          if (contentLength) {
+            const bytes = Number(contentLength);
+            // Extra buffer above the 50MB client limit for safety.
+            if (Number.isFinite(bytes) && bytes > 55 * 1024 * 1024) {
+              this.logger.warn(
+                `Skipping duration extraction for large audio (${bytes} bytes) at ${audioUrl}`,
+              );
+            } else {
+              const buf = Buffer.from(await res.arrayBuffer());
+              const mimeType = res.headers.get('content-type') ?? undefined;
+              durationSeconds = await this.durationService.extractDuration(buf, mimeType);
+            }
+          } else {
+            const buf = Buffer.from(await res.arrayBuffer());
+            const mimeType = res.headers.get('content-type') ?? undefined;
+            durationSeconds = await this.durationService.extractDuration(buf, mimeType);
+          }
+        } else {
+          this.logger.warn(
+            `Failed to fetch audio for duration extraction: ${res.status} ${res.statusText}`,
+          );
+        }
+      }
+    } catch (e) {
+      this.logger.warn(
+        `Duration extraction failed for direct upload: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+
     const createSongDto: CreateSongDto = {
       title: dto.title,
       artistName: dto.artistName,
       audioUrl: audioUrlData.publicUrl,
       artworkUrl,
-      // For direct uploads, client provides duration (less secure than server-side extraction)
-      // TODO: Add background job to verify duration from storage
-      durationSeconds: dto.durationSeconds,
+      durationSeconds,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);

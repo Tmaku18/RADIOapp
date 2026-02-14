@@ -125,7 +125,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _notificationsEnabled,
                   onChanged: _toggleMasterNotifications,
                   secondary: const Icon(Icons.notifications),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 const Divider(height: 1),
@@ -144,7 +144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.queue_music),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 SwitchListTile(
@@ -158,7 +158,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.play_circle),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 SwitchListTile(
@@ -172,7 +172,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.check_circle),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 const Divider(height: 1),
@@ -191,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.volume_up),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 SwitchListTile(
@@ -205,7 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.vibration),
-                  activeColor: Colors.deepPurple,
+                  activeThumbColor: Colors.deepPurple,
                 ),
 
                 const Divider(height: 32),
@@ -238,11 +238,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (confirm == true) {
                         await _settingsService.resetToDefaults();
                         await _loadSettings();
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Settings reset to defaults')),
-                          );
-                        }
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Settings reset to defaults')),
+                        );
                       }
                     },
                     icon: const Icon(Icons.restore),

@@ -15,6 +15,8 @@ class ChatPanel extends StatefulWidget {
   final String? currentSongTitle;
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
+  final bool fillHeightWhenExpanded;
+  final double expandedHeight;
 
   const ChatPanel({
     super.key,
@@ -22,6 +24,8 @@ class ChatPanel extends StatefulWidget {
     this.currentSongTitle,
     this.isExpanded = false,
     this.onToggleExpand,
+    this.fillHeightWhenExpanded = false,
+    this.expandedHeight = 350,
   });
 
   @override
@@ -138,7 +142,7 @@ class _ChatPanelState extends State<ChatPanel> {
           color: color,
           shape: BoxShape.circle,
           boxShadow: state == ChatConnectionState.connected
-              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 4)]
+              ? [BoxShadow(color: color.withAlpha(128), blurRadius: 4)]
               : null,
         ),
       ),
@@ -306,8 +310,7 @@ class _ChatPanelState extends State<ChatPanel> {
         }
 
         // Expanded view - full chat panel
-        return Container(
-          height: 350,
+        final expandedPanel = Container(
           decoration: BoxDecoration(
             color: Colors.grey.shade900,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
@@ -419,7 +422,7 @@ class _ChatPanelState extends State<ChatPanel> {
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.3),
+                                    color: Colors.black.withAlpha(77),
                                     blurRadius: 8,
                                   ),
                                 ],
@@ -551,6 +554,15 @@ class _ChatPanelState extends State<ChatPanel> {
                 ),
             ],
           ),
+        );
+
+        if (widget.fillHeightWhenExpanded) {
+          return expandedPanel;
+        }
+
+        return SizedBox(
+          height: widget.expandedHeight,
+          child: expandedPanel,
         );
       },
     );
