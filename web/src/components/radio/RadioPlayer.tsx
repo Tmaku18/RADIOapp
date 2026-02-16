@@ -401,10 +401,10 @@ export function RadioPlayer() {
           <button
             onClick={handleLike}
             disabled={!state.currentTrack || isLoadingLike}
-            className={`p-3 rounded-full transition-colors ${
+            className={`p-3 rounded-full transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
               isLiked
-                ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                ? 'bg-primary text-primary-foreground signal-glow signal-pulse'
+                : 'text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-[1.03]'
             } disabled:opacity-50`}
           >
             <svg

@@ -17,13 +17,13 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   try {
     await dotenv.load(fileName: '.env');
   } catch (e) {
     debugPrint('Warning: Could not load .env file: $e');
   }
-  
+
   // Initialize Stripe
   final stripePublishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
   if (stripePublishableKey != null && stripePublishableKey.isNotEmpty) {
@@ -32,19 +32,24 @@ void main() async {
   } else {
     debugPrint('Warning: STRIPE_PUBLISHABLE_KEY not found in .env');
   }
-  
+
   // Initialize Firebase with timeout so app doesn't hang on emulator/slow network
   bool firebaseInitialized = false;
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
-    ).timeout(const Duration(seconds: 12), onTimeout: () {
-      debugPrint('Firebase init timed out (e.g. emulator) – showing login anyway');
-      throw TimeoutException('Firebase initialization timed out');
-    });
+    ).timeout(
+      const Duration(seconds: 12),
+      onTimeout: () {
+        debugPrint(
+          'Firebase init timed out (e.g. emulator) – showing login anyway',
+        );
+        throw TimeoutException('Firebase initialization timed out');
+      },
+    );
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
-    
+
     // Initialize push notifications after Firebase (lazy permission strategy)
     await PushNotificationService().initialize();
     debugPrint('Push notifications initialized');
@@ -52,13 +57,13 @@ void main() async {
     debugPrint('Error initializing Firebase: $e');
     debugPrint('App will continue but authentication features will not work');
   }
-  
+
   runApp(MyApp(firebaseInitialized: firebaseInitialized));
 }
 
 class MyApp extends StatelessWidget {
   final bool firebaseInitialized;
-  
+
   const MyApp({super.key, this.firebaseInitialized = false});
 
   @override
@@ -103,14 +108,14 @@ class AuthWrapper extends StatelessWidget {
         return StreamBuilder(
           stream: authService.authStateChanges,
           builder: (context, snapshot) {
-            debugPrint('AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}');
-            
+            debugPrint(
+              'AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}',
+            );
+
             // Show loading indicator while checking auth state
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
-                ),
+                body: Center(child: CircularProgressIndicator()),
               );
             }
 
@@ -121,12 +126,18 @@ class AuthWrapper extends StatelessWidget {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                      const Icon(
+                        Icons.error_outline,
+                        size: 48,
+                        color: Colors.red,
+                      ),
                       const SizedBox(height: 16),
                       Text('Error: ${snapshot.error}'),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: () => Navigator.of(context).pushReplacementNamed('/login'),
+                        onPressed: () => Navigator.of(
+                          context,
+                        ).pushReplacementNamed('/login'),
                         child: const Text('Go to Login'),
                       ),
                     ],

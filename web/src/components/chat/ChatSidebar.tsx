@@ -60,7 +60,7 @@ export default function ChatSidebar() {
         ]);
         setMessages(historyRes.data.messages || []);
         setChatEnabled(statusRes.data.enabled);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load chat history:', err);
         setError('Failed to load chat');
       } finally {
@@ -208,8 +208,9 @@ export default function ChatSidebar() {
       await chatApi.sendMessage(newMessage.trim());
       setNewMessage('');
       inputRef.current?.focus();
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to send message';
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } } };
+      const errorMessage = errObj?.response?.data?.message || 'Failed to send message';
       setError(errorMessage);
       setTimeout(() => setError(null), 3000);
     } finally {
@@ -245,9 +246,9 @@ export default function ChatSidebar() {
   }
 
   return (
-    <div className="w-80 bg-gray-900 border-l border-gray-800 flex flex-col h-full">
+    <div className="w-80 bg-card/80 border-l border-border backdrop-blur flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-gray-800 flex items-center justify-between">
+      <div className="p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">💬</span>
           <h2 className="font-semibold text-foreground">Live Chat</h2>
@@ -277,7 +278,7 @@ export default function ChatSidebar() {
         </div>
         <button
           onClick={() => setIsCollapsed(true)}
-          className="text-gray-400 hover:text-white transition-colors"
+          className="text-muted-foreground hover:text-foreground transition-colors"
         >
           ✕
         </button>
@@ -290,7 +291,7 @@ export default function ChatSidebar() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="text-center text-gray-500 py-8">
+          <div className="text-center text-muted-foreground py-8">
             <p>No messages yet</p>
             <p className="text-sm mt-1">Be the first to say something!</p>
           </div>
@@ -309,8 +310,10 @@ export default function ChatSidebar() {
 
               {/* Message */}
               <div
-                className={`max-w-[200px] rounded-lg px-3 py-2 ${
-                  msg.userId === profile?.id ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
+                className={`max-w-[200px] rounded-lg px-3 py-2 border transition-colors ${
+                  msg.userId === profile?.id
+                    ? 'bg-black/55 border-primary/40 text-foreground signal-glow'
+                    : 'bg-black/35 border-white/10 text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">

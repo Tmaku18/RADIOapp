@@ -118,7 +118,7 @@ export default function CompetitionPage() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-3 duration-500">
         <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-1">
           <h1 className="text-3xl font-bold text-foreground tracking-tight">Competition & Spotlight</h1>
-          <p className="text-muted-foreground mt-1">Leaderboards, featured artists, and vote for Top 7</p>
+          <p className="text-muted-foreground mt-1">Leaderboards, diamonds, and vote for Top 7</p>
         </div>
       </div>
 
@@ -156,13 +156,13 @@ export default function CompetitionPage() {
       {localArtists.length > 0 && (
         <Card className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-100">
           <CardHeader>
-            <CardTitle className="text-lg">Artists in your area</CardTitle>
+            <CardTitle className="text-lg">Gems in your area</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-3">
               {localArtists.map((a) => (
                 <Link key={a.id} href={`/artist/${a.id}`}>
-                  <Badge variant="outline" className="py-2 px-3">{a.displayName || 'Artist'}</Badge>
+                  <Badge variant="outline" className="py-2 px-3">{a.displayName || 'Gem'}</Badge>
                 </Link>
               ))}
             </div>
@@ -190,7 +190,7 @@ export default function CompetitionPage() {
                   <p className="font-semibold">{todaySpotlight.artistName}</p>
                   {todaySpotlight.songTitle && <p className="text-sm text-muted-foreground">{todaySpotlight.songTitle}</p>}
                   <Link href={`/artist/${todaySpotlight.artistId}`}>
-                    <Button variant="outline" size="sm" className="mt-2">View artist</Button>
+                    <Button variant="outline" size="sm" className="mt-2">View gem</Button>
                   </Link>
                 </div>
               </div>
@@ -231,7 +231,7 @@ export default function CompetitionPage() {
           <Tabs defaultValue="likes" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-2">
               <TabsTrigger value="likes">By likes</TabsTrigger>
-              <TabsTrigger value="listens">By plays</TabsTrigger>
+              <TabsTrigger value="listens">By discoveries</TabsTrigger>
             </TabsList>
             <TabsContent value="likes" className="mt-4">
               {loading ? (
@@ -247,7 +247,7 @@ export default function CompetitionPage() {
                         <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} plays</span>}
+                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} discoveries</span>}
                         <Badge variant="secondary">{s.likeCount ?? 0} likes</Badge>
                       </div>
                     </li>
@@ -269,7 +269,7 @@ export default function CompetitionPage() {
                         <p className="font-medium truncate">{s.title}</p>
                         <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
                       </div>
-                      <Badge variant="secondary">{s.playCount ?? s.spotlightListenCount ?? 0} plays</Badge>
+                      <Badge variant="secondary">{s.playCount ?? s.spotlightListenCount ?? 0} discoveries</Badge>
                     </li>
                   ))}
                   {!loading && leaderboardListens.length === 0 && <p className="text-muted-foreground">No data yet.</p>}

@@ -5,8 +5,11 @@ import {
   Put,
   Body,
   Param,
-  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -34,12 +37,40 @@ export class UsersController {
     return this.usersService.getUserByFirebaseUid(user.uid);
   }
 
+  /**
+   * Check if the current user's email is in the admin allowlist.
+   * Used by frontend to skip role selection for first-time admin logins.
+   */
+  @Get('me/check-admin')
+  async checkAdmin(@CurrentUser() user: FirebaseUser) {
+    return { isAdmin: this.usersService.isAdminEmail(user.email) };
+  }
+
   @Put('me')
   async updateCurrentUser(
     @CurrentUser() user: FirebaseUser,
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.usersService.updateUser(user.uid, updateUserDto);
+  }
+
+  /**
+   * Upload and set profile picture. Accepts JPEG, PNG, WebP up to 2MB.
+   */
+  @Post('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded. Send a file in the "file" field.');
+    }
+    return this.usersService.updateAvatar(user.uid, file);
   }
 
   /**

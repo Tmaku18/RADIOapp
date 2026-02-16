@@ -1,7 +1,7 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
@@ -17,11 +17,11 @@ const faqs = [
     questions: [
       {
         q: 'What is RadioApp?',
-        a: 'RadioApp is a radio-style streaming platform that helps underground artists get discovered. Artists can upload music and promote it through our play credit system, while listeners enjoy a continuous stream of curated music.',
+        a: 'RadioApp is a radio-style streaming platform that helps undiscovered talent get heard. Gems can upload music and promote it through our play credit system, while listeners enjoy a continuous stream of curated underground music.',
       },
       {
         q: 'Is RadioApp free to use?',
-        a: 'Yes! Listening is completely free, forever. Artists can upload music for free, and only pay if they want to promote their tracks through our credit system.',
+        a: 'Yes! Listening is completely free, forever. Gems can upload music for free, and only pay if they want to promote their tracks through our credit system.',
       },
       {
         q: 'How is this different from Spotify or SoundCloud?',
@@ -30,11 +30,11 @@ const faqs = [
     ],
   },
   {
-    category: 'For Artists',
+    category: 'For Gems',
     questions: [
       {
         q: 'How do I upload my music?',
-        a: 'Create an artist account, go to your dashboard, and click "Upload". Submit your track with artwork for review. Once approved by our moderation team, it enters the radio rotation.',
+        a: 'Create a gem account, go to your dashboard, and click "Upload". Submit your track with artwork for review. Once approved by our moderation team, it enters the radio rotation.',
       },
       {
         q: 'What are play credits?',
@@ -50,7 +50,7 @@ const faqs = [
       },
       {
         q: 'Can I see analytics for my tracks?',
-        a: 'Yes! Your artist dashboard shows detailed analytics including total plays, engagement metrics, credits spent, and listener activity over time.',
+        a: 'Yes! Your gem dashboard shows detailed analytics including discoveries, engagement metrics, credits spent, and listener activity over time.',
       },
     ],
   },
@@ -59,7 +59,7 @@ const faqs = [
     questions: [
       {
         q: 'Do I need an account to listen?',
-        a: 'You can listen without an account, but creating a free account lets you like tracks, follow artists, and access the mobile app.',
+        a: 'You can listen without an account, but creating a free account lets you like tracks, follow gems, and access the mobile app.',
       },
       {
         q: 'Can I skip songs?',
@@ -104,23 +104,35 @@ export default function FAQPage() {
         Everything you need to know about RadioApp.
       </p>
 
-      <div className="space-y-12">
+      <div className="space-y-6">
         {faqs.map((section) => (
-          <div key={section.category}>
-            <h2 className="text-2xl font-bold text-foreground mb-6">
-              {section.category}
-            </h2>
-            <Accordion type="single" collapsible className="w-full">
-              {section.questions.map((faq, index) => (
-                <AccordionItem key={index} value={`${section.category}-${index}`}>
-                  <AccordionTrigger className="text-left">{faq.q}</AccordionTrigger>
-                  <AccordionContent>
-                    <p className="text-muted-foreground">{faq.a}</p>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </div>
+          <Card key={section.category}>
+            <CardHeader>
+              <CardTitle className="text-2xl">{section.category}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <Accordion
+                type="single"
+                collapsible
+                className="w-full border-0 rounded-xl bg-transparent shadow-none"
+              >
+                {section.questions.map((faq, index) => (
+                  <AccordionItem
+                    key={index}
+                    value={`${section.category}-${index}`}
+                    className="border-border"
+                  >
+                    <AccordionTrigger className="text-left">
+                      {faq.q}
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <p className="text-muted-foreground">{faq.a}</p>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
         ))}
       </div>
 

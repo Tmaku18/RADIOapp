@@ -10,5 +10,6 @@ export class CreateUserDto {
 
   @IsString()
   @IsIn(['listener', 'artist', 'service_provider'])
-  role: 'listener' | 'artist' | 'service_provider';
+  @IsOptional()
+  role?: 'listener' | 'artist' | 'service_provider';
 }

@@ -111,7 +111,7 @@ export default function ContactPage() {
                 <SelectContent>
                   <SelectItem value="general">General Inquiry</SelectItem>
                   <SelectItem value="support">Technical Support</SelectItem>
-                  <SelectItem value="artist">Artist Questions</SelectItem>
+                  <SelectItem value="artist">Gem Questions</SelectItem>
                   <SelectItem value="payments">Billing & Payments</SelectItem>
                   <SelectItem value="feedback">Feedback</SelectItem>
                   <SelectItem value="partnership">Partnership</SelectItem>

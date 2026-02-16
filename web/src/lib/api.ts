@@ -30,6 +30,11 @@ api.interceptors.request.use(
         console.error('Failed to get ID token:', error);
       }
     }
+
+    // FormData must use multipart/form-data with boundary; do not send application/json
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
     
     return config;
   },
@@ -81,10 +86,16 @@ export const songsApi = {
 
 export const usersApi = {
   getMe: () => api.get('/users/me'),
+  checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
   updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string }) => 
     api.put('/users/me', data),
+  uploadProfilePhoto: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/users/me/avatar', formData);
+  },
   getById: (id: string) => api.get(`/users/${id}`),
-  create: (data: { email: string; displayName?: string; role: 'listener' | 'artist' | 'service_provider' }) => 
+  create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
 };

@@ -15,7 +15,7 @@ export default function MarketingLayout({
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2">
               <span className="text-2xl">🎧</span>
-              <span className="text-xl font-bold text-foreground">RadioApp</span>
+              <span className="text-xl font-bold text-networx">RadioApp</span>
             </Link>
 
             {/* Navigation Links */}
@@ -39,7 +39,7 @@ export default function MarketingLayout({
               <Button variant="ghost" asChild>
                 <Link href="/login">Log in</Link>
               </Button>
-              <Button asChild>
+              <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/signup">Get Started</Link>
               </Button>
             </div>
@@ -60,10 +60,10 @@ export default function MarketingLayout({
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <span className="text-2xl">🎧</span>
-                <span className="text-xl font-bold text-foreground">RadioApp</span>
+                <span className="text-xl font-bold text-networx">RadioApp</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Discover underground artists and promote your music on our curated radio stream.
+                Discover undiscovered talent and promote your music on our curated radio stream.
               </p>
             </div>
 

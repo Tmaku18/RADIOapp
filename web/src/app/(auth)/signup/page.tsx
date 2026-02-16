@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense, useEffect } from 'react';
+import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,14 +15,7 @@ import { cn } from '@/lib/utils';
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { 
-    signUpWithEmail, 
-    signInWithGoogle, 
-    completeGoogleSignUp,
-    pendingGoogleUser,
-    loading, 
-    error 
-  } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, loading, error } = useAuth();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -62,32 +55,22 @@ function SignupForm() {
   const handleGoogleSignup = async () => {
     setLocalError(null);
     setIsSubmitting(true);
-
     try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('radioapp_signup_role', role);
+      }
       await signInWithGoogle();
-      // If existing user, signInWithGoogle will fetch profile and we can redirect
-      // If new user, pendingGoogleUser will be set
+      router.push('/dashboard');
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to sign up with Google');
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('radioapp_signup_role');
+      }
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign up with Google'));
+    } finally {
       setIsSubmitting(false);
     }
   };
-
-  // When pendingGoogleUser is set (new Google user), complete signup with selected role
-  useEffect(() => {
-    if (pendingGoogleUser && isSubmitting) {
-      completeGoogleSignUp(role)
-        .then(() => {
-          router.push('/dashboard');
-        })
-        .catch((err) => {
-          setLocalError(err instanceof Error ? err.message : 'Failed to complete sign up');
-        })
-        .finally(() => {
-          setIsSubmitting(false);
-        });
-    }
-  }, [pendingGoogleUser, isSubmitting, role, completeGoogleSignUp, router]);
 
   const displayError = localError || error;
 
@@ -120,7 +103,7 @@ function SignupForm() {
             }`}
           >
             <div className="text-2xl mb-2">🎧</div>
-            <div className="font-medium text-gray-900">Listen</div>
+            <div className="font-medium text-gray-900">Listener</div>
             <div className="text-sm text-gray-500">Discover new music</div>
           </button>
           <button
@@ -133,7 +116,7 @@ function SignupForm() {
             }`}
           >
             <div className="text-2xl mb-2">🎤</div>
-            <div className="font-medium text-gray-900">Create</div>
+            <div className="font-medium text-gray-900">Gem</div>
             <div className="text-sm text-gray-500">Share my music</div>
           </button>
         </div>
@@ -229,7 +212,7 @@ function SignupForm() {
           disabled={isSubmitting || loading}
           className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Creating account...' : `Create ${role === 'artist' ? 'Artist' : 'Listener'} Account`}
+          {isSubmitting ? 'Creating account...' : `Create ${role === 'artist' ? 'Gem' : 'Listener'} Account`}
         </button>
       </form>
 

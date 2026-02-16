@@ -135,7 +135,7 @@ export default function Dashboard() {
           icon="👥"
         />
         <StatsCard
-          title="Artists"
+          title="Gems"
           value={analytics?.totalArtists || 0}
           icon="🎤"
         />
@@ -145,7 +145,7 @@ export default function Dashboard() {
           icon="🎵"
         />
         <StatsCard
-          title="Total Plays"
+          title="Discoveries"
           value={analytics?.totalPlays?.toLocaleString() || 0}
           icon="▶️"
         />

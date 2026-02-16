@@ -1,12 +1,17 @@
 import type { Metadata } from 'next';
-import { Raleway, Geist_Mono } from 'next/font/google';
+import { Inter, Space_Grotesk, Geist_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 
-const raleway = Raleway({
-  variable: '--font-raleway',
+const inter = Inter({
+  variable: '--font-inter',
+  subsets: ['latin'],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  variable: '--font-space-grotesk',
   subsets: ['latin'],
 });
 
@@ -34,7 +39,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${raleway.variable} ${geistMono.variable} antialiased font-sans`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${geistMono.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

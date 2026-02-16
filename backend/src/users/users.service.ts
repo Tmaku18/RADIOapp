@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { UploadsService } from '../uploads/uploads.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -38,6 +40,24 @@ function transformUser(data: any): UserResponse {
 
 @Injectable()
 export class UsersService {
+  constructor(
+    private readonly uploadsService: UploadsService,
+    private readonly configService: ConfigService,
+  ) {}
+
+  /** Admin emails from env (comma-separated); login with one of these gets role admin. */
+  private getAdminEmails(): string[] {
+    const raw = this.configService.get<string>('ADMIN_EMAILS');
+    if (!raw?.trim()) return [];
+    return raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  }
+
+  /** Returns true if the given email is in the admin allowlist (for first-time login detection). */
+  isAdminEmail(email: string | null | undefined): boolean {
+    if (!email?.trim()) return false;
+    return this.getAdminEmails().includes(email.trim().toLowerCase());
+  }
+
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {
     const supabase = getSupabaseClient();
     
@@ -52,32 +72,56 @@ export class UsersService {
       // User already exists - return existing user (idempotent)
       return transformUser(existingUser);
     }
-    
+
+    const emailLower = createUserDto.email.trim().toLowerCase();
+    const adminEmails = this.getAdminEmails();
+    const role = adminEmails.includes(emailLower)
+      ? 'admin'
+      : (createUserDto.role ?? 'listener');
     const { data, error } = await supabase
       .from('users')
       .insert({
         firebase_uid: firebaseUid,
         email: createUserDto.email,
         display_name: createUserDto.displayName,
-        role: createUserDto.role,
+        role,
       })
       .select()
       .single();
 
     if (error) {
-      // Handle race condition where user was created between check and insert
-      if (error.code === '23505') { // unique_violation
-        const { data: raceUser } = await supabase
+      // Race: another request created this user by firebase_uid
+      if (error.code === '23505') {
+        const { data: byUid } = await supabase
           .from('users')
           .select('*')
           .eq('firebase_uid', firebaseUid)
           .single();
-        if (raceUser) return transformUser(raceUser);
+        if (byUid) return transformUser(byUid);
+        // Unique violation on email: account already exists with different auth
+        const { data: byEmail } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', createUserDto.email)
+          .single();
+        if (byEmail) {
+          throw new BadRequestException(
+            'An account with this email already exists. Try signing in with your existing method.',
+          );
+        }
       }
-      throw new BadRequestException(`Failed to create user: ${error.message}`);
+      // Check constraint (e.g. role not in allowed list)
+      if (error.code === '23514') {
+        throw new BadRequestException(
+          `Invalid role or database constraint: ${error.message}. Please try again or contact support.`,
+        );
+      }
+      throw new BadRequestException(
+        `Failed to create account: ${error.message}. Please try again.`,
+      );
     }
 
-    // Credits for artists are created by DB trigger initialize_credits_on_user_create
+    // Credits for artists are created by DB trigger
 
     return transformUser(data);
   }
@@ -150,6 +194,38 @@ export class UsersService {
     }
 
     return transformUser(data);
+  }
+
+  /**
+   * Upload a profile picture and set it as the user's avatar.
+   * Accepts JPEG, PNG, WebP up to 2MB.
+   */
+  async updateAvatar(firebaseUid: string, file: Express.Multer.File): Promise<UserResponse> {
+    const supabase = getSupabaseClient();
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (fetchError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const avatarUrl = await this.uploadsService.uploadProfileImage(file, user.id);
+
+    const { data: updated, error: updateError } = await supabase
+      .from('users')
+      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new BadRequestException(`Failed to update avatar: ${updateError.message}`);
+    }
+
+    return transformUser(updated);
   }
 
   async upgradeToArtist(firebaseUid: string): Promise<UserResponse> {

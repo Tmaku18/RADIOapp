@@ -13,9 +13,12 @@ const createBuilder = () => ({
   update: jest.fn().mockReturnThis(),
 });
 
+const mockUploadsService = { uploadProfileImage: jest.fn() };
+const mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
+
 describe('UsersService', () => {
   it('returns existing user if already present', async () => {
-    const service = new UsersService();
+    const service = new UsersService(mockUploadsService as any, mockConfigService as any);
     const usersBuilder = createBuilder();
     const supabase = {
       from: jest.fn(() => usersBuilder),
@@ -45,30 +48,27 @@ describe('UsersService', () => {
     expect(result.email).toBe('existing@example.com');
   });
 
-  it('inserts new artist and initializes credits', async () => {
-    const service = new UsersService();
+  it('inserts new artist (credits created by DB trigger)', async () => {
+    const service = new UsersService(mockUploadsService as any, mockConfigService as any);
     const usersBuilder = createBuilder();
-    const creditsBuilder = createBuilder();
-    creditsBuilder.insert.mockResolvedValue({ error: null });
+    const insertChain = { ...createBuilder(), select: jest.fn().mockReturnThis(), single: jest.fn() };
+    (insertChain as any).single.mockResolvedValueOnce({
+      data: {
+        id: 'artist-id',
+        email: 'artist@example.com',
+        display_name: 'Artist',
+        role: 'artist',
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        firebase_uid: 'firebase-uid',
+      },
+      error: null,
+    });
 
-    const supabase = {
-      from: jest.fn((table: string) => (table === 'credits' ? creditsBuilder : usersBuilder)),
-    };
+    const supabase = { from: jest.fn(() => usersBuilder) };
 
-    usersBuilder.single
-      .mockResolvedValueOnce({ data: null, error: null })
-      .mockResolvedValueOnce({
-        data: {
-          id: 'artist-id',
-          email: 'artist@example.com',
-          display_name: 'Artist',
-          role: 'artist',
-          avatar_url: null,
-          created_at: new Date().toISOString(),
-          firebase_uid: 'firebase-uid',
-        },
-        error: null,
-      });
+    usersBuilder.single.mockResolvedValueOnce({ data: null, error: null });
+    usersBuilder.insert.mockReturnValue(insertChain);
 
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
@@ -79,6 +79,43 @@ describe('UsersService', () => {
     });
 
     expect(result.role).toBe('artist');
-    expect(creditsBuilder.insert).toHaveBeenCalled();
+    expect(usersBuilder.insert).toHaveBeenCalled();
+  });
+
+  it('assigns admin role when email is in ADMIN_EMAILS', async () => {
+    const configWithAdmin = { get: jest.fn((key: string) => (key === 'ADMIN_EMAILS' ? 'admin@example.com, other@example.com ' : undefined)) };
+    const service = new UsersService(mockUploadsService as any, configWithAdmin as any);
+    const usersBuilder = createBuilder();
+    const insertChain = { ...createBuilder(), select: jest.fn().mockReturnThis(), single: jest.fn() };
+    (insertChain as any).single.mockResolvedValueOnce({
+      data: {
+        id: 'admin-id',
+        email: 'admin@example.com',
+        display_name: 'Admin',
+        role: 'admin',
+        avatar_url: null,
+        created_at: new Date().toISOString(),
+        firebase_uid: 'firebase-uid',
+      },
+      error: null,
+    });
+
+    const supabase = { from: jest.fn(() => usersBuilder) };
+    usersBuilder.single.mockResolvedValueOnce({ data: null, error: null });
+    usersBuilder.insert.mockReturnValue(insertChain);
+    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
+
+    const result = await service.createUser('firebase-uid', {
+      email: 'admin@example.com',
+      displayName: 'Admin',
+      role: 'listener',
+    });
+
+    expect(result.role).toBe('admin');
+    expect(usersBuilder.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'admin',
+      }),
+    );
   });
 });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -52,25 +53,66 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero Section */}
-      <section className="bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 md:py-32">
-          <div className="text-center max-w-3xl mx-auto">
-            <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              Underground Music Radio
-            </h1>
-            <p className="text-xl md:text-2xl text-primary-foreground/80 mb-8">
-              Discover emerging artists. Promote your music. 
-              Join the community shaping tomorrow&apos;s sound.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="bg-white text-primary hover:bg-white/90" asChild>
-                <Link href="/signup?role=listener">Start Listening</Link>
-              </Button>
-              <Button variant="outline" size="lg" className="border-white/50 text-white hover:bg-white/10 hover:text-white" asChild>
-                <Link href="/signup?role=artist">Promote Your Music</Link>
-              </Button>
-            </div>
+      {/* Split Hero - Choose your path */}
+      <section className="min-h-[70vh] flex flex-col">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
+          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3">
+            Underground Music Radio
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground">
+            Discover undiscovered talent. Choose your path.
+          </p>
+        </div>
+        <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-24">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 h-full max-w-5xl mx-auto">
+            <Link
+              href="/signup?role=listener"
+              className="group relative overflow-hidden rounded-2xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              <div className="aspect-[4/3] relative bg-muted">
+                <Image
+                  src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&q=80"
+                  alt="Listener - discover music"
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+                <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                  I am a Listener
+                </h2>
+                <p className="text-white/90 mt-1 text-sm md:text-base">
+                  Discover gems and support underground talent
+                </p>
+              </div>
+            </Link>
+            <Link
+              href="/signup?role=artist"
+              className="group relative overflow-hidden rounded-2xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            >
+              <div className="aspect-[4/3] relative bg-muted">
+                <Image
+                  src="https://images.unsplash.com/photo-1605101100278-5d8deb22c8a0?w=800&q=80"
+                  alt="Creator - share your music"
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  priority
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
+                <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
+                  I am a Creator
+                </h2>
+                <p className="text-white/90 mt-1 text-sm md:text-base">
+                  Get your music heard and grow your audience
+                </p>
+              </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -80,9 +122,9 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Artists' },
+              { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems' },
               { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Songs' },
-              { value: `${(data.stats.totalPlays / 1000000).toFixed(1)}M+`, label: 'Total Plays' },
+              { value: `${(data.stats.totalPlays / 1000000).toFixed(1)}M+`, label: 'Discoveries' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
                 <CardContent className="pt-6">
@@ -103,14 +145,14 @@ export default async function HomePage() {
               For Listeners
             </h2>
             <p className="text-xl text-muted-foreground">
-              Discover your next favorite artist
+              Discover your next favorite gem
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { icon: '🎵', title: 'Tune In', desc: 'Listen to our curated radio stream featuring underground artists from around the world.' },
-              { icon: '❤️', title: 'Discover', desc: 'Like tracks to save them and help boost artists in the rotation.' },
-              { icon: '🌟', title: 'Support', desc: 'Follow your favorite artists and be part of their journey to success.' },
+              { icon: '❤️', title: 'Discover', desc: 'Like tracks to save them and help boost underground talent in the rotation.' },
+              { icon: '🌟', title: 'Support', desc: 'Follow your favorite gems and be part of their journey to success.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>
@@ -128,12 +170,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Artists */}
+      {/* How It Works - Gems (underground artists) */}
       <section className="py-20 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              For Artists
+              For Gems
             </h2>
             <p className="text-xl text-muted-foreground">
               Get your music heard by real listeners
@@ -143,7 +185,7 @@ export default async function HomePage() {
             {[
               { icon: '📤', title: 'Upload', desc: 'Submit your tracks for review. Once approved, they enter our radio rotation.' },
               { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more listeners.' },
-              { icon: '📊', title: 'Analyze', desc: 'Track your plays, engagement, and growth with detailed analytics.' },
+              { icon: '📊', title: 'Analyze', desc: 'Track your discoveries, engagement, and growth with detailed analytics.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>
@@ -161,15 +203,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Featured Artists */}
+      {/* Diamonds (featured underground talent) */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              Featured Artists
+              Diamonds
             </h2>
             <p className="text-xl text-muted-foreground">
-              Trending on RadioApp this week
+              Undiscovered talent in the spotlight
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -203,7 +245,7 @@ export default async function HomePage() {
             Ready to join the revolution?
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you&apos;re an artist looking to grow or a listener seeking new sounds, 
+            Whether you&apos;re undiscovered talent looking to grow or a listener seeking new sounds, 
             RadioApp is your home.
           </p>
           <Button size="lg" variant="secondary" asChild>

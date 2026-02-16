@@ -18,9 +18,10 @@ interface RoleSelectionModalProps {
   onSelect: (role: OnboardingRole) => void;
   onCancel: () => void;
   loading?: boolean;
+  error?: string | null;
 }
 
-export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectionModalProps) {
+export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleSelectionModalProps) {
   const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
 
   const handleContinue = () => {
@@ -36,6 +37,12 @@ export function RoleSelectionModal({ onSelect, onCancel, loading }: RoleSelectio
           <DialogTitle>Welcome! Choose Your Role</DialogTitle>
           <DialogDescription>How would you like to use Discover Me?</DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            {error}
+          </div>
+        )}
 
         <div className="space-y-4 py-4">
           <button

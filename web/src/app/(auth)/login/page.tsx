@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,10 +15,11 @@ import { Separator } from '@/components/ui/separator';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { 
-    signInWithGoogle, 
-    signInWithEmail, 
-    loading, 
+  const {
+    profile,
+    signInWithGoogle,
+    signInWithEmail,
+    loading,
     error,
     pendingGoogleUser,
     completeGoogleSignUp,
@@ -30,8 +31,14 @@ function LoginForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/competition';
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
   const sessionExpired = searchParams.get('session_expired') === 'true';
+
+  useEffect(() => {
+    if (profile && !pendingGoogleUser) {
+      router.push(redirectTo);
+    }
+  }, [profile, pendingGoogleUser, router, redirectTo]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,24 +61,22 @@ function LoginForm() {
 
     try {
       await signInWithGoogle();
-      // If pendingGoogleUser is set, the modal will show
-      // Otherwise, user exists and we redirect
-      if (!pendingGoogleUser) {
-        router.push(redirectTo);
-      }
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to sign in with Google');
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign in with Google'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
+    setLocalError(null);
     try {
       await completeGoogleSignUp(role);
       router.push(redirectTo);
     } catch (err) {
-      setLocalError(err instanceof Error ? err.message : 'Failed to complete sign up');
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up'));
     }
   };
 
@@ -79,15 +84,14 @@ function LoginForm() {
 
   return (
     <>
-      {/* Role Selection Modal for Google Sign-In */}
       {pendingGoogleUser && (
         <RoleSelectionModal
           onSelect={handleRoleSelect}
           onCancel={cancelGoogleSignUp}
           loading={loading}
+          error={displayError}
         />
       )}
-
       <div className="bg-white rounded-2xl shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>

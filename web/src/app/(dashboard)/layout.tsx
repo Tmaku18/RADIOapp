@@ -10,7 +10,6 @@ import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -52,7 +51,6 @@ const baseNavigation = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Profile', href: '/profile', icon: '👤' },
   { name: 'Messages', href: '/messages', icon: '💬' },
-  { name: 'Job board', href: '/job-board', icon: '📋' },
 ];
 
 const artistNavigation = [
@@ -62,6 +60,7 @@ const artistNavigation = [
   { name: 'Services', href: '/artist/services', icon: '🛠️' },
   { name: 'Credits', href: '/artist/credits', icon: '💰' },
   { name: 'Stats', href: '/artist/stats', icon: '📈' },
+  { name: 'Pro-Network', href: '/job-board', icon: '💼' },
 ];
 
 const adminSubNavigation = [
@@ -73,7 +72,7 @@ const adminSubNavigation = [
 ];
 
 // Flattened nav for page title lookup
-function getPageTitle(pathname: string, profileRole?: string): string {
+function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin/songs')) return 'Songs';
   if (pathname.startsWith('/admin/users')) return 'Users';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
@@ -94,7 +93,7 @@ function getPageTitle(pathname: string, profileRole?: string): string {
   if (pathname.startsWith('/artist/services')) return 'Services';
   if (pathname.startsWith('/browse/saved')) return 'Saved';
   if (pathname.startsWith('/competition')) return 'Competition';
-  if (pathname.startsWith('/job-board')) return 'Job board';
+  if (pathname.startsWith('/job-board')) return 'Pro-Network';
   if (pathname.match(/^\/artist\/[^/]+$/)) return 'Artist';
   return 'Dashboard';
 }
@@ -106,8 +105,10 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, signOut, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
+  const { user, profile, loading, signOut, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
   const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
+  const isArtistMode = profile?.role === 'artist' || profile?.role === 'admin';
+  const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
 
   useEffect(() => {
     if (!loading && !user) {
@@ -139,8 +140,8 @@ export default function DashboardLayout({
     setIsCompletingSignUp(true);
     try {
       await completeGoogleSignUp(role);
-    } catch (error) {
-      console.error('Failed to complete sign up:', error);
+    } catch (err) {
+      console.error('Failed to complete sign up:', err);
     } finally {
       setIsCompletingSignUp(false);
     }
@@ -175,6 +176,7 @@ export default function DashboardLayout({
           onSelect={handleRoleSelect}
           onCancel={cancelGoogleSignUp}
           loading={isCompletingSignUp}
+          error={error}
         />
       </div>
     );
@@ -183,8 +185,9 @@ export default function DashboardLayout({
   const isAdminPath = pathname.startsWith('/admin');
 
   return (
-    <SidebarProvider>
-      <Sidebar>
+    <div data-brand={brandMode} className="min-h-screen">
+      <SidebarProvider>
+        <Sidebar>
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -288,10 +291,16 @@ export default function DashboardLayout({
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">
-            {getPageTitle(pathname, profile?.role)}
+            {getPageTitle(pathname)}
           </h1>
 
           <div className="ml-auto flex items-center gap-2">
+            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+              <Link href={isArtistMode ? '/artist/upload' : '/competition'}>
+                {isArtistMode ? 'Upload' : 'Amplify'}
+              </Link>
+            </Button>
+
             <Button variant="outline" size="icon" asChild>
               <Link href="/notifications" className="relative">
                 <span className="text-xl">🔔</span>
@@ -335,6 +344,7 @@ export default function DashboardLayout({
           {children}
         </div>
       </SidebarInset>
-    </SidebarProvider>
+      </SidebarProvider>
+    </div>
   );
 }

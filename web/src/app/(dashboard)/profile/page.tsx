@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi, creatorNetworkApi, paymentsApi } from '@/lib/api';
@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -31,6 +32,9 @@ export default function ProfilePage() {
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
   const [hasCreatorAccess, setHasCreatorAccess] = useState<boolean | null>(null);
   const [creatorNetworkLoading, setCreatorNetworkLoading] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
   useEffect(() => {
@@ -99,6 +103,46 @@ export default function ProfilePage() {
     setError(null);
   };
 
+  const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setAvatarError(null);
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      setAvatarError('Please choose a JPEG, PNG, or WebP image.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setAvatarError('Image must be 2MB or smaller.');
+      return;
+    }
+    setIsUploadingAvatar(true);
+    try {
+      await usersApi.uploadProfilePhoto(file);
+      await refreshProfile();
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to upload profile picture');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
+  const handleRemovePhoto = async () => {
+    setAvatarError(null);
+    setIsUploadingAvatar(true);
+    try {
+      await usersApi.updateMe({ avatarUrl: '' });
+      await refreshProfile();
+    } catch (err) {
+      setAvatarError(err instanceof Error ? err.message : 'Failed to remove photo');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -148,13 +192,50 @@ export default function ProfilePage() {
           )}
 
           <div className="flex items-center space-x-4 mb-6">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={profile?.avatarUrl ?? undefined} />
-              <AvatarFallback className="text-2xl">👤</AvatarFallback>
-            </Avatar>
-            <div>
+            <div className="relative">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={profile?.avatarUrl ?? undefined} />
+                <AvatarFallback className="text-2xl">👤</AvatarFallback>
+              </Avatar>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp"
+                className="sr-only"
+                aria-label="Upload profile picture"
+                onChange={handleAvatarChange}
+                disabled={isUploadingAvatar}
+              />
+            </div>
+            <div className="flex-1">
               <h3 className="font-medium text-foreground">{profile?.displayName || 'No name set'}</h3>
               <p className="text-sm text-muted-foreground capitalize">{profile?.role}</p>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUploadingAvatar}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {isUploadingAvatar ? 'Uploading...' : 'Change profile picture'}
+                </Button>
+                {profile?.avatarUrl && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={isUploadingAvatar}
+                    onClick={handleRemovePhoto}
+                    className="text-muted-foreground"
+                  >
+                    Remove photo
+                  </Button>
+                )}
+              </div>
+              {avatarError && (
+                <p className="text-sm text-destructive mt-1">{avatarError}</p>
+              )}
             </div>
           </div>
 
@@ -298,7 +379,12 @@ export default function ProfilePage() {
           <div className="flex items-start gap-4">
             <div className="text-4xl">✨</div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-foreground mb-1">Creator Network</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-lg font-semibold text-foreground">Creator Network</h3>
+                {hasCreatorAccess ? (
+                  <Badge className="bg-[var(--brand-pro)] text-black border border-black/10">PRO</Badge>
+                ) : null}
+              </div>
               <p className="text-muted-foreground text-sm mb-4">
                 Unlock direct messages with other artists and providers. Subscribe to send and receive DMs.
               </p>

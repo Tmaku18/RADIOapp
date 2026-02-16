@@ -68,34 +68,71 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Listen for auth state changes
+  const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
+
+  // Create backend profile. Role optional: when omitted, backend assigns admin if email in allowlist, else listener.
+  const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
+    await usersApi.create({
+      email: firebaseUser.email!,
+      displayName: firebaseUser.displayName || undefined,
+      ...(role != null ? { role } : {}),
+    });
+    await fetchProfile();
+  }, [fetchProfile]);
+
+  // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
     const unsubscribe = onAuthChange(async (firebaseUser) => {
       setUser(firebaseUser);
       
       if (firebaseUser) {
-        // User is signed in, try to fetch profile
+        try {
+          const idToken = await firebaseUser.getIdToken();
+          await createSessionCookie(idToken);
+        } catch {
+          setLoading(false);
+          return;
+        }
         try {
           const response = await usersApi.getMe();
           if (response.data) {
             setProfile(response.data);
+            setPendingGoogleUser(null);
           } else {
-            // No profile data - user needs to complete registration
-            const idToken = await firebaseUser.getIdToken();
-            setPendingGoogleUser({ firebaseUser, idToken });
             setProfile(null);
           }
-        } catch (err) {
-          // Profile fetch failed - user likely doesn't exist in Supabase
-          // Set pending state so they can complete registration
-          console.log('User exists in Firebase but not in Supabase - prompting for registration');
-          try {
-            const idToken = await firebaseUser.getIdToken();
-            setPendingGoogleUser({ firebaseUser, idToken });
-          } catch {
-            console.error('Failed to get ID token for pending user');
+        } catch {
+          // New user: signup role in sessionStorage, or admin allowlist, or show role modal
+          let created = false;
+          if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
+            if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
+              sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+              try {
+                await createDefaultProfile(firebaseUser, stored);
+                created = true;
+              } catch (createErr) {
+                const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
+                setProfile(null);
+              }
+            }
+            if (!created) {
+              try {
+                const { data } = await usersApi.checkAdmin();
+                if (data?.isAdmin) {
+                  await createDefaultProfile(firebaseUser);
+                  created = true;
+                }
+              } catch {
+                // ignore; will show role modal
+              }
+            }
           }
-          setProfile(null);
+          if (!created) {
+            setPendingGoogleUser({ firebaseUser, idToken: await firebaseUser.getIdToken() });
+            setProfile(null);
+          }
         }
       } else {
         setProfile(null);
@@ -106,36 +143,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [createDefaultProfile]);
 
   const handleSignInWithGoogle = async () => {
     setError(null);
     setLoading(true);
     try {
       const firebaseUser = await signInWithGoogle();
-      
-      // Get ID token and create session cookie
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
-      
-      // Try to fetch existing profile
       try {
         const response = await usersApi.getMe();
         if (response.data) {
-          // Existing user, just set profile
           setProfile(response.data);
           setLoading(false);
           return;
         }
       } catch {
-        // Profile doesn't exist - this is a new user
-        // Store pending state and show role selection modal
+        // New user: signup role in sessionStorage, or admin allowlist, or ask (set pending)
+        if (typeof window !== 'undefined') {
+          const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
+          if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
+            sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+            try {
+              await createDefaultProfile(firebaseUser, stored);
+              setLoading(false);
+              return;
+            } catch (createErr) {
+              const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+              setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
+              throw createErr;
+            }
+          }
+          try {
+            const { data } = await usersApi.checkAdmin();
+            if (data?.isAdmin) {
+              await createDefaultProfile(firebaseUser);
+              setLoading(false);
+              return;
+            }
+          } catch {
+            // ignore; will show role modal
+          }
+        }
         setPendingGoogleUser({ firebaseUser, idToken });
-        setLoading(false);
-        return;
+        setProfile(null);
       }
+      setLoading(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to sign in with Google';
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (err instanceof Error ? err.message : 'Failed to sign in with Google');
       setError(message);
       setLoading(false);
       throw err;
@@ -163,7 +220,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetchProfile();
       setPendingGoogleUser(null);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to complete sign up';
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const message = apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up');
       setError(message);
       throw err;
     } finally {

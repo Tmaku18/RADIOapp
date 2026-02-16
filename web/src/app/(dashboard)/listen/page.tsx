@@ -19,11 +19,14 @@ export default function ListenPage() {
             <p className="text-muted-foreground">Discover underground artists on RadioApp</p>
           </div>
 
-          <Card>
-            <CardContent className="pt-6">
-              <RadioPlayer />
-            </CardContent>
-          </Card>
+          <div className="relative">
+            <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
+            <Card className="relative">
+              <CardContent className="pt-6">
+                <RadioPlayer />
+              </CardContent>
+            </Card>
+          </div>
 
           <div className="mt-8 text-center text-sm text-muted-foreground">
             <p>Everyone listening hears the same stream. Like a song to save it and support the artist.</p>

@@ -78,7 +78,7 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Total Plays</div>
+            <div className="text-sm text-muted-foreground font-medium">Discoveries</div>
             <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPlays ?? 0).toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">All time</div>
           </CardContent>
@@ -111,7 +111,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Plays This Week</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Discoveries This Week</h2>
           <div className="flex items-end justify-between h-48 gap-2">
             {playsByDayForChart.length > 0 ? (
               playsByDayForChart.map((day, i) => (
@@ -122,7 +122,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground text-sm col-span-full">No plays in the last 7 days.</p>
+              <p className="text-muted-foreground text-sm col-span-full">No discoveries in the last 7 days.</p>
             )}
           </div>
         </CardContent>
@@ -139,7 +139,7 @@ export default function StatsPage() {
                   {song.artworkUrl && <img src={song.artworkUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
-                    <p className="text-sm text-muted-foreground">{song.totalPlays.toLocaleString()} plays · {song.likeCount} likes</p>
+                    <p className="text-sm text-muted-foreground">{song.totalPlays.toLocaleString()} discoveries · {song.likeCount} likes</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm text-muted-foreground">{song.creditsUsed.toLocaleString()} credits used</p>
@@ -148,7 +148,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No songs with plays yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No songs with discoveries yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>

@@ -1,10 +1,11 @@
-import { IsString, IsOptional, IsUrl, IsBoolean } from 'class-validator';
+import { IsString, IsOptional, IsUrl, IsBoolean, ValidateIf } from 'class-validator';
 
 export class UpdateUserDto {
   @IsString()
   @IsOptional()
   displayName?: string;
 
+  @ValidateIf((o) => o.avatarUrl != null && o.avatarUrl !== '')
   @IsUrl()
   @IsOptional()
   avatarUrl?: string;

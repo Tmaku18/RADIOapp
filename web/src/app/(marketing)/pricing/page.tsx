@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
   title: 'Pricing - RadioApp',
-  description: 'Simple, transparent pricing for artists. Listeners always free.',
+  description: 'Simple, transparent pricing for gems. Listeners always free.',
 };
 
 export const revalidate = 3600;
@@ -48,7 +48,7 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-muted-foreground">
-            Listening is always free. Artists pay only for promotion.
+            Listening is always free. Gems pay only for promotion.
           </p>
         </div>
 
@@ -70,7 +70,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Follow artists
+                  Follow gems
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -84,10 +84,10 @@ export default function PricingPage() {
           </Card>
         </div>
 
-        {/* Artist Section */}
+        {/* Gems Section */}
         <div>
           <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-            For Artists - Play Credits
+            For Gems - Play Credits
           </h2>
           <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
             Credits are used to promote your tracks in our radio rotation. 

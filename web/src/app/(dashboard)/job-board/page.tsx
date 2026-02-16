@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { jobBoardApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +15,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -54,6 +54,14 @@ const SERVICE_TYPES = ['mixing', 'mastering', 'production', 'session', 'collab',
 export default function JobBoardPage() {
   const { profile } = useAuth();
   const myId = profile?.id ?? null;
+  const router = useRouter();
+  const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
+
+  useEffect(() => {
+    if (profile && !isArtist) {
+      router.replace('/dashboard');
+    }
+  }, [profile, isArtist, router]);
 
   const [tab, setTab] = useState<'browse' | 'mine'>('browse');
   const [items, setItems] = useState<ServiceRequestRow[]>([]);
@@ -143,12 +151,28 @@ export default function JobBoardPage() {
 
   const isOwner = myId && requestDetail && requestDetail.artistId === myId;
 
+  if (profile && !isArtist) {
+    return (
+      <div className="container max-w-4xl py-10">
+        <p className="text-muted-foreground">Redirecting...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="container max-w-4xl py-6 space-y-6">
-      <h1 className="text-2xl font-semibold">Job board</h1>
-      <p className="text-muted-foreground text-sm">
-        Browse service requests from artists, or manage your own requests and applications.
-      </p>
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-artist-pro p-6">
+        <div className="absolute inset-0 opacity-25 bg-networx blur-3xl" />
+        <div className="relative">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <h1 className="text-2xl font-semibold text-white">Pro-Network</h1>
+            <Badge className="bg-[var(--brand-pro)] text-black border border-black/10">PRO</Badge>
+          </div>
+          <p className="text-white/80 text-sm mt-1">
+            Exclusive service requests and collaborations for creators.
+          </p>
+        </div>
+      </div>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as 'browse' | 'mine')}>
         <TabsList>

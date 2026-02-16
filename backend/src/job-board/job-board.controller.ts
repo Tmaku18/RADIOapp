@@ -3,10 +3,13 @@ import { JobBoardService } from './job-board.service';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('job-board')
-@UseGuards(FirebaseAuthGuard)
+@UseGuards(FirebaseAuthGuard, RolesGuard)
+@Roles('artist', 'admin')
 export class JobBoardController {
   constructor(private readonly jobBoard: JobBoardService) {}
 

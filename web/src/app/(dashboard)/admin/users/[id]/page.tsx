@@ -142,7 +142,7 @@ export default function AdminUserProfilePage() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Total Plays</p>
+              <p className="text-sm text-muted-foreground">Discoveries</p>
               <p className="text-2xl font-semibold text-foreground">{totalPlays}</p>
             </CardContent>
           </Card>
@@ -161,7 +161,7 @@ export default function AdminUserProfilePage() {
                   <TableHead className="w-12" />
                   <TableHead>Title</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Plays</TableHead>
+                  <TableHead className="text-right">Discoveries</TableHead>
                   <TableHead className="text-right">Likes</TableHead>
                   <TableHead>Added</TableHead>
                 </TableRow>
