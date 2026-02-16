@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 export interface CreateNotificationDto {
@@ -50,10 +50,11 @@ export class NotificationService {
       .limit(limit);
 
     if (error) {
-      throw new Error(`Failed to fetch notifications: ${error.message}`);
+      this.logger.warn(`Failed to fetch notifications for user ${userId}: ${error.message}`);
+      throw new InternalServerErrorException('Failed to load notifications. Please try again.');
     }
 
-    return data;
+    return Array.isArray(data) ? data : [];
   }
 
   async getUnreadCount(userId: string): Promise<number> {

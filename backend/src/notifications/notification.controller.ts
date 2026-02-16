@@ -7,6 +7,7 @@ import {
   Param,
   Query,
   UnauthorizedException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { NotificationService } from './notification.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
@@ -37,23 +38,37 @@ export class NotificationController {
     @CurrentUser() user: FirebaseUser,
     @Query('limit') limit?: string,
   ) {
-    const userId = await this.getUserId(user.uid);
-    const notifications = await this.notificationService.getForUser(
-      userId,
-      limit ? parseInt(limit, 10) : 50,
-    );
-
-    return {
-      notifications: notifications.map((n) => ({
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        message: n.message,
-        metadata: n.metadata,
-        read: n.read,
-        createdAt: n.created_at,
-      })),
-    };
+    if (!user?.uid) {
+      throw new UnauthorizedException('Not authenticated');
+    }
+    try {
+      let userId: string;
+      try {
+        userId = await this.getUserId(user.uid);
+      } catch {
+        // Valid Firebase token but no backend profile yet (e.g. signup incomplete) — return empty so page loads
+        return { notifications: [] };
+      }
+      const notifications = await this.notificationService.getForUser(
+        userId,
+        limit ? parseInt(limit, 10) : 50,
+      );
+      const list = Array.isArray(notifications) ? notifications : [];
+      return {
+        notifications: list.map((n) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          message: n.message,
+          metadata: n.metadata,
+          read: n.read,
+          createdAt: n.created_at,
+        })),
+      };
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new InternalServerErrorException('Failed to load notifications. Please try again.');
+    }
   }
 
   @Get('unread-count')
@@ -62,7 +77,12 @@ export class NotificationController {
       if (!user?.uid) {
         return { count: 0 };
       }
-      const userId = await this.getUserId(user.uid);
+      let userId: string;
+      try {
+        userId = await this.getUserId(user.uid);
+      } catch {
+        return { count: 0 };
+      }
       const count = await this.notificationService.getUnreadCount(userId);
       return { count };
     } catch {

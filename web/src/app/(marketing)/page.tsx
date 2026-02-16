@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 
@@ -53,66 +52,22 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Split Hero - Choose your path */}
-      <section className="min-h-[70vh] flex flex-col">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 text-center">
-          <h1 className="text-3xl md:text-5xl font-bold text-foreground mb-3">
+      {/* Hero */}
+      <section className="relative py-24 sm:py-32 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight">
             Underground Music Radio
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground">
-            Discover undiscovered talent. Choose your path.
+          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
+            Discover undiscovered talent. Listen to curated radio from underground artists, or get your music heard by real listeners.
           </p>
-        </div>
-        <div className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-24">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 h-full max-w-5xl mx-auto">
-            <Link
-              href="/signup?role=listener"
-              className="group relative overflow-hidden rounded-2xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              <div className="aspect-[4/3] relative bg-muted">
-                <Image
-                  src="https://images.unsplash.com/photo-1581092160562-40aa08e78837?w=800&q=80"
-                  alt="Listener - discover music"
-                  fill
-                  className="object-cover transition-transform group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                  I am a Listener
-                </h2>
-                <p className="text-white/90 mt-1 text-sm md:text-base">
-                  Discover gems and support underground talent
-                </p>
-              </div>
-            </Link>
-            <Link
-              href="/signup?role=artist"
-              className="group relative overflow-hidden rounded-2xl border-2 border-border bg-card shadow-lg transition-all hover:shadow-xl hover:scale-[1.02] hover:border-primary/50 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            >
-              <div className="aspect-[4/3] relative bg-muted">
-                <Image
-                  src="https://images.unsplash.com/photo-1605101100278-5d8deb22c8a0?w=800&q=80"
-                  alt="Creator - share your music"
-                  fill
-                  className="object-cover transition-transform group-hover:scale-105"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  priority
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-              </div>
-              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                <h2 className="text-2xl md:text-3xl font-bold text-white drop-shadow-lg">
-                  I am a Creator
-                </h2>
-                <p className="text-white/90 mt-1 text-sm md:text-base">
-                  Get your music heard and grow your audience
-                </p>
-              </div>
-            </Link>
+          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" asChild>
+              <Link href="/signup">Get Started Free</Link>
+            </Button>
+            <Button size="lg" variant="outline" asChild>
+              <Link href="/login">Log in</Link>
+            </Button>
           </div>
         </div>
       </section>

@@ -125,7 +125,8 @@ export default function DashboardLayout({
       const fetchUnreadCount = async () => {
         try {
           const response = await notificationsApi.getUnreadCount();
-          setUnreadCount(response.data.count);
+          const count = response?.data?.count;
+          setUnreadCount(typeof count === 'number' ? count : 0);
         } catch {
           setUnreadCount(0);
         }

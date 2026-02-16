@@ -60,10 +60,14 @@ export default function NotificationsPage() {
   const loadNotifications = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await notificationsApi.getAll();
-      setNotifications(response.data.notifications);
+      const list = response?.data?.notifications;
+      setNotifications(Array.isArray(list) ? list : []);
     } catch (err: any) {
-      setError(err.message || 'Failed to load notifications');
+      const msg = err.response?.data?.message ?? err.message ?? 'Failed to load notifications';
+      setError(msg);
+      setNotifications([]);
     } finally {
       setLoading(false);
     }
