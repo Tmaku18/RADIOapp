@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
+import '../../../core/theme/networx_extensions.dart';
 
 /// Chat panel widget with production-grade UX features:
 /// - Connection indicator (green/yellow/gray dot)
@@ -150,6 +151,8 @@ class _ChatPanelState extends State<ChatPanel> {
   }
 
   Widget _buildMessage(ChatMessage message, bool isOwnMessage) {
+    final scheme = Theme.of(context).colorScheme;
+    final surfaces = context.networxSurfaces;
     if (message.isSystemMessage) {
       return Container(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -157,7 +160,7 @@ class _ChatPanelState extends State<ChatPanel> {
           child: Text(
             message.message,
             style: TextStyle(
-              color: Colors.grey.shade500,
+              color: surfaces.textMuted,
               fontSize: 12,
               fontStyle: FontStyle.italic,
             ),
@@ -177,7 +180,7 @@ class _ChatPanelState extends State<ChatPanel> {
           if (!isOwnMessage) ...[
             CircleAvatar(
               radius: 14,
-              backgroundColor: Colors.deepPurple.shade300,
+              backgroundColor: scheme.primary.withValues(alpha: 0.25),
               backgroundImage: message.avatarUrl != null
                   ? NetworkImage(message.avatarUrl!)
                   : null,
@@ -201,8 +204,8 @@ class _ChatPanelState extends State<ChatPanel> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: isOwnMessage 
-                    ? Colors.deepPurple 
-                    : Colors.grey.shade800,
+                    ? scheme.primary
+                    : surfaces.elevated,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -215,8 +218,8 @@ class _ChatPanelState extends State<ChatPanel> {
                         message.displayName,
                         style: TextStyle(
                           color: isOwnMessage 
-                              ? Colors.white70 
-                              : Colors.grey.shade400,
+                              ? scheme.onPrimary.withValues(alpha: 0.85)
+                              : surfaces.textSecondary,
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
                         ),
@@ -226,8 +229,8 @@ class _ChatPanelState extends State<ChatPanel> {
                         _formatTime(message.createdAt),
                         style: TextStyle(
                           color: isOwnMessage 
-                              ? Colors.white54 
-                              : Colors.grey.shade500,
+                              ? scheme.onPrimary.withValues(alpha: 0.65)
+                              : surfaces.textMuted,
                           fontSize: 10,
                         ),
                       ),
@@ -236,8 +239,8 @@ class _ChatPanelState extends State<ChatPanel> {
                   const SizedBox(height: 2),
                   Text(
                     message.message,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isOwnMessage ? scheme.onPrimary : scheme.onSurface,
                       fontSize: 14,
                     ),
                   ),
@@ -261,6 +264,8 @@ class _ChatPanelState extends State<ChatPanel> {
   Widget build(BuildContext context) {
     return Consumer<ChatService>(
       builder: (context, chatService, child) {
+        final scheme = Theme.of(context).colorScheme;
+        final surfaces = context.networxSurfaces;
         if (!widget.isExpanded) {
           // Collapsed view - just show toggle button
           return GestureDetector(
@@ -268,18 +273,19 @@ class _ChatPanelState extends State<ChatPanel> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade900,
+                color: scheme.surface,
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+                border: Border(top: BorderSide(color: surfaces.border)),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.chat_bubble_outline, 
-                    color: Colors.white70, size: 18),
+                  Icon(Icons.chat_bubble_outline,
+                      color: surfaces.textSecondary, size: 18),
                   const SizedBox(width: 8),
-                  const Text(
-                    'Live Chat',
-                    style: TextStyle(color: Colors.white70),
+                  Text(
+                    'The Room',
+                    style: TextStyle(color: surfaces.textSecondary),
                   ),
                   const SizedBox(width: 8),
                   _buildConnectionIndicator(chatService.connectionState),
@@ -288,7 +294,7 @@ class _ChatPanelState extends State<ChatPanel> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: Colors.deepPurple,
+                        color: scheme.primary,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
@@ -302,7 +308,7 @@ class _ChatPanelState extends State<ChatPanel> {
                     ),
                   ],
                   const Spacer(),
-                  const Icon(Icons.keyboard_arrow_up, color: Colors.white70),
+                  Icon(Icons.keyboard_arrow_up, color: surfaces.textSecondary),
                 ],
               ),
             ),
@@ -312,8 +318,9 @@ class _ChatPanelState extends State<ChatPanel> {
         // Expanded view - full chat panel
         final expandedPanel = Container(
           decoration: BoxDecoration(
-            color: Colors.grey.shade900,
+            color: scheme.surface,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            border: Border(top: BorderSide(color: surfaces.border)),
           ),
           child: Column(
             children: [
@@ -324,25 +331,26 @@ class _ChatPanelState extends State<ChatPanel> {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     border: Border(
-                      bottom: BorderSide(color: Colors.grey.shade800),
+                      bottom: BorderSide(color: surfaces.border),
                     ),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.chat_bubble, 
-                        color: Colors.white, size: 18),
+                      Icon(Icons.chat_bubble,
+                          color: scheme.onSurface, size: 18),
                       const SizedBox(width: 8),
-                      const Text(
-                        'Live Chat',
+                      Text(
+                        'The Room',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: scheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                       const SizedBox(width: 8),
                       _buildConnectionIndicator(chatService.connectionState),
                       const Spacer(),
-                      const Icon(Icons.keyboard_arrow_down, color: Colors.white70),
+                      Icon(Icons.keyboard_arrow_down,
+                          color: surfaces.textSecondary),
                     ],
                   ),
                 ),
@@ -375,17 +383,17 @@ class _ChatPanelState extends State<ChatPanel> {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(Icons.chat_bubble_outline,
-                                    size: 48, color: Colors.grey.shade700),
+                                    size: 48, color: surfaces.textMuted),
                                 const SizedBox(height: 12),
                                 Text(
                                   'No messages yet',
-                                  style: TextStyle(color: Colors.grey.shade500),
+                                  style: TextStyle(color: surfaces.textSecondary),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   'Be the first to say something!',
                                   style: TextStyle(
-                                    color: Colors.grey.shade600,
+                                    color: surfaces.textMuted,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -418,11 +426,11 @@ class _ChatPanelState extends State<ChatPanel> {
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.deepPurple,
+                                color: scheme.primary,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withAlpha(77),
+                                    color: scheme.shadow.withValues(alpha: 0.18),
                                     blurRadius: 8,
                                   ),
                                 ],
@@ -455,16 +463,16 @@ class _ChatPanelState extends State<ChatPanel> {
               if (!chatService.chatEnabled)
                 Container(
                   padding: const EdgeInsets.all(12),
-                  color: Colors.grey.shade800,
+                  color: surfaces.elevated,
                   child: Row(
                     children: [
-                      const Icon(Icons.info_outline, 
-                        color: Colors.grey, size: 18),
+                      Icon(Icons.info_outline,
+                          color: surfaces.textMuted, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           chatService.disabledReason ?? 'Chat is currently disabled',
-                          style: TextStyle(color: Colors.grey.shade400),
+                          style: TextStyle(color: surfaces.textSecondary),
                         ),
                       ),
                     ],
@@ -477,7 +485,7 @@ class _ChatPanelState extends State<ChatPanel> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     border: Border(
-                      top: BorderSide(color: Colors.grey.shade800),
+                      top: BorderSide(color: surfaces.border),
                     ),
                   ),
                   child: Row(
@@ -488,12 +496,12 @@ class _ChatPanelState extends State<ChatPanel> {
                           focusNode: _focusNode,
                           maxLength: 280,
                           maxLines: 1,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: scheme.onSurface),
                           decoration: InputDecoration(
                             hintText: 'Type a message...',
-                            hintStyle: TextStyle(color: Colors.grey.shade500),
+                            hintStyle: TextStyle(color: surfaces.textMuted),
                             filled: true,
-                            fillColor: Colors.grey.shade800,
+                            fillColor: surfaces.elevated,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(24),
                               borderSide: BorderSide.none,
@@ -508,7 +516,7 @@ class _ChatPanelState extends State<ChatPanel> {
                       const SizedBox(width: 8),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.deepPurple,
+                          color: scheme.primary,
                           shape: BoxShape.circle,
                         ),
                         child: IconButton(
@@ -543,8 +551,8 @@ class _ChatPanelState extends State<ChatPanel> {
                           '$length/280',
                           style: TextStyle(
                             color: length > 260 
-                                ? (length > 280 ? Colors.red : Colors.amber)
-                                : Colors.grey.shade600,
+                                ? (length > 280 ? scheme.error : surfaces.warning)
+                                : surfaces.textMuted,
                             fontSize: 11,
                           ),
                         );

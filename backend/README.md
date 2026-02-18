@@ -10,6 +10,9 @@ The backend handles:
 - **User Management**: Profile creation, updates, and role management
 - **Song Management**: Upload, metadata, likes, and approval workflow
 - **Radio System**: Track rotation queue with persistent state
+- **Discovery & Pro-Directory**: Search/filter service providers + profiles
+- **Venue Ads**: Lightweight “venue partner” slots for listen surfaces
+- **Realtime Station Events**: Rising Star alerts via Supabase-backed table
 - **Payments**: Stripe integration with dual flows (PaymentIntent + Checkout Sessions)
 - **Credits**: Artist credit balance and transaction tracking
 - **Admin Operations**: Song approval, analytics, user management
@@ -95,6 +98,10 @@ backend/
 │   │   ├── firebase.config.ts
 │   │   └── supabase.config.ts
 │   ├── credits/         # Credit management
+│   ├── discovery/        # Pro-Directory + discovery search
+│   ├── leaderboard/      # Competition + leaderboards
+│   ├── venue-ads/        # Venue ad slots
+│   ├── service-providers/# Catalyst/provider profiles + listings/portfolio
 │   ├── payments/        # Stripe integration
 │   ├── radio/           # Radio queue system
 │   ├── songs/           # Song management
@@ -145,9 +152,43 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/payments/create-intent` | POST | Create Stripe PaymentIntent (mobile) |
+| `/api/payments/create-intent-song-plays` | POST | Create PaymentIntent to buy plays for a song |
+| `/api/payments/song-play-price` | GET | Fetch play pricing options for a song |
+| `/api/payments/quick-add-minutes` | POST | Quick-buy 5 plays (“Add 5 Minutes”) for a song |
 | `/api/payments/create-checkout-session` | POST | Create Stripe Checkout (web) |
 | `/api/payments/webhook` | POST | Stripe webhook handler |
 | `/api/payments/transactions` | GET | Transaction history |
+
+### Analytics (artist/admin)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/analytics/me` | GET | Artist analytics summary |
+| `/api/analytics/me/roi` | GET | ROI in a time window |
+| `/api/analytics/me/plays-by-region` | GET | Heatmap proxy by region |
+
+### Leaderboard
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/leaderboard/songs` | GET | Songs leaderboard (likes/listens) |
+| `/api/leaderboard/upvotes-per-minute` | GET | Trial by Fire leaderboard |
+
+### Discovery / Pro-Directory
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/discovery/people` | GET | Search service providers/artists with filters (search, rate, location, nearby) |
+
+### Service Providers
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/service-providers/:userId` | GET | Provider profile + listings + portfolio |
+| `/api/service-providers/me` | PUT | Update current user’s provider profile |
+| `/api/service-providers/me/portfolio` | POST | Add portfolio item |
+| `/api/service-providers/me/listings` | POST | Add/update service listing |
+
+### Venue Ads
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/venue-ads/current` | GET | Current venue ad for a station (default global) |
 
 ### Credits
 | Endpoint | Method | Description |
@@ -191,12 +232,14 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 - For production: Implement streaming uploads directly to Supabase
 - Consider reducing audio max size to 20MB for safety
 
-### Radio Synchronization
+### Radio logic and synchronization
 
-The radio service implements global stream synchronization:
-- All listeners hear the same song at the same time
-- Credits are only deducted once per song broadcast (not per listener)
-- Clients receive `started_at` and `server_time` for accurate playback sync
+Track selection and ordering are implemented in `src/radio/radio.service.ts`. See **`docs/radio-logic.md`** for full detail. Summary:
+
+- **Free vs paid mode**: Driven by listener count thresholds (hysteresis); paid mode uses four-tier selection (credited → trial → opt-in → free rotation).
+- **Artist spacing**: Same artist is not played back-to-back. In **free rotation**, the refill stack is built with round-robin by artist. In **paid/trial/opt-in**, the last-played artist is deprioritized (weight 0) in soft-weighted random selection.
+- **Soft-weighted random**: Slight bias for credits and “not played recently”; current song and (when applicable) last-played artist are excluded so the next track is varied.
+- **Synchronization**: All listeners hear the same song at the same time; credits are deducted once per broadcast; clients get `started_at` and `server_time` for sync.
 
 ## Observability
 

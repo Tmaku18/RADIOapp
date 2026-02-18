@@ -78,6 +78,7 @@ dependencies:
   
   # Local storage for settings
   shared_preferences: ^2.2.2
+  geolocator: ^14.0.2
 
 dev_dependencies:
   flutter_test:
@@ -100,6 +101,18 @@ flutter:
   # included with your application, so that you can use the icons in
   # the material Icons class.
   uses-material-design: true
+
+  # NETWORX typography (bundled font assets)
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Variable.ttf
+    - family: SpaceGrotesk
+      fonts:
+        - asset: assets/fonts/SpaceGrotesk-Variable.ttf
+    - family: Lora
+      fonts:
+        - asset: assets/fonts/Lora-Variable.ttf
 
   # To add assets to your application, add an assets section, like this:
   # assets:

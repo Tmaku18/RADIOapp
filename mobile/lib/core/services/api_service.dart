@@ -2,6 +2,21 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
+class ApiException implements Exception {
+  final int statusCode;
+  final String message;
+  final String? responseBody;
+
+  ApiException({
+    required this.statusCode,
+    required this.message,
+    this.responseBody,
+  });
+
+  @override
+  String toString() => 'ApiException($statusCode): $message';
+}
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
@@ -33,7 +48,11 @@ class ApiService {
       }
       return json.decode(body);
     } else {
-      throw Exception('Failed to load: ${response.statusCode}');
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'GET $endpoint failed',
+        responseBody: response.body,
+      );
     }
   }
 
@@ -55,7 +74,11 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
-      throw Exception('Failed to post: ${response.statusCode}');
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'POST $endpoint failed',
+        responseBody: response.body,
+      );
     }
   }
 
@@ -77,7 +100,11 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
-      throw Exception('Failed to put: ${response.statusCode}');
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'PUT $endpoint failed',
+        responseBody: response.body,
+      );
     }
   }
 
@@ -95,7 +122,11 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
-      throw Exception('Failed to delete: ${response.statusCode}');
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'DELETE $endpoint failed',
+        responseBody: response.body,
+      );
     }
   }
 
@@ -127,7 +158,11 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
-      throw Exception('Failed to upload: ${response.statusCode} - ${response.body}');
+      throw ApiException(
+        statusCode: response.statusCode,
+        message: 'UPLOAD $endpoint failed',
+        responseBody: response.body,
+      );
     }
   }
 }

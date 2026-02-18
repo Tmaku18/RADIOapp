@@ -37,6 +37,100 @@ export interface ArtistAnalytics {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
+  async getRoiForArtist(artistId: string, days: number = 30): Promise<{
+    days: number;
+    newFollowers: number;
+    creditsSpentInWindow: number;
+    roi: number | null;
+  }> {
+    const supabase = getSupabaseClient();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startIso = startDate.toISOString();
+
+    const { count: newFollowers } = await supabase
+      .from('artist_follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('artist_id', artistId)
+      .gte('created_at', startIso);
+
+    // Approximate "credits spent in window" as credits-per-play * number of plays in window.
+    // (credits.total_used has no time dimension; this is the best windowed estimate.)
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('id, duration_seconds')
+      .eq('artist_id', artistId);
+
+    const songList = (songs ?? []) as Array<{ id: string; duration_seconds: number | null }>;
+    if (songList.length === 0) {
+      return {
+        days,
+        newFollowers: newFollowers ?? 0,
+        creditsSpentInWindow: 0,
+        roi: null,
+      };
+    }
+
+    const creditsPerPlayBySongId = new Map<string, number>();
+    for (const s of songList) {
+      const duration = s.duration_seconds ?? 180;
+      creditsPerPlayBySongId.set(s.id, Math.ceil(duration / 5));
+    }
+
+    const songIds = songList.map((s) => s.id);
+    const { data: plays } = await supabase
+      .from('plays')
+      .select('song_id')
+      .in('song_id', songIds)
+      .gte('played_at', startIso);
+
+    const playRows = (plays ?? []) as Array<{ song_id: string }>;
+    const creditsSpentInWindow = playRows.reduce((sum, p) => sum + (creditsPerPlayBySongId.get(p.song_id) ?? 0), 0);
+    const roi = creditsSpentInWindow > 0 ? ((newFollowers ?? 0) / creditsSpentInWindow) * 100 : null;
+
+    return {
+      days,
+      newFollowers: newFollowers ?? 0,
+      creditsSpentInWindow,
+      roi,
+    };
+  }
+
+  async getPlaysByRegionForArtist(artistId: string, days: number = 30): Promise<Array<{ region: string; count: number }>> {
+    const supabase = getSupabaseClient();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startIso = startDate.toISOString();
+
+    // We don't currently store geo on plays, so we use profile clicks as a proxy for "where listeners engaged from".
+    const { data, error } = await supabase
+      .from('profile_clicks')
+      .select('user_id, users(region, location_region)')
+      .eq('artist_id', artistId)
+      .gte('created_at', startIso)
+      .limit(5000);
+
+    if (error) {
+      this.logger.warn(`Failed to load plays-by-region proxy for artist ${artistId}: ${error.message}`);
+      return [];
+    }
+
+    const rows = (data ?? []) as Array<{
+      user_id: string;
+      users?: { region?: string | null; location_region?: string | null } | null;
+    }>;
+
+    const counts = new Map<string, number>();
+    for (const r of rows) {
+      const region = r.users?.region ?? r.users?.location_region ?? 'Unknown';
+      counts.set(region, (counts.get(region) ?? 0) + 1);
+    }
+
+    return [...counts.entries()]
+      .map(([region, count]) => ({ region, count }))
+      .sort((a, b) => b.count - a.count);
+  }
+
   /**
    * Get comprehensive analytics for an artist.
    */
@@ -273,5 +367,65 @@ export class AnalyticsService {
     });
 
     return result;
+  }
+
+  /**
+   * Get a single play with per-play analytics (for "Your song has been played" notification deep link).
+   * Only the artist who owns the song can view.
+   */
+  async getPlayById(playId: string, artistId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: play, error: playError } = await supabase
+      .from('plays')
+      .select(`
+        id,
+        song_id,
+        played_at,
+        listener_count,
+        listener_count_at_end,
+        likes_during,
+        comments_during,
+        disconnects_during,
+        profile_clicks_during,
+        skipped
+      `)
+      .eq('id', playId)
+      .single();
+
+    if (playError || !play) {
+      return null;
+    }
+
+    const { data: song, error: songError } = await supabase
+      .from('songs')
+      .select('id, title, artist_id, artwork_url')
+      .eq('id', play.song_id)
+      .single();
+
+    if (songError || !song || song.artist_id !== artistId) {
+      return null;
+    }
+
+    const netListenerChange =
+      play.listener_count_at_end != null && play.listener_count != null
+        ? play.listener_count_at_end - play.listener_count
+        : null;
+
+    return {
+      id: play.id,
+      songId: play.song_id,
+      songTitle: song.title,
+      artworkUrl: song.artwork_url,
+      playedAt: play.played_at,
+      listenersAtStart: play.listener_count ?? 0,
+      listenersAtEnd: play.listener_count_at_end ?? null,
+      netListenerChange,
+      likesDuring: play.likes_during ?? 0,
+      commentsDuring: play.comments_during ?? 0,
+      disconnectsDuring: play.disconnects_during ?? 0,
+      profileClicksDuring: play.profile_clicks_during ?? 0,
+      skipped: play.skipped ?? false,
+    };
   }
 }

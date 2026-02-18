@@ -254,6 +254,31 @@ export class PushNotificationService {
   }
 
   /**
+   * After a song finishes: notify the artist "Your song has been played" with a link to view analytics.
+   * Creates in-app notification and optionally sends push (with playId for deep link to stats).
+   */
+  async sendSongPlayedNotification(dto: { artistId: string; songTitle: string; playId: string }) {
+    await this.notificationService.create({
+      userId: dto.artistId,
+      type: 'song_played',
+      title: 'Your song has been played',
+      message: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
+      metadata: { playId: dto.playId, songTitle: dto.songTitle, action: 'open_stats' },
+    });
+
+    await this.sendPushNotification({
+      userId: dto.artistId,
+      title: 'Your song has been played',
+      body: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
+      data: {
+        type: 'song_played',
+        playId: dto.playId,
+        action: 'open_stats',
+      },
+    });
+  }
+
+  /**
    * Remove invalid FCM token from database
    */
   private async removeInvalidToken(token: string) {

@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../features/player/player_screen.dart';
-import '../features/upload/upload_screen.dart';
+import '../features/discovery/discovery_screen.dart';
+import '../features/competition/competition_screen.dart';
+import '../features/room/room_screen.dart';
+import '../features/studio/studio_screen.dart';
+import '../features/about/about_screen.dart';
+import '../features/analytics/analytics_screen.dart';
+import '../features/job_board/job_board_screen.dart';
+import '../features/messages/messages_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/credits/credits_screen.dart';
+import '../features/pro_directory/pro_directory_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/models/user.dart' as app_user;
 
@@ -16,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  int _lastRealIndex = 0;
   app_user.User? _user;
   bool _isLoading = true;
 
@@ -48,55 +57,161 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // Determine which navigation items to show based on user role
     final isArtist = _user?.role == 'artist';
-    
-    // Build navigation items based on role
-    final List<BottomNavigationBarItem> navItems = [
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.radio),
-        label: 'Radio',
-      ),
-    ];
-    
-    // Artists get Upload and Credits tabs
-    if (isArtist) {
-      navItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.upload),
-        label: 'Upload',
-      ));
-      navItems.add(const BottomNavigationBarItem(
-        icon: Icon(Icons.monetization_on),
-        label: 'Credits',
-      ));
+
+    final List<NavigationDestination> destinations = isArtist
+        ? const [
+            NavigationDestination(
+              icon: Icon(Icons.mic),
+              label: 'Studio',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.show_chart),
+              label: 'Analytics',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.work_outline),
+              label: 'Pro-Network',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.forum_outlined),
+              label: 'Room',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz),
+              label: 'More',
+            ),
+          ]
+        : const [
+            NavigationDestination(
+              icon: Icon(Icons.radio),
+              label: 'Radio',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.explore_outlined),
+              label: 'Discovery',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.how_to_vote_outlined),
+              label: 'Vote',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.forum_outlined),
+              label: 'Room',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.more_horiz),
+              label: 'More',
+            ),
+          ];
+
+    void openMoreSheet() {
+      showModalBottomSheet<void>(
+        context: context,
+        showDragHandle: true,
+        builder: (context) {
+          return SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Profile'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+                    );
+                  },
+                ),
+                if (isArtist) ...[
+                  ListTile(
+                    leading: const Icon(Icons.library_music_outlined),
+                    title: const Text('Credits'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CreditsScreen()),
+                      );
+                    },
+                  ),
+                ],
+                ListTile(
+                  leading: const Icon(Icons.mail_outline),
+                  title: const Text('Messages'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MessagesScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.handshake_outlined),
+                  title: const Text('Pro-Directory'),
+                  subtitle: const Text('Find Industry Catalysts'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProDirectoryScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.settings_outlined),
+                  title: const Text('Settings'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, '/settings');
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.info_outline),
+                  title: const Text('About Networx'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const AboutScreen()),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      );
     }
-    
-    // Everyone gets Profile tab
-    navItems.add(const BottomNavigationBarItem(
-      icon: Icon(Icons.person),
-      label: 'Profile',
-    ));
 
     // Map indices based on role
     Widget getCurrentScreen() {
       if (isArtist) {
         switch (_currentIndex) {
           case 0:
-            return const PlayerScreen();
+            return const StudioScreen();
           case 1:
-            return const UploadScreen();
+            return const AnalyticsScreen();
           case 2:
-            return const CreditsScreen();
+            return const JobBoardScreen();
           case 3:
-            return const ProfileScreen();
+            return const RoomScreen();
           default:
-            return const PlayerScreen();
+            return const StudioScreen();
         }
       } else {
-        // Listeners only have Radio and Profile
         switch (_currentIndex) {
           case 0:
             return const PlayerScreen();
           case 1:
-            return const ProfileScreen();
+            return const DiscoveryScreen();
+          case 2:
+            return const CompetitionScreen();
+          case 3:
+            return const RoomScreen();
           default:
             return const PlayerScreen();
         }
@@ -113,17 +228,21 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: getCurrentScreen(),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: _currentIndex,
-        onTap: (index) {
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        destinations: destinations,
+        onDestinationSelected: (index) {
+          // More sheet (do not change the selected tab)
+          if (index == 4) {
+            openMoreSheet();
+            setState(() => _currentIndex = _lastRealIndex);
+            return;
+          }
           setState(() {
             _currentIndex = index;
+            _lastRealIndex = index;
           });
         },
-        selectedItemColor: Colors.deepPurple,
-        unselectedItemColor: Colors.grey,
-        items: navItems,
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/services/notification_settings_service.dart';
 import '../../core/services/push_notification_service.dart';
+import '../../core/theme/theme_controller.dart';
 
 /// Settings screen with notification preferences.
 class SettingsScreen extends StatefulWidget {
@@ -87,16 +89,69 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
               children: [
+                _buildSectionHeader('Appearance'),
+                Consumer<ThemeController>(
+                  builder: (context, theme, child) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SegmentedButton<ThemeMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: ThemeMode.system,
+                                label: Text('System'),
+                              ),
+                              ButtonSegment(
+                                value: ThemeMode.dark,
+                                label: Text('Dark'),
+                              ),
+                              ButtonSegment(
+                                value: ThemeMode.light,
+                                label: Text('Light'),
+                              ),
+                            ],
+                            selected: <ThemeMode>{theme.themeMode},
+                            onSelectionChanged: (v) {
+                              theme.setThemeMode(v.first);
+                            },
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            theme.themeMode == ThemeMode.dark
+                                ? 'The Collective (default)'
+                                : theme.themeMode == ThemeMode.light
+                                    ? 'Soft studio light'
+                                    : 'Match your device setting',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const Divider(height: 1),
+
                 // System notification status banner
                 if (!_systemNotificationsEnabled)
                   Container(
@@ -125,7 +180,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _notificationsEnabled,
                   onChanged: _toggleMasterNotifications,
                   secondary: const Icon(Icons.notifications),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 const Divider(height: 1),
@@ -144,7 +199,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.queue_music),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 SwitchListTile(
@@ -158,7 +213,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.play_circle),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 SwitchListTile(
@@ -172,7 +227,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.check_circle),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 const Divider(height: 1),
@@ -191,7 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.volume_up),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 SwitchListTile(
@@ -205,7 +260,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }
                       : null,
                   secondary: const Icon(Icons.vibration),
-                  activeThumbColor: Colors.deepPurple,
+                  activeThumbColor: primary,
                 ),
 
                 const Divider(height: 32),
@@ -263,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w600,
-          color: Colors.deepPurple.shade700,
+          color: Theme.of(context).colorScheme.primary,
           letterSpacing: 0.5,
         ),
       ),

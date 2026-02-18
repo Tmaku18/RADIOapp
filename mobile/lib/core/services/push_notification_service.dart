@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -76,9 +77,16 @@ class PushNotificationService {
     await _localNotifications.initialize(
       initSettings,
       onDidReceiveNotificationResponse: (response) {
-        // Handle notification tap from foreground
-        if (response.payload != null) {
-          onNotificationTap?.call({'type': 'local', 'payload': response.payload});
+        // Handle notification tap from foreground (payload may be JSON with type + playId)
+        if (response.payload != null && response.payload!.isNotEmpty) {
+          try {
+            final decoded = jsonDecode(response.payload!) as Map<String, dynamic>?;
+            if (decoded != null) {
+              onNotificationTap?.call(decoded);
+              return;
+            }
+          } catch (_) {}
+          onNotificationTap?.call({'type': response.payload});
         }
       },
     );
@@ -189,7 +197,7 @@ class PushNotificationService {
             presentSound: true,
           ),
         ),
-        payload: message.data['type'],
+        payload: message.data.isNotEmpty ? jsonEncode(message.data) : null,
       );
     }
   }
@@ -197,12 +205,15 @@ class PushNotificationService {
   /// Handle notification tap (opens app from background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
     debugPrint('PushNotificationService: Notification tapped - ${message.data}');
-    
-    // Navigate based on notification type
     final type = message.data['type'];
-    
+    if (type == 'song_played' && message.data['playId'] != null) {
+      onNotificationTap?.call({
+        'type': 'song_played',
+        'playId': message.data['playId'],
+      });
+      return;
+    }
     if (type == 'up_next' || type == 'live_now') {
-      // Navigate to player screen
       onNotificationTap?.call({
         'type': type,
         'songId': message.data['songId'],

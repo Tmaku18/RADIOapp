@@ -1,26 +1,43 @@
-import '../models/song.dart';
+import '../models/track.dart';
+import '../models/track_fetch_result.dart';
 import 'api_service.dart';
 
 class RadioService {
   final ApiService _apiService = ApiService();
 
-  Future<Song?> getCurrentTrack() async {
+  Future<TrackFetchResult> getCurrentTrack() async {
     try {
       final response = await _apiService.get('radio/current');
-      if (response.isEmpty) return null;
-      return Song.fromJson(response);
+      if (response == null) return const TrackFetchResult(track: null);
+      if (response is Map<String, dynamic>) {
+        if (response['no_content'] == true) {
+          return TrackFetchResult.noContent(
+            (response['message'] ?? 'No songs are currently available.').toString(),
+          );
+        }
+        return TrackFetchResult(track: Track.fromJson(response));
+      }
+      return const TrackFetchResult(track: null);
     } catch (e) {
-      return null;
+      return const TrackFetchResult(track: null);
     }
   }
 
-  Future<Song?> getNextTrack() async {
+  Future<TrackFetchResult> getNextTrack() async {
     try {
       final response = await _apiService.get('radio/next');
-      if (response.isEmpty) return null;
-      return Song.fromJson(response);
+      if (response == null) return const TrackFetchResult(track: null);
+      if (response is Map<String, dynamic>) {
+        if (response['no_content'] == true) {
+          return TrackFetchResult.noContent(
+            (response['message'] ?? 'No songs are currently available.').toString(),
+          );
+        }
+        return TrackFetchResult(track: Track.fromJson(response));
+      }
+      return const TrackFetchResult(track: null);
     } catch (e) {
-      return null;
+      return const TrackFetchResult(track: null);
     }
   }
 
@@ -29,6 +46,22 @@ class RadioService {
       await _apiService.post('radio/play', {
         'songId': songId,
         'skipped': skipped,
+      });
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  Future<void> sendHeartbeat({
+    required String streamToken,
+    required String songId,
+    required String timestamp,
+  }) async {
+    try {
+      await _apiService.post('radio/heartbeat', {
+        'streamToken': streamToken,
+        'songId': songId,
+        'timestamp': timestamp,
       });
     } catch (e) {
       // Silently fail

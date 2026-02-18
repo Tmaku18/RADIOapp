@@ -4,8 +4,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/theme/networx_theme.dart';
+import 'core/theme/theme_controller.dart';
+import 'features/analytics/analytics_screen.dart';
 import 'features/player/player_screen.dart';
 import 'features/upload/upload_screen.dart';
 import 'features/profile/profile_screen.dart';
@@ -13,6 +17,7 @@ import 'features/payment/payment_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
+import 'widgets/require_artist.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -23,6 +28,10 @@ void main() async {
   } catch (e) {
     debugPrint('Warning: Could not load .env file: $e');
   }
+
+  // Theme mode persistence (System/Dark/Light). Default = Dark.
+  final themeController = ThemeController();
+  await themeController.load();
 
   // Initialize Stripe
   final stripePublishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
@@ -58,34 +67,102 @@ void main() async {
     debugPrint('App will continue but authentication features will not work');
   }
 
-  runApp(MyApp(firebaseInitialized: firebaseInitialized));
+  // Initialize Supabase (for Realtime events beyond chat)
+  final supabaseUrl = dotenv.env['SUPABASE_URL'];
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  if (supabaseUrl != null &&
+      supabaseAnonKey != null &&
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+      debugPrint('Supabase initialized successfully');
+    } catch (e) {
+      // Already initialized or unavailable in this environment.
+      debugPrint('Supabase init skipped: $e');
+    }
+  } else {
+    debugPrint('Warning: SUPABASE_URL / SUPABASE_ANON_KEY missing in .env');
+  }
+
+  final navigatorKey = GlobalKey<NavigatorState>();
+  runApp(MyApp(
+    firebaseInitialized: firebaseInitialized,
+    themeController: themeController,
+    navigatorKey: navigatorKey,
+  ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   final bool firebaseInitialized;
+  final ThemeController themeController;
+  final GlobalKey<NavigatorState> navigatorKey;
 
-  const MyApp({super.key, this.firebaseInitialized = false});
+  const MyApp({
+    super.key,
+    this.firebaseInitialized = false,
+    required this.themeController,
+    required this.navigatorKey,
+  });
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!widget.firebaseInitialized) return;
+      PushNotificationService().onNotificationTap = (data) {
+        final nav = widget.navigatorKey.currentState;
+        if (nav == null) return;
+        if (data['type'] == 'song_played' && data['playId'] != null) {
+          nav.pushNamed('/analytics', arguments: {'playId': data['playId']});
+        } else if (data['type'] == 'up_next' || data['type'] == 'live_now') {
+          nav.pushNamed('/player');
+        }
+      };
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthService(firebaseInitialized: firebaseInitialized),
-      child: MaterialApp(
-        title: 'Radio App',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider<AuthService>(
+          create: (_) => AuthService(firebaseInitialized: widget.firebaseInitialized),
         ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const AuthWrapper(),
-          '/login': (context) => const LoginScreen(),
-          '/home': (context) => const HomeScreen(),
-          '/player': (context) => const PlayerScreen(),
-          '/upload': (context) => const UploadScreen(),
-          '/profile': (context) => const ProfileScreen(),
-          '/payment': (context) => const PaymentScreen(),
-          '/settings': (context) => const SettingsScreen(),
+        ChangeNotifierProvider<ThemeController>.value(value: widget.themeController),
+      ],
+      child: Consumer<ThemeController>(
+        builder: (context, theme, child) {
+          // Brand primary will become role-aware once the navigation shell
+          // consolidates the user profile. Default to Artist amethyst for now.
+          const brand = NetworxBrand.artist;
+          return MaterialApp(
+            navigatorKey: widget.navigatorKey,
+            title: 'NETWORX',
+            theme: buildNetworxTheme(brightness: Brightness.light, brand: brand),
+            darkTheme:
+                buildNetworxTheme(brightness: Brightness.dark, brand: brand),
+            themeMode: theme.themeMode,
+            initialRoute: '/',
+            routes: {
+              '/': (context) => const AuthWrapper(),
+              '/login': (context) => const LoginScreen(),
+              '/home': (context) => const HomeScreen(),
+              '/player': (context) => const PlayerScreen(),
+              '/analytics': (context) => const AnalyticsScreen(),
+              '/upload': (context) =>
+                  const RequireArtist(child: UploadScreen()),
+              '/profile': (context) => const ProfileScreen(),
+              '/payment': (context) =>
+                  const RequireArtist(child: PaymentScreen()),
+              '/settings': (context) => const SettingsScreen(),
+            },
+          );
         },
       ),
     );

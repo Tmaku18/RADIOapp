@@ -76,7 +76,7 @@ CREATE INDEX idx_songs_free_rotation
 ```
 
 ### plays
-Tracks play history for rotation algorithm.
+Tracks play history for rotation algorithm. When a song ends (next track starts), per-play metrics are filled for "Your song has been played" analytics.
 
 ```sql
 CREATE TABLE plays (
@@ -84,12 +84,20 @@ CREATE TABLE plays (
   song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
   played_at TIMESTAMPTZ DEFAULT NOW(),
   listener_count INTEGER DEFAULT 1,
-  skipped BOOLEAN DEFAULT FALSE
+  skipped BOOLEAN DEFAULT FALSE,
+  listener_count_at_end INTEGER,
+  likes_during INTEGER NOT NULL DEFAULT 0,
+  comments_during INTEGER NOT NULL DEFAULT 0,
+  disconnects_during INTEGER NOT NULL DEFAULT 0,
+  profile_clicks_during INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE INDEX idx_plays_song_id ON plays(song_id);
 CREATE INDEX idx_plays_played_at ON plays(played_at DESC);
 ```
+
+- `listener_count`: listeners when the play started.
+- `listener_count_at_end`, `likes_during`, `comments_during`, `disconnects_during`, `profile_clicks_during`: set when the next track starts (finalize step).
 
 ### likes
 Tracks user likes for engagement metrics.
@@ -129,17 +137,23 @@ CREATE INDEX idx_subscriptions_status ON subscriptions(status);
 ```
 
 ### transactions
-Stripe payment records.
+Stripe payment records. Two flows:
+
+- **Credit bank (legacy):** `credits_purchased` set; on success, `increment_credits` RPC adds to artist balance.
+- **Per-song plays:** `song_id` and `plays_purchased` set; pricing is **$1 per minute per play** (rounded up to nearest cent). On success, `songs.credits_remaining` is increased by `plays_purchased` for that song. Purchase options: 1, 3, 5, 10, 25, 50, 100 plays.
 
 ```sql
 CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   stripe_payment_intent_id TEXT UNIQUE,
+  stripe_checkout_session_id TEXT,
   stripe_charge_id TEXT,
   amount_cents INTEGER NOT NULL,
   currency TEXT DEFAULT 'usd',
   credits_purchased INTEGER NOT NULL,
+  song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  plays_purchased INTEGER,
   status TEXT NOT NULL CHECK (status IN ('pending', 'succeeded', 'failed', 'refunded')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -148,6 +162,8 @@ CREATE TABLE transactions (
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_transactions_status ON transactions(status);
 CREATE INDEX idx_transactions_stripe_payment_intent_id ON transactions(stripe_payment_intent_id);
+CREATE INDEX idx_transactions_song_id ON transactions(song_id);
+CREATE INDEX idx_transactions_stripe_checkout_session_id ON transactions(stripe_checkout_session_id);
 ```
 
 ### credits
@@ -324,6 +340,168 @@ CREATE TABLE chat_config (
   disabled_reason TEXT,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+```
+
+### profile_clicks
+Tracks when a listener clicks the artist's profile from the radio player (for per-play analytics: "profile clicks during this play").
+
+```sql
+CREATE TABLE profile_clicks (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  artist_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_profile_clicks_song_created ON profile_clicks(song_id, created_at);
+CREATE INDEX idx_profile_clicks_artist_created ON profile_clicks(artist_id, created_at);
+```
+
+### artist_follows
+Tracks follows from listeners to artists (used for ROI and artist growth analytics).
+
+```sql
+CREATE TABLE artist_follows (
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  artist_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, artist_id),
+  CHECK (user_id != artist_id)
+);
+
+CREATE INDEX idx_artist_follows_artist ON artist_follows(artist_id);
+```
+
+### service_providers (Pro-Directory)
+Service provider profiles (Industry Catalysts), including optional geo fields for nearby search.
+
+```sql
+CREATE TABLE service_providers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+  bio TEXT,
+  location_region TEXT,
+  lat NUMERIC(10, 7),
+  lng NUMERIC(10, 7),
+  hero_image_url TEXT,
+  instagram_url TEXT,
+  linkedin_url TEXT,
+  portfolio_url TEXT,
+  mentor_opt_in BOOLEAN DEFAULT false,
+  location_geo geography(POINT),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_service_providers_location_geo ON service_providers USING GIST (location_geo);
+```
+
+### service_provider_types
+Provider “tags” for service types (e.g., photo, video, mixing).
+
+```sql
+CREATE TABLE service_provider_types (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+  service_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(provider_id, service_type)
+);
+```
+
+### service_listings
+Service menu items shown on provider profiles.
+
+```sql
+CREATE TABLE service_listings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider_id UUID NOT NULL REFERENCES service_providers(id) ON DELETE CASCADE,
+  service_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  description TEXT,
+  rate_cents INTEGER,
+  rate_type TEXT DEFAULT 'fixed' CHECK (rate_type IN ('hourly', 'fixed')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_service_listings_provider ON service_listings(provider_id);
+CREATE INDEX idx_service_listings_type_status ON service_listings(service_type, status);
+```
+
+### provider_portfolio_items
+Provider portfolio (image/audio/video). Used in the Pro‑Directory profile UI.
+
+```sql
+CREATE TABLE provider_portfolio_items (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('image', 'audio', 'video')),
+  file_url TEXT NOT NULL,
+  title TEXT,
+  description TEXT,
+  sort_order INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_provider_portfolio_user ON provider_portfolio_items(user_id);
+```
+
+### venue_ads
+Venue partner slots displayed on listen/player surfaces.
+
+```sql
+CREATE TABLE venue_ads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  station_id TEXT DEFAULT 'global',
+  image_url TEXT NOT NULL,
+  link_url TEXT,
+  start_at TIMESTAMPTZ,
+  end_at TIMESTAMPTZ,
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_venue_ads_schedule ON venue_ads(station_id, start_at, end_at) WHERE is_active = true;
+```
+
+### song_catalyst_credits
+Pinned “Catalyst” credits surfaced during a song’s airtime.
+
+```sql
+CREATE TABLE song_catalyst_credits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'cover_art' CHECK (role IN ('cover_art', 'video', 'production', 'photo', 'other')),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(song_id, user_id, role)
+);
+
+CREATE INDEX idx_song_catalyst_credits_song ON song_catalyst_credits(song_id);
+CREATE INDEX idx_song_catalyst_credits_user ON song_catalyst_credits(user_id);
+```
+
+### station_events (realtime)
+Station-wide realtime events (currently includes `rising_star`), consumed by web/mobile listen surfaces.
+
+```sql
+CREATE TABLE station_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  station_id TEXT NOT NULL DEFAULT 'global',
+  type TEXT NOT NULL CHECK (type IN ('rising_star')),
+  play_id UUID REFERENCES plays(id) ON DELETE SET NULL,
+  song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
+  payload JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX uniq_station_events_type_play ON station_events(type, play_id);
+CREATE INDEX idx_station_events_station_created_at ON station_events(station_id, created_at DESC);
 ```
 
 ## Functions and Triggers

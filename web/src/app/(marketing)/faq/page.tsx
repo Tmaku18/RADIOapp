@@ -5,8 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export const metadata: Metadata = {
-  title: 'FAQ - RadioApp',
-  description: 'Frequently asked questions about RadioApp.',
+  title: 'FAQ - Networx',
+  description: 'Frequently asked questions about Networx: democratic radio, Pro-Network, and By Artists, For Artists.',
 };
 
 export const revalidate = 3600;
@@ -16,16 +16,16 @@ const faqs = [
     category: 'General',
     questions: [
       {
-        q: 'What is RadioApp?',
-        a: 'RadioApp is a radio-style streaming platform that helps undiscovered talent get heard. Gems can upload music and promote it through our play credit system, while listeners enjoy a continuous stream of curated underground music.',
+        q: 'What is Networx?',
+        a: 'Networx is a "By Artists, For Artists" ecosystem that combines democratic radio with a Pro-Network hub. We help hidden gems get heard: artists upload and promote through our play credit system, while listeners enjoy a continuous stream and live chat. We exist so no talent goes undiscovered.',
       },
       {
-        q: 'Is RadioApp free to use?',
-        a: 'Yes! Listening is completely free, forever. Gems can upload music for free, and only pay if they want to promote their tracks through our credit system.',
+        q: 'Is Networx free to use?',
+        a: 'Yes! Listening is completely free, forever—no intrusive ads. Artists can upload music for free and only pay if they want to promote tracks through our credit system.',
       },
       {
         q: 'How is this different from Spotify or SoundCloud?',
-        a: 'Unlike algorithm-driven platforms, RadioApp operates like a traditional radio station. Everyone hears the same stream, creating shared discovery moments. Our promotion system is transparent - credits directly boost your plays.',
+        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add Live Sync Chat so artists can be in the room with fans, and a Pro-Network for mentorship. Our charts are earned, not bought.',
       },
     ],
   },

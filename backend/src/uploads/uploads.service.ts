@@ -160,7 +160,7 @@ export class UploadsService {
    */
   async getSignedUploadUrl(
     userId: string,
-    bucket: 'songs' | 'artwork',
+    bucket: 'songs' | 'artwork' | 'portfolio',
     filename: string,
     contentType: string,
   ): Promise<SignedUploadUrlResponse> {
@@ -172,6 +172,22 @@ export class UploadsService {
         'audio/ogg', 'audio/flac', 'audio/webm',
       ],
       artwork: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      portfolio: [
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/aac',
+        'audio/ogg',
+        'audio/flac',
+        'audio/webm',
+        'image/jpeg',
+        'image/jpg',
+        'image/png',
+        'image/webp',
+      ],
     };
 
     if (!allowedTypes[bucket]?.includes(contentType)) {

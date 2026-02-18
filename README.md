@@ -41,6 +41,34 @@ Independent artists struggle to get their music heard through traditional channe
 - **Mobile Player**: Landscape-first horizontal player layout with chat docked below (fits without scrolling)
 - **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
 - **Leaderboards**: Competition page leaderboards use actual stats (by likes from `leaderboard_likes`, by plays from `songs.play_count`); Artist Stats “Top Performing Songs” and summary cards use real analytics API data
+- **ROI dashboard**: Artist ROI formula + “Listener Heatmap (by region)” proxy (profile clicks grouped by region)
+- **Trial by Fire**: Leaderboard ranking by upvotes/min within a window (default 60 minutes)
+- **Rising Star alerts**: When a song hits >= 5% conversion during its current play, a realtime `station_events` record is emitted; web and mobile show a “Butterfly Ripple” banner
+- **Catalyst deep-link credits**: `song_catalyst_credits` are surfaced during airtime as “Pinned credits” on the player (web + mobile)
+- **Venue ads**: Lightweight “Venue Partner” slot on the listen/player surfaces (`/venue-ads/current`)
+- **Credits Quick‑Buy**: “Add 5 Minutes” entry point (Stripe payment sheet / checkout depending on surface)
+- **PWA**: Web app manifest + service worker + offline fallback page (`/~offline`)
+- **Realtime visuals**: Live Ripple + Global Vote Map wired to realtime `likes` INSERT events (single channel fan-out hook)
+
+## Web ↔ Mobile Parity (Engine surfaces)
+
+The product “Engine” pages now share the same look/feel and core behaviors across **web** and **mobile**:
+
+- **Stage / Listen**
+  - Shared now-playing layout + glass/noir styling
+  - Pinned catalyst credits (during airtime)
+  - Rising Star alert banner (realtime)
+  - Venue Partner slot
+  - Quick-buy “Add 5 Minutes” for the owning artist
+- **Competition**
+  - Likes + discoveries leaderboards
+  - Trial by Fire (upvotes/min) leaderboard
+- **Analytics**
+  - ROI card
+  - Listener heatmap proxy by region
+- **Pro‑Directory**
+  - Service provider directory + “Mentor” badge
+  - Nearby search (mobile uses device GPS + radius)
 
 ## Architecture
 
@@ -51,11 +79,12 @@ Independent artists struggle to get their music heard through traditional channe
   - Real-time audio streaming with `just_audio`
   - Live chat with Supabase Realtime subscriptions
   - Push notifications via Firebase Cloud Messaging (FCM)
+  - Nearby search in Pro-Directory via `geolocator` (requires location permissions on Android/iOS)
   - State management with Provider
   - Firebase Authentication integration
   - Stripe Payment Sheet for payments
   
-- **Frontend (Web)**: Next.js 14+ web application
+- **Frontend (Web)**: Next.js (App Router) web application
   - App Router with SSR/ISR for SEO-optimized marketing pages
   - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with Blue theme, Raleway font
   - Dark mode toggle via settings dropdown in dashboard
@@ -63,6 +92,7 @@ Independent artists struggle to get their music heard through traditional channe
   - HTTP-only session cookies for secure SSR
   - Hls.js for streaming audio playback
   - Stripe Checkout for web payments
+  - PWA manifest + service worker + offline fallback (`/~offline`)
   
 - **Backend**: NestJS API server
   - RESTful API architecture under `/api`
@@ -384,6 +414,7 @@ admin/
 docs/
 ├── api-spec.md                           # Complete API endpoint documentation
 ├── database-schema.md                    # Database schema and migrations
+├── radio-logic.md                        # Radio track selection, tiers, artist spacing
 ├── deliverables-verification.md          # README vs codebase verification
 └── notion/                               # Notion workspace (project categories, views, onboarding)
     ├── 01-information-architecture.md     # IA and hierarchy
@@ -744,6 +775,7 @@ Supabase Storage (Audio Files)
 - ✅ **Pre-charge model** with atomic PostgreSQL RPC transactions
 - ✅ **Trial rotation**: New approved songs get 3 free plays before requiring credits
 - ✅ **Four-tier fallback**: credited songs → trial songs → opt-in songs → admin fallback
+- ✅ **Artist spacing**: Free rotation refill uses round-robin by artist; paid/trial/opt-in deprioritize the artist that just played (no same-artist back-to-back)
 - ✅ **Free rotation eligibility**: Requires artist opt-in + admin approval (paid play check temporarily disabled)
 - ✅ **Algorithm transparency**: `play_decision_log` table for auditing song selection
 - ✅ **Redis state management**: Stateless backend for horizontal scaling
@@ -941,6 +973,8 @@ For more detailed troubleshooting, see:
 ## API Documentation
 
 See `docs/api-spec.md` for detailed API endpoint documentation, request/response formats, and authentication requirements.
+
+**Radio logic:** See `docs/radio-logic.md` for how the backend chooses and orders tracks (free vs paid mode, four-tier selection, artist spacing, soft-weighted random, and free-rotation stack refill).
 
 ### Key Endpoints
 

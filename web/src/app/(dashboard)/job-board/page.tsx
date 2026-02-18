@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { jobBoardApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -55,13 +55,14 @@ export default function JobBoardPage() {
   const { profile } = useAuth();
   const myId = profile?.id ?? null;
   const router = useRouter();
+  const pathname = usePathname();
   const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
 
   useEffect(() => {
     if (profile && !isArtist) {
-      router.replace('/dashboard');
+      router.replace('/apply?from=' + encodeURIComponent(pathname || '/job-board'));
     }
-  }, [profile, isArtist, router]);
+  }, [profile, isArtist, router, pathname]);
 
   const [tab, setTab] = useState<'browse' | 'mine'>('browse');
   const [items, setItems] = useState<ServiceRequestRow[]>([]);
@@ -105,8 +106,8 @@ export default function JobBoardPage() {
   );
 
   useEffect(() => {
-    loadRequests(tab === 'mine');
-  }, [tab, loadRequests]);
+    if (isArtist) loadRequests(tab === 'mine');
+  }, [tab, loadRequests, isArtist]);
 
   const loadDetail = useCallback(async (requestId: string, currentUserId: string | undefined) => {
     setLoadingDetail(true);
@@ -153,7 +154,7 @@ export default function JobBoardPage() {
 
   if (profile && !isArtist) {
     return (
-      <div className="container max-w-4xl py-10">
+      <div className="flex items-center justify-center min-h-48">
         <p className="text-muted-foreground">Redirecting...</p>
       </div>
     );
@@ -161,12 +162,12 @@ export default function JobBoardPage() {
 
   return (
     <div className="container max-w-4xl py-6 space-y-6">
-      <div className="relative overflow-hidden rounded-2xl border border-border bg-artist-pro p-6">
+      <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-artist-pro p-6">
         <div className="absolute inset-0 opacity-25 bg-networx blur-3xl" />
         <div className="relative">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-2xl font-semibold text-white">Pro-Network</h1>
-            <Badge className="bg-[var(--brand-pro)] text-black border border-black/10">PRO</Badge>
+            <Badge className="badge-verified border border-black/10">Verified</Badge>
           </div>
           <p className="text-white/80 text-sm mt-1">
             Exclusive service requests and collaborations for creators.

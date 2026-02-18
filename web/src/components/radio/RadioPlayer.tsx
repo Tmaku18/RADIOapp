@@ -1,21 +1,48 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
+import Link from 'next/link';
 import { useRadioState, Track } from './useRadioState';
-import { radioApi, songsApi } from '@/lib/api';
+import { radioApi, songsApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+type PinnedCatalyst = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+};
+
+function roleToLabel(role: string): string {
+  switch (role) {
+    case 'cover_art':
+      return 'Cover art';
+    case 'video':
+      return 'Video';
+    case 'production':
+      return 'Production';
+    case 'photo':
+      return 'Photo';
+    default:
+      return 'Credits';
+  }
+}
+
 export function RadioPlayer() {
+  const { profile } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
   const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
+  const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
   
@@ -39,6 +66,7 @@ export function RadioPlayer() {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || 'No songs are currently available.');
+        setPinnedCatalysts([]);
         return;
       }
       
@@ -46,6 +74,7 @@ export function RadioPlayer() {
       setNoContent(false);
       setNoContentMessage(null);
       setIsLiveBroadcast(!!trackData?.is_live);
+      setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
       
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
@@ -59,6 +88,7 @@ export function RadioPlayer() {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
+          artistId: trackData.artist_id ?? null,
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
@@ -115,6 +145,7 @@ export function RadioPlayer() {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || 'No songs are currently available.');
+        setPinnedCatalysts([]);
         return;
       }
       
@@ -122,6 +153,7 @@ export function RadioPlayer() {
       setNoContent(false);
       setNoContentMessage(null);
       setIsLiveBroadcast(!!trackData?.is_live);
+      setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
       
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
@@ -134,6 +166,7 @@ export function RadioPlayer() {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
+          artistId: trackData.artist_id ?? null,
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
@@ -272,6 +305,28 @@ export function RadioPlayer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const canQuickBuy =
+    !!profile?.id &&
+    !!state.currentTrack?.id &&
+    !!state.currentTrack?.artistId &&
+    profile.id === state.currentTrack.artistId;
+
+  const handleQuickBuy = async () => {
+    if (!state.currentTrack?.id || isQuickBuying) return;
+    setIsQuickBuying(true);
+    try {
+      const res = await paymentsApi.quickAddMinutes({ songId: state.currentTrack.id });
+      const url = res.data?.url;
+      if (url && typeof window !== 'undefined') {
+        window.location.href = url;
+      }
+    } catch (e) {
+      console.error('Quick-buy failed', e);
+    } finally {
+      setIsQuickBuying(false);
+    }
+  };
+
   if (noContent) {
     return (
       <Card className="overflow-hidden">
@@ -307,24 +362,25 @@ export function RadioPlayer() {
   }
 
   return (
-    <Card className="overflow-hidden">
-      {/* Album Art */}
-      <div className="aspect-square bg-gradient-to-br from-primary/80 to-primary relative">
+    <Card className="overflow-hidden glass-panel border-border/80">
+      {/* Album Art — subtle signature gradient behind */}
+      <div className="aspect-square bg-signature relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
         {state.currentTrack?.artworkUrl ? (
           <img
             src={state.currentTrack.artworkUrl}
             alt={state.currentTrack.title}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover relative z-0"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="w-full h-full flex items-center justify-center relative z-0">
             <span className="text-8xl">🎵</span>
           </div>
         )}
         
         {/* Loading overlay */}
         {state.isLoading && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
             <div className="animate-spin rounded-full h-12 w-12 border-4 border-white border-t-transparent"></div>
           </div>
         )}
@@ -340,20 +396,47 @@ export function RadioPlayer() {
 
         <div className="text-center mb-6">
           {isLiveBroadcast && (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 text-xs font-medium mb-2">
+            <span className="badge-live inline-flex items-center gap-1.5 mb-2">
               <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-current" />
               </span>
-              Live broadcast
-            </div>
+              Now Live
+            </span>
           )}
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.currentTrack?.title || 'No track playing'}
           </h2>
-          <p className="text-gray-600 truncate">
+          <button
+            type="button"
+            onClick={() => {
+              if (state.currentTrack?.id) {
+                analyticsApi.recordProfileClick(state.currentTrack.id).catch(() => {});
+              }
+            }}
+            className="text-muted-foreground truncate text-left hover:text-foreground hover:underline transition-colors"
+          >
             {state.currentTrack?.artistName || 'Unknown artist'}
-          </p>
+          </button>
+
+          {pinnedCatalysts.length > 0 && (
+            <div className="mt-3 text-xs text-muted-foreground flex flex-col gap-1">
+              {pinnedCatalysts.slice(0, 3).map((c) => (
+                <div key={`${c.userId}:${c.role}`} className="flex items-center justify-center gap-1.5">
+                  <span className="uppercase tracking-wide text-[10px]">{roleToLabel(c.role)} by</span>
+                  <Link
+                    href={`/artist/${c.userId}`}
+                    className="text-foreground/90 hover:text-foreground hover:underline"
+                  >
+                    {c.displayName}
+                  </Link>
+                </div>
+              ))}
+              {pinnedCatalysts.length > 3 && (
+                <div className="text-[10px] opacity-80">+ {pinnedCatalysts.length - 3} more</div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="mb-6">
@@ -371,16 +454,24 @@ export function RadioPlayer() {
           </div>
         </div>
 
+        {canQuickBuy && (
+          <div className="mb-4 flex justify-center">
+            <Button onClick={handleQuickBuy} disabled={isQuickBuying || state.isLoading} className="rounded-full">
+              {isQuickBuying ? 'Opening checkout…' : 'Add 5 Minutes'}
+            </Button>
+          </div>
+        )}
+
         {/* LIVE Indicator */}
         <div className="flex items-center justify-center mb-4">
           {state.isLive && state.isPlaying ? (
-            <div className="flex items-center gap-2 px-4 py-2 bg-red-100 text-red-700 rounded-full">
+            <span className="badge-live inline-flex items-center gap-2">
               <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75" />
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-current" />
               </span>
-              <span className="font-semibold text-sm">LIVE</span>
-            </div>
+              LIVE
+            </span>
           ) : showJumpToLive ? (
             <Button onClick={handleJumpToLive} className="rounded-full">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

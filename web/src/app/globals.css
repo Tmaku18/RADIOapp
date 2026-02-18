@@ -6,8 +6,20 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-elevated: var(--elevated);
+  --color-surface: var(--surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-rose-gold: var(--rose-gold);
+  --color-primary-hover: var(--primary-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-space-grotesk);
+  --font-serif: var(--font-lora);
+  --font-story: var(--font-story);
   --font-mono: var(--font-geist-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -23,6 +35,7 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-outline-ring: var(--outline-ring);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -47,88 +60,264 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+/* =============================================================================
+   NETWORX Theme Strategy — Neo‑Minimalist Noir (2026)
+   Mission alignment:
+   - 4 AM cinematic "Obsidian Night" base (raw, honest, focused)
+   - "Pure Signal" listening: high contrast, low noise, zero clutter
+   - "Human Frequency" + mentorship: Electric accents + Deep Cobalt trust
+   ============================================================================= */
+
 :root {
   --radius: 0.75rem;
-  /* Core Brand Foundation (Deep Mode base) */
-  --background: #080808; /* Onyx Matte */
-  --foreground: #f4f4f5;
-  --card: #121212; /* Slate Deep */
-  --card-foreground: #f4f4f5;
-  --popover: #121212;
-  --popover-foreground: #f4f4f5;
-  /* Primary is swapped per-role via [data-brand] overrides */
-  --primary: #6A0DAD;
-  --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.06);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.06);
-  --muted-foreground: rgba(255, 255, 255, 0.7);
-  --accent: rgba(255, 255, 255, 0.08);
-  --accent-foreground: #ffffff;
-  --destructive: #ef4444;
-  --border: rgba(255, 255, 255, 0.1); /* engineered border */
-  --input: rgba(255, 255, 255, 0.12);
-  --ring: #6A0DAD;
-  --chart-1: #00FFFF;
-  --chart-2: #6A0DAD;
-  --chart-3: #D4AF37;
-  --chart-4: #22c55e;
-  --chart-5: #f97316;
-  --sidebar: #121212;
-  --sidebar-foreground: #f4f4f5;
-  --sidebar-primary: #6A0DAD;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.06);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #6A0DAD;
+}
 
-  /* Brand helpers */
+/* ---------- Dark Theme (Primary) — "The Collective" ---------- */
+.dark,
+:root {
+  /* Backgrounds */
+  --bg: #0A0A0A;
+  --background: #0A0A0A;
+  --surface: #101010;
+  --card: #101010;
+  --elevated: #161616;
+  --popover: #161616;
+  --border: rgba(245, 245, 245, 0.10);
+  --input: rgba(245, 245, 245, 0.08);
+
+  /* Text */
+  --text-primary: #F5F5F5;
+  --text-secondary: rgba(245, 245, 245, 0.78);
+  --text-muted: rgba(245, 245, 245, 0.60);
+  --foreground: #F5F5F5;
+  --card-foreground: #F5F5F5;
+  --popover-foreground: #F5F5F5;
+  --muted-foreground: rgba(245, 245, 245, 0.60);
+  --accent-foreground: #F5F5F5;
+  --secondary-foreground: #F5F5F5;
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-accent-foreground: #F5F5F5;
+
+  /* Brand */
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --primary-hover: #00C9D4;
+  --ring: #00F5FF;
+  --outline-ring: rgba(0, 245, 255, 0.45);
+  /* NOTE: legacy token name kept for compatibility; now represents Deep Cobalt */
+  --rose-gold: #1A237E;
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+
+  /* Status */
+  --success: #2ECC71;
+  --warning: #F2C94C;
+  --error: #EB5757;
+  --destructive: #EB5757;
+
+  /* Surfaces / UI */
+  --secondary: rgba(245, 245, 245, 0.06);
+  --muted: rgba(245, 245, 245, 0.06);
+  --accent: rgba(0, 245, 255, 0.10);
+  --sidebar: #101010;
+  --sidebar-accent: rgba(245, 245, 245, 0.06);
+  --sidebar-border: rgba(245, 245, 245, 0.10);
+
+  /* Chart */
+  --chart-1: #00F5FF;
+  --chart-2: #1A237E;
+  --chart-3: rgba(245, 245, 245, 0.78);
+  --chart-4: #2ECC71;
+  --chart-5: #F2C94C;
+
+  /* Signature gradient (use lightly, low opacity) */
+  --gradient-signature: linear-gradient(
+    160deg,
+    rgba(10, 10, 10, 0.98) 0%,
+    rgba(26, 35, 126, 0.14) 45%,
+    rgba(0, 245, 255, 0.08) 100%
+  );
+  --gradient-networx: linear-gradient(135deg, #00F5FF, #1A237E);
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(0, 245, 255, 0.16), transparent);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.35), rgba(10, 10, 10, 1));
+
   --brand-primary: var(--primary);
   --brand-primary-foreground: var(--primary-foreground);
-  --brand-pro: #D4AF37; /* Champagne Gold */
-  --brand-glow: 0 0 10px rgba(0, 255, 255, 0.33);
+  --brand-glow: 0 0 18px rgba(0, 245, 255, 0.22);
+  --brand-verified: #1A237E;
 
-  /* Gradients */
-  --gradient-networx: linear-gradient(135deg, #00FFFF, #6A0DAD);
-  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(0, 255, 255, 0.25), rgba(8, 8, 8, 0));
-  --gradient-artist-pro: linear-gradient(to bottom, #6A0DAD, #1A1A1A);
+  /* Film grain / texture (subtle) */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
 }
 
-.dark {
-  /* Keep dark aligned with Core Foundation (deep mode base) */
-  --background: #080808;
-  --foreground: #f4f4f5;
-  --card: #121212;
-  --card-foreground: #f4f4f5;
-  --popover: #121212;
-  --popover-foreground: #f4f4f5;
-  --secondary: rgba(255, 255, 255, 0.06);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.06);
-  --muted-foreground: rgba(255, 255, 255, 0.7);
-  --accent: rgba(255, 255, 255, 0.08);
-  --accent-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.1);
-  --input: rgba(255, 255, 255, 0.12);
+/* ---------- Light Theme (Adaptive) — creamy, premium studio feel ---------- */
+.light {
+  --bg: #FAFAFA;
+  --background: #FAFAFA;
+  --surface: #FFFFFF;
+  --card: #FFFFFF;
+  --elevated: #F2F2F2;
+  --popover: #FFFFFF;
+  --border: rgba(10, 10, 10, 0.12);
+  --input: rgba(10, 10, 10, 0.10);
+
+  --text-primary: #0A0A0A;
+  --text-secondary: rgba(10, 10, 10, 0.78);
+  --text-muted: rgba(10, 10, 10, 0.60);
+  --foreground: #0A0A0A;
+  --card-foreground: #0A0A0A;
+  --popover-foreground: #0A0A0A;
+  --muted-foreground: rgba(10, 10, 10, 0.60);
+  --accent-foreground: #0A0A0A;
+  --secondary-foreground: #0A0A0A;
+  --sidebar-foreground: #0A0A0A;
+  --sidebar-accent-foreground: #0A0A0A;
+
+  --primary: #00BFC9;
+  --primary-foreground: #0A0A0A;
+  --primary-hover: #009AA1;
+  --ring: #00BFC9;
+  --outline-ring: rgba(0, 191, 201, 0.35);
+  --rose-gold: #1A237E;
+
+  --secondary: rgba(10, 10, 10, 0.06);
+  --muted: rgba(10, 10, 10, 0.05);
+  --accent: rgba(0, 191, 201, 0.10);
+  --sidebar: #FFFFFF;
+  --sidebar-accent: rgba(10, 10, 10, 0.05);
+  --sidebar-border: rgba(10, 10, 10, 0.10);
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.20'/%3E%3C/svg%3E");
 }
 
+/* ---------- NETWORX Component tokens & utilities ---------- */
+/* Glass: use on player panel, spotlight cards, modals, artist profile header */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(230, 215, 255, 0.8);
+  box-shadow: 0 8px 32px rgba(107, 14, 173, 0.08);
+}
+
+/* Signature gradient background (low opacity, subtle) */
+.bg-signature {
+  background: var(--gradient-signature);
+}
+.light .bg-signature {
+  background: linear-gradient(
+    160deg,
+    rgba(250, 250, 250, 0.98) 0%,
+    rgba(245, 245, 245, 0.92) 50%,
+    rgba(0, 191, 201, 0.10) 100%
+  );
+}
+
+/* Serif headings: hero, section titles, spotlight (premium spice) */
+.heading-serif,
+.font-heading-serif {
+  font-family: var(--font-lora), var(--font-serif), Georgia, serif;
+}
+
+/* Story / quotes: “4 AM” human authenticity */
+.font-story,
+.quote-story {
+  font-family: var(--font-story), ui-rounded, system-ui, cursive;
+  letter-spacing: 0.2px;
+}
+.quote-story {
+  color: var(--text-secondary);
+}
+
+/* LIVE badge: rose gold or amethyst glow */
+.badge-live {
+  background: linear-gradient(135deg, var(--rose-gold), var(--primary));
+  color: var(--primary-foreground);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(26, 35, 126, 0.35);
+}
+
+/* Featured / spotlight badge */
+.badge-featured {
+  color: var(--rose-gold);
+  border: 1px solid var(--rose-gold);
+  background: rgba(26, 35, 126, 0.14);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* Spotlight card: rose gold border + glow, use .heading-serif for title */
+.spotlight-card {
+  border: 1px solid rgba(26, 35, 126, 0.35);
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.10);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.light .spotlight-card {
+  box-shadow: 0 0 24px rgba(107, 14, 173, 0.1);
+}
+
+/* Primary CTA: subtle focus glow */
+.btn-primary-glow:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.30), 0 0 18px rgba(0, 245, 255, 0.18);
+}
+
+/* ========== Listener theme: "Social Frequency" — Butterfly Electric (#00F5FF) ========== */
+/* Color injection: black base with cyan visual weight so the space feels distinct */
 [data-brand="listener"] {
-  --primary: #00FFFF;
-  --primary-foreground: #080808;
-  --ring: #00FFFF;
-  --brand-primary: #00FFFF;
-  --brand-primary-foreground: #080808;
-  --brand-glow: 0 0 10px rgba(0, 255, 255, 0.33);
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --ring: #00F5FF;
+  --brand-primary: #00F5FF;
+  --brand-primary-foreground: #0A0A0A;
+  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.28);
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+  --chart-1: #00F5FF;
+  --chart-2: #0ea5e9;
+  --chat-bubble-bg: #121212;
+  --chat-bubble-border: #00F5FF;
+  /* Surfaces: subtle cyan tint on black so listener space feels "cool" and active */
+  --background: #0A0A0A;
+  --card: #101010;
+  --sidebar: #101010;
+  --muted: rgba(0, 245, 255, 0.06);
+  --accent: rgba(0, 245, 255, 0.10);
+  --border: rgba(245, 245, 245, 0.10);
 }
 
+/* ========== Artist theme: "Pro-Network & Studio" — Electric action + Cobalt trust ========== */
 [data-brand="artist"] {
-  --primary: #6A0DAD;
-  --primary-foreground: #ffffff;
-  --ring: #6A0DAD;
-  --brand-primary: #6A0DAD;
-  --brand-primary-foreground: #ffffff;
-  --brand-glow: 0 0 10px rgba(106, 13, 173, 0.25);
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --ring: #00F5FF;
+  --brand-primary: #00F5FF;
+  --brand-primary-foreground: #0A0A0A;
+  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.22);
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+  --chart-1: #00F5FF;
+  --chart-2: #1A237E;
+  --brand-verified: #1A237E;
+  /* Surfaces: consistent noir */
+  --background: #0A0A0A;
+  --card: #101010;
+  --sidebar: #101010;
+  --muted: rgba(26, 35, 126, 0.10);
+  --accent: rgba(0, 245, 255, 0.10);
+  --border: rgba(245, 245, 245, 0.10);
 }
 
 [data-brand="listener"] .listener-glow {
@@ -136,6 +325,121 @@
 }
 [data-brand="artist"] .listener-glow {
   display: none;
+}
+
+/* ---------- Listener: Now Playing deck — subtle Electric Cyan pulse ---------- */
+[data-brand="listener"] .now-playing-deck {
+  border: 1px solid rgba(0, 245, 255, 0.50);
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.18);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-brand="listener"] .now-playing-deck {
+    animation: now-playing-glow 2.5s ease-in-out infinite;
+  }
+}
+@keyframes now-playing-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 245, 255, 0.18); border-color: rgba(0, 245, 255, 0.50); }
+  50% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.32); border-color: rgba(0, 245, 255, 0.80); }
+}
+
+/* ---------- Amplify button: large circular, high-glow + ripple on click ---------- */
+.amplify-btn {
+  @apply rounded-full bg-primary text-primary-foreground font-semibold transition-transform active:scale-95;
+  box-shadow: var(--brand-glow);
+}
+.amplify-ripple-container {
+  position: relative;
+  overflow: hidden;
+}
+.amplify-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(0, 245, 255, 0.30);
+  transform: scale(0);
+  pointer-events: none;
+}
+[data-brand="artist"] .amplify-ripple {
+  background: rgba(0, 245, 255, 0.30);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .amplify-ripple.animate-ripple {
+    animation: ripple 0.6s ease-out forwards;
+  }
+}
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ---------- Live Chat: dark grey bubbles, thin left border (Cyan for listener) ---------- */
+.chat-bubble {
+  background: var(--chat-bubble-bg, #1A1A1A);
+  border-left: 3px solid var(--primary);
+}
+.chat-signal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-signal-dot.active {
+    animation: signal-dot-pulse 1.5s ease-in-out infinite;
+  }
+}
+@keyframes signal-dot-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50% { opacity: 0.9; box-shadow: 0 0 0 4px transparent; }
+}
+
+/* ---------- Democratic Development / Roadmap: progress bars use primary ---------- */
+.roadmap-card .progress-bar,
+.roadmap-progress {
+  background: var(--primary);
+}
+
+/* ---------- Artist: Guaranteed Exposure / chart colors ---------- */
+[data-brand="artist"] .artist-chart-plays {
+  --chart-color: #6A0DAD;
+}
+[data-brand="artist"] .artist-chart-engagement {
+  --chart-color: #4B0082;
+}
+.badge-verified {
+  background: var(--brand-verified, #D4AF37);
+  color: #080808;
+}
+
+/* ---------- Locked Door: Pro-Network exclusive overlay ---------- */
+.locked-door-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.locked-door-content {
+  max-width: 400px;
+  text-align: center;
+  color: #fff;
+}
+.locked-door-content .lock-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Upload portal: Amethyst gradient (artist) ---------- */
+.upload-zone-artist {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.10), rgba(26, 35, 126, 0.12));
+  border: 2px dashed var(--primary);
 }
 
 @layer base {
@@ -152,6 +456,14 @@
   body {
     @apply text-foreground;
     background-color: var(--background);
+    /* Cinematic noir depth + subtle "film noise" texture */
+    background-image:
+      radial-gradient(70% 55% at 50% 0%, rgba(0, 245, 255, 0.10), transparent 60%),
+      radial-gradient(55% 55% at 50% 100%, rgba(26, 35, 126, 0.12), transparent 55%),
+      var(--grain);
+    background-blend-mode: screen, screen, overlay;
+    background-size: cover, cover, 220px 220px;
+    background-attachment: fixed, fixed, fixed;
     min-height: 100vh;
   }
 }

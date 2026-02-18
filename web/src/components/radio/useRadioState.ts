@@ -7,6 +7,7 @@ export interface Track {
   id: string;
   title: string;
   artistName: string;
+  artistId?: string | null;
   artworkUrl: string | null;
   audioUrl: string;
   durationSeconds: number;

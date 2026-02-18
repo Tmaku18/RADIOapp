@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../../core/services/api_service.dart';
+import '../../core/theme/networx_tokens.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -71,7 +72,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
           style: ThemeMode.system,
           appearance: const PaymentSheetAppearance(
             colors: PaymentSheetAppearanceColors(
-              primary: Colors.deepPurple,
+              primary: NetworxTokens.butterflyElectric,
             ),
           ),
         ),
@@ -123,9 +124,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Purchase Credits'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true,
       ),
       body: Column(
         children: [
@@ -134,27 +133,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
             width: double.infinity,
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.deepPurple.shade50,
+              color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
             ),
             child: Column(
               children: [
-                const Icon(
+                Icon(
                   Icons.monetization_on,
                   size: 48,
-                  color: Colors.deepPurple,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Buy Credits for Airplay',
+                  'Signals for Rotation',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Each credit gives your song one play in the radio rotation',
+                  'Each signal helps your track reach the air.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey.shade700,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
                   textAlign: TextAlign.center,
                 ),
@@ -181,9 +180,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
                           color: isSelected
-                              ? Colors.deepPurple
+                              ? Theme.of(context).colorScheme.primary
                               : isPopular
-                                  ? Colors.deepPurple.shade200
+                                  ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.35)
                                   : Colors.transparent,
                           width: isSelected ? 2 : 1,
                         ),
@@ -206,7 +205,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 width: 60,
                                 height: 60,
                                 decoration: BoxDecoration(
-                                  color: Colors.deepPurple.shade100,
+                                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
@@ -215,7 +214,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                     style: const TextStyle(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.deepPurple,
+                                      color: NetworxTokens.amethyst,
                                     ),
                                   ),
                                 ),
@@ -252,16 +251,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                                 children: [
                                   Text(
                                     package['priceLabel'],
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
-                                      color: Colors.deepPurple,
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                   ),
                                   if (isSelected)
-                                    const Icon(
+                                    Icon(
                                       Icons.check_circle,
-                                      color: Colors.deepPurple,
+                                      color: Theme.of(context).colorScheme.primary,
                                     ),
                                 ],
                               ),
@@ -282,7 +281,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.deepPurple,
+                            color: Theme.of(context).colorScheme.primary,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Text(
@@ -305,10 +304,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.shade200,
+                  color: Theme.of(context).colorScheme.shadow.withValues(alpha: 0.10),
                   blurRadius: 10,
                   offset: const Offset(0, -2),
                 ),
@@ -328,7 +327,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
                           );
                         },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: Theme.of(context).colorScheme.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.all(16),
                     shape: RoundedRectangleBorder(

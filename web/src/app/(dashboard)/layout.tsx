@@ -44,23 +44,24 @@ import {
   ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
 
-const baseNavigation = [
-  { name: 'Browse', href: '/browse', icon: '🔍' },
-  { name: 'Discover', href: '/discover', icon: '✨' },
+const listenerNavigation = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
-  { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { name: 'Profile', href: '/profile', icon: '👤' },
-  { name: 'Messages', href: '/messages', icon: '💬' },
+  { name: 'Discovery', href: '/discover', icon: '✨' },
+  { name: 'Vote', href: '/competition', icon: '📢' },
+  { name: 'Chat', href: '/messages', icon: '💬' },
 ];
 
 const artistNavigation = [
-  { name: 'My Songs', href: '/artist/songs', icon: '🎵' },
-  { name: 'Upload', href: '/artist/upload', icon: '📤' },
-  { name: 'Live services', href: '/artist/live-services', icon: '📅' },
-  { name: 'Services', href: '/artist/services', icon: '🛠️' },
-  { name: 'Credits', href: '/artist/credits', icon: '💰' },
-  { name: 'Stats', href: '/artist/stats', icon: '📈' },
+  { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
+  { name: 'Analytics', href: '/artist/stats', icon: '📈' },
   { name: 'Pro-Network', href: '/job-board', icon: '💼' },
+  { name: 'Chat', href: '/messages', icon: '💬' },
+];
+
+const moreNav = [
+  { name: 'Dashboard', href: '/dashboard', icon: '📊' },
+  { name: 'Profile', href: '/profile', icon: '👤' },
+  { name: 'Browse', href: '/browse', icon: '🔍' },
 ];
 
 const adminSubNavigation = [
@@ -92,8 +93,9 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Services';
   if (pathname.startsWith('/browse/saved')) return 'Saved';
-  if (pathname.startsWith('/competition')) return 'Competition';
+  if (pathname.startsWith('/competition')) return 'Vote';
   if (pathname.startsWith('/job-board')) return 'Pro-Network';
+  if (pathname.startsWith('/apply')) return 'Apply for Artist';
   if (pathname.match(/^\/artist\/[^/]+$/)) return 'Artist';
   return 'Dashboard';
 }
@@ -119,6 +121,13 @@ export default function DashboardLayout({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { theme, setTheme } = useTheme();
+
+  // Set role cookie for middleware (auth guard on /artist/* and /job-board)
+  useEffect(() => {
+    if (typeof document === 'undefined' || !profile?.role) return;
+    const role = profile.role.toLowerCase();
+    document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+  }, [profile?.role]);
 
   useEffect(() => {
     if (user && profile) {
@@ -205,7 +214,7 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
-              {baseNavigation.map((item) => {
+              {(isArtistMode ? artistNavigation : listenerNavigation).map((item) => {
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                 return (
                   <SidebarMenuItem key={item.name}>
@@ -219,20 +228,56 @@ export default function DashboardLayout({
                 );
               })}
 
-              {(profile?.role === 'artist' || profile?.role === 'admin') &&
-                artistNavigation.map((item) => {
-                  const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-                  return (
-                    <SidebarMenuItem key={item.name}>
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href} className="flex items-center">
-                          <span className="mr-3 text-lg">{item.icon}</span>
-                          <span>{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
+              <Collapsible defaultOpen={false} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton>
+                      <span className="mr-3 text-lg">⋯</span>
+                      <span>More</span>
+                      <HugeiconsIcon
+                        icon={ArrowUp01Icon}
+                        strokeWidth={2}
+                        className="ml-auto size-4 group-data-[state=closed]/collapsible:rotate-180"
+                      />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {moreNav.map((item) => (
+                        <SidebarMenuSubItem key={item.name}>
+                          <SidebarMenuSubButton asChild isActive={pathname === item.href || pathname.startsWith(item.href + '/')}>
+                            <Link href={item.href}>{item.name}</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                      {(profile?.role === 'artist' || profile?.role === 'admin') && (
+                        <>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/upload')}>
+                              <Link href="/artist/upload">Upload</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/credits')}>
+                              <Link href="/artist/credits">Credits</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/live-services')}>
+                              <Link href="/artist/live-services">Live services</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/services')}>
+                              <Link href="/artist/services">Services</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        </>
+                      )}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               {profile?.role === 'admin' && (
                 <Collapsible defaultOpen={isAdminPath} className="group/collapsible">
@@ -296,7 +341,7 @@ export default function DashboardLayout({
           </h1>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button asChild className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button asChild className="amplify-btn hover:opacity-90">
               <Link href={isArtistMode ? '/artist/upload' : '/competition'}>
                 {isArtistMode ? 'Upload' : 'Amplify'}
               </Link>

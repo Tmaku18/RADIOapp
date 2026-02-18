@@ -17,6 +17,11 @@
 /.next/
 /out/
 
+# next-pwa (generated at build)
+/public/sw.js
+/public/workbox-*.js
+/public/fallback-*.js
+
 # production
 /build
 

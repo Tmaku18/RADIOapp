@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { HeroCta } from '@/components/marketing/HeroCta';
+import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
+import { GlobalVoteMap } from '@/components/marketing/GlobalVoteMap';
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
@@ -52,23 +55,24 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero */}
+      {/* Hero — 4 AM story-driven; Live Ripple + dynamic CTA by role */}
       <section className="relative py-24 sm:py-32 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <LiveRippleVisualizer />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight">
-            Underground Music Radio
+            No Hidden Gem Left Undiscovered
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Discover undiscovered talent. Listen to curated radio from underground artists, or get your music heard by real listeners.
+            Where the People have the Voice, and the Artist has the Power. Democratic radio, live chat, and a Pro-Network built by artists, for artists.
           </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" asChild>
-              <Link href="/signup">Get Started Free</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link href="/login">Log in</Link>
-            </Button>
-          </div>
+          <HeroCta />
+        </div>
+      </section>
+
+      {/* Global State Visualizer */}
+      <section className="py-10">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <GlobalVoteMap />
         </div>
       </section>
 
@@ -197,11 +201,10 @@ export default async function HomePage() {
       <section className="py-20 bg-primary text-primary-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to join the revolution?
+            Join the movement
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you&apos;re undiscovered talent looking to grow or a listener seeking new sounds, 
-            RadioApp is your home.
+            Whether you&apos;re a hidden gem ready to be heard or a listener who believes talent deserves a bridge—Networx is where butterfly effects happen.
           </p>
           <Button size="lg" variant="secondary" asChild>
             <Link href="/signup">Get Started Free</Link>

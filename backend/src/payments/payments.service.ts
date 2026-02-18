@@ -5,6 +5,13 @@ import { StripeService } from './stripe.service';
 import { CreatorNetworkService } from '../creator-network/creator-network.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
+import { ALLOWED_PLAYS_LIST, BuySongPlaysDto } from './dto/buy-song-plays.dto';
+
+/** $1 per minute per play, rounded up to nearest cent. Returns cents. */
+export function pricePerPlayCents(durationSeconds: number): number {
+  const minutes = durationSeconds / 60;
+  return Math.ceil(minutes * 100);
+}
 
 @Injectable()
 export class PaymentsService {
@@ -80,24 +87,23 @@ export class PaymentsService {
       })
       .eq('id', transaction.id);
 
-    // Update credits balance using atomic RPC function
-    // This prevents race conditions when multiple payments complete simultaneously
+    if (transaction.song_id != null && transaction.plays_purchased != null) {
+      await this.addPlaysToSong(supabase, transaction.song_id, transaction.plays_purchased);
+      return;
+    }
+
     const { error: rpcError } = await supabase.rpc('increment_credits', {
       p_artist_id: transaction.user_id,
       p_amount: transaction.credits_purchased,
     });
 
     if (rpcError) {
-      // Log error but don't fail - transaction was successful
       console.error('Failed to increment credits via RPC:', rpcError.message);
-      
-      // Fallback to direct update if RPC doesn't exist yet
       const { data: credits } = await supabase
         .from('credits')
         .select('*')
         .eq('artist_id', transaction.user_id)
         .single();
-
       if (credits) {
         await supabase
           .from('credits')
@@ -108,7 +114,6 @@ export class PaymentsService {
           })
           .eq('id', credits.id);
       } else {
-        // Create credit record if it doesn't exist
         await supabase
           .from('credits')
           .insert({
@@ -118,6 +123,22 @@ export class PaymentsService {
           });
       }
     }
+  }
+
+  private async addPlaysToSong(supabase: any, songId: string, plays: number): Promise<void> {
+    const { data: song } = await supabase
+      .from('songs')
+      .select('credits_remaining')
+      .eq('id', songId)
+      .single();
+    if (!song) return;
+    await supabase
+      .from('songs')
+      .update({
+        credits_remaining: (song.credits_remaining ?? 0) + plays,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', songId);
   }
 
   /**
@@ -219,7 +240,7 @@ export class PaymentsService {
 
     const { data, error } = await supabase
       .from('transactions')
-      .select('*')
+      .select('*, song:songs(title)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -227,7 +248,161 @@ export class PaymentsService {
       throw new Error(`Failed to fetch transactions: ${error.message}`);
     }
 
-    return data;
+    return (data ?? []).map((row: Record<string, unknown>) => {
+      const { song, ...rest } = row;
+      const songTitle =
+        song && typeof song === 'object' && song !== null && 'title' in song
+          ? (song as { title: string }).title
+          : null;
+      return { ...rest, song_title: songTitle };
+    });
+  }
+
+  /**
+   * Get price per play for a song ($1/min rounded up to nearest cent) and purchase options.
+   * Song must be approved and owned by the user.
+   */
+  async getSongPlayPrice(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, title, duration_seconds, status')
+      .eq('id', songId)
+      .eq('artist_id', userId)
+      .single();
+
+    if (error || !song) {
+      throw new Error('Song not found or access denied');
+    }
+    if (song.status !== 'approved') {
+      throw new Error('Song must be approved to purchase plays');
+    }
+
+    const durationSeconds = song.duration_seconds ?? 180;
+    const pricePerPlayCentsVal = pricePerPlayCents(durationSeconds);
+    const pricePerPlayDollars = (pricePerPlayCentsVal / 100).toFixed(2);
+
+    const options = ALLOWED_PLAYS_LIST.map((plays) => {
+      const totalCents = plays * pricePerPlayCentsVal;
+      return {
+        plays,
+        totalCents,
+        totalDollars: (totalCents / 100).toFixed(2),
+      };
+    });
+
+    return {
+      songId: song.id,
+      title: song.title,
+      durationSeconds,
+      pricePerPlayCents: pricePerPlayCentsVal,
+      pricePerPlayDollars,
+      options,
+    };
+  }
+
+  /**
+   * Create a Stripe Checkout Session for buying plays for a specific song (web app).
+   */
+  async createCheckoutSessionSongPlays(userId: string, dto: BuySongPlaysDto) {
+    const supabase = getSupabaseClient();
+    const webUrl = this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+
+    const price = await this.getSongPlayPrice(userId, dto.songId);
+    const option = price.options.find((o) => o.plays === dto.plays);
+    if (!option) {
+      throw new Error('Invalid plays amount');
+    }
+
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        amount_cents: option.totalCents,
+        credits_purchased: 0,
+        status: 'pending',
+        payment_method: 'checkout_session',
+        song_id: dto.songId,
+        plays_purchased: dto.plays,
+      })
+      .select()
+      .single();
+
+    if (txError) {
+      throw new Error(`Failed to create transaction: ${txError.message}`);
+    }
+
+    const session = await this.stripeService.createCheckoutSessionSongPlays(
+      option.totalCents,
+      `${dto.plays} play(s) – ${price.title}`,
+      `$${price.pricePerPlayDollars}/play ($${option.totalDollars} total)`,
+      {
+        userId,
+        transactionId: transaction.id,
+        songId: dto.songId,
+        plays: dto.plays.toString(),
+      },
+      `${webUrl}/artist/songs?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      `${webUrl}/artist/songs/${dto.songId}/buy-plays?canceled=true`,
+    );
+
+    await supabase
+      .from('transactions')
+      .update({ stripe_checkout_session_id: session.id })
+      .eq('id', transaction.id);
+
+    return {
+      sessionId: session.id,
+      url: session.url,
+      transactionId: transaction.id,
+    };
+  }
+
+  /**
+   * Create a PaymentIntent for buying plays for a specific song (mobile app).
+   */
+  async createPaymentIntentSongPlays(userId: string, dto: BuySongPlaysDto) {
+    const supabase = getSupabaseClient();
+
+    const price = await this.getSongPlayPrice(userId, dto.songId);
+    const option = price.options.find((o) => o.plays === dto.plays);
+    if (!option) {
+      throw new Error('Invalid plays amount');
+    }
+
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        amount_cents: option.totalCents,
+        credits_purchased: 0,
+        status: 'pending',
+        song_id: dto.songId,
+        plays_purchased: dto.plays,
+      })
+      .select()
+      .single();
+
+    if (txError) {
+      throw new Error(`Failed to create transaction: ${txError.message}`);
+    }
+
+    const paymentIntent = await this.stripeService.createPaymentIntent(option.totalCents, {
+      userId,
+      transactionId: transaction.id,
+      songId: dto.songId,
+      plays: dto.plays.toString(),
+    });
+
+    await supabase
+      .from('transactions')
+      .update({ stripe_payment_intent_id: paymentIntent.id })
+      .eq('id', transaction.id);
+
+    return {
+      clientSecret: paymentIntent.client_secret,
+      transactionId: transaction.id,
+    };
   }
 
   /**
@@ -301,7 +476,6 @@ export class PaymentsService {
       return; // Already processed or not found
     }
 
-    // Update transaction status
     await supabase
       .from('transactions')
       .update({
@@ -310,7 +484,11 @@ export class PaymentsService {
       })
       .eq('id', transaction.id);
 
-    // Update credits balance using atomic RPC function
+    if (transaction.song_id != null && transaction.plays_purchased != null) {
+      await this.addPlaysToSong(supabase, transaction.song_id, transaction.plays_purchased);
+      return;
+    }
+
     const { error: rpcError } = await supabase.rpc('increment_credits', {
       p_artist_id: transaction.user_id,
       p_amount: transaction.credits_purchased,
@@ -318,14 +496,11 @@ export class PaymentsService {
 
     if (rpcError) {
       console.error('Failed to increment credits via RPC:', rpcError.message);
-      
-      // Fallback to direct update
       const { data: credits } = await supabase
         .from('credits')
         .select('*')
         .eq('artist_id', transaction.user_id)
         .single();
-
       if (credits) {
         await supabase
           .from('credits')

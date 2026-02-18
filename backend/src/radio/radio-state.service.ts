@@ -20,6 +20,9 @@ const REDIS_KEYS = {
   PLAYLIST_TYPE: 'radio:playlist_type',
   FALLBACK_POSITION: 'radio:fallback_position',
   SONGS_SINCE_CHECKPOINT: 'radio:songs_since_checkpoint',
+  CURRENT_PLAY_ID: 'radio:current_play_id',
+  CURRENT_PLAY_ARTIST_ID: 'radio:current_play_artist_id',
+  CURRENT_PLAY_STARTED_AT: 'radio:current_play_started_at',
 } as const;
 
 // Checkpoint frequency for saving to Supabase
@@ -166,6 +169,47 @@ export class RadioStateService implements OnModuleInit {
       return 0;
     }
     return newCount;
+  }
+
+  // === Current play (for "song played" notification and per-play analytics) ===
+
+  /**
+   * Get current play info (set when an artist song starts; cleared when next track starts).
+   */
+  async getCurrentPlayInfo(): Promise<{ playId: string; artistId: string; startedAt: string } | null> {
+    if (!this.redisAvailable) return null;
+    const redis = getRedisClient();
+    const [playId, artistId, startedAt] = await Promise.all([
+      redis.get(REDIS_KEYS.CURRENT_PLAY_ID),
+      redis.get(REDIS_KEYS.CURRENT_PLAY_ARTIST_ID),
+      redis.get(REDIS_KEYS.CURRENT_PLAY_STARTED_AT),
+    ]);
+    if (playId && artistId && startedAt) {
+      return { playId, artistId, startedAt };
+    }
+    return null;
+  }
+
+  /**
+   * Set current play info so we can finalize (update metrics + notify) when next track starts.
+   */
+  async setCurrentPlayInfo(playId: string, artistId: string, startedAt: string): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.set(REDIS_KEYS.CURRENT_PLAY_ID, playId);
+    await redis.set(REDIS_KEYS.CURRENT_PLAY_ARTIST_ID, artistId);
+    await redis.set(REDIS_KEYS.CURRENT_PLAY_STARTED_AT, startedAt);
+  }
+
+  /**
+   * Clear current play info after finalizing.
+   */
+  async clearCurrentPlayInfo(): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.del(REDIS_KEYS.CURRENT_PLAY_ID);
+    await redis.del(REDIS_KEYS.CURRENT_PLAY_ARTIST_ID);
+    await redis.del(REDIS_KEYS.CURRENT_PLAY_STARTED_AT);
   }
 
   // === Playlist State Management (for continuous playback) ===

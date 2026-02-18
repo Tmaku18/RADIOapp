@@ -89,6 +89,39 @@ export class StripeService {
     });
   }
 
+  /**
+   * Create a Checkout Session for buying plays for a specific song ($1/min per play).
+   */
+  async createCheckoutSessionSongPlays(
+    amountCents: number,
+    productName: string,
+    productDescription: string,
+    metadata: Record<string, string>,
+    successUrl: string,
+    cancelUrl: string,
+  ): Promise<Stripe.Checkout.Session> {
+    return this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: productName,
+              description: productDescription,
+            },
+            unit_amount: amountCents,
+          },
+          quantity: 1,
+        },
+      ],
+      metadata,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+    });
+  }
+
   /** Return the configured Creator Network price ID, or null if not set. */
   getCreatorNetworkPriceId(): string | null {
     return this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID') ?? null;

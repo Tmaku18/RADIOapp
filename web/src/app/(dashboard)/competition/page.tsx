@@ -19,6 +19,10 @@ interface LeaderboardSong {
   likeCount?: number;
   playCount?: number;
   spotlightListenCount?: number;
+  windowMinutes?: number;
+  likesInWindow?: number;
+  playsInWindow?: number;
+  upvotesPerMinute?: number;
 }
 
 interface NewsItem {
@@ -40,6 +44,7 @@ export default function CompetitionPage() {
   const { profile } = useAuth();
   const [leaderboardLikes, setLeaderboardLikes] = useState<LeaderboardSong[]>([]);
   const [leaderboardListens, setLeaderboardListens] = useState<LeaderboardSong[]>([]);
+  const [trialByFire, setTrialByFire] = useState<LeaderboardSong[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [todaySpotlight, setTodaySpotlight] = useState<{ artistId: string; artistName: string; songId: string | null; songTitle: string | null } | null>(null);
   const [weekSpotlight, setWeekSpotlight] = useState<Array<{ date: string; artistId: string; artistName: string }>>([]);
@@ -55,9 +60,10 @@ export default function CompetitionPage() {
     let ignore = false;
     async function load() {
       try {
-        const [likesRes, listensRes, feedRes, todayRes, weekRes, weekInfoRes] = await Promise.all([
+        const [likesRes, listensRes, trialRes, feedRes, todayRes, weekRes, weekInfoRes] = await Promise.all([
           leaderboardApi.getSongs({ by: 'likes', limit: 20 }),
           leaderboardApi.getSongs({ by: 'listens', limit: 20 }),
+          leaderboardApi.getUpvotesPerMinute({ windowMinutes: 60, limit: 20 }),
           feedApi.getNewsPromotions(10),
           spotlightApi.getToday(),
           spotlightApi.getWeek(),
@@ -72,6 +78,7 @@ export default function CompetitionPage() {
           if (!ignore) setBrowseLeaderboard(null);
         }
         setLeaderboardListens(listensRes.data || []);
+        setTrialByFire(trialRes.data || []);
         setNews(feedRes.data || []);
         setTodaySpotlight(todayRes.data || null);
         setWeekSpotlight(weekRes.data || []);
@@ -117,7 +124,7 @@ export default function CompetitionPage() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between animate-in fade-in slide-in-from-bottom-3 duration-500">
         <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/5 to-transparent p-1">
-          <h1 className="text-3xl font-bold text-foreground tracking-tight">Competition & Spotlight</h1>
+          <h1 className="heading-serif text-3xl font-bold text-foreground tracking-tight">Competition & Spotlight</h1>
           <p className="text-muted-foreground mt-1">Leaderboards, diamonds, and vote for Top 7</p>
         </div>
       </div>
@@ -171,9 +178,12 @@ export default function CompetitionPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
+        <Card className="spotlight-card animate-in fade-in slide-in-from-bottom-3 duration-500 delay-150">
           <CardHeader>
-            <CardTitle>Today&apos;s Spotlight</CardTitle>
+            <div className="flex items-center gap-2 flex-wrap">
+              <CardTitle className="heading-serif">Today&apos;s Spotlight</CardTitle>
+              <span className="badge-featured">Featured</span>
+            </div>
             {currentWeek && (
               <p className="text-sm text-muted-foreground">
                 Week {currentWeek.periodStart} – {currentWeek.periodEnd} · Voting {currentWeek.votingOpen ? 'open' : 'closed'}
@@ -202,7 +212,7 @@ export default function CompetitionPage() {
 
         <Card className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-200">
           <CardHeader>
-            <CardTitle>This week&apos;s lineup</CardTitle>
+            <CardTitle className="heading-serif">This week&apos;s lineup</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -229,9 +239,10 @@ export default function CompetitionPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="likes" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
               <TabsTrigger value="likes">By likes</TabsTrigger>
               <TabsTrigger value="listens">By discoveries</TabsTrigger>
+              <TabsTrigger value="trial">Trial by Fire</TabsTrigger>
             </TabsList>
             <TabsContent value="likes" className="mt-4">
               {loading ? (
@@ -273,6 +284,31 @@ export default function CompetitionPage() {
                     </li>
                   ))}
                   {!loading && leaderboardListens.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="trial" className="mt-4">
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <ul className="space-y-2">
+                  {trialByFire.map((s, i) => (
+                    <li key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <span className="w-6 text-muted-foreground font-mono">{i + 1}</span>
+                      {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.title}</p>
+                        <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-muted-foreground">
+                          {(s.likesInWindow ?? 0).toLocaleString()} likes / {s.windowMinutes ?? 60}m
+                        </span>
+                        <Badge variant="secondary">{(s.upvotesPerMinute ?? 0).toFixed(2)} upvotes/min</Badge>
+                      </div>
+                    </li>
+                  ))}
+                  {!loading && trialByFire.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
                 </ul>
               )}
             </TabsContent>
@@ -320,10 +356,17 @@ export default function CompetitionPage() {
       )}
 
       {currentWeek?.votingOpen && (
-        <Card className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300">
+        <Card className="roadmap-card animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300">
           <CardHeader>
-            <CardTitle>Vote for Top 7</CardTitle>
+            <CardTitle>Democratic Development — Vote for Top 7</CardTitle>
             <p className="text-sm text-muted-foreground">Pick 7 songs and rank them 1–7. Voting closes at end of week.</p>
+            <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="roadmap-progress h-full rounded-full transition-all duration-300"
+                style={{ width: `${Math.min(100, (voteSongIds.length / 7) * 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">{voteSongIds.length}/7 selected</p>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-2">Select 7 songs from approved tracks (e.g. from Listen or Songs). Paste or type song IDs below (comma-separated) as your rank 1–7:</p>

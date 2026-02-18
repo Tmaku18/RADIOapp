@@ -62,10 +62,6 @@ export default function MySongsPage() {
     }
   };
 
-  const calculateCreditsPerPlay = (durationSeconds?: number): number => {
-    return Math.ceil((durationSeconds || 180) / 5);
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-64">
@@ -87,7 +83,7 @@ export default function MySongsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
-          <p className="text-muted-foreground mt-1">Manage your uploaded songs and allocate credits</p>
+          <p className="text-muted-foreground mt-1">Manage your songs and buy plays for approved tracks</p>
         </div>
         <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
       </div>
@@ -109,8 +105,8 @@ export default function MySongsPage() {
                 <TableHead>Song</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Duration</TableHead>
-                <TableHead>Credits</TableHead>
-                <TableHead>Plays</TableHead>
+                <TableHead>Plays left</TableHead>
+                <TableHead>Stats</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -146,17 +142,20 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
                   <TableCell>
-                    <div className="text-sm text-foreground">{song.creditsRemaining} credits</div>
-                    <div className="text-xs text-muted-foreground">{calculateCreditsPerPlay(song.durationSeconds)} per play</div>
+                    <div className="text-sm text-foreground">{song.creditsRemaining} plays</div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-foreground">{song.playCount}</div>
+                    <div className="text-sm text-foreground">{song.playCount} plays</div>
                     <div className="text-xs text-muted-foreground">{song.likeCount} likes</div>
                   </TableCell>
                   <TableCell>
                     {song.status === 'approved' ? (
-                      <Button variant="link" className="p-0 h-auto" onClick={() => router.push(`/artist/songs/${song.id}/allocate`)}>
-                        Allocate Credits
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => router.push(`/artist/songs/${song.id}/buy-plays`)}
+                      >
+                        Buy plays
                       </Button>
                     ) : song.status === 'pending' ? (
                       <span className="text-muted-foreground">Pending review</span>

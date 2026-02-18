@@ -4,6 +4,89 @@ import { CreateSongDto } from './dto/create-song.dto';
 
 @Injectable()
 export class SongsService {
+  private async maybeEmitRisingStarForCurrentPlay(songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+
+    try {
+      // rotation_queue position 0 is the current "now playing" state (DB fallback for Redis).
+      const { data: rotation } = await supabase
+        .from('rotation_queue')
+        .select('song_id, played_at')
+        .eq('position', 0)
+        .single();
+
+      const currentSongIdRaw = rotation?.song_id as string | undefined;
+      const playedAtIso = rotation?.played_at as string | undefined;
+      if (!currentSongIdRaw || !playedAtIso) return;
+
+      const isAdmin = currentSongIdRaw.startsWith('admin:');
+      const currentSongId = currentSongIdRaw.replace(/^admin:|^song:/, '');
+      if (isAdmin) return;
+      if (currentSongId !== songId) return;
+
+      const playedAtMs = new Date(playedAtIso).getTime();
+      if (!Number.isFinite(playedAtMs)) return;
+      const lowerIso = new Date(playedAtMs - 5000).toISOString();
+
+      const { data: playRows } = await supabase
+        .from('plays')
+        .select('id, listener_count, played_at')
+        .eq('song_id', songId)
+        .gte('played_at', lowerIso)
+        .order('played_at', { ascending: false })
+        .limit(1);
+
+      const play = (playRows ?? [])[0] as { id: string; listener_count: number | null; played_at: string } | undefined;
+      if (!play?.id) return;
+      const listenersAtStart = play.listener_count ?? 0;
+      if (listenersAtStart <= 0) return;
+
+      const { count: likesDuring } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('song_id', songId)
+        .gte('created_at', playedAtIso);
+
+      const likes = likesDuring ?? 0;
+      const conversion = likes / listenersAtStart;
+      if (conversion < 0.05) return;
+
+      const { data: song } = await supabase
+        .from('songs')
+        .select('title, artist_name, artist_id')
+        .eq('id', songId)
+        .single();
+
+      const payload = {
+        type: 'rising_star',
+        songId,
+        playId: play.id,
+        songTitle: song?.title ?? 'A song',
+        artistId: song?.artist_id ?? null,
+        artistName: song?.artist_name ?? 'An artist',
+        likesDuring: likes,
+        listenersAtStart,
+        conversion,
+      };
+
+      const { error } = await supabase.from('station_events').insert({
+        station_id: 'global',
+        type: 'rising_star',
+        play_id: play.id,
+        song_id: songId,
+        payload,
+      });
+
+      if (error) {
+        // Unique constraint prevents spam; ignore duplicates.
+        if (error.code === '23505') return;
+      }
+    } catch {
+      // Best-effort only; never break liking.
+      return;
+    }
+  }
+
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
 
@@ -114,6 +197,7 @@ export class SongsService {
         user_id: userId,
         song_id: songId,
       });
+    await this.maybeEmitRisingStarForCurrentPlay(songId);
     return { liked: true };
   }
 
@@ -169,6 +253,7 @@ export class SongsService {
           user_id: userId,
           song_id: songId,
         });
+      await this.maybeEmitRisingStarForCurrentPlay(songId);
       return { liked: true };
     }
   }

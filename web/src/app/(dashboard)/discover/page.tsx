@@ -7,6 +7,7 @@ import { discoveryApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 
 interface DiscoveryProfile {
@@ -27,10 +29,12 @@ interface DiscoveryProfile {
   role: 'artist' | 'service_provider';
   serviceTypes: string[];
   createdAt: string;
+  mentorOptIn?: boolean;
+  distanceKm?: number;
 }
 
 const PAGE_SIZE = 20;
-const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'other'];
+const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
 
 export default function DiscoverPage() {
   const [items, setItems] = useState<DiscoveryProfile[]>([]);
@@ -43,12 +47,19 @@ export default function DiscoverPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [nearbyEnabled, setNearbyEnabled] = useState(false);
+  const [userLat, setUserLat] = useState<number | null>(null);
+  const [userLng, setUserLng] = useState<number | null>(null);
+  const [minRateCents, setMinRateCents] = useState<string>('');
+  const [maxRateCents, setMaxRateCents] = useState<string>('');
 
   const load = useCallback(
     async (append: boolean, currentOffset: number) => {
       if (append) setLoadingMore(true);
       else setLoading(true);
       try {
+        const minR = minRateCents.trim() ? parseInt(minRateCents, 10) : undefined;
+        const maxR = maxRateCents.trim() ? parseInt(maxRateCents, 10) : undefined;
         const res = await discoveryApi.listPeople({
           search: search.trim() || undefined,
           location: location.trim() || undefined,
@@ -56,6 +67,11 @@ export default function DiscoverPage() {
           role,
           limit: PAGE_SIZE,
           offset: currentOffset,
+          minRateCents: Number.isFinite(minR) ? minR : undefined,
+          maxRateCents: Number.isFinite(maxR) ? maxR : undefined,
+          lat: nearbyEnabled && role === 'service_provider' && userLat != null ? userLat : undefined,
+          lng: nearbyEnabled && role === 'service_provider' && userLng != null ? userLng : undefined,
+          radiusKm: nearbyEnabled && role === 'service_provider' && userLat != null && userLng != null ? 100 : undefined,
         });
         const data = res.data as { items: DiscoveryProfile[]; total: number };
         if (append) {
@@ -74,7 +90,7 @@ export default function DiscoverPage() {
         setLoadingMore(false);
       }
     },
-    [search, location, serviceType, role],
+    [search, location, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents],
   );
 
   useEffect(() => {
@@ -94,14 +110,14 @@ export default function DiscoverPage() {
           placeholder="Search name, headline, bio..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load(false)}
+          onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
           className="bg-background"
         />
         <Input
           placeholder="Location (region)"
           value={location}
           onChange={(e) => setLocation(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load(false)}
+          onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
           className="bg-background"
         />
         <Select value={serviceType} onValueChange={setServiceType}>
@@ -128,7 +144,34 @@ export default function DiscoverPage() {
           </SelectContent>
         </Select>
       </div>
-      <Button onClick={() => load(false)} variant="secondary" size="sm">
+      {role === 'service_provider' && (
+        <>
+          <div className="flex items-center gap-2">
+            <Switch
+              id="discover-nearby"
+              checked={nearbyEnabled}
+              onCheckedChange={(checked) => {
+                setNearbyEnabled(checked);
+                if (checked && userLat == null && typeof navigator !== 'undefined' && navigator.geolocation) {
+                  navigator.geolocation.getCurrentPosition(
+                    (pos) => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude); },
+                    () => setNearbyEnabled(false),
+                  );
+                }
+                if (!checked) { setUserLat(null); setUserLng(null); }
+              }}
+            />
+            <Label htmlFor="discover-nearby" className="text-sm">Nearby</Label>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">Price (cents):</span>
+            <Input type="number" placeholder="Min" className="w-24 bg-background" value={minRateCents} onChange={(e) => setMinRateCents(e.target.value)} />
+            <span className="text-muted-foreground">–</span>
+            <Input type="number" placeholder="Max" className="w-24 bg-background" value={maxRateCents} onChange={(e) => setMaxRateCents(e.target.value)} />
+          </div>
+        </>
+      )}
+      <Button onClick={() => load(false, 0)} variant="secondary" size="sm">
         Apply filters
       </Button>
 
@@ -168,6 +211,11 @@ export default function DiscoverPage() {
                       >
                         {profile.displayName || 'Unnamed'}
                       </Link>
+                      {profile.mentorOptIn && (
+                        <span className="inline-flex items-center rounded-full bg-primary/20 text-primary px-1.5 py-0.5 text-xs font-medium ring-1 ring-primary/40" title="Mentor">
+                          Mentor
+                        </span>
+                      )}
                       <Badge variant="secondary" className="capitalize text-xs">
                         {profile.role.replace('_', ' ')}
                       </Badge>
@@ -175,9 +223,14 @@ export default function DiscoverPage() {
                     {profile.headline && (
                       <p className="text-sm text-muted-foreground truncate mt-0.5">{profile.headline}</p>
                     )}
-                    {profile.locationRegion && (
-                      <p className="text-xs text-muted-foreground mt-1">📍 {profile.locationRegion}</p>
-                    )}
+                    <div className="flex items-center gap-2 mt-1">
+                      {profile.locationRegion && (
+                        <p className="text-xs text-muted-foreground">📍 {profile.locationRegion}</p>
+                      )}
+                      {profile.distanceKm != null && (
+                        <p className="text-xs text-muted-foreground">{profile.distanceKm.toFixed(1)} km away</p>
+                      )}
+                    </div>
                     {profile.serviceTypes.length > 0 && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {profile.serviceTypes.slice(0, 3).map((st) => (

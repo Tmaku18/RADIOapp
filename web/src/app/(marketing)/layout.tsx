@@ -15,7 +15,7 @@ export default function MarketingLayout({
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-2">
               <span className="text-2xl">🎧</span>
-              <span className="text-xl font-bold text-networx">RadioApp</span>
+              <span className="text-xl font-bold text-networx">Networx</span>
             </Link>
 
             {/* Navigation Links */}
@@ -28,6 +28,9 @@ export default function MarketingLayout({
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/faq">FAQ</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/pro-directory">Pro-Directory</Link>
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/contact">Contact</Link>
@@ -60,10 +63,10 @@ export default function MarketingLayout({
             <div className="space-y-4">
               <div className="flex items-center space-x-2">
                 <span className="text-2xl">🎧</span>
-                <span className="text-xl font-bold text-networx">RadioApp</span>
+                <span className="text-xl font-bold text-networx">Networx</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Discover undiscovered talent and promote your music on our curated radio stream.
+                Where the People have the Voice, and the Artist has the Power. By Artists, For Artists.
               </p>
             </div>
 
@@ -74,6 +77,7 @@ export default function MarketingLayout({
                 <li><Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
                 <li><Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
                 <li><Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</Link></li>
+                <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
               </ul>
             </div>
 
@@ -99,7 +103,7 @@ export default function MarketingLayout({
           </div>
 
           <div className="border-t border-border mt-8 pt-8 text-sm text-center text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} RadioApp. All rights reserved.</p>
+            <p>&copy; {new Date().getFullYear()} Networx. All rights reserved.</p>
           </div>
         </div>
       </footer>

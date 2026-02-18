@@ -22,6 +22,18 @@ export class LeaderboardController {
     return this.leaderboardService.getSongsByLikes(limit, offset);
   }
 
+  @Get('upvotes-per-minute')
+  async getUpvotesPerMinute(
+    @Query('windowMinutes') windowMinutesStr?: string,
+    @Query('limit') limitStr?: string,
+    @Query('offset') offsetStr?: string,
+  ) {
+    const windowMinutes = Math.min(Math.max(1, parseInt(windowMinutesStr || '60', 10) || 60), 24 * 60);
+    const limit = Math.min(parseInt(limitStr || '50', 10) || 50, 100);
+    const offset = Math.max(0, parseInt(offsetStr || '0', 10) || 0);
+    return this.leaderboardService.getSongsByUpvotesPerMinute(windowMinutes, limit, offset);
+  }
+
   @Post('songs/:id/like')
   async addLeaderboardLike(
     @CurrentUser() user: FirebaseUser,

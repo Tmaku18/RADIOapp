@@ -23,6 +23,7 @@ export default function UploadPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [readyForRotation, setReadyForRotation] = useState(false);
 
   const extractDurationSeconds = (file: File): Promise<number | null> => {
     return new Promise((resolve) => {
@@ -162,9 +163,7 @@ export default function UploadPage() {
       });
 
       setUploadProgress(100);
-
-      // Redirect to dashboard with success message
-      router.push('/dashboard?upload=success');
+      setReadyForRotation(true);
     } catch (err) {
       console.error('Upload failed:', err);
       setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
@@ -173,11 +172,35 @@ export default function UploadPage() {
     }
   };
 
+  if (readyForRotation) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="glass-panel border-border/80">
+          <CardContent className="pt-8 pb-8 text-center">
+            <div className="mx-auto w-20 h-20 rounded-full bg-primary/20 flex items-center justify-center text-4xl mb-4">✓</div>
+            <h2 className="heading-serif text-2xl font-semibold text-foreground">Ready for Rotation</h2>
+            <p className="text-muted-foreground mt-2">Your track is in the queue. We&apos;ll review it and add it to the rotation soon.</p>
+            {artworkPreview && (
+              <div className="mt-6 flex justify-center">
+                <img src={artworkPreview} alt="" className="w-32 h-32 rounded-lg object-cover border border-border" />
+              </div>
+            )}
+            <p className="mt-4 font-medium text-foreground">{title}</p>
+            <p className="text-sm text-muted-foreground">{artistName}</p>
+            <Button className="mt-6" onClick={() => router.push('/dashboard')}>
+              Back to Studio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground">Upload Music</h2>
+          <h2 className="heading-serif text-xl font-semibold text-foreground">Add to the Rotation</h2>
           <p className="text-muted-foreground mt-1">Submit your track for review and radio rotation</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
@@ -199,22 +222,22 @@ export default function UploadPage() {
               <Button
                 type="button"
                 variant="outline"
-                className="w-full h-auto py-8 border-dashed flex flex-col"
+                className="upload-zone-artist w-full h-auto py-8 flex flex-col rounded-lg"
                 onClick={() => audioInputRef.current?.click()}
               >
               {audioFile ? (
                 <div>
                   <span className="text-4xl mb-2 block">🎵</span>
-                  <p className="text-gray-900 font-medium">{audioFile.name}</p>
-                  <p className="text-sm text-gray-500">
+                  <p className="text-foreground font-medium">{audioFile.name}</p>
+                  <p className="text-sm text-muted-foreground">
                     {(audioFile.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
               ) : (
                 <div>
                   <span className="text-4xl mb-2 block">📤</span>
-                  <p className="text-gray-600">Click to select audio file</p>
-                  <p className="text-sm text-gray-400 mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 50MB</p>
+                  <p className="text-foreground">Click to select audio file</p>
+                  <p className="text-sm text-muted-foreground mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 50MB</p>
                 </div>
               )}
               </Button>
@@ -243,14 +266,14 @@ export default function UploadPage() {
                     className="w-20 h-20 rounded-lg object-cover"
                   />
                   <div className="text-left">
-                    <p className="text-gray-900 font-medium">{artworkFile?.name}</p>
-                    <p className="text-sm text-gray-500">Click to change</p>
+                    <p className="text-foreground font-medium">{artworkFile?.name}</p>
+                    <p className="text-sm text-muted-foreground">Click to change</p>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center justify-center space-x-2">
                   <span className="text-2xl">🖼️</span>
-                  <span className="text-gray-600">Add album artwork</span>
+                  <span className="text-muted-foreground">Add album artwork</span>
                 </div>
               )}
               </Button>
@@ -279,7 +302,7 @@ export default function UploadPage() {
             )}
 
             <Button type="submit" disabled={isUploading || !audioFile} className="w-full">
-              {isUploading ? 'Uploading...' : 'Submit for Review'}
+              {isUploading ? 'Uploading...' : 'Submit for Rotation'}
             </Button>
 
             <p className="text-sm text-muted-foreground text-center">

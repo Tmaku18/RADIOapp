@@ -221,4 +221,14 @@ class AuthService extends ChangeNotifier {
       return null;
     }
   }
+
+  /// Request an upgrade to artist status (web parity: POST /users/upgrade-to-artist).
+  Future<void> requestArtistUpgrade() async {
+    if (_auth == null || _auth!.currentUser == null) {
+      throw Exception('Not authenticated');
+    }
+    final token = await _auth!.currentUser!.getIdToken();
+    _apiService.setAuthToken(token);
+    await _apiService.post('users/upgrade-to-artist', null);
+  }
 }

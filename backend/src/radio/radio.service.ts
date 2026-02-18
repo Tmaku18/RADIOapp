@@ -9,6 +9,13 @@ const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
 
+type PinnedCatalystCredit = {
+  userId: string;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+};
+
 // === Hysteresis Thresholds ===
 // Uses different thresholds for entering vs exiting paid mode to prevent rapid oscillation
 // when listener count hovers at the boundary (e.g., 4-5-4-5)
@@ -82,12 +89,38 @@ export class RadioService {
     private readonly radioStateService: RadioStateService,
   ) {}
 
+  private async getPinnedCatalystsForSong(songId: string): Promise<PinnedCatalystCredit[]> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('song_catalyst_credits')
+      .select('user_id, role, users(display_name, avatar_url)')
+      .eq('song_id', songId);
+
+    if (error) {
+      this.logger.warn(`Failed to load pinned catalysts for song ${songId}: ${error.message}`);
+      return [];
+    }
+
+    const rows = (data ?? []) as Array<{
+      user_id: string;
+      role: string;
+      users?: { display_name?: string | null; avatar_url?: string | null } | null;
+    }>;
+
+    return rows.map((r) => ({
+      userId: r.user_id,
+      displayName: r.users?.display_name ?? 'Industry Catalyst',
+      avatarUrl: r.users?.avatar_url ?? null,
+      role: r.role,
+    }));
+  }
+
   /**
-   * Calculate credits required for a song's full play.
-   * Formula: ceil(duration_seconds / 5) = 1 credit per 5 seconds
+   * Credits required per play: 1 credit = 1 play.
+   * (Pricing is $1/min per play, purchased per song; credits_remaining = plays remaining.)
    */
-  private calculateCreditsRequired(durationSeconds: number): number {
-    return Math.ceil(durationSeconds / 5);
+  private calculateCreditsRequired(_durationSeconds: number): number {
+    return 1;
   }
 
   /**
@@ -151,11 +184,25 @@ export class RadioService {
       return this.getNextTrack();
     }
 
-    const { data: song } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('id', queueState.songId)
-      .single();
+    const isAdminSong = queueState.songId.startsWith('admin:');
+    const actualSongId = queueState.songId.replace(/^admin:|^song:/, '');
+
+    let song: any | null = null;
+    if (isAdminSong) {
+      const { data } = await supabase
+        .from('admin_fallback_songs')
+        .select('*')
+        .eq('id', actualSongId)
+        .single();
+      song = data ?? null;
+    } else {
+      const { data } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', actualSongId)
+        .single();
+      song = data ?? null;
+    }
 
     if (!song) {
       // Song was deleted, get next track
@@ -180,6 +227,8 @@ export class RadioService {
       return this.getNextTrack();
     }
 
+    const pinnedCatalysts = isAdminSong ? [] : await this.getPinnedCatalystsForSong(actualSongId);
+
     return {
       ...song,
       is_playing: true,
@@ -188,6 +237,7 @@ export class RadioService {
       time_remaining_ms: timeRemainingMs,
       position_seconds: Math.floor((now - startedAt) / 1000),
       is_live: isLive,
+      pinned_catalysts: pinnedCatalysts,
     };
   }
 
@@ -196,9 +246,14 @@ export class RadioService {
    * Close to pure random with minor nudges:
    * - +0.1 weight for above-average credits (reward investment)
    * - +0.1 weight for not played in last hour (anti-repetition)
+   * - Exclude same artist as last played when possible (artist spacing)
    * - Max weight 1.2 (no song >20% more likely than another)
    */
-  private selectWeightedRandom(songs: any[], currentSongId?: string): any | null {
+  private selectWeightedRandom(
+    songs: any[],
+    currentSongId?: string,
+    lastPlayedArtistId?: string | null,
+  ): any | null {
     if (!songs || songs.length === 0) return null;
 
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
@@ -216,10 +271,14 @@ export class RadioService {
       // Exclude current song to avoid immediate repeat
       if (song.id === currentSongId) weight = 0;
 
+      // Artist spacing: strongly prefer a different artist than the one that just played
+      if (lastPlayedArtistId != null && song.artist_id === lastPlayedArtistId) weight = 0;
+
       return { song, weight };
     });
 
     const totalWeight = weightedSongs.reduce((sum, w) => sum + w.weight, 0);
+    // If all songs are same artist (totalWeight 0), fall back to any song to avoid deadlock
     if (totalWeight === 0) return songs[0];
 
     let random = Math.random() * totalWeight;
@@ -232,11 +291,89 @@ export class RadioService {
   }
 
   /**
+   * Resolve a queue stack ID (song:uuid or admin:uuid) to the artist_id of the song.
+   * Used for artist spacing: we avoid playing the same artist back-to-back.
+   * Admin fallback songs have no artist_id; returns null so no artist filter is applied.
+   */
+  private async getArtistIdForStackId(stackId: string | undefined): Promise<string | null> {
+    if (!stackId) return null;
+    const supabase = getSupabaseClient();
+    const isAdmin = stackId.startsWith('admin:');
+    const actualId = stackId.replace(/^admin:|^song:/, '');
+    if (isAdmin) return null; // Admin songs: no artist spacing filter
+    const { data } = await supabase.from('songs').select('artist_id').eq('id', actualId).single();
+    return data?.artist_id ?? null;
+  }
+
+  /**
+   * When the next track is about to start: update the previous play with end metrics
+   * (listeners, likes/comments/profile clicks during the play) and send the artist
+   * a "Your song has been played" notification with a link to view analytics.
+   */
+  private async finalizePreviousPlay(): Promise<void> {
+    const info = await this.radioStateService.getCurrentPlayInfo();
+    if (!info) return;
+
+    const supabase = getSupabaseClient();
+    const endAt = new Date().toISOString();
+
+    const { data: play, error: playError } = await supabase
+      .from('plays')
+      .select('id, song_id, played_at, listener_count')
+      .eq('id', info.playId)
+      .single();
+
+    if (playError || !play) {
+      this.logger.warn(`Finalize play: play ${info.playId} not found`);
+      await this.radioStateService.clearCurrentPlayInfo();
+      return;
+    }
+
+    const listenerCountAtEnd = await this.radioStateService.getListenerCount();
+    const startAt = info.startedAt;
+
+    const [likesRes, commentsRes, profileRes] = await Promise.all([
+      supabase.from('likes').select('*', { count: 'exact', head: true }).eq('song_id', play.song_id).gte('created_at', startAt).lte('created_at', endAt),
+      supabase.from('chat_messages').select('*', { count: 'exact', head: true }).gte('created_at', startAt).lte('created_at', endAt).is('deleted_at', null),
+      supabase.from('profile_clicks').select('*', { count: 'exact', head: true }).eq('song_id', play.song_id).gte('created_at', startAt).lte('created_at', endAt),
+    ]);
+
+    await supabase
+      .from('plays')
+      .update({
+        listener_count_at_end: listenerCountAtEnd,
+        likes_during: likesRes.count ?? 0,
+        comments_during: commentsRes.count ?? 0,
+        disconnects_during: 0,
+        profile_clicks_during: profileRes.count ?? 0,
+      })
+      .eq('id', info.playId);
+
+    const { data: song } = await supabase.from('songs').select('title').eq('id', play.song_id).single();
+    const songTitle = song?.title ?? 'Your song';
+
+    try {
+      await this.pushNotificationService.sendSongPlayedNotification({
+        artistId: info.artistId,
+        songTitle,
+        playId: info.playId,
+      });
+    } catch (e) {
+      this.logger.warn(`Failed to send song-played notification: ${e?.message ?? e}`);
+    }
+
+    await this.radioStateService.clearCurrentPlayInfo();
+  }
+
+  /**
    * Get credited song using soft-weighted random selection.
    * Only returns songs with enough credits for their full play duration.
-   * Returns both the song and metadata for logging.
+   * Prefers a different artist than last played (artist spacing).
    */
-  private async getCreditedSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+  private async getCreditedSong(
+    currentSongId?: string,
+    lastPlayedArtistId?: string | null,
+  ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
 
     const { data: songs } = await supabase
@@ -255,15 +392,19 @@ export class RadioService {
 
     if (eligibleSongs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(eligibleSongs, currentSongId);
+    const selectedSong = this.selectWeightedRandom(eligibleSongs, currentSongId, lastPlayedArtistId);
     return { song: selectedSong, competingSongs: eligibleSongs.length };
   }
 
   /**
    * Get trial song for artists with free trial plays remaining.
    * Only returns songs with trial plays available and no credits.
+   * Prefers a different artist than last played (artist spacing).
    */
-  private async getTrialSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+  private async getTrialSong(
+    currentSongId?: string,
+    lastPlayedArtistId?: string | null,
+  ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
 
     const { data: songs } = await supabase
@@ -275,14 +416,18 @@ export class RadioService {
 
     if (!songs || songs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(songs, currentSongId);
+    const selectedSong = this.selectWeightedRandom(songs, currentSongId, lastPlayedArtistId);
     return { song: selectedSong, competingSongs: songs.length };
   }
 
   /**
    * Get opt-in song for free rotation after trial plays are exhausted.
+   * Prefers a different artist than last played (artist spacing).
    */
-  private async getOptInSong(currentSongId?: string): Promise<{ song: any; competingSongs: number } | null> {
+  private async getOptInSong(
+    currentSongId?: string,
+    lastPlayedArtistId?: string | null,
+  ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
 
     const { data: songs } = await supabase
@@ -295,7 +440,7 @@ export class RadioService {
 
     if (!songs || songs.length === 0) return null;
 
-    const selectedSong = this.selectWeightedRandom(songs, currentSongId);
+    const selectedSong = this.selectWeightedRandom(songs, currentSongId, lastPlayedArtistId);
     return { song: selectedSong, competingSongs: songs.length };
   }
 
@@ -303,10 +448,11 @@ export class RadioService {
 
   /**
    * Get all active songs from free rotation: admin_fallback_songs + songs table (admin_free_rotation).
+   * Returns artistId for artist-spaced shuffle: admin entries use unique id so they don't cluster.
    */
-  private async getAllFreeRotationSongs(): Promise<{ id: string; _stackId: string }[]> {
+  private async getAllFreeRotationSongs(): Promise<{ id: string; _stackId: string; artistId: string }[]> {
     const supabase = getSupabaseClient();
-    const result: { id: string; _stackId: string }[] = [];
+    const result: { id: string; _stackId: string; artistId: string }[] = [];
 
     const { data: adminSongs, error: adminError } = await supabase
       .from('admin_fallback_songs')
@@ -317,13 +463,13 @@ export class RadioService {
       this.logger.error(`Failed to fetch admin fallback songs: ${adminError.message}`);
     } else if (adminSongs?.length) {
       for (const s of adminSongs) {
-        result.push({ id: s.id, _stackId: `admin:${s.id}` });
+        result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
       }
     }
 
     const { data: songsData, error: songsError } = await supabase
       .from('songs')
-      .select('id')
+      .select('id, artist_id')
       .eq('status', 'approved')
       .eq('admin_free_rotation', true)
       .eq('opt_in_free_play', true);
@@ -332,10 +478,50 @@ export class RadioService {
       this.logger.error(`Failed to fetch admin-free-rotation songs: ${songsError.message}`);
     } else if (songsData?.length) {
       for (const s of songsData) {
-        result.push({ id: s.id, _stackId: `song:${s.id}` });
+        const artistId = (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
+        result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
       }
     }
 
+    return result;
+  }
+
+  /**
+   * Build an ordered list of stack IDs so that songs from the same artist are spaced out
+   * (round-robin by artist). Shuffles within each artist's group so order isn't predictable.
+   */
+  private shuffleWithArtistSpacing(items: { _stackId: string; artistId: string }[]): string[] {
+    if (items.length === 0) return [];
+    const byArtist = new Map<string, string[]>();
+    for (const item of items) {
+      const list = byArtist.get(item.artistId) ?? [];
+      list.push(item._stackId);
+      byArtist.set(item.artistId, list);
+    }
+    // Shuffle within each artist's list so we don't always play the same track order
+    for (const list of byArtist.values()) {
+      for (let i = list.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [list[i], list[j]] = [list[j], list[i]];
+      }
+    }
+    const artistKeys = [...byArtist.keys()];
+    // Shuffle artist order so round-robin order isn't deterministic
+    for (let i = artistKeys.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [artistKeys[i], artistKeys[j]] = [artistKeys[j], artistKeys[i]];
+    }
+    const result: string[] = [];
+    let index = 0;
+    while (result.length < items.length) {
+      for (const artistId of artistKeys) {
+        const list = byArtist.get(artistId)!;
+        if (index < list.length) {
+          result.push(list[index]);
+        }
+      }
+      index++;
+    }
     return result;
   }
 
@@ -427,8 +613,8 @@ export class RadioService {
         return null;
       }
       
-      // Shuffle stack IDs (admin:uuid or song:uuid)
-      const shuffledIds = this.shuffleArray(allSongs.map(s => s._stackId));
+      // Build stack with artist spacing (round-robin by artist so same artist isn't back-to-back)
+      const shuffledIds = this.shuffleWithArtistSpacing(allSongs);
       
       // Set in Redis for fast access
       await this.radioStateService.setFreeRotationStack(shuffledIds);
@@ -535,6 +721,7 @@ export class RadioService {
         const timeRemainingMs = endTime - now;
 
         if (timeRemainingMs > SONG_END_BUFFER_MS) {
+          const pinnedCatalysts = currentState.isAdminFallback ? [] : await this.getPinnedCatalystsForSong(actualSongId);
           return {
             ...currentSong,
             is_playing: true,
@@ -545,6 +732,7 @@ export class RadioService {
             is_fallback: currentState.isFallback,
             is_admin_fallback: currentState.isAdminFallback,
             is_live: isLive,
+            pinned_catalysts: pinnedCatalysts,
           };
         }
       }
@@ -552,6 +740,12 @@ export class RadioService {
 
     const currentSongId = currentState?.songId;
     this.nextSongNotifiedFor = null;
+
+    // Finalize previous play: update per-play metrics and send "Your song has been played" notification
+    await this.finalizePreviousPlay();
+
+    // Resolve last-played artist for spacing (avoid same artist back-to-back)
+    const lastPlayedArtistId = await this.getArtistIdForStackId(currentSongId ?? undefined);
 
     // Get listener count and current playlist type
     const listenerCount = await this.radioStateService.getListenerCount();
@@ -577,22 +771,22 @@ export class RadioService {
 
     // Play from appropriate playlist
     if (targetType === 'paid') {
-      // Try credited songs (pre-charge model)
-      const creditedResult = await this.getCreditedSong(currentSongId);
+      // Try credited songs (pre-charge model), with artist spacing
+      const creditedResult = await this.getCreditedSong(currentSongId, lastPlayedArtistId);
       if (creditedResult) {
         const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
         if (result) return { ...result, is_live: isLive };
       }
 
-      // Try trial songs (3 free plays)
-      const trialResult = await this.getTrialSong(currentSongId);
+      // Try trial songs (3 free plays), with artist spacing
+      const trialResult = await this.getTrialSong(currentSongId, lastPlayedArtistId);
       if (trialResult) {
         const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
         if (result) return { ...result, is_live: isLive };
       }
 
-      // Try opt-in songs (free rotation opt-in)
-      const optInResult = await this.getOptInSong(currentSongId);
+      // Try opt-in songs (free rotation opt-in), with artist spacing
+      const optInResult = await this.getOptInSong(currentSongId, lastPlayedArtistId);
       if (optInResult) {
         const result = await this.playOptInSong(optInResult.song, optInResult.competingSongs);
         if (result) return { ...result, is_live: isLive };
@@ -686,11 +880,19 @@ export class RadioService {
       competingSongs,
     });
 
-    // Log play
-    await supabase.from('plays').insert({
-      song_id: song.id,
-      played_at: startedAt,
-    });
+    // Log play and set current play for finalization (per-play metrics + "song played" notification)
+    const { data: playRow } = await supabase
+      .from('plays')
+      .insert({
+        song_id: song.id,
+        played_at: startedAt,
+        listener_count: listenerCount,
+      })
+      .select('id')
+      .single();
+    if (playRow?.id && song.artist_id) {
+      await this.radioStateService.setCurrentPlayInfo(playRow.id, song.artist_id, startedAt);
+    }
 
     // Increment paid_play_count, play_count, last_played_at
     await supabase
@@ -715,6 +917,7 @@ export class RadioService {
     }
 
     const durationMs = durationSeconds * 1000;
+    const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
 
     return {
       ...song,
@@ -724,6 +927,7 @@ export class RadioService {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       credits_deducted: creditsToDeduct,
+      pinned_catalysts: pinnedCatalysts,
     };
   }
 
@@ -764,11 +968,19 @@ export class RadioService {
       competingSongs,
     });
 
-    // Log play
-    await supabase.from('plays').insert({
-      song_id: song.id,
-      played_at: startedAt,
-    });
+    // Log play and set current play for finalization
+    const { data: playRow } = await supabase
+      .from('plays')
+      .insert({
+        song_id: song.id,
+        played_at: startedAt,
+        listener_count: listenerCount,
+      })
+      .select('id')
+      .single();
+    if (playRow?.id && song.artist_id) {
+      await this.radioStateService.setCurrentPlayInfo(playRow.id, song.artist_id, startedAt);
+    }
 
     // Send "Live Now" notification to artist
     try {
@@ -783,6 +995,7 @@ export class RadioService {
     }
 
     const durationMs = durationSeconds * 1000;
+    const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
 
     return {
       ...song,
@@ -793,6 +1006,7 @@ export class RadioService {
       position_seconds: 0,
       trial_plays_remaining: remaining,
       trial_plays_used: used,
+      pinned_catalysts: pinnedCatalysts,
     };
   }
 
@@ -820,11 +1034,19 @@ export class RadioService {
       competingSongs,
     });
 
-    // Log play
-    await supabase.from('plays').insert({
-      song_id: song.id,
-      played_at: startedAt,
-    });
+    // Log play and set current play for finalization
+    const { data: playRow } = await supabase
+      .from('plays')
+      .insert({
+        song_id: song.id,
+        played_at: startedAt,
+        listener_count: listenerCount,
+      })
+      .select('id')
+      .single();
+    if (playRow?.id && song.artist_id) {
+      await this.radioStateService.setCurrentPlayInfo(playRow.id, song.artist_id, startedAt);
+    }
 
     // Update play_count and last_played_at
     await supabase
@@ -848,6 +1070,7 @@ export class RadioService {
     }
 
     const durationMs = durationSeconds * 1000;
+    const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
 
     return {
       ...song,
@@ -856,6 +1079,7 @@ export class RadioService {
       server_time: startedAt,
       time_remaining_ms: durationMs,
       position_seconds: 0,
+      pinned_catalysts: pinnedCatalysts,
     };
   }
 
@@ -899,10 +1123,18 @@ export class RadioService {
         })
         .eq('id', song.id);
     } else {
-      await supabase.from('plays').insert({
-        song_id: song.id,
-        played_at: startedAt,
-      });
+      const { data: playRow } = await supabase
+        .from('plays')
+        .insert({
+          song_id: song.id,
+          played_at: startedAt,
+          listener_count: listenerCount,
+        })
+        .select('id')
+        .single();
+      if (playRow?.id && song.artist_id) {
+        await this.radioStateService.setCurrentPlayInfo(playRow.id, song.artist_id, startedAt);
+      }
       // Update songs table play_count and last_played_at
       await supabase
         .from('songs')
@@ -914,6 +1146,7 @@ export class RadioService {
     }
 
     const durationMs = durationSeconds * 1000;
+    const pinnedCatalysts = isFromAdminTable ? [] : await this.getPinnedCatalystsForSong(song.id);
 
     return {
       id: song.id,
@@ -929,6 +1162,7 @@ export class RadioService {
       position_seconds: 0,
       is_fallback: true,
       is_admin_fallback: true,
+      pinned_catalysts: pinnedCatalysts,
     };
   }
 

@@ -6,6 +6,7 @@ import {
   Headers,
   Req,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
 import type { Request } from 'express';
@@ -13,6 +14,7 @@ import { PaymentsService } from './payments.service';
 import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
+import { BuySongPlaysDto } from './dto/buy-song-plays.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
@@ -44,6 +46,90 @@ export class PaymentsController {
     }
 
     return this.paymentsService.createPaymentIntent(userData.id, dto);
+  }
+
+  /**
+   * Get price per play for a song ($1/min) and purchase options (1, 3, 5, 10, 25, 50, 100 plays).
+   */
+  @Get('song-play-price')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async getSongPlayPrice(
+    @CurrentUser() user: FirebaseUser,
+    @Query('songId') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.getSongPlayPrice(userData.id, songId);
+  }
+
+  /**
+   * Create a Stripe Checkout Session for buying plays for a song (web app).
+   */
+  @Post('checkout-session-song-plays')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async createCheckoutSessionSongPlays(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: BuySongPlaysDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.createCheckoutSessionSongPlays(userData.id, dto);
+  }
+
+  /**
+   * Quick-buy: fixed "Add 5 Minutes" CTA while listening to your own track.
+   * Implemented as buying 5 plays for the specified song (Apple/Google Pay available via Stripe Checkout when supported).
+   */
+  @Post('quick-add-minutes')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async quickAddMinutes(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { songId: string },
+  ) {
+    if (!body?.songId) {
+      throw new Error('songId is required');
+    }
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.createCheckoutSessionSongPlays(userData.id, { songId: body.songId, plays: 5 } as BuySongPlaysDto);
+  }
+
+  /**
+   * Create a PaymentIntent for buying plays for a song (mobile app).
+   */
+  @Post('create-intent-song-plays')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async createPaymentIntentSongPlays(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: BuySongPlaysDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.createPaymentIntentSongPlays(userData.id, dto);
   }
 
   /**

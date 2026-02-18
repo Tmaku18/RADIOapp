@@ -251,7 +251,10 @@ export default function ChatSidebar() {
       <div className="p-4 border-b border-border flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span className="text-lg">💬</span>
-          <h2 className="font-semibold text-foreground">Live Chat</h2>
+          <div>
+            <h2 className="font-semibold text-foreground">The Room</h2>
+            <p className="text-xs text-muted-foreground">Live chat with the collective</p>
+          </div>
           {/* Connection status indicator */}
           {connectionStatus === 'connected' && (
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" title="Connected"></span>
@@ -308,15 +311,18 @@ export default function ChatSidebar() {
                 <AvatarFallback className="text-xs">{msg.displayName.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
 
-              {/* Message */}
+              {/* Message: dark grey bubble, thin left border (Cyan for listener); Signal dot for active */}
               <div
-                className={`max-w-[200px] rounded-lg px-3 py-2 border transition-colors ${
+                className={`chat-bubble max-w-[200px] rounded-lg px-3 py-2 transition-colors ${
                   msg.userId === profile?.id
-                    ? 'bg-black/55 border-primary/40 text-foreground signal-glow'
-                    : 'bg-black/35 border-white/10 text-foreground'
+                    ? 'border-primary/50 text-foreground signal-glow'
+                    : 'text-foreground'
                 }`}
               >
                 <div className="flex items-center gap-2 mb-1">
+                  {connectionStatus === 'connected' && (
+                    <span className="chat-signal-dot active" title="Active listener" aria-hidden />
+                  )}
                   <span className="text-xs font-medium opacity-75">
                     {msg.displayName}
                   </span>

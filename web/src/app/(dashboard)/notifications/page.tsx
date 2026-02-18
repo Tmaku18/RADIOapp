@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { notificationsApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +17,8 @@ interface Notification {
   metadata?: {
     songId?: string;
     songTitle?: string;
+    playId?: string;
+    action?: string;
     reason?: string;
   };
   read: boolean;
@@ -27,6 +31,8 @@ function getNotificationIcon(type: string): string {
       return '✅';
     case 'song_rejected':
       return '❌';
+    case 'song_played':
+      return '🎵';
     default:
       return '🔔';
   }
@@ -49,13 +55,16 @@ function formatTimeAgo(dateString: string): string {
 }
 
 export default function NotificationsPage() {
+  const { user, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadNotifications();
-  }, []);
+    if (!authLoading && user) {
+      loadNotifications();
+    }
+  }, [authLoading, user]);
 
   const loadNotifications = async () => {
     try {
@@ -64,8 +73,9 @@ export default function NotificationsPage() {
       const response = await notificationsApi.getAll();
       const list = response?.data?.notifications;
       setNotifications(Array.isArray(list) ? list : []);
-    } catch (err: any) {
-      const msg = err.response?.data?.message ?? err.message ?? 'Failed to load notifications';
+    } catch (err: unknown) {
+      const errObj = err as { response?: { data?: { message?: string } }; message?: string };
+      const msg = errObj.response?.data?.message ?? errObj.message ?? 'Failed to load notifications';
       setError(msg);
       setNotifications([]);
     } finally {
@@ -79,7 +89,7 @@ export default function NotificationsPage() {
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, read: true } : n)
       );
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to mark as read:', err);
     }
   };
@@ -88,14 +98,14 @@ export default function NotificationsPage() {
     try {
       await notificationsApi.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to mark all as read:', err);
     }
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -138,12 +148,9 @@ export default function NotificationsPage() {
       ) : (
         <Card>
           <div className="divide-y divide-border">
-            {notifications.map((notification) => (
-              <div
-                key={notification.id}
-                onClick={() => !notification.read && handleMarkAsRead(notification.id)}
-                className={`p-4 cursor-pointer transition-colors ${notification.read ? 'bg-card' : 'bg-primary/5 hover:bg-primary/10'}`}
-              >
+            {notifications.map((notification) => {
+              const isSongPlayed = notification.type === 'song_played' && notification.metadata?.playId;
+              const content = (
                 <div className="flex items-start space-x-4">
                   <div className="text-2xl">{getNotificationIcon(notification.type)}</div>
                   <div className="flex-1 min-w-0">
@@ -155,6 +162,9 @@ export default function NotificationsPage() {
                     </div>
                     {notification.message && (
                       <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
+                    )}
+                    {isSongPlayed && (
+                      <p className="mt-2 text-sm text-primary font-medium">View stats →</p>
                     )}
                     {notification.type === 'song_rejected' && (
                       <div className="mt-2 text-sm">
@@ -170,8 +180,23 @@ export default function NotificationsPage() {
                     )}
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+              return (
+                <div
+                  key={notification.id}
+                  onClick={() => !notification.read && handleMarkAsRead(notification.id)}
+                  className={`p-4 cursor-pointer transition-colors ${notification.read ? 'bg-card' : 'bg-primary/5 hover:bg-primary/10'}`}
+                >
+                  {isSongPlayed ? (
+                    <Link href={`/artist/stats?playId=${notification.metadata!.playId}`} className="block">
+                      {content}
+                    </Link>
+                  ) : (
+                    content
+                  )}
+                </div>
+              );
+            })}
           </div>
         </Card>
       )}

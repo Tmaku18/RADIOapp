@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
+import '../credits/credits_screen.dart';
+import '../studio/studio_screen.dart';
+import '../upload/upload_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -44,49 +46,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Navigation is handled by AuthWrapper - no manual navigation needed
   }
 
-  /// Open the web dashboard for credit management.
-  /// This allows mobile artists to manage their credits without
-  /// needing a full Flutter implementation of the credit UI.
-  Future<void> _openCreditsWebView() async {
-    // TODO: Replace with your actual web dashboard URL
-    const webDashboardUrl = 'http://localhost:3001/artist/credits';
-    final uri = Uri.parse(webDashboardUrl);
-    
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open web dashboard')),
-        );
-      }
-    }
-  }
-
-  /// Open the web dashboard for viewing and managing songs.
-  Future<void> _openMySongsWebView() async {
-    // TODO: Replace with your actual web dashboard URL
-    const webDashboardUrl = 'http://localhost:3001/artist/songs';
-    final uri = Uri.parse(webDashboardUrl);
-    
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open web dashboard')),
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Profile'),
-        backgroundColor: Colors.deepPurple,
-        foregroundColor: Colors.white,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -124,24 +88,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Center(
                       child: Chip(
                         label: Text(_user!.role.toUpperCase()),
-                        backgroundColor: Colors.deepPurple.shade100,
+                        backgroundColor: Theme.of(context)
+                            .colorScheme
+                            .primary
+                            .withValues(alpha: 0.12),
                       ),
                     ),
                     const SizedBox(height: 32),
                     if (_user!.role == 'artist') ...[
                       ListTile(
-                        leading: const Icon(Icons.account_balance_wallet, color: Colors.deepPurple),
-                        title: const Text('Manage Credits'),
-                        subtitle: const Text('Allocate credits to your songs'),
-                        trailing: const Icon(Icons.open_in_new),
-                        onTap: () => _openCreditsWebView(),
+                        leading: const Icon(Icons.mic_none),
+                        title: const Text('Studio'),
+                        subtitle: const Text('Your songs and rotation signals'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const StudioScreen()),
+                          );
+                        },
                       ),
                       ListTile(
-                        leading: const Icon(Icons.library_music, color: Colors.deepPurple),
-                        title: const Text('My Songs'),
-                        subtitle: const Text('View your uploaded songs'),
-                        trailing: const Icon(Icons.open_in_new),
-                        onTap: () => _openMySongsWebView(),
+                        leading: const Icon(Icons.library_music_outlined),
+                        title: const Text('Credits'),
+                        subtitle: const Text('Balance and history'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const CreditsScreen()),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.upload_outlined),
+                        title: const Text('Upload'),
+                        subtitle: const Text('Add a track to the rotation'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const UploadScreen()),
+                          );
+                        },
                       ),
                     ],
                     ListTile(

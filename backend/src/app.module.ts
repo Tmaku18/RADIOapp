@@ -26,6 +26,8 @@ import { CreatorNetworkModule } from './creator-network/creator-network.module';
 import { ServiceMessagesModule } from './service-messages/service-messages.module';
 import { JobBoardModule } from './job-board/job-board.module';
 import { BrowseModule } from './browse/browse.module';
+import { ServiceProvidersModule } from './service-providers/service-providers.module';
+import { VenueAdsModule } from './venue-ads/venue-ads.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -59,6 +61,8 @@ import { RequestIdMiddleware } from './common/middleware';
     ServiceMessagesModule,
     JobBoardModule,
     BrowseModule,
+    ServiceProvidersModule,
+    VenueAdsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -14,7 +14,7 @@ const api: AxiosInstance = axios.create({
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     // Skip token for public endpoints (exact matches only)
-    const publicEndpoints = ['/radio/current'];
+    const publicEndpoints = ['/radio/current', '/venue-ads/current'];
     const isPublicEndpoint = publicEndpoints.some(endpoint => 
       config.url === endpoint && config.method?.toLowerCase() === 'get'
     );
@@ -68,6 +68,10 @@ export const radioApi = {
     api.post('/radio/play', data),
 };
 
+export const venueAdsApi = {
+  getCurrent: (stationId?: string) => api.get<{ id: string; imageUrl: string; linkUrl: string | null; stationId: string } | null>('/venue-ads/current', { params: stationId ? { stationId } : {} }),
+};
+
 export const songsApi = {
   getAll: (params?: { artistId?: string; status?: string; limit?: number; offset?: number }) => 
     api.get('/songs', { params }),
@@ -107,6 +111,8 @@ export const suggestionsApi = {
 export const leaderboardApi = {
   getSongs: (params: { by: 'likes' | 'listens'; limit?: number; offset?: number }) => 
     api.get('/leaderboard/songs', { params }),
+  getUpvotesPerMinute: (params?: { windowMinutes?: number; limit?: number; offset?: number }) =>
+    api.get('/leaderboard/upvotes-per-minute', { params }),
   addLeaderboardLike: (songId: string, playId?: string) => 
     api.post(`/leaderboard/songs/${songId}/like`, { playId }),
 };
@@ -149,6 +155,11 @@ export const discoveryApi = {
     role?: 'artist' | 'service_provider' | 'all';
     limit?: number;
     offset?: number;
+    minRateCents?: number;
+    maxRateCents?: number;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
   }) => api.get('/discovery/people', { params }),
 };
 
@@ -162,6 +173,49 @@ export const messagesApi = {
     api.get(`/messages/conversations/${otherUserId}`, { params }),
   sendMessage: (otherUserId: string, body: string, requestId?: string | null) =>
     api.post(`/messages/conversations/${otherUserId}`, { body, requestId }),
+};
+
+export const serviceProvidersApi = {
+  getByUserId: (userId: string) => api.get(`/service-providers/${userId}`),
+  getMeProfile: () => api.get('/service-providers/me/profile'),
+  updateMeProfile: (data: {
+    bio?: string;
+    locationRegion?: string;
+    lat?: number;
+    lng?: number;
+    serviceTypes?: string[];
+    heroImageUrl?: string;
+    instagramUrl?: string;
+    linkedinUrl?: string;
+    portfolioUrl?: string;
+    mentorOptIn?: boolean;
+  }) => api.put('/service-providers/me/profile', data),
+  createListing: (data: {
+    serviceType: string;
+    title: string;
+    description?: string;
+    rateCents?: number;
+    rateType?: 'hourly' | 'fixed';
+    status?: 'active' | 'paused';
+  }) => api.post('/service-providers/me/listings', data),
+  updateListing: (listingId: string, data: {
+    serviceType?: string;
+    title?: string;
+    description?: string;
+    rateCents?: number | null;
+    rateType?: 'hourly' | 'fixed';
+    status?: 'active' | 'paused';
+  }) => api.patch(`/service-providers/me/listings/${listingId}`, data),
+  deleteListing: (listingId: string) => api.delete(`/service-providers/me/listings/${listingId}`),
+  addPortfolioItem: (data: { type: 'image' | 'audio' | 'video'; fileUrl: string; title?: string; description?: string; sortOrder?: number }) =>
+    api.post('/service-providers/me/portfolio', data),
+  deletePortfolioItem: (portfolioItemId: string) =>
+    api.delete(`/service-providers/me/portfolio/${portfolioItemId}`),
+  getPortfolioUploadUrl: (data: { filename: string; contentType: string }) =>
+    api.post<{ signedUrl: string; path: string; expiresIn: number; publicUrl: string }>(
+      '/service-providers/portfolio/upload-url',
+      data,
+    ),
 };
 
 export const jobBoardApi = {
@@ -208,11 +262,24 @@ export const creditsApi = {
 };
 
 export const paymentsApi = {
-  createCheckoutSession: (data: { amount: number; credits: number }) => 
+  createCheckoutSession: (data: { amount: number; credits: number }) =>
     api.post('/payments/create-checkout-session', data),
   createCreatorNetworkCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
     api.post<{ url: string; sessionId: string }>('/payments/create-creator-network-checkout-session', data ?? {}),
   getTransactions: () => api.get('/payments/transactions'),
+  getSongPlayPrice: (songId: string) =>
+    api.get<{
+      songId: string;
+      title: string;
+      durationSeconds: number;
+      pricePerPlayCents: number;
+      pricePerPlayDollars: string;
+      options: { plays: number; totalCents: number; totalDollars: string }[];
+    }>('/payments/song-play-price', { params: { songId } }),
+  createCheckoutSessionSongPlays: (data: { songId: string; plays: number }) =>
+    api.post<{ sessionId: string; url: string; transactionId: string }>('/payments/checkout-session-song-plays', data),
+  quickAddMinutes: (data: { songId: string }) =>
+    api.post<{ sessionId: string; url: string; transactionId: string }>('/payments/quick-add-minutes', data),
 };
 
 export const adminApi = {
@@ -284,8 +351,13 @@ export const notificationsApi = {
 export const analyticsApi = {
   // Artist analytics (authenticated)
   getMyAnalytics: (days?: number) => api.get('/analytics/me', { params: { days } }),
-  getSongAnalytics: (songId: string, days?: number) => 
+  getMyRoi: (days?: number) => api.get('/analytics/me/roi', { params: { days } }),
+  getMyPlaysByRegion: (days?: number) => api.get('/analytics/me/plays-by-region', { params: { days } }),
+  getSongAnalytics: (songId: string, days?: number) =>
     api.get(`/analytics/songs/${songId}`, { params: { days } }),
+  getPlayById: (playId: string) => api.get(`/analytics/plays/${playId}`),
+  recordProfileClick: (songId: string) =>
+    api.post('/analytics/profile-click', { songId }),
   // Platform stats (public)
   getPlatformStats: () => api.get('/analytics/platform'),
 };
