@@ -51,7 +51,7 @@ export default function AboutPage() {
           <li><strong className="text-foreground">Potential in Everyone:</strong> We believe talent is universal, but opportunity is not. We are here to fix the distribution.</li>
           <li><strong className="text-foreground">The &quot;Trial by Fire&quot; Democracy:</strong> True representation matters. Our charts aren&apos;t bought; they are earned. Votes reflect the true opinion of the people, pushing every artist to constantly improve through healthy competition.</li>
           <li><strong className="text-foreground">Pure Listening, No Noise:</strong> Music should be free to hear without the interruption of annoying, intrusive ads. We keep the frequency clean so the focus stays on the sound.</li>
-          <li><strong className="text-foreground">Human Connectivity:</strong> We reject the &quot;enigma&quot; model. We encourage community interaction. If your song is playing, you should be in the room with your fans.</li>
+          <li><strong className="text-foreground">Human Connectivity:</strong> We reject the &quot;enigma&quot; model. We encourage community interaction. If your ore is playing, you should be in the room with your fans.</li>
           <li><strong className="text-foreground">Mentorship over Monopoly:</strong> We believe the experienced have a duty to guide the inexperienced. Our platform is a professional hub designed to foster guidance, not gatekeeping.</li>
         </ul>
 

@@ -117,7 +117,7 @@ export default function AdminSongsPage() {
       setSongs(response.data.songs || []);
     } catch (err) {
       console.error('Failed to load songs:', err);
-      setError('Failed to load songs');
+      setError('Failed to load ores');
     } finally {
       setLoading(false);
     }
@@ -143,7 +143,7 @@ export default function AdminSongsPage() {
       return;
     }
     if ((song.paid_play_count || 0) < 1) {
-      alert('Song must have at least 1 paid play');
+      alert('Ore must have at least 1 paid play');
       return;
     }
 
@@ -170,7 +170,7 @@ export default function AdminSongsPage() {
       ));
     } catch (err) {
       console.error('Failed to approve song:', err);
-      alert('Failed to approve song');
+      alert('Failed to approve ore');
     } finally {
       setActionLoading(null);
     }
@@ -194,7 +194,7 @@ export default function AdminSongsPage() {
       setRejectionReason('');
     } catch (err) {
       console.error('Failed to reject song:', err);
-      alert('Failed to reject song');
+      alert('Failed to reject ore');
     } finally {
       setActionLoading(null);
     }
@@ -232,7 +232,7 @@ export default function AdminSongsPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search songs..."
+              placeholder="Search ores..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"
@@ -274,7 +274,7 @@ export default function AdminSongsPage() {
           </div>
         ) : songs.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No songs found with status: {filter}
+            No ores found with status: {filter}
           </div>
         ) : (
           <table className="w-full">
@@ -284,7 +284,7 @@ export default function AdminSongsPage() {
                   className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
                   onClick={() => handleSort('title')}
                 >
-                  Song <SortIcon field="title" />
+                  Ore <SortIcon field="title" />
                 </th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
@@ -426,9 +426,9 @@ export default function AdminSongsPage() {
       {rejectingId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Ore</h3>
             <p className="text-gray-600 mb-4">
-              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
+              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the ore is deleted.
             </p>
             <textarea
               value={rejectionReason}
@@ -452,7 +452,7 @@ export default function AdminSongsPage() {
                 disabled={actionLoading === rejectingId}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
+                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Ore'}
               </button>
             </div>
           </div>

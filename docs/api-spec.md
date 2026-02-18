@@ -2,6 +2,8 @@
 
 Base URL: `http://localhost:3000/api`
 
+> **Product terminology**: In the UI and marketing, we use **Flutters** (audience), **Ripples** (likes), **The Wake** (analytics), and **Ores** (songs). This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
+
 All endpoints require Firebase ID token in Authorization header: `Authorization: Bearer <token>`
 
 ## Authentication

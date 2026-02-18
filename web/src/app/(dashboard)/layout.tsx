@@ -53,7 +53,7 @@ const listenerNavigation = [
 
 const artistNavigation = [
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
-  { name: 'Analytics', href: '/artist/stats', icon: '📈' },
+  { name: 'The Wake', href: '/artist/stats', icon: '📈' },
   { name: 'Pro-Network', href: '/job-board', icon: '💼' },
   { name: 'Chat', href: '/messages', icon: '💬' },
 ];
@@ -65,7 +65,7 @@ const moreNav = [
 ];
 
 const adminSubNavigation = [
-  { name: 'Songs', href: '/admin/songs', icon: '🎶' },
+  { name: 'Ores', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
@@ -74,7 +74,7 @@ const adminSubNavigation = [
 
 // Flattened nav for page title lookup
 function getPageTitle(pathname: string): string {
-  if (pathname.startsWith('/admin/songs')) return 'Songs';
+  if (pathname.startsWith('/admin/songs')) return 'Ores';
   if (pathname.startsWith('/admin/users')) return 'Users';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
   if (pathname.startsWith('/admin/fallback')) return 'Fallback';
@@ -86,10 +86,10 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
   if (pathname.startsWith('/profile')) return 'Profile';
-  if (pathname.startsWith('/artist/songs')) return 'My Songs';
+  if (pathname.startsWith('/artist/songs')) return 'My Ores';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
-  if (pathname.startsWith('/artist/stats')) return 'Stats';
+  if (pathname.startsWith('/artist/stats')) return 'The Wake';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Services';
   if (pathname.startsWith('/browse/saved')) return 'Saved';

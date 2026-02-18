@@ -130,6 +130,10 @@ export default function StatsPage() {
 
   return (
     <div className="space-y-8">
+      <div className="mb-2">
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">The Wake</h1>
+        <p className="text-muted-foreground mt-1">The path left behind by a thousand Ripples.</p>
+      </div>
       {playDetail && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-6">
@@ -139,10 +143,10 @@ export default function StatsPage() {
             <p className="text-muted-foreground font-medium">{playDetail.songTitle}</p>
             <p className="text-sm text-muted-foreground mt-1">Played at {formatPlayTime(playDetail.playedAt)}</p>
             <div className="flex flex-wrap gap-3 mt-4">
-              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Listeners: {playDetail.listenersAtStart}</span>
+              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Flutters: {playDetail.listenersAtStart}</span>
               {playDetail.listenersAtEnd != null && <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">End: {playDetail.listenersAtEnd}</span>}
               {playDetail.netListenerChange != null && <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Net: {playDetail.netListenerChange >= 0 ? '+' : ''}{playDetail.netListenerChange}</span>}
-              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Likes: {playDetail.likesDuring}</span>
+              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Ripples: {playDetail.likesDuring}</span>
               <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Comments: {playDetail.commentsDuring}</span>
               <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Disconnects: {playDetail.disconnectsDuring}</span>
               <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Profile clicks: {playDetail.profileClicksDuring}</span>
@@ -225,7 +229,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Listener Heatmap (by region)</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Flutter Heatmap (by region)</h2>
           {regions.length > 0 ? (
             <div className="space-y-2">
               {regions.slice(0, 10).map((r) => (
@@ -254,7 +258,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Songs</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Ores</h2>
           <div className="divide-y divide-border">
             {analytics?.topSongs && analytics.topSongs.length > 0 ? (
               analytics.topSongs.map((song, index) => (
@@ -263,7 +267,7 @@ export default function StatsPage() {
                   {song.artworkUrl && <img src={song.artworkUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
-                    <p className="text-sm text-muted-foreground">{song.totalPlays.toLocaleString()} discoveries · {song.likeCount} likes</p>
+                    <p className="text-sm text-muted-foreground">{song.totalPlays.toLocaleString()} discoveries · {song.likeCount} ripples</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm text-muted-foreground">{song.creditsUsed.toLocaleString()} credits used</p>
@@ -272,7 +276,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No songs with discoveries yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No ores with discoveries yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>
@@ -281,9 +285,9 @@ export default function StatsPage() {
       <Card>
         <CardContent className="pt-8 pb-8 text-center">
           <div className="text-4xl mb-4">📊</div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">More Analytics Coming Soon</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">More of The Wake Coming Soon</h3>
           <p className="text-muted-foreground max-w-md mx-auto">
-            We&apos;re working on detailed analytics including listener demographics, peak listening times, and engagement metrics.
+            We&apos;re working on detailed analytics including Flutter demographics, peak listening times, and engagement metrics.
           </p>
         </CardContent>
       </Card>

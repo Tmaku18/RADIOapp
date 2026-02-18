@@ -82,7 +82,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems' },
-              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Songs' },
+              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Ores' },
               { value: `${(data.stats.totalPlays / 1000000).toFixed(1)}M+`, label: 'Discoveries' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
@@ -96,12 +96,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Listeners */}
+      {/* How It Works - Flutters */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              For Listeners
+              For Flutters
             </h2>
             <p className="text-xl text-muted-foreground">
               Discover your next favorite gem
@@ -110,7 +110,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { icon: '🎵', title: 'Tune In', desc: 'Listen to our curated radio stream featuring underground artists from around the world.' },
-              { icon: '❤️', title: 'Discover', desc: 'Like tracks to save them and help boost underground talent in the rotation.' },
+              { icon: '❤️', title: 'Discover', desc: 'Send ripples to save tracks and help boost underground talent in the rotation.' },
               { icon: '🌟', title: 'Support', desc: 'Follow your favorite gems and be part of their journey to success.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
@@ -137,14 +137,14 @@ export default async function HomePage() {
               For Gems
             </h2>
             <p className="text-xl text-muted-foreground">
-              Get your music heard by real listeners
+              Get your music heard by real Flutters
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { icon: '📤', title: 'Upload', desc: 'Submit your tracks for review. Once approved, they enter our radio rotation.' },
-              { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more listeners.' },
-              { icon: '📊', title: 'Analyze', desc: 'Track your discoveries, engagement, and growth with detailed analytics.' },
+              { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more Flutters.' },
+              { icon: '📊', title: 'The Wake', desc: 'The path left behind by a thousand Ripples—discoveries, engagement, and growth over time.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>
@@ -204,7 +204,7 @@ export default async function HomePage() {
             Join the movement
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you&apos;re a hidden gem ready to be heard or a listener who believes talent deserves a bridge—Networx is where butterfly effects happen.
+            Whether you&apos;re a hidden gem ready to be heard or a Flutter who believes talent deserves a bridge—Networx is where butterfly effects happen.
           </p>
           <Button size="lg" variant="secondary" asChild>
             <Link href="/signup">Get Started Free</Link>

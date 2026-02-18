@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 
 const APP_NAME = 'RadioApp';
 const APP_DESCRIPTION =
-  'Discover underground artists and promote your music on our curated radio stream. Artists upload and pay for airplay while listeners tune into continuous curated music.';
+  'Discover underground artists and promote your music on our curated radio stream. Artists upload and pay for airplay while Flutters tune into continuous curated music.';
 
 const inter = Inter({
   variable: '--font-inter',

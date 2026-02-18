@@ -105,7 +105,7 @@ export default function CompetitionPage() {
 
   const handleVote = async () => {
     if (voteSongIds.length !== 7) {
-      setVoteError('Select exactly 7 songs (rank 1–7).');
+      setVoteError('Select exactly 7 ores (rank 1–7).');
       return;
     }
     setVoteError(null);
@@ -240,7 +240,7 @@ export default function CompetitionPage() {
         <CardContent>
           <Tabs defaultValue="likes" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="likes">By likes</TabsTrigger>
+              <TabsTrigger value="likes">By Ripples</TabsTrigger>
               <TabsTrigger value="listens">By discoveries</TabsTrigger>
               <TabsTrigger value="trial">Trial by Fire</TabsTrigger>
             </TabsList>
@@ -259,7 +259,7 @@ export default function CompetitionPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} discoveries</span>}
-                        <Badge variant="secondary">{s.likeCount ?? 0} likes</Badge>
+                        <Badge variant="secondary">{s.likeCount ?? 0} ripples</Badge>
                       </div>
                     </li>
                   ))}
@@ -302,7 +302,7 @@ export default function CompetitionPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground">
-                          {(s.likesInWindow ?? 0).toLocaleString()} likes / {s.windowMinutes ?? 60}m
+                          {(s.likesInWindow ?? 0).toLocaleString()} ripples / {s.windowMinutes ?? 60}m
                         </span>
                         <Badge variant="secondary">{(s.upvotesPerMinute ?? 0).toFixed(2)} upvotes/min</Badge>
                       </div>
@@ -320,7 +320,7 @@ export default function CompetitionPage() {
         <Card className="animate-in fade-in slide-in-from-bottom-3 duration-500 delay-200">
           <CardHeader>
             <CardTitle>Top in Browse by category</CardTitle>
-            <p className="text-sm text-muted-foreground">Most-liked creator content by service type (from Browse feed)</p>
+            <p className="text-sm text-muted-foreground">Most-rippled creator content by service type (from Browse feed)</p>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={browseLeaderboard.categories[0]?.serviceType ?? ''} className="w-full">
@@ -341,7 +341,7 @@ export default function CompetitionPage() {
                           <p className="font-medium truncate">{item.title || 'Untitled'}</p>
                           <p className="text-sm text-muted-foreground truncate">{item.provider?.displayName ?? 'Creator'}</p>
                         </div>
-                        <Badge variant="secondary">{item.likeCount} likes</Badge>
+                        <Badge variant="secondary">{item.likeCount} ripples</Badge>
                       </li>
                     ))}
                   </ul>
@@ -359,7 +359,7 @@ export default function CompetitionPage() {
         <Card className="roadmap-card animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300">
           <CardHeader>
             <CardTitle>Democratic Development — Vote for Top 7</CardTitle>
-            <p className="text-sm text-muted-foreground">Pick 7 songs and rank them 1–7. Voting closes at end of week.</p>
+            <p className="text-sm text-muted-foreground">Pick 7 ores and rank them 1–7. Voting closes at end of week.</p>
             <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
               <div
                 className="roadmap-progress h-full rounded-full transition-all duration-300"
@@ -369,11 +369,11 @@ export default function CompetitionPage() {
             <p className="text-xs text-muted-foreground">{voteSongIds.length}/7 selected</p>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">Select 7 songs from approved tracks (e.g. from Listen or Songs). Paste or type song IDs below (comma-separated) as your rank 1–7:</p>
+            <p className="text-sm text-muted-foreground mb-2">Select 7 ores from approved tracks (e.g. from Listen or Ores). Paste or type ore IDs below (comma-separated) as your rank 1–7:</p>
             <input
               type="text"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="song-id-1, song-id-2, ..."
+              placeholder="ore-id-1, ore-id-2, ..."
               value={voteSongIds.join(', ')}
               onChange={(e) => setVoteSongIds(e.target.value.split(/[\s,]+/).filter(Boolean))}
             />

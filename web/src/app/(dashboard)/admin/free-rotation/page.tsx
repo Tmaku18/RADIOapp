@@ -186,7 +186,7 @@ export default function FreeRotationPage() {
       <div className="flex items-center gap-4">
         <div className="text-right text-sm text-gray-500">
           <p>{song.play_count} plays</p>
-          <p>{song.like_count} likes</p>
+          <p>{song.like_count} ripples</p>
         </div>
         <button
           onClick={() => toggleFreeRotation(song)}
@@ -219,7 +219,7 @@ export default function FreeRotationPage() {
                 : 'text-muted-foreground'
             }`}
           >
-            Search Songs
+            Search Ores
           </button>
           <button
             onClick={() => { setSearchTab('users'); setSelectedUser(null); }}
@@ -240,7 +240,7 @@ export default function FreeRotationPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder={searchTab === 'songs' ? 'Search by song title...' : 'Search by name or email...'}
+            placeholder={searchTab === 'songs' ? 'Search by ore title...' : 'Search by name or email...'}
             className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
           />
           <button
@@ -260,8 +260,8 @@ export default function FreeRotationPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Free Rotation Management</h1>
         <p className="text-muted-foreground mt-1">
-          Search songs or users to manage the free rotation playlist. 
-          Songs require: 1+ paid play, artist opt-in, and admin approval.
+          Search ores or users to manage the free rotation playlist. 
+          Ores require: 1+ paid play, artist opt-in, and admin approval.
         </p>
       </div>
 
@@ -269,24 +269,24 @@ export default function FreeRotationPage() {
       <Card>
         <div className="p-4 border-b">
           <h2 className="font-semibold text-foreground">
-            Free Rotation Queue ({freeRotationSongs.length} songs)
+            Free Rotation Queue ({freeRotationSongs.length} ores)
           </h2>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Songs currently in the free rotation playback queue
+            Ores currently in the free rotation playback queue
           </p>
         </div>
         {freeRotationSongs.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
-            No songs in free rotation. Search above to add songs.
+            No ores in free rotation. Search above to add ores.
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Song</TableHead>
+                <TableHead>Ore</TableHead>
                 <TableHead>Artist</TableHead>
                 <TableHead className="text-right">Plays</TableHead>
-                <TableHead className="text-right">Likes</TableHead>
+                <TableHead className="text-right">Ripples</TableHead>
                 <TableHead>Last Played</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -358,7 +358,7 @@ export default function FreeRotationPage() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">
-                Songs by {selectedUser.display_name || selectedUser.email}
+                Ores by {selectedUser.display_name || selectedUser.email}
               </h2>
               <p className="text-sm text-gray-500">{selectedUser.email}</p>
             </div>
@@ -371,7 +371,7 @@ export default function FreeRotationPage() {
           </div>
           
           {userSongs.length === 0 ? (
-            <p className="text-gray-500 text-center py-8">No approved songs found for this user.</p>
+            <p className="text-gray-500 text-center py-8">No approved ores found for this user.</p>
           ) : (
             <div className="space-y-3">
               {userSongs.map((song) => (

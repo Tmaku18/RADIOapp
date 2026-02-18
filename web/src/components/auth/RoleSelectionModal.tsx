@@ -60,9 +60,9 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
             <div className="flex items-start gap-4">
               <div className="text-3xl">🎧</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Listener</h3>
+                <h3 className="font-semibold text-foreground">Flutter</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Discover new music, like tracks, and chat with the community
+                  Discover new music, send ripples to tracks, and chat with the community
                 </p>
               </div>
               {selectedRole === 'listener' && (

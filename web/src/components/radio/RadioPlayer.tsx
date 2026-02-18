@@ -65,7 +65,7 @@ export function RadioPlayer() {
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || 'No songs are currently available.');
+        setNoContentMessage(trackData.message || 'No ores are currently available.');
         setPinnedCatalysts([]);
         return;
       }
@@ -144,7 +144,7 @@ export function RadioPlayer() {
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || 'No songs are currently available.');
+        setNoContentMessage(trackData.message || 'No ores are currently available.');
         setPinnedCatalysts([]);
         return;
       }
@@ -293,7 +293,7 @@ export function RadioPlayer() {
         setIsLiked(true);
       }
     } catch (error) {
-      console.error('Failed to toggle like:', error);
+      console.error('Failed to toggle ripple:', error);
     } finally {
       setIsLoadingLike(false);
     }
@@ -337,7 +337,7 @@ export function RadioPlayer() {
             <div className="text-center">
               <h3 className="text-white text-xl font-bold">No Content Available</h3>
               <p className="text-gray-200 text-sm mt-2">
-                {noContentMessage || 'Sorry for the inconvenience. No songs are currently available.'}
+                {noContentMessage || 'Sorry for the inconvenience. No ores are currently available.'}
               </p>
             </div>
           </div>
@@ -488,7 +488,7 @@ export function RadioPlayer() {
 
         {/* Controls */}
         <div className="flex items-center justify-center space-x-6">
-          {/* Like Button */}
+          {/* Ripple Button */}
           <button
             onClick={handleLike}
             disabled={!state.currentTrack || isLoadingLike}

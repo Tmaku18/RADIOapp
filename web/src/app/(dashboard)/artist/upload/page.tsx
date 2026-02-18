@@ -280,8 +280,8 @@ export default function UploadPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Song Title <span className="text-destructive">*</span></Label>
-              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter song title" />
+              <Label htmlFor="title">Ore Title <span className="text-destructive">*</span></Label>
+              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter ore title" />
             </div>
 
             <div className="space-y-2">

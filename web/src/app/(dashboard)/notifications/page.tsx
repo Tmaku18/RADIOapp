@@ -164,7 +164,7 @@ export default function NotificationsPage() {
                       <p className="mt-1 text-sm text-muted-foreground">{notification.message}</p>
                     )}
                     {isSongPlayed && (
-                      <p className="mt-2 text-sm text-primary font-medium">View stats →</p>
+                      <p className="mt-2 text-sm text-primary font-medium">View The Wake →</p>
                     )}
                     {notification.type === 'song_rejected' && (
                       <div className="mt-2 text-sm">

@@ -157,7 +157,7 @@ export default function AdminUsersPage() {
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {role === 'all' ? 'All Users' : `${role}s`}
+              {role === 'all' ? 'All Users' : role === 'listener' ? 'Flutters' : `${role.charAt(0).toUpperCase()}${role.slice(1)}s`}
             </button>
           ))}
         </div>
@@ -211,7 +211,7 @@ export default function AdminUsersPage() {
           </div>
         ) : users.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No users found with role: {filter}
+            No users found with role: {filter === 'listener' ? 'Flutters' : filter}
           </div>
         ) : (
           <table className="w-full">
@@ -269,7 +269,7 @@ export default function AdminUsersPage() {
                       user.role === 'artist' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {user.role}
+                      {user.role === 'listener' ? 'Flutter' : user.role}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm">
@@ -284,7 +284,7 @@ export default function AdminUsersPage() {
                           disabled={actionLoading === user.id}
                           className="text-foreground bg-background"
                         >
-                          {actionLoading === user.id ? '...' : `${user.role} ▼`}
+                          {actionLoading === user.id ? '...' : `${user.role === 'listener' ? 'Flutter' : user.role} ▼`}
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="min-w-[160px] text-foreground [&_*]:text-foreground">
@@ -292,7 +292,7 @@ export default function AdminUsersPage() {
                           onClick={() => handleRoleChange(user.id, 'listener')}
                           className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer"
                         >
-                          Set as Listener
+                          Set as Flutter
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleRoleChange(user.id, 'artist')}
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
             <AlertDialogTitle>Lifetime Ban / Deactivate Account</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently deactivate {lifetimeBanUser?.display_name || lifetimeBanUser?.email}&apos;s account.
-              All their songs will be deleted from the database and storage. The user record will be kept so they cannot create a new account.
+              All their ores will be deleted from the database and storage. The user record will be kept so they cannot create a new account.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

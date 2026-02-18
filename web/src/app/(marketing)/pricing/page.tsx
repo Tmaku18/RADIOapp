@@ -66,7 +66,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Like and save tracks
+                  Send ripples and save tracks
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>

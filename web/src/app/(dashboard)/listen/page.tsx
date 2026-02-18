@@ -35,7 +35,7 @@ export default function ListenPage() {
         (payload) => {
           const row = payload.new as any;
           const p = row?.payload ?? {};
-          const songTitle = p.songTitle ?? 'a song';
+          const songTitle = p.songTitle ?? 'an ore';
           const artistName = p.artistName ?? 'an artist';
           const conversion = typeof p.conversion === 'number' ? p.conversion : null;
           setRisingStar({
@@ -101,7 +101,7 @@ export default function ListenPage() {
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Everyone listening hears the same stream. Like a song to save it and support the artist.</p>
+            <p>Everyone listening hears the same stream. Send a ripple to save an ore and support the artist.</p>
           </div>
 
           <div className="mt-4 text-center lg:hidden">

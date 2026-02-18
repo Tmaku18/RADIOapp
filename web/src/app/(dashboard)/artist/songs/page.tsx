@@ -56,7 +56,7 @@ export default function MySongsPage() {
       const response = await songsApi.getMine();
       setSongs(response.data);
     } catch (err: any) {
-      setError(err.message || 'Failed to load songs');
+      setError(err.message || 'Failed to load ores');
     } finally {
       setLoading(false);
     }
@@ -82,19 +82,19 @@ export default function MySongsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
-          <p className="text-muted-foreground mt-1">Manage your songs and buy plays for approved tracks</p>
+          <h1 className="text-2xl font-bold text-foreground">My Ores</h1>
+          <p className="text-muted-foreground mt-1">Manage your ores and buy plays for approved tracks</p>
         </div>
-        <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
+        <Button onClick={() => router.push('/artist/upload')}>Upload New Ore</Button>
       </div>
 
       {songs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <div className="text-6xl mb-4">🎵</div>
-            <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
-            <p className="text-muted-foreground mb-6">Upload your first song to start promoting your music!</p>
-            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Song</Button>
+            <h3 className="text-lg font-medium text-foreground mb-2">No ores yet</h3>
+            <p className="text-muted-foreground mb-6">Upload your first ore to start promoting your music!</p>
+            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Ore</Button>
           </CardContent>
         </Card>
       ) : (
@@ -102,7 +102,7 @@ export default function MySongsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Song</TableHead>
+                <TableHead>Ore</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Plays left</TableHead>
@@ -146,7 +146,7 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-foreground">{song.playCount} plays</div>
-                    <div className="text-xs text-muted-foreground">{song.likeCount} likes</div>
+                    <div className="text-xs text-muted-foreground">{song.likeCount} ripples</div>
                   </TableCell>
                   <TableCell>
                     {song.status === 'approved' ? (

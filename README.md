@@ -1,15 +1,15 @@
 # Radio Streaming Platform
 
-A full-stack radio streaming platform that democratizes music discovery by allowing underground and independent artists to upload their music and pay for airplay, while listeners enjoy a continuous, curated stream of fresh tracks.
+A full-stack radio streaming platform that democratizes music discovery by allowing underground and independent artists to upload their music and pay for airplay, while Flutters (the audience) enjoy a continuous, curated stream of fresh tracks.
 
 ## Purpose & Vision
 
 ### The Problem
-Independent artists struggle to get their music heard through traditional channels. Radio stations are dominated by major labels, and streaming platforms bury new artists in algorithms. This platform bridges that gap by creating a pay-to-play model where artists can directly purchase airtime, ensuring their music reaches listeners.
+Independent artists struggle to get their music heard through traditional channels. Radio stations are dominated by major labels, and streaming platforms bury new artists in algorithms. This platform bridges that gap by creating a pay-to-play model where artists can directly purchase airtime, ensuring their music reaches Flutters (the audience).
 
 ### The Solution
 - **For Artists**: Upload music, purchase credits, and get guaranteed airplay in a continuous radio stream
-- **For Listeners**: Discover new music through a curated, continuous stream without ads or interruptions
+- **For Flutters** (listeners): Discover new music through a curated, continuous stream without ads or interruptions
 - **For Platform**: Sustainable revenue model through credit purchases (subscriptions planned)
 
 ### Key Features
@@ -21,10 +21,10 @@ Independent artists struggle to get their music heard through traditional channe
 - 🆓 **Trial Rotation**: New approved songs get 3 free plays before requiring credits
 - 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
 - 💰 **Payment Processing**: Full Stripe integration with dual payment flows
-- ❤️ **Like/Unlike Songs**: Engage with your favorite tracks
+- ❤️ **Ripples** (like/unlike): Engage with your favorite tracks; each vote is a “ripple”
 - 💬 **Live Radio Chat**: Real-time chat with Supabase Realtime, emoji reactions, and smart scroll
 - 📲 **Push Notifications**: FCM integration with debounced "Up Next" (1 per 4hrs) and "Live Now" artist alerts
-- 📊 **Admin Dashboard**: Song moderation (approve/reject/delete), user management with lifetime ban, free rotation, fallback playlist (upload or add from song database)
+- 📊 **Admin Dashboard**: Ore (song) moderation (approve/reject/delete), user management with lifetime ban, free rotation, fallback playlist (upload or add from ore database)
 - 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
 - 🔔 **Notifications**: In-app, email, and push notifications with soft delete
 - 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
@@ -40,8 +40,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Fallback**: Admin upload page and song database (add from free rotation)
 - **Mobile Player**: Landscape-first horizontal player layout with chat docked below (fits without scrolling)
 - **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
-- **Leaderboards**: Competition page leaderboards use actual stats (by likes from `leaderboard_likes`, by plays from `songs.play_count`); Artist Stats “Top Performing Songs” and summary cards use real analytics API data
-- **ROI dashboard**: Artist ROI formula + “Listener Heatmap (by region)” proxy (profile clicks grouped by region)
+- **Leaderboards**: Competition page leaderboards use actual stats (by ripples/likes from `leaderboard_likes`, by plays from `songs.play_count`); The Wake “Top Performing Ores” and summary cards use real analytics API data
+- **ROI dashboard**: Artist ROI formula + “Flutter Heatmap (by region)” proxy (profile clicks grouped by region)
 - **Trial by Fire**: Leaderboard ranking by upvotes/min within a window (default 60 minutes)
 - **Rising Star alerts**: When a song hits >= 5% conversion during its current play, a realtime `station_events` record is emitted; web and mobile show a “Butterfly Ripple” banner
 - **Catalyst deep-link credits**: `song_catalyst_credits` are surfaced during airtime as “Pinned credits” on the player (web + mobile)
@@ -49,6 +49,19 @@ Independent artists struggle to get their music heard through traditional channe
 - **Credits Quick‑Buy**: “Add 5 Minutes” entry point (Stripe payment sheet / checkout depending on surface)
 - **PWA**: Web app manifest + service worker + offline fallback page (`/~offline`)
 - **Realtime visuals**: Live Ripple + Global Vote Map wired to realtime `likes` INSERT events (single channel fan-out hook)
+
+### Branding & product terminology
+
+User-facing copy uses the following terms. See **[docs/branding-terminology.md](docs/branding-terminology.md)** for full definitions and rationale.
+
+| Term | Meaning | Backend equivalent |
+|------|---------|--------------------|
+| **Flutters** | Audience (listeners) | `listener`, `listener_count` |
+| **Ripples** | Likes/votes on tracks | `likes` |
+| **The Wake** | Artist analytics report; tagline: *“The path left behind by a thousand Ripples.”* | analytics, stats |
+| **Ores** | Tracks/songs | `song`, `songs` |
+
+API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_count`, role `listener`).
 
 ## Web ↔ Mobile Parity (Engine surfaces)
 
@@ -88,7 +101,7 @@ The product “Engine” pages now share the same look/feel and core behaviors a
   - App Router with SSR/ISR for SEO-optimized marketing pages
   - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with Blue theme, Raleway font
   - Dark mode toggle via settings dropdown in dashboard
-  - Client-side dashboards for listeners, artists, and admins
+  - Client-side dashboards for Flutters, artists, and admins
   - HTTP-only session cookies for secure SSR
   - Hls.js for streaming audio playback
   - Stripe Checkout for web payments

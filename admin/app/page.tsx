@@ -166,7 +166,7 @@ export default function Dashboard() {
           icon="✅"
         />
         <StatsCard
-          title="Total Likes"
+          title="Total Ripples"
           value={analytics?.totalLikes?.toLocaleString() || 0}
           icon="❤️"
         />

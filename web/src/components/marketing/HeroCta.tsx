@@ -14,7 +14,7 @@ export function HeroCta() {
           <Link href="/artist/upload">Upload</Link>
         </Button>
         <Button size="lg" variant="outline" asChild>
-          <Link href="/artist/stats">Dashboard</Link>
+          <Link href="/artist/stats">The Wake</Link>
         </Button>
       </div>
     );

@@ -25,7 +25,7 @@ const ROLE_HOME: Record<
     subtitle: "Discover gems, tune in to the radio, and save your favorites.",
     actions: [
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
-      { href: '/browse', icon: '🔍', title: 'Browse', desc: 'Explore songs and gems.' },
+      { href: '/browse', icon: '🔍', title: 'Browse', desc: 'Explore ores and gems.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and service providers.' },
       { href: '/competition', icon: '🏆', title: 'Competition', desc: 'Leaderboards, diamonds, and Top 7.' },
       { href: '/messages', icon: '💬', title: 'Messages', desc: 'Chat with gems and creators.' },
@@ -37,9 +37,9 @@ const ROLE_HOME: Record<
     subtitle: "Upload music, buy credits, and grow your discoveries.",
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
-      { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your tracks and credits.' },
+      { href: '/artist/songs', icon: '🎵', title: 'My Ores', desc: 'Manage your ores and credits.' },
       { href: '/artist/credits', icon: '💰', title: 'Buy Credits', desc: 'Boost your tracks with play credits.' },
-      { href: '/artist/stats', icon: '📈', title: 'Stats', desc: 'Discoveries, engagement, and analytics.' },
+      { href: '/artist/stats', icon: '📈', title: 'The Wake', desc: 'The path left behind by a thousand Ripples.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
       { href: '/job-board', icon: '💼', title: 'Pro-Network', desc: 'Find and offer creative services.' },
@@ -48,10 +48,10 @@ const ROLE_HOME: Record<
   },
   admin: {
     title: "Admin Home",
-    subtitle: "Manage songs, users, feed, and platform settings.",
+    subtitle: "Manage ores, users, feed, and platform settings.",
     actions: [
       { href: '/admin', icon: '⚙️', title: 'Admin Overview', desc: 'Platform stats and quick actions.' },
-      { href: '/admin/songs', icon: '🎶', title: 'Songs', desc: 'Review and moderate submissions.' },
+      { href: '/admin/songs', icon: '🎶', title: 'Ores', desc: 'Review and moderate submissions.' },
       { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and listeners.' },
       { href: '/admin/feed', icon: '📱', title: 'Feed', desc: 'News and promotions.' },
       { href: '/admin/free-rotation', icon: '🔄', title: 'Free Rotation', desc: 'Manage free rotation queue.' },

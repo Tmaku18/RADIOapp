@@ -97,7 +97,7 @@ export default function BuyPlaysPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => router.push('/artist/songs')}>
-          Back to My Songs
+          Back to My Ores
         </Button>
       </div>
     );
@@ -111,7 +111,7 @@ export default function BuyPlaysPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <Button variant="ghost" onClick={() => router.push('/artist/songs')} className="mb-4">
-          ← Back to My Songs
+          ← Back to My Ores
         </Button>
         <h1 className="text-2xl font-bold text-foreground">Buy plays</h1>
         <p className="text-muted-foreground mt-1">
@@ -121,7 +121,7 @@ export default function BuyPlaysPage() {
 
       {success && (
         <Alert>
-          <AlertDescription>Payment successful. Plays have been added to this song.</AlertDescription>
+          <AlertDescription>Payment successful. Plays have been added to this ore.</AlertDescription>
         </Alert>
       )}
       {canceled && (
