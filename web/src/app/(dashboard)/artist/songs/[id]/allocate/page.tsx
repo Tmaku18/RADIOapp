@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { cn } from '@/lib/utils';
+
 
 interface Song {
   id: string;
@@ -25,6 +25,18 @@ interface CreditBalance {
   balance: number;
   totalPurchased: number;
   totalUsed: number;
+}
+
+type ApiError = { response?: { data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
 }
 
 // Standard minute bundles (in credits = seconds / 5)
@@ -80,8 +92,8 @@ export default function AllocatePage() {
       setSong(foundSong);
       setBalance(balanceResponse.data);
       setOptInFreePlay(foundSong.optInFreePlay || false);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load data');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to load data'));
     } finally {
       setLoading(false);
     }
@@ -124,8 +136,8 @@ export default function AllocatePage() {
       await loadData();
       setSelectedBundle(null);
       setCustomAmount('');
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to allocate credits');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to allocate credits'));
     } finally {
       setSubmitting(false);
     }
@@ -148,8 +160,8 @@ export default function AllocatePage() {
       
       setSuccess(`Successfully withdrew ${amount} credits!`);
       await loadData();
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to withdraw credits');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to withdraw credits'));
     } finally {
       setSubmitting(false);
     }
@@ -161,8 +173,8 @@ export default function AllocatePage() {
       await songsApi.updateOptIn(songId, !optInFreePlay);
       setOptInFreePlay(!optInFreePlay);
       setSuccess(optInFreePlay ? 'Opted out of free play' : 'Opted in for free play');
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to update setting');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to update setting'));
     } finally {
       setSubmitting(false);
     }

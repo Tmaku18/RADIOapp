@@ -85,8 +85,10 @@ export default function ProfilePage() {
       setIsEditing(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
+        ?? (err instanceof Error ? err.message : 'Failed to update profile');
+      setError(msg);
     } finally {
       setIsSaving(false);
     }
@@ -308,7 +310,7 @@ export default function ProfilePage() {
                   <Textarea
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell listeners about yourself..."
+                    placeholder="Tell prospectors about yourself..."
                     rows={4}
                     className="resize-y"
                   />

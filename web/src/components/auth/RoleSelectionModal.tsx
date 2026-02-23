@@ -60,7 +60,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
             <div className="flex items-start gap-4">
               <div className="text-3xl">🎧</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Flutter</h3>
+                <h3 className="font-semibold text-foreground">Prospector</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Discover new music, send ripples to tracks, and chat with the community
                 </p>
@@ -136,7 +136,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
           </button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Listeners can upgrade to artists or service providers later from their profile settings.
+            Prospectors can upgrade to artists or service providers later from their profile settings.
           </p>
         </div>
 

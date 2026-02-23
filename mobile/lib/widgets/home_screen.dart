@@ -12,6 +12,7 @@ import '../features/messages/messages_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/credits/credits_screen.dart';
 import '../features/pro_directory/pro_directory_screen.dart';
+import '../features/refinery/refinery_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/models/user.dart' as app_user;
 
@@ -160,6 +161,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
+                if (!isArtist)
+                  ListTile(
+                    leading: const Icon(Icons.science_outlined),
+                    title: const Text('The Refinery'),
+                    subtitle: const Text('Review ores, rank, survey, comment for rewards'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const RefineryScreen()),
+                      );
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('Settings'),

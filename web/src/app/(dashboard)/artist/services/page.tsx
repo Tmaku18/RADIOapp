@@ -540,7 +540,10 @@ export default function ArtistServicesPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Rate type</Label>
-                          <Select value={listingRateType} onValueChange={(v) => setListingRateType(v as any)}>
+                          <Select
+                            value={listingRateType}
+                            onValueChange={(v) => setListingRateType(v === 'hourly' ? 'hourly' : 'fixed')}
+                          >
                             <SelectTrigger>
                               <SelectValue />
                             </SelectTrigger>
@@ -553,7 +556,10 @@ export default function ArtistServicesPage() {
                       </div>
                       <div className="space-y-2">
                         <Label>Status</Label>
-                        <Select value={listingStatus} onValueChange={(v) => setListingStatus(v as any)}>
+                        <Select
+                          value={listingStatus}
+                          onValueChange={(v) => setListingStatus(v === 'paused' ? 'paused' : 'active')}
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
@@ -584,7 +590,12 @@ export default function ArtistServicesPage() {
                     <div className="space-y-3">
                       <div className="space-y-2">
                         <Label>Type</Label>
-                        <Select value={portfolioType} onValueChange={(v) => setPortfolioType(v as any)}>
+                        <Select
+                          value={portfolioType}
+                          onValueChange={(v) =>
+                            setPortfolioType(v === 'audio' ? 'audio' : v === 'video' ? 'video' : 'image')
+                          }
+                        >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>

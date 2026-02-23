@@ -68,6 +68,27 @@ export const radioApi = {
     api.post('/radio/play', data),
 };
 
+export const prospectorApi = {
+  getYield: () => api.get('/prospector/yield'),
+  checkIn: (data?: { sessionId?: string | null }) => api.post('/prospector/check-in', data ?? {}),
+  submitRefinement: (data: { songId: string; playId?: string | null; score: number }) =>
+    api.post('/prospector/refinement', data),
+  submitSurvey: (data: { songId: string; playId?: string | null; responses: Record<string, unknown> }) =>
+    api.post('/prospector/survey', data),
+  redeem: (data: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits' }) =>
+    api.post('/prospector/redeem', data),
+};
+
+export const refineryApi = {
+  listSongs: (params?: { limit?: number; offset?: number }) =>
+    api.get<{ songs: Array<{ id: string; title: string; artist_name: string; artwork_url: string | null; audio_url: string; duration_seconds: number | null; created_at: string }>; limit: number; offset: number }>('/refinery/songs', { params: params ?? {} }),
+  addSong: (songId: string) => api.post(`/refinery/songs/${songId}/add`),
+  removeSong: (songId: string) => api.post(`/refinery/songs/${songId}/remove`),
+  getComments: (songId: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ comments: Array<{ id: string; body: string; created_at: string; users?: { display_name: string | null } }> }>(`/refinery/songs/${songId}/comments`, { params: params ?? {} }),
+  addComment: (songId: string, body: string) => api.post(`/refinery/songs/${songId}/comments`, { body }),
+};
+
 export const venueAdsApi = {
   getCurrent: (stationId?: string) => api.get<{ id: string; imageUrl: string; linkUrl: string | null; stationId: string } | null>('/venue-ads/current', { params: stationId ? { stationId } : {} }),
 };

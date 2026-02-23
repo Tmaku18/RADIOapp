@@ -38,10 +38,10 @@ class AboutScreen extends StatelessWidget {
             title: 'Our Story: The 4 AM Catalyst',
             body:
                 'Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.\n\n'
-                'That was where Tanaka and Marquese first crossed paths. It was a random connection—a "butterfly effect" '
+                'That was where Tanaka and Merquise first crossed paths. It was a random connection—a "butterfly effect" '
                 'in its purest form. We were two people who, on paper, were struggling financially, but in reality, '
                 'were rich in skills and belief. As our friendship grew, we saw each other\'s strengths: Tanaka, the architect '
-                'with the technical vision to build the impossible; Marquese, the strategist with the heart to find the talent others overlooked.\n\n'
+                'with the technical vision to build the impossible; Merquise, the strategist with the heart to find the talent others overlooked.\n\n'
                 'We realized that our meeting shouldn\'t have been a fluke. We pushed each other to succeed when the world wasn\'t looking. '
                 'We realized that society is full of "bright lights" that are allowed to die out simply because they didn\'t have a bridge '
                 'to the right room. We decided that allowing talent to go to waste is more than a shame—it is a crime. '

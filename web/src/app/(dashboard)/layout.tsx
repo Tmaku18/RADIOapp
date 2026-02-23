@@ -48,7 +48,9 @@ const listenerNavigation = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Discovery', href: '/discover', icon: '✨' },
   { name: 'Vote', href: '/competition', icon: '📢' },
+  { name: 'The Refinery', href: '/refinery', icon: '🔬' },
   { name: 'Chat', href: '/messages', icon: '💬' },
+  { name: 'The Yield', href: '/yield', icon: '⛏️' },
 ];
 
 const artistNavigation = [
@@ -85,6 +87,8 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
+  if (pathname.startsWith('/yield')) return 'The Yield';
+  if (pathname.startsWith('/refinery')) return 'The Refinery';
   if (pathname.startsWith('/profile')) return 'Profile';
   if (pathname.startsWith('/artist/songs')) return 'My Ores';
   if (pathname.startsWith('/artist/upload')) return 'Upload';

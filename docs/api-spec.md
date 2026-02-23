@@ -2,7 +2,7 @@
 
 Base URL: `http://localhost:3000/api`
 
-> **Product terminology**: In the UI and marketing, we use **Flutters** (audience), **Ripples** (likes), **The Wake** (analytics), and **Ores** (songs). This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
+> **Product terminology**: In the UI and marketing, we use **Prospectors** (audience), **Ripples** (likes), **The Wake** (analytics), **The Yield** (Prospector rewards), **The Refinery** (Prospector portal for reviewing ores), and **Ore's** (songs). This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
 
 All endpoints require Firebase ID token in Authorization header: `Authorization: Bearer <token>`
 
@@ -68,6 +68,67 @@ Track selection (free vs paid mode, four-tier fallback, artist spacing) is docum
 - **POST** `/radio/play`
 - Body: `{ songId: uuid, skipped?: boolean }`
 - Logs play event
+
+### Heartbeat (verified listening)
+- **POST** `/radio/heartbeat`
+- Body: `{ songId: uuid, streamToken?: string, timestamp?: string }`
+- Records a 30s listening heartbeat for Prospectors (technical role `listener`). Used for proof-of-listening and Yield accrual gating.
+
+## Prospector (Yield program)
+
+### Get Yield
+- **GET** `/prospector/yield`
+- Returns: `{ balanceCents, tier, oresRefinedCount }`
+
+### Check-in
+- **POST** `/prospector/check-in`
+- Body: `{ sessionId?: uuid }`
+- Records an anti-bot check-in (Ripple tap). Yield accrual is gated by check-ins every ~20 minutes.
+
+### Submit Refinement
+- **POST** `/prospector/refinement`
+- Body: `{ songId: uuid, score: 1..10, playId?: uuid }`
+- Idempotent per user + song; first submission increases ores refined count and credits Yield.
+
+### Submit Survey
+- **POST** `/prospector/survey`
+- Body: `{ songId: uuid, responses: object, playId?: uuid }`
+- Idempotent per user + song; first submission credits Yield.
+
+### Redeem
+- **POST** `/prospector/redeem`
+- Body: `{ amountCents: 1000|2500, type: 'virtual_visa'|'merch'|'boost_credits' }`
+- Creates a redemption request and deducts balance.
+
+## The Refinery (Prospector portal)
+
+The Refinery is a portal where artists submit uploaded songs for review. Only Prospectors (listeners who sign up) can access it: they hear songs unlimited times, answer survey questions, rank (1–10), and leave comments to earn Yield rewards. Regular listeners do not have access.
+
+### List Refinery songs
+- **GET** `/refinery/songs`
+- Query params: `?limit=100&offset=0`
+- Returns: `{ songs: Array<{ id, title, artist_name, artwork_url, audio_url, duration_seconds, created_at }>, limit, offset }`
+- Roles: listener, artist, admin
+
+### Add song to Refinery (artist)
+- **POST** `/refinery/songs/:id/add`
+- Artist adds their own song to The Refinery for Prospector review.
+- Roles: artist, admin
+
+### Remove song from Refinery (artist)
+- **POST** `/refinery/songs/:id/remove`
+- Artist removes their song from The Refinery.
+- Roles: artist, admin
+
+### Get comments for a refinery song
+- **GET** `/refinery/songs/:id/comments`
+- Query params: `?limit=50&offset=0`
+- Returns: `{ comments: Array<{ id, body, created_at, users?: { display_name } }>, limit, offset }`
+
+### Post comment (Prospector)
+- **POST** `/refinery/songs/:id/comments`
+- Body: `{ body: string }`
+- Prospector leaves a comment on a refinery song. Rewards are credited via existing Yield (refinement + survey).
 
 ## Payments
 

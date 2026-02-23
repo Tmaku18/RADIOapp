@@ -12,6 +12,14 @@ import { Card, CardContent } from '@/components/ui/card';
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+type RisingStarStationEvent = {
+  payload?: {
+    songTitle?: string;
+    artistName?: string;
+    conversion?: number;
+  };
+};
+
 export default function ListenPage() {
   const [showChat, setShowChat] = useState(true);
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
@@ -33,7 +41,7 @@ export default function ListenPage() {
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'station_events', filter: 'type=eq.rising_star' },
         (payload) => {
-          const row = payload.new as any;
+          const row = payload.new as RisingStarStationEvent;
           const p = row?.payload ?? {};
           const songTitle = p.songTitle ?? 'an ore';
           const artistName = p.artistName ?? 'an artist';
@@ -101,7 +109,7 @@ export default function ListenPage() {
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Everyone listening hears the same stream. Send a ripple to save an ore and support the artist.</p>
+            <p>Everyone listening hears the same stream. Send a ripple (like) to like an ore and support the artist.</p>
           </div>
 
           <div className="mt-4 text-center lg:hidden">

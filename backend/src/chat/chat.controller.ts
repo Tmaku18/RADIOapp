@@ -4,6 +4,8 @@ import {
   Post,
   Body,
   Query,
+  Logger,
+  BadRequestException,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
@@ -13,6 +15,8 @@ import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('chat')
 export class ChatController {
+  private readonly logger = new Logger(ChatController.name);
+
   constructor(private readonly chatService: ChatService) {}
 
   /**
@@ -42,17 +46,26 @@ export class ChatController {
     @CurrentUser() firebaseUser: FirebaseUser,
     @Body() dto: SendMessageDto,
   ) {
-    const user = await this.getUserInfo(firebaseUser.uid);
+    try {
+      const user = await this.getUserInfo(firebaseUser.uid);
 
-    const result = await this.chatService.sendMessage(
-      user.id,
-      dto.message,
-      dto.songId || null,
-      user.display_name || 'Anonymous',
-      user.avatar_url,
-    );
+      const result = await this.chatService.sendMessage(
+        user.id,
+        dto.message,
+        dto.songId || null,
+        user.display_name || 'Anonymous',
+        user.avatar_url,
+      );
 
-    return result;
+      return result;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to send message';
+      if (err instanceof BadRequestException) {
+        throw err;
+      }
+      this.logger.warn(`Chat send failed: ${message}`);
+      throw new BadRequestException(message);
+    }
   }
 
   /**
@@ -61,20 +74,25 @@ export class ChatController {
    */
   @Get('history')
   async getHistory(@Query('limit') limit?: string) {
-    const parsedLimit = limit ? Math.min(parseInt(limit, 10), 100) : 50;
-    const messages = await this.chatService.getHistory(parsedLimit);
+    try {
+      const parsedLimit = limit ? Math.min(parseInt(limit, 10), 100) : 50;
+      const messages = await this.chatService.getHistory(parsedLimit);
 
-    return {
-      messages: messages.map((m) => ({
-        id: m.id,
-        userId: m.user_id,
-        songId: m.song_id,
-        displayName: m.display_name,
-        avatarUrl: m.avatar_url,
-        message: m.message,
-        createdAt: m.created_at,
-      })),
-    };
+      return {
+        messages: messages.map((m) => ({
+          id: m.id,
+          userId: m.user_id,
+          songId: m.song_id,
+          displayName: m.display_name,
+          avatarUrl: m.avatar_url,
+          message: m.message,
+          createdAt: m.created_at,
+        })),
+      };
+    } catch (err) {
+      this.logger.warn(`getHistory failed: ${err?.message || err}`, err?.stack);
+      return { messages: [] };
+    }
   }
 
   /**
@@ -83,6 +101,11 @@ export class ChatController {
    */
   @Get('status')
   async getStatus() {
-    return this.chatService.getChatStatus();
+    try {
+      return await this.chatService.getChatStatus();
+    } catch (err) {
+      this.logger.warn(`getStatus failed: ${err?.message || err}`, err?.stack);
+      return { enabled: false };
+    }
   }
 }

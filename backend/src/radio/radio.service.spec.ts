@@ -8,11 +8,11 @@ describe('RadioService', () => {
       logPlayDecision: jest.fn(),
     } as any);
 
-  it('calculates credits required per 5s', () => {
+  it('calculates credits required per play', () => {
     const service = createService() as any;
     expect(service.calculateCreditsRequired(5)).toBe(1);
-    expect(service.calculateCreditsRequired(7)).toBe(2);
-    expect(service.calculateCreditsRequired(180)).toBe(36);
+    expect(service.calculateCreditsRequired(7)).toBe(1);
+    expect(service.calculateCreditsRequired(180)).toBe(1);
   });
 
   it('builds no_content response', () => {

@@ -143,7 +143,7 @@ export default function StatsPage() {
             <p className="text-muted-foreground font-medium">{playDetail.songTitle}</p>
             <p className="text-sm text-muted-foreground mt-1">Played at {formatPlayTime(playDetail.playedAt)}</p>
             <div className="flex flex-wrap gap-3 mt-4">
-              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Flutters: {playDetail.listenersAtStart}</span>
+              <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Prospectors: {playDetail.listenersAtStart}</span>
               {playDetail.listenersAtEnd != null && <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">End: {playDetail.listenersAtEnd}</span>}
               {playDetail.netListenerChange != null && <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Net: {playDetail.netListenerChange >= 0 ? '+' : ''}{playDetail.netListenerChange}</span>}
               <span className="inline-flex items-center rounded-md bg-muted px-3 py-1 text-sm">Ripples: {playDetail.likesDuring}</span>
@@ -229,7 +229,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Flutter Heatmap (by region)</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Prospector Heatmap (by region)</h2>
           {regions.length > 0 ? (
             <div className="space-y-2">
               {regions.slice(0, 10).map((r) => (
@@ -287,7 +287,7 @@ export default function StatsPage() {
           <div className="text-4xl mb-4">📊</div>
           <h3 className="text-lg font-semibold text-foreground mb-2">More of The Wake Coming Soon</h3>
           <p className="text-muted-foreground max-w-md mx-auto">
-            We&apos;re working on detailed analytics including Flutter demographics, peak listening times, and engagement metrics.
+            We&apos;re working on detailed analytics including Prospector demographics, peak listening times, and engagement metrics.
           </p>
         </CardContent>
       </Card>

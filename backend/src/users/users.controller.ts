@@ -51,7 +51,12 @@ export class UsersController {
     @CurrentUser() user: FirebaseUser,
     @Body() updateUserDto: UpdateUserDto,
   ) {
-    return this.usersService.updateUser(user.uid, updateUserDto);
+    try {
+      return await this.usersService.updateUser(user.uid, updateUserDto);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update profile';
+      throw new BadRequestException(message);
+    }
   }
 
   /**

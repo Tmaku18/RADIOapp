@@ -1,21 +1,50 @@
+'use client';
+
 import Link from 'next/link';
+import Image from 'next/image';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+
+const LOGO_SRC = '/networx-logo.png';
 
 export default function MarketingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [headerLogoError, setHeaderLogoError] = useState(false);
+  const [footerLogoError, setFooterLogoError] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Navigation */}
       <header className="border-b border-border bg-card">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-2">
-              <span className="text-2xl">🎧</span>
-              <span className="text-xl font-bold text-networx">Networx</span>
+          <div className="flex justify-between items-center h-20">
+            {/* Logo + brand text, aligned left */}
+            <Link href="/" className="flex items-center shrink-0 gap-4 self-stretch">
+              {!headerLogoError ? (
+                <>
+                  <Image
+                    src={LOGO_SRC}
+                    alt=""
+                    width={260}
+                    height={92}
+                    className="h-14 w-auto object-contain object-left dark:invert-0 shrink-0"
+                    priority
+                    unoptimized
+                    onError={() => setHeaderLogoError(true)}
+                  />
+                  <span className="text-networx font-bold text-lg whitespace-nowrap">
+                    NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl">🎧</span>
+                  <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                </>
+              )}
             </Link>
 
             {/* Navigation Links */}
@@ -61,10 +90,29 @@ export default function MarketingLayout({
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
             <div className="space-y-4">
-              <div className="flex items-center space-x-2">
-                <span className="text-2xl">🎧</span>
-                <span className="text-xl font-bold text-networx">Networx</span>
-              </div>
+              <Link href="/" className="inline-flex items-center gap-3">
+                {!footerLogoError ? (
+                  <>
+                    <Image
+                      src={LOGO_SRC}
+                      alt=""
+                      width={220}
+                      height={78}
+                      className="h-12 w-auto object-contain object-left shrink-0"
+                      unoptimized
+                      onError={() => setFooterLogoError(true)}
+                    />
+                    <span className="text-networx font-bold text-base whitespace-nowrap">
+                      NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-2xl">🎧</span>
+                    <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                  </>
+                )}
+              </Link>
               <p className="text-sm text-muted-foreground">
                 Where the People have the Voice, and the Artist has the Power. By Artists, For Artists.
               </p>

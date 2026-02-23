@@ -50,20 +50,20 @@ const faqs = [
       },
       {
         q: 'Can I see analytics for my tracks?',
-        a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, credits spent, and Flutter activity over time.',
+        a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, credits spent, and Prospector activity over time.',
       },
     ],
   },
   {
-    category: 'For Flutters',
+    category: 'For Prospectors',
     questions: [
       {
         q: 'Do I need an account to listen?',
         a: 'You can listen without an account, but creating a free account lets you send ripples to tracks, follow gems, and access the mobile app.',
       },
       {
-        q: 'Can I skip ores?',
-        a: 'Yes, you can skip to the next track at any time. However, since this is a radio-style experience, you cannot go back to previous ores.',
+        q: "Can I skip ore's?",
+        a: "Yes, you can skip to the next track at any time. However, since this is a radio-style experience, you cannot go back to previous ore's.",
       },
       {
         q: 'Is there a mobile app?',

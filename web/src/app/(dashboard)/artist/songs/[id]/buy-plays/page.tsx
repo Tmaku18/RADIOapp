@@ -8,6 +8,18 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
 
+type ApiError = { response?: { data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 interface PriceOption {
   plays: number;
   totalCents: number;
@@ -57,8 +69,8 @@ export default function BuyPlaysPage() {
       const { data } = await paymentsApi.getSongPlayPrice(songId);
       setPrice(data);
       setSelectedPlays(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Failed to load price');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to load price'));
     } finally {
       setLoading(false);
     }
@@ -75,8 +87,8 @@ export default function BuyPlaysPage() {
         return;
       }
       setError('No checkout URL returned');
-    } catch (err: any) {
-      setError(err.response?.data?.message || err.message || 'Checkout failed');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Checkout failed'));
     } finally {
       setSubmitting(false);
     }

@@ -2,12 +2,24 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { songsApi } from '@/lib/api';
+import { songsApi, refineryApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
+type ApiError = { response?: { data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
 
 interface Song {
   id: string;
@@ -20,6 +32,7 @@ interface Song {
   likeCount: number;
   status: 'pending' | 'approved' | 'rejected';
   optInFreePlay: boolean;
+  inRefinery?: boolean;
   rejectionReason?: string;
   rejectedAt?: string;
   createdAt: string;
@@ -45,18 +58,35 @@ export default function MySongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [refineryToggling, setRefineryToggling] = useState<string | null>(null);
 
   useEffect(() => {
     loadSongs();
   }, []);
+
+  const toggleRefinery = async (songId: string, currentlyInRefinery: boolean) => {
+    setRefineryToggling(songId);
+    try {
+      if (currentlyInRefinery) {
+        await refineryApi.removeSong(songId);
+      } else {
+        await refineryApi.addSong(songId);
+      }
+      await loadSongs();
+    } catch {
+      setError('Failed to update Refinery');
+    } finally {
+      setRefineryToggling(null);
+    }
+  };
 
   const loadSongs = async () => {
     try {
       setLoading(true);
       const response = await songsApi.getMine();
       setSongs(response.data);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load ores');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to load ores'));
     } finally {
       setLoading(false);
     }
@@ -104,6 +134,7 @@ export default function MySongsPage() {
               <TableRow>
                 <TableHead>Ore</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Refinery</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Plays left</TableHead>
                 <TableHead>Stats</TableHead>
@@ -139,6 +170,16 @@ export default function MySongsPage() {
                         {song.rejectionReason.substring(0, 30)}...
                       </div>
                     )}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant={song.inRefinery ? 'secondary' : 'outline'}
+                      size="sm"
+                      disabled={refineryToggling === song.id}
+                      onClick={() => toggleRefinery(song.id, !!song.inRefinery)}
+                    >
+                      {refineryToggling === song.id ? '…' : song.inRefinery ? 'Remove from Refinery' : 'Add to Refinery'}
+                    </Button>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
                   <TableCell>

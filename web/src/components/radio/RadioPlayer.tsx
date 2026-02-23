@@ -3,11 +3,15 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRadioState, Track } from './useRadioState';
-import { radioApi, songsApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { prospectorApi, radioApi, songsApi, analyticsApi, paymentsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 type PinnedCatalyst = {
   userId: string;
@@ -45,6 +49,22 @@ export function RadioPlayer() {
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
+
+  const isProspector = profile?.role === 'listener';
+  const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
+  const lastHeartbeatSessionIdRef = useRef<string | null>(null);
+  const lastTrackIdRef = useRef<string | null>(null);
+
+  const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+
+  const [refineryOpen, setRefineryOpen] = useState(false);
+  const [refinerySongId, setRefinerySongId] = useState<string | null>(null);
+  const [refineScore, setRefineScore] = useState<number>(8);
+  const [whereListen, setWhereListen] = useState('');
+  const [remindsOf, setRemindsOf] = useState('');
+  const [comments, setComments] = useState('');
+  const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
   
   // Refs for accessing radio functions in callback
   const loadTrackRef = useRef<typeof loadTrack | null>(null);
@@ -65,7 +85,7 @@ export function RadioPlayer() {
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || 'No ores are currently available.');
+        setNoContentMessage(trackData.message || "No ore's are currently available.");
         setPinnedCatalysts([]);
         return;
       }
@@ -115,6 +135,41 @@ export function RadioPlayer() {
     }
   }, []);
 
+  const handleCheckIn = async () => {
+    if (!isProspector || isCheckingIn) return;
+    setIsCheckingIn(true);
+    try {
+      await prospectorApi.checkIn({ sessionId: lastHeartbeatSessionIdRef.current });
+      setShowCheckInPrompt(false);
+    } catch (e) {
+      console.error('Check-in failed', e);
+    } finally {
+      setIsCheckingIn(false);
+    }
+  };
+
+  const submitRefinery = async () => {
+    if (!isProspector || !refinerySongId || isSubmittingRefinery) return;
+    setIsSubmittingRefinery(true);
+    try {
+      await prospectorApi.submitRefinement({ songId: refinerySongId, score: refineScore });
+      await prospectorApi.submitSurvey({
+        songId: refinerySongId,
+        responses: {
+          whereListen,
+          remindsOf,
+          comments,
+        },
+      });
+      setRefineryOpen(false);
+      setRefinerySongId(null);
+    } catch (e) {
+      console.error('Failed to submit refinery data', e);
+    } finally {
+      setIsSubmittingRefinery(false);
+    }
+  };
+
   const { 
     state, 
     loadTrack, 
@@ -135,16 +190,69 @@ export function RadioPlayer() {
     playRef.current = play;
   }, [loadTrack, syncToPosition, play]);
 
+  // Open refinery prompt when a new ore starts (rate + survey the previous ore).
+  useEffect(() => {
+    const currentId = state.currentTrack?.id ?? null;
+    if (!isProspector) {
+      lastTrackIdRef.current = currentId;
+      return;
+    }
+
+    const previousId = lastTrackIdRef.current;
+    if (previousId && currentId && previousId !== currentId) {
+      setRefinerySongId(previousId);
+      setRefineScore(8);
+      setWhereListen('');
+      setRemindsOf('');
+      setComments('');
+      setRefineryOpen(true);
+    }
+    lastTrackIdRef.current = currentId;
+  }, [isProspector, state.currentTrack?.id]);
+
+  // Heartbeat: every 30s while playing to verify listening (Yield accrual is server-side gated by check-ins).
+  useEffect(() => {
+    if (!isProspector) return;
+    if (!state.currentTrack?.id) return;
+    if (!state.isPlaying) return;
+
+    let cancelled = false;
+    const send = async () => {
+      try {
+        const res = await radioApi.sendHeartbeat({
+          streamToken: streamTokenRef.current,
+          songId: state.currentTrack!.id,
+          timestamp: new Date().toISOString(),
+        });
+        if (cancelled) return;
+        const sessionId = res?.data?.sessionId;
+        lastHeartbeatSessionIdRef.current = typeof sessionId === 'string' ? sessionId : null;
+
+        const needs = !!res?.data?.requiresCheckIn;
+        if (needs) setShowCheckInPrompt(true);
+      } catch {
+        // Heartbeat failures should not break playback UX.
+      }
+    };
+
+    send();
+    const interval = setInterval(send, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [isProspector, state.currentTrack?.id, state.isPlaying]);
+
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
     try {
       const response = await radioApi.getCurrentTrack();
       const trackData = response.data;
       
-      // Check for no_content flag
+      // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || 'No ores are currently available.');
+        setNoContentMessage(trackData.message || "No ore's are currently available.");
         setPinnedCatalysts([]);
         return;
       }
@@ -205,8 +313,13 @@ export function RadioPlayer() {
           // Ignore like status errors
         }
       }
-    } catch (error) {
-      console.error('Failed to fetch current track:', error);
+    } catch (error: unknown) {
+      const msg = (error as { response?: { data?: { message?: string }; status?: number } })?.response?.data?.message;
+      if (msg) setNoContentMessage(msg);
+      else setNoContentMessage("No ore's are currently available. Please try again later.");
+      setNoContent(true);
+      setPinnedCatalysts([]);
+      console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
   }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted]);
 
@@ -337,7 +450,7 @@ export function RadioPlayer() {
             <div className="text-center">
               <h3 className="text-white text-xl font-bold">No Content Available</h3>
               <p className="text-gray-200 text-sm mt-2">
-                {noContentMessage || 'Sorry for the inconvenience. No ores are currently available.'}
+                {noContentMessage || "Sorry for the inconvenience. No ore's are currently available."}
               </p>
             </div>
           </div>
@@ -391,6 +504,19 @@ export function RadioPlayer() {
         {state.error && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{state.error}</AlertDescription>
+          </Alert>
+        )}
+
+        {isProspector && showCheckInPrompt && (
+          <Alert className="mb-4">
+            <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span>
+                Tap the Ripple check-in to keep earning <span className="font-semibold">The Yield</span>.
+              </span>
+              <Button onClick={handleCheckIn} disabled={isCheckingIn} className="rounded-full">
+                {isCheckingIn ? 'Checking in…' : 'Check in'}
+              </Button>
+            </AlertDescription>
           </Alert>
         )}
 
@@ -569,6 +695,73 @@ export function RadioPlayer() {
           </svg>
         </div>
       </div>
+
+      <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
+        <DialogContent className="sm:max-w-[520px]">
+          <DialogHeader>
+            <DialogTitle>Refine that ore (Prospector)</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="refineScore">Refinement (1–10)</Label>
+              <div className="flex items-center gap-3">
+                <input
+                  id="refineScore"
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={refineScore}
+                  onChange={(e) => setRefineScore(parseInt(e.target.value, 10))}
+                  className="w-full"
+                />
+                <div className="w-10 text-right font-semibold tabular-nums">{refineScore}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="whereListen">Where would you listen?</Label>
+                <Input
+                  id="whereListen"
+                  value={whereListen}
+                  onChange={(e) => setWhereListen(e.target.value)}
+                  placeholder="Car, gym, party…"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="remindsOf">What artist does it remind you of?</Label>
+                <Input
+                  id="remindsOf"
+                  value={remindsOf}
+                  onChange={(e) => setRemindsOf(e.target.value)}
+                  placeholder="Artist / vibe"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="comments">Feedback (optional)</Label>
+              <Textarea
+                id="comments"
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="What clicked? What didn’t?"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setRefineryOpen(false)} disabled={isSubmittingRefinery}>
+              Later
+            </Button>
+            <Button onClick={submitRefinery} disabled={isSubmittingRefinery}>
+              {isSubmittingRefinery ? 'Submitting…' : 'Submit'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

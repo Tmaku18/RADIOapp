@@ -8,6 +8,18 @@ import { GlobalVoteMap } from '@/components/marketing/GlobalVoteMap';
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
 
+function formatDiscoveries(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
+  return `${n.toLocaleString()}+`;
+}
+
+function formatListens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
+  return `${n.toLocaleString()}+`;
+}
+
 // Fetch platform stats from the API
 async function getHomepageData() {
   try {
@@ -27,7 +39,8 @@ async function getHomepageData() {
         stats: {
           totalArtists: stats.totalArtists || 0,
           totalSongs: stats.totalSongs || 0,
-          totalPlays: stats.totalPlays || 0,
+          totalProfileClicks: stats.totalProfileClicks ?? 0,
+          totalPlays: stats.totalPlays ?? 0,
         },
       };
     }
@@ -45,6 +58,7 @@ async function getHomepageData() {
     stats: {
       totalArtists: 0,
       totalSongs: 0,
+      totalProfileClicks: 0,
       totalPlays: 0,
     },
   };
@@ -79,16 +93,18 @@ export default async function HomePage() {
       {/* Stats Section */}
       <section className="py-16 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems' },
-              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Ores' },
-              { value: `${(data.stats.totalPlays / 1000000).toFixed(1)}M+`, label: 'Discoveries' },
+              { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems', sub: '(artists)' },
+              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: "Ore's", sub: '(listeners)' },
+              { value: formatDiscoveries(data.stats.totalProfileClicks), label: 'Discoveries', sub: '(profile clicks)' },
+              { value: formatListens(data.stats.totalPlays), label: 'Total listens', sub: '(songs heard)' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
                 <CardContent className="pt-6">
                   <div className="text-4xl font-bold text-primary">{stat.value}</div>
                   <div className="text-muted-foreground mt-2">{stat.label}</div>
+                  <div className="text-muted-foreground/80 text-sm mt-0.5">{stat.sub}</div>
                 </CardContent>
               </Card>
             ))}
@@ -96,12 +112,12 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Flutters */}
+      {/* How It Works - Prospectors */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
-              For Flutters
+              For Prospectors
             </h2>
             <p className="text-xl text-muted-foreground">
               Discover your next favorite gem
@@ -110,7 +126,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { icon: '🎵', title: 'Tune In', desc: 'Listen to our curated radio stream featuring underground artists from around the world.' },
-              { icon: '❤️', title: 'Discover', desc: 'Send ripples to save tracks and help boost underground talent in the rotation.' },
+              { icon: '❤️', title: 'Discover', desc: 'Send ripples (likes) to like tracks and help boost underground talent in the rotation.' },
               { icon: '🌟', title: 'Support', desc: 'Follow your favorite gems and be part of their journey to success.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
@@ -137,13 +153,13 @@ export default async function HomePage() {
               For Gems
             </h2>
             <p className="text-xl text-muted-foreground">
-              Get your music heard by real Flutters
+              Get your music heard by real Prospectors
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
               { icon: '📤', title: 'Upload', desc: 'Submit your tracks for review. Once approved, they enter our radio rotation.' },
-              { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more Flutters.' },
+              { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more Prospectors.' },
               { icon: '📊', title: 'The Wake', desc: 'The path left behind by a thousand Ripples—discoveries, engagement, and growth over time.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
@@ -204,7 +220,7 @@ export default async function HomePage() {
             Join the movement
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you&apos;re a hidden gem ready to be heard or a Flutter who believes talent deserves a bridge—Networx is where butterfly effects happen.
+            Whether you&apos;re a hidden gem ready to be heard or a Prospector who believes talent deserves a bridge—Networx is where butterfly effects happen.
           </p>
           <Button size="lg" variant="secondary" asChild>
             <Link href="/signup">Get Started Free</Link>

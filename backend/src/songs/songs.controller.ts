@@ -271,6 +271,7 @@ export class SongsController {
       likeCount: song.like_count || 0,
       status: song.status,
       optInFreePlay: song.opt_in_free_play || false,
+      inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
       rejectionReason: song.rejection_reason,
       rejectedAt: song.rejected_at,
       createdAt: song.created_at,

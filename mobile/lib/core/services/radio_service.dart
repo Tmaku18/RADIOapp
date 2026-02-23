@@ -68,6 +68,80 @@ class RadioService {
     }
   }
 
+  // === Prospector's Yield (mobile parity) ===
+
+  Future<Map<String, dynamic>?> getYield() async {
+    try {
+      final response = await _apiService.get('prospector/yield');
+      if (response is Map<String, dynamic>) return response;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<void> checkIn({String? sessionId}) async {
+    try {
+      await _apiService.post('prospector/check-in', {
+        if (sessionId != null) 'sessionId': sessionId,
+      });
+    } catch (e) {
+      // Silently fail
+    }
+  }
+
+  Future<Map<String, dynamic>?> submitRefinement({
+    required String songId,
+    required int score,
+    String? playId,
+  }) async {
+    try {
+      final response = await _apiService.post('prospector/refinement', {
+        'songId': songId,
+        'score': score,
+        if (playId != null) 'playId': playId,
+      });
+      if (response is Map<String, dynamic>) return response;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> submitSurvey({
+    required String songId,
+    required Map<String, dynamic> responses,
+    String? playId,
+  }) async {
+    try {
+      final response = await _apiService.post('prospector/survey', {
+        'songId': songId,
+        'responses': responses,
+        if (playId != null) 'playId': playId,
+      });
+      if (response is Map<String, dynamic>) return response;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> redeem({
+    required int amountCents,
+    required String type, // 'virtual_visa' | 'merch' | 'boost_credits'
+  }) async {
+    try {
+      final response = await _apiService.post('prospector/redeem', {
+        'amountCents': amountCents,
+        'type': type,
+      });
+      if (response is Map<String, dynamic>) return response;
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   /// Check if a song is liked by the current user
   Future<bool> isLiked(String songId) async {
     try {

@@ -1,15 +1,15 @@
 # Radio Streaming Platform
 
-A full-stack radio streaming platform that democratizes music discovery by allowing underground and independent artists to upload their music and pay for airplay, while Flutters (the audience) enjoy a continuous, curated stream of fresh tracks.
+A full-stack radio streaming platform that democratizes music discovery by allowing underground and independent artists to upload their music and pay for airplay, while Prospectors (the audience) enjoy a continuous, curated stream of fresh tracks.
 
 ## Purpose & Vision
 
 ### The Problem
-Independent artists struggle to get their music heard through traditional channels. Radio stations are dominated by major labels, and streaming platforms bury new artists in algorithms. This platform bridges that gap by creating a pay-to-play model where artists can directly purchase airtime, ensuring their music reaches Flutters (the audience).
+Independent artists struggle to get their music heard through traditional channels. Radio stations are dominated by major labels, and streaming platforms bury new artists in algorithms. This platform bridges that gap by creating a pay-to-play model where artists can directly purchase airtime, ensuring their music reaches Prospectors (the audience).
 
 ### The Solution
 - **For Artists**: Upload music, purchase credits, and get guaranteed airplay in a continuous radio stream
-- **For Flutters** (listeners): Discover new music through a curated, continuous stream without ads or interruptions
+- **For Prospectors** (listeners): Discover new music through a curated, continuous stream without ads or interruptions
 - **For Platform**: Sustainable revenue model through credit purchases (subscriptions planned)
 
 ### Key Features
@@ -40,8 +40,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Fallback**: Admin upload page and song database (add from free rotation)
 - **Mobile Player**: Landscape-first horizontal player layout with chat docked below (fits without scrolling)
 - **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
-- **Leaderboards**: Competition page leaderboards use actual stats (by ripples/likes from `leaderboard_likes`, by plays from `songs.play_count`); The Wake “Top Performing Ores” and summary cards use real analytics API data
-- **ROI dashboard**: Artist ROI formula + “Flutter Heatmap (by region)” proxy (profile clicks grouped by region)
+- **Leaderboards**: Competition page leaderboards use actual stats (by ripples/likes from `leaderboard_likes`, by plays from `songs.play_count`); The Wake "Top Performing Ore's" and summary cards use real analytics API data
+- **ROI dashboard**: Artist ROI formula + “Prospector Heatmap (by region)” proxy (profile clicks grouped by region)
 - **Trial by Fire**: Leaderboard ranking by upvotes/min within a window (default 60 minutes)
 - **Rising Star alerts**: When a song hits >= 5% conversion during its current play, a realtime `station_events` record is emitted; web and mobile show a “Butterfly Ripple” banner
 - **Catalyst deep-link credits**: `song_catalyst_credits` are surfaced during airtime as “Pinned credits” on the player (web + mobile)
@@ -56,10 +56,11 @@ User-facing copy uses the following terms. See **[docs/branding-terminology.md](
 
 | Term | Meaning | Backend equivalent |
 |------|---------|--------------------|
-| **Flutters** | Audience (listeners) | `listener`, `listener_count` |
+| **Prospectors** | Audience (listeners) | `listener`, `listener_count` |
 | **Ripples** | Likes/votes on tracks | `likes` |
 | **The Wake** | Artist analytics report; tagline: *“The path left behind by a thousand Ripples.”* | analytics, stats |
-| **Ores** | Tracks/songs | `song`, `songs` |
+| **The Yield** | Prospector rewards balance and redemption | prospector yield tables |
+| **Ore's** | Tracks/songs | `song`, `songs` |
 
 API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_count`, role `listener`).
 
@@ -101,7 +102,7 @@ The product “Engine” pages now share the same look/feel and core behaviors a
   - App Router with SSR/ISR for SEO-optimized marketing pages
   - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with Blue theme, Raleway font
   - Dark mode toggle via settings dropdown in dashboard
-  - Client-side dashboards for Flutters, artists, and admins
+  - Client-side dashboards for Prospectors, artists, and admins
   - HTTP-only session cookies for secure SSR
   - Hls.js for streaming audio playback
   - Stripe Checkout for web payments
@@ -845,7 +846,7 @@ Supabase Storage (Audio Files)
 - ✅ **My Songs page** with status, duration, credits, trial plays, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
 - ✅ **Notifications page** with unread indicator and delete functionality
-- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Songs from real API)
+- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Ore's from real API)
 - ✅ **Discover** (providers/artists with service type, location, search; link to profile and Messages)
 - ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
 - ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)

@@ -29,7 +29,7 @@ export default function AboutPage() {
           Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.
         </p>
         <p className="text-muted-foreground mb-4">
-          That was where Tanaka and Marquese first crossed paths. It was a random connection—a &quot;butterfly effect&quot; in its purest form. We were two people who, on paper, were struggling financially, but in reality, were rich in skills and belief. As our friendship grew, we saw each other&apos;s strengths: Tanaka, the architect with the technical vision to build the impossible; Marquese, the strategist with the heart to find the talent others overlooked.
+          That was where Tanaka and Merquise first crossed paths. It was a random connection—a &quot;butterfly effect&quot; in its purest form. We were two people who, on paper, were struggling financially, but in reality, were rich in skills and belief. As our friendship grew, we saw each other&apos;s strengths: Tanaka, the architect with the technical vision to build the impossible; Merquise, the strategist with the heart to find the talent others overlooked.
         </p>
         <p className="text-muted-foreground mb-6">
           We realized that our meeting shouldn&apos;t have been a fluke. We pushed each other to succeed when the world wasn&apos;t looking. We realized that society is full of &quot;bright lights&quot; that are allowed to die out simply because they didn&apos;t have a bridge to the right room. We decided that allowing talent to go to waste is more than a shame—it is a crime. We built Networx to make those 4 AM moments happen for everyone.

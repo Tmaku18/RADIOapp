@@ -327,9 +327,14 @@ export class AnalyticsService {
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved');
 
-    // Total plays
+    // Total plays (kept for backward compatibility; not used for Discoveries on homepage)
     const { count: totalPlays } = await supabase
       .from('plays')
+      .select('*', { count: 'exact', head: true });
+
+    // Discoveries = profile clicks from radio/leaderboards (artist profile clicks)
+    const { count: totalProfileClicks } = await supabase
+      .from('profile_clicks')
       .select('*', { count: 'exact', head: true });
 
     return {
@@ -337,6 +342,7 @@ export class AnalyticsService {
       totalArtists,
       totalSongs: totalSongs || 0,
       totalPlays: totalPlays || 0,
+      totalProfileClicks: totalProfileClicks || 0,
     };
   }
 

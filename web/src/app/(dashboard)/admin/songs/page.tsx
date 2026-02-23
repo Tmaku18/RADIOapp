@@ -117,7 +117,7 @@ export default function AdminSongsPage() {
       setSongs(response.data.songs || []);
     } catch (err) {
       console.error('Failed to load songs:', err);
-      setError('Failed to load ores');
+      setError('Failed to load ore\'s');
     } finally {
       setLoading(false);
     }
@@ -232,7 +232,7 @@ export default function AdminSongsPage() {
           <div className="relative">
             <input
               type="text"
-              placeholder="Search ores..."
+              placeholder="Search ore's..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"

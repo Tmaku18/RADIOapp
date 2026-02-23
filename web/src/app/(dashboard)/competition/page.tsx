@@ -105,7 +105,7 @@ export default function CompetitionPage() {
 
   const handleVote = async () => {
     if (voteSongIds.length !== 7) {
-      setVoteError('Select exactly 7 ores (rank 1–7).');
+      setVoteError('Select exactly 7 ore\'s (rank 1–7).');
       return;
     }
     setVoteError(null);

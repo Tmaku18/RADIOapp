@@ -28,6 +28,7 @@ import { JobBoardModule } from './job-board/job-board.module';
 import { BrowseModule } from './browse/browse.module';
 import { ServiceProvidersModule } from './service-providers/service-providers.module';
 import { VenueAdsModule } from './venue-ads/venue-ads.module';
+import { RefineryModule } from './refinery/refinery.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -63,6 +64,7 @@ import { RequestIdMiddleware } from './common/middleware';
     BrowseModule,
     ServiceProvidersModule,
     VenueAdsModule,
+    RefineryModule,
   ],
   controllers: [AppController],
   providers: [AppService],

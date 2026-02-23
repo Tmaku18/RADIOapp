@@ -7,6 +7,18 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
+type ApiError = { response?: { data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 interface Song {
   id: string;
   artist_id?: string;
@@ -61,7 +73,7 @@ export default function FreeRotationPage() {
     try {
       const response = await adminApi.getSongsInFreeRotation();
       setFreeRotationSongs(response.data.songs || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load free rotation songs:', err);
     }
   }, []);
@@ -78,8 +90,8 @@ export default function FreeRotationPage() {
     try {
       const response = await adminApi.searchSongsForFreeRotation(searchQuery);
       setSongs(response.data.songs || []);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to search songs');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to search songs'));
     } finally {
       setLoading(false);
     }
@@ -93,8 +105,8 @@ export default function FreeRotationPage() {
     try {
       const response = await adminApi.searchUsersForFreeRotation(searchQuery);
       setUsers(response.data.users || []);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to search users');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to search users'));
     } finally {
       setLoading(false);
     }
@@ -107,8 +119,8 @@ export default function FreeRotationPage() {
     try {
       const response = await adminApi.getUserSongsForFreeRotation(user.id);
       setUserSongs(response.data.songs || []);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load user songs');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to load user songs'));
     } finally {
       setLoading(false);
     }
@@ -125,8 +137,8 @@ export default function FreeRotationPage() {
         await searchSongs();
       }
       await loadFreeRotationSongs();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to toggle free rotation');
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to toggle free rotation'));
     }
   };
 
@@ -260,7 +272,7 @@ export default function FreeRotationPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Free Rotation Management</h1>
         <p className="text-muted-foreground mt-1">
-          Search ores or users to manage the free rotation playlist. 
+          Search ores or users to manage the free rotation playlist.
           Ores require: 1+ paid play, artist opt-in, and admin approval.
         </p>
       </div>

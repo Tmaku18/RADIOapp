@@ -61,8 +61,8 @@ export default function ChatSidebar() {
         setMessages(historyRes.data.messages || []);
         setChatEnabled(statusRes.data.enabled);
       } catch (err: unknown) {
-        console.error('Failed to load chat history:', err);
-        setError('Failed to load chat');
+        console.warn('Chat unavailable:', (err as Error)?.message || err);
+        setError('Chat is temporarily unavailable.');
       } finally {
         setIsLoading(false);
       }
@@ -108,7 +108,10 @@ export default function ChatSidebar() {
         .channel('radio-chat')
         .on('broadcast', { event: 'new_message' }, (payload) => {
           const newMsg = payload.payload as ChatMessage;
-          setMessages((prev) => [...prev.slice(-99), newMsg]); // Keep last 100 messages
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === newMsg.id)) return prev; // avoid duplicate (e.g. own optimistic message)
+            return [...prev.slice(-99), newMsg];
+          });
           // If we receive a message, we're definitely connected
           if (!hasConnected) {
             hasConnected = true;
@@ -201,13 +204,28 @@ export default function ChatSidebar() {
     
     if (!newMessage.trim() || isSending || !chatEnabled) return;
 
+    const text = newMessage.trim();
     setIsSending(true);
     setError(null);
 
     try {
-      await chatApi.sendMessage(newMessage.trim());
+      const res = await chatApi.sendMessage(text);
+      const id = (res.data as { id?: string })?.id;
       setNewMessage('');
       inputRef.current?.focus();
+      // Optimistic update: show sent message immediately (Realtime may be slow or fail)
+      if (id && profile) {
+        const optimistic: ChatMessage = {
+          id,
+          userId: profile.id,
+          songId: null,
+          displayName: profile.displayName || 'You',
+          avatarUrl: profile.avatarUrl ?? null,
+          message: text,
+          createdAt: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev.slice(-99), optimistic]);
+      }
     } catch (err: unknown) {
       const errObj = err as { response?: { data?: { message?: string } } };
       const errorMessage = errObj?.response?.data?.message || 'Failed to send message';
@@ -311,7 +329,7 @@ export default function ChatSidebar() {
                 <AvatarFallback className="text-xs">{msg.displayName.charAt(0).toUpperCase()}</AvatarFallback>
               </Avatar>
 
-              {/* Message: dark grey bubble, thin left border (Cyan for listener); Signal dot for active */}
+              {/* Message: dark grey bubble, thin left border (Cyan for prospector); Signal dot for active */}
               <div
                 className={`chat-bubble max-w-[200px] rounded-lg px-3 py-2 transition-colors ${
                   msg.userId === profile?.id
@@ -321,7 +339,7 @@ export default function ChatSidebar() {
               >
                 <div className="flex items-center gap-2 mb-1">
                   {connectionStatus === 'connected' && (
-                    <span className="chat-signal-dot active" title="Active listener" aria-hidden />
+                    <span className="chat-signal-dot active" title="Active prospector" aria-hidden />
                   )}
                   <span className="text-xs font-medium opacity-75">
                     {msg.displayName}

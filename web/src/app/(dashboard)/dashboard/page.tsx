@@ -21,14 +21,15 @@ const ROLE_HOME: Record<
   { title: string; subtitle: string; actions: { href: string; icon: string; title: string; desc: string }[] }
 > = {
   listener: {
-    title: "Listener Home",
-    subtitle: "Discover gems, tune in to the radio, and save your favorites.",
+    title: "Prospector Home",
+    subtitle: "Discover gems, tune in to the radio, and refine ore's into signal.",
     actions: [
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
-      { href: '/browse', icon: '🔍', title: 'Browse', desc: 'Explore ores and gems.' },
+      { href: '/browse', icon: '🔍', title: 'Browse', desc: "Explore ore's and gems." },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and service providers.' },
       { href: '/competition', icon: '🏆', title: 'Competition', desc: 'Leaderboards, diamonds, and Top 7.' },
       { href: '/messages', icon: '💬', title: 'Messages', desc: 'Chat with gems and creators.' },
+      { href: '/yield', icon: '⛏️', title: 'The Yield', desc: 'Track rewards and redeem at thresholds.' },
       { href: '/profile', icon: '👤', title: 'Your Profile', desc: 'View and edit your profile.' },
     ],
   },
@@ -37,7 +38,7 @@ const ROLE_HOME: Record<
     subtitle: "Upload music, buy credits, and grow your discoveries.",
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
-      { href: '/artist/songs', icon: '🎵', title: 'My Ores', desc: 'Manage your ores and credits.' },
+      { href: '/artist/songs', icon: '🎵', title: "My Ore's", desc: "Manage your ore's and credits." },
       { href: '/artist/credits', icon: '💰', title: 'Buy Credits', desc: 'Boost your tracks with play credits.' },
       { href: '/artist/stats', icon: '📈', title: 'The Wake', desc: 'The path left behind by a thousand Ripples.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
@@ -48,11 +49,11 @@ const ROLE_HOME: Record<
   },
   admin: {
     title: "Admin Home",
-    subtitle: "Manage ores, users, feed, and platform settings.",
+    subtitle: "Manage ore's, users, feed, and platform settings.",
     actions: [
       { href: '/admin', icon: '⚙️', title: 'Admin Overview', desc: 'Platform stats and quick actions.' },
-      { href: '/admin/songs', icon: '🎶', title: 'Ores', desc: 'Review and moderate submissions.' },
-      { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and listeners.' },
+      { href: '/admin/songs', icon: '🎶', title: "Ore's", desc: 'Review and moderate submissions.' },
+      { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and prospectors.' },
       { href: '/admin/feed', icon: '📱', title: 'Feed', desc: 'News and promotions.' },
       { href: '/admin/free-rotation', icon: '🔄', title: 'Free Rotation', desc: 'Manage free rotation queue.' },
       { href: '/admin/fallback', icon: '📻', title: 'Fallback', desc: 'Fallback and default tracks.' },
