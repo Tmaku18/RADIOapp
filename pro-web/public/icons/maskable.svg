@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RadioApp maskable icon">
+  <!-- Maskable icons should fill the full square safely -->
+  <rect width="512" height="512" fill="#05070d"/>
+  <circle cx="256" cy="256" r="224" fill="#0a0f1a"/>
+
+  <g fill="none" stroke="#00f5ff" stroke-width="22" stroke-linecap="round">
+    <path d="M176 276c20 24 48 36 80 36s60-12 80-36"/>
+    <path d="M150 230c32-40 70-60 106-60s74 20 106 60"/>
+    <path d="M124 186c46-58 96-86 132-86s86 28 132 86"/>
+  </g>
+
+  <circle cx="256" cy="324" r="20" fill="#00f5ff"/>
+</svg>
+

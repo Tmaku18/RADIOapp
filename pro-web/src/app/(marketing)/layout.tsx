@@ -3,87 +3,20 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { GlobalPulseTopBar } from '@/components/pro/GlobalPulseTopBar';
 
 const LOGO_SRC = '/networx-logo.png';
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
 
 export default function MarketingLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [headerLogoError, setHeaderLogoError] = useState(false);
   const [footerLogoError, setFooterLogoError] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Navigation */}
-      <header className="border-b border-border bg-card">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            {/* Logo + brand text, aligned left */}
-            <Link href="/" className="flex items-center shrink-0 gap-4 self-stretch">
-              {!headerLogoError ? (
-                <>
-                  <Image
-                    src={LOGO_SRC}
-                    alt=""
-                    width={260}
-                    height={92}
-                    className="h-14 w-auto object-contain object-left dark:invert-0 shrink-0"
-                    priority
-                    unoptimized
-                    onError={() => setHeaderLogoError(true)}
-                  />
-                  <span className="text-networx font-bold text-lg whitespace-nowrap">
-                    NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span className="text-2xl">🎧</span>
-                  <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
-                </>
-              )}
-            </Link>
-
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-2">
-              <Button variant="ghost" asChild>
-                <Link href="/about">About</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/pricing">Pricing</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/faq">FAQ</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/pro-directory">Pro-Directory</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-                  PRO-NETWORX
-                </a>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/contact">Contact</Link>
-              </Button>
-            </div>
-
-            {/* Auth Buttons */}
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
-              <Button asChild className="bg-networx text-black hover:opacity-90">
-                <Link href="/signup">Get Started</Link>
-              </Button>
-            </div>
-          </div>
-        </nav>
-      </header>
+      <GlobalPulseTopBar />
 
       {/* Main Content */}
       <main className="flex-1">
@@ -109,18 +42,18 @@ export default function MarketingLayout({
                       onError={() => setFooterLogoError(true)}
                     />
                     <span className="text-networx font-bold text-base whitespace-nowrap">
-                      NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
+                      PRO‑NETWORX
                     </span>
                   </>
                 ) : (
                   <>
-                    <span className="text-2xl">🎧</span>
-                    <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                    <span className="text-2xl">💼</span>
+                    <span className="text-xl font-bold text-networx">PRO‑NETWORX</span>
                   </>
                 )}
               </Link>
               <p className="text-sm text-muted-foreground">
-                Where the People have the Voice, and the Artist has the Power. By Artists, For Artists.
+                The Collective Directory — find catalysts, book services, and build in public.
               </p>
             </div>
 
@@ -131,12 +64,7 @@ export default function MarketingLayout({
                 <li><Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
                 <li><Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
                 <li><Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</Link></li>
-                <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
-                <li>
-                  <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-                    PRO-NETWORX
-                  </a>
-                </li>
+                <li><Link href="/directory" className="text-muted-foreground hover:text-foreground transition-colors">Directory</Link></li>
               </ul>
             </div>
 

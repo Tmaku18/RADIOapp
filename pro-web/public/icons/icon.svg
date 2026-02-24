@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RadioApp icon">
+  <defs>
+    <radialGradient id="g" cx="50%" cy="45%" r="70%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.35"/>
+      <stop offset="60%" stop-color="#00f5ff" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#05070d" stop-opacity="1"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="b"/>
+      <feColorMatrix in="b" type="matrix"
+        values="0 0 0 0 0
+                0 0 0 0 0.96
+                0 0 0 0 1
+                0 0 0 0.65 0" result="c"/>
+      <feMerge>
+        <feMergeNode in="c"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#05070d"/>
+  <circle cx="256" cy="256" r="210" fill="url(#g)"/>
+
+  <!-- Minimal signal mark -->
+  <g filter="url(#glow)" fill="none" stroke="#00f5ff" stroke-width="18" stroke-linecap="round">
+    <path d="M184 272c18 22 44 34 72 34s54-12 72-34"/>
+    <path d="M160 230c28-36 62-54 96-54s68 18 96 54"/>
+    <path d="M136 190c40-50 84-74 120-74s80 24 120 74"/>
+  </g>
+
+  <!-- Center dot -->
+  <circle cx="256" cy="320" r="18" fill="#00f5ff"/>
+</svg>
+
