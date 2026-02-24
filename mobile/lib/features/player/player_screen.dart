@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,7 @@ import '../../core/models/venue_ad.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
+import '../artist/artist_profile_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -35,8 +37,9 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Track? _currentTrack;
   bool _isPlaying = false;
   bool _isLoading = true;
-  bool _isLiked = false;
-  bool _isLikeLoading = false;
+  bool _hasVoted = false;
+  bool _isVoting = false;
+  String? _lastVotedPlayId;
   bool _noContent = false;
   String? _noContentMessage;
   VenueAd? _ad;
@@ -121,7 +124,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   Future<void> _loadNextTrack() async {
     setState(() {
       _isLoading = true;
-      _isLiked = false;
+      _hasVoted = false;
+      _isVoting = false;
       _noContent = false;
       _noContentMessage = null;
     });
@@ -165,43 +169,64 @@ class _PlayerScreenState extends State<PlayerScreen> {
     }
     await _audioPlayer.play();
     await _radioService.reportPlay(track.id);
-
-    final liked = await _radioService.isLiked(track.id);
     if (!mounted) return;
+
+    final playId = track.playId;
+    final alreadyVoted =
+        playId != null && playId.isNotEmpty && playId == _lastVotedPlayId;
 
     setState(() {
       _currentTrack = track;
       _isPlaying = true;
       _isLoading = false;
-      _isLiked = liked;
+      _hasVoted = alreadyVoted;
     });
   }
 
-  Future<void> _toggleLike() async {
-    if (_currentTrack == null || _isLikeLoading) return;
+  Future<void> _vote() async {
+    final track = _currentTrack;
+    if (track == null || _isVoting) return;
+    if (_me == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to vote.')),
+      );
+      return;
+    }
+
+    final playId = track.playId;
+    if (playId == null || playId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Voting is unavailable for this play.')),
+      );
+      return;
+    }
+
+    if (_hasVoted && _lastVotedPlayId == playId) return;
 
     setState(() {
-      _isLikeLoading = true;
+      _isVoting = true;
     });
 
     try {
-      final liked = await _radioService.toggleLike(_currentTrack!.id);
+      HapticFeedback.lightImpact();
+      await _api.post('leaderboard/songs/${track.id}/like', {'playId': playId});
+      if (!mounted) return;
       setState(() {
-        _isLiked = liked;
-        _isLikeLoading = false;
+        _hasVoted = true;
+        _lastVotedPlayId = playId;
+        _isVoting = false;
       });
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(liked ? 'Saved to your rotation.' : 'Removed from your rotation.'),
-            duration: const Duration(seconds: 1),
-          ),
+          const SnackBar(content: Text('Vote locked in.'), duration: Duration(seconds: 1)),
         );
       }
     } catch (e) {
       setState(() {
-        _isLikeLoading = false;
+        _isVoting = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -342,9 +367,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
                         quickBuying: _quickBuying,
                         onQuickBuy: _quickBuyFivePlays,
                         isPlaying: _isPlaying,
-                        isLiked: _isLiked,
-                        isLikeLoading: _isLikeLoading,
-                        onLike: _toggleLike,
+                        hasVoted: _hasVoted,
+                        isVoting: _isVoting,
+                        canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                        onVote: _vote,
                         onPlayPause: _togglePlayPause,
                         onEnterRoom: _openRoom,
                         audioPlayer: _audioPlayer,
@@ -483,9 +509,10 @@ class _PlayerBody extends StatelessWidget {
   final bool quickBuying;
   final VoidCallback onQuickBuy;
   final bool isPlaying;
-  final bool isLiked;
-  final bool isLikeLoading;
-  final VoidCallback onLike;
+  final bool hasVoted;
+  final bool isVoting;
+  final bool canVote;
+  final VoidCallback onVote;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
   final AudioPlayer audioPlayer;
@@ -498,9 +525,10 @@ class _PlayerBody extends StatelessWidget {
     required this.quickBuying,
     required this.onQuickBuy,
     required this.isPlaying,
-    required this.isLiked,
-    required this.isLikeLoading,
-    required this.onLike,
+    required this.hasVoted,
+    required this.isVoting,
+    required this.canVote,
+    required this.onVote,
     required this.onPlayPause,
     required this.onEnterRoom,
     required this.audioPlayer,
@@ -649,6 +677,15 @@ class _PlayerBody extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   ApiService().post('analytics/profile-click', {'songId': track.id});
+                  final artistId = track.artistId;
+                  if (artistId != null && artistId.isNotEmpty && context.mounted) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ArtistProfileScreen(artistId: artistId),
+                      ),
+                    );
+                  }
                 },
                 child: Text(
                   track.artistName,
@@ -763,17 +800,17 @@ class _PlayerBody extends StatelessWidget {
                     icon: const Icon(Icons.forum_outlined),
                   ),
                   IconButton(
-                    onPressed: isLikeLoading ? null : onLike,
-                    tooltip: isLiked ? 'Remove' : 'Save',
-                    icon: isLikeLoading
+                    onPressed: (!canVote || isVoting || hasVoted) ? null : onVote,
+                    tooltip: hasVoted ? 'Voted' : 'Vote',
+                    icon: isVoting
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : Icon(
-                            isLiked ? Icons.favorite : Icons.favorite_border,
-                            color: isLiked
+                            hasVoted ? Icons.favorite : Icons.favorite_border,
+                            color: hasVoted
                                 ? scheme.primary
                                 : surfaces.textSecondary,
                           ),

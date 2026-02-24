@@ -11,6 +11,9 @@ class Track {
   final String? artworkUrl;
   final int durationSeconds;
 
+  /// Unique play instance id (for one-vote-per-play on radio).
+  final String? playId;
+
   /// Backend may mark a broadcast as live (e.g., DJ/live session).
   final bool isLiveBroadcast;
 
@@ -28,6 +31,7 @@ class Track {
     required this.audioUrl,
     this.artworkUrl,
     required this.durationSeconds,
+    this.playId,
     this.isLiveBroadcast = false,
     this.positionSeconds = 0,
     this.pinnedCatalysts = const [],
@@ -62,6 +66,7 @@ class Track {
                       .toString(),
                 ) ??
               180,
+      playId: (json['play_id'] ?? json['playId'])?.toString(),
       isLiveBroadcast: json['is_live'] == true || json['isLive'] == true,
       positionSeconds: (json['position_seconds'] ?? json['positionSeconds'] ?? 0)
           is int

@@ -62,13 +62,18 @@ class NetworxSurfaces extends ThemeExtension<NetworxSurfaces> {
         stops: const <double>[0, 0.45, 1],
       ),
       glassBlur: 16,
-      glassBgOpacity: 0.08,
+      glassBgOpacity: 0.10,
       glassBorderOpacity: 0.12,
       glassShadow: <BoxShadow>[
         BoxShadow(
           color: Colors.black.withValues(alpha: 0.20),
           blurRadius: 32,
           offset: const Offset(0, 12),
+        ),
+        BoxShadow(
+          color: NetworxTokens.electricCyan.withValues(alpha: 0.08),
+          blurRadius: 24,
+          offset: const Offset(0, 0),
         ),
       ],
     );

@@ -7,11 +7,11 @@ import '../features/room/room_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/about/about_screen.dart';
 import '../features/analytics/analytics_screen.dart';
-import '../features/job_board/job_board_screen.dart';
 import '../features/messages/messages_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/credits/credits_screen.dart';
-import '../features/pro_directory/pro_directory_screen.dart';
+import '../features/pro_networx/pro_directory_screen.dart';
+import '../features/pro_networx/pro_me_profile_screen.dart';
 import '../features/refinery/refinery_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/models/user.dart' as app_user;
@@ -151,13 +151,25 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.handshake_outlined),
-                  title: const Text('Pro-Directory'),
-                  subtitle: const Text('Find Industry Catalysts'),
+                  title: const Text('PRO‑NETWORX'),
+                  subtitle: const Text('Directory, profiles, and inbox'),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ProDirectoryScreen()),
+                      MaterialPageRoute(builder: (_) => const ProNetworxDirectoryScreen()),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.badge_outlined),
+                  title: const Text('Build my PRO‑NETWORX profile'),
+                  subtitle: const Text('Skills, availability, headline'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const ProNetworxMeProfileScreen()),
                     );
                   },
                 ),
@@ -210,7 +222,7 @@ class _HomeScreenState extends State<HomeScreen> {
           case 1:
             return const AnalyticsScreen();
           case 2:
-            return const JobBoardScreen();
+            return const ProNetworxDirectoryScreen();
           case 3:
             return const RoomScreen();
           default:

@@ -49,6 +49,8 @@ Independent artists struggle to get their music heard through traditional channe
 - **Credits Quick‑Buy**: “Add 5 Minutes” entry point (Stripe payment sheet / checkout depending on surface)
 - **PWA**: Web app manifest + service worker + offline fallback page (`/~offline`)
 - **Realtime visuals**: Live Ripple + Global Vote Map wired to realtime `likes` INSERT events (single channel fan-out hook)
+- **Mobile parity**: Systematic Glow theme, Spotify-like artist discography playback (unlimited), profile-listen tracking, and radio vote-once-per-play via `play_id`
+- **Mobile parity**: PRO‑NETWORX portal (directory + Sync‑Profile + profile builder) wired to `/pro-networx/*`
 
 ### Branding & product terminology
 
@@ -81,8 +83,10 @@ The product “Engine” pages now share the same look/feel and core behaviors a
   - ROI card
   - Listener heatmap proxy by region
 - **Pro‑Directory**
-  - Service provider directory + “Mentor” badge
-  - Nearby search (mobile uses device GPS + radius)
+  - PRO‑NETWORX directory + “Mentor” badge + Verified Catalyst
+  - Sync‑Profile pages + Creator Network paywalled DMs
+  - Build/edit PRO‑NETWORX profile (skills + availability)
+  - Mobile uses the same `/pro-networx/*` backend endpoints as `pro-web/`
 
 ## Architecture
 

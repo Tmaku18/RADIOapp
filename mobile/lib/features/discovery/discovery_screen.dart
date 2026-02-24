@@ -398,7 +398,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                                         Row(
                                           children: [
                                             IconButton(
-                                              tooltip: 'Like',
+                                              tooltip: 'Ripple',
                                               onPressed: _likingId == item.id
                                                   ? null
                                                   : () => _toggleLike(item),

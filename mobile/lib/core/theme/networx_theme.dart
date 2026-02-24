@@ -7,9 +7,9 @@ enum NetworxBrand { listener, artist }
 Color _brandPrimary(NetworxBrand brand) {
   switch (brand) {
     case NetworxBrand.listener:
-      return NetworxTokens.butterflyElectric;
+      return NetworxTokens.electricCyan;
     case NetworxBrand.artist:
-      return NetworxTokens.butterflyElectric;
+      return NetworxTokens.electricCyan;
   }
 }
 
@@ -41,15 +41,15 @@ ThemeData buildNetworxTheme({
   final scheme = ColorScheme(
     brightness: brightness,
     primary: primary,
-    onPrimary: NetworxTokens.obsidianNight,
+    onPrimary: NetworxTokens.deepMidnight,
     primaryContainer: primary.withValues(alpha: isDark ? 0.20 : 0.14),
     onPrimaryContainer: textPrimary,
-    secondary: NetworxTokens.deepCobalt,
-    onSecondary: NetworxTokens.starlightWhite,
-    secondaryContainer: NetworxTokens.deepCobalt.withValues(alpha: isDark ? 0.18 : 0.14),
+    secondary: NetworxTokens.radioactiveLime,
+    onSecondary: NetworxTokens.deepMidnight,
+    secondaryContainer: NetworxTokens.radioactiveLime.withValues(alpha: isDark ? 0.18 : 0.14),
     onSecondaryContainer: textPrimary,
     tertiary: NetworxTokens.butterflyElectricHover,
-    onTertiary: NetworxTokens.obsidianNight,
+    onTertiary: NetworxTokens.deepMidnight,
     tertiaryContainer: NetworxTokens.butterflyElectricHover.withValues(alpha: isDark ? 0.16 : 0.12),
     onTertiaryContainer: textPrimary,
     error: NetworxTokens.error,
@@ -80,6 +80,7 @@ ThemeData buildNetworxTheme({
   // Typography: keep serif as “premium spice” via explicit styles. We wire
   // font families later when assets are present; missing families fall back safely.
   const fontSans = 'Inter';
+  // Systematic Glow: structured headings (Geist on web). Mobile uses SpaceGrotesk as the closest bundled asset.
   const fontHeading = 'SpaceGrotesk';
   const fontSerif = 'Lora';
 

@@ -22,6 +22,10 @@ coverage/
 *.swo
 *~
 
+# Cursor (do not commit plans / transcripts)
+.cursor/plans/
+.cursor/plans/*.plan.md
+
 # OS
 .DS_Store
 Thumbs.db
