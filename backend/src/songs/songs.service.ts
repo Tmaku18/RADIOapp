@@ -197,7 +197,6 @@ export class SongsService {
         user_id: userId,
         song_id: songId,
       });
-    await this.maybeEmitRisingStarForCurrentPlay(songId);
     return { liked: true };
   }
 
@@ -253,8 +252,34 @@ export class SongsService {
           user_id: userId,
           song_id: songId,
         });
-      await this.maybeEmitRisingStarForCurrentPlay(songId);
       return { liked: true };
     }
+  }
+
+  async recordProfileListen(songId: string, userId: string | null): Promise<{ recorded: true }> {
+    const supabase = getSupabaseClient();
+
+    const { data: song, error: songErr } = await supabase
+      .from('songs')
+      .select('id, artist_id, status')
+      .eq('id', songId)
+      .single();
+
+    if (songErr || !song) {
+      throw new NotFoundException('Song not found');
+    }
+    if ((song as any).status !== 'approved') {
+      throw new ForbiddenException('Song is not available');
+    }
+
+    const { error } = await supabase.from('song_profile_listens').insert({
+      song_id: songId,
+      artist_id: (song as any).artist_id,
+      user_id: userId,
+    });
+    if (error) {
+      throw new Error(`Failed to record profile listen: ${error.message}`);
+    }
+    return { recorded: true };
   }
 }

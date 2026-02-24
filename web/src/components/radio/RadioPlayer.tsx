@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRadioState, Track } from './useRadioState';
-import { prospectorApi, radioApi, songsApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -37,8 +37,8 @@ function roleToLabel(role: string): string {
 
 export function RadioPlayer() {
   const { profile } = useAuth();
-  const [isLiked, setIsLiked] = useState(false);
-  const [isLoadingLike, setIsLoadingLike] = useState(false);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [isVoting, setIsVoting] = useState(false);
   const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
@@ -47,6 +47,7 @@ export function RadioPlayer() {
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
   const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
+  const lastVotedPlayIdRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
 
@@ -112,6 +113,7 @@ export function RadioPlayer() {
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
+          playId: trackData.play_id ?? null,
         };
         
         const serverPosition = trackData.position_seconds || 0;
@@ -278,6 +280,7 @@ export function RadioPlayer() {
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
+          playId: trackData.play_id ?? null,
         };
         
         // Save server position for sync
@@ -304,14 +307,6 @@ export function RadioPlayer() {
           // Same track, just sync position (handle drift)
           syncToPosition(serverPosition);
         }
-
-        // Check like status
-        try {
-          const likeResponse = await songsApi.getLikeStatus(track.id);
-          setIsLiked(likeResponse.data?.liked || false);
-        } catch {
-          // Ignore like status errors
-        }
       }
     } catch (error: unknown) {
       const msg = (error as { response?: { data?: { message?: string }; status?: number } })?.response?.data?.message;
@@ -322,6 +317,14 @@ export function RadioPlayer() {
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
   }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted]);
+
+  // Reset vote state when play changes
+  useEffect(() => {
+    const playId = state.currentTrack?.playId ?? null;
+    if (playId && playId !== lastVotedPlayIdRef.current) {
+      setHasVoted(false);
+    }
+  }, [state.currentTrack?.playId]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -393,22 +396,20 @@ export function RadioPlayer() {
     setShowJumpToLive(false);
   };
 
-  const handleLike = async () => {
-    if (!state.currentTrack || isLoadingLike) return;
-    
-    setIsLoadingLike(true);
+  const handleVote = async () => {
+    if (!state.currentTrack) return;
+    if (isVoting || hasVoted) return;
+    if (!state.currentTrack.playId) return;
+
+    setIsVoting(true);
     try {
-      if (isLiked) {
-        await songsApi.unlike(state.currentTrack.id);
-        setIsLiked(false);
-      } else {
-        await songsApi.like(state.currentTrack.id);
-        setIsLiked(true);
-      }
+      await leaderboardApi.addLeaderboardLike(state.currentTrack.id, state.currentTrack.playId);
+      lastVotedPlayIdRef.current = state.currentTrack.playId;
+      setHasVoted(true);
     } catch (error) {
-      console.error('Failed to toggle ripple:', error);
+      console.error('Failed to vote:', error);
     } finally {
-      setIsLoadingLike(false);
+      setIsVoting(false);
     }
   };
 
@@ -614,19 +615,19 @@ export function RadioPlayer() {
 
         {/* Controls */}
         <div className="flex items-center justify-center space-x-6">
-          {/* Ripple Button */}
+          {/* Vote Button (1 per play) */}
           <button
-            onClick={handleLike}
-            disabled={!state.currentTrack || isLoadingLike}
+            onClick={handleVote}
+            disabled={!state.currentTrack || isVoting || hasVoted || !state.currentTrack?.playId}
             className={`p-3 rounded-full transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-              isLiked
-                ? 'bg-primary text-primary-foreground signal-glow signal-pulse'
+              hasVoted
+                ? 'bg-primary text-primary-foreground signal-glow'
                 : 'text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-[1.03]'
             } disabled:opacity-50`}
           >
             <svg
               className="w-6 h-6"
-              fill={isLiked ? 'currentColor' : 'none'}
+              fill={hasVoted ? 'currentColor' : 'none'}
               stroke="currentColor"
               viewBox="0 0 24 24"
             >

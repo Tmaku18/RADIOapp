@@ -11,6 +11,7 @@ export interface Track {
   artworkUrl: string | null;
   audioUrl: string;
   durationSeconds: number;
+  playId?: string | null;
 }
 
 export interface RadioState {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { usersApi, songsApi, spotlightApi, liveServicesApi, artistFollowsApi, serviceProvidersApi } from '@/lib/api';
@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DiscographyPlayer, type DiscographyTrack } from '@/components/player/DiscographyPlayer';
 
 type SongRow = {
   id: string;
@@ -20,6 +21,7 @@ type SongRow = {
   artwork_url: string | null;
   duration_seconds?: number;
   status: string;
+  like_count?: number;
 };
 
 type ProviderProfile = {
@@ -80,12 +82,10 @@ export default function ArtistProfilePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [unlimitedBySong, setUnlimitedBySong] = useState<Record<string, { allowed: boolean; context?: string }>>({});
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [recordedListen, setRecordedListen] = useState<Set<string>>(new Set());
   const [liveServices, setLiveServices] = useState<Array<{ id: string; title: string; description?: string | null; type: string; scheduledAt?: string | null; linkOrPlace?: string | null }>>([]);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let ignore = false;
@@ -122,7 +122,7 @@ export default function ArtistProfilePage() {
           return;
         }
 
-        const songsRes = await songsApi.getAll({ artistId, status: 'approved', limit: 50 });
+        const songsRes = await songsApi.getAll({ artistId, status: 'approved', limit: 200 });
         const songsData = songsRes.data || [];
         if (ignore) return;
 
@@ -213,54 +213,82 @@ export default function ArtistProfilePage() {
     };
   }, [artistId, songs, profile]);
 
-  const handlePlay = useCallback(
-    async (song: SongRow) => {
-      const audioUrl = song.audio_url;
-      if (!audioUrl?.trim()) return;
+  // Load per-song like status for logged-in listeners (best-effort)
+  useEffect(() => {
+    if (!profile?.id) return;
+    if (!artistId) return;
+    if (songs.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const entries: Array<[string, boolean]> = [];
+      for (const s of songs) {
+        try {
+          const res = await songsApi.getLikeStatus(s.id);
+          entries.push([s.id, !!res.data?.liked]);
+        } catch {
+          entries.push([s.id, false]);
+        }
+      }
+      if (cancelled) return;
+      setLikedBySongId(Object.fromEntries(entries));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [artistId, profile?.id, songs]);
 
-      const info = unlimitedBySong[song.id];
-      const isUnlimited = info?.allowed && info?.context;
+  const discographyTracks: DiscographyTrack[] = useMemo(() => {
+    return songs.map((s) => ({
+      id: s.id,
+      title: s.title,
+      artistName: s.artist_name,
+      artistId: s.artist_id,
+      audioUrl: s.audio_url,
+      artworkUrl: s.artwork_url,
+      durationSeconds: s.duration_seconds ?? null,
+      likeCount: s.like_count ?? null,
+      liked: likedBySongId[s.id] ?? false,
+    }));
+  }, [songs, likedBySongId]);
 
-      if (isUnlimited && profile && !recordedListen.has(song.id)) {
+  const handleToggleLike = async (songId: string, nextLiked: boolean) => {
+    if (!profile?.id) return;
+    if (nextLiked) {
+      await songsApi.like(songId);
+      setLikedBySongId((prev) => ({ ...prev, [songId]: true }));
+    } else {
+      await songsApi.unlike(songId);
+      setLikedBySongId((prev) => ({ ...prev, [songId]: false }));
+    }
+  };
+
+  const handleRecordListen = async (songId: string) => {
+    // Record profile listen (combined popularity signal)
+    try {
+      await songsApi.recordProfileListen(songId);
+    } catch {
+      // Don't break playback UX
+    }
+
+    // If this song is currently in spotlight, record spotlight listen once per page load.
+    const info = unlimitedBySong[songId];
+    const isUnlimited = info?.allowed && info?.context;
+    if (isUnlimited && profile?.id) {
+      const key = `spotlight:${artistId}:${songId}`;
+      if (typeof window !== 'undefined' && window.sessionStorage.getItem(key) !== '1') {
         try {
           await spotlightApi.recordListen({
-            songId: song.id,
+            songId,
             artistId: artistId,
             context: info.context as 'featured_replay' | 'artist_of_week' | 'artist_of_month',
           });
-          setRecordedListen((prev) => new Set(prev).add(song.id));
-        } catch (e) {
-          console.error('Failed to record spotlight listen', e);
+          window.sessionStorage.setItem(key, '1');
+        } catch {
+          // ignore
         }
       }
-
-      if (audioRef.current) {
-        if (playingId === song.id) {
-          audioRef.current.pause();
-          setPlayingId(null);
-          return;
-        }
-        audioRef.current.src = audioUrl;
-        audioRef.current.play().catch(console.error);
-        setPlayingId(song.id);
-      }
-    },
-    [artistId, profile, unlimitedBySong, recordedListen, playingId],
-  );
-
-  useEffect(() => {
-    const el = typeof document !== 'undefined' ? document.createElement('audio') : null;
-    if (el) {
-      const onEnded = () => setPlayingId(null);
-      el.addEventListener('ended', onEnded);
-      audioRef.current = el;
-      return () => {
-        el.removeEventListener('ended', onEnded);
-        el.pause();
-        audioRef.current = null;
-      };
     }
-  }, []);
+  };
 
   if (!artistId) {
     return (
@@ -534,51 +562,29 @@ export default function ArtistProfilePage() {
         <CardHeader>
           <CardTitle>Songs</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Spotlight tracks can be played unlimited times here and count toward the listens leaderboard.
+            Unlimited discography playback. Likes here affect the leaderboard; listens contribute to discovery ranking.
           </p>
         </CardHeader>
         <CardContent>
           {songs.length === 0 ? (
             <p className="text-muted-foreground">No approved songs yet.</p>
           ) : (
-            <ul className="space-y-2">
-              {songs.map((song) => {
-                const unlimited = unlimitedBySong[song.id];
-                const canPlayUnlimited = unlimited?.allowed && unlimited?.context;
-                return (
-                  <li
-                    key={song.id}
-                    className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/50"
-                  >
-                    {song.artwork_url && (
-                      <img
-                        src={song.artwork_url}
-                        alt=""
-                        className="w-12 h-12 rounded object-cover flex-shrink-0"
-                        aria-hidden
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{song.title}</p>
-                      <p className="text-sm text-muted-foreground truncate">{song.artist_name}</p>
-                    </div>
-                    {canPlayUnlimited && (
-                      <Badge variant="secondary" className="flex-shrink-0">
-                        Unlimited listens
-                      </Badge>
-                    )}
-                    <Button
-                      variant={playingId === song.id ? 'secondary' : 'default'}
-                      size="sm"
-                      onClick={() => handlePlay(song)}
-                      disabled={!song.audio_url}
-                    >
-                      {playingId === song.id ? 'Pause' : 'Play'}
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {songs.some((s) => unlimitedBySong[s.id]?.allowed && unlimitedBySong[s.id]?.context) ? (
+                  <Badge variant="secondary">Spotlight: unlimited listens active</Badge>
+                ) : (
+                  <Badge variant="outline">Spotlight: none today</Badge>
+                )}
+                <Badge variant="outline">Spotify-style player</Badge>
+              </div>
+
+              <DiscographyPlayer
+                tracks={discographyTracks}
+                onToggleLike={handleToggleLike}
+                onRecordListen={handleRecordListen}
+              />
+            </div>
           )}
         </CardContent>
       </Card>

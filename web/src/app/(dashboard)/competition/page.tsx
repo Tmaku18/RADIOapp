@@ -18,6 +18,8 @@ interface LeaderboardSong {
   artworkUrl: string | null;
   likeCount?: number;
   playCount?: number;
+  profilePlayCount?: number;
+  totalListenCount?: number;
   spotlightListenCount?: number;
   windowMinutes?: number;
   likesInWindow?: number;
@@ -240,9 +242,9 @@ export default function CompetitionPage() {
         <CardContent>
           <Tabs defaultValue="likes" className="w-full">
             <TabsList className="grid w-full max-w-md grid-cols-3">
-              <TabsTrigger value="likes">By Ripples</TabsTrigger>
-              <TabsTrigger value="listens">By discoveries</TabsTrigger>
-              <TabsTrigger value="trial">Trial by Fire</TabsTrigger>
+              <TabsTrigger value="likes">By Likes</TabsTrigger>
+              <TabsTrigger value="listens">By Plays</TabsTrigger>
+              <TabsTrigger value="trial">Votes/Minute</TabsTrigger>
             </TabsList>
             <TabsContent value="likes" className="mt-4">
               {loading ? (
@@ -258,8 +260,8 @@ export default function CompetitionPage() {
                         <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} discoveries</span>}
-                        <Badge variant="secondary">{s.likeCount ?? 0} ripples</Badge>
+                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} radio plays</span>}
+                        <Badge variant="secondary">{s.likeCount ?? 0} likes</Badge>
                       </div>
                     </li>
                   ))}
@@ -280,7 +282,9 @@ export default function CompetitionPage() {
                         <p className="font-medium truncate">{s.title}</p>
                         <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
                       </div>
-                      <Badge variant="secondary">{s.playCount ?? s.spotlightListenCount ?? 0} discoveries</Badge>
+                      <Badge variant="secondary">
+                        {s.totalListenCount ?? ((s.playCount ?? 0) + (s.profilePlayCount ?? 0))} plays
+                      </Badge>
                     </li>
                   ))}
                   {!loading && leaderboardListens.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
@@ -302,9 +306,9 @@ export default function CompetitionPage() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground">
-                          {(s.likesInWindow ?? 0).toLocaleString()} ripples / {s.windowMinutes ?? 60}m
+                          {(s.likesInWindow ?? 0).toLocaleString()} votes / {s.windowMinutes ?? 60}m
                         </span>
-                        <Badge variant="secondary">{(s.upvotesPerMinute ?? 0).toFixed(2)} upvotes/min</Badge>
+                        <Badge variant="secondary">{(s.upvotesPerMinute ?? 0).toFixed(2)} votes/min</Badge>
                       </div>
                     </li>
                   ))}

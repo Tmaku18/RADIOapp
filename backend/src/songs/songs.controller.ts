@@ -11,7 +11,9 @@ import {
   UploadedFiles,
   UseGuards,
   ForbiddenException,
+  UnauthorizedException,
   Logger,
+  Headers,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { SongsService } from './songs.service';
@@ -22,7 +24,9 @@ import { CreateSongFromPathDto } from './dto/create-song-from-path.dto';
 import { GetUploadUrlDto } from './dto/get-upload-url.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
@@ -402,5 +406,45 @@ export class SongsController {
     }
 
     return this.songsService.unlikeSong(userData.id, songId);
+  }
+
+  /**
+   * Public endpoint to record a discography/profile listen.
+   * Auth is optional: if an Authorization header is present, we verify it and attach user_id.
+   */
+  @Public()
+  @Post(':id/profile-listen')
+  async recordProfileListen(
+    @Param('id') songId: string,
+    @Headers('authorization') authorization?: string,
+    @Body() _body?: { startedAt?: string; secondsListened?: number },
+  ) {
+    let userId: string | null = null;
+
+    if (authorization && authorization.startsWith('Bearer ')) {
+      const token = authorization.substring(7);
+      try {
+        const decoded = await getFirebaseAuth().verifyIdToken(token);
+        const supabase = getSupabaseClient();
+        const { data: userData } = await supabase
+          .from('users')
+          .select('id, is_banned, ban_reason')
+          .eq('firebase_uid', decoded.uid)
+          .single();
+        if (userData?.is_banned) {
+          throw new ForbiddenException(
+            userData.ban_reason
+              ? `Account suspended: ${userData.ban_reason}`
+              : 'Your account has been suspended',
+          );
+        }
+        userId = userData?.id ?? null;
+      } catch (e) {
+        // If the client sends an auth header, it must be valid.
+        throw new UnauthorizedException('Invalid token');
+      }
+    }
+
+    return this.songsService.recordProfileListen(songId, userId);
   }
 }

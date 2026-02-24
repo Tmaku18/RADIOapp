@@ -9,6 +9,8 @@ export interface LeaderboardSong {
   artworkUrl: string | null;
   likeCount?: number;
   playCount?: number;
+  profilePlayCount?: number;
+  totalListenCount?: number;
   spotlightListenCount?: number;
   // Trial by Fire (windowed)
   windowMinutes?: number;
@@ -19,84 +21,124 @@ export interface LeaderboardSong {
 
 @Injectable()
 export class LeaderboardService {
+  private async maybeEmitRisingStarForPlay(playId: string, songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data: play } = await supabase
+        .from('plays')
+        .select('id, listener_count, played_at')
+        .eq('id', playId)
+        .single();
+      if (!play?.id || !play.played_at) return;
+
+      const listenersAtStart = (play as any).listener_count ?? 0;
+      if (listenersAtStart <= 0) return;
+
+      const startedAtIso = (play as any).played_at as string;
+      const { count: votesDuring } = await supabase
+        .from('leaderboard_likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('play_id', playId);
+
+      const votes = votesDuring ?? 0;
+      const conversion = votes / listenersAtStart;
+      if (conversion < 0.05) return;
+
+      const { data: song } = await supabase
+        .from('songs')
+        .select('title, artist_name, artist_id')
+        .eq('id', songId)
+        .single();
+
+      const payload = {
+        type: 'rising_star',
+        songId,
+        playId,
+        songTitle: (song as any)?.title ?? 'A song',
+        artistId: (song as any)?.artist_id ?? null,
+        artistName: (song as any)?.artist_name ?? 'An artist',
+        votesDuring: votes,
+        listenersAtStart,
+        conversion,
+        startedAt: startedAtIso,
+      };
+
+      const { error } = await supabase.from('station_events').insert({
+        station_id: 'global',
+        type: 'rising_star',
+        play_id: playId,
+        song_id: songId,
+        payload,
+      });
+      if (error) {
+        if (error.code === '23505') return;
+      }
+    } catch {
+      return;
+    }
+  }
+
   /**
-   * Songs ordered by leaderboard like count (from leaderboard_likes table).
+   * Songs ordered by persistent like count (profile likes).
    */
   async getSongsByLikes(limit: number, offset: number): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
-    const { data: countRows } = await supabase
-      .from('leaderboard_likes')
-      .select('song_id');
-    const countBySong: Record<string, number> = {};
-    countRows?.forEach((r: { song_id: string }) => {
-      countBySong[r.song_id] = (countBySong[r.song_id] || 0) + 1;
-    });
-    const songIds = Object.entries(countBySong)
-      .sort((a, b) => b[1] - a[1])
-      .map(([id]) => id)
-      .slice(offset, offset + limit);
+    const { data: songs, error } = await supabase
+      .from('songs')
+      .select('id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count')
+      .eq('status', 'approved')
+      .order('like_count', { ascending: false, nullsFirst: false })
+      .order('play_count', { ascending: false, nullsFirst: false })
+      .range(offset, offset + limit - 1);
 
-    if (songIds.length === 0 && offset === 0) {
-      const { data: anySongs } = await supabase
-        .from('songs')
-        .select('id, title, artist_name, artist_id, artwork_url, play_count')
-        .eq('status', 'approved')
-        .order('play_count', { ascending: false, nullsFirst: false })
-        .range(0, limit - 1);
-      return (anySongs || []).map((s: any) => ({
+    if (error) throw new Error(`Failed to fetch likes leaderboard: ${error.message}`);
+    return (songs || []).map((s: any) => {
+      const playCount = s.play_count ?? 0;
+      const profilePlayCount = s.profile_play_count ?? 0;
+      return {
         id: s.id,
         title: s.title,
         artistName: s.artist_name,
         artistId: s.artist_id,
         artworkUrl: s.artwork_url,
-        likeCount: 0,
-        playCount: s.play_count ?? 0,
-      }));
-    }
-
-    if (songIds.length === 0) return [];
-
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url, play_count')
-      .in('id', songIds)
-      .eq('status', 'approved');
-
-    const order = new Map(songIds.map((id, i) => [id, i]));
-    const sorted = (songs || []).sort((a: any, b: any) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999));
-    return sorted.map((s: any) => ({
-      id: s.id,
-      title: s.title,
-      artistName: s.artist_name,
-      artistId: s.artist_id,
-      artworkUrl: s.artwork_url,
-      likeCount: countBySong[s.id] ?? 0,
-      playCount: s.play_count ?? 0,
-    }));
+        likeCount: s.like_count ?? 0,
+        playCount,
+        profilePlayCount,
+        totalListenCount: playCount + profilePlayCount,
+      } satisfies LeaderboardSong;
+    });
   }
 
   /**
-   * Songs ordered by play_count (radio plays). Returns actual stats for the leaderboard.
+   * Songs ordered by combined listens: radio plays + profile listens.
    */
   async getSongsByListens(limit: number, offset: number): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
     const { data: songs, error } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url, play_count, spotlight_listen_count')
+      .select('id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, spotlight_listen_count, like_count')
       .eq('status', 'approved')
-      .order('play_count', { ascending: false, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
     if (error) throw new Error(`Failed to fetch listens leaderboard: ${error.message}`);
-    return (songs || []).map((s: any) => ({
-      id: s.id,
-      title: s.title,
-      artistName: s.artist_name,
-      artistId: s.artist_id,
-      artworkUrl: s.artwork_url,
-      playCount: s.play_count ?? 0,
-      spotlightListenCount: s.spotlight_listen_count ?? 0,
-    }));
+    const withTotals = (songs || []).map((s: any) => {
+      const playCount = s.play_count ?? 0;
+      const profilePlayCount = s.profile_play_count ?? 0;
+      return {
+        id: s.id,
+        title: s.title,
+        artistName: s.artist_name,
+        artistId: s.artist_id,
+        artworkUrl: s.artwork_url,
+        likeCount: s.like_count ?? 0,
+        playCount,
+        profilePlayCount,
+        totalListenCount: playCount + profilePlayCount,
+        spotlightListenCount: s.spotlight_listen_count ?? 0,
+      } satisfies LeaderboardSong;
+    });
+    withTotals.sort((a, b) => (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) || (b.playCount ?? 0) - (a.playCount ?? 0));
+    return withTotals.slice(0, limit);
   }
 
   /**
@@ -200,6 +242,11 @@ export class LeaderboardService {
     if (error) {
       if (error.code === '23505') return { liked: true };
       throw new Error(`Failed to record leaderboard like: ${error.message}`);
+    }
+
+    if (playId) {
+      // Best-effort Rising Star: only emits once per play due to unique index.
+      void this.maybeEmitRisingStarForPlay(playId, songId);
     }
     return { liked: true };
   }

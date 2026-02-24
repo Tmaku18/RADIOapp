@@ -229,6 +229,33 @@ export class RadioService {
 
     const pinnedCatalysts = isAdminSong ? [] : await this.getPinnedCatalystsForSong(actualSongId);
 
+    // Current play id (for per-play voting). Prefer Redis; fallback to a DB lookup near started_at.
+    let playId: string | null = null;
+    try {
+      const info = await this.radioStateService.getCurrentPlayInfo();
+      if (info?.playId) {
+        playId = info.playId;
+      } else if (!isAdminSong && queueState.playedAt) {
+        const startedAtMs = new Date(queueState.playedAt).getTime();
+        if (Number.isFinite(startedAtMs)) {
+          const lowerIso = new Date(startedAtMs - 5000).toISOString();
+          const upperIso = new Date(startedAtMs + 5000).toISOString();
+          const { data: playRows } = await supabase
+            .from('plays')
+            .select('id')
+            .eq('song_id', actualSongId)
+            .gte('played_at', lowerIso)
+            .lte('played_at', upperIso)
+            .order('played_at', { ascending: false })
+            .limit(1);
+          playId = (playRows ?? [])[0]?.id ?? null;
+        }
+      }
+    } catch {
+      // Best-effort only; do not break radio.
+      playId = null;
+    }
+
     return {
       ...song,
       is_playing: true,
@@ -238,6 +265,7 @@ export class RadioService {
       position_seconds: Math.floor((now - startedAt) / 1000),
       is_live: isLive,
       pinned_catalysts: pinnedCatalysts,
+      play_id: playId,
     };
   }
 
@@ -246,6 +274,7 @@ export class RadioService {
    * Close to pure random with minor nudges:
    * - +0.1 weight for above-average credits (reward investment)
    * - +0.1 weight for not played in last hour (anti-repetition)
+   * - +0.1 weight for above-median popularity (plays+profile plays, with likes as tie-break)
    * - Exclude same artist as last played when possible (artist spacing)
    * - Max weight 1.2 (no song >20% more likely than another)
    */
@@ -259,6 +288,11 @@ export class RadioService {
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     const avgCredits = songs.reduce((sum, s) => sum + (s.credits_remaining || 0), 0) / songs.length;
 
+    const totals = songs
+      .map((s) => (s.play_count || 0) + (s.profile_play_count || 0))
+      .sort((a, b) => a - b);
+    const medianTotal = totals.length ? totals[Math.floor(totals.length / 2)] : 0;
+
     const weightedSongs = songs.map(song => {
       let weight = 1.0; // Base weight
 
@@ -268,12 +302,20 @@ export class RadioService {
       // +0.1 for not played recently
       if (!song.last_played_at || new Date(song.last_played_at) < oneHourAgo) weight += 0.1;
 
+      // +0.1 for above-median popularity (small nudge, capped below)
+      const totalListens = (song.play_count || 0) + (song.profile_play_count || 0);
+      if (totalListens > medianTotal || ((song.like_count || 0) > 0 && totalListens === medianTotal)) {
+        weight += 0.1;
+      }
+
       // Exclude current song to avoid immediate repeat
       if (song.id === currentSongId) weight = 0;
 
       // Artist spacing: strongly prefer a different artist than the one that just played
       if (lastPlayedArtistId != null && song.artist_id === lastPlayedArtistId) weight = 0;
 
+      // Cap weight to prevent domination
+      if (weight > 1.2) weight = 1.2;
       return { song, weight };
     });
 
