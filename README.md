@@ -1,56 +1,111 @@
-# Radio Streaming Platform
+# NETWORX — Live Radio & Creator Network for Independent Artists
 
-A full-stack radio streaming platform that democratizes music discovery by allowing underground and independent artists to upload their music and pay for airplay, while Prospectors (the audience) enjoy a continuous, curated stream of fresh tracks.
+**By artists, for artists.**
+
+NETWORX is a full-stack live radio platform and creator network built for underground and independent music. Artists upload tracks, fund airtime through credits, and get real-time exposure in a shared radio experience, while **Prospectors** (listeners) discover new music through a continuous curated stream, live reactions, and community engagement.
+
+## What NETWORX is
+
+NETWORX combines:
+- **Live radio streaming** (shared “everyone hears the same thing” playback)
+- **Artist infrastructure** (uploads, credits, analytics, notifications)
+- **Community engagement** (Ripples, live chat, reactions)
+- **Admin moderation tools** (approvals, rotation controls, user management)
+
+This is **not** an on-demand streaming app. NETWORX is built around a real-time radio experience with artist-first discovery.
 
 ## Purpose & Vision
 
-### The Problem
-Independent artists struggle to get their music heard through traditional channels. Radio stations are dominated by major labels, and streaming platforms bury new artists in algorithms. This platform bridges that gap by creating a pay-to-play model where artists can directly purchase airtime, ensuring their music reaches Prospectors (the audience).
+### The problem
+Independent artists struggle to get heard through traditional radio and algorithm-heavy streaming platforms. Exposure is inconsistent, gatekept, and often disconnected from real listener feedback.
 
-### The Solution
-- **For Artists**: Upload music, purchase credits, and get guaranteed airplay in a continuous radio stream
-- **For Prospectors** (listeners): Discover new music through a curated, continuous stream without ads or interruptions
-- **For Platform**: Sustainable revenue model through credit purchases (subscriptions planned)
+### The NETWORX approach
+NETWORX gives independent artists a direct path to exposure through a transparent, artist-first radio system:
 
-### Key Features
-- 🎵 **True Radio Experience**: Synchronized playback across all clients with LIVE indicator and soft pause (30s DVR buffer)
-- 🔄 **Continuous Playback**: Auto-advance with deterministic shuffle, no user-initiated skipping in UI (true radio style)
-- 🎤 **Artist Uploads**: Easy song upload with server-side duration validation (music-metadata)
-- 💳 **Credit System**: Advanced credit allocation with atomic PostgreSQL RPC transactions
-- 🏦 **Credit Bank**: Artists buy credits, then allocate to individual songs for airtime
-- 🆓 **Trial Rotation**: New approved songs get 3 free plays before requiring credits
-- 🔐 **Secure Authentication**: Firebase Auth with email, Google, and Apple sign-in
-- 💰 **Payment Processing**: Full Stripe integration with dual payment flows
-- ❤️ **Ripples** (like/unlike): Engage with your favorite tracks; each vote is a “ripple”
-- 💬 **Live Radio Chat**: Real-time chat with Supabase Realtime, emoji reactions, and smart scroll
-- 📲 **Push Notifications**: FCM integration with debounced "Up Next" (1 per 4hrs) and "Live Now" artist alerts
-- 📊 **Admin Dashboard**: Ore (song) moderation (approve/reject/delete), user management with lifetime ban, free rotation, fallback playlist (upload or add from ore database)
-- 📱 **Cross-Platform**: Mobile apps (iOS/Android), Web app, and Admin dashboard
-- 🔔 **Notifications**: In-app, email, and push notifications with soft delete
-- 🔍 **Observability**: Structured logging, request tracing, and Sentry error reporting
-- 📈 **Algorithm Transparency**: `play_decision_log` table for auditing song selection fairness
-- ⚡ **Scalable State**: Redis-backed radio state management for horizontal scaling
+- **For Artists:** Upload tracks, allocate credits, and earn airtime in a live station rotation with analytics and real-time audience signals
+- **For Prospectors (Listeners):** Discover new music through a continuous stream, live chat, and reactions
+- **For NETWORX:** Sustain the platform through credit purchases, premium tools, and future subscriptions
 
-### Recent Updates (February 2026)
-- **Web UI**: shadcn/ui components, Blue theme, dark mode toggle
-- **Web UI**: Left sidebar nav hover states updated to orange
-- **Admin Songs**: Delete songs (removes from DB + storage), sort by artist name
-- **Admin Songs**: Song durations no longer default to 3:00 for signed-upload songs (web now captures duration on upload; admin table can read audio metadata for legacy rows)
-- **Admin Users**: Lifetime ban / deactivate (deletes user data, blocks re-registration)
-- **Fallback**: Admin upload page and song database (add from free rotation)
-- **Mobile Player**: Landscape-first horizontal player layout with chat docked below (fits without scrolling)
-- **Discover Me pivot**: Discovery (list providers/artists with filters + search), Messages (DMs with Creator Network paywall), Job board (service requests + applications), Creator Network Stripe subscription (webhook + Profile upgrade), in-app + push notifications (new_message, job_application, content_liked)
-- **Leaderboards**: Competition page leaderboards use actual stats (by ripples/likes from `leaderboard_likes`, by plays from `songs.play_count`); The Wake "Top Performing Ore's" and summary cards use real analytics API data
-- **ROI dashboard**: Artist ROI formula + “Prospector Heatmap (by region)” proxy (profile clicks grouped by region)
-- **Trial by Fire**: Leaderboard ranking by upvotes/min within a window (default 60 minutes)
-- **Rising Star alerts**: When a song hits >= 5% conversion during its current play, a realtime `station_events` record is emitted; web and mobile show a “Butterfly Ripple” banner
-- **Catalyst deep-link credits**: `song_catalyst_credits` are surfaced during airtime as “Pinned credits” on the player (web + mobile)
-- **Venue ads**: Lightweight “Venue Partner” slot on the listen/player surfaces (`/venue-ads/current`)
-- **Credits Quick‑Buy**: “Add 5 Minutes” entry point (Stripe payment sheet / checkout depending on surface)
-- **PWA**: Web app manifest + service worker + offline fallback page (`/~offline`)
-- **Realtime visuals**: Live Ripple + Global Vote Map wired to realtime `likes` INSERT events (single channel fan-out hook)
-- **Mobile parity**: Systematic Glow theme, Spotify-like artist discography playback (unlimited), profile-listen tracking, and radio vote-once-per-play via `play_id`
-- **Mobile parity**: PRO‑NETWORX portal (directory + Sync‑Profile + profile builder) wired to `/pro-networx/*`
+## Quick Start (dev)
+
+### Prereqs
+- Node.js **22+**
+- Flutter SDK **3.38+**
+- Supabase project + keys
+- Firebase project + service account
+- Stripe account (for payments flows)
+
+### Fast path
+
+```bash
+docker compose up -d redis backend
+```
+
+```bash
+cd web && npm run dev
+```
+
+```bash
+cd mobile && flutter run
+```
+
+- **Backend**: `http://localhost:3000`
+- **Web**: `http://localhost:3001`
+- **Mobile**: emulator/device (see setup section for `API_BASE_URL`)
+
+## Core Platform Features
+
+- 🎵 **True Radio Experience** — synchronized playback across clients with LIVE indicator and radio-style controls
+- 🔄 **Continuous Playback** — auto-advance, deterministic shuffle, and no user-initiated skip in the core radio flow
+- 🎤 **Artist Uploads** — secure uploads with server-side validation and moderation workflows
+- 💳 **Credit System** — artists buy credits and allocate airtime to tracks (audited allocation + play decisions)
+- 🆓 **Trial Rotation** — newly approved tracks receive free trial plays before paid rotation
+- ❤️ **Ripples** — live likes/votes on tracks during airtime (vote-once-per-play on radio)
+- 💬 **Live Radio Chat** — real-time chat + reactions for shared listening
+- 📲 **Artist Notifications** — “Up Next” and “Live Now” push alerts via FCM
+- 📊 **Admin Tools** — moderation, free rotation management, fallback playlist, and user enforcement tools
+- 🔐 **Secure Auth + Payments** — Firebase Auth + Stripe (mobile + web payment flows)
+- ⚡ **Scalable Backend State** — Redis-backed radio state, listener counts, and realtime fan-out
+- 🔍 **Observability** — structured logs, request tracing, and Sentry error reporting
+
+## Product Status
+
+NETWORX is in active development with working web, mobile, and backend surfaces.
+
+- ✅ **Implemented**: available now
+- 🧪 **Beta / behind flag**: implemented but evolving
+- 🚧 **In progress**: under active development
+- 📌 **Planned**: not implemented yet
+
+### Latest highlights (Feb 2026)
+- ✅ Yield rewards: $5 / $10 Virtual Visa progress + idempotent redemptions
+- ✅ Nearby discovery + privacy toggle (discoverable/incognito)
+- ✅ Rising Star “Butterfly Ripple” realtime feedback (web pulse + mobile haptics/ripple)
+- ✅ PRO‑NETWORX portal (directory + profiles + builder) across web/mobile
+- 🧪 Trial-by-Fire window flag + Daily Diamond snapshots (backend cron + DB)
+
+See the full changelog at **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)**.
+
+## Ads, interruptions, and rotation rules (clarifications)
+
+- **No audio ads interrupt the live radio stream**. The core radio experience is continuous playback.
+- **Visual ads / sponsorships** can appear on web/mobile surfaces (e.g. “Venue Partner” slot).
+- **Artist pages / on-demand experiences** may include sponsorship placements (visual, and optionally audio on artist-owned playback surfaces).
+
+**Paid / priority rotation with transparent rules**
+- **Trial Rotation**: newly approved tracks get free trial plays before requiring credits.
+- **Paid Rotation (credits)**: artists fund airtime by allocating credits to tracks; the backend pre-charges atomically before play.
+- **Auditability**: `play_decision_log` + allocation/transaction tables exist to support transparency.
+
+## Policies (placeholders)
+
+NETWORX touches music rights, payments, and moderation. Before public release, add/confirm:
+
+- **Copyright / rights ownership**
+- **DMCA takedown process**
+- **Content moderation policy**
+- **Refund policy for credits/payments**
+- **Artist terms / listener terms**
 
 ### Branding & product terminology
 
@@ -62,9 +117,19 @@ User-facing copy uses the following terms. See **[docs/branding-terminology.md](
 | **Ripples** | Likes/votes on tracks | `likes` |
 | **The Wake** | Artist analytics report; tagline: *“The path left behind by a thousand Ripples.”* | analytics, stats |
 | **The Yield** | Prospector rewards balance and redemption | prospector yield tables |
-| **Ore's** | Tracks/songs | `song`, `songs` |
+| **Ores** | Tracks/songs | `song`, `songs` |
 
 API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_count`, role `listener`).
+
+## API auth cheat sheet
+
+- **Mobile + API clients**: send Firebase ID token as `Authorization: Bearer <token>` to `/api/*`.
+- **Web (SSR dashboard)**: uses HTTP-only session cookies created by `web/src/app/api/auth/login/route.ts` for server-rendered routes.
+
+### Legacy/internal naming (one-time note)
+- Repo/folder name: `RadioApp/`
+- Historical naming: “Discover Me” (pivot-era docs/notes)
+- Technical values remain stable for compatibility (e.g. role `listener`, `/songs`, `/likes`)
 
 ## Web ↔ Mobile Parity (Engine surfaces)
 
@@ -92,6 +157,15 @@ The product “Engine” pages now share the same look/feel and core behaviors a
 
 ### Technology Stack
 
+### Version compatibility
+
+| Component | Version |
+|----------|---------|
+| Node.js | 22+ |
+| NestJS | 11.x |
+| Next.js | 16.x |
+| Flutter | 3.38+ |
+
 - **Frontend (Mobile)**: Flutter app for iOS and Android
   - Cross-platform mobile development
   - Real-time audio streaming with `just_audio`
@@ -104,7 +178,7 @@ The product “Engine” pages now share the same look/feel and core behaviors a
   
 - **Frontend (Web)**: Next.js (App Router) web application
   - App Router with SSR/ISR for SEO-optimized marketing pages
-  - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with Blue theme, Raleway font
+  - shadcn/ui component library (Button, Card, Dialog, Table, etc.) with NETWORX “Systematic Glow” styling (Royal Amethyst accents)
   - Dark mode toggle via settings dropdown in dashboard
   - Client-side dashboards for Prospectors, artists, and admins
   - HTTP-only session cookies for secure SSR
@@ -850,7 +924,7 @@ Supabase Storage (Audio Files)
 - ✅ **My Songs page** with status, duration, credits, trial plays, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
 - ✅ **Notifications page** with unread indicator and delete functionality
-- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Ore's from real API)
+- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Ores from real API)
 - ✅ **Discover** (providers/artists with service type, location, search; link to profile and Messages)
 - ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
 - ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)
