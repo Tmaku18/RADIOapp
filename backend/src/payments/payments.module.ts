@@ -8,5 +8,6 @@ import { CreatorNetworkModule } from '../creator-network/creator-network.module'
   imports: [CreatorNetworkModule],
   controllers: [PaymentsController],
   providers: [PaymentsService, StripeService],
+  exports: [StripeService],
 })
 export class PaymentsModule {}

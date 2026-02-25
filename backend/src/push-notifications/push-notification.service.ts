@@ -18,12 +18,19 @@ interface Song {
   artist_name: string;
 }
 
+interface ArtistLiveFanoutDto {
+  artistId: string;
+  artistName: string;
+  sessionId: string;
+  songId?: string;
+}
+
 /**
  * Push Notification Service implementing Two-Stage Hybrid Pattern
- * 
+ *
  * Stage 1: "Up Next" Push (T-60s) with debounce
  * Stage 2: "Live Now" In-App Toast when song starts
- * 
+ *
  * Spam Prevention:
  * - 4-hour push notification cooldown per artist
  * - Daily limit of 6 push notifications
@@ -53,7 +60,9 @@ export class PushNotificationService {
     // Cancel any pending notification for this artist (debounce)
     if (this.pendingNotifications.has(artistId)) {
       clearTimeout(this.pendingNotifications.get(artistId));
-      this.logger.debug(`Cancelled pending notification for artist ${artistId}`);
+      this.logger.debug(
+        `Cancelled pending notification for artist ${artistId}`,
+      );
     }
 
     // Schedule notification after debounce period
@@ -63,7 +72,9 @@ export class PushNotificationService {
     }, this.DEBOUNCE_SECONDS * 1000);
 
     this.pendingNotifications.set(artistId, timeout);
-    this.logger.log(`Scheduled "Up Next" notification for "${song.title}" in ${this.DEBOUNCE_SECONDS}s`);
+    this.logger.log(
+      `Scheduled "Up Next" notification for "${song.title}" in ${this.DEBOUNCE_SECONDS}s`,
+    );
   }
 
   /**
@@ -82,11 +93,13 @@ export class PushNotificationService {
 
     const now = Date.now();
     const cooldownExpiry = cooldown?.last_push_sent_at
-      ? new Date(cooldown.last_push_sent_at).getTime() + this.COOLDOWN_HOURS * 60 * 60 * 1000
+      ? new Date(cooldown.last_push_sent_at).getTime() +
+        this.COOLDOWN_HOURS * 60 * 60 * 1000
       : 0;
 
     const isInCooldown = now < cooldownExpiry;
-    const isDailyLimitReached = (cooldown?.notification_count_today || 0) >= this.DAILY_PUSH_LIMIT;
+    const isDailyLimitReached =
+      (cooldown?.notification_count_today || 0) >= this.DAILY_PUSH_LIMIT;
 
     if (isInCooldown || isDailyLimitReached) {
       // Within cooldown or daily limit - in-app notification only
@@ -121,7 +134,10 @@ export class PushNotificationService {
       ? new Date(cooldown.last_push_sent_at).toDateString()
       : null;
 
-    const newCount = lastPushDate === today ? (cooldown?.notification_count_today || 0) + 1 : 1;
+    const newCount =
+      lastPushDate === today
+        ? (cooldown?.notification_count_today || 0) + 1
+        : 1;
 
     await supabase.from('artist_notification_cooldowns').upsert({
       artist_id: artistId,
@@ -129,7 +145,9 @@ export class PushNotificationService {
       notification_count_today: newCount,
     });
 
-    this.logger.log(`"Up Next" push sent to artist ${artistId} for "${song.title}"`);
+    this.logger.log(
+      `"Up Next" push sent to artist ${artistId} for "${song.title}"`,
+    );
   }
 
   /**
@@ -180,7 +198,9 @@ export class PushNotificationService {
       .in('device_type', ['ios', 'android']);
 
     if (error || !tokens || tokens.length === 0) {
-      this.logger.debug(`No mobile tokens for user ${dto.userId}, falling back to in-app`);
+      this.logger.debug(
+        `No mobile tokens for user ${dto.userId}, falling back to in-app`,
+      );
       await this.notificationService.create({
         userId: dto.userId,
         type: dto.data?.type || 'push_notification',
@@ -257,13 +277,21 @@ export class PushNotificationService {
    * After a song finishes: notify the artist "Your song has been played" with a link to view analytics.
    * Creates in-app notification and optionally sends push (with playId for deep link to stats).
    */
-  async sendSongPlayedNotification(dto: { artistId: string; songTitle: string; playId: string }) {
+  async sendSongPlayedNotification(dto: {
+    artistId: string;
+    songTitle: string;
+    playId: string;
+  }) {
     await this.notificationService.create({
       userId: dto.artistId,
       type: 'song_played',
       title: 'Your song has been played',
       message: `"${dto.songTitle}" just finished. Tap to see how it performed.`,
-      metadata: { playId: dto.playId, songTitle: dto.songTitle, action: 'open_stats' },
+      metadata: {
+        playId: dto.playId,
+        songTitle: dto.songTitle,
+        action: 'open_stats',
+      },
     });
 
     await this.sendPushNotification({
@@ -276,6 +304,95 @@ export class PushNotificationService {
         action: 'open_stats',
       },
     });
+  }
+
+  /**
+   * Prompt an artist to go live while their song is actively airing.
+   */
+  async sendGoLiveNudgeToArtist(dto: {
+    artistId: string;
+    songId: string;
+    songTitle: string;
+  }) {
+    await this.notificationService.create({
+      userId: dto.artistId,
+      type: 'artist_live_nudge',
+      title: 'Your song is live. Go live now?',
+      message: `"${dto.songTitle}" is on the radio. Start your stream now so listeners can join.`,
+      metadata: {
+        songId: dto.songId,
+        action: 'open_go_live',
+      },
+    });
+
+    await this.sendPushNotification({
+      userId: dto.artistId,
+      title: 'Go live while your song is playing',
+      body: `"${dto.songTitle}" is on-air now. Start a stream and bring listeners in.`,
+      data: {
+        type: 'artist_live_nudge',
+        songId: dto.songId,
+        action: 'open_go_live',
+      },
+    });
+  }
+
+  /**
+   * Notify currently active radio listeners that an artist just went live.
+   * Active listeners are approximated from heartbeat sessions in the last 2 minutes.
+   */
+  async notifyActiveListenersArtistLive(
+    dto: ArtistLiveFanoutDto,
+  ): Promise<{ notified: number }> {
+    const supabase = getSupabaseClient();
+    const cutoffIso = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+
+    const { data: rows, error } = await supabase
+      .from('prospector_sessions')
+      .select('user_id, last_heartbeat_at')
+      .is('ended_at', null)
+      .gte('last_heartbeat_at', cutoffIso);
+
+    if (error) {
+      this.logger.warn(
+        `Failed to load active listeners for live fanout: ${error.message}`,
+      );
+      return { notified: 0 };
+    }
+
+    const userIds = Array.from(
+      new Set(
+        (rows || []).map((r: any) => r.user_id as string).filter(Boolean),
+      ),
+    );
+    if (userIds.length === 0) {
+      return { notified: 0 };
+    }
+
+    const title = `${dto.artistName} is live now`;
+    const body =
+      'Join the livestream from the artist page while the track is on-air.';
+    let successCount = 0;
+
+    await Promise.allSettled(
+      userIds.map(async (userId) => {
+        const sent = await this.sendPushNotification({
+          userId,
+          title,
+          body,
+          data: {
+            type: 'artist_live_now',
+            artistId: dto.artistId,
+            sessionId: dto.sessionId,
+            songId: dto.songId || '',
+            action: 'open_artist_live',
+          },
+        });
+        if (sent) successCount += 1;
+      }),
+    );
+
+    return { notified: successCount };
   }
 
   /**

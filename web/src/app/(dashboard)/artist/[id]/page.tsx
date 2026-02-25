@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { usersApi, songsApi, spotlightApi, liveServicesApi, artistFollowsApi, serviceProvidersApi } from '@/lib/api';
+import { usersApi, songsApi, spotlightApi, liveServicesApi, artistFollowsApi, serviceProvidersApi, artistLiveApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -83,6 +83,13 @@ export default function ArtistProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [unlimitedBySong, setUnlimitedBySong] = useState<Record<string, { allowed: boolean; context?: string }>>({});
   const [liveServices, setLiveServices] = useState<Array<{ id: string; title: string; description?: string | null; type: string; scheduledAt?: string | null; linkOrPlace?: string | null }>>([]);
+  const [liveSession, setLiveSession] = useState<{
+    id: string;
+    status: 'starting' | 'live' | 'ended' | 'failed' | 'scheduled';
+    title?: string | null;
+    current_viewers?: number;
+  } | null>(null);
+  const [liveActionLoading, setLiveActionLoading] = useState(false);
   const [following, setFollowing] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>({});
@@ -162,6 +169,31 @@ export default function ArtistProfilePage() {
   }, [artistId, artist]);
 
   useEffect(() => {
+    if (!artistId || !artist || artist.role === 'service_provider') return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const load = async () => {
+      try {
+        const res = await artistLiveApi.getStatus(artistId);
+        if (!cancelled) {
+          setLiveSession(res.data?.session ?? null);
+        }
+      } catch {
+        if (!cancelled) setLiveSession(null);
+      } finally {
+        if (!cancelled) timer = setTimeout(load, 20000);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [artistId, artist]);
+
+  useEffect(() => {
     if (!artistId || !profile?.id || profile.id === artistId) return;
     if (artist?.role === 'service_provider') return;
     let ignore = false;
@@ -187,6 +219,41 @@ export default function ArtistProfilePage() {
       console.error(e);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const isSelfArtist =
+    !!profile?.id &&
+    profile.id === artistId &&
+    !!artist &&
+    (artist.role === 'artist' || artist.role === 'admin');
+  const isLiveNow = !!liveSession && (liveSession.status === 'starting' || liveSession.status === 'live');
+
+  const handleStartLive = async () => {
+    if (!isSelfArtist || liveActionLoading) return;
+    setLiveActionLoading(true);
+    try {
+      const res = await artistLiveApi.start({
+        title: `${artist.displayName ?? 'Artist'} Live`,
+      });
+      setLiveSession(res.data?.session ?? null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLiveActionLoading(false);
+    }
+  };
+
+  const handleStopLive = async () => {
+    if (!isSelfArtist || liveActionLoading) return;
+    setLiveActionLoading(true);
+    try {
+      await artistLiveApi.stop();
+      setLiveSession(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLiveActionLoading(false);
     }
   };
 
@@ -504,11 +571,37 @@ export default function ArtistProfilePage() {
             <AvatarFallback className="text-2xl">{(artist.displayName || 'A')[0].toUpperCase()}</AvatarFallback>
           </Avatar>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{artist.displayName ?? 'Artist'}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-2xl font-bold text-foreground">{artist.displayName ?? 'Artist'}</h1>
+              {isLiveNow && (
+                <Badge className="badge-live">Live now</Badge>
+              )}
+            </div>
             <p className="text-muted-foreground">Artist profile</p>
+            {isLiveNow && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {liveSession?.current_viewers ?? 0} watching
+              </p>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {isLiveNow && (
+            <Link href={`/watch/${artistId}`}>
+              <Button size="sm">Watch live</Button>
+            </Link>
+          )}
+          {isSelfArtist && (
+            isLiveNow ? (
+              <Button variant="destructive" size="sm" onClick={handleStopLive} disabled={liveActionLoading}>
+                {liveActionLoading ? 'Ending…' : 'End live'}
+              </Button>
+            ) : (
+              <Button size="sm" onClick={handleStartLive} disabled={liveActionLoading}>
+                {liveActionLoading ? 'Starting…' : 'Go live'}
+              </Button>
+            )
+          )}
           {profile?.id && profile.id !== artistId && (
             <Button variant={following ? 'secondary' : 'default'} size="sm" onClick={handleFollowToggle} disabled={followLoading}>
               {followLoading ? '…' : following ? 'Unfollow' : 'Follow'}

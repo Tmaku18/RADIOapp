@@ -164,6 +164,20 @@ export const liveServicesApi = {
     api.patch(`/live-services/${id}`, data),
   delete: (id: string) => api.delete(`/live-services/${id}`),
 };
+
+export const artistLiveApi = {
+  start: (data?: { title?: string; description?: string; category?: string }) =>
+    api.post('/artist-live/start', data ?? {}),
+  stop: () => api.post('/artist-live/stop'),
+  getStatus: (artistId: string) => api.get(`/artist-live/${artistId}/status`),
+  getWatch: (artistId: string) => api.get(`/artist-live/${artistId}/watch`),
+  join: (sessionId: string, data?: { source?: string }) =>
+    api.post(`/artist-live/${sessionId}/join`, data ?? {}),
+  createDonationIntent: (sessionId: string, data: { amountCents: number; message?: string }) =>
+    api.post(`/artist-live/${sessionId}/donations/intent`, data),
+  reportStream: (sessionId: string, reason: string) =>
+    api.post(`/artist-live/${sessionId}/report`, { reason }),
+};
 export const artistFollowsApi = {
   follow: (artistId: string) => api.post(`/artists/${artistId}/follow`),
   unfollow: (artistId: string) => api.delete(`/artists/${artistId}/follow`),

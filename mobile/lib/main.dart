@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:just_audio_background/just_audio_background.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/networx_theme.dart';
@@ -15,6 +16,7 @@ import 'features/upload/upload_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/payment/payment_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/livestream/watch_live_screen.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
 import 'widgets/require_artist.dart';
@@ -32,6 +34,12 @@ void main() async {
   // Theme mode persistence (System/Dark/Light). Default = Dark.
   final themeController = ThemeController();
   await themeController.load();
+
+  await JustAudioBackground.init(
+    androidNotificationChannelId: 'networx_radio_playback',
+    androidNotificationChannelName: 'NETWORX Radio Playback',
+    androidNotificationOngoing: true,
+  );
 
   // Initialize Stripe
   final stripePublishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
@@ -122,6 +130,10 @@ class _MyAppState extends State<MyApp> {
           nav.pushNamed('/analytics', arguments: {'playId': data['playId']});
         } else if (data['type'] == 'up_next' || data['type'] == 'live_now') {
           nav.pushNamed('/player');
+        } else if (data['type'] == 'artist_live_now' && data['artistId'] != null) {
+          nav.push(MaterialPageRoute(
+            builder: (_) => WatchLiveScreen(artistId: data['artistId'].toString()),
+          ));
         }
       };
     });

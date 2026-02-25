@@ -46,6 +46,11 @@ export function RadioPlayer() {
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
   const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
+  const [artistLiveNow, setArtistLiveNow] = useState<{
+    sessionId: string;
+    status: 'starting' | 'live';
+    currentViewers?: number;
+  } | null>(null);
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastVotedPlayIdRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
@@ -87,6 +92,7 @@ export function RadioPlayer() {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No ore's are currently available.");
+        setArtistLiveNow(null);
         setPinnedCatalysts([]);
         return;
       }
@@ -95,6 +101,7 @@ export function RadioPlayer() {
       setNoContent(false);
       setNoContentMessage(null);
       setIsLiveBroadcast(!!trackData?.is_live);
+      setArtistLiveNow(trackData?.artist_live_now ?? null);
       setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
       
       if (trackData && trackData.id) {
@@ -255,6 +262,7 @@ export function RadioPlayer() {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No ore's are currently available.");
+        setArtistLiveNow(null);
         setPinnedCatalysts([]);
         return;
       }
@@ -263,6 +271,7 @@ export function RadioPlayer() {
       setNoContent(false);
       setNoContentMessage(null);
       setIsLiveBroadcast(!!trackData?.is_live);
+      setArtistLiveNow(trackData?.artist_live_now ?? null);
       setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
       
       if (trackData && trackData.id) {
@@ -313,6 +322,7 @@ export function RadioPlayer() {
       if (msg) setNoContentMessage(msg);
       else setNoContentMessage("No ore's are currently available. Please try again later.");
       setNoContent(true);
+      setArtistLiveNow(null);
       setPinnedCatalysts([]);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
@@ -545,6 +555,15 @@ export function RadioPlayer() {
           >
             {state.currentTrack?.artistName || 'Unknown artist'}
           </button>
+          {artistLiveNow && state.currentTrack?.artistId && (
+            <div className="mt-2">
+              <Link href={`/watch/${state.currentTrack.artistId}`}>
+                <Button size="sm" variant="outline" className="h-7 text-xs">
+                  {artistLiveNow.status === 'starting' ? 'Stream starting…' : 'Join artist live'}
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {pinnedCatalysts.length > 0 && (
             <div className="mt-3 text-xs text-muted-foreground flex flex-col gap-1">

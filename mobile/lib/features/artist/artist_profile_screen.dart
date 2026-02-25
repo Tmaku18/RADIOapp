@@ -5,12 +5,17 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:audio_service/audio_service.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/services/livestream_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../livestream/go_live_screen.dart';
+import '../livestream/watch_live_screen.dart';
 
 class ArtistProfileScreen extends StatefulWidget {
   final String artistId;
@@ -22,7 +27,8 @@ class ArtistProfileScreen extends StatefulWidget {
 
 class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final SongsService _songs = SongsService();
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player = AudioPlayerService().player;
+  final LivestreamService _live = LivestreamService();
 
   bool _loading = true;
   String? _error;
@@ -33,6 +39,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final Map<String, bool> _likedBySongId = <String, bool>{};
   final Set<String> _recordedListenForSongIds = <String>{};
   Timer? _listenTimer;
+  Map<String, dynamic>? _liveSession;
+  bool _liveActionLoading = false;
 
   @override
   void initState() {
@@ -53,7 +61,6 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   @override
   void dispose() {
     _listenTimer?.cancel();
-    _player.dispose();
     super.dispose();
   }
 
@@ -75,11 +82,45 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         _tracks = tracks;
       });
       await _loadLikes();
+      await _loadLiveStatus();
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadLiveStatus() async {
+    try {
+      final data = await _live.getStatus(widget.artistId);
+      if (!mounted) return;
+      setState(() {
+        _liveSession = data?['session'] is Map<String, dynamic>
+            ? data!['session'] as Map<String, dynamic>
+            : null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _liveSession = null);
+    }
+  }
+
+  bool get _isLiveNow {
+    final status = _liveSession?['status']?.toString();
+    return status == 'starting' || status == 'live';
+  }
+
+  Future<void> _startLive() async {
+    setState(() => _liveActionLoading = true);
+    try {
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const GoLiveScreen()),
+      );
+      await _loadLiveStatus();
+    } finally {
+      if (mounted) setState(() => _liveActionLoading = false);
     }
   }
 
@@ -118,7 +159,17 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
 
     _listenTimer?.cancel();
-    await _player.setUrl(s.audioUrl);
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(s.audioUrl),
+        tag: MediaItem(
+          id: s.id,
+          title: s.title,
+          artist: s.artistName,
+          artUri: (s.artworkUrl ?? '').isNotEmpty ? Uri.tryParse(s.artworkUrl!) : null,
+        ),
+      ),
+    );
     await _player.play();
     if (!mounted) return;
     setState(() => _activeSongId = s.id);
@@ -204,6 +255,8 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     final a = _artist;
     final displayName = a?.displayName?.trim().isNotEmpty == true ? a!.displayName! : 'Artist';
     final headerArt = (a?.avatarUrl?.isNotEmpty == true) ? a!.avatarUrl! : null;
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final isLoggedIn = auth.currentUser != null;
 
     Widget glass({required Widget child}) {
       return ClipRRect(
@@ -286,8 +339,44 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             ),
                       ),
                     ),
+                    if (_isLiveNow)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(999),
+                            color: Colors.red.withValues(alpha: 0.15),
+                            border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+                          ),
+                          child: const Text('LIVE', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red)),
+                        ),
+                      ),
                   ],
                 ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  if (_isLiveNow)
+                    FilledButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => WatchLiveScreen(artistId: widget.artistId)),
+                        );
+                      },
+                      icon: const Icon(Icons.live_tv),
+                      label: const Text('Watch live'),
+                    ),
+                  if (_isLiveNow && isLoggedIn) const SizedBox(width: 10),
+                  if (isLoggedIn)
+                    OutlinedButton.icon(
+                      onPressed: _liveActionLoading ? null : _startLive,
+                      icon: const Icon(Icons.sensors),
+                      label: Text(_liveActionLoading ? 'Opening…' : 'Go live'),
+                    ),
+                ],
               ),
               if ((a?.bio ?? '').trim().isNotEmpty) ...[
                 const SizedBox(height: 12),

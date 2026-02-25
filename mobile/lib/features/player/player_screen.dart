@@ -7,12 +7,14 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:audio_service/audio_service.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/track.dart';
 import '../../core/models/track_fetch_result.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/station_events_service.dart';
@@ -30,7 +32,7 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderStateMixin {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
   final ApiService _api = ApiService();
@@ -170,7 +172,17 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   }
 
   Future<void> _loadAndPlay(Track track, TrackFetchResult result) async {
-    await _audioPlayer.setUrl(track.audioUrl);
+    await _audioPlayer.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(track.audioUrl),
+        tag: MediaItem(
+          id: track.id,
+          title: track.title,
+          artist: track.artistName,
+          artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty ? Uri.tryParse(track.artworkUrl!) : null,
+        ),
+      ),
+    );
     // Best-effort sync to server position if available.
     if (track.positionSeconds > 0) {
       await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
@@ -317,7 +329,6 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
-    _audioPlayer.dispose();
     _risingStarSub?.cancel();
     StationEventsService().stop();
     _rippleController.dispose();
