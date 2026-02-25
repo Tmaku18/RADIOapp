@@ -18,6 +18,13 @@ function formatUsdFromCents(cents: number): string {
   return `$${(Math.max(0, cents) / 100).toFixed(2)}`;
 }
 
+function safeRequestId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `req_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 export default function YieldPage() {
   const { profile } = useAuth();
   const isProspector = profile?.role === 'listener';
@@ -28,8 +35,10 @@ export default function YieldPage() {
   const [isRedeeming, setIsRedeeming] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const balanceCents = status?.balanceCents ?? 0;
+  const canRedeem5 = balanceCents >= 500;
   const canRedeem10 = (status?.balanceCents ?? 0) >= 1000;
-  const canRedeem25 = (status?.balanceCents ?? 0) >= 2500;
+  const canRedeem25 = balanceCents >= 2500;
 
   const tierLabel = useMemo(() => {
     const t = status?.tier ?? 'none';
@@ -59,7 +68,8 @@ export default function YieldPage() {
     setError(null);
     setSuccess(null);
     try {
-      const res = await prospectorApi.redeem({ amountCents, type });
+      const requestId = safeRequestId();
+      const res = await prospectorApi.redeem({ amountCents, type, requestId });
       const newBalanceCents = res.data?.newBalanceCents;
       setSuccess(`Redemption submitted. New balance: ${formatUsdFromCents(typeof newBalanceCents === 'number' ? newBalanceCents : (status?.balanceCents ?? 0) - amountCents)}.`);
       await refresh();
@@ -117,7 +127,7 @@ export default function YieldPage() {
             <div className="text-4xl font-bold text-primary mt-1">
               {loading ? '—' : formatUsdFromCents(status?.balanceCents ?? 0)}
             </div>
-            <div className="text-xs text-muted-foreground mt-2">Redeem at $10 / $25 thresholds.</div>
+            <div className="text-xs text-muted-foreground mt-2">Redeem at $5 / $10 (Virtual Visa).</div>
           </CardContent>
         </Card>
 
@@ -140,24 +150,24 @@ export default function YieldPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Redeem</CardTitle>
+          <CardTitle>Rewards Command Center</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <Button
+              disabled={loading || isRedeeming || !canRedeem5}
+              onClick={() => redeem(500, 'virtual_visa')}
+            >
+              Redeem $5 (Virtual Visa)
+            </Button>
             <Button
               disabled={loading || isRedeeming || !canRedeem10}
-              onClick={() => redeem(1000, 'merch')}
+              onClick={() => redeem(1000, 'virtual_visa')}
             >
-              Redeem $10 (Merch)
+              Redeem $10 (Virtual Visa)
             </Button>
             <Button
               variant="outline"
-              disabled={loading || isRedeeming || !canRedeem10}
-              onClick={() => redeem(1000, 'boost_credits')}
-            >
-              Redeem $10 (Boost credits)
-            </Button>
-            <Button
               disabled={loading || isRedeeming || !canRedeem25}
               onClick={() => redeem(2500, 'virtual_visa')}
             >
@@ -165,9 +175,9 @@ export default function YieldPage() {
             </Button>
           </div>
 
-          {!loading && !canRedeem10 && (
+          {!loading && !canRedeem5 && (
             <p className="text-sm text-muted-foreground">
-              Keep prospecting to reach the $10 threshold.
+              Keep prospecting to reach the $5 threshold.
             </p>
           )}
         </CardContent>

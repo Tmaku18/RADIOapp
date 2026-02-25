@@ -75,8 +75,8 @@ export const prospectorApi = {
     api.post('/prospector/refinement', data),
   submitSurvey: (data: { songId: string; playId?: string | null; responses: Record<string, unknown> }) =>
     api.post('/prospector/survey', data),
-  redeem: (data: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits' }) =>
-    api.post('/prospector/redeem', data),
+  redeem: (data: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits'; requestId?: string | null }) =>
+    api.post('/yield/redeem', data),
 };
 
 export const refineryApi = {

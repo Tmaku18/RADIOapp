@@ -13,6 +13,8 @@ import '../features/credits/credits_screen.dart';
 import '../features/pro_networx/pro_directory_screen.dart';
 import '../features/pro_networx/pro_me_profile_screen.dart';
 import '../features/refinery/refinery_screen.dart';
+import '../features/yield/yield_screen.dart';
+import '../features/nearby/nearby_people_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/models/user.dart' as app_user;
 
@@ -161,6 +163,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                 ),
+                if (!isArtist)
+                  ListTile(
+                    leading: const Icon(Icons.place_outlined),
+                    title: const Text('Nearby People'),
+                    subtitle: const Text('Discover service providers near you'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const NearbyPeopleScreen()),
+                      );
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.badge_outlined),
                   title: const Text('Build my PRO‑NETWORX profile'),
@@ -183,6 +198,19 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(builder: (_) => const RefineryScreen()),
+                      );
+                    },
+                  ),
+                if (!isArtist)
+                  ListTile(
+                    leading: const Icon(Icons.redeem_outlined),
+                    title: const Text('The Yield'),
+                    subtitle: const Text(r'Rewards Command Center ($5 / $10 Virtual Visa)'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const YieldScreen()),
                       );
                     },
                   ),

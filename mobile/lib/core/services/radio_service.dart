@@ -129,11 +129,13 @@ class RadioService {
   Future<Map<String, dynamic>?> redeem({
     required int amountCents,
     required String type, // 'virtual_visa' | 'merch' | 'boost_credits'
+    String? requestId,
   }) async {
     try {
-      final response = await _apiService.post('prospector/redeem', {
+      final response = await _apiService.post('yield/redeem', {
         'amountCents': amountCents,
         'type': type,
+        if (requestId != null) 'requestId': requestId,
       });
       if (response is Map<String, dynamic>) return response;
       return null;
