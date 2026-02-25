@@ -29,7 +29,7 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> {
+class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayer();
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
@@ -47,10 +47,16 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _quickBuying = false;
   String? _risingStarText;
   StreamSubscription? _risingStarSub;
+  bool _rippleActive = false;
+  late final AnimationController _rippleController;
 
   @override
   void initState() {
     super.initState();
+    _rippleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    );
     _loadMe();
     _loadInitialTrack();
     _loadVenueAd();
@@ -61,6 +67,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       setState(() {
         _risingStarText = '${event.artistName} just hit $percent% conversion on “${event.songTitle}”.';
       });
+      HapticFeedback.heavyImpact();
+      _triggerButterflyRipple();
       Future.delayed(const Duration(seconds: 8), () {
         if (!mounted) return;
         setState(() => _risingStarText = null);
@@ -312,7 +320,19 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _audioPlayer.dispose();
     _risingStarSub?.cancel();
     StationEventsService().stop();
+    _rippleController.dispose();
     super.dispose();
+  }
+
+  void _triggerButterflyRipple() {
+    if (!mounted) return;
+    _rippleController.stop();
+    _rippleController.reset();
+    setState(() => _rippleActive = true);
+    _rippleController.forward().whenComplete(() {
+      if (!mounted) return;
+      setState(() => _rippleActive = false);
+    });
   }
 
   void _openRoom() {
@@ -350,32 +370,118 @@ class _PlayerScreenState extends State<PlayerScreen> {
             ),
           ],
         ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : _noContent
-                ? _NoContent(
-                    message: _noContentMessage,
-                    onRetry: _loadInitialTrack,
-                  )
-                : _currentTrack == null
-                    ? const Center(child: Text('No track playing'))
-                    : _PlayerBody(
-                        track: _currentTrack!,
-                        risingStarText: _risingStarText,
-                        ad: _ad,
-                        canQuickBuy: _canQuickBuy,
-                        quickBuying: _quickBuying,
-                        onQuickBuy: _quickBuyFivePlays,
-                        isPlaying: _isPlaying,
-                        hasVoted: _hasVoted,
-                        isVoting: _isVoting,
-                        canVote: (_currentTrack?.playId ?? '').isNotEmpty,
-                        onVote: _vote,
-                        onPlayPause: _togglePlayPause,
-                        onEnterRoom: _openRoom,
-                        audioPlayer: _audioPlayer,
-                      ),
+        body: Stack(
+          children: [
+            _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _noContent
+                    ? _NoContent(
+                        message: _noContentMessage,
+                        onRetry: _loadInitialTrack,
+                      )
+                    : _currentTrack == null
+                        ? const Center(child: Text('No track playing'))
+                        : _PlayerBody(
+                            track: _currentTrack!,
+                            risingStarText: _risingStarText,
+                            ad: _ad,
+                            canQuickBuy: _canQuickBuy,
+                            quickBuying: _quickBuying,
+                            onQuickBuy: _quickBuyFivePlays,
+                            isPlaying: _isPlaying,
+                            hasVoted: _hasVoted,
+                            isVoting: _isVoting,
+                            canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                            onVote: _vote,
+                            onPlayPause: _togglePlayPause,
+                            onEnterRoom: _openRoom,
+                            audioPlayer: _audioPlayer,
+                          ),
+            if (_rippleActive)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: _ButterflyRippleOverlay(
+                    progress: _rippleController,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _ButterflyRippleOverlay extends StatelessWidget {
+  const _ButterflyRippleOverlay({required this.progress});
+
+  final Animation<double> progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final cyan = NetworxTokens.electricCyan;
+    final lime = NetworxTokens.radioactiveLime;
+    return AnimatedBuilder(
+      animation: progress,
+      builder: (context, _) {
+        final t = Curves.easeOut.transform(progress.value.clamp(0.0, 1.0));
+        final a1 = (1.0 - t) * 0.55;
+        final a2 = (1.0 - t) * 0.38;
+        final scale = 0.85 + (t * 0.35);
+
+        return Container(
+          color: Colors.transparent,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Opacity(
+                  opacity: (1.0 - t) * 0.35,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(
+                        center: const Alignment(0, -0.1),
+                        radius: 1.0,
+                        colors: [
+                          cyan.withValues(alpha: a1),
+                          lime.withValues(alpha: a2),
+                          scheme.surface.withValues(alpha: 0.0),
+                        ],
+                        stops: const [0.0, 0.35, 0.8],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: Transform.scale(
+                  scale: scale,
+                  child: Container(
+                    width: 360,
+                    height: 360,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(color: cyan.withValues(alpha: (1.0 - t) * 0.22)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: cyan.withValues(alpha: (1.0 - t) * 0.28),
+                          blurRadius: 80,
+                          spreadRadius: 18,
+                        ),
+                        BoxShadow(
+                          color: lime.withValues(alpha: (1.0 - t) * 0.18),
+                          blurRadius: 140,
+                          spreadRadius: 10,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

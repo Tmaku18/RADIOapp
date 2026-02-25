@@ -25,6 +25,44 @@ const THRESHOLD_EXIT_PAID = parseInt(process.env.THRESHOLD_EXIT_PAID || '3', 10)
 // Checkpoint frequency: save position to database every N songs during free rotation
 const CHECKPOINT_INTERVAL = parseInt(process.env.CHECKPOINT_INTERVAL || '5', 10);
 
+// Trial-by-Fire window (daily, UTC)
+// Defaults: off unless TRIAL_BY_FIRE_START_UTC is set.
+// Format: "HH:MM" (24h)
+const TRIAL_BY_FIRE_START_UTC = (process.env.TRIAL_BY_FIRE_START_UTC || '').trim();
+const TRIAL_BY_FIRE_DURATION_MIN = parseInt(process.env.TRIAL_BY_FIRE_DURATION_MIN || '0', 10);
+
+function parseUtcHm(hm: string): { h: number; m: number } | null {
+  const m = hm.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const h = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  if (!Number.isFinite(h) || !Number.isFinite(mm)) return null;
+  if (h < 0 || h > 23) return null;
+  if (mm < 0 || mm > 59) return null;
+  return { h, m: mm };
+}
+
+function isTrialByFireActiveAt(now: Date): { active: boolean; windowStart: Date | null; windowEnd: Date | null } {
+  const start = parseUtcHm(TRIAL_BY_FIRE_START_UTC);
+  const durationMin = Number.isFinite(TRIAL_BY_FIRE_DURATION_MIN) ? TRIAL_BY_FIRE_DURATION_MIN : 0;
+  if (!start || durationMin <= 0) return { active: false, windowStart: null, windowEnd: null };
+
+  const y = now.getUTCFullYear();
+  const mo = now.getUTCMonth();
+  const d = now.getUTCDate();
+
+  const windowStart = new Date(Date.UTC(y, mo, d, start.h, start.m, 0, 0));
+  const windowEnd = new Date(windowStart.getTime() + durationMin * 60 * 1000);
+
+  // If now is before start, window is not active (today). If after end, not active.
+  const t = now.getTime();
+  return {
+    active: t >= windowStart.getTime() && t < windowEnd.getTime(),
+    windowStart,
+    windowEnd,
+  };
+}
+
 /**
  * Simple seeded random number generator (Mulberry32).
  * Produces deterministic sequence for reproducible shuffles.
@@ -175,6 +213,7 @@ export class RadioService {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const isLive = await this.isLiveBroadcastActive();
+    const trial = isTrialByFireActiveAt(new Date(now));
 
     const queueState = await this.getQueueState();
     
@@ -264,6 +303,7 @@ export class RadioService {
       time_remaining_ms: timeRemainingMs,
       position_seconds: Math.floor((now - startedAt) / 1000),
       is_live: isLive,
+      trial_by_fire_active: trial.active,
       pinned_catalysts: pinnedCatalysts,
       play_id: playId,
     };
@@ -731,6 +771,7 @@ export class RadioService {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const isLive = await this.isLiveBroadcastActive();
+    const trial = isTrialByFireActiveAt(new Date(now));
 
     const currentState = await this.getQueueState();
     
@@ -774,6 +815,7 @@ export class RadioService {
             is_fallback: currentState.isFallback,
             is_admin_fallback: currentState.isAdminFallback,
             is_live: isLive,
+            trial_by_fire_active: trial.active,
             pinned_catalysts: pinnedCatalysts,
           };
         }
@@ -817,21 +859,21 @@ export class RadioService {
       const creditedResult = await this.getCreditedSong(currentSongId, lastPlayedArtistId);
       if (creditedResult) {
         const result = await this.playCreditedSong(creditedResult.song, creditedResult.competingSongs);
-        if (result) return { ...result, is_live: isLive };
+        if (result) return { ...result, is_live: isLive, trial_by_fire_active: trial.active };
       }
 
       // Try trial songs (3 free plays), with artist spacing
       const trialResult = await this.getTrialSong(currentSongId, lastPlayedArtistId);
       if (trialResult) {
         const result = await this.playTrialSong(trialResult.song, trialResult.competingSongs);
-        if (result) return { ...result, is_live: isLive };
+        if (result) return { ...result, is_live: isLive, trial_by_fire_active: trial.active };
       }
 
       // Try opt-in songs (free rotation opt-in), with artist spacing
       const optInResult = await this.getOptInSong(currentSongId, lastPlayedArtistId);
       if (optInResult) {
         const result = await this.playOptInSong(optInResult.song, optInResult.competingSongs);
-        if (result) return { ...result, is_live: isLive };
+        if (result) return { ...result, is_live: isLive, trial_by_fire_active: trial.active };
       }
 
       // No credited, trial, or opt-in songs available - fall back to free rotation
@@ -848,12 +890,12 @@ export class RadioService {
       const position = await this.radioStateService.getFallbackPosition();
       await this.radioStateService.checkpointPosition(position + 1);
 
-      return { ...result, is_live: isLive };
+      return { ...result, is_live: isLive, trial_by_fire_active: trial.active };
     }
 
     // No content available
     this.logger.warn('No songs available for playback - free rotation table is empty');
-    return { ...this.buildNoContentResponse(), is_live: isLive };
+    return { ...this.buildNoContentResponse(), is_live: isLive, trial_by_fire_active: trial.active };
   }
 
   /**

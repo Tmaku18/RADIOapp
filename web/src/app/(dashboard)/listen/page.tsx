@@ -8,6 +8,7 @@ import ChatSidebar from '@/components/chat/ChatSidebar';
 import { VenueAdSlot } from '@/components/radio/VenueAdSlot';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -24,6 +25,7 @@ export default function ListenPage() {
   const [showChat, setShowChat] = useState(true);
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
+  const [pulseActive, setPulseActive] = useState(false);
 
   const handleAmplifyClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -50,6 +52,8 @@ export default function ListenPage() {
             title: 'Rising Star',
             body: `${artistName} just hit ${conversion != null ? (conversion * 100).toFixed(1) : '5'}% conversion on “${songTitle}”.`,
           });
+          setPulseActive(true);
+          setTimeout(() => setPulseActive(false), 1100);
           setTimeout(() => setRisingStar(null), 8000);
         },
       )
@@ -62,6 +66,7 @@ export default function ListenPage() {
 
   return (
     <div className="flex min-h-0 flex-1">
+      <ButterflyPulseOverlay active={pulseActive} />
       <div className="flex-1 min-h-0 overflow-y-auto p-8">
         <div className="min-h-full flex flex-col items-center justify-center">
         <div className="max-w-lg w-full">
