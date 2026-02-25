@@ -36,7 +36,7 @@ export class ProspectorController {
   @Post('redeem')
   async redeem(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits' }
+    @Body() body: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits'; requestId?: string | null }
   ) {
     return this.prospectorYieldService.redeem(user.uid, body);
   }

@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { randomUUID } from 'crypto';
 
 type ProspectorTier = 'none' | 'copper' | 'silver' | 'gold' | 'diamond';
 
@@ -369,57 +370,53 @@ export class ProspectorYieldService {
     return { submitted: true, creditedCents };
   }
 
-  async redeem(firebaseUid: string, body: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits' }) {
+  async redeem(
+    firebaseUid: string,
+    body: { amountCents: number; type: 'virtual_visa' | 'merch' | 'boost_credits'; requestId?: string | null },
+  ) {
     const { id: userId, role } = await this.getUserByFirebaseUid(firebaseUid);
     if (role !== 'listener') throw new BadRequestException('Only Prospectors can redeem Yield');
 
     const amount = body.amountCents;
     if (!Number.isInteger(amount) || amount <= 0) throw new BadRequestException('amountCents must be a positive integer');
-    if (amount !== 1000 && amount !== 2500) throw new BadRequestException('amountCents must be 1000 ($10) or 2500 ($25)');
-
-    if (body.type === 'virtual_visa' && amount < 2500) {
-      throw new BadRequestException('Virtual Visa redemptions require $25 (2500 cents)');
+    if (body.type === 'virtual_visa') {
+      if (amount !== 500 && amount !== 1000 && amount !== 2500) {
+        throw new BadRequestException('amountCents must be 500 ($5), 1000 ($10), or 2500 ($25) for Virtual Visa');
+      }
+    } else {
+      if (amount !== 1000 && amount !== 2500) throw new BadRequestException('amountCents must be 1000 ($10) or 2500 ($25)');
     }
+    const now = new Date().toISOString();
 
     await this.ensureYieldRow(userId);
     const supabase = getSupabaseClient();
-    const now = new Date().toISOString();
 
-    const { data: yieldRow, error: yErr } = await supabase
-      .from('prospector_yield')
-      .select('balance_cents, total_redeemed_cents')
-      .eq('user_id', userId)
-      .single();
-    if (yErr || !yieldRow) throw new BadRequestException('Failed to load Yield');
+    const requestId = (body.requestId ?? '').trim() || randomUUID();
+    const { data, error } = await supabase.rpc('redeem_prospector_yield', {
+      p_user_id: userId,
+      p_amount_cents: amount,
+      p_type: body.type,
+      p_request_id: requestId,
+    });
 
-    const balance = yieldRow.balance_cents ?? 0;
-    if (balance < amount) throw new BadRequestException('Insufficient Yield balance');
+    if (error) {
+      const msg = error.message || 'Redemption failed';
+      if (msg.toLowerCase().includes('already pending')) {
+        throw new BadRequestException('A redemption is already pending. Please wait for admin review.');
+      }
+      if (msg.toLowerCase().includes('function redeem_prospector_yield')) {
+        throw new BadRequestException('Yield redemption is unavailable until the latest database migration is applied.');
+      }
+      throw new BadRequestException(`Redemption failed: ${msg}`);
+    }
 
-    const { error: upErr } = await supabase
-      .from('prospector_yield')
-      .update({
-        balance_cents: balance - amount,
-        total_redeemed_cents: (yieldRow.total_redeemed_cents ?? 0) + amount,
-        updated_at: now,
-      })
-      .eq('user_id', userId);
-    if (upErr) throw new BadRequestException(`Failed to redeem Yield: ${upErr.message}`);
-
-    const { data: redemption, error: rErr } = await supabase
-      .from('prospector_redemptions')
-      .insert({
-        user_id: userId,
-        amount_cents: amount,
-        type: body.type,
-        status: 'pending',
-        created_at: now,
-        updated_at: now,
-      })
-      .select('id')
-      .single();
-    if (rErr || !redemption) throw new BadRequestException(`Failed to create redemption: ${rErr?.message || 'unknown'}`);
-
-    return { redeemed: true, redemptionId: redemption.id, newBalanceCents: balance - amount };
+    const row = Array.isArray(data) ? (data[0] as any) : (data as any);
+    return {
+      redeemed: true,
+      redemptionId: row?.redemption_id ?? row?.redemptionId ?? null,
+      newBalanceCents: row?.new_balance_cents ?? row?.newBalanceCents ?? null,
+      requestId,
+    };
   }
 }
 
