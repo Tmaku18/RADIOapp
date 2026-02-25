@@ -19,6 +19,7 @@ export interface UserResponse {
   bio?: string | null;
   headline?: string | null;
   locationRegion?: string | null;
+  discoverable?: boolean;
 }
 
 function transformUser(data: any): UserResponse {
@@ -35,6 +36,7 @@ function transformUser(data: any): UserResponse {
     bio: data.bio ?? null,
     headline: data.headline ?? null,
     locationRegion: data.location_region ?? null,
+    discoverable: data.discoverable ?? true,
   };
 }
 
@@ -181,6 +183,7 @@ export class UsersService {
     if (updateUserDto.bio !== undefined) updatePayload.bio = updateUserDto.bio;
     if (updateUserDto.headline !== undefined) updatePayload.headline = updateUserDto.headline;
     if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
+    if (updateUserDto.discoverable !== undefined) updatePayload.discoverable = updateUserDto.discoverable;
 
     const { data, error } = await supabase
       .from('users')

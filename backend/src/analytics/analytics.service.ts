@@ -105,7 +105,7 @@ export class AnalyticsService {
     // We don't currently store geo on plays, so we use profile clicks as a proxy for "where listeners engaged from".
     const { data, error } = await supabase
       .from('profile_clicks')
-      .select('user_id, users(region, location_region)')
+      .select('user_id, users(region, location_region, discoverable)')
       .eq('artist_id', artistId)
       .gte('created_at', startIso)
       .limit(5000);
@@ -117,11 +117,12 @@ export class AnalyticsService {
 
     const rows = (data ?? []) as Array<{
       user_id: string;
-      users?: { region?: string | null; location_region?: string | null } | null;
+      users?: { region?: string | null; location_region?: string | null; discoverable?: boolean | null } | null;
     }>;
 
     const counts = new Map<string, number>();
     for (const r of rows) {
+      if (r.users?.discoverable === false) continue;
       const region = r.users?.region ?? r.users?.location_region ?? 'Unknown';
       counts.set(region, (counts.get(region) ?? 0) + 1);
     }

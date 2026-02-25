@@ -34,4 +34,9 @@ export class UpdateUserDto {
   @IsString()
   @IsOptional()
   locationRegion?: string;
+
+  /** Whether user is discoverable in heatmap/nearby */
+  @IsBoolean()
+  @IsOptional()
+  discoverable?: boolean;
 }

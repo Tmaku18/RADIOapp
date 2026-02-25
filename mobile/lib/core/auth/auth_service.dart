@@ -222,6 +222,16 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<void> refreshIdToken({bool forceRefresh = true}) async {
+    if (_auth == null || _auth!.currentUser == null) return;
+    try {
+      final token = await _auth!.currentUser!.getIdToken(forceRefresh);
+      _apiService.setAuthToken(token);
+    } catch (e) {
+      debugPrint('Error refreshing ID token: $e');
+    }
+  }
+
   /// Request an upgrade to artist status (web parity: POST /users/upgrade-to-artist).
   Future<void> requestArtistUpgrade() async {
     if (_auth == null || _auth!.currentUser == null) {

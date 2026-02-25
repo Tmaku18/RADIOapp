@@ -106,6 +106,7 @@ export class DiscoveryService {
       .from('users')
       .select('id, display_name, headline, avatar_url, bio, location_region, role, created_at', { count: 'exact' })
       .in('role', ['artist', 'service_provider'])
+      .eq('discoverable', true)
       .eq('is_banned', false);
 
     if (params.role === 'artist') userQuery = userQuery.eq('role', 'artist');
