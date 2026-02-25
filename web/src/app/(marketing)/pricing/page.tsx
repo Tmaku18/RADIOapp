@@ -5,11 +5,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
-  title: 'Pricing - RadioApp',
-  description: 'Simple, transparent pricing for gems. Listeners always free.',
+  title: 'Pricing - Networx',
+  description: 'Simple, transparent Networx pricing for artists and free listening for Prospectors, plus access to ProNetworx opportunities.',
 };
 
 export const revalidate = 3600;
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
 
 const creditPackages = [
   {
@@ -48,7 +49,7 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-muted-foreground">
-            Listening is always free. Gems pay only for promotion.
+            Listening stays free. Artists pay only when they want additional promotion.
           </p>
         </div>
 
@@ -58,7 +59,7 @@ export default function PricingPage() {
             <CardContent className="pt-8 pb-8 text-center">
               <h2 className="text-2xl font-bold mb-4">For Listeners</h2>
               <div className="text-5xl font-bold mb-2">Free</div>
-              <p className="text-primary-foreground/80 mb-6">Forever. No ads. No limits.</p>
+              <p className="text-primary-foreground/80 mb-6">Forever. No intrusive ads. No hidden limits.</p>
               <ul className="text-left max-w-md mx-auto space-y-3 mb-8">
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -66,7 +67,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Send ripples (likes) and like tracks
+                  Send ripples and votes during live discovery
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -74,7 +75,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Web and mobile access
+                  Artist livestream viewing and chat access
                 </li>
               </ul>
               <Button variant="secondary" size="lg" asChild>
@@ -91,7 +92,7 @@ export default function PricingPage() {
           </h2>
           <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
             Credits are used to promote your tracks in our radio rotation. 
-            One credit = one play to a real listener. No bots, no fake streams.
+            One credit equals one play to a real listener. No bots, no fake streams, and your tracks can still receive organic plays.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -120,6 +121,22 @@ export default function PricingPage() {
               </Card>
             ))}
           </div>
+        </div>
+
+        <div className="mt-16">
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-8 text-center">
+              <h3 className="text-2xl font-semibold text-foreground mb-3">ProNetworx Access</h3>
+              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                Need collaborators, producers, photographers, or mentors? ProNetworx helps artists connect with trusted professionals and build momentum beyond plays.
+              </p>
+              <Button variant="outline" size="lg" asChild>
+                <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                  Open ProNetworx
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* FAQ Link */}

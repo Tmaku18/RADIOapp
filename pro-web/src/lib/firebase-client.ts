@@ -24,14 +24,41 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase (singleton pattern)
-let app: FirebaseApp;
-let auth: Auth;
-let googleProvider: GoogleAuthProvider;
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let googleProvider: GoogleAuthProvider | null = null;
+
+function isUsableFirebaseConfig(config: typeof firebaseConfig): boolean {
+  const required = [
+    config.apiKey,
+    config.authDomain,
+    config.projectId,
+    config.appId,
+  ];
+  if (required.some((value) => !value || value.includes('YOUR_'))) {
+    return false;
+  }
+
+  // Firebase web API keys are non-secret but must be present and plausible.
+  return Boolean(config.apiKey && config.apiKey.length >= 20);
+}
 
 if (typeof window !== 'undefined') {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  auth = getAuth(app);
-  googleProvider = new GoogleAuthProvider();
+  if (isUsableFirebaseConfig(firebaseConfig)) {
+    try {
+      app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      auth = getAuth(app);
+      googleProvider = new GoogleAuthProvider();
+    } catch (error) {
+      // Keep app usable for non-auth pages when Firebase env vars are invalid.
+      console.warn('Firebase client initialization skipped:', error);
+      app = null;
+      auth = null;
+      googleProvider = null;
+    }
+  } else {
+    console.warn('Firebase client configuration missing or invalid. Auth features are disabled until NEXT_PUBLIC_FIREBASE_* vars are set.');
+  }
 }
 
 // Auth helper functions

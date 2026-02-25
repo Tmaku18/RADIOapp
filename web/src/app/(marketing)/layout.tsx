@@ -62,9 +62,9 @@ export default function MarketingLayout({
               <Button variant="ghost" asChild>
                 <Link href="/pro-directory">Pro-Directory</Link>
               </Button>
-              <Button variant="ghost" asChild>
+              <Button asChild className="bg-networx text-black hover:opacity-90">
                 <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-                  PRO-NETWORX
+                  ProNetworx
                 </a>
               </Button>
               <Button variant="ghost" asChild>
@@ -134,7 +134,7 @@ export default function MarketingLayout({
                 <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
                 <li>
                   <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground transition-colors">
-                    PRO-NETWORX
+                    ProNetworx
                   </a>
                 </li>
               </ul>

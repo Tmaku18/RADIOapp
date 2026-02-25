@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Delete, Body, Query, Logger } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Query,
+  Logger,
+} from '@nestjs/common';
 import { RadioService } from './radio.service';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -21,7 +29,10 @@ export class RadioController {
     try {
       return await this.radioService.getCurrentTrack();
     } catch (err) {
-      this.logger.warn(`getCurrentTrack failed: ${err?.message || err}`, err?.stack);
+      this.logger.warn(
+        `getCurrentTrack failed: ${err?.message || err}`,
+        err?.stack,
+      );
       const message = err?.message || 'Radio unavailable';
       return { no_content: true, message };
     }
@@ -42,7 +53,7 @@ export class RadioController {
   @Post('heartbeat')
   async heartbeat(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { streamToken?: string; songId: string; timestamp?: string }
+    @Body() body: { streamToken?: string; songId: string; timestamp?: string },
   ) {
     return this.prospectorYieldService.recordHeartbeat(user.uid, body);
   }

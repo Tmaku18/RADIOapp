@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
+
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -67,8 +69,22 @@ export default function ContactPage() {
     <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 className="text-4xl font-bold text-foreground mb-4">Contact Us</h1>
       <p className="text-xl text-muted-foreground mb-8">
-        Have a question or feedback? We&apos;d love to hear from you.
+        Have a question, partnership idea, or support request? We&apos;d love to hear from you.
       </p>
+
+      <Card className="mb-8 border-primary/30 bg-primary/5">
+        <CardContent className="pt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Looking for ProNetworx?</h2>
+          <p className="text-muted-foreground mb-4">
+            If you are seeking mentors, collaborators, or service providers for your artist journey, you can explore ProNetworx directly.
+          </p>
+          <Button variant="outline" asChild>
+            <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+              Open ProNetworx
+            </Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">
@@ -115,6 +131,7 @@ export default function ContactPage() {
                   <SelectItem value="payments">Billing & Payments</SelectItem>
                   <SelectItem value="feedback">Feedback</SelectItem>
                   <SelectItem value="partnership">Partnership</SelectItem>
+                  <SelectItem value="pronetworx">ProNetworx / Mentorship</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -143,7 +160,7 @@ export default function ContactPage() {
         <Card>
           <CardContent className="pt-6">
             <h3 className="font-semibold text-foreground mb-2">Email</h3>
-            <p className="text-muted-foreground">support@radioapp.com</p>
+            <p className="text-muted-foreground">support@networx.fm</p>
           </CardContent>
         </Card>
         <Card>

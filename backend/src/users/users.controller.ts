@@ -54,7 +54,8 @@ export class UsersController {
     try {
       return await this.usersService.updateUser(user.uid, updateUserDto);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update profile';
+      const message =
+        err instanceof Error ? err.message : 'Failed to update profile';
       throw new BadRequestException(message);
     }
   }
@@ -73,7 +74,9 @@ export class UsersController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
-      throw new BadRequestException('No file uploaded. Send a file in the "file" field.');
+      throw new BadRequestException(
+        'No file uploaded. Send a file in the "file" field.',
+      );
     }
     return this.usersService.updateAvatar(user.uid, file);
   }

@@ -37,7 +37,10 @@ export interface ArtistAnalytics {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
-  async getRoiForArtist(artistId: string, days: number = 30): Promise<{
+  async getRoiForArtist(
+    artistId: string,
+    days: number = 30,
+  ): Promise<{
     days: number;
     newFollowers: number;
     creditsSpentInWindow: number;
@@ -61,7 +64,10 @@ export class AnalyticsService {
       .select('id, duration_seconds')
       .eq('artist_id', artistId);
 
-    const songList = (songs ?? []) as Array<{ id: string; duration_seconds: number | null }>;
+    const songList = (songs ?? []) as Array<{
+      id: string;
+      duration_seconds: number | null;
+    }>;
     if (songList.length === 0) {
       return {
         days,
@@ -85,8 +91,14 @@ export class AnalyticsService {
       .gte('played_at', startIso);
 
     const playRows = (plays ?? []) as Array<{ song_id: string }>;
-    const creditsSpentInWindow = playRows.reduce((sum, p) => sum + (creditsPerPlayBySongId.get(p.song_id) ?? 0), 0);
-    const roi = creditsSpentInWindow > 0 ? ((newFollowers ?? 0) / creditsSpentInWindow) * 100 : null;
+    const creditsSpentInWindow = playRows.reduce(
+      (sum, p) => sum + (creditsPerPlayBySongId.get(p.song_id) ?? 0),
+      0,
+    );
+    const roi =
+      creditsSpentInWindow > 0
+        ? ((newFollowers ?? 0) / creditsSpentInWindow) * 100
+        : null;
 
     return {
       days,
@@ -96,7 +108,10 @@ export class AnalyticsService {
     };
   }
 
-  async getPlaysByRegionForArtist(artistId: string, days: number = 30): Promise<Array<{ region: string; count: number }>> {
+  async getPlaysByRegionForArtist(
+    artistId: string,
+    days: number = 30,
+  ): Promise<Array<{ region: string; count: number }>> {
     const supabase = getSupabaseClient();
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
@@ -111,13 +126,19 @@ export class AnalyticsService {
       .limit(5000);
 
     if (error) {
-      this.logger.warn(`Failed to load plays-by-region proxy for artist ${artistId}: ${error.message}`);
+      this.logger.warn(
+        `Failed to load plays-by-region proxy for artist ${artistId}: ${error.message}`,
+      );
       return [];
     }
 
     const rows = (data ?? []) as Array<{
       user_id: string;
-      users?: { region?: string | null; location_region?: string | null; discoverable?: boolean | null } | null;
+      users?: {
+        region?: string | null;
+        location_region?: string | null;
+        discoverable?: boolean | null;
+      } | null;
     }>;
 
     const counts = new Map<string, number>();
@@ -135,7 +156,10 @@ export class AnalyticsService {
   /**
    * Get comprehensive analytics for an artist.
    */
-  async getArtistAnalytics(artistId: string, days: number = 30): Promise<ArtistAnalytics> {
+  async getArtistAnalytics(
+    artistId: string,
+    days: number = 30,
+  ): Promise<ArtistAnalytics> {
     const supabase = getSupabaseClient();
 
     // Get artist's songs
@@ -157,7 +181,7 @@ export class AnalyticsService {
       };
     }
 
-    const songIds = songs.map(s => s.id);
+    const songIds = songs.map((s) => s.id);
 
     // Get artist's credits
     const { data: credits } = await supabase
@@ -196,12 +220,14 @@ export class AnalyticsService {
     const topSongs: SongAnalytics[] = songs
       .sort((a, b) => (b.play_count || 0) - (a.play_count || 0))
       .slice(0, 5)
-      .map(song => ({
+      .map((song) => ({
         songId: song.id,
         title: song.title,
         artworkUrl: song.artwork_url,
         totalPlays: song.play_count || 0,
-        creditsUsed: (song.play_count || 0) * Math.ceil((song.duration_seconds || 180) / 5),
+        creditsUsed:
+          (song.play_count || 0) *
+          Math.ceil((song.duration_seconds || 180) / 5),
         creditsRemaining: song.credits_remaining || 0,
         likeCount: song.like_count || 0,
         trialPlaysUsed: song.trial_plays_used || 0,
@@ -211,7 +237,8 @@ export class AnalyticsService {
     // Get recent plays
     const { data: recentPlays } = await supabase
       .from('plays')
-      .select(`
+      .select(
+        `
         id,
         played_at,
         listener_count,
@@ -220,7 +247,8 @@ export class AnalyticsService {
           title,
           artwork_url
         )
-      `)
+      `,
+      )
       .in('song_id', songIds)
       .order('played_at', { ascending: false })
       .limit(10);
@@ -315,12 +343,10 @@ export class AnalyticsService {
     const supabase = getSupabaseClient();
 
     // Total users by role
-    const { data: users } = await supabase
-      .from('users')
-      .select('role');
+    const { data: users } = await supabase.from('users').select('role');
 
     const totalUsers = users?.length || 0;
-    const totalArtists = users?.filter(u => u.role === 'artist').length || 0;
+    const totalArtists = users?.filter((u) => u.role === 'artist').length || 0;
 
     // Total songs
     const { count: totalSongs } = await supabase
@@ -350,7 +376,10 @@ export class AnalyticsService {
   /**
    * Group plays by date for chart data.
    */
-  private groupPlaysByDate(plays: { played_at: string }[], days: number): DailyPlayCount[] {
+  private groupPlaysByDate(
+    plays: { played_at: string }[],
+    days: number,
+  ): DailyPlayCount[] {
     const result: DailyPlayCount[] = [];
     const now = new Date();
 
@@ -365,9 +394,9 @@ export class AnalyticsService {
     }
 
     // Count plays per day
-    plays.forEach(play => {
+    plays.forEach((play) => {
       const playDate = play.played_at.split('T')[0];
-      const dayEntry = result.find(d => d.date === playDate);
+      const dayEntry = result.find((d) => d.date === playDate);
       if (dayEntry) {
         dayEntry.plays++;
       }
@@ -385,7 +414,8 @@ export class AnalyticsService {
 
     const { data: play, error: playError } = await supabase
       .from('plays')
-      .select(`
+      .select(
+        `
         id,
         song_id,
         played_at,
@@ -396,7 +426,8 @@ export class AnalyticsService {
         disconnects_during,
         profile_clicks_during,
         skipped
-      `)
+      `,
+      )
       .eq('id', playId)
       .single();
 

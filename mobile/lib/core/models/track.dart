@@ -17,6 +17,9 @@ class Track {
   /// Backend may mark a broadcast as live (e.g., DJ/live session).
   final bool isLiveBroadcast;
 
+  /// Trial-by-Fire indicator (daily scheduled window).
+  final bool trialByFireActive;
+
   /// Server-reported position (seconds) if provided.
   final int positionSeconds;
 
@@ -33,6 +36,7 @@ class Track {
     required this.durationSeconds,
     this.playId,
     this.isLiveBroadcast = false,
+    this.trialByFireActive = false,
     this.positionSeconds = 0,
     this.pinnedCatalysts = const [],
   });
@@ -68,6 +72,7 @@ class Track {
               180,
       playId: (json['play_id'] ?? json['playId'])?.toString(),
       isLiveBroadcast: json['is_live'] == true || json['isLive'] == true,
+      trialByFireActive: json['trial_by_fire_active'] == true || json['trialByFireActive'] == true,
       positionSeconds: (json['position_seconds'] ?? json['positionSeconds'] ?? 0)
           is int
           ? (json['position_seconds'] ?? json['positionSeconds'] ?? 0) as int

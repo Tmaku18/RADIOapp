@@ -6,10 +6,11 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 export const metadata: Metadata = {
   title: 'FAQ - Networx',
-  description: 'Frequently asked questions about Networx: democratic radio, Pro-Network, and By Artists, For Artists.',
+  description: 'Frequently asked questions about Networx: democratic radio, artist livestreams, ProNetworx mentorship, and a by-artists-for-artists ecosystem.',
 };
 
 export const revalidate = 3600;
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
 
 const faqs = [
   {
@@ -17,7 +18,7 @@ const faqs = [
     questions: [
       {
         q: 'What is Networx?',
-        a: 'Networx is a "By Artists, For Artists" ecosystem that combines democratic radio with a Pro-Network hub. We help hidden gems get heard: artists upload and promote through our play credit system, while listeners enjoy a continuous stream and live chat. We exist so no talent goes undiscovered.',
+        a: 'Networx is a "By Artists, For Artists" ecosystem that combines democratic radio with artist livestreams, live chat, and the ProNetworx growth hub. Artists upload and promote through play credits while listeners discover and engage in real time.',
       },
       {
         q: 'Is Networx free to use?',
@@ -25,7 +26,7 @@ const faqs = [
       },
       {
         q: 'How is this different from Spotify or SoundCloud?',
-        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add Live Sync Chat so artists can be in the room with fans, and a Pro-Network for mentorship. Our charts are earned, not bought.',
+        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add artist livestreams, Live Sync Chat, and ProNetworx mentorship pathways so careers can grow beyond streams. Our charts are earned, not bought.',
       },
     ],
   },
@@ -52,6 +53,10 @@ const faqs = [
         q: 'Can I see analytics for my tracks?',
         a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, credits spent, and Prospector activity over time.',
       },
+      {
+        q: 'What is ProNetworx and why should I use it?',
+        a: 'ProNetworx is the professional growth layer connected to Networx. It helps artists find service providers, collaborators, and mentors who can support release strategy, production quality, visual branding, and career development.',
+      },
     ],
   },
   {
@@ -67,7 +72,7 @@ const faqs = [
       },
       {
         q: 'Is there a mobile app?',
-        a: 'Yes! RadioApp is available on iOS and Android. Download it from the App Store or Google Play.',
+        a: 'Yes. Networx supports mobile listening and engagement on iOS and Android so you can discover, vote, and follow artists on the go.',
       },
       {
         q: 'Why do I hear the same ore as everyone else?',
@@ -101,7 +106,7 @@ export default function FAQPage() {
         Frequently Asked Questions
       </h1>
       <p className="text-xl text-muted-foreground mb-12">
-        Everything you need to know about RadioApp.
+        Everything you need to know about Networx and ProNetworx.
       </p>
 
       <div className="space-y-6">
@@ -144,9 +149,16 @@ export default function FAQPage() {
           <p className="text-muted-foreground mb-4">
             We&apos;re here to help. Reach out to our support team.
           </p>
-          <Button asChild>
-            <Link href="/contact">Contact Us</Link>
-          </Button>
+          <div className="flex flex-wrap justify-center gap-3">
+            <Button asChild>
+              <Link href="/contact">Contact Us</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                Explore ProNetworx
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

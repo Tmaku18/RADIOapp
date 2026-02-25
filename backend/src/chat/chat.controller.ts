@@ -59,7 +59,8 @@ export class ChatController {
 
       return result;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to send message';
+      const message =
+        err instanceof Error ? err.message : 'Failed to send message';
       if (err instanceof BadRequestException) {
         throw err;
       }

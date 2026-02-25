@@ -81,7 +81,10 @@ export class SongsController {
       audioFile.mimetype,
     );
 
-    const audioUrl = await this.uploadsService.uploadAudioFile(audioFile, userData.id);
+    const audioUrl = await this.uploadsService.uploadAudioFile(
+      audioFile,
+      userData.id,
+    );
     const artworkUrl = artworkFile
       ? await this.uploadsService.uploadArtworkFile(artworkFile, userData.id)
       : undefined;
@@ -187,12 +190,18 @@ export class SongsController {
             } else {
               const buf = Buffer.from(await res.arrayBuffer());
               const mimeType = res.headers.get('content-type') ?? undefined;
-              durationSeconds = await this.durationService.extractDuration(buf, mimeType);
+              durationSeconds = await this.durationService.extractDuration(
+                buf,
+                mimeType,
+              );
             }
           } else {
             const buf = Buffer.from(await res.arrayBuffer());
             const mimeType = res.headers.get('content-type') ?? undefined;
-            durationSeconds = await this.durationService.extractDuration(buf, mimeType);
+            durationSeconds = await this.durationService.extractDuration(
+              buf,
+              mimeType,
+            );
           }
         } else {
           this.logger.warn(
@@ -301,7 +310,7 @@ export class SongsController {
     @Body() body: { optInFreePlay?: boolean },
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id, role')

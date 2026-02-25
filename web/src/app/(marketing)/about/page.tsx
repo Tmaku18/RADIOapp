@@ -5,10 +5,11 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export const metadata: Metadata = {
   title: 'About - Networx',
-  description: 'Networx: Where the People have the Voice, and the Artist has the Power. By Artists, For Artists—democratizing discovery so no hidden gem goes undiscovered.',
+  description: 'Learn how Networx and ProNetworx help artists grow through always-on radio, livestreaming, real-time fan engagement, analytics, and mentorship.',
 };
 
 export const revalidate = 3600;
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
 
 export default function AboutPage() {
   return (
@@ -37,13 +38,13 @@ export default function AboutPage() {
 
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">The Bridge from Invisible to Inevitable</h2>
         <p className="text-muted-foreground mb-4">
-          Networx is a &quot;By Artists, For Artists&quot; ecosystem. We are the first platform to combine high-fidelity democratic radio with a professional &quot;Pro-Network&quot; hub.
+          Networx is a &quot;By Artists, For Artists&quot; ecosystem that brings artist growth into one place: democratic radio rotation, artist livestreaming, live listener chat, discovery votes and ripples, and transparent analytics.
         </p>
         <p className="text-muted-foreground mb-4">
-          We don&apos;t believe in the &quot;mysterious artist&quot; enigma. We believe in the Human Artist. Our platform is built on real-time engagement through our Live Sync Chat, allowing creators to stand shoulder-to-shoulder with their listeners.
+          We do not believe in the &quot;mysterious artist&quot; enigma. We believe in the Human Artist. Creators can upload, promote with credits, review The Wake analytics dashboard, and meet listeners in real time through chat and livestream sessions.
         </p>
         <p className="text-muted-foreground mb-6">
-          More importantly, we are a bridge. We connect the inexperienced &quot;hidden gem&quot; with the seasoned veteran. Through our LinkedIn-style portal, we facilitate mentorships where service providers—photographers, promoters, and producers—guide the next generation on their journey to fame. We aren&apos;t just playing music; we are architecting careers.
+          ProNetworx extends that bridge by connecting hidden gems with experienced photographers, engineers, promoters, producers, and mentors. We are not just playing music; we are helping artists build durable careers.
         </p>
 
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">The Networx Values (The Code)</h2>
@@ -59,11 +60,18 @@ export default function AboutPage() {
           <CardContent className="pt-8">
             <h3 className="text-xl font-semibold text-foreground mb-4">Join the movement</h3>
             <p className="text-muted-foreground mb-4">
-              When we explain the gas station story, it proves that Networx isn&apos;t just about code—it&apos;s about a real friendship and a shared struggle. Join the Founding 100 and be part of something built for artists, by artists.
+              Networx is for artists ready to grow and supporters who want talent to be discovered fairly. Join now and tap into the ProNetworx ecosystem for mentorship, collaboration, and career opportunities.
             </p>
-            <Button asChild>
-              <Link href="/signup">Create Account</Link>
-            </Button>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild>
+                <Link href="/signup">Create Account</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                  Explore ProNetworx
+                </Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

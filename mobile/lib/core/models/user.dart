@@ -8,6 +8,7 @@ class User {
   final String? headline;
   final String? locationRegion;
   final String? bio;
+  final bool discoverable;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -21,6 +22,7 @@ class User {
     this.headline,
     this.locationRegion,
     this.bio,
+    this.discoverable = true,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -39,6 +41,7 @@ class User {
       headline: (json['headline'])?.toString(),
       locationRegion: (json['location_region'] ?? json['locationRegion'])?.toString(),
       bio: (json['bio'])?.toString(),
+      discoverable: (json['discoverable'] ?? true) == true,
       createdAt: dt(json['created_at'] ?? json['createdAt']),
       updatedAt: dt(json['updated_at'] ?? json['updatedAt']),
     );
@@ -55,6 +58,7 @@ class User {
       'headline': headline,
       'locationRegion': locationRegion,
       'bio': bio,
+      'discoverable': discoverable,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
     };

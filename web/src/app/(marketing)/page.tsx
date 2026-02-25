@@ -7,6 +7,7 @@ import { GlobalVoteMap } from '@/components/marketing/GlobalVoteMap';
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
 
 function formatDiscoveries(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
@@ -73,13 +74,28 @@ export default async function HomePage() {
       <section className="relative py-24 sm:py-32 overflow-hidden">
         <LiveRippleVisualizer />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <a
+            href={PRO_NETWORX_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
+          >
+            New: ProNetworx is live for artist growth and mentorship
+          </a>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight">
-            No Hidden Gem Left Undiscovered
+            Build Your Audience, Team, and Career in One Platform
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Where the People have the Voice, and the Artist has the Power. Democratic radio, live chat, and a Pro-Network built by artists, for artists.
+            Networx combines always-on democratic radio, artist livestreams, live chat, votes and ripples, transparent analytics, and ProNetworx mentorship so no hidden gem stays invisible.
           </p>
           <HeroCta />
+          <div className="mt-6">
+            <Button variant="outline" size="lg" asChild>
+              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                Open ProNetworx
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
 
@@ -120,14 +136,14 @@ export default async function HomePage() {
               For Prospectors
             </h2>
             <p className="text-xl text-muted-foreground">
-              Discover your next favorite gem
+              Discover your next favorite gem in real time
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: '🎵', title: 'Tune In', desc: 'Listen to our curated radio stream featuring underground artists from around the world.' },
-              { icon: '❤️', title: 'Discover', desc: 'Send ripples (likes) to like tracks and help boost underground talent in the rotation.' },
-              { icon: '🌟', title: 'Support', desc: 'Follow your favorite gems and be part of their journey to success.' },
+              { icon: '🎵', title: 'Always-On Radio', desc: 'Jump into a continuous stream where listeners share the same moment of discovery.' },
+              { icon: '💬', title: 'Vote + Live Chat', desc: 'Ripple, vote, and connect while tracks are playing so artists get immediate feedback.' },
+              { icon: '🎥', title: 'Join Artist Livestreams', desc: 'Watch artists go live, interact directly, and support them with donations during sessions.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>
@@ -153,14 +169,14 @@ export default async function HomePage() {
               For Gems
             </h2>
             <p className="text-xl text-muted-foreground">
-              Get your music heard by real Prospectors
+              Launch and grow with tools built for real fans
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {[
-              { icon: '📤', title: 'Upload', desc: 'Submit your tracks for review. Once approved, they enter our radio rotation.' },
-              { icon: '💰', title: 'Promote', desc: 'Purchase play credits to boost your tracks and reach more Prospectors.' },
-              { icon: '📊', title: 'The Wake', desc: 'The path left behind by a thousand Ripples—discoveries, engagement, and growth over time.' },
+              { icon: '📤', title: 'Upload + Release', desc: 'Submit tracks for moderation and get played in rotation once approved.' },
+              { icon: '🚀', title: 'Promote with Credits', desc: 'Use play credits to increase visibility while still earning organic discovery.' },
+              { icon: '📊', title: 'The Wake Analytics', desc: 'Track listens, discoveries, engagement, and audience growth over time.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>
@@ -217,14 +233,21 @@ export default async function HomePage() {
       <section className="py-20 bg-primary text-primary-foreground">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Join the movement
+            Join the movement and build your network
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you&apos;re a hidden gem ready to be heard or a Prospector who believes talent deserves a bridge—Networx is where butterfly effects happen.
+            Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
           </p>
-          <Button size="lg" variant="secondary" asChild>
-            <Link href="/signup">Get Started Free</Link>
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" variant="secondary" asChild>
+              <Link href="/signup">Get Started Free</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-white/60 text-white hover:bg-white/15" asChild>
+              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                Explore ProNetworx
+              </Link>
+            </Button>
+          </div>
         </div>
       </section>
     </div>
