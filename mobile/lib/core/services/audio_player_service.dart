@@ -1,6 +1,8 @@
 import 'package:just_audio/just_audio.dart';
 
-/// Shared player instance so radio audio can persist across navigation/screens.
+/// App-wide single audio session. Used by [PlayerScreen] (radio), [MiniPlayerBar],
+/// and artist profile playback so that playback persists across tabs and only one
+/// source (radio vs discography preview) plays at a time.
 class AudioPlayerService {
   static final AudioPlayerService _instance = AudioPlayerService._internal();
   factory AudioPlayerService() => _instance;

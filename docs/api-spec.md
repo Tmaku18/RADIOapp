@@ -187,12 +187,12 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 
 ## Discovery / Pro-Directory
 
-### List People (service providers / artists)
+### List People (Catalysts (service providers) / artists)
 - **GET** `/discovery/people`
 - Query params (common): `role=service_provider`, `serviceType`, `search`, `minRateCents`, `maxRateCents`, `location`, `lat`, `lng`, `radiusKm`, `limit`, `offset`
 - Returns: `{ items: DiscoveryProfile[], total: number }` (or array depending on client)
 
-## Service Providers
+## Catalysts (service providers)
 
 ### Get Provider Profile
 - **GET** `/service-providers/:userId`

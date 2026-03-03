@@ -347,7 +347,7 @@ export default function ArtistServicesPage() {
         <p className="text-muted-foreground mt-1">
           {isProvider
             ? 'Build your Pro Directory profile: portfolio + service menu + your terms.'
-            : 'Browse service providers, sort by location, and message pros directly.'}
+            : 'Browse Catalysts (service providers), sort by location, and message pros directly.'}
         </p>
       </div>
 
@@ -722,7 +722,7 @@ export default function ArtistServicesPage() {
                               Mentor
                             </span>
                           )}
-                          <Badge variant="secondary" className="text-xs">Service provider</Badge>
+                          <Badge variant="secondary" className="text-xs">Catalyst (service provider)</Badge>
                         </div>
                         {p.headline && <p className="text-sm text-muted-foreground truncate mt-0.5">{p.headline}</p>}
                         <div className="flex items-center gap-2 mt-1">

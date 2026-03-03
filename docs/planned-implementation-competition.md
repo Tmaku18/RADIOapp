@@ -2,7 +2,7 @@
 
 **Status:** In implementation (planned features being built).
 
-This document summarizes the planned **competition/spotlight** experience and **platform extensions** (admin live broadcast, artist bios, live services, service provider marketplace). Full detail is in the plan files under `.cursor/plans/`.
+This document summarizes the planned **competition/spotlight** experience and **platform extensions** (admin live broadcast, artist bios, live services, Catalysts (service providers) marketplace). Full detail is in the plan files under `.cursor/plans/`.
 
 ---
 
@@ -31,7 +31,7 @@ The platform is shifting from competing with Spotify to an **online music popula
 
 ## Platform Extensions
 
-- **Artist bios:** Artist (and service provider) profile pages include a **bio** section; editable from profile/settings.
+- **Artist bios:** Artist (and Catalyst (service provider)) profile pages include a **bio** section; editable from profile/settings.
 - **Admin live broadcast:** Admins can go **live** during the stream from the admin dashboard; stream URL switches to live feed; start/stop controls and “live now” indicator.
 - **Live services:** Artists can **promote live services** (performances, sessions); listeners can **follow** artists and see upcoming live services and connect.
 - **Service provider (distinct user type):**

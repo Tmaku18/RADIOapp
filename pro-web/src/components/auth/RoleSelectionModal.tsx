@@ -120,7 +120,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
             <div className="flex items-start gap-4">
               <div className="text-3xl">🛠️</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Service provider</h3>
+                <h3 className="font-semibold text-foreground">Catalyst (service provider)</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Offer beats, mixing, photography, design, or other creative services to artists
                 </p>
@@ -136,7 +136,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
           </button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Prospectors can upgrade to artists or service providers later from their profile settings.
+            Prospectors can upgrade to artists or Catalysts (service providers) later from their profile settings.
           </p>
         </div>
 

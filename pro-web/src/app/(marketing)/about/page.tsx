@@ -43,7 +43,7 @@ export default function AboutPage() {
           We don&apos;t believe in the &quot;mysterious artist&quot; enigma. We believe in the Human Artist. Our platform is built on real-time engagement through our Live Sync Chat, allowing creators to stand shoulder-to-shoulder with their listeners.
         </p>
         <p className="text-muted-foreground mb-6">
-          More importantly, we are a bridge. We connect the inexperienced &quot;hidden gem&quot; with the seasoned veteran. Through our LinkedIn-style portal, we facilitate mentorships where service providers—photographers, promoters, and producers—guide the next generation on their journey to fame. We aren&apos;t just playing music; we are architecting careers.
+          More importantly, we are a bridge. We connect the inexperienced &quot;hidden gem&quot; with the seasoned veteran. Through our LinkedIn-style portal, we facilitate mentorships where Catalysts (service providers)—photographers, promoters, and producers—guide the next generation on their journey to fame. We aren&apos;t just playing music; we are architecting careers.
         </p>
 
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">The Networx Values (The Code)</h2>

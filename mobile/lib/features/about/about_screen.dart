@@ -56,7 +56,7 @@ class AboutScreen extends StatelessWidget {
                 'We don\'t believe in the "mysterious artist" enigma. We believe in the Human Artist. Our platform is built on real-time '
                 'engagement through our Live Sync Chat, allowing creators to stand shoulder-to-shoulder with their listeners.\n\n'
                 'More importantly, we are a bridge. We connect the inexperienced "hidden gem" with the seasoned veteran. Through our '
-                'LinkedIn-style portal, we facilitate mentorships where service providers—photographers, promoters, and producers—guide '
+                'LinkedIn-style portal, we facilitate mentorships where Catalysts (service providers)—photographers, promoters, and producers—guide '
                 'the next generation on their journey to fame. We aren\'t just playing music; we are architecting careers.',
             surfaces: surfaces,
           ),

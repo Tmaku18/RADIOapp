@@ -123,7 +123,7 @@ export default function ArtistProfilePage() {
         }
 
         if (userData.role !== 'artist' && userData.role !== 'admin') {
-          setError('This profile is not an artist or service provider.');
+          setError('This profile is not an artist or Catalyst (service provider).');
           setArtist(null);
           setSongs([]);
           return;
@@ -411,7 +411,7 @@ export default function ArtistProfilePage() {
             </Avatar>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-2xl font-bold text-foreground">{providerProfile.displayName ?? 'Service provider'}</h1>
+                <h1 className="text-2xl font-bold text-foreground">{providerProfile.displayName ?? 'Catalyst (service provider)'}</h1>
                 {providerProfile.mentorOptIn && (
                   <span className="inline-flex items-center justify-center rounded-full bg-primary/20 text-primary px-2 py-0.5 text-xs font-medium ring-1 ring-primary/40" title="Mentor">
                     <svg className="h-3.5 w-3.5 mr-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" /></svg>

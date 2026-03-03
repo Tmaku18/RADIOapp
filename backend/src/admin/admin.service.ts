@@ -1198,4 +1198,54 @@ export class AdminService {
       .eq('id', contentId);
     if (error) throw new Error(`Failed to remove from feed: ${error.message}`);
   }
+
+  async listStreamerApplications(): Promise<
+    Array<{ userId: string; displayName: string | null; email: string | null; role: string | null; appliedAt: string }>
+  > {
+    const supabase = getSupabaseClient();
+    const { data: profiles, error } = await supabase
+      .from('artist_live_profiles')
+      .select('user_id, streaming_applied_at')
+      .not('streaming_applied_at', 'is', null)
+      .is('streaming_approved_at', null)
+      .is('streaming_rejected_at', null)
+      .order('streaming_applied_at', { ascending: false });
+    if (error || !profiles?.length) return [];
+    const userIds = profiles.map((p: { user_id: string }) => p.user_id);
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name, email, role')
+      .in('id', userIds);
+    const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+    return profiles.map((p: { user_id: string; streaming_applied_at: string }) => {
+      const u = userMap.get(p.user_id);
+      return {
+        userId: p.user_id,
+        displayName: u?.display_name ?? null,
+        email: u?.email ?? null,
+        role: u?.role ?? null,
+        appliedAt: p.streaming_applied_at,
+      };
+    });
+  }
+
+  async setStreamerApproval(
+    userId: string,
+    action: 'approve' | 'reject',
+  ): Promise<{ approved: boolean; approvedAt?: string; rejectedAt?: string }> {
+    const supabase = getSupabaseClient();
+    const now = new Date().toISOString();
+    const updates: Record<string, unknown> =
+      action === 'approve'
+        ? { streaming_approved_at: now, streaming_rejected_at: null }
+        : { streaming_rejected_at: now };
+    const { error } = await supabase
+      .from('artist_live_profiles')
+      .update(updates)
+      .eq('user_id', userId);
+    if (error) throw new BadRequestException(`Failed to ${action}: ${error.message}`);
+    return action === 'approve'
+      ? { approved: true, approvedAt: now }
+      : { approved: false, rejectedAt: now };
+  }
 }

@@ -6,6 +6,7 @@ import '../../core/models/user.dart' as app_user;
 import '../credits/credits_screen.dart';
 import '../studio/studio_screen.dart';
 import '../upload/upload_screen.dart';
+import '../livestream/stream_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -96,6 +97,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 32),
                     if (_user!.role == 'artist') ...[
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const StreamSettingsScreen()),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.live_tv, size: 40, color: Colors.red),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Go Live',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Streaming requires admin approval. Request access and manage your stream in Stream settings.',
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(Icons.chevron_right),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                       ListTile(
                         leading: const Icon(Icons.mic_none),
                         title: const Text('Studio'),

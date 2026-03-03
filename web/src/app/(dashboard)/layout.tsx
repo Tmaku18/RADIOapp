@@ -35,6 +35,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
+import { BottomNav } from '@/components/dashboard/BottomNav';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   ComputerSettingsIcon,
@@ -63,12 +64,16 @@ const artistNavigation = [
 const moreNav = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Profile', href: '/profile', icon: '👤' },
+  { name: 'Live', href: '/live', icon: '🔴' },
   { name: 'Browse', href: '/browse', icon: '🔍' },
+  { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
+const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
 
 const adminSubNavigation = [
   { name: 'Ores', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
+  { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
@@ -78,6 +83,7 @@ const adminSubNavigation = [
 function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin/songs')) return 'Ores';
   if (pathname.startsWith('/admin/users')) return 'Users';
+  if (pathname.startsWith('/admin/streamers')) return 'Streamers';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
   if (pathname.startsWith('/admin/fallback')) return 'Fallback';
   if (pathname.startsWith('/admin/free-rotation')) return 'Free Rotation';
@@ -90,6 +96,9 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/yield')) return 'The Yield';
   if (pathname.startsWith('/refinery')) return 'The Refinery';
   if (pathname.startsWith('/profile')) return 'Profile';
+  if (pathname.startsWith('/live')) return 'Live';
+  if (pathname.startsWith('/stream-settings')) return 'Stream settings';
+  if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname.startsWith('/artist/songs')) return 'My Ores';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
@@ -254,6 +263,13 @@ export default function DashboardLayout({
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
+                      {(profile?.role === 'artist' || profile?.role === 'service_provider') && (
+                        <SidebarMenuSubItem>
+                          <SidebarMenuSubButton asChild isActive={pathname.startsWith(streamerNav.href)}>
+                            <Link href={streamerNav.href}>{streamerNav.name}</Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      )}
                       {(profile?.role === 'artist' || profile?.role === 'admin') && (
                         <>
                           <SidebarMenuSubItem>
@@ -390,9 +406,10 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 md:p-8 bg-muted/30 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 md:p-8 pb-24 bg-muted/30 flex flex-col">
           {children}
         </div>
+        <BottomNav />
       </SidebarInset>
       </SidebarProvider>
     </div>

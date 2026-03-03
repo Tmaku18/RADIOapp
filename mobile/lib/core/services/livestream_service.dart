@@ -3,6 +3,16 @@ import 'api_service.dart';
 class LivestreamService {
   final ApiService _api = ApiService();
 
+  Future<Map<String, dynamic>?> getStreamerStatus() async {
+    final data = await _api.get('artist-live/streamer-status');
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  Future<bool> applyToStream() async {
+    final data = await _api.post('artist-live/apply', {});
+    return data is Map<String, dynamic> && (data['applied'] == true);
+  }
+
   Future<Map<String, dynamic>?> getStatus(String artistId) async {
     final data = await _api.get('artist-live/$artistId/status');
     return data is Map<String, dynamic> ? data : null;

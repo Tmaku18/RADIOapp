@@ -52,7 +52,7 @@ export class ServiceProvidersController {
   }
 
   /**
-   * \"Me\" provider profile editor (service providers only).
+   * \"Me\" provider profile editor (Catalysts (service providers) only).
    */
   @Get('me/profile')
   @UseGuards(RolesGuard)

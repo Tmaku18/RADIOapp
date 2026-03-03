@@ -76,7 +76,7 @@ export default function ContactPage() {
         <CardContent className="pt-6">
           <h2 className="text-lg font-semibold text-foreground mb-2">Looking for ProNetworx?</h2>
           <p className="text-muted-foreground mb-4">
-            If you are seeking mentors, collaborators, or service providers for your artist journey, you can explore ProNetworx directly.
+            If you are seeking mentors, collaborators, or Catalysts (service providers) for your artist journey, you can explore ProNetworx directly.
           </p>
           <Button variant="outline" asChild>
             <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">

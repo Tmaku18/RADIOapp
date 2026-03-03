@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
   Select,
   SelectContent,
@@ -44,6 +45,7 @@ export default function DiscoverPage() {
   const [location, setLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
   const [role, setRole] = useState<'all' | 'artist' | 'service_provider'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'artist' | 'service_provider'>('all');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -94,6 +96,9 @@ export default function DiscoverPage() {
   );
 
   useEffect(() => {
+    setRole(activeTab);
+  }, [activeTab]);
+  useEffect(() => {
     setOffset(0);
     load(false, 0);
   }, [search, location, serviceType, role]);
@@ -105,90 +110,96 @@ export default function DiscoverPage() {
 
   return (
     <div className="container max-w-4xl py-6 space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Input
-          placeholder="Search name, headline, bio..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
-          className="bg-background"
-        />
-        <Input
-          placeholder="Location (region)"
-          value={location}
-          onChange={(e) => setLocation(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
-          className="bg-background"
-        />
-        <Select value={serviceType} onValueChange={setServiceType}>
-          <SelectTrigger className="bg-background">
-            <SelectValue placeholder="Service type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All types</SelectItem>
-            {SERVICE_TYPE_OPTIONS.map((st) => (
-              <SelectItem key={st} value={st}>
-                {st}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={role} onValueChange={(v) => setRole(v as typeof role)}>
-          <SelectTrigger className="bg-background">
-            <SelectValue placeholder="Role" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="artist">Artists</SelectItem>
-            <SelectItem value="service_provider">Service providers</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <div className="space-y-4">
+        <h1 className="text-xl font-semibold text-foreground tracking-tight">Discover</h1>
+        <p className="text-sm text-muted-foreground">Find artists and Catalysts (service providers). Search and filter below.</p>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+          <TabsList variant="line" className="w-full justify-start rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="all" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+              For you
+            </TabsTrigger>
+            <TabsTrigger value="artist" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+              Artists
+            </TabsTrigger>
+            <TabsTrigger value="service_provider" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+              Catalysts
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value={activeTab} className="mt-0 pt-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Input
+                placeholder="Search name, headline, bio..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
+                className="bg-background border-border focus-visible:ring-primary"
+              />
+              <Input
+                placeholder="Location (region)"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && load(false, 0)}
+                className="bg-background border-border"
+              />
+              <Select value={serviceType} onValueChange={setServiceType}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Service type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All types</SelectItem>
+                  {SERVICE_TYPE_OPTIONS.map((st) => (
+                    <SelectItem key={st} value={st}>
+                      {st}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={() => load(false, 0)} variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/20">
+                Apply filters
+              </Button>
+            </div>
       {role === 'service_provider' && (
-        <>
-          <div className="flex items-center gap-2">
-            <Switch
-              id="discover-nearby"
-              checked={nearbyEnabled}
-              onCheckedChange={(checked) => {
-                setNearbyEnabled(checked);
-                if (checked && userLat == null && typeof navigator !== 'undefined' && navigator.geolocation) {
-                  navigator.geolocation.getCurrentPosition(
-                    (pos) => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude); },
-                    () => setNearbyEnabled(false),
-                  );
-                }
-                if (!checked) { setUserLat(null); setUserLng(null); }
-              }}
-            />
-            <Label htmlFor="discover-nearby" className="text-sm">Nearby</Label>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Price (cents):</span>
-            <Input type="number" placeholder="Min" className="w-24 bg-background" value={minRateCents} onChange={(e) => setMinRateCents(e.target.value)} />
-            <span className="text-muted-foreground">–</span>
-            <Input type="number" placeholder="Max" className="w-24 bg-background" value={maxRateCents} onChange={(e) => setMaxRateCents(e.target.value)} />
-          </div>
-        </>
-      )}
-      <Button onClick={() => load(false, 0)} variant="secondary" size="sm">
-        Apply filters
-      </Button>
+              <>
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="discover-nearby"
+                    checked={nearbyEnabled}
+                    onCheckedChange={(checked) => {
+                      setNearbyEnabled(checked);
+                      if (checked && userLat == null && typeof navigator !== 'undefined' && navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                          (pos) => { setUserLat(pos.coords.latitude); setUserLng(pos.coords.longitude); },
+                          () => setNearbyEnabled(false),
+                        );
+                      }
+                      if (!checked) { setUserLat(null); setUserLng(null); }
+                    }}
+                  />
+                  <Label htmlFor="discover-nearby" className="text-sm">Nearby</Label>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Price (cents):</span>
+                  <Input type="number" placeholder="Min" className="w-24 bg-background" value={minRateCents} onChange={(e) => setMinRateCents(e.target.value)} />
+                  <span className="text-muted-foreground">–</span>
+                  <Input type="number" placeholder="Max" className="w-24 bg-background" value={maxRateCents} onChange={(e) => setMaxRateCents(e.target.value)} />
+                </div>
+              </>
+            )}
 
-      {loading ? (
-        <div className="flex justify-center py-12">
-          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
-        </div>
-      ) : (
-        <>
-          <p className="text-sm text-muted-foreground">
-            {total} {total === 1 ? 'person' : 'people'} found
-          </p>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {items.map((profile) => (
-              <Card key={profile.userId} className="overflow-hidden">
-                <CardContent className="p-4 flex gap-4">
-                  <Link href={`/artist/${profile.userId}`} className="shrink-0">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  {total} {total === 1 ? 'person' : 'people'} found
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {items.map((profile) => (
+                    <Card key={profile.userId} className="overflow-hidden border-border/80 transition-colors hover:border-primary/30 hover:bg-elevated/50">
+                      <CardContent className="p-4 flex gap-4">
+                        <Link href={`/artist/${profile.userId}`} className="shrink-0">
                     {profile.avatarUrl ? (
                       <Image
                         src={profile.avatarUrl}
@@ -248,23 +259,26 @@ export default function DiscoverPage() {
                         <Link href={`/messages?with=${profile.userId}`}>Message</Link>
                       </Button>
                     </div>
+                    </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                {hasMore && items.length > 0 && (
+                  <div className="flex justify-center pt-4">
+                    <Button variant="outline" onClick={loadMore} disabled={loadingMore} className="border-primary/40 text-primary hover:bg-primary/10">
+                      {loadingMore ? 'Loading...' : 'Load more'}
+                    </Button>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          {hasMore && items.length > 0 && (
-            <div className="flex justify-center pt-4">
-              <Button variant="outline" onClick={loadMore} disabled={loadingMore}>
-                {loadingMore ? 'Loading...' : 'Load more'}
-              </Button>
-            </div>
-          )}
-          {!loading && items.length === 0 && (
-            <p className="text-center text-muted-foreground py-12">No one matches your filters. Try adjusting them.</p>
-          )}
-        </>
-      )}
+                )}
+                {!loading && items.length === 0 && (
+                  <p className="text-center text-muted-foreground py-12">No one matches your filters. Try adjusting them.</p>
+                )}
+              </>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
     </div>
   );
 }

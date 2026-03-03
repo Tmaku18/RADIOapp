@@ -169,7 +169,7 @@ export default function BrowsePage() {
     return (
       <div className="text-center py-16 text-muted-foreground">
         <p className="text-lg">No content in the feed yet.</p>
-        <p className="text-sm mt-2">When service providers add portfolio items, they’ll show up here.</p>
+        <p className="text-sm mt-2">When Catalysts (service providers) add portfolio items, they’ll show up here.</p>
       </div>
     );
   }

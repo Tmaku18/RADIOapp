@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { useRadioState, Track } from './useRadioState';
+import { usePlayback } from '@/components/playback';
+import type { PlaybackTrack } from '@/components/playback';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -72,10 +73,16 @@ export function RadioPlayer() {
   const [comments, setComments] = useState('');
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
   
-  // Refs for accessing radio functions in callback
-  const loadTrackRef = useRef<typeof loadTrack | null>(null);
-  const syncToPositionRef = useRef<typeof syncToPosition | null>(null);
-  const playRef = useRef<typeof play | null>(null);
+  const { state, actions, setOnRadioTrackEnded } = usePlayback();
+  const loadTrackRef = useRef<((t: PlaybackTrack) => void) | null>(null);
+  const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
+  const playRef = useRef<(() => Promise<void>) | null>(null);
+
+  useEffect(() => {
+    loadTrackRef.current = (t: PlaybackTrack) => actions.loadTrack(t, 'radio');
+    syncToPositionRef.current = actions.syncToPosition;
+    playRef.current = actions.play;
+  }, [actions]);
 
   // Callback for when track ends - immediately fetch next track
   const handleTrackEnded = useCallback(async () => {
@@ -112,7 +119,7 @@ export function RadioPlayer() {
           setTimeout(() => handleTrackEnded(), 500);
           return;
         }
-        const track: Track = {
+        const track: PlaybackTrack = {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
@@ -122,11 +129,10 @@ export function RadioPlayer() {
           durationSeconds: trackData.duration_seconds || 180,
           playId: trackData.play_id ?? null,
         };
-        
+
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
-        
-        // Load and immediately play the next track (user has already interacted)
+
         if (loadTrackRef.current) loadTrackRef.current(track);
         if (syncToPositionRef.current) syncToPositionRef.current(serverPosition);
         if (playRef.current) {
@@ -143,6 +149,11 @@ export function RadioPlayer() {
       isFetchingNextTrack.current = false;
     }
   }, []);
+
+  useEffect(() => {
+    setOnRadioTrackEnded(handleTrackEnded);
+    return () => setOnRadioTrackEnded(null);
+  }, [setOnRadioTrackEnded, handleTrackEnded]);
 
   const handleCheckIn = async () => {
     if (!isProspector || isCheckingIn) return;
@@ -179,29 +190,9 @@ export function RadioPlayer() {
     }
   };
 
-  const { 
-    state, 
-    loadTrack, 
-    togglePlay, 
-    setVolume,
-    syncToPosition,
-    softPause,
-    softResume,
-    jumpToLive,
-    needsJumpToLive,
-    play,
-  } = useRadioState({ onTrackEnded: handleTrackEnded });
-
-  // Keep refs in sync with latest functions
-  useEffect(() => {
-    loadTrackRef.current = loadTrack;
-    syncToPositionRef.current = syncToPosition;
-    playRef.current = play;
-  }, [loadTrack, syncToPosition, play]);
-
   // Open refinery prompt when a new ore starts (rate + survey the previous ore).
   useEffect(() => {
-    const currentId = state.currentTrack?.id ?? null;
+    const currentId = state.track?.id ?? null;
     if (!isProspector) {
       lastTrackIdRef.current = currentId;
       return;
@@ -217,12 +208,12 @@ export function RadioPlayer() {
       setRefineryOpen(true);
     }
     lastTrackIdRef.current = currentId;
-  }, [isProspector, state.currentTrack?.id]);
+  }, [isProspector, state.track?.id]);
 
   // Heartbeat: every 30s while playing to verify listening (Yield accrual is server-side gated by check-ins).
   useEffect(() => {
     if (!isProspector) return;
-    if (!state.currentTrack?.id) return;
+    if (!state.track?.id) return;
     if (!state.isPlaying) return;
 
     let cancelled = false;
@@ -230,7 +221,7 @@ export function RadioPlayer() {
       try {
         const res = await radioApi.sendHeartbeat({
           streamToken: streamTokenRef.current,
-          songId: state.currentTrack!.id,
+          songId: state.track!.id,
           timestamp: new Date().toISOString(),
         });
         if (cancelled) return;
@@ -250,7 +241,7 @@ export function RadioPlayer() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [isProspector, state.currentTrack?.id, state.isPlaying]);
+  }, [isProspector, state.track?.id, state.isPlaying]);
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
@@ -281,7 +272,7 @@ export function RadioPlayer() {
           setNoContentMessage('Track has no playable source.');
           return;
         }
-        const track: Track = {
+        const track: PlaybackTrack = {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
@@ -297,24 +288,20 @@ export function RadioPlayer() {
         lastServerPosition.current = serverPosition;
         
         // Only load if different track
-        if (!state.currentTrack || state.currentTrack.id !== track.id) {
-          loadTrack(track);
-          // Sync position
-          syncToPosition(serverPosition);
-          // Only auto-play if user has already interacted (clicked play before)
+        if (!state.track || state.track.id !== track.id) {
+          actions.loadTrack(track, 'radio');
+          actions.syncToPosition(serverPosition);
           if (autoPlay && hasUserInteracted) {
             requestAnimationFrame(async () => {
               try {
-                await play();
+                await actions.play();
               } catch (err) {
-                // Autoplay was blocked - this is expected on initial load
                 console.log('Autoplay blocked by browser policy');
               }
             });
           }
         } else if (shouldSync && state.isLive) {
-          // Same track, just sync position (handle drift)
-          syncToPosition(serverPosition);
+          actions.syncToPosition(serverPosition);
         }
       }
     } catch (error: unknown) {
@@ -326,15 +313,15 @@ export function RadioPlayer() {
       setPinnedCatalysts([]);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
-  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted]);
+  }, [actions, state.track, state.isLive, hasUserInteracted]);
 
   // Reset vote state when play changes
   useEffect(() => {
-    const playId = state.currentTrack?.playId ?? null;
+    const playId = state.track?.playId ?? null;
     if (playId && playId !== lastVotedPlayIdRef.current) {
       setHasVoted(false);
     }
-  }, [state.currentTrack?.playId]);
+  }, [state.track?.playId]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -368,13 +355,13 @@ export function RadioPlayer() {
     
     // Check every second if we've exceeded 30s pause
     const checkInterval = setInterval(() => {
-      if (needsJumpToLive()) {
+      if (actions.needsJumpToLive()) {
         setShowJumpToLive(true);
       }
     }, 1000);
     
     return () => clearInterval(checkInterval);
-  }, [state.pausedAt, needsJumpToLive]);
+  }, [state.pausedAt, actions]);
 
   // Handle soft pause toggle
   const handlePauseToggle = async () => {
@@ -384,15 +371,13 @@ export function RadioPlayer() {
     }
     
     if (state.isPlaying) {
-      softPause();
+      actions.softPause();
     } else if (showJumpToLive) {
-      // Need to jump to live
       await fetchCurrentTrack(false, true);
-      await jumpToLive(lastServerPosition.current);
+      await actions.jumpToLive(lastServerPosition.current);
       setShowJumpToLive(false);
     } else {
-      // Within 30s buffer, just resume
-      await softResume();
+      await actions.softResume();
     }
   };
 
@@ -402,19 +387,19 @@ export function RadioPlayer() {
       setHasUserInteracted(true);
     }
     await fetchCurrentTrack(false, true);
-    await jumpToLive(lastServerPosition.current);
+    await actions.jumpToLive(lastServerPosition.current);
     setShowJumpToLive(false);
   };
 
   const handleVote = async () => {
-    if (!state.currentTrack) return;
+    if (!state.track) return;
     if (isVoting || hasVoted) return;
-    if (!state.currentTrack.playId) return;
+    if (!state.track.playId) return;
 
     setIsVoting(true);
     try {
-      await leaderboardApi.addLeaderboardLike(state.currentTrack.id, state.currentTrack.playId);
-      lastVotedPlayIdRef.current = state.currentTrack.playId;
+      await leaderboardApi.addLeaderboardLike(state.track.id, state.track.playId);
+      lastVotedPlayIdRef.current = state.track.playId;
       setHasVoted(true);
     } catch (error) {
       console.error('Failed to vote:', error);
@@ -431,15 +416,15 @@ export function RadioPlayer() {
 
   const canQuickBuy =
     !!profile?.id &&
-    !!state.currentTrack?.id &&
-    !!state.currentTrack?.artistId &&
-    profile.id === state.currentTrack.artistId;
+    !!state.track?.id &&
+    !!state.track?.artistId &&
+    profile.id === state.track.artistId;
 
   const handleQuickBuy = async () => {
-    if (!state.currentTrack?.id || isQuickBuying) return;
+    if (!state.track?.id || isQuickBuying) return;
     setIsQuickBuying(true);
     try {
-      const res = await paymentsApi.quickAddMinutes({ songId: state.currentTrack.id });
+      const res = await paymentsApi.quickAddMinutes({ songId: state.track.id });
       const url = res.data?.url;
       if (url && typeof window !== 'undefined') {
         window.location.href = url;
@@ -490,10 +475,10 @@ export function RadioPlayer() {
       {/* Album Art — subtle signature gradient behind */}
       <div className="aspect-square bg-signature relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
-        {state.currentTrack?.artworkUrl ? (
+        {state.track?.artworkUrl ? (
           <img
-            src={state.currentTrack.artworkUrl}
-            alt={state.currentTrack.title}
+            src={state.track.artworkUrl}
+            alt={state.track.title}
             className="w-full h-full object-cover relative z-0"
           />
         ) : (
@@ -542,22 +527,22 @@ export function RadioPlayer() {
             </span>
           )}
           <h2 className="text-xl font-bold text-foreground truncate">
-            {state.currentTrack?.title || 'No track playing'}
+            {state.track?.title || 'No track playing'}
           </h2>
           <button
             type="button"
             onClick={() => {
-              if (state.currentTrack?.id) {
-                analyticsApi.recordProfileClick(state.currentTrack.id).catch(() => {});
+              if (state.track?.id) {
+                analyticsApi.recordProfileClick(state.track.id).catch(() => {});
               }
             }}
             className="text-muted-foreground truncate text-left hover:text-foreground hover:underline transition-colors"
           >
-            {state.currentTrack?.artistName || 'Unknown artist'}
+            {state.track?.artistName || 'Unknown artist'}
           </button>
-          {artistLiveNow && state.currentTrack?.artistId && (
+          {artistLiveNow && state.track?.artistId && (
             <div className="mt-2">
-              <Link href={`/watch/${state.currentTrack.artistId}`}>
+              <Link href={`/watch/${state.track.artistId}`}>
                 <Button size="sm" variant="outline" className="h-7 text-xs">
                   {artistLiveNow.status === 'starting' ? 'Stream starting…' : 'Join artist live'}
                 </Button>
@@ -637,7 +622,7 @@ export function RadioPlayer() {
           {/* Vote Button (1 per play) */}
           <button
             onClick={handleVote}
-            disabled={!state.currentTrack || isVoting || hasVoted || !state.currentTrack?.playId}
+            disabled={!state.track || isVoting || hasVoted || !state.track?.playId}
             className={`p-3 rounded-full transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
               hasVoted
                 ? 'bg-primary text-primary-foreground signal-glow'
@@ -662,7 +647,7 @@ export function RadioPlayer() {
           {/* Pause/Resume Button (Soft Pause) */}
           <button
             onClick={handlePauseToggle}
-            disabled={!state.currentTrack || state.isLoading}
+            disabled={!state.track || state.isLoading}
             className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
               showJumpToLive 
                 ? 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -703,7 +688,7 @@ export function RadioPlayer() {
             max={1}
             step={0.05}
             value={state.volume}
-            onChange={(e) => setVolume(Number(e.target.value))}
+            onChange={(e) => actions.setVolume(Number(e.target.value))}
             className="w-32 h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
           />
           <svg

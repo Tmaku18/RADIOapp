@@ -102,6 +102,21 @@ export class AdminController {
     return this.adminService.getUserProfile(userId);
   }
 
+  @Get('streamer-applications')
+  async getStreamerApplications() {
+    const applications = await this.adminService.listStreamerApplications();
+    return { applications };
+  }
+
+  @Patch('streamer-applications/:userId')
+  async setStreamerApproval(
+    @Param('userId') userId: string,
+    @Body() body: { action: 'approve' | 'reject' },
+  ) {
+    const action = body?.action === 'reject' ? 'reject' : 'approve';
+    return this.adminService.setStreamerApproval(userId, action);
+  }
+
   @Patch('users/:id/role')
   async updateUserRole(
     @Param('id') userId: string,

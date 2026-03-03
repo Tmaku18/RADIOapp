@@ -34,6 +34,22 @@ export class ArtistLiveController {
     return this.artistLive.stopLive(user.uid);
   }
 
+  @Get('sessions')
+  @Public()
+  async listSessions() {
+    return this.artistLive.listLiveSessions();
+  }
+
+  @Get('streamer-status')
+  async getStreamerStatus(@CurrentUser() user: FirebaseUser) {
+    return this.artistLive.getStreamerStatus(user.uid);
+  }
+
+  @Post('apply')
+  async applyToStream(@CurrentUser() user: FirebaseUser) {
+    return this.artistLive.applyToStream(user.uid);
+  }
+
   @Get(':artistId/status')
   @Public()
   async getStatus(@Param('artistId') artistId: string) {

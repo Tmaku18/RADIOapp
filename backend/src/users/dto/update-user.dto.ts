@@ -20,7 +20,7 @@ export class UpdateUserDto {
   @IsOptional()
   suggestLocalArtists?: boolean;
 
-  /** Artist or service provider bio */
+  /** Artist or Catalyst (service provider) bio */
   @IsString()
   @IsOptional()
   bio?: string;

@@ -45,9 +45,11 @@
 │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘               │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │
 │  │ Artist Live  │ │   Discovery  │ │   Messages   │ │    Admin     │               │
-│  │  • start     │ │  • people    │ │  • threads   │ │  • songs     │               │
-│  │  • stop      │ │  • nearby    │ │  • send      │ │  • users     │               │
-│  │  • watch     │ │  • providers │ │  • job-board │ │  • fallback  │               │
+│  │  • start/stop│ │  • people    │ │  • threads   │ │  • songs     │               │
+│  │  • streamer- │ │  • nearby    │ │  • send      │ │  • users     │               │
+│  │    status    │ │  • providers │ │  • job-board │ │  • streamer- │               │
+│  │  • apply     │ │              │ │              │ │    apps      │               │
+│  │  • watch     │ │              │ │              │ │  • fallback  │               │
 │  │  • donations │ │              │ │              │ │  • radio     │               │
 │  └──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘               │
 │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐               │

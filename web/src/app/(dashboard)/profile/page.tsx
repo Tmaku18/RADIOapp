@@ -174,8 +174,29 @@ export default function ProfilePage() {
     }
   };
 
+  const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
+
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl space-y-6">
+      {(profile?.role === 'artist' || profile?.role === 'service_provider') && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">🔴</div>
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold text-foreground mb-1">Go Live</h2>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Streaming requires admin approval. Request access, then manage your stream (title, category, start/stop) in Stream settings.
+                </p>
+                <Button size="lg" className="rounded-full bg-primary text-primary-foreground hover:opacity-90" asChild>
+                  <a href="/stream-settings">Stream settings</a>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-6">
           <h2 className="text-xl font-semibold text-foreground mb-1">Profile Settings</h2>
@@ -428,6 +449,10 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <p className="text-sm text-muted-foreground">
+        <a href="/settings" className="underline hover:text-foreground">Settings and activity</a> — Account, notifications, security, and more.
+      </p>
     </div>
   );
 }

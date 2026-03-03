@@ -15,7 +15,9 @@ import '../features/pro_networx/pro_me_profile_screen.dart';
 import '../features/refinery/refinery_screen.dart';
 import '../features/yield/yield_screen.dart';
 import '../features/nearby/nearby_people_screen.dart';
+import '../features/livestream/stream_settings_screen.dart';
 import '../core/auth/auth_service.dart';
+import 'mini_player_bar.dart';
 import '../core/models/user.dart' as app_user;
 
 class HomeScreen extends StatefulWidget {
@@ -60,6 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // Determine which navigation items to show based on user role
     final isArtist = _user?.role == 'artist';
+    final isStreamerRole = _user?.role == 'artist' || _user?.role == 'service_provider';
 
     final List<NavigationDestination> destinations = isArtist
         ? const [
@@ -140,6 +143,19 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                   ),
                 ],
+                if (isStreamerRole)
+                  ListTile(
+                    leading: const Icon(Icons.live_tv),
+                    title: const Text('Stream settings'),
+                    subtitle: const Text('Request access, go live, manage stream'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const StreamSettingsScreen()),
+                      );
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.mail_outline),
                   title: const Text('Messages'),
@@ -167,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ListTile(
                     leading: const Icon(Icons.place_outlined),
                     title: const Text('Nearby People'),
-                    subtitle: const Text('Discover service providers near you'),
+                    subtitle: const Text('Discover Catalysts (service providers) near you'),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
@@ -282,21 +298,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       body: getCurrentScreen(),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        destinations: destinations,
-        onDestinationSelected: (index) {
-          // More sheet (do not change the selected tab)
-          if (index == 4) {
-            openMoreSheet();
-            setState(() => _currentIndex = _lastRealIndex);
-            return;
-          }
-          setState(() {
-            _currentIndex = index;
-            _lastRealIndex = index;
-          });
-        },
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const MiniPlayerBar(),
+          NavigationBar(
+            selectedIndex: _currentIndex,
+            destinations: destinations,
+            onDestinationSelected: (index) {
+              // More sheet (do not change the selected tab)
+              if (index == 4) {
+                openMoreSheet();
+                setState(() => _currentIndex = _lastRealIndex);
+                return;
+              }
+              setState(() {
+                _currentIndex = index;
+                _lastRealIndex = index;
+              });
+            },
+          ),
+        ],
       ),
     );
   }

@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { usePlayback } from '@/components/playback';
+import type { PlaybackTrack } from '@/components/playback';
 
 export type DiscographyTrack = {
   id: string;
@@ -35,250 +37,86 @@ type Props = {
   onRecordListen?: (trackId: string) => Promise<void> | void;
 };
 
+function toPlaybackTrack(t: DiscographyTrack): PlaybackTrack {
+  return {
+    id: t.id,
+    title: t.title,
+    artistName: t.artistName,
+    artistId: t.artistId,
+    artworkUrl: t.artworkUrl ?? null,
+    audioUrl: t.audioUrl ?? '',
+    durationSeconds: t.durationSeconds ?? 0,
+  };
+}
+
 export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Props) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const rafRef = useRef<number | null>(null);
-
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [duration, setDuration] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [volume, setVolume] = useState(0.9);
+  const { state, actions } = usePlayback();
   const [seeking, setSeeking] = useState(false);
+  const recordedForTrackRef = useRef<Set<string>>(new Set());
 
-  // 30-second listen tracking (per play start)
-  const listenStartAtRef = useRef<number | null>(null);
-  const recordedForPlayRef = useRef<{ trackId: string; startedAtMs: number } | null>(null);
-
+  const isDiscographyActive = state.source === 'discography' && !!state.track;
+  const activeId = isDiscographyActive ? state.track!.id : null;
   const activeIndex = useMemo(() => tracks.findIndex((t) => t.id === activeId), [tracks, activeId]);
   const activeTrack = useMemo(() => (activeIndex >= 0 ? tracks[activeIndex] : null), [tracks, activeIndex]);
+  const isPlaying = state.isPlaying;
+  const currentTime = state.currentTime;
+  const duration = state.duration;
+  const volume = state.volume;
 
   const canPrev = activeIndex > 0;
   const canNext = activeIndex >= 0 && activeIndex < tracks.length - 1;
 
-  const ensureAudio = useCallback(() => {
-    if (audioRef.current) return audioRef.current;
-    const el = typeof document !== 'undefined' ? document.createElement('audio') : null;
-    if (!el) return null;
-    el.preload = 'metadata';
-    audioRef.current = el;
-    return el;
-  }, []);
-
-  const stopRaf = useCallback(() => {
-    if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-  }, []);
-
-  const tick = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (!seeking) {
-      setCurrentTime(a.currentTime || 0);
-      setDuration(Number.isFinite(a.duration) ? a.duration : 0);
-    }
-
-    // Record listen when crossing 30s of listened time for this play start.
-    if (activeId && onRecordListen && listenStartAtRef.current != null) {
-      const startedAtMs = listenStartAtRef.current;
-      const already = recordedForPlayRef.current;
-      const isSamePlay = already && already.trackId === activeId && already.startedAtMs === startedAtMs;
-      if (!isSamePlay && (a.currentTime || 0) >= 30) {
-        recordedForPlayRef.current = { trackId: activeId, startedAtMs };
-        void onRecordListen(activeId);
-      }
-    }
-
-    rafRef.current = requestAnimationFrame(tick);
-  }, [activeId, onRecordListen, seeking]);
-
-  const setMediaSession = useCallback(
-    (t: DiscographyTrack | null) => {
-      if (typeof navigator === 'undefined') return;
-      const ms = (navigator as Navigator & { mediaSession?: MediaSession }).mediaSession;
-      if (!ms) return;
-      try {
-        if (!t) {
-          ms.metadata = null;
-          return;
-        }
-        ms.metadata = new MediaMetadata({
-          title: t.title,
-          artist: t.artistName,
-          album: 'NETWORX',
-          artwork: t.artworkUrl
-            ? [
-                { src: t.artworkUrl, sizes: '96x96', type: 'image/png' },
-                { src: t.artworkUrl, sizes: '192x192', type: 'image/png' },
-                { src: t.artworkUrl, sizes: '512x512', type: 'image/png' },
-              ]
-            : [],
-        });
-
-        ms.setActionHandler('play', async () => {
-          await audioRef.current?.play();
-        });
-        ms.setActionHandler('pause', () => {
-          audioRef.current?.pause();
-        });
-        ms.setActionHandler('previoustrack', () => {
-          if (canPrev) void playIndex(activeIndex - 1, true);
-        });
-        ms.setActionHandler('nexttrack', () => {
-          if (canNext) void playIndex(activeIndex + 1, true);
-        });
-        ms.setActionHandler('seekto', (event) => {
-          const a = audioRef.current;
-          if (!a) return;
-          const to = typeof event?.seekTime === 'number' ? event.seekTime : 0;
-          a.currentTime = clamp(to, 0, Number.isFinite(a.duration) ? a.duration : to);
-        });
-      } catch {
-        // Best-effort only.
-      }
-    },
-    [activeIndex, canNext, canPrev],
-  );
-
-  const attachAudioEvents = useCallback((a: HTMLAudioElement) => {
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    const onEnded = () => {
-      setIsPlaying(false);
-      if (canNext) void playIndex(activeIndex + 1, true);
-    };
-    const onLoaded = () => setDuration(Number.isFinite(a.duration) ? a.duration : 0);
-
-    a.addEventListener('play', onPlay);
-    a.addEventListener('pause', onPause);
-    a.addEventListener('ended', onEnded);
-    a.addEventListener('loadedmetadata', onLoaded);
-
-    return () => {
-      a.removeEventListener('play', onPlay);
-      a.removeEventListener('pause', onPause);
-      a.removeEventListener('ended', onEnded);
-      a.removeEventListener('loadedmetadata', onLoaded);
-    };
-  }, [activeIndex, canNext]);
-
   const playIndex = useCallback(
     async (index: number, autoPlay = false) => {
       const t = tracks[index];
-      if (!t) return;
-      if (!t.audioUrl) return;
-
-      const a = ensureAudio();
-      if (!a) return;
-
-      // New play start
-      listenStartAtRef.current = Date.now();
-      recordedForPlayRef.current = null;
-
-      a.src = t.audioUrl;
-      a.volume = volume;
-      setActiveId(t.id);
-      setCurrentTime(0);
-      setDuration(t.durationSeconds ? t.durationSeconds : 0);
-      setMediaSession(t);
-
-      try {
-        if (autoPlay) {
-          await a.play();
-        }
-      } catch {
-        // Autoplay may be blocked; user can press play.
-      }
+      if (!t?.audioUrl) return;
+      actions.loadTrack(toPlaybackTrack(t), 'discography');
+      if (autoPlay) await actions.play();
     },
-    [ensureAudio, setMediaSession, tracks, volume],
+    [actions, tracks],
   );
 
   const togglePlay = useCallback(async () => {
-    const a = ensureAudio();
-    if (!a) return;
-
     if (!activeTrack) {
-      // Start at top of list
       const idx = tracks.findIndex((t) => !!t.audioUrl);
       if (idx >= 0) await playIndex(idx, true);
       return;
     }
-
-    if (a.paused) {
-      try {
-        await a.play();
-      } catch {
-        // ignored
-      }
-    } else {
-      a.pause();
-    }
-  }, [activeTrack, ensureAudio, playIndex, tracks]);
+    await actions.togglePlay();
+  }, [activeTrack, actions, playIndex, tracks]);
 
   const handleRowPlay = useCallback(
     async (trackId: string) => {
       const idx = tracks.findIndex((t) => t.id === trackId);
       if (idx < 0) return;
-
       if (activeId === trackId && isPlaying) {
-        audioRef.current?.pause();
+        actions.pause();
         return;
       }
       if (activeId === trackId && !isPlaying) {
-        await togglePlay();
+        await actions.play();
         return;
       }
-
       await playIndex(idx, true);
     },
-    [activeId, isPlaying, playIndex, togglePlay, tracks],
+    [activeId, isPlaying, actions, playIndex, tracks],
   );
-
-  // Init audio element + events once
-  useEffect(() => {
-    const a = ensureAudio();
-    if (!a) return;
-    const detach = attachAudioEvents(a);
-    a.volume = volume;
-
-    stopRaf();
-    rafRef.current = requestAnimationFrame(tick);
-
-    return () => {
-      detach();
-      stopRaf();
-      a.pause();
-      audioRef.current = null;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Update volume
-  useEffect(() => {
-    if (audioRef.current) audioRef.current.volume = volume;
-  }, [volume]);
-
-  // Update media session playback state
-  useEffect(() => {
-    if (typeof navigator === 'undefined') return;
-    const ms = (navigator as Navigator & { mediaSession?: MediaSession }).mediaSession;
-    if (!ms) return;
-    try {
-      ms.playbackState = isPlaying ? 'playing' : 'paused';
-    } catch {
-      // ignore
-    }
-  }, [isPlaying]);
 
   const onSeekChange = useCallback(
     (value: number) => {
-      const a = audioRef.current;
-      if (!a) return;
-      setCurrentTime(value);
-      a.currentTime = clamp(value, 0, Number.isFinite(a.duration) ? a.duration : value);
+      actions.seek(clamp(value, 0, Number.isFinite(duration) ? duration : value));
     },
-    [],
+    [actions, duration],
   );
+
+  // 30s listen recording when playing from discography
+  useEffect(() => {
+    if (state.source !== 'discography' || !state.track?.id || !onRecordListen) return;
+    if (state.currentTime >= 30 && !recordedForTrackRef.current.has(state.track.id)) {
+      recordedForTrackRef.current.add(state.track.id);
+      onRecordListen(state.track.id);
+    }
+  }, [state.source, state.track?.id, state.currentTime, onRecordListen]);
 
   const likeBusyRef = useRef<Set<string>>(new Set());
   const [likeBusyTick, setLikeBusyTick] = useState(0);
@@ -369,58 +207,39 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
         </ul>
       </div>
 
-      {/* Sticky player bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-background/85 backdrop-blur supports-[backdrop-filter]:bg-background/70">
-        <div className="container mx-auto px-4 py-3 flex items-center gap-4">
-          <div className="flex items-center gap-3 min-w-0 flex-1">
-            <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/40 border border-border/60 shrink-0">
-              {activeTrack?.artworkUrl ? (
-                <Image src={activeTrack.artworkUrl} alt="" width={48} height={48} className="object-cover w-full h-full" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">♪</div>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="font-medium truncate">{activeTrack?.title ?? 'Select a track'}</p>
-              <p className="text-xs text-muted-foreground truncate">{activeTrack?.artistName ?? '—'}</p>
-            </div>
-          </div>
-
+      {/* Inline controls when this discography is the active source (global Now Playing bar shows track everywhere) */}
+      {isDiscographyActive && activeTrack && (
+        <div className="mt-4 p-4 rounded-xl border border-border bg-muted/20 flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
-            <Button type="button" variant="ghost" size="icon" disabled={!canPrev} onClick={() => void playIndex(activeIndex - 1, true)}>
+            <Button type="button" variant="ghost" size="icon" disabled={!canPrev} onClick={() => void playIndex(activeIndex - 1, true)} aria-label="Previous">
               ⏮
             </Button>
-            <Button type="button" variant="default" size="icon" onClick={() => void togglePlay()}>
+            <Button type="button" variant="default" size="icon" onClick={() => void togglePlay()} aria-label={isPlaying ? 'Pause' : 'Play'}>
               {isPlaying ? '⏸' : '▶'}
             </Button>
-            <Button type="button" variant="ghost" size="icon" disabled={!canNext} onClick={() => void playIndex(activeIndex + 1, true)}>
+            <Button type="button" variant="ghost" size="icon" disabled={!canNext} onClick={() => void playIndex(activeIndex + 1, true)} aria-label="Next">
               ⏭
             </Button>
           </div>
-
-          <div className="hidden md:flex flex-col gap-1 w-[420px] max-w-[40vw]">
-            <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-mono">
-              <span className="w-10 text-right">{formatTime(currentTime)}</span>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(0, duration || 0)}
-                step={0.25}
-                value={Math.min(currentTime, duration || 0)}
-                onMouseDown={() => setSeeking(true)}
-                onMouseUp={() => setSeeking(false)}
-                onTouchStart={() => setSeeking(true)}
-                onTouchEnd={() => setSeeking(false)}
-                onChange={(e) => onSeekChange(Number(e.target.value))}
-                className="w-full"
-                aria-label="Seek"
-                disabled={!activeTrack}
-              />
-              <span className="w-10">{formatTime(duration || 0)}</span>
-            </div>
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground font-mono flex-1 min-w-0">
+            <span className="w-10 text-right shrink-0">{formatTime(currentTime)}</span>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, duration || 0)}
+              step={0.25}
+              value={Math.min(currentTime, duration || 0)}
+              onMouseDown={() => setSeeking(true)}
+              onMouseUp={() => setSeeking(false)}
+              onTouchStart={() => setSeeking(true)}
+              onTouchEnd={() => setSeeking(false)}
+              onChange={(e) => onSeekChange(Number(e.target.value))}
+              className="w-full max-w-[200px]"
+              aria-label="Seek"
+            />
+            <span className="w-10 shrink-0">{formatTime(duration || 0)}</span>
           </div>
-
-          <div className="hidden lg:flex items-center gap-2 w-40">
+          <div className="flex items-center gap-2 w-32">
             <span className="text-xs text-muted-foreground">🔊</span>
             <input
               type="range"
@@ -428,16 +247,13 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
               max={1}
               step={0.01}
               value={volume}
-              onChange={(e) => setVolume(Number(e.target.value))}
+              onChange={(e) => actions.setVolume(Number(e.target.value))}
               className="w-full"
               aria-label="Volume"
             />
           </div>
         </div>
-      </div>
-
-      {/* Spacer so content doesn't hide behind the bar */}
-      <div className="h-24" />
+      )}
     </div>
   );
 }

@@ -13,7 +13,7 @@ This document contains Use Case diagrams and Activity diagrams for all platform 
 |-------|-------------|
 | **Listener (Prospector)** | Authenticated user who listens to radio, votes, earns Yield, uses Refinery |
 | **Artist** | Content creator; can upload songs, allocate credits, go live, view analytics |
-| **Service Provider** | Pro-NETWORX professional; listed in directory, receives DMs and job applications |
+| **Catalysts (service providers)** | Pro-NETWORX professional; listed in directory, receives DMs and job applications |
 | **Admin** | Platform administrator; moderation, user management, radio control |
 | **System** | Automated backend processes (cron, webhooks, push) |
 
@@ -212,7 +212,7 @@ flowchart LR
 flowchart LR
     subgraph actors [Actors]
         Listener((Listener))
-        ServiceProvider((Service Provider))
+        ServiceProvider((Catalysts (service providers)))
     end
 
     subgraph discovery [Discovery and Pro-Directory]
@@ -241,7 +241,7 @@ flowchart LR
 flowchart LR
     subgraph actors [Actors]
         User((User))
-        ServiceProvider((Service Provider))
+        ServiceProvider((Catalysts (service providers)))
     end
 
     subgraph messaging [Messaging and Creator Network]
@@ -539,7 +539,7 @@ flowchart TD
     JobBoard([User: Apply to job]) --> ViewJobs[View job board]
     ViewJobs --> SelectJob[Select job request]
     SelectJob --> SubmitApplication[Submit application]
-    SubmitApplication --> NotifyProvider[Notify service provider]
+    SubmitApplication --> NotifyProvider[Notify catalyst]
     NotifyProvider --> JobApplied([Application sent])
 ```
 

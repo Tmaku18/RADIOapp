@@ -75,7 +75,9 @@ This document is a single reference for all platform features across web, mobile
 
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
-| **Go live** | Artist starts a live stream (e.g. Cloudflare Stream live input) | ✅ | ✅ | `POST /artist-live/start` |
+| **Streamer approval** | Artists/Catalysts request streaming access; admin approves in Admin → Streamers; only approved users can go live | ✅ | ✅ | `GET /artist-live/streamer-status`, `POST /artist-live/apply`, `GET/PATCH /admin/streamer-applications` |
+| **Stream settings** | Dedicated menu/page: request access, pending, or (when approved) Stream Manager + Live services | ✅ | ✅ | — |
+| **Go live** | Approved streamer starts a live stream (e.g. Cloudflare Stream live input) | ✅ | ✅ | `POST /artist-live/start` (gated by streaming_approved_at) |
 | **Stop live** | End stream; lifecycle via webhook | ✅ | ✅ | `POST /artist-live/stop` + webhook |
 | **Watch live** | Viewers join stream (HLS/low-latency player) | ✅ | ✅ | `GET /artist-live/:artistId/watch` |
 | **Live status** | Is artist live, viewer count, session id | ✅ | ✅ | `GET /artist-live/:artistId/status` |
@@ -158,7 +160,7 @@ This document is a single reference for all platform features across web, mobile
 
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
-| **Discover people** | List service providers/artists with filters (role, service type, search, location, radius) | ✅ | ✅ | `GET /discovery/people` |
+| **Discover people** | List Catalysts (service providers)/artists with filters (role, service type, search, location, radius) | ✅ | ✅ | `GET /discovery/people` |
 | **Nearby (location)** | PostGIS-based nearby providers; location permission + radius UI | — | ✅ | Discovery service + `get_provider_ids_nearby` |
 | **Provider profile** | Service provider profile, listings, portfolio | ✅ | ✅ | `GET /service-providers/:userId` |
 | **Pro-NETWORX directory** | Separate app (pro-web) with skills, availability, Fiverr-style cards | ✅ | ✅ | Pro-networx module + pro-web app |

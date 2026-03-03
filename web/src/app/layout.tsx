@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import { PlaybackLayout } from '@/components/playback';
 
 const APP_NAME = 'RadioApp';
 const APP_DESCRIPTION =
@@ -72,7 +73,7 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="networx-theme" disableTransitionOnChange>
           <AuthProvider>
-            {children}
+            <PlaybackLayout>{children}</PlaybackLayout>
           </AuthProvider>
           <Toaster />
         </ThemeProvider>

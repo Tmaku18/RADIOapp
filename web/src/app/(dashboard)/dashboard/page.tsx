@@ -26,7 +26,7 @@ const ROLE_HOME: Record<
     actions: [
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
       { href: '/browse', icon: '🔍', title: 'Browse', desc: "Explore ore's and gems." },
-      { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and service providers.' },
+      { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and Catalysts (service providers).' },
       { href: '/competition', icon: '🏆', title: 'Competition', desc: 'Leaderboards, diamonds, and Top 7.' },
       { href: '/messages', icon: '💬', title: 'Messages', desc: 'Chat with gems and creators.' },
       { href: '/yield', icon: '⛏️', title: 'The Yield', desc: 'Track rewards and redeem at thresholds.' },
@@ -62,7 +62,7 @@ const ROLE_HOME: Record<
     ],
   },
   service_provider: {
-    title: "Service Provider Home",
+    title: "Catalyst (service provider) Home",
     subtitle: "Offer your services to gems and manage your listings.",
     actions: [
       { href: '/artist/services', icon: '🛠️', title: 'My Services', desc: 'Manage your service offerings.' },

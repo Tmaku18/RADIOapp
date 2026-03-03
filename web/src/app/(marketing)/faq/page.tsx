@@ -55,7 +55,7 @@ const faqs = [
       },
       {
         q: 'What is ProNetworx and why should I use it?',
-        a: 'ProNetworx is the professional growth layer connected to Networx. It helps artists find service providers, collaborators, and mentors who can support release strategy, production quality, visual branding, and career development.',
+        a: 'ProNetworx is the professional growth layer connected to Networx. It helps artists find Catalysts (service providers), collaborators, and mentors who can support release strategy, production quality, visual branding, and career development.',
       },
     ],
   },

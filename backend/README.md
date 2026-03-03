@@ -10,7 +10,7 @@ The backend handles:
 - **User Management**: Profile creation, updates, and role management
 - **Song Management**: Upload, metadata, likes, and approval workflow
 - **Radio System**: Track rotation queue with persistent state
-- **Discovery & Pro-Directory**: Search/filter service providers + profiles
+- **Discovery & Pro-Directory**: Search/filter Catalysts (service providers) + profiles
 - **Venue Ads**: Lightweight “venue partner” slots for listen surfaces
 - **Realtime Station Events**: Rising Star alerts via Supabase-backed table
 - **Payments**: Stripe integration with dual flows (PaymentIntent + Checkout Sessions)
@@ -175,9 +175,9 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 ### Discovery / Pro-Directory
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/discovery/people` | GET | Search service providers/artists with filters (search, rate, location, nearby) |
+| `/api/discovery/people` | GET | Search Catalysts (service providers)/artists with filters (search, rate, location, nearby) |
 
-### Service Providers
+### Catalysts (service providers)
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/service-providers/:userId` | GET | Provider profile + listings + portfolio |

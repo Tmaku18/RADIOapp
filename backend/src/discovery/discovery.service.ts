@@ -35,7 +35,7 @@ export class DiscoveryService {
     const offset = params.offset ?? 0;
     const supabase = getSupabaseClient();
 
-    // Build list of service provider user_ids with their types and mentor flag
+    // Build list of Catalyst (service provider) user_ids with their types and mentor flag
     const { data: providerRows } = await supabase
       .from('service_providers')
       .select('id, user_id, bio, location_region, mentor_opt_in');

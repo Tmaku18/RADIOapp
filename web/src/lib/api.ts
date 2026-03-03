@@ -169,6 +169,10 @@ export const artistLiveApi = {
   start: (data?: { title?: string; description?: string; category?: string }) =>
     api.post('/artist-live/start', data ?? {}),
   stop: () => api.post('/artist-live/stop'),
+  listSessions: () => api.get<{ sessions: Array<{ sessionId: string; artistId: string; displayName: string; avatarUrl: string | null; title: string | null; currentViewers: number; peakViewers: number; startedAt: string; status: string }> }>('/artist-live/sessions'),
+  getStreamerStatus: () =>
+    api.get<{ canStream: boolean; appliedAt: string | null; approvedAt: string | null; rejectedAt: string | null; role: string }>('/artist-live/streamer-status'),
+  applyToStream: () => api.post<{ applied: boolean; appliedAt: string; message: string }>('/artist-live/apply'),
   getStatus: (artistId: string) => api.get(`/artist-live/${artistId}/status`),
   getWatch: (artistId: string) => api.get(`/artist-live/${artistId}/watch`),
   join: (sessionId: string, data?: { source?: string }) =>
@@ -374,6 +378,10 @@ export const adminApi = {
   getFeedMedia: (reportedOnly?: boolean) =>
     api.get('/admin/feed-media', { params: reportedOnly ? { reportedOnly: 'true' } : undefined }),
   removeFromFeed: (contentId: string) => api.patch(`/admin/feed-media/${contentId}/remove`),
+  getStreamerApplications: () =>
+    api.get<{ applications: Array<{ userId: string; displayName: string | null; email: string | null; role: string | null; appliedAt: string }> }>('/admin/streamer-applications'),
+  setStreamerApproval: (userId: string, action: 'approve' | 'reject') =>
+    api.patch(`/admin/streamer-applications/${userId}`, { action }),
 };
 
 export const notificationsApi = {

@@ -77,14 +77,14 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - 🚧 **In progress**: under active development
 - 📌 **Planned**: not implemented yet
 
-### Latest highlights (Feb 2026)
-- ✅ Yield rewards: $5 / $10 Virtual Visa progress + idempotent redemptions
-- ✅ Nearby discovery + privacy toggle (discoverable/incognito)
-- ✅ Rising Star “Butterfly Ripple” realtime feedback (web pulse + mobile haptics/ripple)
-- ✅ PRO‑NETWORX portal (directory + profiles + builder) across web/mobile
-- 🧪 Trial-by-Fire window flag + Daily Diamond snapshots (backend cron + DB)
+### Latest highlights (Mar 2026)
+- ✅ **Streamer approval**: Artists and Catalysts must request streaming access; admin approves in **Admin → Streamers**. Only approved users can go live.
+- ✅ **Stream settings** (own menu): Dedicated **Stream settings** page/menu for request access, pending state, and (when approved) Stream Manager + Live services. Web: sidebar + `/stream-settings`; mobile: More sheet → Stream settings.
+- ✅ **Discover (IG-style)**: Tabs For you / Artists / Catalysts with search and filters; combined artist + Pro-Networx profiles; primary-accent styling
+- ✅ **Bottom nav (web)**: Twitch/IG-style bottom bar: Home, Discover, Live, Activity, Profile (fixed; brand primary for active).
+- ✅ **Live discovery**: `/live` page lists live sessions; sort by viewers/recent; profile Go Live opens Stream Manager (web) or Stream settings (mobile).
 
-See the full changelog at **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)**.
+See **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)** and **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)** for full changelogs.
 
 ## Ads, interruptions, and rotation rules (clarifications)
 
