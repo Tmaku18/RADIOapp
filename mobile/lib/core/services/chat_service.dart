@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/widgets.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../env.dart';
 import '../models/chat_message.dart';
 import 'api_service.dart';
 
@@ -51,8 +51,8 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     if (_initialized) return;
     
     // Initialize Supabase client
-    final supabaseUrl = dotenv.env['SUPABASE_URL'];
-    final supabaseKey = dotenv.env['SUPABASE_ANON_KEY'];
+    final supabaseUrl = env('SUPABASE_URL');
+    final supabaseKey = env('SUPABASE_ANON_KEY');
     
     if (supabaseUrl == null || supabaseKey == null) {
       debugPrint('ChatService: Supabase credentials not found in .env');

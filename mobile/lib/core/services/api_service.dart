@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../env.dart';
 
 class ApiException implements Exception {
   final int statusCode;
@@ -22,7 +22,7 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
 
-  String get baseUrl => dotenv.env['API_BASE_URL'] ?? 'http://localhost:3000';
+  String get baseUrl => env('API_BASE_URL') ?? 'http://localhost:3000';
   String? _authToken;
 
   void setAuthToken(String? token) {

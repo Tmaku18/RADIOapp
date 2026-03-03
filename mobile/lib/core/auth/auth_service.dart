@@ -126,18 +126,32 @@ class AuthService extends ChangeNotifier {
         final token = await userCredential.user!.getIdToken();
         _apiService.setAuthToken(token);
 
-        // Check if user exists, create if not
+        // Check if user exists in backend, create if not
         try {
-          await _getUserProfile();
+          return await _getUserProfile();
         } catch (e) {
-          await _apiService.post('users', {
-            'email': userCredential.user!.email!,
-            'displayName': userCredential.user!.displayName,
-            'role': 'listener',
-          });
+          try {
+            await _apiService.post('users', {
+              'email': userCredential.user!.email ?? '',
+              'displayName': userCredential.user!.displayName ?? userCredential.user!.email,
+              'role': 'listener',
+            });
+            return await _getUserProfile();
+          } catch (e2) {
+            // Backend unreachable; still return profile from Firebase so UI can navigate
+            debugPrint('Backend user sync failed: $e2');
+            final now = DateTime.now();
+            return app_user.User(
+              id: userCredential.user!.uid,
+              firebaseUid: userCredential.user!.uid,
+              email: userCredential.user!.email ?? '',
+              displayName: userCredential.user!.displayName ?? userCredential.user!.email ?? 'User',
+              role: 'listener',
+              createdAt: now,
+              updatedAt: now,
+            );
+          }
         }
-
-        return await _getUserProfile();
       }
       return null;
     } catch (e) {

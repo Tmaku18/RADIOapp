@@ -1,4 +1,40 @@
-# Troubleshooting Blank Screen
+# Mobile troubleshooting
+
+## Google Sign-In: "ApiException: 10" (DEVELOPER_ERROR)
+
+**Symptoms:** "Google sign in failed: PlatformException(sign_in_failed, ApiException: 10:, ...)"
+
+**Cause:** Your app’s **SHA-1 fingerprint** is not registered in Firebase, so Google rejects sign-in.
+
+**Fix:**
+
+1. **Get your debug SHA-1** (you can run this again to confirm):
+   ```powershell
+   keytool -list -v -keystore "$env:USERPROFILE\.android\debug.keystore" -alias androiddebugkey -storepass android
+   ```
+   Copy the **SHA1** line (e.g. `2B:A4:EF:54:A5:E1:1C:4C:31:2F:4B:8D:89:59:56:9C:B2:60:43:C2`).
+
+2. **Add it in Firebase:**
+   - Open [Firebase Console](https://console.firebase.google.com) → your project (**radioapp-4c14a**).
+   - **Project settings** (gear) → **Your apps**.
+   - Select the **Android** app with package name `com.radioapp.radio_app` (or add an Android app if missing).
+   - Under **App fingerprint**, click **Add fingerprint** and paste your **SHA-1** (debug one above; add release SHA-1 later for release builds).
+   - Save.
+
+3. **Download updated config (optional but recommended):**
+   - In the same Android app card, click **Download google-services.json**.
+   - Replace `mobile/android/app/google-services.json` with the new file.
+
+4. **Rebuild and run:**
+   ```powershell
+   cd mobile; flutter clean; flutter pub get; flutter run -d <device>
+   ```
+
+If you use a **release** or **upload** keystore, add that SHA-1 in Firebase as well.
+
+---
+
+## Blank screen
 
 If you're seeing a blank screen when running the app, check the following:
 

@@ -6,6 +6,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
+import 'core/env.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/theme/networx_theme.dart';
@@ -42,7 +43,7 @@ void main() async {
   );
 
   // Initialize Stripe
-  final stripePublishableKey = dotenv.env['STRIPE_PUBLISHABLE_KEY'];
+  final stripePublishableKey = env('STRIPE_PUBLISHABLE_KEY');
   if (stripePublishableKey != null && stripePublishableKey.isNotEmpty) {
     Stripe.publishableKey = stripePublishableKey;
     debugPrint('Stripe initialized successfully');
@@ -76,8 +77,8 @@ void main() async {
   }
 
   // Initialize Supabase (for Realtime events beyond chat)
-  final supabaseUrl = dotenv.env['SUPABASE_URL'];
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  final supabaseUrl = env('SUPABASE_URL');
+  final supabaseAnonKey = env('SUPABASE_ANON_KEY');
   if (supabaseUrl != null &&
       supabaseAnonKey != null &&
       supabaseUrl.isNotEmpty &&

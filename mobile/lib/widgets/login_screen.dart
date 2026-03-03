@@ -56,12 +56,20 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleSignIn() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     try {
-      await authService.signInWithGoogle();
+      final user = await authService.signInWithGoogle();
+      if (mounted && user != null) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google sign in failed: $e')),
-        );
+        // Firebase may still have signed in (e.g. backend /users/me failed)
+        if (authService.currentUser != null) {
+          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Google sign in failed: $e')),
+          );
+        }
       }
     }
   }

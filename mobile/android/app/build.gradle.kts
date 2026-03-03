@@ -54,6 +54,31 @@ flutter {
     source = "../.."
 }
 
+// Workaround: Flutter CLI expects APK at build/app/outputs/flutter-apk/ when using
+// modern AGP DSL (pluginManagement). AGP writes to android/app/build/outputs/apk/
+// instead. Copy so "flutter run" / "flutter build apk" can find the APK.
+// See: https://github.com/flutter/flutter/issues/174620
+val cliOutDir = rootDir.parentFile!!.resolve("build/app/outputs/flutter-apk")
+tasks.register("syncFlutterApks") {
+    doLast {
+        cliOutDir.mkdirs()
+        val apkDir = layout.buildDirectory.dir("outputs/apk").get().asFile
+        if (apkDir.exists()) {
+            apkDir.walk().filter { it.isFile && it.extension == "apk" }.forEach { apk ->
+                apk.copyTo(cliOutDir.resolve(apk.name), overwrite = true)
+            }
+        }
+    }
+}
+android.applicationVariants.all {
+    val cap = name.replaceFirstChar { it.uppercase() }
+    listOf("package$cap", "assemble$cap").forEach { taskName ->
+        tasks.matching { it.name == taskName }.configureEach {
+            finalizedBy(tasks.named("syncFlutterApks"))
+        }
+    }
+}
+
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
