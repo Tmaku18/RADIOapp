@@ -81,7 +81,7 @@ Once the project and service are linked:
 - **Backend**: `backend/.env` – copy from `backend/.env.example`; for production deploy, rely on Railway variables instead of committing `.env`.
 - **Web**: `web/.env.local` – copy from `web/.env.local.example`; for production, set the same keys in Railway (web service) or your hosting env.
 
-After deployment, set `WEB_URL` and `CORS_ORIGIN` (and any `NEXT_PUBLIC_*` that point to your backend) to your real Railway URLs.
+After deployment, set `WEB_URL` and `CORS_ORIGIN` (and any `NEXT_PUBLIC_*` that point to your backend) to your real Railway URLs. For production on **networxradio.com** (and www), see [production-networxradio.md](production-networxradio.md).
 
 ## 4. Deploy
 

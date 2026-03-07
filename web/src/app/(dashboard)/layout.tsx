@@ -10,6 +10,7 @@ import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
@@ -224,9 +225,9 @@ export default function DashboardLayout({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/browse" className="flex items-center gap-2">
-                  <span className="text-2xl">🎧</span>
-                  <span className="font-bold text-foreground">Discover Me</span>
+                <Link href="/dashboard" className="flex items-center gap-2">
+                  <img src="/icons/icon.svg" alt="" className="size-8 shrink-0" aria-hidden />
+                  <span className="font-bold text-foreground">Networx</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -345,7 +346,7 @@ export default function DashboardLayout({
           </SidebarGroup>
         </SidebarContent>
 
-        <SidebarFooter>
+        <SidebarFooter className="pb-20 md:pb-2">
           <div className="p-2">
             <p className="text-sm text-foreground truncate px-2">{profile?.displayName || user.email}</p>
             <p className="text-xs text-muted-foreground capitalize px-2">{profile?.role || 'Loading...'}</p>
@@ -410,6 +411,11 @@ export default function DashboardLayout({
                     System
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
+                  <span className="mr-2">{isSigningOut ? '⏳' : '🚪'}</span>
+                  {isSigningOut ? 'Signing out...' : 'Sign Out'}
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

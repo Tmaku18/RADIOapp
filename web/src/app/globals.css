@@ -521,3 +521,20 @@
     animation: none;
   }
 }
+
+/* Station picker map: tower badge spins on hover */
+.tower-marker {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.tower-badge {
+  transition: transform 0.5s ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tower-marker:hover .tower-badge {
+    transform: rotate(360deg);
+  }
+}

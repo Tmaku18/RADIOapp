@@ -1,5 +1,7 @@
 # Environment Variables Setup (Vercel + Railway)
 
+**Production on networxradio.com:** For the full checklist (DNS, Vercel, Railway, Firebase, Stripe) with both **networxradio.com** and **www.networxradio.com** required, see [production-networxradio.md](production-networxradio.md).
+
 **Copy-paste source:** Use `docs/env-variables.local` for raw key=value lines (fill placeholders, then paste into Railway/Vercel). That file is **gitignored** so you can put real values there safely.
 
 ---

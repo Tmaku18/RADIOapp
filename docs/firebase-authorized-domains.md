@@ -10,8 +10,8 @@ When you see **unauthorized domain** during Google (or other) sign-in, the appâ€
 
    | Domain | When to add |
    |--------|---------------------|
-   | `networxradio.com` | Production (main site) |
-   | `www.networxradio.com` | If you use www |
+   | `networxradio.com` | Production (apex) |
+   | `www.networxradio.com` | Production (www; required) |
    | `localhost` | Already there; used for local dev |
    | `radi-oapp-discover-me-radio-group-llc.vercel.app` | Vercel production hostname |
    | `radi-oapp-*.vercel.app` | Not supported (no wildcards). Add the **exact** preview URL if you need to sign in on a preview deployment (e.g. `radi-oapp-8xjq10sao-discover-me-radio-group-llc.vercel.app`). |
