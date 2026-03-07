@@ -70,26 +70,40 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero — 4 AM story-driven; Live Ripple + dynamic CTA by role */}
-      <section className="relative py-24 sm:py-32 overflow-hidden">
+      {/* Hero — Join the movement (primary CTA above the fold) */}
+      <section className="py-24 sm:py-32 bg-primary text-primary-foreground">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
+            Join the movement and build your network
+          </h1>
+          <p className="mt-6 text-lg sm:text-xl text-primary-foreground/90 max-w-2xl mx-auto">
+            Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
+          </p>
+          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+            <Button size="lg" variant="secondary" asChild>
+              <Link href="/signup">Get Started Free</Link>
+            </Button>
+            <Button size="lg" variant="outline" className="border-white/60 text-white hover:bg-white/15" asChild>
+              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                Explore ProNetworx
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Supporting hero — platform value prop + visualizer */}
+      <section className="relative py-16 sm:py-20 overflow-hidden border-b border-border">
         <LiveRippleVisualizer />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <a
-            href={PRO_NETWORX_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary hover:bg-primary/15 transition-colors"
-          >
-            New: ProNetworx is live for artist growth and mentorship
-          </a>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight">
-            Build Your Audience, Team, and Career in One Platform
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-            Networx combines always-on democratic radio, artist livestreams, live chat, votes and ripples, transparent analytics, and ProNetworx mentorship so no hidden gem stays invisible.
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+            Build your audience, team, and career in one platform
+          </h2>
+          <p className="mt-4 text-muted-foreground max-w-2xl mx-auto">
+            Always-on radio, livestreams, votes and ripples, transparent analytics, and ProNetworx mentorship.
           </p>
           <HeroCta />
-          <div className="mt-6">
+          <div className="mt-4">
             <Button variant="outline" size="lg" asChild>
               <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
                 Open ProNetworx
@@ -112,7 +126,7 @@ export default async function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
               { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems', sub: '(artists)' },
-              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: "Ore's", sub: '(listeners)' },
+              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Tracks', sub: '(songs)' },
               { value: formatDiscoveries(data.stats.totalProfileClicks), label: 'Discoveries', sub: '(profile clicks)' },
               { value: formatListens(data.stats.totalPlays), label: 'Total listens', sub: '(songs heard)' },
             ].map((stat) => (
@@ -229,20 +243,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 bg-primary text-primary-foreground">
+      {/* Final CTA */}
+      <section className="py-16 bg-muted/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Join the movement and build your network
-          </h2>
-          <p className="text-xl text-primary-foreground/90 mb-8">
-            Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
-          </p>
+          <h2 className="text-2xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" asChild>
+            <Button size="lg" asChild>
               <Link href="/signup">Get Started Free</Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-white/60 text-white hover:bg-white/15" asChild>
+            <Button size="lg" variant="outline" asChild>
               <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
                 Explore ProNetworx
               </Link>

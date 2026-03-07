@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter, Space_Grotesk, Geist_Mono, Lora, Caveat } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
@@ -76,6 +77,7 @@ export default function RootLayout({
             <PlaybackLayout>{children}</PlaybackLayout>
           </AuthProvider>
           <Toaster />
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>

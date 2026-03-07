@@ -6,13 +6,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   UserIcon,
-  Bell01Icon,
+  Notification01Icon,
   LockIcon,
   CreditCardIcon,
   ChartHistogramIcon,
-  Setting02Icon,
+  Settings02Icon,
   HelpCircleIcon,
-  FileDescriptionIcon,
+  File01Icon,
 } from '@hugeicons/core-free-icons';
 
 const settingsSections = [
@@ -25,14 +25,14 @@ const settingsSections = [
   {
     title: 'Preferences',
     items: [
-      { label: 'Theme', description: 'Dark mode, light mode, system', href: '/settings/theme', icon: Setting02Icon },
+      { label: 'Theme', description: 'Dark mode, light mode, system', href: '/settings/theme', icon: Settings02Icon },
       { label: 'Playback', description: 'Audio quality, autoplay', href: '/settings/playback', icon: ChartHistogramIcon },
     ],
   },
   {
     title: 'Notifications',
     items: [
-      { label: 'Notifications', description: 'Email and push preferences', href: '/settings/notifications', icon: Bell01Icon },
+      { label: 'Notifications', description: 'Email and push preferences', href: '/settings/notifications', icon: Notification01Icon },
     ],
   },
   {
@@ -124,7 +124,7 @@ export default function SettingsPage() {
               <li>
                 <Link href="/admin" className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <HugeiconsIcon icon={Setting02Icon} className="size-5 text-muted-foreground" strokeWidth={2} />
+                    <HugeiconsIcon icon={Settings02Icon} className="size-5 text-muted-foreground" strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground">Admin dashboard</p>
@@ -159,7 +159,7 @@ export default function SettingsPage() {
             <li>
               <Link href="/privacy" className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                  <HugeiconsIcon icon={FileDescriptionIcon} className="size-5 text-muted-foreground" strokeWidth={2} />
+                  <HugeiconsIcon icon={File01Icon} className="size-5 text-muted-foreground" strokeWidth={2} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-foreground">Privacy & Terms</p>

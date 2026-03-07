@@ -14,6 +14,6 @@ import { ChatModule } from '../chat/chat.module';
   ],
   controllers: [RadioController, ProspectorController],
   providers: [RadioService, RadioStateService, ProspectorYieldService],
-  exports: [RadioService, RadioStateService],
+  exports: [RadioService, RadioStateService, ProspectorYieldService],
 })
 export class RadioModule {}

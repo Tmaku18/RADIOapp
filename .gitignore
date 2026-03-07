@@ -8,6 +8,7 @@ node_modules/
 .env.local
 .env.*.local
 mobile/.env
+docs/env-variables.local
 
 # Build outputs
 dist/
