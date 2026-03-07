@@ -115,13 +115,13 @@ export default function DiscoverPage() {
         <p className="text-sm text-muted-foreground">Find artists and Catalysts (service providers). Search and filter below.</p>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
           <TabsList variant="line" className="w-full justify-start rounded-none border-b border-border bg-transparent p-0">
-            <TabsTrigger value="all" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+            <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               For you
             </TabsTrigger>
-            <TabsTrigger value="artist" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+            <TabsTrigger value="artist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               Artists
             </TabsTrigger>
-            <TabsTrigger value="service_provider" variant="line" className="rounded-none border-b-2 border-transparent data-active:border-primary data-active:text-primary">
+            <TabsTrigger value="service_provider" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               Catalysts
             </TabsTrigger>
           </TabsList>
