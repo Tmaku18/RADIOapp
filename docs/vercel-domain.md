@@ -24,3 +24,7 @@ Set these so the app and backend use the correct URLs:
   - `CORS_ORIGIN` = include `https://networxradio.com` and `https://www.networxradio.com` if you use www.
 
 After DNS propagates, the site will be served at **https://networxradio.com**.
+
+## Firebase "Unauthorized domain" on sign-in
+
+If Google (or other) sign-in fails with **unauthorized domain**, add your app domains in Firebase: **Authentication → Settings → Authorized domains**. See [firebase-authorized-domains.md](./firebase-authorized-domains.md) for the exact list and steps.

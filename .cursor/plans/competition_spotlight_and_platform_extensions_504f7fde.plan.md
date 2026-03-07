@@ -108,11 +108,11 @@ Full detail for A is in the earlier plan (competition, spotlight, local suggesti
 
 ---
 
-## E. New: Artist Services Marketplace (Service Providers as Distinct User Type)
+## E. New: Artist Services Marketplace (Catalysts (service providers) as Distinct User Type)
 
-**Goal:** A **marketplace** where **service providers** are a **distinct user type** with their **own dashboard** (they still connect to the radio and can listen). Providers select the **type(s) of service** they offer; have a **bio** and **portfolio** (audio and visual only; no video for now). **Artists** get a dedicated **Services** tab to search/filter by service type, provider (user), and **location/relative distance**, and to **send messages** or **post requests** to providers.
+**Goal:** A **marketplace** where **Catalysts (service providers)** are a **distinct user type** with their **own dashboard** (they still connect to the radio and can listen). Providers select the **type(s) of service** they offer; have a **bio** and **portfolio** (audio and visual only; no video for now). **Artists** get a dedicated **Services** tab to search/filter by service type, provider (user), and **location/relative distance**, and to **send messages** or **post requests** to providers.
 
-**Service provider as a user type**
+**Catalyst (service provider) as a user type**
 
 - **Role:** Add `service_provider` (e.g. extend `users.role` CHECK to include `'service_provider'`). Same auth (Firebase); distinct from listener/artist/admin.
 - **Dashboard:** Provider-specific dashboard (web + optional mobile): profile (bio), portfolio management, service type(s), listings, orders, and **inbox** for messages and requests. Radio remains available (Listen) so providers can use the app like any user.

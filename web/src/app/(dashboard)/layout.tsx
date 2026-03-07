@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
@@ -120,10 +120,19 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, signOut, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
+  const { user, profile, loading, signOut, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp, refreshProfile } = useAuth();
   const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
   const isArtistMode = profile?.role === 'artist' || profile?.role === 'admin';
   const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
+
+  // Refetch profile when dashboard loads so role changes (e.g. admin grant) appear without sign-out
+  const hasRefetched = React.useRef(false);
+  useEffect(() => {
+    if (user && !loading && !hasRefetched.current) {
+      hasRefetched.current = true;
+      refreshProfile();
+    }
+  }, [user, loading, refreshProfile]);
 
   useEffect(() => {
     if (!loading && !user) {

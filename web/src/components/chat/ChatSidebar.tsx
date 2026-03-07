@@ -40,6 +40,8 @@ export default function ChatSidebar() {
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const setupChannelRef = useRef<(() => void) | null>(null);
+  const connectionStatusRef = useRef<ConnectionStatus>(connectionStatus);
+  connectionStatusRef.current = connectionStatus;
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -84,11 +86,25 @@ export default function ChatSidebar() {
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     let connectionTimeoutId: NodeJS.Timeout | null = null;
     let hasConnected = false;
+
+    const scheduleReconnect = (delayMs: number) => {
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = setTimeout(() => {
+        reconnectTimeoutRef.current = null;
+        console.log('Attempting to reconnect chat...');
+        setupChannel();
+      }, delayMs);
+    };
     
     const setupChannel = () => {
       // Clean up existing channel if any
       if (channelRef.current) {
         channelRef.current.unsubscribe();
+        channelRef.current = null;
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
       
       hasConnected = false;
@@ -132,7 +148,6 @@ export default function ChatSidebar() {
             console.log('Chat channel connected');
             hasConnected = true;
             setConnectionStatus('connected');
-            // Clear timeouts
             if (connectionTimeoutId) {
               clearTimeout(connectionTimeoutId);
               connectionTimeoutId = null;
@@ -148,11 +163,7 @@ export default function ChatSidebar() {
               clearTimeout(connectionTimeoutId);
               connectionTimeoutId = null;
             }
-            // Attempt reconnect after 5 seconds
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log('Attempting to reconnect chat...');
-              setupChannel();
-            }, 5000);
+            scheduleReconnect(5000);
           } else if (status === 'TIMED_OUT') {
             console.warn('Chat channel timed out');
             setConnectionStatus('disconnected');
@@ -160,11 +171,7 @@ export default function ChatSidebar() {
               clearTimeout(connectionTimeoutId);
               connectionTimeoutId = null;
             }
-            // Attempt reconnect after 3 seconds
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log('Attempting to reconnect chat...');
-              setupChannel();
-            }, 3000);
+            scheduleReconnect(3000);
           } else if (status === 'CLOSED') {
             console.log('Chat channel closed');
             setConnectionStatus('disconnected');
@@ -172,11 +179,7 @@ export default function ChatSidebar() {
               clearTimeout(connectionTimeoutId);
               connectionTimeoutId = null;
             }
-            // Attempt reconnect after 3 seconds (same as TIMED_OUT)
-            reconnectTimeoutRef.current = setTimeout(() => {
-              console.log('Attempting to reconnect chat after close...');
-              setupChannel();
-            }, 3000);
+            scheduleReconnect(3000);
           }
         });
       
@@ -186,12 +189,27 @@ export default function ChatSidebar() {
     setupChannelRef.current = setupChannel;
     setupChannel();
 
+    // Reconnect when tab becomes visible again (browser often drops Realtime when backgrounded)
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const s = connectionStatusRef.current;
+        if (s === 'disconnected' || s === 'error') {
+          setConnectionStatus('connecting');
+          setupChannel();
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       if (channelRef.current) {
         channelRef.current.unsubscribe();
+        channelRef.current = null;
       }
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
       }
       if (connectionTimeoutId) {
         clearTimeout(connectionTimeoutId);

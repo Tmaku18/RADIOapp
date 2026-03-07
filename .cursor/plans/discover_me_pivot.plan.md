@@ -19,15 +19,15 @@ isProject: false
 ## 2. User types and onboarding
 
 - **Roles** (existing: `listener`, `artist`, `admin`, `service_provider`): use for onboarding and feature gating.
-- **Onboarding**: After sign-up, user picks **Listener**, **Artist**, or **Service provider**; store in `users.role`.
-- **Service provider subtypes**: Service providers choose one or more **service types** (beats, mixing/mastering, photography, videography, digital design, marketing, etc.) via `service_provider_types` and `service_listings` (migration 008).
+- **Onboarding**: After sign-up, user picks **Listener**, **Artist**, or **Catalyst (service provider)**; store in `users.role`.
+- **Catalyst (service provider) subtypes**: Catalysts (service providers) choose one or more **service types** (beats, mixing/mastering, photography, videography, digital design, marketing, etc.) via `service_provider_types` and `service_listings` (migration 008).
 
 ---
 
 ## 3. LinkedIn-style profiles
 
 - **Unified profile**: Headline, summary/about (bio), skills/services, portfolio/experience, location.
-- **Profile UX**: One profile page per user that adapts by role (artist vs service provider vs listener).
+- **Profile UX**: One profile page per user that adapts by role (artist vs Catalyst (service provider) vs listener).
 - Extend `users` / `service_providers` and [provider_portfolio_items](backend/supabase/migrations/008_platform_extensions_live_services_providers.sql) as needed; add headline, summary, skills, location; single profile API and page.
 
 ---
@@ -42,11 +42,11 @@ isProject: false
 
 ## 5. Browse tab – social-style endless scroll
 
-**Goal:** A **Browse** tab where users scroll through content like Instagram or TikTok: endless vertical feed of **top service providers’ content** (portfolio items). Users can **like** and **bookmark** while browsing; content is **view/stream only—no download**.
+**Goal:** A **Browse** tab where users scroll through content like Instagram or TikTok: endless vertical feed of **top Catalysts (service providers)’ content** (portfolio items). Users can **like** and **bookmark** while browsing; content is **view/stream only—no download**.
 
 ### 5.1 Content source
 
-- **Feed items**: Content from **top service providers**—i.e. portfolio pieces from `provider_portfolio_items` (image and audio), optionally mixed with artist highlights (e.g. approved songs or spotlight) if desired.
+- **Feed items**: Content from **top Catalysts (service providers)**—i.e. portfolio pieces from `provider_portfolio_items` (image and audio), optionally mixed with artist highlights (e.g. approved songs or spotlight) if desired.
 - **“Top” definition**: Prioritize providers/content by engagement (like count, bookmark count) and/or by featured/verified flag; optionally randomize within tiers for discovery.
 - **Ordering**: Endless scroll with **random or algorithmically varied** loading (e.g. random seed per session, or “trending” + random) so each session feels fresh.
 
@@ -100,14 +100,14 @@ isProject: false
 ## 8. Job board (artists post, providers browse)
 
 - **Job requests**: Artists create requests (`service_requests`); list as job board with filters (service type, location).
-- **Browsing**: Service providers browse open jobs; apply or express interest (add applications table or link messages to request).
+- **Browsing**: Catalysts (service providers) browse open jobs; apply or express interest (add applications table or link messages to request).
 - **Flow**: Artist posts → providers see in discovery/job board → apply or message (paywall may apply) → artist chooses; `service_orders` for agreed work.
 
 ---
 
 ## 9. Subscriptions and paywall
 
-- **Creator network / Pro subscription**: Unlocks access to creator network (browse service providers, full profiles, **direct messaging**). May coexist with existing radio-credits subscription.
+- **Creator network / Pro subscription**: Unlocks access to creator network (browse Catalysts (service providers), full profiles, **direct messaging**). May coexist with existing radio-credits subscription.
 - **Gating**: Backend checks subscription before: listing providers in discovery, opening a conversation, sending a message. **Browse tab** can remain open to all (or optionally gate “contact” from Browse behind subscription).
 - **Stripe**: New product/entitlement for “creator network access”; extend `subscriptions` or add entitlement flags.
 
@@ -134,7 +134,7 @@ isProject: false
 
 1. ~~Rebrand + shell: Name, nav (Radio + **Browse** as main tabs), default route.~~ **Done**
 2. ~~**Browse tab (MVP)**: Feed API from provider_portfolio_items (top + random), endless scroll UI, like and bookmark (tables + endpoints), no download.~~ **Done**
-3. ~~Onboarding: Role selection; service provider subtypes.~~ **Done** (service_provider added)
+3. ~~Onboarding: Role selection; Catalyst (service provider) subtypes.~~ **Done** (service_provider added)
 4. ~~Profile model + API: Headline, summary, skills, location; one profile page by role.~~ **Done** (headline, locationRegion on users + profile form)
 5. Discovery: List providers/artists with filters (service, location) and search.
 6. Subscription product: Creator network entitlement; gate DMs (and optionally discovery).
