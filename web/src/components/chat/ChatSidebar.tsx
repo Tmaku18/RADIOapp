@@ -52,28 +52,37 @@ export default function ChatSidebar() {
     scrollToBottom();
   }, [messages, scrollToBottom]);
 
-  // Load initial chat history (Hydration Pattern)
-  useEffect(() => {
-    const loadHistory = async () => {
-      try {
-        const [historyRes, statusRes] = await Promise.all([
-          chatApi.getHistory({ limit: 50 }),
-          chatApi.getStatus(),
-        ]);
-        setMessages(historyRes.data.messages || []);
-        setChatEnabled(statusRes.data.enabled);
-      } catch (err: unknown) {
-        console.warn('Chat unavailable:', (err as Error)?.message || err);
-        setError('Chat is temporarily unavailable.');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (user) {
-      loadHistory();
+  // Load chat history and status (shared for initial load and Retry)
+  const loadHistory = useCallback(async () => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      const [historyRes, statusRes] = await Promise.all([
+        chatApi.getHistory({ limit: 50 }),
+        chatApi.getStatus(),
+      ]);
+      setMessages(historyRes.data.messages || []);
+      setChatEnabled(statusRes.data.enabled ?? true);
+    } catch (err: unknown) {
+      const axErr = err as { response?: { status?: number; data?: { message?: string } }; message?: string };
+      const status = axErr?.response?.status;
+      const serverMsg = axErr?.response?.data?.message;
+      const isNetwork = status === undefined || status === 0;
+      const message = serverMsg
+        ? serverMsg
+        : isNetwork
+          ? "Can't reach chat server. Check that the app backend is running and try again."
+          : 'Chat is temporarily unavailable.';
+      console.warn('Chat load failed:', status, (err as Error)?.message || err);
+      setError(message);
+    } finally {
+      setIsLoading(false);
     }
-  }, [user]);
+  }, []);
+
+  useEffect(() => {
+    if (user) loadHistory();
+  }, [user, loadHistory]);
 
   // Subscribe to Supabase Realtime for new messages
   useEffect(() => {
@@ -245,10 +254,17 @@ export default function ChatSidebar() {
         setMessages((prev) => [...prev.slice(-99), optimistic]);
       }
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { message?: string } } };
-      const errorMessage = errObj?.response?.data?.message || 'Failed to send message';
+      const errObj = err as { response?: { status?: number; data?: { message?: string } } };
+      const serverMsg = errObj?.response?.data?.message;
+      const status = errObj?.response?.status;
+      const isNetwork = status === undefined || status === 0;
+      const errorMessage = serverMsg
+        ? serverMsg
+        : isNetwork
+          ? "Can't reach chat server. Check that the backend is running."
+          : 'Failed to send message';
       setError(errorMessage);
-      setTimeout(() => setError(null), 3000);
+      setTimeout(() => setError(null), 5000);
     } finally {
       setIsSending(false);
     }
@@ -376,10 +392,15 @@ export default function ChatSidebar() {
       </ScrollArea>
 
       {error && (
-        <div className="mx-4 mb-2">
+        <div className="mx-4 mb-2 space-y-2">
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => loadHistory()} disabled={isLoading}>
+              {isLoading ? 'Retrying…' : 'Retry'}
+            </Button>
+          </div>
         </div>
       )}
 
