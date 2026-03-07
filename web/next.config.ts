@@ -12,11 +12,16 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   turbopack: {},
   async rewrites() {
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+    const raw =
+      process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const backendUrl =
+      raw.startsWith("http://") || raw.startsWith("https://")
+        ? raw
+        : "http://localhost:3000";
     return {
       afterFiles: [
         {
-          source: '/api/:path*',
+          source: "/api/:path*",
           destination: `${backendUrl}/api/:path*`,
         },
       ],
