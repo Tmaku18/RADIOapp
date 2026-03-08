@@ -226,7 +226,14 @@ export default function DashboardLayout({
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
                 <Link href="/dashboard" className="flex items-center gap-2">
-                  <img src="/icons/icon.svg" alt="" className="size-8 shrink-0" aria-hidden />
+                  <span className="size-8 shrink-0 rounded-lg bg-primary/20 flex items-center justify-center" aria-hidden>
+                    <svg viewBox="0 0 512 512" className="size-6 text-primary" fill="none" stroke="currentColor" strokeWidth="18" strokeLinecap="round" aria-hidden>
+                      <path d="M184 272c18 22 44 34 72 34s54-12 72-34" />
+                      <path d="M160 230c28-36 62-54 96-54s68 18 96 54" />
+                      <path d="M136 190c40-50 84-74 120-74s80 24 120 74" />
+                      <circle cx="256" cy="320" r="18" fill="currentColor" />
+                    </svg>
+                  </span>
                   <span className="font-bold text-foreground">Networx</span>
                 </Link>
               </SidebarMenuButton>
