@@ -5,8 +5,18 @@ const APPLY_PATH = '/apply';
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+const DISCOVERME_HOSTS = ['discovermeradio.com', 'www.discovermeradio.com'];
+
 export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
+  const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
+
+  // Discover Me Radio domain: send root to Pro-Network (job-board) instead of same home as Networx
+  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
+    const jobBoardUrl = new URL('/job-board', request.url);
+    return NextResponse.redirect(jobBoardUrl);
+  }
+
   const res = NextResponse.next();
 
   // Referral: store ref query param in cookie for sign-up association
