@@ -98,7 +98,7 @@ export default function ProNetworxOnboardingPage() {
         skillsHeadline: skillsHeadline.trim() || undefined,
         skillNames: skills,
       });
-      router.push('/pro-networx/directory');
+      router.push('/pro-networx');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message
