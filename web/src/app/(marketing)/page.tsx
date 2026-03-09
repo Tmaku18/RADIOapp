@@ -6,7 +6,6 @@ import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualize
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
 
 function formatDiscoveries(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
@@ -83,7 +82,7 @@ export default async function HomePage() {
               <Link href="/signup">Get Started Free</Link>
             </Button>
             <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
-              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+              <Link href="/pro-networx">
                 Explore ProNetworx
               </Link>
             </Button>
@@ -262,7 +261,7 @@ export default async function HomePage() {
               <Link href="/signup">Get Started Free</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
-              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+              <Link href="/pro-networx">
                 Explore ProNetworx
               </Link>
             </Button>

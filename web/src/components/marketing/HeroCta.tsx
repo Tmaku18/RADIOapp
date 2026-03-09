@@ -4,8 +4,6 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
-
 export function HeroCta() {
   const { profile, user } = useAuth();
 
@@ -19,9 +17,7 @@ export function HeroCta() {
           <Link href="/artist/stats">The Wake</Link>
         </Button>
         <Button size="lg" variant="secondary" asChild>
-          <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-            Explore ProNetworx
-          </Link>
+          <Link href="/pro-networx">Explore ProNetworx</Link>
         </Button>
       </div>
     );
@@ -37,9 +33,7 @@ export function HeroCta() {
           <Link href="/discover">Pro-Directory</Link>
         </Button>
         <Button size="lg" variant="secondary" asChild>
-          <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-            Open ProNetworx
-          </Link>
+          <Link href="/pro-networx">Open ProNetworx</Link>
         </Button>
       </div>
     );
@@ -55,9 +49,7 @@ export function HeroCta() {
           <Link href="/competition">Vote</Link>
         </Button>
         <Button size="lg" variant="secondary" asChild>
-          <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-            Meet ProNetworx Mentors
-          </Link>
+          <Link href="/pro-networx">Meet ProNetworx Mentors</Link>
         </Button>
       </div>
     );
@@ -72,9 +64,7 @@ export function HeroCta() {
         <Link href="/login">Log in</Link>
       </Button>
       <Button size="lg" variant="secondary" asChild>
-        <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-          Explore ProNetworx
-        </Link>
+        <Link href="/pro-networx">Explore ProNetworx</Link>
       </Button>
     </div>
   );

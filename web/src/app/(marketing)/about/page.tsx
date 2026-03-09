@@ -9,7 +9,6 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 3600;
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
 
 export default function AboutPage() {
   return (
@@ -71,7 +70,7 @@ export default function AboutPage() {
                 <Link href="/signup">Create Account</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                <Link href="/pro-networx">
                   Explore ProNetworx
                 </Link>
               </Button>

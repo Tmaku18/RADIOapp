@@ -45,5 +45,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/artist/:path*', '/job-board', '/', '/signup', '/login', '/pro-directory'],
+  matcher: ['/artist/:path*', '/job-board', '/', '/signup', '/login', '/pro-directory', '/pro-networx', '/pro-networx/:path*'],
 };

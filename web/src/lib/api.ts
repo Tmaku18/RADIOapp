@@ -268,6 +268,15 @@ export const jobBoardApi = {
   listApplications: (requestId: string) => api.get(`/job-board/requests/${requestId}/applications`),
 };
 
+export const proNetworxApi = {
+  getMeProfile: () => api.get('/pro-networx/me/profile'),
+  updateMeProfile: (data: { availableForWork?: boolean; skillsHeadline?: string; skillNames?: string[] }) =>
+    api.put('/pro-networx/me/profile', data),
+  listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc' }) =>
+    api.get('/pro-networx/directory', { params: params ?? {} }),
+  getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
+};
+
 export const browseApi = {
   getFeed: (params?: { limit?: number; cursor?: string; seed?: string }) =>
     api.get('/browse/feed', { params }),

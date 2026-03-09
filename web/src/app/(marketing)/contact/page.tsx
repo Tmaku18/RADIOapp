@@ -16,8 +16,6 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
-
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -79,9 +77,7 @@ export default function ContactPage() {
             If you are seeking mentors, collaborators, or Catalysts (service providers) for your artist journey, you can explore ProNetworx directly.
           </p>
           <Button variant="outline" asChild>
-            <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-              Open ProNetworx
-            </Link>
+            <Link href="/pro-networx">Open ProNetworx</Link>
           </Button>
         </CardContent>
       </Card>
