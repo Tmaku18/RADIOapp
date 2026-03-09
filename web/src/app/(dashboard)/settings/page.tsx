@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasArtistCapability } from '@/lib/roles';
 import { Card, CardContent } from '@/components/ui/card';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -51,7 +52,7 @@ const settingsSections = [
 
 export default function SettingsPage() {
   const { profile } = useAuth();
-  const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
+  const isArtist = hasArtistCapability(profile?.role);
   const isAdmin = profile?.role === 'admin';
 
   return (

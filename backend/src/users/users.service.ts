@@ -123,7 +123,16 @@ export class UsersService {
       );
     }
 
-    // Credits for artists are created by DB trigger
+    // Create credits row for Gem (artist) and Catalyst (service_provider) so they can buy/allocate plays
+    if (role === 'artist' || role === 'service_provider') {
+      const { error: creditsError } = await supabase.from('credits').insert({
+        artist_id: data.id,
+        balance: 0,
+      });
+      if (creditsError && creditsError.code !== '23505') {
+        console.error('Failed to create credits record for new user:', creditsError);
+      }
+    }
 
     return transformUser(data);
   }

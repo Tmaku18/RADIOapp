@@ -37,9 +37,16 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
       <header className="p-4">
-        <Link href="/" className="flex items-center space-x-2 text-primary-foreground">
-          <span className="text-2xl">🎧</span>
-          <span className="text-xl font-bold">RadioApp</span>
+        <Link href="/" className="flex items-center gap-2 text-primary-foreground">
+          <span className="size-8 shrink-0 rounded-lg bg-primary-foreground/20 flex items-center justify-center" aria-hidden>
+            <svg viewBox="0 0 512 512" className="size-6 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="18" strokeLinecap="round" aria-hidden>
+              <path d="M184 272c18 22 44 34 72 34s54-12 72-34" />
+              <path d="M160 230c28-36 62-54 96-54s68 18 96 54" />
+              <path d="M136 190c40-50 84-74 120-74s80 24 120 74" />
+              <circle cx="256" cy="320" r="18" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="text-xl font-bold">Networx</span>
         </Link>
       </header>
 
@@ -50,7 +57,7 @@ export default function AuthLayout({
       </main>
 
       <footer className="p-4 text-center text-primary-foreground/70 text-sm">
-        <p>&copy; {new Date().getFullYear()} RadioApp. All rights reserved.</p>
+        <p>&copy; {new Date().getFullYear()} Networx. All rights reserved.</p>
       </footer>
     </div>
   );

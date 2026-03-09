@@ -118,7 +118,7 @@ export default function ListenPage() {
           )}
           <div className="text-center mb-8">
             <h1 className="text-2xl font-bold text-foreground mb-2">Now Playing</h1>
-            <p className="text-muted-foreground">Discover underground artists on RadioApp</p>
+            <p className="text-muted-foreground">Discover underground artists on Networx</p>
           </div>
 
           <div className="relative">

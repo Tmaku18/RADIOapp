@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ARTIST_ROLES = ['artist', 'admin'];
+/** Roles with Gem (artist) capability: artist, Catalyst (service_provider), admin. */
+const ARTIST_ROLES = ['artist', 'admin', 'service_provider'];
 const APPLY_PATH = '/apply';
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days

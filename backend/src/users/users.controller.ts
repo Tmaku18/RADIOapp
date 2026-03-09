@@ -22,7 +22,8 @@ export class UsersController {
 
   /**
    * Create a new user in Supabase after Firebase authentication.
-   * Called by frontend after successful Firebase sign-up.
+   * Called by frontend after successful Firebase sign-up (email or Google).
+   * No role guard: new users have no Supabase row yet; role is set from request body (listener | artist | service_provider).
    */
   @Post()
   async createUser(

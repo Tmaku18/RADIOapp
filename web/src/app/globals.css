@@ -150,44 +150,83 @@
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
 }
 
-/* ---------- Light Theme (Adaptive) — creamy, premium studio feel ---------- */
+/* ---------- Light Theme (Production) — creamy, premium studio feel ---------- */
+/* Mirrors dark theme token set for consistent components and WCAG contrast */
 .light {
+  /* Backgrounds */
   --bg: #FAFAFA;
   --background: #FAFAFA;
   --surface: #FFFFFF;
   --card: #FFFFFF;
-  --elevated: #F2F2F2;
+  --elevated: #F5F5F5;
   --popover: #FFFFFF;
   --border: rgba(10, 10, 10, 0.12);
-  --input: rgba(10, 10, 10, 0.10);
+  --input: rgba(10, 10, 10, 0.08);
 
+  /* Text */
   --text-primary: #0A0A0A;
-  --text-secondary: rgba(10, 10, 10, 0.78);
-  --text-muted: rgba(10, 10, 10, 0.60);
+  --text-secondary: rgba(10, 10, 10, 0.82);
+  --text-muted: rgba(10, 10, 10, 0.58);
   --foreground: #0A0A0A;
   --card-foreground: #0A0A0A;
   --popover-foreground: #0A0A0A;
-  --muted-foreground: rgba(10, 10, 10, 0.60);
+  --muted-foreground: rgba(10, 10, 10, 0.58);
   --accent-foreground: #0A0A0A;
   --secondary-foreground: #0A0A0A;
   --sidebar-foreground: #0A0A0A;
   --sidebar-accent-foreground: #0A0A0A;
 
-  --primary: #00BFC9;
-  --primary-foreground: #0A0A0A;
-  --primary-hover: #009AA1;
-  --ring: #00BFC9;
-  --outline-ring: rgba(0, 191, 201, 0.35);
+  /* Brand */
+  --primary: #0097A0;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #007A82;
+  --ring: #0097A0;
+  --outline-ring: rgba(0, 151, 160, 0.4);
   --rose-gold: #1A237E;
+  --sidebar-primary: #0097A0;
+  --sidebar-ring: #0097A0;
 
+  /* Status (light-appropriate contrast) */
+  --success: #1B8B3E;
+  --warning: #C9970A;
+  --error: #C62828;
+  --destructive: #C62828;
+
+  /* Surfaces / UI */
   --secondary: rgba(10, 10, 10, 0.06);
-  --muted: rgba(10, 10, 10, 0.05);
-  --accent: rgba(0, 191, 201, 0.10);
-  --sidebar: #FFFFFF;
-  --sidebar-accent: rgba(10, 10, 10, 0.05);
+  --muted: rgba(10, 10, 10, 0.06);
+  --accent: rgba(0, 151, 160, 0.12);
+  --sidebar: #FAFAFA;
+  --sidebar-accent: rgba(10, 10, 10, 0.06);
   --sidebar-border: rgba(10, 10, 10, 0.10);
 
-  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.20'/%3E%3C/svg%3E");
+  /* Chart */
+  --chart-1: #0097A0;
+  --chart-2: #1A237E;
+  --chart-3: rgba(10, 10, 10, 0.65);
+  --chart-4: #1B8B3E;
+  --chart-5: #C9970A;
+
+  /* Gradients (light equivalents) */
+  --gradient-signature: linear-gradient(
+    160deg,
+    rgba(250, 250, 250, 0.98) 0%,
+    rgba(0, 151, 160, 0.06) 45%,
+    rgba(26, 35, 126, 0.04) 100%
+  );
+  --gradient-networx: linear-gradient(135deg, #0097A0, #1A237E);
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(0, 151, 160, 0.12), transparent 60%);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.08), rgba(250, 250, 250, 1));
+
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-glow: 0 0 16px rgba(0, 151, 160, 0.2);
+  --brand-verified: #1A237E;
+
+  --chat-bubble-bg: #F0F0F0;
+  --chat-bubble-border: #0097A0;
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
 }
 
 /* ---------- NETWORX Component tokens & utilities ---------- */
@@ -200,9 +239,9 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
 }
 .light .glass-panel {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(230, 215, 255, 0.8);
-  box-shadow: 0 8px 32px rgba(107, 14, 173, 0.08);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(10, 10, 10, 0.08);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
 }
 
 /* Signature gradient background (low opacity, subtle) */
@@ -257,6 +296,12 @@
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
 }
+.light .badge-featured {
+  background: rgba(26, 35, 126, 0.08);
+}
+.light .badge-live {
+  box-shadow: 0 0 12px rgba(26, 35, 126, 0.2);
+}
 
 /* Spotlight card: rose gold border + glow, use .heading-serif for title */
 .spotlight-card {
@@ -266,12 +311,16 @@
   background: var(--card);
 }
 .light .spotlight-card {
-  box-shadow: 0 0 24px rgba(107, 14, 173, 0.1);
+  border: 1px solid rgba(0, 151, 160, 0.25);
+  box-shadow: 0 4px 24px rgba(0, 151, 160, 0.08);
 }
 
 /* Primary CTA: subtle focus glow */
 .btn-primary-glow:focus-visible {
   box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.30), 0 0 18px rgba(0, 245, 255, 0.18);
+}
+.light .btn-primary-glow:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 151, 160, 0.35), 0 0 14px rgba(0, 151, 160, 0.2);
 }
 
 /* ========== Listener theme: "Social Frequency" — Butterfly Electric (#00F5FF) ========== */
@@ -327,6 +376,44 @@
   display: none;
 }
 
+/* ---------- Light + data-brand: keep light surfaces, apply brand accents ---------- */
+.light [data-brand="listener"] {
+  --primary: #0097A0;
+  --ring: #0097A0;
+  --brand-primary: #0097A0;
+  --brand-glow: 0 0 12px rgba(0, 151, 160, 0.22);
+  --sidebar-primary: #0097A0;
+  --sidebar-ring: #0097A0;
+  --chart-1: #0097A0;
+  --chart-2: #0d9488;
+  --chat-bubble-bg: #F5F5F5;
+  --chat-bubble-border: #0097A0;
+  --background: #FAFAFA;
+  --card: #FFFFFF;
+  --sidebar: #FAFAFA;
+  --muted: rgba(0, 151, 160, 0.08);
+  --accent: rgba(0, 151, 160, 0.12);
+  --border: rgba(10, 10, 10, 0.12);
+}
+
+.light [data-brand="artist"] {
+  --primary: #0097A0;
+  --ring: #0097A0;
+  --brand-primary: #0097A0;
+  --brand-glow: 0 0 12px rgba(0, 151, 160, 0.18);
+  --sidebar-primary: #0097A0;
+  --sidebar-ring: #0097A0;
+  --chart-1: #0097A0;
+  --chart-2: #1A237E;
+  --brand-verified: #1A237E;
+  --background: #FAFAFA;
+  --card: #FFFFFF;
+  --sidebar: #FAFAFA;
+  --muted: rgba(26, 35, 126, 0.06);
+  --accent: rgba(0, 151, 160, 0.12);
+  --border: rgba(10, 10, 10, 0.12);
+}
+
 /* ---------- Listener: Now Playing deck — subtle Electric Cyan pulse ---------- */
 [data-brand="listener"] .now-playing-deck {
   border: 1px solid rgba(0, 245, 255, 0.50);
@@ -340,6 +427,19 @@
 @keyframes now-playing-glow {
   0%, 100% { box-shadow: 0 0 12px rgba(0, 245, 255, 0.18); border-color: rgba(0, 245, 255, 0.50); }
   50% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.32); border-color: rgba(0, 245, 255, 0.80); }
+}
+.light [data-brand="listener"] .now-playing-deck {
+  border: 1px solid rgba(0, 151, 160, 0.4);
+  box-shadow: 0 0 12px rgba(0, 151, 160, 0.12);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .light [data-brand="listener"] .now-playing-deck {
+    animation: now-playing-glow-light 2.5s ease-in-out infinite;
+  }
+}
+@keyframes now-playing-glow-light {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 151, 160, 0.12); border-color: rgba(0, 151, 160, 0.4); }
+  50% { box-shadow: 0 0 18px rgba(0, 151, 160, 0.22); border-color: rgba(0, 151, 160, 0.65); }
 }
 
 /* ---------- Amplify button: large circular, high-glow + ripple on click ---------- */
@@ -426,10 +526,13 @@
   justify-content: center;
   padding: 1rem;
 }
+.light .locked-door-overlay {
+  background: rgba(250, 250, 250, 0.92);
+}
 .locked-door-content {
   max-width: 400px;
   text-align: center;
-  color: #fff;
+  color: var(--foreground);
 }
 .locked-door-content .lock-icon {
   font-size: 3rem;
@@ -439,6 +542,10 @@
 /* ---------- Upload portal: Amethyst gradient (artist) ---------- */
 .upload-zone-artist {
   background: linear-gradient(135deg, rgba(0, 245, 255, 0.10), rgba(26, 35, 126, 0.12));
+  border: 2px dashed var(--primary);
+}
+.light .upload-zone-artist {
+  background: linear-gradient(135deg, rgba(0, 151, 160, 0.08), rgba(26, 35, 126, 0.06));
   border: 2px dashed var(--primary);
 }
 
@@ -465,6 +572,17 @@
     background-size: cover, cover, 220px 220px;
     background-attachment: fixed, fixed, fixed;
     min-height: 100vh;
+  }
+
+  .light body {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(70% 50% at 50% 0%, rgba(0, 151, 160, 0.06), transparent 55%),
+      radial-gradient(55% 45% at 50% 100%, rgba(26, 35, 126, 0.05), transparent 50%),
+      var(--grain);
+    background-blend-mode: normal, normal, overlay;
+    background-size: cover, cover, 220px 220px;
+    background-attachment: fixed, fixed, fixed;
   }
 }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { liveServicesApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,7 +34,7 @@ export default function ArtistLiveServicesPage() {
   const [linkOrPlace, setLinkOrPlace] = useState('');
 
   useEffect(() => {
-    if (profile?.role !== 'artist' && profile?.role !== 'admin') return;
+    if (!hasArtistCapability(profile?.role)) return;
     liveServicesApi.listMine()
       .then((res) => setList(res.data || []))
       .catch(() => setList([]))
@@ -75,10 +76,10 @@ export default function ArtistLiveServicesPage() {
     }
   };
 
-  if (profile?.role !== 'artist' && profile?.role !== 'admin') {
+  if (!hasArtistCapability(profile?.role)) {
     return (
       <div className="space-y-4">
-        <p className="text-muted-foreground">Only artists can manage live services.</p>
+        <p className="text-muted-foreground">Only Gems and Catalysts can manage live services.</p>
         <Link href="/dashboard"><Button variant="outline">Dashboard</Button></Link>
       </div>
     );

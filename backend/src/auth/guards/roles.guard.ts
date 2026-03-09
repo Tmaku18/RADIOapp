@@ -3,6 +3,15 @@ import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { getSupabaseClient } from '../../config/supabase.config';
 
+/** Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst). User satisfies required role if their role inherits it. */
+function roleSatisfies(userRole: string, requiredRole: string): boolean {
+  if (requiredRole === 'admin') return userRole === 'admin';
+  if (requiredRole === 'service_provider') return userRole === 'service_provider' || userRole === 'admin';
+  if (requiredRole === 'artist') return ['artist', 'service_provider', 'admin'].includes(userRole);
+  if (requiredRole === 'listener') return ['listener', 'artist', 'service_provider', 'admin'].includes(userRole);
+  return userRole === requiredRole;
+}
+
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private reflector: Reflector) {}
@@ -35,6 +44,6 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    return requiredRoles.includes(data.role);
+    return requiredRoles.some((required) => roleSatisfies(data.role, required));
   }
 }

@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationsApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import {
   DropdownMenu,
@@ -123,7 +124,7 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, profile, loading, signOut, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp, refreshProfile } = useAuth();
   const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
-  const isArtistMode = profile?.role === 'artist' || profile?.role === 'admin';
+  const isArtistMode = hasArtistCapability(profile?.role);
   const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
 
   // Refetch profile when dashboard loads so role changes (e.g. admin grant) appear without sign-out
@@ -280,14 +281,14 @@ export default function DashboardLayout({
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
-                      {(profile?.role === 'artist' || profile?.role === 'service_provider') && (
+                      {hasArtistCapability(profile?.role) && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={pathname.startsWith(streamerNav.href)}>
                             <Link href={streamerNav.href}>{streamerNav.name}</Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
-                      {(profile?.role === 'artist' || profile?.role === 'admin') && (
+                      {hasArtistCapability(profile?.role) && (
                         <>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/upload')}>

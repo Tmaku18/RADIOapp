@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { jobBoardApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -56,7 +57,7 @@ export default function JobBoardPage() {
   const myId = profile?.id ?? null;
   const router = useRouter();
   const pathname = usePathname();
-  const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
+  const isArtist = hasArtistCapability(profile?.role);
 
   useEffect(() => {
     if (profile && !isArtist) {

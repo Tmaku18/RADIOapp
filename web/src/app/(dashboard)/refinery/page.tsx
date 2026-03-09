@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { refineryApi, prospectorApi } from '@/lib/api';
+import { hasListenerCapability } from '@/lib/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -29,7 +30,7 @@ type Comment = {
 
 export default function RefineryPage() {
   const { profile } = useAuth();
-  const isProspector = profile?.role === 'listener' || profile?.role === 'artist' || profile?.role === 'admin';
+  const isProspector = hasListenerCapability(profile?.role);
 
   const [songs, setSongs] = useState<RefinerySong[]>([]);
   const [loading, setLoading] = useState(true);

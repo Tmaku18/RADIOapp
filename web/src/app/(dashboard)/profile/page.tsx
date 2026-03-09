@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi, creatorNetworkApi, paymentsApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -174,11 +175,11 @@ export default function ProfilePage() {
     }
   };
 
-  const isArtist = profile?.role === 'artist' || profile?.role === 'admin';
+  const isArtist = hasArtistCapability(profile?.role);
 
   return (
     <div className="max-w-2xl space-y-6">
-      {(profile?.role === 'artist' || profile?.role === 'service_provider') && (
+      {hasArtistCapability(profile?.role) && (
         <Card className="border-primary/30 bg-primary/5">
           <CardContent className="pt-6">
             <div className="flex items-start gap-4">
@@ -232,7 +233,7 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <h3 className="font-medium text-foreground">{profile?.displayName || 'No name set'}</h3>
-              <p className="text-sm text-muted-foreground capitalize">{profile?.role}</p>
+              <p className="text-sm text-muted-foreground">{profile?.role === 'listener' ? 'Prospector' : profile?.role === 'artist' ? 'Gem' : profile?.role === 'service_provider' ? 'Catalyst' : profile?.role === 'admin' ? 'Admin' : profile?.role ?? ''}</p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <Button
                   type="button"
@@ -324,7 +325,7 @@ export default function ProfilePage() {
               )}
             </div>
 
-            {(profile?.role === 'artist' || profile?.role === 'admin' || profile?.role === 'service_provider') && (
+            {hasArtistCapability(profile?.role) && (
               <div className="space-y-2">
                 <Label>Bio</Label>
                 {isEditing ? (
@@ -344,9 +345,9 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               <Label>Account Type</Label>
-              <Input value={profile?.role ? profile.role.charAt(0).toUpperCase() + profile.role.slice(1) : ''} disabled />
+              <Input value={profile?.role === 'listener' ? 'Prospector' : profile?.role === 'artist' ? 'Gem' : profile?.role === 'service_provider' ? 'Catalyst' : profile?.role === 'admin' ? 'Admin' : profile?.role ?? ''} disabled />
               {profile?.role === 'listener' && (
-                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to an artist account below.</p>
+                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to a Gem account below. Or become a Catalyst to offer services.</p>
               )}
             </div>
 
@@ -377,7 +378,7 @@ export default function ProfilePage() {
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-foreground mb-1">Become an Artist</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Upgrade your account to share your music with the world. As an artist, you can upload tracks, purchase airtime credits, and get your music on the radio.
+                  Upgrade your account to share your music with the world. As a Gem, you can upload tracks, purchase airtime credits, and get your music on the radio.
                 </p>
                 {upgradeSuccess ? (
                   <Alert>

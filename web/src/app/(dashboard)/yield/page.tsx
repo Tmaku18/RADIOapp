@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { prospectorApi } from '@/lib/api';
+import { hasListenerCapability } from '@/lib/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,7 +28,7 @@ function safeRequestId(): string {
 
 export default function YieldPage() {
   const { profile } = useAuth();
-  const isProspector = profile?.role === 'listener';
+  const isProspector = hasListenerCapability(profile?.role);
 
   const [status, setStatus] = useState<YieldStatus | null>(null);
   const [loading, setLoading] = useState(true);

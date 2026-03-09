@@ -79,10 +79,10 @@ export default async function HomePage() {
             Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" asChild>
+            <Button size="lg" variant="secondary" className="border-2 border-primary-foreground/90 shadow-md" asChild>
               <Link href="/signup">Get Started Free</Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-white/60 text-white hover:bg-white/15" asChild>
+            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
               <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
                 Explore ProNetworx
               </Link>

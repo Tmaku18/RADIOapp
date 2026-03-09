@@ -6,6 +6,7 @@ import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -57,7 +58,7 @@ export function RadioPlayer() {
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
 
-  const isProspector = profile?.role === 'listener';
+  const isProspector = hasListenerCapability(profile?.role);
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);

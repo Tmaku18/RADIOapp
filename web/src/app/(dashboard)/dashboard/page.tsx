@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { creditsApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface DashboardStats {
@@ -87,7 +88,7 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadStats() {
       try {
-        if (profile?.role === 'artist' || profile?.role === 'admin') {
+        if (hasArtistCapability(profile?.role)) {
           const creditsResponse = await creditsApi.getBalance();
           setStats({ credits: creditsResponse.data });
         }
@@ -133,7 +134,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {(profile?.role === 'artist' || profile?.role === 'admin') && (
+      {hasArtistCapability(profile?.role) && (
         <Card>
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-6">Your Stats</h2>

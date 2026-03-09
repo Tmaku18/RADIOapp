@@ -68,6 +68,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Set role cookie whenever profile has a role so middleware can allow /artist/* and /job-board
+  useEffect(() => {
+    if (typeof document === 'undefined' || !profile?.role) return;
+    const role = profile.role.toLowerCase();
+    document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
+  }, [profile?.role]);
+
   const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
 
   // Create backend profile. Role optional: when omitted, backend assigns admin if email in allowlist, else listener.

@@ -79,7 +79,7 @@ export default function PricingPage() {
                 </li>
               </ul>
               <Button variant="secondary" size="lg" asChild>
-                <Link href="/signup?role=listener">Start Listening</Link>
+                <Link href="/signup?role=listener">Sign up as Prospector</Link>
               </Button>
             </CardContent>
           </Card>
@@ -118,7 +118,7 @@ export default function PricingPage() {
                   </div>
                   <p className="text-sm text-muted-foreground mb-6">{pkg.description}</p>
                   <Button className="w-full" variant={pkg.popular ? 'default' : 'secondary'} asChild>
-                    <Link href="/signup?role=artist">Get Started</Link>
+                    <Link href="/signup?role=artist">Sign up as Gem</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -133,11 +133,16 @@ export default function PricingPage() {
               <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
                 Need collaborators, producers, photographers, or mentors? ProNetworx helps artists connect with trusted professionals and build momentum beyond plays.
               </p>
-              <Button variant="outline" size="lg" asChild>
-                <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-                  Open ProNetworx
-                </Link>
-              </Button>
+              <div className="flex flex-wrap gap-3 justify-center">
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/signup?role=service_provider">Sign up as Catalyst</Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                    Open ProNetworx
+                  </Link>
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { artistLiveApi } from '@/lib/api';
+import { hasArtistCapability } from '@/lib/roles';
 import { GoLiveSheet } from '@/components/stream/GoLiveSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,7 +26,7 @@ export default function StreamSettingsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const canApply =
-    profile?.role === 'artist' || profile?.role === 'service_provider';
+    hasArtistCapability(profile?.role);
 
   useEffect(() => {
     let cancelled = false;

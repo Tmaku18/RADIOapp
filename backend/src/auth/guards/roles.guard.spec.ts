@@ -48,4 +48,36 @@ describe('RolesGuard', () => {
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
+
+  it('allows service_provider when artist is required (Gem ← Catalyst hierarchy)', async () => {
+    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['artist', 'admin']) } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+    const context = createContext({ user: { uid: 'firebase-uid' } });
+
+    const supabase = createSupabaseMock();
+    supabase.__builder.single.mockResolvedValue({
+      data: { role: 'service_provider' },
+      error: null,
+    });
+
+    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
+
+  it('allows artist when listener is required (listener ← Gem hierarchy)', async () => {
+    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['listener', 'artist']) } as unknown as Reflector;
+    const guard = new RolesGuard(reflector);
+    const context = createContext({ user: { uid: 'firebase-uid' } });
+
+    const supabase = createSupabaseMock();
+    supabase.__builder.single.mockResolvedValue({
+      data: { role: 'artist' },
+      error: null,
+    });
+
+    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
+
+    await expect(guard.canActivate(context)).resolves.toBe(true);
+  });
 });

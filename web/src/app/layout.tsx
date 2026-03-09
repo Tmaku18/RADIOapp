@@ -7,9 +7,9 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
 
-const APP_NAME = 'RadioApp';
+const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
-  "Discover underground artists and promote your music on our curated radio stream. Artists upload and pay for airplay while Prospectors tune into continuous curated music.";
+  "Discover underground artists and promote your music on Networx. Artists upload and pay for airplay while Prospectors tune into continuous curated music.";
 
 const inter = Inter({
   variable: '--font-inter',
@@ -41,9 +41,9 @@ const story = Caveat({
 
 export const metadata: Metadata = {
   applicationName: APP_NAME,
-  title: 'RadioApp - Underground Music Radio',
+  title: 'Networx - Underground Music Radio',
   description: APP_DESCRIPTION,
-  keywords: ['radio', 'music', 'underground', 'artists', 'streaming', 'promotion'],
+  keywords: ['radio', 'music', 'underground', 'artists', 'streaming', 'promotion', 'networx'],
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     title: APP_NAME,
   },
   openGraph: {
-    title: 'RadioApp - Underground Music Radio',
-    description: 'Discover underground artists and promote your music on our curated radio stream.',
+    title: 'Networx - Underground Music Radio',
+    description: APP_DESCRIPTION,
     type: 'website',
   },
 };

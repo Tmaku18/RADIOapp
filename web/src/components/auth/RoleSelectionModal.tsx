@@ -35,7 +35,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
       <DialogContent showCloseButton={!loading}>
         <DialogHeader>
           <DialogTitle>Welcome! Choose Your Role</DialogTitle>
-          <DialogDescription>How would you like to use Discover Me?</DialogDescription>
+          <DialogDescription>How would you like to use Networx?</DialogDescription>
         </DialogHeader>
 
         {error && (
@@ -90,7 +90,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
             <div className="flex items-start gap-4">
               <div className="text-3xl">🎤</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Artist</h3>
+                <h3 className="font-semibold text-foreground">Gem</h3>
                 <p className="text-sm text-muted-foreground mt-1">
                   Upload your music, purchase airtime, and grow your audience
                 </p>
@@ -120,9 +120,9 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
             <div className="flex items-start gap-4">
               <div className="text-3xl">🛠️</div>
               <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Catalyst (service provider)</h3>
+                <h3 className="font-semibold text-foreground">Catalyst</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Offer beats, mixing, photography, design, or other creative services to artists
+                  Offer beats, mixing, photography, design, or other creative services to gems
                 </p>
               </div>
               {selectedRole === 'service_provider' && (
@@ -136,7 +136,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
           </button>
 
           <p className="text-xs text-muted-foreground text-center">
-            Prospectors can upgrade to artists or Catalysts (service providers) later from their profile settings.
+            Prospectors can upgrade to Gems or Catalysts later from their profile settings.
           </p>
         </div>
 
