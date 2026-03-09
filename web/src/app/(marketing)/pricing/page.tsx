@@ -90,9 +90,12 @@ export default function PricingPage() {
           <h2 className="text-2xl font-bold text-foreground text-center mb-8">
             For Gems - Play Credits
           </h2>
-          <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
+          <p className="text-center text-muted-foreground mb-4 max-w-2xl mx-auto">
             Credits are used to promote your tracks in our radio rotation. 
             One credit equals one play to a real listener. No bots, no fake streams, and your tracks can still receive organic plays.
+          </p>
+          <p className="text-center text-foreground font-medium mb-12">
+            Pricing: <strong>$1/min</strong> per play (rounded up to the nearest cent).
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

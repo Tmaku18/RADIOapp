@@ -3,7 +3,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
-import { GlobalVoteMap } from '@/components/marketing/GlobalVoteMap';
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
@@ -103,20 +102,31 @@ export default async function HomePage() {
             Always-on radio, livestreams, votes and ripples, transparent analytics, and ProNetworx mentorship.
           </p>
           <HeroCta />
-          <div className="mt-4">
-            <Button variant="outline" size="lg" asChild>
-              <Link href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-                Open ProNetworx
-              </Link>
-            </Button>
-          </div>
         </div>
       </section>
 
-      {/* Global State Visualizer */}
-      <section className="py-10">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <GlobalVoteMap />
+      {/* 4 AM Story */}
+      <section className="py-16 sm:py-20 border-b border-border">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-6 text-center">
+            Our Story: The 4 AM Catalyst
+          </h2>
+          <div className="space-y-4 text-muted-foreground font-story text-lg leading-relaxed">
+            <p>
+              Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.
+            </p>
+            <p>
+              That was where Tanaka and Merquise first crossed paths. It was a random connection—a &quot;butterfly effect&quot; in its purest form. We were two people who, on paper, were struggling financially, but in reality, were rich in skills and belief. As our friendship grew, we saw each other&apos;s strengths: Tanaka, the architect with the technical vision to build the impossible; Merquise, the strategist with the heart to find the talent others overlooked.
+            </p>
+            <p>
+              We realized that our meeting shouldn&apos;t have been a fluke. We pushed each other to succeed when the world wasn&apos;t looking. We realized that society is full of &quot;bright lights&quot; that are allowed to die out simply because they didn&apos;t have a bridge to the right room. We decided that allowing talent to go to waste is more than a shame—it is a crime. We built Networx to make those 4 AM moments happen for everyone.
+            </p>
+          </div>
+          <div className="mt-8 text-center">
+            <Button variant="outline" size="lg" asChild>
+              <Link href="/about">Read full story</Link>
+            </Button>
+          </div>
         </div>
       </section>
 
