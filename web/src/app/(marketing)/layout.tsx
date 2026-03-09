@@ -48,8 +48,13 @@ export default function MarketingLayout({
               )}
             </Link>
 
-            {/* Navigation Links */}
+            {/* Navigation Links — ProNetworx first (left), then rest */}
             <div className="hidden md:flex items-center space-x-2">
+              <Button asChild className="bg-networx text-black hover:opacity-90">
+                <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
+                  ProNetworx
+                </a>
+              </Button>
               <Button variant="ghost" asChild>
                 <Link href="/about">About</Link>
               </Button>
@@ -61,11 +66,6 @@ export default function MarketingLayout({
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/pro-directory">Pro-Directory</Link>
-              </Button>
-              <Button asChild className="bg-networx text-black hover:opacity-90">
-                <a href={PRO_NETWORX_URL} target="_blank" rel="noreferrer">
-                  ProNetworx
-                </a>
               </Button>
               <Button variant="ghost" asChild>
                 <Link href="/contact">Contact</Link>
@@ -145,6 +145,8 @@ export default function MarketingLayout({
               <h3 className="font-semibold text-foreground mb-4">Company</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
+                <li><a href="mailto:tmakuvaza1@networxradio.com" className="text-muted-foreground hover:text-foreground transition-colors">Tanaka (CEO)</a></li>
+                <li><a href="mailto:mjones@networxradio.com" className="text-muted-foreground hover:text-foreground transition-colors">Merquise (COO)</a></li>
                 <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
               </ul>

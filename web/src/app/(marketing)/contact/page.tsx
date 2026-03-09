@@ -156,20 +156,40 @@ export default function ContactPage() {
         </CardContent>
       </Card>
 
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-foreground mb-2">Email</h3>
-            <p className="text-muted-foreground">support@networx.fm</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="font-semibold text-foreground mb-2">Response Time</h3>
-            <p className="text-muted-foreground">24-48 hours</p>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="mt-12">
+        <h2 className="text-2xl font-bold text-foreground mb-6">Leadership & Contact</h2>
+        <p className="text-muted-foreground mb-6">Reach out to our team directly. We typically respond within 24–48 hours.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="font-semibold text-foreground text-lg">Tanaka Makuvaza</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                CEO · Chief Architect · Cofounder · Managing Member
+              </p>
+              <a
+                href="mailto:tmakuvaza1@networxradio.com"
+                className="mt-3 inline-block text-primary font-medium hover:underline"
+              >
+                tmakuvaza1@networxradio.com
+              </a>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <h3 className="font-semibold text-foreground text-lg">Merquise Jones</h3>
+              <p className="text-sm text-muted-foreground mt-1">
+                COO · Head of Artist Relations and Talent Discovery · Director of Growth and Community Engagement
+              </p>
+              <a
+                href="mailto:mjones@networxradio.com"
+                className="mt-3 inline-block text-primary font-medium hover:underline"
+              >
+                mjones@networxradio.com
+              </a>
+            </CardContent>
+          </Card>
+        </div>
+      </section>
     </div>
   );
 }

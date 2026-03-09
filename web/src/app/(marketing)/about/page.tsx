@@ -56,6 +56,10 @@ export default function AboutPage() {
           <li><strong className="text-foreground">Mentorship over Monopoly:</strong> We believe the experienced have a duty to guide the inexperienced. Our platform is a professional hub designed to foster guidance, not gatekeeping.</li>
         </ul>
 
+        <p className="mt-12 text-muted-foreground">
+          Reach the founders: <a href="mailto:tmakuvaza1@networxradio.com" className="text-primary hover:underline">Tanaka Makuvaza</a> (CEO, Chief Architect, Cofounder) · <a href="mailto:mjones@networxradio.com" className="text-primary hover:underline">Merquise Jones</a> (COO, Head of Artist Relations & Talent Discovery).
+        </p>
+
         <Card className="mt-12 border-primary/30 bg-primary/5">
           <CardContent className="pt-8">
             <h3 className="text-xl font-semibold text-foreground mb-4">Join the movement</h3>
