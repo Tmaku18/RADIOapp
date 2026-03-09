@@ -6,7 +6,7 @@ import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualize
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
 
 function formatDiscoveries(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;

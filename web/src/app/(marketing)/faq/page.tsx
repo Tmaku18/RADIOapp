@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 3600;
-const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'http://localhost:3002';
+const PRO_NETWORX_URL = process.env.NEXT_PUBLIC_PRO_NETWORX_URL || 'https://www.discovermeradio.com';
 
 const faqs = [
   {
