@@ -48,9 +48,6 @@ export default function ProNetworxLayout({
                     <Button variant="ghost" size="sm" asChild>
                       <Link href="/pro-networx/onboarding">My profile</Link>
                     </Button>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href="/dashboard">Dashboard</Link>
-                    </Button>
                     <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
                       <Link href="/profile">Account</Link>
                     </Button>
