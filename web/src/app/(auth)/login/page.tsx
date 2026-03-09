@@ -31,8 +31,18 @@ function LoginForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectParam = searchParams.get('redirect');
+  const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
   const sessionExpired = searchParams.get('session_expired') === 'true';
+
+  // On discovermeradio.com, default to ProNetworx so users stay on that site after login
+  useEffect(() => {
+    if (redirectParam) return;
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (host === 'discovermeradio.com' || host === 'www.discovermeradio.com') {
+      setRedirectTo('/pro-networx');
+    }
+  }, [redirectParam]);
 
   useEffect(() => {
     if (profile && !pendingGoogleUser) {

@@ -12,10 +12,10 @@ export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
 
-  // Discover Me Radio domain: send root to Pro-Network (job-board) instead of same home as Networx
+  // Discover Me Radio domain: send root to ProNetworx (separate site experience from networxradio.com)
   if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
-    const jobBoardUrl = new URL('/job-board', request.url);
-    return NextResponse.redirect(jobBoardUrl);
+    const proNetworxUrl = new URL('/pro-networx', request.url);
+    return NextResponse.redirect(proNetworxUrl);
   }
 
   const res = NextResponse.next();

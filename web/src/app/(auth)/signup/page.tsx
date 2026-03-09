@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -16,7 +16,9 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUpWithEmail, signInWithGoogle, loading, error } = useAuth();
-  
+  const redirectParam = searchParams.get('redirect');
+  const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -26,6 +28,15 @@ function SignupForm() {
   );
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // On discovermeradio.com, default to ProNetworx so users stay on that site after signup
+  useEffect(() => {
+    if (redirectParam) return;
+    const host = typeof window !== 'undefined' ? window.location.hostname : '';
+    if (host === 'discovermeradio.com' || host === 'www.discovermeradio.com') {
+      setRedirectTo('/pro-networx');
+    }
+  }, [redirectParam]);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +56,7 @@ function SignupForm() {
 
     try {
       await signUpWithEmail(email, password, role);
-      router.push('/dashboard');
+      router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {
@@ -61,7 +72,7 @@ function SignupForm() {
         sessionStorage.setItem('radioapp_signup_role', role);
       }
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(redirectTo);
     } catch (err) {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('radioapp_signup_role');
