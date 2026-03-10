@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { usersApi } from '@/lib/api';
+import { usersApi, proNetworxApi } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +16,13 @@ import { Button } from '@/components/ui/button';
 
 const CATALYST_PROMPT_DISMISSED_KEY = 'pronetworx_catalyst_prompt_dismissed';
 
+function isProfileEmpty(me: { about?: string | null; skillsHeadline?: string | null; currentTitle?: string | null }) {
+  const a = me.about?.trim();
+  const s = me.skillsHeadline?.trim();
+  const t = me.currentTitle?.trim();
+  return !a && !s && !t;
+}
+
 export default function ProNetworxDashboardLayout({
   children,
 }: {
@@ -26,6 +33,25 @@ export default function ProNetworxDashboardLayout({
   const { user, profile, loading, refreshProfile } = useAuth();
   const [showCatalystPrompt, setShowCatalystPrompt] = useState(false);
   const [upgrading, setUpgrading] = useState(false);
+
+  // First-time catalysts: when they hit directory with an empty profile, send them to onboarding to fill out
+  useEffect(() => {
+    if (loading || !user || !profile) return;
+    if (profile.role !== 'service_provider' && profile.role !== 'admin') return;
+    if (pathname !== '/pro-networx/directory') return; // only when landing on directory
+    (async () => {
+      try {
+        const res = await proNetworxApi.getMeProfile();
+        const data = res.data;
+        if (data && isProfileEmpty(data)) {
+          router.replace('/pro-networx/onboarding');
+        }
+      } catch {
+        // No profile yet (e.g. new catalyst) -> send to onboarding
+        router.replace('/pro-networx/onboarding');
+      }
+    })();
+  }, [loading, user, profile, pathname, router]);
 
   useEffect(() => {
     if (loading || !profile || !user) return;

@@ -204,7 +204,26 @@ export const discoveryApi = {
     lng?: number;
     radiusKm?: number;
   }) => api.get('/discovery/people', { params }),
+  listFeed: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>('/discovery/feed', { params }),
+  createFeedPost: (file: File, caption?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (caption != null && caption.trim()) form.set('caption', caption.trim());
+    return api.post<DiscoverFeedPost>('/discovery/feed', form);
+  },
 };
+
+export interface DiscoverFeedPost {
+  id: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorAvatarUrl: string | null;
+  authorHeadline: string | null;
+  imageUrl: string;
+  caption: string | null;
+  createdAt: string;
+}
 
 export const creatorNetworkApi = {
   getAccess: () => api.get<{ hasAccess: boolean }>('/creator-network/access'),

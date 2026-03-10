@@ -26,7 +26,7 @@ export default function ProNetworxLayout({
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <nav className="max-w-7xl mx-auto pl-0 pr-4 sm:pl-0 sm:pr-6 lg:pl-0 lg:pr-8">
           <div className="flex justify-between items-center h-16">
             <Link href="/pro-networx" className="flex items-center shrink-0 gap-3">
               <Image
@@ -51,19 +51,14 @@ export default function ProNetworxLayout({
               </Button>
               {!loading && (
                 user ? (
-                  <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href="/pro-networx/onboarding">My profile</Link>
-                    </Button>
-                    <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
-                      <Link href="/profile">Account</Link>
-                    </Button>
-                  </>
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href="/pro-networx/onboarding">My profile</Link>
+                  </Button>
                 ) : (
                   <>
                     <Button variant="ghost" size="sm" asChild>
                       <Link href={`/login?redirect=${encodeURIComponent(pathname || '/pro-networx/directory')}`}>
-                        Log in
+                        Login
                       </Link>
                     </Button>
                     <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">

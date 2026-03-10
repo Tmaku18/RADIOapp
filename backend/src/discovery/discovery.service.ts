@@ -16,6 +16,17 @@ export interface DiscoveryProfile {
   distanceKm?: number;
 }
 
+export interface DiscoverFeedPost {
+  id: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorAvatarUrl: string | null;
+  authorHeadline: string | null;
+  imageUrl: string;
+  caption: string | null;
+  createdAt: string;
+}
+
 @Injectable()
 export class DiscoveryService {
   async listPeople(params: {
@@ -184,5 +195,100 @@ export class DiscoveryService {
     }
 
     return { items, total: totalCount ?? items.length };
+  }
+
+  /**
+   * List discover feed posts (endless scroll). Cursor is created_at of last item.
+   */
+  async listFeedPosts(params: {
+    limit?: number;
+    cursor?: string; // ISO date string, exclusive (posts before this)
+  }): Promise<{ items: DiscoverFeedPost[]; nextCursor: string | null }> {
+    const limit = Math.min(params.limit ?? 20, 50);
+    const supabase = getSupabaseClient();
+
+    let query = supabase
+      .from('discover_feed_posts')
+      .select(`
+        id,
+        author_user_id,
+        image_url,
+        caption,
+        created_at,
+        users(display_name, avatar_url, headline)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+
+    if (params.cursor) {
+      query = query.lt('created_at', params.cursor);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(`Failed to fetch discover feed: ${error.message}`);
+
+    const list = (rows || []) as any[];
+    const hasMore = list.length > limit;
+    const slice = hasMore ? list.slice(0, limit) : list;
+    const nextCursor = hasMore && slice.length > 0
+      ? slice[slice.length - 1].created_at
+      : null;
+
+    const items: DiscoverFeedPost[] = slice.map((r) => {
+      const u = r.users;
+      return {
+        id: r.id,
+        authorUserId: r.author_user_id,
+        authorDisplayName: u?.display_name ?? null,
+        authorAvatarUrl: u?.avatar_url ?? null,
+        authorHeadline: u?.headline ?? null,
+        imageUrl: r.image_url,
+        caption: r.caption ?? null,
+        createdAt: r.created_at,
+      };
+    });
+
+    return { items, nextCursor };
+  }
+
+  /**
+   * Create a discover feed post (catalyst only). Caller must ensure user is service_provider.
+   */
+  async createFeedPost(params: {
+    authorUserId: string;
+    imageUrl: string;
+    caption?: string | null;
+  }): Promise<DiscoverFeedPost> {
+    const supabase = getSupabaseClient();
+    const { data: row, error } = await supabase
+      .from('discover_feed_posts')
+      .insert({
+        author_user_id: params.authorUserId,
+        image_url: params.imageUrl,
+        caption: params.caption ?? null,
+      })
+      .select(`
+        id,
+        author_user_id,
+        image_url,
+        caption,
+        created_at,
+        users(display_name, avatar_url, headline)
+      `)
+      .single();
+
+    if (error) throw new Error(`Failed to create feed post: ${error.message}`);
+    const r = row as any;
+    const u = r.users;
+    return {
+      id: r.id,
+      authorUserId: r.author_user_id,
+      authorDisplayName: u?.display_name ?? null,
+      authorAvatarUrl: u?.avatar_url ?? null,
+      authorHeadline: u?.headline ?? null,
+      imageUrl: r.image_url,
+      caption: r.caption ?? null,
+      createdAt: r.created_at,
+    };
   }
 }

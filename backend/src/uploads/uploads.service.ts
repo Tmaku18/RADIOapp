@@ -149,6 +149,23 @@ export class UploadsService {
   }
 
   /**
+   * Upload a discover feed post image (catalyst posts in Discover tab).
+   * Accepts JPEG, PNG, and WebP files up to 5MB.
+   */
+  async uploadFeedPostImage(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<string> {
+    return this._uploadFile(file, userId, {
+      bucket: 'feed',
+      allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      maxSizeBytes: 5 * 1024 * 1024, // 5MB
+      errorPrefix: 'Feed image',
+      pathPrefix: 'posts',
+    });
+  }
+
+  /**
    * Upload a cover/background (hero) image for ProNetworx profiles.
    * Accepts JPEG, PNG, and WebP files up to 5MB.
    */

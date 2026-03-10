@@ -1,14 +1,32 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  UnauthorizedException,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { DiscoveryService } from './discovery.service';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { UploadsService } from '../uploads/uploads.service';
 
 @Controller('discovery')
 @UseGuards(FirebaseAuthGuard)
 export class DiscoveryController {
-  constructor(private readonly discovery: DiscoveryService) {}
+  constructor(
+    private readonly discovery: DiscoveryService,
+    private readonly uploads: UploadsService,
+  ) {}
 
   @Get('people')
   async listPeople(
@@ -46,5 +64,52 @@ export class DiscoveryController {
       lng: Number.isFinite(lng) ? lng : undefined,
       radiusKm: radiusKmVal,
     });
+  }
+
+  /** Endless-scroll feed of catalyst posts (Discover tab) */
+  @Get('feed')
+  async listFeed(
+    @Query('limit') limitStr?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 20, 50) : undefined;
+    return this.discovery.listFeedPosts({ limit, cursor: cursor || undefined });
+  }
+
+  /** Create a discover feed post (Catalysts only). Send image as "file" and optional "caption" in body. */
+  @Post('feed')
+  @UseGuards(RolesGuard)
+  @Roles('service_provider', 'admin')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    }),
+  )
+  async createFeedPost(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() body: { caption?: string },
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded. Send an image in the "file" field.');
+    }
+    const userId = await this.getUserId(user.uid);
+    const imageUrl = await this.uploads.uploadFeedPostImage(file, userId);
+    return this.discovery.createFeedPost({
+      authorUserId: userId,
+      imageUrl,
+      caption: body?.caption?.trim() || null,
+    });
+  }
+
+  private async getUserId(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data) throw new UnauthorizedException('User not found');
+    return data.id;
   }
 }

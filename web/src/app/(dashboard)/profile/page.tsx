@@ -459,7 +459,15 @@ export default function ProfilePage() {
 
             <div className="space-y-2">
               <Label>Member Since</Label>
-              <Input value={profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : ''} disabled />
+              <Input
+                value={
+                  profile?.createdAt
+                    ? new Date(profile.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+                    : '—'
+                }
+                disabled
+              />
+              <p className="text-xs text-muted-foreground">Account creation date</p>
             </div>
           </div>
 

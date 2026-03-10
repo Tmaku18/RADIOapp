@@ -1,9 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { discoveryApi } from '@/lib/api';
+import { discoveryApi, type DiscoverFeedPost } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,14 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface DiscoveryProfile {
   id: string;
@@ -35,17 +44,22 @@ interface DiscoveryProfile {
 }
 
 const PAGE_SIZE = 20;
+const FEED_PAGE_SIZE = 16;
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
 
 export default function DiscoverPage() {
+  const { profile } = useAuth();
+  const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
+
+  // People tab state
   const [items, setItems] = useState<DiscoveryProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
-  const [role, setRole] = useState<'all' | 'artist' | 'service_provider'>('all');
-  const [activeTab, setActiveTab] = useState<'all' | 'artist' | 'service_provider'>('all');
+  const [role, setRole] = useState<'artist' | 'service_provider'>('artist');
+  const [activeTab, setActiveTab] = useState<'feed' | 'artist' | 'service_provider'>('feed');
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -54,6 +68,81 @@ export default function DiscoverPage() {
   const [userLng, setUserLng] = useState<number | null>(null);
   const [minRateCents, setMinRateCents] = useState<string>('');
   const [maxRateCents, setMaxRateCents] = useState<string>('');
+
+  // Feed tab state
+  const [feedPosts, setFeedPosts] = useState<DiscoverFeedPost[]>([]);
+  const [feedNextCursor, setFeedNextCursor] = useState<string | null>(null);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [feedLoadingMore, setFeedLoadingMore] = useState(false);
+  const feedSentinelRef = useRef<HTMLDivElement>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadCaption, setUploadCaption] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const loadFeed = useCallback(async (append: boolean, cursor?: string | null) => {
+    if (append) setFeedLoadingMore(true);
+    else setFeedLoading(true);
+    try {
+      const res = await discoveryApi.listFeed({
+        limit: FEED_PAGE_SIZE,
+        cursor: cursor || undefined,
+      });
+      const data = res.data as { items: DiscoverFeedPost[]; nextCursor: string | null };
+      if (append) {
+        setFeedPosts((prev) => [...prev, ...data.items]);
+      } else {
+        setFeedPosts(data.items);
+      }
+      setFeedNextCursor(data.nextCursor);
+    } catch (e) {
+      console.error('Failed to load feed:', e);
+      if (!append) setFeedPosts([]);
+    } finally {
+      setFeedLoading(false);
+      setFeedLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'feed') loadFeed(false);
+  }, [activeTab, loadFeed]);
+
+  useEffect(() => {
+    if (activeTab !== 'feed' || !feedNextCursor || feedLoadingMore) return;
+    const el = feedSentinelRef.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadFeed(true, feedNextCursor);
+      },
+      { rootMargin: '200px', threshold: 0.1 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [activeTab, feedNextCursor, feedLoadingMore, loadFeed]);
+
+  const handleCreatePost = async () => {
+    if (!uploadFile) {
+      setUploadError('Choose an image.');
+      return;
+    }
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const res = await discoveryApi.createFeedPost(uploadFile, uploadCaption || undefined);
+      const created = res.data as DiscoverFeedPost;
+      setFeedPosts((prev) => [created, ...prev]);
+      setUploadOpen(false);
+      setUploadFile(null);
+      setUploadCaption('');
+    } catch (e: unknown) {
+      setUploadError(e instanceof Error ? e.message : 'Upload failed.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const load = useCallback(
     async (append: boolean, currentOffset: number) => {
@@ -96,12 +185,13 @@ export default function DiscoverPage() {
   );
 
   useEffect(() => {
-    setRole(activeTab);
+    if (activeTab === 'artist' || activeTab === 'service_provider') setRole(activeTab);
   }, [activeTab]);
   useEffect(() => {
+    if (activeTab === 'feed') return;
     setOffset(0);
     load(false, 0);
-  }, [search, location, serviceType, role]);
+  }, [activeTab, search, location, serviceType, role]);
 
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -115,8 +205,8 @@ export default function DiscoverPage() {
         <p className="text-sm text-muted-foreground">Find artists and Catalysts (service providers). Search and filter below.</p>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
           <TabsList variant="line" className="w-full justify-start rounded-none border-b border-border bg-transparent p-0">
-            <TabsTrigger value="all" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
-              For you
+            <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
+              Feed
             </TabsTrigger>
             <TabsTrigger value="artist" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               Artists
@@ -125,8 +215,228 @@ export default function DiscoverPage() {
               Catalysts
             </TabsTrigger>
           </TabsList>
-          <TabsContent value={activeTab} className="mt-0 pt-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
+          {/* Feed tab: endless scroll of catalyst posts */}
+          <TabsContent value="feed" className="mt-0 pt-6">
+            <div className="flex flex-col gap-4">
+              {isCatalyst && (
+                <div className="flex justify-end">
+                  <Dialog open={uploadOpen} onOpenChange={(o) => { setUploadOpen(o); if (!o) setUploadError(null); }}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="bg-primary text-primary-foreground">Add post</Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-md">
+                      <DialogHeader>
+                        <DialogTitle>New post</DialogTitle>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-2">
+                        <div>
+                          <Label>Image</Label>
+                          <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            className="mt-1"
+                            onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                          />
+                        </div>
+                        <div>
+                          <Label>Caption (optional)</Label>
+                          <Textarea
+                            placeholder="Say something..."
+                            value={uploadCaption}
+                            onChange={(e) => setUploadCaption(e.target.value)}
+                            rows={3}
+                            className="mt-1 resize-none"
+                          />
+                        </div>
+                        {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
+                        <Button onClick={handleCreatePost} disabled={uploading}>
+                          {uploading ? 'Posting...' : 'Post'}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+              {feedLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+                </div>
+              ) : feedPosts.length === 0 ? (
+                <p className="text-center text-muted-foreground py-12">
+                  No posts yet. Catalysts can share photos here—check back soon.
+                </p>
+              ) : (
+                <div className="grid gap-6 sm:grid-cols-2">
+                  {feedPosts.map((post) => (
+                    <Card key={post.id} className="overflow-hidden border-border/80">
+                      <CardContent className="p-0">
+                        <Link href={`/artist/${post.authorUserId}`} className="flex items-center gap-3 p-3 border-b border-border/60">
+                          {post.authorAvatarUrl ? (
+                            <Image
+                              src={post.authorAvatarUrl}
+                              alt={post.authorDisplayName ?? 'Avatar'}
+                              width={40}
+                              height={40}
+                              className="rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg">🛠️</div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate">{post.authorDisplayName || 'Catalyst'}</p>
+                            {post.authorHeadline && (
+                              <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+                            )}
+                          </div>
+                        </Link>
+                        <div className="relative aspect-square w-full bg-muted">
+                          <Image
+                            src={post.imageUrl}
+                            alt={post.caption || 'Post'}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 100vw, 50vw"
+                            unoptimized={post.imageUrl.includes('supabase')}
+                          />
+                        </div>
+                        {post.caption && (
+                          <p className="p-3 text-sm text-foreground/90 whitespace-pre-wrap">{post.caption}</p>
+                        )}
+                        <p className="px-3 pb-2 text-xs text-muted-foreground">
+                          {new Date(post.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              <div ref={feedSentinelRef} className="h-4" />
+              {feedLoadingMore && (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          {/* People tabs: same filters + grid for Artists and Catalysts */}
+          <TabsContent value="artist" className="mt-0 pt-6">
+            <PeopleTabContent
+              search={search}
+              setSearch={setSearch}
+              location={location}
+              setLocation={setLocation}
+              serviceType={serviceType}
+              setServiceType={setServiceType}
+              load={load}
+              role="artist"
+              nearbyEnabled={nearbyEnabled}
+              setNearbyEnabled={setNearbyEnabled}
+              userLat={userLat}
+              userLng={userLng}
+              setUserLat={setUserLat}
+              setUserLng={setUserLng}
+              minRateCents={minRateCents}
+              setMinRateCents={setMinRateCents}
+              maxRateCents={maxRateCents}
+              setMaxRateCents={setMaxRateCents}
+              items={items}
+              total={total}
+              loading={loading}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              loadMore={loadMore}
+            />
+          </TabsContent>
+          <TabsContent value="service_provider" className="mt-0 pt-6">
+            <PeopleTabContent
+              search={search}
+              setSearch={setSearch}
+              location={location}
+              setLocation={setLocation}
+              serviceType={serviceType}
+              setServiceType={setServiceType}
+              load={load}
+              role="service_provider"
+              nearbyEnabled={nearbyEnabled}
+              setNearbyEnabled={setNearbyEnabled}
+              userLat={userLat}
+              userLng={userLng}
+              setUserLat={setUserLat}
+              setUserLng={setUserLng}
+              minRateCents={minRateCents}
+              setMinRateCents={setMinRateCents}
+              maxRateCents={maxRateCents}
+              setMaxRateCents={setMaxRateCents}
+              items={items}
+              total={total}
+              loading={loading}
+              hasMore={hasMore}
+              loadingMore={loadingMore}
+              loadMore={loadMore}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+
+function PeopleTabContent({
+  search,
+  setSearch,
+  location,
+  setLocation,
+  serviceType,
+  setServiceType,
+  load,
+  role,
+  nearbyEnabled,
+  setNearbyEnabled,
+  userLat,
+  userLng,
+  setUserLat,
+  setUserLng,
+  minRateCents,
+  setMinRateCents,
+  maxRateCents,
+  setMaxRateCents,
+  items,
+  total,
+  loading,
+  hasMore,
+  loadingMore,
+  loadMore,
+}: {
+  search: string;
+  setSearch: (s: string) => void;
+  location: string;
+  setLocation: (s: string) => void;
+  serviceType: string;
+  setServiceType: (s: string) => void;
+  load: (append: boolean, offset: number) => void;
+  role: 'artist' | 'service_provider';
+  nearbyEnabled: boolean;
+  setNearbyEnabled: (v: boolean) => void;
+  userLat: number | null;
+  userLng: number | null;
+  setUserLat: (v: number | null) => void;
+  setUserLng: (v: number | null) => void;
+  minRateCents: string;
+  setMinRateCents: (s: string) => void;
+  maxRateCents: string;
+  setMaxRateCents: (s: string) => void;
+  items: DiscoveryProfile[];
+  total: number;
+  loading: boolean;
+  hasMore: boolean;
+  loadingMore: boolean;
+  loadMore: () => void;
+}) {
+  return (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Input
                 placeholder="Search name, headline, bio..."
                 value={search}
@@ -276,9 +586,6 @@ export default function DiscoverPage() {
                 )}
               </>
             )}
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
+    </>
   );
 }

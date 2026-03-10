@@ -32,6 +32,12 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(proNetworxAppUrl, 302);
   }
 
+  // Radio profile (account type, member since, etc.) is networxradio.com only; on discovermeradio.com use ProNetworx profile
+  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/profile' || pathname.startsWith('/profile/'))) {
+    const proNetworxProfileUrl = new URL('/pro-networx/onboarding', request.url);
+    return NextResponse.redirect(proNetworxProfileUrl, 302);
+  }
+
   const res = NextResponse.next();
 
   // Referral: store ref query param in cookie for sign-up association
@@ -65,6 +71,8 @@ export const config = {
     '/',
     '/dashboard',
     '/dashboard/:path*',
+    '/profile',
+    '/profile/:path*',
     '/signup',
     '/login',
     '/pro-directory',
