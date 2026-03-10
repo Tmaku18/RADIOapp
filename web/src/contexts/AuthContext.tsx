@@ -227,8 +227,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetchProfile();
       setPendingGoogleUser(null);
     } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const message = apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up');
+      const fallback =
+        status === 404
+          ? 'Sign-up service unavailable. Please try again later or contact support.'
+          : err instanceof Error
+            ? err.message
+            : 'Failed to complete sign up';
+      const message = apiMessage ?? fallback;
       setError(message);
       throw err;
     } finally {
