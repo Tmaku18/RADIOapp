@@ -1,17 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getIdToken } from '@/lib/firebase-client';
 
 const NETWORXRADIO_CROSS_LOGIN = 'https://www.networxradio.com/cross-domain-login';
 
-/**
- * When user on discovermeradio.com clicks "Networx Radio", they can be sent here with ?return_url=https://www.networxradio.com/...
- * If logged in, we get a one-time token from the backend and redirect to that URL with the token so they become logged in there too.
- */
-export default function AuthHandoffPage() {
+function AuthHandoffContent() {
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
   const [status, setStatus] = useState<'idle' | 'getting-token' | 'redirecting' | 'error'>('idle');
@@ -91,5 +87,26 @@ export default function AuthHandoffPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+/**
+ * When user on discovermeradio.com clicks "Networx Radio", they can be sent here with ?return_url=https://www.networxradio.com/...
+ * If logged in, we get a one-time token from the backend and redirect to that URL with the token so they become logged in there too.
+ */
+export default function AuthHandoffPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <AuthHandoffContent />
+    </Suspense>
   );
 }

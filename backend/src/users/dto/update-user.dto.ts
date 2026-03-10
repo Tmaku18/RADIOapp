@@ -1,9 +1,14 @@
-import { IsString, IsOptional, IsUrl, IsBoolean, ValidateIf } from 'class-validator';
+import { IsString, IsOptional, IsUrl, IsBoolean, ValidateIf, IsIn } from 'class-validator';
 
 export class UpdateUserDto {
   @IsString()
   @IsOptional()
   displayName?: string;
+
+  /** Switch between Prospector (listener) and Gem (artist) on the radio app. Catalysts are created via ProNetworx. */
+  @IsIn(['listener', 'artist'])
+  @IsOptional()
+  role?: 'listener' | 'artist';
 
   @ValidateIf((o) => o.avatarUrl != null && o.avatarUrl !== '')
   @IsUrl()

@@ -91,6 +91,14 @@ export class UsersController {
     return this.usersService.upgradeToArtist(user.uid);
   }
 
+  /**
+   * Upgrade to Catalyst (service provider) for ProNetworx. Creates service_providers row.
+   */
+  @Post('upgrade-to-catalyst')
+  async upgradeToCatalyst(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.upgradeToCatalyst(user.uid);
+  }
+
   @Get(':id')
   async getUserById(@Param('id') id: string) {
     return this.usersService.getUserById(id);

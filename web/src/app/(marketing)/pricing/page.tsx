@@ -134,12 +134,10 @@ export default function PricingPage() {
               </p>
               <div className="flex flex-wrap gap-3 justify-center">
                 <Button variant="outline" size="lg" asChild>
-                  <Link href="/signup?role=service_provider">Sign up as Catalyst</Link>
+                  <Link href="/login?redirect=/pro-networx/directory">Become a Catalyst on ProNetworx</Link>
                 </Button>
                 <Button variant="outline" size="lg" asChild>
-                  <Link href="/pro-networx">
-                    Open ProNetworx
-                  </Link>
+                  <Link href="/pro-networx">Open ProNetworx</Link>
                 </Button>
               </div>
             </CardContent>

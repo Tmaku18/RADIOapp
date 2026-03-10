@@ -40,7 +40,7 @@ interface AuthContextType {
   pendingGoogleUser: PendingGoogleUser | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
+  signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider', displayName?: string) => Promise<void>;
   completeGoogleSignUp: (role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
   cancelGoogleSignUp: () => void;
   signOut: () => Promise<void>;
@@ -77,11 +77,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
 
-  // Create backend profile. Role optional: when omitted, backend assigns admin if email in allowlist, else listener.
+  // Create Supabase profile (name + role). Role optional: when omitted, backend uses admin allowlist or listener.
   const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
     await usersApi.create({
       email: firebaseUser.email!,
-      displayName: firebaseUser.displayName || undefined,
+      displayName: firebaseUser.displayName?.trim() || undefined,
       ...(role != null ? { role } : {}),
     });
     await fetchProfile();
@@ -263,26 +263,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const handleSignUpWithEmail = async (
-    email: string, 
-    password: string, 
-    role: 'listener' | 'artist' | 'service_provider'
+    email: string,
+    password: string,
+    role: 'listener' | 'artist' | 'service_provider',
+    displayName?: string
   ) => {
     setError(null);
     setLoading(true);
     try {
       const firebaseUser = await signUpWithEmail(email, password);
-      
-      // Get ID token and create session cookie
+
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
-      
-      // Create user profile in backend
+
+      // Create Supabase user with chosen role and name (Firebase → equivalent Supabase row)
       await usersApi.create({
         email: firebaseUser.email!,
-        displayName: firebaseUser.displayName || undefined,
+        displayName: (displayName?.trim() || firebaseUser.displayName) || undefined,
         role,
       });
-      
+
       await fetchProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up';

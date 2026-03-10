@@ -28,6 +28,7 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isSwitchingToListener, setIsSwitchingToListener] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
@@ -164,7 +165,6 @@ export default function ProfilePage() {
       await usersApi.upgradeToArtist();
       await refreshProfile();
       setUpgradeSuccess(true);
-      // Redirect to artist dashboard after short delay
       setTimeout(() => {
         router.push('/dashboard');
       }, 2000);
@@ -172,6 +172,20 @@ export default function ProfilePage() {
       setError(err instanceof Error ? err.message : 'Failed to upgrade account');
     } finally {
       setIsUpgrading(false);
+    }
+  };
+
+  const handleSwitchToListener = async () => {
+    setError(null);
+    setIsSwitchingToListener(true);
+    try {
+      await usersApi.updateMe({ role: 'listener' });
+      await refreshProfile();
+      setTimeout(() => router.push('/dashboard'), 1500);
+    } catch (err) {
+      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to switch account type');
+    } finally {
+      setIsSwitchingToListener(false);
     }
   };
 
@@ -347,7 +361,10 @@ export default function ProfilePage() {
               <Label>Account Type</Label>
               <Input value={profile?.role === 'listener' ? 'Prospector' : profile?.role === 'artist' ? 'Gem' : profile?.role === 'service_provider' ? 'Catalyst' : profile?.role === 'admin' ? 'Admin' : profile?.role ?? ''} disabled />
               {profile?.role === 'listener' && (
-                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to a Gem account below. Or become a Catalyst to offer services.</p>
+                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to a Gem below. Catalysts sign up on ProNetworx.</p>
+              )}
+              {profile?.role === 'artist' && (
+                <p className="text-xs text-muted-foreground">You can switch back to Prospector below if you no longer want to upload music.</p>
               )}
             </div>
 
@@ -376,22 +393,41 @@ export default function ProfilePage() {
             <div className="flex items-start gap-4">
               <div className="text-4xl">🎤</div>
               <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground mb-1">Become an Artist</h3>
+                <h3 className="text-lg font-semibold text-foreground mb-1">Become a Gem</h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Upgrade your account to share your music with the world. As a Gem, you can upload tracks, purchase airtime credits, and get your music on the radio.
+                  Upgrade to share your music. As a Gem you can upload tracks, purchase airtime, and get on the radio.
                 </p>
                 {upgradeSuccess ? (
                   <Alert>
-                    <AlertDescription>Congratulations! Your account has been upgraded to Artist. Redirecting to dashboard...</AlertDescription>
+                    <AlertDescription>Your account is now a Gem. Redirecting...</AlertDescription>
                   </Alert>
                 ) : (
                   <div className="flex items-center gap-4">
                     <Button onClick={handleUpgradeToArtist} disabled={isUpgrading}>
-                      {isUpgrading ? 'Upgrading...' : 'Upgrade to Artist'}
+                      {isUpgrading ? 'Upgrading...' : 'Upgrade to Gem'}
                     </Button>
-                    <span className="text-sm text-muted-foreground">Free to upgrade</span>
+                    <span className="text-sm text-muted-foreground">Free</span>
                   </div>
                 )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {profile?.role === 'artist' && (
+        <Card className="mt-6">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-4">
+              <div className="text-4xl">🎧</div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-foreground mb-1">Switch to Prospector</h3>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Stop uploading music and use Networx as a listener only. You can upgrade back to Gem anytime.
+                </p>
+                <Button variant="outline" onClick={handleSwitchToListener} disabled={isSwitchingToListener}>
+                  {isSwitchingToListener ? 'Switching...' : 'Switch to Prospector'}
+                </Button>
               </div>
             </div>
           </CardContent>

@@ -80,12 +80,13 @@ export class UsersService {
     const role = adminEmails.includes(emailLower)
       ? 'admin'
       : (createUserDto.role ?? 'listener');
+    const displayName = createUserDto.displayName?.trim() || null;
     const { data, error } = await supabase
       .from('users')
       .insert({
         firebase_uid: firebaseUid,
         email: createUserDto.email,
-        display_name: createUserDto.displayName,
+        display_name: displayName,
         role,
       })
       .select()
@@ -174,7 +175,7 @@ export class UsersService {
     
     const { data: user } = await supabase
       .from('users')
-      .select('id')
+      .select('id, role')
       .eq('firebase_uid', firebaseUid)
       .single();
 
@@ -193,6 +194,21 @@ export class UsersService {
     if (updateUserDto.headline !== undefined) updatePayload.headline = updateUserDto.headline;
     if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
     if (updateUserDto.discoverable !== undefined) updatePayload.discoverable = updateUserDto.discoverable;
+    if (updateUserDto.role !== undefined) {
+      if (user.role === 'service_provider' || user.role === 'admin') {
+        throw new BadRequestException('Catalysts and admins cannot change account type here.');
+      }
+      if (updateUserDto.role !== 'listener' && updateUserDto.role !== 'artist') {
+        throw new BadRequestException('Role must be listener or artist.');
+      }
+      updatePayload.role = updateUserDto.role;
+      if (updateUserDto.role === 'artist' && user.role !== 'artist') {
+        const { error: creditsError } = await supabase.from('credits').insert({ artist_id: user.id, balance: 0 });
+        if (creditsError && creditsError.code !== '23505') {
+          console.error('Failed to create credits for new artist:', creditsError);
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('users')
@@ -286,6 +302,62 @@ export class UsersService {
     // If credits record already exists (shouldn't happen), that's fine
     if (creditsError && creditsError.code !== '23505') {
       console.error('Failed to create credits record:', creditsError);
+    }
+
+    return transformUser(data);
+  }
+
+  /**
+   * Upgrade current user to Catalyst (service provider) for ProNetworx.
+   * Creates service_providers row (separate from radio profile); user keeps same id.
+   */
+  async upgradeToCatalyst(firebaseUid: string): Promise<UserResponse> {
+    const supabase = getSupabaseClient();
+
+    const { data: user, error: fetchError } = await supabase
+      .from('users')
+      .select('*')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (fetchError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.role === 'service_provider') {
+      throw new BadRequestException('You are already a Catalyst');
+    }
+    if (user.role === 'admin') {
+      throw new BadRequestException('Admin users cannot be upgraded to Catalyst');
+    }
+
+    const { data, error: updateError } = await supabase
+      .from('users')
+      .update({
+        role: 'service_provider',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      throw new BadRequestException(`Failed to upgrade: ${updateError.message}`);
+    }
+
+    const { error: creditsError } = await supabase.from('credits').insert({
+      artist_id: user.id,
+      balance: 0,
+    });
+    if (creditsError && creditsError.code !== '23505') {
+      console.error('Failed to create credits for Catalyst:', creditsError);
+    }
+
+    const { error: providerError } = await supabase
+      .from('service_providers')
+      .insert({ user_id: user.id });
+    if (providerError && providerError.code !== '23505') {
+      console.error('Failed to create service_providers row:', providerError);
     }
 
     return transformUser(data);

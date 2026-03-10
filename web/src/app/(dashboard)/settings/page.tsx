@@ -20,7 +20,7 @@ const settingsSections = [
   {
     title: 'Account',
     items: [
-      { label: 'Profile', description: 'Display name, photo, bio, headline, location', href: '/profile', icon: UserIcon },
+      { label: 'Profile', description: 'Display name, account type (role), photo, bio, headline, location', href: '/profile', icon: UserIcon },
     ],
   },
   {

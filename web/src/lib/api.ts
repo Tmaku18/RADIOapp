@@ -115,7 +115,7 @@ export const songsApi = {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string }) => 
+  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; role?: 'listener' | 'artist' }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
@@ -126,6 +126,7 @@ export const usersApi = {
   create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
+  upgradeToCatalyst: () => api.post('/users/upgrade-to-catalyst'),
 };
 
 export const suggestionsApi = {

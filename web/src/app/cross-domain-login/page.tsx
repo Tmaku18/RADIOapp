@@ -1,13 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-/**
- * Page reached when user is redirected from another domain (e.g. discovermeradio.com) with ?token=xxx.
- * Exchanges the token for a session cookie on this origin, then redirects to dashboard.
- */
-export default function CrossDomainLoginPage() {
+function CrossDomainLoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'exchanging' | 'done' | 'error'>('exchanging');
@@ -75,5 +71,26 @@ export default function CrossDomainLoginPage() {
         <p className="text-muted-foreground">Signing you in…</p>
       </div>
     </div>
+  );
+}
+
+/**
+ * Page reached when user is redirected from another domain (e.g. discovermeradio.com) with ?token=xxx.
+ * Exchanges the token for a session cookie on this origin, then redirects to dashboard.
+ */
+export default function CrossDomainLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <CrossDomainLoginContent />
+    </Suspense>
   );
 }
