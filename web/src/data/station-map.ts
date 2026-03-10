@@ -45,46 +45,53 @@ export const STATE_BOUNDS: Record<string, StateBounds> = {
 /** States that have towers (zoom in to see them) */
 export const STATES_WITH_TOWERS: string[] = ['GA'];
 
-/** Towers per metro (Atlanta area for GA) */
-const ATLANTA_LAT = 33.749;
-const ATLANTA_LNG = -84.388;
+/** GA bounds for even spacing: southWest [30.36, -85.6], northEast [35.0, -80.84] */
+const GA_SW: [number, number] = [30.36, -85.6];
+const GA_NE: [number, number] = [35.0, -80.84];
+const GA_LAT_SPAN = GA_NE[0] - GA_SW[0];
+const GA_LNG_SPAN = GA_NE[1] - GA_SW[1];
+/** Offset from edges so markers sit evenly in the state */
+const PAD = 0.15;
+const lat = (row: number) => GA_SW[0] + PAD * GA_LAT_SPAN + (row / 1) * (1 - 2 * PAD) * GA_LAT_SPAN;
+const lng = (col: number) => GA_SW[1] + PAD * GA_LNG_SPAN + (col / 1) * (1 - 2 * PAD) * GA_LNG_SPAN;
 
+/** Towers evenly spaced across Georgia (NW, NE, SW, SE) */
 export const TOWERS: Tower[] = [
   {
-    id: 'atlanta-rap',
+    id: 'ga-nw-rap',
     state: 'GA',
-    city: 'Atlanta',
+    city: 'Rome',
     genre: 'Rap',
     genreId: 'rap',
-    lat: ATLANTA_LAT + 0.08,
-    lng: ATLANTA_LNG - 0.05,
+    lat: lat(1),
+    lng: lng(0),
   },
   {
-    id: 'atlanta-edm',
+    id: 'ga-ne-edm',
     state: 'GA',
-    city: 'Atlanta',
+    city: 'Augusta',
     genre: 'EDM',
     genreId: 'edm',
-    lat: ATLANTA_LAT - 0.06,
-    lng: ATLANTA_LNG + 0.08,
+    lat: lat(1),
+    lng: lng(1),
   },
   {
-    id: 'atlanta-rnb',
+    id: 'ga-sw-rnb',
     state: 'GA',
-    city: 'Atlanta',
+    city: 'Albany',
     genre: 'R&B',
     genreId: 'rnb',
-    lat: ATLANTA_LAT + 0.05,
-    lng: ATLANTA_LNG + 0.06,
+    lat: lat(0),
+    lng: lng(0),
   },
   {
-    id: 'atlanta-podcasts',
+    id: 'ga-se-podcasts',
     state: 'GA',
-    city: 'Atlanta',
+    city: 'Savannah',
     genre: 'Podcasts',
     genreId: 'podcasts',
-    lat: ATLANTA_LAT - 0.07,
-    lng: ATLANTA_LNG - 0.04,
+    lat: lat(0),
+    lng: lng(1),
   },
 ];
 
