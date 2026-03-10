@@ -111,8 +111,8 @@ export function ProNetworxDirectoryContent({
 
   return (
     <div className="container max-w-6xl py-6 sm:py-8 space-y-6">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div className="space-y-1">
+      <div className="flex flex-col items-center gap-4">
+        <div className="space-y-1 text-center">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-foreground">{title}</h1>
           <p className="text-muted-foreground text-sm sm:text-base">{subtitle}</p>
         </div>

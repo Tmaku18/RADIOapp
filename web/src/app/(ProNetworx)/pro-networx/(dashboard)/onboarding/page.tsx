@@ -111,7 +111,7 @@ export default function ProNetworxOnboardingPage() {
 
   return (
     <div className="container max-w-3xl py-8 space-y-6">
-      <div className="space-y-1">
+      <div className="space-y-1 text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Complete your ProNetworx profile</h1>
         <p className="text-muted-foreground">
           Sync-Profile: headline and skills. Artists can discover you by skill and availability.

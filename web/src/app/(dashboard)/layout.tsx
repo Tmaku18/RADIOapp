@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -71,6 +72,39 @@ const moreNav = [
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
+
+const DASHBOARD_LOGO_PRIMARY = '/networx-logo.png';
+const DASHBOARD_LOGO_FALLBACK = '/icons/icon.svg';
+
+function DashboardSidebarLogo() {
+  const [useFallback, setUseFallback] = useState(false);
+  return (
+    <span className="size-10 shrink-0 flex items-center justify-center rounded-lg bg-primary/20 overflow-hidden">
+      {useFallback ? (
+        <Image
+          src={DASHBOARD_LOGO_FALLBACK}
+          alt=""
+          width={40}
+          height={40}
+          className="size-10 object-contain"
+          priority
+          unoptimized
+        />
+      ) : (
+        <Image
+          src={DASHBOARD_LOGO_PRIMARY}
+          alt=""
+          width={140}
+          height={50}
+          className="h-10 w-auto object-contain object-left"
+          priority
+          unoptimized
+          onError={() => setUseFallback(true)}
+        />
+      )}
+    </span>
+  );
+}
 
 const adminSubNavigation = [
   { name: 'Ores', href: '/admin/songs', icon: '🎶' },
@@ -226,15 +260,8 @@ export default function DashboardLayout({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/dashboard" className="flex items-center gap-2">
-                  <span className="size-8 shrink-0 rounded-lg bg-primary/20 flex items-center justify-center" aria-hidden>
-                    <svg viewBox="0 0 512 512" className="size-6 text-primary" fill="none" stroke="currentColor" strokeWidth="18" strokeLinecap="round" aria-hidden>
-                      <path d="M184 272c18 22 44 34 72 34s54-12 72-34" />
-                      <path d="M160 230c28-36 62-54 96-54s68 18 96 54" />
-                      <path d="M136 190c40-50 84-74 120-74s80 24 120 74" />
-                      <circle cx="256" cy="320" r="18" fill="currentColor" />
-                    </svg>
-                  </span>
+                <Link href="/dashboard" className="flex items-center gap-3">
+                  <DashboardSidebarLogo />
                   <span className="font-bold text-foreground">Networx</span>
                 </Link>
               </SidebarMenuButton>

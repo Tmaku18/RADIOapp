@@ -166,7 +166,7 @@ export default function ProNetworxProfilePage() {
             <div className="space-y-6">
               <Card className="glass-panel border border-border">
                 <CardContent className="pt-6 space-y-4">
-                  <h2 className="text-lg font-semibold text-foreground">About</h2>
+                  <h2 className="text-lg font-semibold text-foreground text-center">About</h2>
                   <p className="text-muted-foreground whitespace-pre-wrap">
                     {data.bio?.trim() || 'No bio yet.'}
                   </p>
@@ -219,9 +219,9 @@ export default function ProNetworxProfilePage() {
             <div className="space-y-6">
               <Card className="glass-panel border border-border">
                 <CardContent className="pt-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-lg font-semibold text-foreground">Services</h2>
-                    <Badge variant="outline" className="border-primary/30">{activeListings.length} active</Badge>
+                  <div className="flex items-center justify-between gap-3">
+                    <h2 className="text-lg font-semibold text-foreground flex-1 text-center">Services</h2>
+                    <Badge variant="outline" className="border-primary/30 shrink-0">{activeListings.length} active</Badge>
                   </div>
                   {activeListings.length === 0 ? (
                     <p className="text-muted-foreground">No active listings yet.</p>

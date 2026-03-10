@@ -1,26 +1,12 @@
-'use client';
-
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { useAuth } from '@/contexts/AuthContext';
-import { ProNetworxDirectoryContent } from './DirectoryContent';
+
+const REDIRECT_APP = '/pro-networx/directory';
+const REDIRECT_APP_ENCODED = encodeURIComponent(REDIRECT_APP);
 
 export default function ProNetworxHomePage() {
-  const { user, loading } = useAuth();
-
-  // Logged in: show directory (users, search, scroll) — LinkedIn/Fiverr-style home
-  if (!loading && user) {
-    return (
-      <ProNetworxDirectoryContent
-        title="Explore"
-        subtitle="Search and connect with Catalysts. Browse by skill, location, and availability."
-        showEditProfile
-      />
-    );
-  }
-
-  // Not logged in: marketing landing
+  // Server-rendered landing: no client auth, so no redirect to directory; user must click Sign in
   return (
     <div className="relative">
       <section className="relative py-20 sm:py-28 overflow-hidden bg-signature">
@@ -37,10 +23,10 @@ export default function ProNetworxHomePage() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Button asChild size="lg" className="bg-primary text-primary-foreground hover:opacity-90 shadow-[var(--brand-glow)]">
-              <Link href="/login?redirect=%2Fpro-networx">Log in</Link>
+              <Link href={`/login?redirect=${REDIRECT_APP_ENCODED}`}>Log in</Link>
             </Button>
             <Button asChild size="lg" variant="secondary">
-              <Link href="/signup?redirect=%2Fpro-networx">Sign up</Link>
+              <Link href={`/signup?redirect=${REDIRECT_APP_ENCODED}`}>Sign up</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-primary/30">
               <Link href="/pro-networx/directory">Browse directory</Link>
@@ -78,7 +64,7 @@ export default function ProNetworxHomePage() {
             Sign in to browse Catalysts, message pros, and build your profile.
           </p>
           <Button asChild className="bg-primary text-primary-foreground hover:opacity-90">
-            <Link href="/pro-networx">Get started</Link>
+            <Link href={`/login?redirect=${REDIRECT_APP_ENCODED}`}>Get started</Link>
           </Button>
         </div>
       </section>

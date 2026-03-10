@@ -7,6 +7,13 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
+const NETWORXRADIO_CROSS_LOGIN = 'https://www.networxradio.com/cross-domain-login';
+
+function isDiscoverMeHost() {
+  if (typeof window === 'undefined') return false;
+  const h = window.location.hostname;
+  return h === 'discovermeradio.com' || h === 'www.discovermeradio.com';
+}
 
 export default function ProNetworxLayout({
   children,
@@ -76,7 +83,16 @@ export default function ProNetworxLayout({
       </main>
       <footer className="border-t border-border py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">Networx Radio</Link>
+          {isDiscoverMeHost() ? (
+            <Link
+              href={`/auth-handoff?return_url=${encodeURIComponent(NETWORXRADIO_CROSS_LOGIN)}`}
+              className="hover:text-foreground transition-colors"
+            >
+              Networx Radio
+            </Link>
+          ) : (
+            <Link href="/" className="hover:text-foreground transition-colors">Networx Radio</Link>
+          )}
           {' · '}
           <Link href="/pro-directory" className="hover:text-foreground transition-colors">Pro-Directory</Link>
           {' · '}

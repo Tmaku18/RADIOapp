@@ -2,8 +2,11 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+
+const LOGO_SRC = '/networx-logo.png';
 
 export default function AuthLayout({
   children,
@@ -13,10 +16,12 @@ export default function AuthLayout({
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  // Redirect authenticated users to dashboard
+  // Redirect authenticated users: on discovermeradio.com send to ProNetworx app, else dashboard
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard');
+      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+      const isDiscoverMe = host === 'discovermeradio.com' || host === 'www.discovermeradio.com';
+      router.push(isDiscoverMe ? '/pro-networx/directory' : '/dashboard');
     }
   }, [loading, user, router]);
 
@@ -37,15 +42,16 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
       <header className="p-4">
-        <Link href="/" className="flex items-center gap-2 text-primary-foreground">
-          <span className="size-8 shrink-0 rounded-lg bg-primary-foreground/20 flex items-center justify-center" aria-hidden>
-            <svg viewBox="0 0 512 512" className="size-6 text-primary-foreground" fill="none" stroke="currentColor" strokeWidth="18" strokeLinecap="round" aria-hidden>
-              <path d="M184 272c18 22 44 34 72 34s54-12 72-34" />
-              <path d="M160 230c28-36 62-54 96-54s68 18 96 54" />
-              <path d="M136 190c40-50 84-74 120-74s80 24 120 74" />
-              <circle cx="256" cy="320" r="18" fill="currentColor" />
-            </svg>
-          </span>
+        <Link href="/" className="flex items-center gap-3 text-primary-foreground">
+          <Image
+            src={LOGO_SRC}
+            alt=""
+            width={140}
+            height={50}
+            className="h-10 w-auto object-contain object-left shrink-0"
+            priority
+            unoptimized
+          />
           <span className="text-xl font-bold">Networx</span>
         </Link>
       </header>

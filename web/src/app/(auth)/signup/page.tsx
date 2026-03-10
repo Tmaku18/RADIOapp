@@ -29,12 +29,12 @@ function SignupForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // On discovermeradio.com, default to ProNetworx so users stay on that site after signup
+  // On discovermeradio.com, default to ProNetworx app (directory) so users land in the app after signup
   useEffect(() => {
     if (redirectParam) return;
     const host = typeof window !== 'undefined' ? window.location.hostname : '';
     if (host === 'discovermeradio.com' || host === 'www.discovermeradio.com') {
-      setRedirectTo('/pro-networx');
+      setRedirectTo('/pro-networx/directory');
     }
   }, [redirectParam]);
 

@@ -26,6 +26,12 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(proNetworxUrl);
   }
 
+  // On discovermeradio.com, dashboard is the main Networx app; send to ProNetworx (LinkedIn/Fiverr-style) instead
+  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
+    const proNetworxAppUrl = new URL('/pro-networx/directory', request.url);
+    return NextResponse.redirect(proNetworxAppUrl, 302);
+  }
+
   const res = NextResponse.next();
 
   // Referral: store ref query param in cookie for sign-up association
@@ -53,5 +59,18 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/artist/:path*', '/job-board', '/', '/signup', '/login', '/pro-directory', '/pro-networx', '/pro-networx/:path*'],
+  matcher: [
+    '/artist/:path*',
+    '/job-board',
+    '/',
+    '/dashboard',
+    '/dashboard/:path*',
+    '/signup',
+    '/login',
+    '/pro-directory',
+    '/pro-networx',
+    '/pro-networx/:path*',
+    '/auth-handoff',
+    '/cross-domain-login',
+  ],
 };
