@@ -17,9 +17,9 @@ function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signUpWithEmail, signInWithGoogle, loading, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
-  const isProNetworxRedirect = (redirectParam ?? redirectTo ?? '').includes('pro-networx');
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
+  const isProNetworxRedirect = (redirectParam ?? redirectTo ?? '').includes('pro-networx');
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
