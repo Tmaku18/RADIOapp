@@ -19,7 +19,7 @@ export default function ProNetworxHomePage() {
             Hire the Collective.
           </h1>
           <p className="mt-6 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-            PRO-NETWORX is the professional layer: <span className="text-foreground">Catalysts</span> with LinkedIn-style profiles and Fiverr-style gigs. Find producers, designers, and mentors—skill-first.
+            PRO-NETWORX is the professional layer: <span className="text-foreground">Catalysts</span> with high-fidelity networking profiles and integrated freelance gig capabilities.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <Button asChild size="lg" className="bg-primary text-primary-foreground hover:opacity-90 shadow-[var(--brand-glow)]">

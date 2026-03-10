@@ -26,7 +26,7 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(proNetworxUrl);
   }
 
-  // On discovermeradio.com, dashboard is the main Networx app; send to ProNetworx (LinkedIn/Fiverr-style) instead
+  // On discovermeradio.com, dashboard is the main Networx app; send to ProNetworx (LinkedIn®/Fiverr-style) instead
   if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
     const proNetworxAppUrl = new URL('/pro-networx/directory', request.url);
     return NextResponse.redirect(proNetworxAppUrl, 302);

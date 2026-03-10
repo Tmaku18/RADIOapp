@@ -99,7 +99,7 @@ export default function ProNetworxDashboardLayout({
           <DialogHeader>
             <DialogTitle>Are you ready to sign up as a Catalyst?</DialogTitle>
             <DialogDescription>
-              Offer your services to artists on ProNetworx — mixing, beats, design, photography, and more. Your Catalyst profile is separate from your radio profile and gives you a LinkedIn-style presence in the directory.
+              Offer your services to artists on ProNetworx — mixing, beats, design, photography, and more. Your Catalyst profile is separate from your radio profile and gives you a LinkedIn®-style presence in the directory.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">

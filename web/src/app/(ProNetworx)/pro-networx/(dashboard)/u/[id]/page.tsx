@@ -107,7 +107,7 @@ export default function ProNetworxProfilePage() {
         </Card>
       ) : (
         <>
-          {/* Hero / top profile card (LinkedIn-style) */}
+          {/* Hero / top profile card (LinkedIn®-style) */}
           <Card className="glass-panel border border-border overflow-hidden mb-6">
             <div className="relative w-full h-32 sm:h-40 bg-muted/50">
               {data.mediaPreviewUrl && data.mediaPreviewType === 'image' && (

@@ -107,7 +107,7 @@ export default function ArtistProfilePage() {
         const userData = userRes.data;
 
         if (userData.role === 'service_provider') {
-          // Provider profile (LinkedIn-style)
+          // Provider profile (LinkedIn®-style)
           const provRes = await serviceProvidersApi.getByUserId(artistId);
           if (ignore) return;
           setProviderProfile(provRes.data as ProviderProfile);
@@ -547,7 +547,7 @@ export default function ArtistProfilePage() {
               )}
               {providerProfile.linkedinUrl && (
                 <a href={providerProfile.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
-                  LinkedIn
+                  LinkedIn®
                 </a>
               )}
               {providerProfile.portfolioUrl && (

@@ -93,6 +93,9 @@ export default function ProNetworxLayout({
           {' · '}
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
           <p className="mt-2">&copy; {new Date().getFullYear()} Networx. By Artists, For Artists.</p>
+          <p className="mt-3 text-xs text-muted-foreground max-w-xl mx-auto">
+            LinkedIn is a registered trademark of LinkedIn Corporation. PRO-NETWORX is not affiliated with, sponsored by, or endorsed by LinkedIn Corporation.
+          </p>
         </div>
       </footer>
     </div>

@@ -437,7 +437,7 @@ export default function ArtistServicesPage() {
                     <Label>Social & portfolio</Label>
                     <div className="space-y-2">
                       <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" />
-                      <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="LinkedIn URL" />
+                      <Input value={linkedinUrl} onChange={(e) => setLinkedinUrl(e.target.value)} placeholder="LinkedIn® URL" />
                       <Input value={portfolioUrlProfile} onChange={(e) => setPortfolioUrlProfile(e.target.value)} placeholder="Portfolio / website URL" />
                     </div>
                   </div>
