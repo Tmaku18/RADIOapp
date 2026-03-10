@@ -269,10 +269,59 @@ export const jobBoardApi = {
   listApplications: (requestId: string) => api.get(`/job-board/requests/${requestId}/applications`),
 };
 
+export type ExperienceItem = {
+  title: string;
+  company: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  current?: boolean;
+  description?: string;
+};
+
+export type EducationItem = {
+  school: string;
+  degree?: string;
+  field?: string;
+  startYear?: string;
+  endYear?: string;
+  description?: string;
+};
+
+export type FeaturedItem = {
+  type: 'link' | 'portfolio';
+  url?: string;
+  title?: string;
+  description?: string;
+  portfolioItemId?: string;
+};
+
+export type ProNetworxMeProfile = {
+  userId: string;
+  availableForWork: boolean;
+  skillsHeadline: string | null;
+  currentTitle: string | null;
+  about: string | null;
+  websiteUrl: string | null;
+  experience: ExperienceItem[];
+  education: EducationItem[];
+  featured: FeaturedItem[];
+  skills: Array<{ name: string; category: string }>;
+};
+
 export const proNetworxApi = {
-  getMeProfile: () => api.get('/pro-networx/me/profile'),
-  updateMeProfile: (data: { availableForWork?: boolean; skillsHeadline?: string; skillNames?: string[] }) =>
-    api.put('/pro-networx/me/profile', data),
+  getMeProfile: () => api.get<ProNetworxMeProfile>('/pro-networx/me/profile'),
+  updateMeProfile: (data: {
+    availableForWork?: boolean;
+    skillsHeadline?: string;
+    currentTitle?: string;
+    about?: string;
+    websiteUrl?: string;
+    experience?: ExperienceItem[];
+    education?: EducationItem[];
+    featured?: FeaturedItem[];
+    skillNames?: string[];
+  }) => api.put('/pro-networx/me/profile', data),
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc' }) =>
     api.get('/pro-networx/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),

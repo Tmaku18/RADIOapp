@@ -17,6 +17,7 @@ export type DirectoryItem = {
   displayName: string | null;
   avatarUrl: string | null;
   headline: string | null;
+  currentTitle?: string | null;
   locationRegion: string | null;
   availableForWork: boolean;
   skillsHeadline: string | null;
@@ -199,7 +200,7 @@ export function ProNetworxDirectoryContent({
                         {p.serviceTitle?.replace(/_/g, ' ') || (p.skills[0]?.replace(/_/g, ' ') ?? 'Service')}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {p.skillsHeadline || p.headline || '—'}
+                        {p.currentTitle || p.skillsHeadline || p.headline || '—'}
                       </p>
                     </div>
                     {p.verifiedCatalyst && (

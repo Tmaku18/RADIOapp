@@ -10,7 +10,7 @@ const DISCOVERME_HOSTS = ['discovermeradio.com', 'www.discovermeradio.com'];
 const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
 const PRO_NETWORX_DOMAIN = 'https://www.discovermeradio.com';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
 

@@ -3,20 +3,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { proNetworxApi } from '@/lib/api';
+import { proNetworxApi, type ExperienceItem, type EducationItem, type FeaturedItem, type ProNetworxMeProfile } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-
-type ProMeProfile = {
-  userId: string;
-  availableForWork: boolean;
-  skillsHeadline: string | null;
-  skills: Array<{ name: string; category: string }>;
-};
+import { Textarea } from '@/components/ui/textarea';
 
 const DEFAULT_SKILLS = [
   'artist',
@@ -32,19 +26,51 @@ const DEFAULT_SKILLS = [
   'booking',
 ];
 
+const emptyExperience = (): ExperienceItem => ({
+  title: '',
+  company: '',
+  location: '',
+  startDate: '',
+  endDate: '',
+  current: false,
+  description: '',
+});
+
+const emptyEducation = (): EducationItem => ({
+  school: '',
+  degree: '',
+  field: '',
+  startYear: '',
+  endYear: '',
+  description: '',
+});
+
+const emptyFeatured = (): FeaturedItem => ({
+  type: 'link',
+  url: '',
+  title: '',
+  description: '',
+});
+
 export default function ProNetworxOnboardingPage() {
   const router = useRouter();
   const { user, profile, loading } = useAuth();
 
-  const [me, setMe] = useState<ProMeProfile | null>(null);
+  const [me, setMe] = useState<ProNetworxMeProfile | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [availableForWork, setAvailableForWork] = useState(true);
+  const [currentTitle, setCurrentTitle] = useState('');
   const [skillsHeadline, setSkillsHeadline] = useState('');
+  const [about, setAbout] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
+  const [experience, setExperience] = useState<ExperienceItem[]>([emptyExperience()]);
+  const [education, setEducation] = useState<EducationItem[]>([emptyEducation()]);
+  const [featured, setFeatured] = useState<FeaturedItem[]>([emptyFeatured()]);
 
   const suggestedSkills = useMemo(() => {
     const q = skillQuery.trim().toLowerCase();
@@ -57,16 +83,40 @@ export default function ProNetworxOnboardingPage() {
     setLoadingMe(true);
     try {
       const res = await proNetworxApi.getMeProfile();
-      const data = res.data as ProMeProfile;
+      const data = res.data as ProNetworxMeProfile;
       setMe(data);
       setAvailableForWork(data.availableForWork ?? true);
+      setCurrentTitle(data.currentTitle ?? '');
       setSkillsHeadline(data.skillsHeadline ?? '');
+      setAbout(data.about ?? '');
+      setWebsiteUrl(data.websiteUrl ?? '');
       setSkills((data.skills ?? []).map((s) => s.name).filter(Boolean));
+      setExperience(
+        (data.experience ?? []).length > 0
+          ? data.experience.map((e) => ({ ...emptyExperience(), ...e }))
+          : [emptyExperience()],
+      );
+      setEducation(
+        (data.education ?? []).length > 0
+          ? data.education.map((e) => ({ ...emptyEducation(), ...e }))
+          : [emptyEducation()],
+      );
+      setFeatured(
+        (data.featured ?? []).length > 0
+          ? data.featured.map((f) => ({ ...emptyFeatured(), ...f }))
+          : [emptyFeatured()],
+      );
     } catch {
       setMe(null);
       setAvailableForWork(true);
+      setCurrentTitle('');
       setSkillsHeadline('');
+      setAbout('');
+      setWebsiteUrl('');
       setSkills([]);
+      setExperience([emptyExperience()]);
+      setEducation([emptyEducation()]);
+      setFeatured([emptyFeatured()]);
     } finally {
       setLoadingMe(false);
     }
@@ -89,16 +139,94 @@ export default function ProNetworxOnboardingPage() {
     setSkillQuery('');
   };
 
+  const updateExperience = (index: number, patch: Partial<ExperienceItem>) => {
+    setExperience((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+  };
+
+  const addExperience = () => {
+    setExperience((prev) => [...prev, emptyExperience()]);
+  };
+
+  const removeExperience = (index: number) => {
+    setExperience((prev) => (prev.length <= 1 ? [emptyExperience()] : prev.filter((_, i) => i !== index)));
+  };
+
+  const updateEducation = (index: number, patch: Partial<EducationItem>) => {
+    setEducation((prev) => prev.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+  };
+
+  const addEducation = () => {
+    setEducation((prev) => [...prev, emptyEducation()]);
+  };
+
+  const removeEducation = (index: number) => {
+    setEducation((prev) => (prev.length <= 1 ? [emptyEducation()] : prev.filter((_, i) => i !== index)));
+  };
+
+  const updateFeatured = (index: number, patch: Partial<FeaturedItem>) => {
+    setFeatured((prev) => prev.map((f, i) => (i === index ? { ...f, ...patch } : f)));
+  };
+
+  const addFeatured = () => {
+    setFeatured((prev) => [...prev, emptyFeatured()]);
+  };
+
+  const removeFeatured = (index: number) => {
+    setFeatured((prev) => (prev.length <= 1 ? [emptyFeatured()] : prev.filter((_, i) => i !== index)));
+  };
+
+  const sanitizeExperience = (list: ExperienceItem[]): ExperienceItem[] =>
+    list
+      .filter((e) => e.title.trim() || e.company.trim())
+      .map((e) => ({
+        title: e.title.trim(),
+        company: e.company.trim(),
+        location: e.location?.trim() || undefined,
+        startDate: e.startDate?.trim() || undefined,
+        endDate: e.endDate?.trim() || undefined,
+        current: e.current ?? false,
+        description: e.description?.trim() || undefined,
+      }));
+
+  const sanitizeEducation = (list: EducationItem[]): EducationItem[] =>
+    list
+      .filter((e) => e.school.trim())
+      .map((e) => ({
+        school: e.school.trim(),
+        degree: e.degree?.trim() || undefined,
+        field: e.field?.trim() || undefined,
+        startYear: e.startYear?.trim() || undefined,
+        endYear: e.endYear?.trim() || undefined,
+        description: e.description?.trim() || undefined,
+      }));
+
+  const sanitizeFeatured = (list: FeaturedItem[]): FeaturedItem[] =>
+    list
+      .filter((f) => (f.type === 'link' && f.url?.trim()) || (f.type === 'portfolio' && (f.portfolioItemId || f.url?.trim())))
+      .map((f) => ({
+        type: f.type,
+        url: f.url?.trim() || undefined,
+        title: f.title?.trim() || undefined,
+        description: f.description?.trim() || undefined,
+        portfolioItemId: f.portfolioItemId,
+      }));
+
   const save = async () => {
     setSaving(true);
     setError(null);
     try {
       await proNetworxApi.updateMeProfile({
         availableForWork,
+        currentTitle: currentTitle.trim() || undefined,
         skillsHeadline: skillsHeadline.trim() || undefined,
+        about: about.trim() || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        experience: sanitizeExperience(experience),
+        education: sanitizeEducation(education),
+        featured: sanitizeFeatured(featured),
         skillNames: skills,
       });
-      router.push('/pro-networx');
+      router.push('/pro-networx/directory');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -110,11 +238,11 @@ export default function ProNetworxOnboardingPage() {
   };
 
   return (
-    <div className="container max-w-3xl py-8 space-y-6">
+    <div className="container max-w-3xl py-8 space-y-8">
       <div className="space-y-1 text-center">
         <h1 className="text-3xl font-semibold tracking-tight text-foreground">Complete your ProNetworx profile</h1>
         <p className="text-muted-foreground">
-          Sync-Profile: headline and skills. Artists can discover you by skill and availability.
+          Headline, about, experience, education, and skills. Artists and clients discover you here.
         </p>
       </div>
 
@@ -139,6 +267,16 @@ export default function ProNetworxOnboardingPage() {
               </div>
 
               <div className="space-y-2">
+                <Label className="text-foreground">Current title / headline</Label>
+                <Input
+                  value={currentTitle}
+                  onChange={(e) => setCurrentTitle(e.target.value)}
+                  placeholder="e.g. Producer & Mix Engineer"
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
                 <Label className="text-foreground">Skills headline (optional)</Label>
                 <Input
                   value={skillsHeadline}
@@ -148,12 +286,33 @@ export default function ProNetworxOnboardingPage() {
                 />
               </div>
 
+              <div className="space-y-2">
+                <Label className="text-foreground">About</Label>
+                <Textarea
+                  value={about}
+                  onChange={(e) => setAbout(e.target.value)}
+                  placeholder="Professional summary, what you offer, and who you work with."
+                  rows={5}
+                  className="bg-background border-border resize-y"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Website URL</Label>
+                <Input
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://..."
+                  type="url"
+                  className="bg-background border-border"
+                />
+              </div>
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-3 flex-wrap">
                   <Label className="text-base text-foreground">Skills</Label>
                   <span className="text-xs text-muted-foreground">{skills.length}/50</span>
                 </div>
-
                 <div className="flex gap-2">
                   <Input
                     value={skillQuery}
@@ -165,7 +324,6 @@ export default function ProNetworxOnboardingPage() {
                     Add
                   </Button>
                 </div>
-
                 <div className="flex flex-wrap gap-2">
                   {suggestedSkills.map((s) => {
                     const selected = skills.includes(s);
@@ -185,7 +343,6 @@ export default function ProNetworxOnboardingPage() {
                     );
                   })}
                 </div>
-
                 {skills.length > 0 && (
                   <div className="flex flex-wrap gap-2 pt-2">
                     {skills.map((s) => (
@@ -197,11 +354,171 @@ export default function ProNetworxOnboardingPage() {
                 )}
               </div>
 
-              {error && (
-                <p className="text-sm text-destructive">{error}</p>
-              )}
+              {/* Experience */}
+              <div className="space-y-3 border-t border-border pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base text-foreground">Experience</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addExperience}>
+                    Add experience
+                  </Button>
+                </div>
+                {experience.map((exp, index) => (
+                  <div key={index} className="rounded-lg border border-border p-4 space-y-3">
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Job title"
+                        value={exp.title}
+                        onChange={(e) => updateExperience(index, { title: e.target.value })}
+                        className="bg-background border-border"
+                      />
+                      <Input
+                        placeholder="Company"
+                        value={exp.company}
+                        onChange={(e) => updateExperience(index, { company: e.target.value })}
+                        className="bg-background border-border"
+                      />
+                    </div>
+                    <Input
+                      placeholder="Location (optional)"
+                      value={exp.location ?? ''}
+                      onChange={(e) => updateExperience(index, { location: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <div className="flex gap-2 items-center flex-wrap">
+                      <Input
+                        placeholder="Start date"
+                        value={exp.startDate ?? ''}
+                        onChange={(e) => updateExperience(index, { startDate: e.target.value })}
+                        className="bg-background border-border max-w-[140px]"
+                      />
+                      <Input
+                        placeholder="End date"
+                        value={exp.endDate ?? ''}
+                        onChange={(e) => updateExperience(index, { endDate: e.target.value })}
+                        className="bg-background border-border max-w-[140px]"
+                      />
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={exp.current ?? false}
+                          onChange={(e) => updateExperience(index, { current: e.target.checked })}
+                          className="rounded border-border"
+                        />
+                        Current
+                      </label>
+                    </div>
+                    <Textarea
+                      placeholder="Description (optional)"
+                      value={exp.description ?? ''}
+                      onChange={(e) => updateExperience(index, { description: e.target.value })}
+                      rows={2}
+                      className="bg-background border-border resize-y"
+                    />
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeExperience(index)}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
-              <div className="flex items-center justify-between gap-3 flex-wrap">
+              {/* Education */}
+              <div className="space-y-3 border-t border-border pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base text-foreground">Education</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addEducation}>
+                    Add education
+                  </Button>
+                </div>
+                {education.map((edu, index) => (
+                  <div key={index} className="rounded-lg border border-border p-4 space-y-3">
+                    <Input
+                      placeholder="School"
+                      value={edu.school}
+                      onChange={(e) => updateEducation(index, { school: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Input
+                        placeholder="Degree (optional)"
+                        value={edu.degree ?? ''}
+                        onChange={(e) => updateEducation(index, { degree: e.target.value })}
+                        className="bg-background border-border"
+                      />
+                      <Input
+                        placeholder="Field of study (optional)"
+                        value={edu.field ?? ''}
+                        onChange={(e) => updateEducation(index, { field: e.target.value })}
+                        className="bg-background border-border"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="Start year"
+                        value={edu.startYear ?? ''}
+                        onChange={(e) => updateEducation(index, { startYear: e.target.value })}
+                        className="bg-background border-border max-w-[100px]"
+                      />
+                      <Input
+                        placeholder="End year"
+                        value={edu.endYear ?? ''}
+                        onChange={(e) => updateEducation(index, { endYear: e.target.value })}
+                        className="bg-background border-border max-w-[100px]"
+                      />
+                    </div>
+                    <Textarea
+                      placeholder="Description (optional)"
+                      value={edu.description ?? ''}
+                      onChange={(e) => updateEducation(index, { description: e.target.value })}
+                      rows={2}
+                      className="bg-background border-border resize-y"
+                    />
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeEducation(index)}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* Featured links */}
+              <div className="space-y-3 border-t border-border pt-6">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base text-foreground">Featured links</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addFeatured}>
+                    Add link
+                  </Button>
+                </div>
+                {featured.map((f, index) => (
+                  <div key={index} className="rounded-lg border border-border p-4 space-y-3">
+                    <Input
+                      placeholder="Title"
+                      value={f.title ?? ''}
+                      onChange={(e) => updateFeatured(index, { title: e.target.value })}
+                      className="bg-background border-border"
+                    />
+                    <Input
+                      placeholder="URL"
+                      value={f.url ?? ''}
+                      onChange={(e) => updateFeatured(index, { url: e.target.value })}
+                      type="url"
+                      className="bg-background border-border"
+                    />
+                    <Textarea
+                      placeholder="Short description (optional)"
+                      value={f.description ?? ''}
+                      onChange={(e) => updateFeatured(index, { description: e.target.value })}
+                      rows={2}
+                      className="bg-background border-border resize-y"
+                    />
+                    <Button type="button" variant="ghost" size="sm" onClick={() => removeFeatured(index)}>
+                      Remove
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              {error && <p className="text-sm text-destructive">{error}</p>}
+
+              <div className="flex items-center justify-between gap-3 flex-wrap pt-4">
                 <Button variant="outline" onClick={() => router.push('/pro-networx/directory')}>
                   Skip for now
                 </Button>

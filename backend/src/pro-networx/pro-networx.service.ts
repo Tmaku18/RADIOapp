@@ -2,10 +2,43 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
 
+export type ExperienceItem = {
+  title: string;
+  company: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  current?: boolean;
+  description?: string;
+};
+
+export type EducationItem = {
+  school: string;
+  degree?: string;
+  field?: string;
+  startYear?: string;
+  endYear?: string;
+  description?: string;
+};
+
+export type FeaturedItem = {
+  type: 'link' | 'portfolio';
+  url?: string;
+  title?: string;
+  description?: string;
+  portfolioItemId?: string;
+};
+
 export type ProProfileResponse = {
   userId: string;
   availableForWork: boolean;
   skillsHeadline: string | null;
+  currentTitle: string | null;
+  about: string | null;
+  websiteUrl: string | null;
+  experience: ExperienceItem[];
+  education: EducationItem[];
+  featured: FeaturedItem[];
   skills: Array<{ name: string; category: string }>;
 };
 
@@ -15,6 +48,7 @@ export type ProDirectoryItem = {
   displayName: string | null;
   avatarUrl: string | null;
   headline: string | null;
+  currentTitle?: string | null;
   bio?: string | null;
   locationRegion: string | null;
   availableForWork: boolean;
@@ -30,9 +64,19 @@ export type ProDirectoryItem = {
   updatedAt: string | null;
 };
 
+export type ProPublicProfileResponse = ProDirectoryItem & {
+  about?: string | null;
+  websiteUrl?: string | null;
+  experience?: ExperienceItem[];
+  education?: EducationItem[];
+  featured?: FeaturedItem[];
+  listings?: any[];
+  portfolio?: any[];
+};
+
 @Injectable()
 export class ProNetworxService {
-  async getProfileByUserId(userId: string): Promise<ProDirectoryItem & { listings?: any[]; portfolio?: any[] }> {
+  async getProfileByUserId(userId: string): Promise<ProPublicProfileResponse> {
     const supabase = getSupabaseClient();
 
     // Identity
@@ -44,10 +88,10 @@ export class ProNetworxService {
     if (userErr) throw new Error(`Failed to fetch user: ${userErr.message}`);
     if (!u || (u as any).is_banned) throw new UnauthorizedException('User not found');
 
-    // Pro profile
+    // Pro profile (including LinkedIn-style fields)
     const { data: p } = await supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline, updated_at')
+      .select('user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured, updated_at')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -101,14 +145,21 @@ export class ProNetworxService {
       ?? (p?.skills_headline?.trim() ? p.skills_headline.trim() : null)
       ?? (skills[0] ?? null);
 
+    const experience = (p as any)?.experience ?? [];
+    const education = (p as any)?.education ?? [];
+    const featured = (p as any)?.featured ?? [];
+
     return {
       userId,
       role: ((u as any).role as any) ?? null,
       displayName: (u as any).display_name ?? null,
       avatarUrl: (u as any).avatar_url ?? null,
       headline: (u as any).headline ?? null,
+      currentTitle: (p as any)?.current_title ?? null,
       bio: (u as any).bio ?? null,
+      about: (p as any)?.about ?? null,
       locationRegion: (u as any).location_region ?? null,
+      websiteUrl: (p as any)?.website_url ?? null,
       availableForWork: p?.available_for_work ?? true,
       skillsHeadline: p?.skills_headline ?? null,
       skills,
@@ -120,6 +171,9 @@ export class ProNetworxService {
       verifiedCatalyst: (u as any).role === 'service_provider',
       mentorOptIn: (provider as any)?.mentor_opt_in ?? false,
       updatedAt: p?.updated_at ?? null,
+      experience: Array.isArray(experience) ? experience : [],
+      education: Array.isArray(education) ? education : [],
+      featured: Array.isArray(featured) ? featured : [],
       listings: (listings || []).map((l: any) => ({
         id: l.id,
         serviceType: l.service_type,
@@ -160,7 +214,7 @@ export class ProNetworxService {
 
     const { data: profile } = await supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline')
+      .select('user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -174,10 +228,20 @@ export class ProNetworxService {
       .filter(Boolean)
       .map((s: any) => ({ name: s.name as string, category: (s.category as string) ?? 'general' }));
 
+    const experience = (profile as any)?.experience ?? [];
+    const education = (profile as any)?.education ?? [];
+    const featured = (profile as any)?.featured ?? [];
+
     return {
       userId,
       availableForWork: profile?.available_for_work ?? true,
       skillsHeadline: profile?.skills_headline ?? null,
+      currentTitle: (profile as any)?.current_title ?? null,
+      about: (profile as any)?.about ?? null,
+      websiteUrl: (profile as any)?.website_url ?? null,
+      experience: Array.isArray(experience) ? experience : [],
+      education: Array.isArray(education) ? education : [],
+      featured: Array.isArray(featured) ? featured : [],
       skills,
     };
   }
@@ -187,18 +251,22 @@ export class ProNetworxService {
     const userId = await this.getUserId(firebaseUid);
     const now = new Date().toISOString();
 
-    // Upsert profile core
+    const upsertPayload: Record<string, unknown> = {
+      user_id: userId,
+      available_for_work: dto.availableForWork ?? true,
+      skills_headline: dto.skillsHeadline ?? null,
+      updated_at: now,
+    };
+    if (dto.currentTitle !== undefined) upsertPayload.current_title = dto.currentTitle?.trim() || null;
+    if (dto.about !== undefined) upsertPayload.about = dto.about?.trim() || null;
+    if (dto.websiteUrl !== undefined) upsertPayload.website_url = dto.websiteUrl?.trim() || null;
+    if (dto.experience !== undefined) upsertPayload.experience = dto.experience;
+    if (dto.education !== undefined) upsertPayload.education = dto.education;
+    if (dto.featured !== undefined) upsertPayload.featured = dto.featured;
+
     await supabase
       .from('pro_networx.profiles')
-      .upsert(
-        {
-          user_id: userId,
-          available_for_work: dto.availableForWork ?? true,
-          skills_headline: dto.skillsHeadline ?? null,
-          updated_at: now,
-        },
-        { onConflict: 'user_id' },
-      );
+      .upsert(upsertPayload, { onConflict: 'user_id' });
 
     // Replace skill set if provided
     if (dto.skillNames) {
@@ -244,10 +312,10 @@ export class ProNetworxService {
     const supabase = getSupabaseClient();
     const sort = params.sort ?? 'desc';
 
-    // Get pro profiles
+    // Get pro profiles (include current_title for directory card display)
     let q = supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline, updated_at', { count: 'exact' });
+      .select('user_id, available_for_work, skills_headline, current_title, updated_at', { count: 'exact' });
 
     if (params.availableForWork != null) {
       q = q.eq('available_for_work', params.availableForWork);
@@ -360,6 +428,7 @@ export class ProNetworxService {
           displayName: u.display_name ?? null,
           avatarUrl: u.avatar_url ?? null,
           headline: u.headline ?? null,
+          currentTitle: (p as any).current_title ?? null,
           bio: u.bio ?? null,
           locationRegion: u.location_region ?? null,
           availableForWork: p.available_for_work ?? true,
