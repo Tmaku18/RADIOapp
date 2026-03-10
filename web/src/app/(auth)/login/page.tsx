@@ -72,9 +72,9 @@ function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      // Default new users to listener (Networx Radio and Pro Networx) so they skip the role modal unless they chose "Choose your role"
-      if (!chooseRoleBeforeGoogle && typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem('radioapp_signup_role', 'listener');
+      // When user explicitly chose a role via "Choose your role", store it so AuthContext uses it
+      if (chooseRoleBeforeGoogle && typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem('radioapp_choose_role', '1');
       }
       await signInWithGoogle();
     } catch (err) {
@@ -148,10 +148,7 @@ function LoginForm() {
         Signing in as Artist or Catalyst?{' '}
         <button
           type="button"
-          onClick={() => {
-            setChooseRoleBeforeGoogle(true);
-            if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('radioapp_signup_role');
-          }}
+          onClick={() => setChooseRoleBeforeGoogle(true)}
           className="text-primary font-medium hover:underline"
         >
           Choose your role

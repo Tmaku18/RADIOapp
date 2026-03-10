@@ -109,31 +109,18 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Welcome to the Networx hero — image: web/public/images/welcome-to-the-networx.png */}
-      <section className="relative overflow-hidden rounded-xl border border-border bg-muted/30">
-        <div className="relative flex flex-col md:flex-row md:items-center md:min-h-[200px]">
-          <div className="relative w-full md:w-2/5 aspect-[16/10] md:aspect-auto md:min-h-[200px] shrink-0 bg-muted">
-            <Image
-              src={WELCOME_HERO_IMAGE}
-              alt="Welcome to the Networx — Where Networking WORX!"
-              fill
-              className="object-cover object-center"
-              sizes="(max-width: 768px) 100vw, 40vw"
-              priority
-              unoptimized
-            />
-          </div>
-          <div className="relative p-6 md:p-8 flex flex-col justify-center">
-            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
-              Welcome to the Networx!
-            </h1>
-            <p className="text-muted-foreground mt-1 text-lg">
-              Where Networking WORX!
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Welcome back{profile?.displayName ? `, ${profile.displayName}` : ''}.
-            </p>
-          </div>
+      {/* Welcome hero — image only, expanded and centered */}
+      <section className="relative w-full overflow-hidden rounded-xl border border-border bg-muted">
+        <div className="relative w-full aspect-[2/1] min-h-[240px] flex items-center justify-center">
+          <Image
+            src={WELCOME_HERO_IMAGE}
+            alt=""
+            fill
+            className="object-contain object-center"
+            sizes="100vw"
+            priority
+            unoptimized
+          />
         </div>
       </section>
 
