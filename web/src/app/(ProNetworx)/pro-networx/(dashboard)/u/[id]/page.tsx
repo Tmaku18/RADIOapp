@@ -71,21 +71,28 @@ export default function ProNetworxProfilePage() {
   const id = params.id as string;
 
   const [data, setData] = useState<ProPublicProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedId, setLoadedId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    setLoading(true);
     proNetworxApi.getProfileByUserId(id).then((res) => {
       if (!alive) return;
       setData(res.data as ProPublicProfile);
+      setLoadError(false);
+      setLoadedId(id);
     }).catch((e) => {
       console.error('Failed to load profile:', e);
-      if (alive) setData(null);
-    }).finally(() => { if (alive) setLoading(false); });
+      if (alive) {
+        setData(null);
+        setLoadError(true);
+        setLoadedId(id);
+      }
+    });
     return () => { alive = false; };
   }, [id]);
 
+  const loading = loadedId !== id;
   const activeListings = useMemo(() => (data?.listings ?? []).filter((l) => l.status === 'active'), [data?.listings]);
   const experience = (data?.experience ?? []).filter((e) => e.title?.trim() || e.company?.trim());
   const education = (data?.education ?? []).filter((e) => e.school?.trim());
@@ -99,7 +106,7 @@ export default function ProNetworxProfilePage() {
         <div className="flex justify-center py-12">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
         </div>
-      ) : !data ? (
+      ) : !data || loadError ? (
         <Card className="glass-panel border border-border">
           <CardContent className="pt-10 pb-10 text-center text-muted-foreground">
             Profile not found.

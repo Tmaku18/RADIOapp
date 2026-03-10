@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { getIdToken } from '@/lib/firebase-client';
@@ -10,13 +10,14 @@ const NETWORXRADIO_CROSS_LOGIN = 'https://www.networxradio.com/cross-domain-logi
 function AuthHandoffContent() {
   const searchParams = useSearchParams();
   const { user, loading } = useAuth();
-  const [status, setStatus] = useState<'idle' | 'getting-token' | 'redirecting' | 'error'>('idle');
+  const [status, setStatus] = useState<'getting-token' | 'redirecting' | 'error'>('getting-token');
   const [error, setError] = useState<string | null>(null);
+  const startedRef = useRef(false);
 
   const returnUrl = searchParams.get('return_url') || NETWORXRADIO_CROSS_LOGIN;
 
   useEffect(() => {
-    if (loading || status !== 'idle') return;
+    if (loading || startedRef.current) return;
 
     if (!user) {
       const loginUrl = `/login?redirect=${encodeURIComponent('/auth-handoff?' + searchParams.toString())}`;
@@ -25,7 +26,7 @@ function AuthHandoffContent() {
     }
 
     let cancelled = false;
-    setStatus('getting-token');
+    startedRef.current = true;
 
     (async () => {
       try {

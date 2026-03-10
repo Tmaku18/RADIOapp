@@ -67,7 +67,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const hlsRef = useRef<Hls | null>(null);
   const onRadioTrackEndedRef = useRef<(() => void) | null>(null);
   const sourceRef = useRef<PlaybackSource>(null);
-  sourceRef.current = state.source;
+
+  useEffect(() => {
+    sourceRef.current = state.source;
+  }, [state.source]);
 
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;

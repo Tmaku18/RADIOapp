@@ -8,15 +8,10 @@ function CrossDomainLoginContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'exchanging' | 'done' | 'error'>('exchanging');
   const [error, setError] = useState<string | null>(null);
+  const token = searchParams.get('token');
 
   useEffect(() => {
-    const token = searchParams.get('token');
-    if (!token) {
-      setError('Missing token');
-      setStatus('error');
-      return;
-    }
-
+    if (!token) return;
     let cancelled = false;
 
     (async () => {
@@ -49,13 +44,14 @@ function CrossDomainLoginContent() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams, router]);
+  }, [token, router]);
 
-  if (status === 'error') {
+  if (!token || status === 'error') {
+    const message = token ? error : 'Missing token';
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="text-center max-w-md">
-          <p className="text-destructive mb-4">{error}</p>
+          <p className="text-destructive mb-4">{message}</p>
           <a href="/login" className="text-primary hover:underline">
             Go to login
           </a>

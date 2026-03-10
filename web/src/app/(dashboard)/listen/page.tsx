@@ -44,7 +44,7 @@ export default function ListenPage() {
     const rect = e.currentTarget.getBoundingClientRect();
     setRipple({ x: e.clientX - rect.left - 24, y: e.clientY - rect.top - 24 });
     setTimeout(() => setRipple(null), 600);
-  }, []);
+  }, [setRipple]);
 
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
