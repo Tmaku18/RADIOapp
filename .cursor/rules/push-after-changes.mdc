@@ -1,0 +1,16 @@
+---
+description: After making code changes, automatically commit and push to the remote.
+alwaysApply: true
+---
+
+# Push All Changes After Edits
+
+In this project, **after you finish making requested code changes**, automatically:
+
+1. **Stage** all changes: `git add -A`
+2. **Commit** with a short, descriptive message that summarizes what was done (e.g. "Pricing: outline button for Sign up as Prospector", "Fix 404 on role selection")
+3. **Push** to the remote: `git push`
+
+Only run these when you have actually modified or added files. If the user asked for a push in the same turn as the edits, do the commit and push in that same response. If the user only asked for edits, still run commit and push once the edits are complete and lint is clean.
+
+Use the project shell with working directory set to the repo root. If push fails (e.g. auth or network), report the error and suggest the user run `git push` manually.

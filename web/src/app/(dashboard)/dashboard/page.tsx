@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { creditsApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
 import { Card, CardContent } from '@/components/ui/card';
+
+const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
 
 interface DashboardStats {
   credits?: {
@@ -106,11 +109,37 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
+      {/* Welcome to the Networx hero — image: web/public/images/welcome-to-the-networx.png */}
+      <section className="relative overflow-hidden rounded-xl border border-border bg-muted/30">
+        <div className="relative flex flex-col md:flex-row md:items-center md:min-h-[200px]">
+          <div className="relative w-full md:w-2/5 aspect-[16/10] md:aspect-auto md:min-h-[200px] shrink-0 bg-muted">
+            <Image
+              src={WELCOME_HERO_IMAGE}
+              alt="Welcome to the Networx — Where Networking WORX!"
+              fill
+              className="object-cover object-center"
+              sizes="(max-width: 768px) 100vw, 40vw"
+              priority
+              unoptimized
+            />
+          </div>
+          <div className="relative p-6 md:p-8 flex flex-col justify-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              Welcome to the Networx!
+            </h1>
+            <p className="text-muted-foreground mt-1 text-lg">
+              Where Networking WORX!
+            </p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Welcome back{profile?.displayName ? `, ${profile.displayName}` : ''}.
+            </p>
+          </div>
+        </div>
+      </section>
+
       <Card className="bg-primary text-primary-foreground border-0">
         <CardContent className="pt-8">
-          <h1 className="text-3xl font-bold mb-2">
-            Welcome back{profile?.displayName ? `, ${profile.displayName}` : ''}!
-          </h1>
+          <h2 className="text-2xl font-bold mb-2">{home.title}</h2>
           <p className="text-primary-foreground/90">
             {home.subtitle}
           </p>

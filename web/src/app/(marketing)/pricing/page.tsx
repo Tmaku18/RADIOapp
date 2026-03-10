@@ -77,7 +77,7 @@ export default function PricingPage() {
                   Artist livestream viewing and chat access
                 </li>
               </ul>
-              <Button variant="secondary" size="lg" asChild>
+              <Button variant="outline" size="lg" asChild className="border-2 border-primary-foreground bg-transparent text-primary-foreground hover:bg-primary-foreground/10">
                 <Link href="/signup?role=listener">Sign up as Prospector</Link>
               </Button>
             </CardContent>
