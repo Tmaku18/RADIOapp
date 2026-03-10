@@ -14,16 +14,16 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, pendingGoogleUser } = useAuth();
 
-  // Redirect authenticated users: on discovermeradio.com send to ProNetworx app, else dashboard
+  // Redirect authenticated users only when no pending role selection (so Firebase auth + role modal show first)
   useEffect(() => {
-    if (!loading && user) {
+    if (!loading && user && !pendingGoogleUser) {
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
       const isDiscoverMe = host === 'discovermeradio.com' || host === 'www.discovermeradio.com';
       router.push(isDiscoverMe ? '/pro-networx/directory' : '/dashboard');
     }
-  }, [loading, user, router]);
+  }, [loading, user, pendingGoogleUser, router]);
 
   // Show loading while checking auth
   if (loading) {
@@ -34,8 +34,8 @@ export default function AuthLayout({
     );
   }
 
-  // If user is authenticated, don't render (will redirect)
-  if (user) {
+  // If user is authenticated and not awaiting role selection, don't render (will redirect)
+  if (user && !pendingGoogleUser) {
     return null;
   }
 

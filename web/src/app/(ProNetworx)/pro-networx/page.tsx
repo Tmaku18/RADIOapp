@@ -29,7 +29,7 @@ export default function ProNetworxHomePage() {
               <Link href={`/signup?redirect=${REDIRECT_APP_ENCODED}`}>Sign up</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="border-primary/30">
-              <Link href="/pro-networx/directory">Browse directory</Link>
+              <Link href="/pro-networx/feed">Browse directory</Link>
             </Button>
           </div>
         </div>

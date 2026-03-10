@@ -18,11 +18,15 @@ const nextConfig: NextConfig = {
       raw.startsWith("http://") || raw.startsWith("https://")
         ? raw
         : "http://localhost:3000";
+    const normalized = backendUrl.replace(/\/$/, '');
+    const apiHost = normalized.endsWith('/api')
+      ? normalized.slice(0, -4)
+      : normalized;
     return {
       afterFiles: [
         {
           source: "/api/:path*",
-          destination: `${backendUrl}/api/:path*`,
+          destination: `${apiHost}/api/:path*`,
         },
       ],
     };

@@ -20,7 +20,7 @@ Set these so the app and backend use the correct URLs:
 
 - **Vercel (radi-oapp project)**  
   - `NEXT_PUBLIC_WEB_URL` = `https://networxradio.com`  
-  - `BACKEND_URL` or `NEXT_PUBLIC_API_URL` = your backend URL (e.g. Railway backend).
+  - `BACKEND_URL` = your Railway backend URL (no trailing slash). Get it with `railway domain` in the repo; current value is **`https://backend-production-17cc.up.railway.app`**. Required for sign-up/role-select (POST /api/users) to work; otherwise you get 404.
 
 - **Backend (e.g. Railway)**  
   - `WEB_URL` = `https://networxradio.com`  

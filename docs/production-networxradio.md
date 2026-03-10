@@ -37,7 +37,7 @@ Set for **Production** (and Preview if you want):
 | Variable | Value |
 |---------|--------|
 | `NEXT_PUBLIC_WEB_URL` | `https://networxradio.com` |
-| `BACKEND_URL` | Your Railway backend URL (e.g. `https://backend-xxx.up.railway.app`) or `https://api.networxradio.com` if using custom API domain |
+| `BACKEND_URL` | Your Railway backend URL. Get with `railway domain` in repo; current: **`https://backend-production-17cc.up.railway.app`** (no trailing slash). Or `https://api.networxradio.com` if using custom API domain. Required for sign-up/role-select. |
 | `NEXT_PUBLIC_API_URL` | Same as `BACKEND_URL` |
 
 Plus all other vars from [env-variables-setup.md](env-variables-setup.md) (Firebase, Supabase, Stripe, etc.).

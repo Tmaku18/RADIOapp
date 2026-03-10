@@ -5,6 +5,7 @@ const backendUrl =
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:3000';
 const base = backendUrl.replace(/\/$/, '');
+const apiBase = base.endsWith('/api') ? base : `${base}/api`;
 
 /**
  * Proxy all /api/users/* requests to the backend so role-change and profile endpoints
@@ -12,7 +13,7 @@ const base = backendUrl.replace(/\/$/, '');
  */
 async function proxy(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.length ? pathSegments.join('/') : '';
-  const url = `${base}/api/users/${path}`;
+  const url = `${apiBase}/users${path ? `/${path}` : ''}`;
   const auth = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
   const headers: Record<string, string> = {};

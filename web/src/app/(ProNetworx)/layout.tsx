@@ -47,6 +47,9 @@ export default function ProNetworxLayout({
                 <Link href="/pro-networx">Home</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
+                <Link href="/pro-networx/feed">Discover</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
                 <Link href="/pro-networx/directory">Directory</Link>
               </Button>
               {!loading && (
