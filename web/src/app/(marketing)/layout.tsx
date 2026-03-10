@@ -66,13 +66,10 @@ export default function MarketingLayout({
               </Button>
             </div>
 
-            {/* Auth + ProNetworx: separate Sign up and Log in, then ProNetworx */}
+            {/* Auth + ProNetworx: one blue CTA, ProNetworx far right */}
             <div className="flex items-center space-x-2">
-              <Button asChild variant="outline" size="sm">
-                <Link href="/login">Log in</Link>
-              </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
-                <Link href="/signup">Sign up</Link>
+                <Link href="/signup">Sign Up/Login</Link>
               </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/pro-networx">ProNetworx</Link>

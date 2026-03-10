@@ -7,7 +7,6 @@ import {
   Rectangle,
   Marker,
   useMap,
-  ImageOverlay,
 } from 'react-leaflet';
 import L from 'leaflet';
 import type { LatLngBoundsExpression } from 'leaflet';
@@ -65,17 +64,10 @@ function createTowerIcon(tower: Tower) {
   });
 }
 
-/** Optional background: image URL (e.g. /images/map-bg.png) and bounds [[south, west], [north, east]]. If set, image is drawn behind the tile layer. */
 export function StationPickerMap({
   onSelectStation,
-  backgroundImageUrl,
-  backgroundImageBounds,
 }: {
   onSelectStation: (stationId: string) => void;
-  /** Optional: image URL for map background (behind tiles). Use with backgroundImageBounds. */
-  backgroundImageUrl?: string;
-  /** Optional: lat/lng bounds for the image [[south, west], [north, east]]. e.g. GA: [[30.36, -85.6], [35, -80.84]] */
-  backgroundImageBounds?: [[number, number], [number, number]];
 }) {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -83,17 +75,9 @@ export function StationPickerMap({
   const towers = selectedState ? getTowersForState(selectedState) : [];
   const gaBounds = STATE_BOUNDS.GA;
   const hasTowers = towers.length > 0;
-  const hasBgImage = Boolean(backgroundImageUrl && backgroundImageBounds);
 
   return (
-    <div
-      className="relative w-full h-full min-h-[400px] rounded-lg overflow-hidden border border-border"
-      style={
-        backgroundImageUrl && !backgroundImageBounds
-          ? { backgroundImage: `url(${backgroundImageUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-          : undefined
-      }
-    >
+    <div className="relative w-full h-full min-h-[400px] rounded-lg overflow-hidden border border-border">
       <MapContainer
         center={[39, -98]}
         zoom={4}
@@ -102,19 +86,9 @@ export function StationPickerMap({
         attributionControl={true}
         whenReady={() => setMapReady(true)}
       >
-        {hasBgImage && (
-          <ImageOverlay
-            url={backgroundImageUrl!}
-            bounds={backgroundImageBounds!}
-            zIndex={0}
-            opacity={0.9}
-          />
-        )}
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          zIndex={hasBgImage ? 1 : 0}
-          opacity={hasBgImage ? 0.4 : 1}
         />
         {mapReady && (
           <MapController selectedState={selectedState} hasTowers={hasTowers} />

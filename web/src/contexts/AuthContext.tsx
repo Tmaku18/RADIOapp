@@ -38,7 +38,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   pendingGoogleUser: PendingGoogleUser | null;
-  signInWithGoogle: (options?: { intent?: 'login' | 'signup' }) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider', displayName?: string) => Promise<void>;
   completeGoogleSignUp: (role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
@@ -77,7 +77,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
   const CHOOSE_ROLE_KEY = 'radioapp_choose_role';
-  const AUTH_INTENT_KEY = 'radioapp_auth_intent';
 
   // Create Supabase profile (name + role). Role optional: when omitted, backend uses admin allowlist or listener.
   const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
@@ -121,22 +120,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         // Try to load existing profile (with retry for session-cookie race)
         const found = await fetchProfileWithRetry();
-        if (!found && typeof window !== 'undefined') {
-          const intent = sessionStorage.getItem(AUTH_INTENT_KEY);
-          if (intent === 'login') {
-            sessionStorage.removeItem(AUTH_INTENT_KEY);
-            setError('No account found with this email. Please sign up first.');
-            setProfile(null);
-            setLoading(false);
-            signOut().catch(console.error);
-            return;
-          }
-        }
         if (!found) {
-          // New user (signup flow): signup role in sessionStorage, admin allowlist, explicit choose-role flag, or default listener
+          // New user: signup role in sessionStorage, admin allowlist, explicit choose-role flag, or default listener
           let created = false;
           if (typeof window !== 'undefined') {
-            sessionStorage.removeItem(AUTH_INTENT_KEY);
             const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
             if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
               sessionStorage.removeItem(SIGNUP_ROLE_KEY);
@@ -192,19 +179,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, [createDefaultProfile]);
 
-  const handleSignInWithGoogle = async (options?: { intent?: 'login' | 'signup' }) => {
-    const intent = options?.intent ?? 'signup';
+  const handleSignInWithGoogle = async () => {
     setError(null);
     setLoading(true);
-    if (typeof window !== 'undefined') {
-      if (intent === 'login') {
-        sessionStorage.removeItem(SIGNUP_ROLE_KEY);
-        sessionStorage.removeItem(CHOOSE_ROLE_KEY);
-        sessionStorage.setItem(AUTH_INTENT_KEY, 'login');
-      } else {
-        sessionStorage.setItem(AUTH_INTENT_KEY, 'signup');
-      }
-    }
     try {
       const firebaseUser = await signInWithGoogle();
       const idToken = await firebaseUser.getIdToken();
@@ -212,21 +189,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Try to load existing profile (with retry for session-cookie race)
       const found = await fetchProfileWithRetry();
       if (found) {
-        if (typeof window !== 'undefined') sessionStorage.removeItem(AUTH_INTENT_KEY);
         setLoading(false);
         return;
       }
 
-      // Login intent: never create; show error and sign out
-      if (intent === 'login' && typeof window !== 'undefined') {
-        sessionStorage.removeItem(AUTH_INTENT_KEY);
-        setError('No account found with this email. Please sign up first.');
-        setLoading(false);
-        signOut().catch(console.error);
-        return;
-      }
-
-      // Signup intent: new user — signup role in sessionStorage, admin allowlist, choose-role, or default listener
+      // New user: signup role in sessionStorage, admin allowlist, explicit choose-role, or default listener
       if (typeof window !== 'undefined') {
         const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
         if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
@@ -250,6 +217,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch {
           // ignore
         }
+        // If user explicitly asked to choose role, show modal; otherwise default to listener
         const wantsToChoose = sessionStorage.getItem(CHOOSE_ROLE_KEY);
         if (wantsToChoose) {
           sessionStorage.removeItem(CHOOSE_ROLE_KEY);
@@ -268,7 +236,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null);
       setLoading(false);
     } catch (err) {
-      if (typeof window !== 'undefined') sessionStorage.removeItem(AUTH_INTENT_KEY);
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
         ?? (err instanceof Error ? err.message : 'Failed to sign in with Google');
       setError(message);
