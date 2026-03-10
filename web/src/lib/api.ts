@@ -233,6 +233,11 @@ export const serviceProvidersApi = {
     portfolioUrl?: string;
     mentorOptIn?: boolean;
   }) => api.put('/service-providers/me/profile', data),
+  uploadCover: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ heroImageUrl?: string }>('/service-providers/me/cover', formData);
+  },
   createListing: (data: {
     serviceType: string;
     title: string;
@@ -299,6 +304,8 @@ export type FeaturedItem = {
 
 export type ProNetworxMeProfile = {
   userId: string;
+  avatarUrl: string | null;
+  heroImageUrl: string | null;
   availableForWork: boolean;
   skillsHeadline: string | null;
   currentTitle: string | null;

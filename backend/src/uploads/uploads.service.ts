@@ -149,6 +149,23 @@ export class UploadsService {
   }
 
   /**
+   * Upload a cover/background (hero) image for ProNetworx profiles.
+   * Accepts JPEG, PNG, and WebP files up to 5MB.
+   */
+  async uploadHeroImage(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<string> {
+    return this._uploadFile(file, userId, {
+      bucket: 'avatars',
+      allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      maxSizeBytes: 5 * 1024 * 1024, // 5MB
+      errorPrefix: 'Cover image',
+      pathPrefix: 'hero',
+    });
+  }
+
+  /**
    * Generate a signed upload URL for direct client-to-Supabase uploads.
    * This bypasses the server, reducing bandwidth and memory usage.
    * 

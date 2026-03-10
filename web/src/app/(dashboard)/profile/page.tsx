@@ -14,6 +14,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function ProfilePage() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isSwitchingToListener, setIsSwitchingToListener] = useState(false);
+  const [isUpgradingToCatalyst, setIsUpgradingToCatalyst] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
@@ -189,7 +191,24 @@ export default function ProfilePage() {
     }
   };
 
+  const handleUpgradeToCatalyst = async () => {
+    setError(null);
+    setIsUpgradingToCatalyst(true);
+    try {
+      await usersApi.upgradeToCatalyst();
+      await refreshProfile();
+      router.push('/pro-networx/onboarding');
+    } catch (err) {
+      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to become a Catalyst');
+    } finally {
+      setIsUpgradingToCatalyst(false);
+    }
+  };
+
   const isArtist = hasArtistCapability(profile?.role);
+  const isCatalyst = profile?.role === 'service_provider';
+  const isAdmin = profile?.role === 'admin';
+  const currentRole = profile?.role ?? 'listener';
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -357,15 +376,85 @@ export default function ProfilePage() {
               </div>
             )}
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Account Type</Label>
-              <Input value={profile?.role === 'listener' ? 'Prospector' : profile?.role === 'artist' ? 'Gem' : profile?.role === 'service_provider' ? 'Catalyst' : profile?.role === 'admin' ? 'Admin' : profile?.role ?? ''} disabled />
-              {profile?.role === 'listener' && (
-                <p className="text-xs text-muted-foreground">Want to share your music? Upgrade to a Gem below. Catalysts sign up on ProNetworx.</p>
+              {isAdmin ? (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">Admin</div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3" role="radiogroup" aria-label="Account type">
+                  <button
+                    type="button"
+                    onClick={currentRole === 'listener' || isCatalyst ? undefined : () => handleSwitchToListener()}
+                    disabled={currentRole === 'listener' || isSwitchingToListener || isCatalyst}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border-2 p-4 text-left transition-all',
+                      currentRole === 'listener'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30',
+                      (currentRole !== 'listener' && !isCatalyst) && 'cursor-pointer',
+                      (currentRole === 'listener' || isSwitchingToListener) && 'cursor-default'
+                    )}
+                    aria-checked={currentRole === 'listener'}
+                    role="radio"
+                  >
+                    <span className="text-2xl">🎧</span>
+                    <span className="font-semibold text-foreground">Prospector</span>
+                    <span className="text-xs text-muted-foreground">Discover music</span>
+                    {currentRole !== 'listener' && !isCatalyst && (
+                      <span className="text-xs text-primary mt-1">Switch</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={currentRole === 'artist' ? undefined : () => handleUpgradeToArtist()}
+                    disabled={currentRole === 'artist' || isUpgrading || isCatalyst}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border-2 p-4 text-left transition-all',
+                      currentRole === 'artist'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30',
+                      (currentRole !== 'artist' && !isCatalyst) && 'cursor-pointer',
+                      (currentRole === 'artist' || isUpgrading || isCatalyst) && 'cursor-default'
+                    )}
+                    aria-checked={currentRole === 'artist'}
+                    role="radio"
+                  >
+                    <span className="text-2xl">🎤</span>
+                    <span className="font-semibold text-foreground">Gem</span>
+                    <span className="text-xs text-muted-foreground">Share your music</span>
+                    {currentRole === 'listener' && (
+                      <span className="text-xs text-primary mt-1">{isUpgrading ? 'Upgrading…' : 'Upgrade'}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={currentRole === 'service_provider' ? undefined : () => handleUpgradeToCatalyst()}
+                    disabled={currentRole === 'service_provider' || isUpgradingToCatalyst}
+                    className={cn(
+                      'flex flex-col items-center gap-1 rounded-lg border-2 p-4 text-left transition-all',
+                      currentRole === 'service_provider'
+                        ? 'border-primary bg-primary/10 ring-2 ring-primary/30'
+                        : 'border-border hover:border-primary/50 hover:bg-muted/30',
+                      currentRole !== 'service_provider' && 'cursor-pointer',
+                      (currentRole === 'service_provider' || isUpgradingToCatalyst) && 'cursor-default'
+                    )}
+                    aria-checked={currentRole === 'service_provider'}
+                    role="radio"
+                  >
+                    <span className="text-2xl">🛠️</span>
+                    <span className="font-semibold text-foreground">Catalyst</span>
+                    <span className="text-xs text-muted-foreground">Offer services</span>
+                    {currentRole !== 'service_provider' && (
+                      <span className="text-xs text-primary mt-1">{isUpgradingToCatalyst ? 'Upgrading…' : 'Become one'}</span>
+                    )}
+                  </button>
+                </div>
               )}
-              {profile?.role === 'artist' && (
-                <p className="text-xs text-muted-foreground">You can switch back to Prospector below if you no longer want to upload music.</p>
-              )}
+              <p className="text-xs text-muted-foreground">
+                {currentRole === 'listener' && 'Upgrade to Gem to upload music, or become a Catalyst to offer services on ProNetworx.'}
+                {currentRole === 'artist' && 'Switch to Prospector to listen only, or become a Catalyst to offer services.'}
+                {currentRole === 'service_provider' && 'You offer services on ProNetworx. Profile is managed there.'}
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -387,51 +476,10 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {profile?.role === 'listener' && (
-        <Card className="mt-6">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="text-4xl">🎤</div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground mb-1">Become a Gem</h3>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Upgrade to share your music. As a Gem you can upload tracks, purchase airtime, and get on the radio.
-                </p>
-                {upgradeSuccess ? (
-                  <Alert>
-                    <AlertDescription>Your account is now a Gem. Redirecting...</AlertDescription>
-                  </Alert>
-                ) : (
-                  <div className="flex items-center gap-4">
-                    <Button onClick={handleUpgradeToArtist} disabled={isUpgrading}>
-                      {isUpgrading ? 'Upgrading...' : 'Upgrade to Gem'}
-                    </Button>
-                    <span className="text-sm text-muted-foreground">Free</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {profile?.role === 'artist' && (
-        <Card className="mt-6">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-4">
-              <div className="text-4xl">🎧</div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-foreground mb-1">Switch to Prospector</h3>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Stop uploading music and use Networx as a listener only. You can upgrade back to Gem anytime.
-                </p>
-                <Button variant="outline" onClick={handleSwitchToListener} disabled={isSwitchingToListener}>
-                  {isSwitchingToListener ? 'Switching...' : 'Switch to Prospector'}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+      {upgradeSuccess && (
+        <Alert className="mt-6">
+          <AlertDescription>Your account type has been updated. Redirecting...</AlertDescription>
+        </Alert>
       )}
 
       <Card className="mt-6">

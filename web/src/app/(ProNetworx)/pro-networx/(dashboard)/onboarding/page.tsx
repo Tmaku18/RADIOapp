@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { proNetworxApi, type ExperienceItem, type EducationItem, type FeaturedItem, type ProNetworxMeProfile } from '@/lib/api';
+import { proNetworxApi, serviceProvidersApi, usersApi, type ExperienceItem, type EducationItem, type FeaturedItem, type ProNetworxMeProfile } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,13 +53,21 @@ const emptyFeatured = (): FeaturedItem => ({
   description: '',
 });
 
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
+const MAX_COVER_SIZE = 5 * 1024 * 1024;   // 5MB
+
 export default function ProNetworxOnboardingPage() {
   const router = useRouter();
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const coverInputRef = useRef<HTMLInputElement>(null);
 
   const [me, setMe] = useState<ProNetworxMeProfile | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [uploadingCover, setUploadingCover] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [availableForWork, setAvailableForWork] = useState(true);
@@ -175,6 +184,55 @@ export default function ProNetworxOnboardingPage() {
     setFeatured((prev) => (prev.length <= 1 ? [emptyFeatured()] : prev.filter((_, i) => i !== index)));
   };
 
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError('Use JPEG, PNG, or WebP.');
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE) {
+      setError('Profile photo must be 2MB or smaller.');
+      return;
+    }
+    setError(null);
+    setUploadingAvatar(true);
+    try {
+      await usersApi.uploadProfilePhoto(file);
+      await refreshProfile();
+      await loadMe();
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to upload profile photo');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setError('Use JPEG, PNG, or WebP.');
+      return;
+    }
+    if (file.size > MAX_COVER_SIZE) {
+      setError('Cover image must be 5MB or smaller.');
+      return;
+    }
+    setError(null);
+    setUploadingCover(true);
+    try {
+      await serviceProvidersApi.uploadCover(file);
+      await loadMe();
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to upload cover photo');
+    } finally {
+      setUploadingCover(false);
+    }
+  };
+
   const sanitizeExperience = (list: ExperienceItem[]): ExperienceItem[] =>
     list
       .filter((e) => e.title.trim() || e.company.trim())
@@ -257,6 +315,84 @@ export default function ProNetworxOnboardingPage() {
                   Signed in as <span className="text-foreground font-medium">{profile.displayName}</span>
                 </p>
               )}
+
+              {/* Profile photo & cover — set at top for every ProNetworx account */}
+              <div className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
+                <h2 className="text-base font-semibold text-foreground">Profile photo & cover</h2>
+                <p className="text-sm text-muted-foreground">
+                  These appear at the top of your public ProNetworx profile. Cover is your background banner.
+                </p>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-foreground">Profile photo</Label>
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
+                        {(me?.avatarUrl ?? profile?.avatarUrl) ? (
+                          <Image
+                            src={me?.avatarUrl ?? profile?.avatarUrl ?? ''}
+                            alt="Profile"
+                            fill
+                            className="object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground">👤</div>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          ref={avatarInputRef}
+                          type="file"
+                          accept={ALLOWED_IMAGE_TYPES.join(',')}
+                          className="sr-only"
+                          onChange={handleAvatarUpload}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={uploadingAvatar}
+                          onClick={() => avatarInputRef.current?.click()}
+                        >
+                          {uploadingAvatar ? 'Uploading…' : 'Upload photo'}
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 2MB</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm text-foreground">Cover / background</Label>
+                    <div className="relative h-24 w-full overflow-hidden rounded-lg border border-border bg-muted">
+                      {me?.heroImageUrl ? (
+                        <Image
+                          src={me.heroImageUrl}
+                          alt="Cover"
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">No cover yet</div>
+                      )}
+                    </div>
+                    <input
+                      ref={coverInputRef}
+                      type="file"
+                      accept={ALLOWED_IMAGE_TYPES.join(',')}
+                      className="sr-only"
+                      onChange={handleCoverUpload}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingCover}
+                      onClick={() => coverInputRef.current?.click()}
+                    >
+                      {uploadingCover ? 'Uploading…' : 'Upload cover'}
+                    </Button>
+                    <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 5MB</p>
+                  </div>
+                </div>
+              </div>
 
               <div className="flex items-center justify-between rounded-lg border border-border bg-muted/30 p-4">
                 <div>

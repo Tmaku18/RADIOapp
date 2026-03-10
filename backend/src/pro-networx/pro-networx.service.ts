@@ -31,6 +31,8 @@ export type FeaturedItem = {
 
 export type ProProfileResponse = {
   userId: string;
+  avatarUrl: string | null;
+  heroImageUrl: string | null;
   availableForWork: boolean;
   skillsHeadline: string | null;
   currentTitle: string | null;
@@ -212,9 +214,21 @@ export class ProNetworxService {
     const supabase = getSupabaseClient();
     const userId = await this.getUserId(firebaseUid);
 
+    const { data: user } = await supabase
+      .from('users')
+      .select('avatar_url')
+      .eq('id', userId)
+      .single();
+
     const { data: profile } = await supabase
       .from('pro_networx.profiles')
       .select('user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const { data: provider } = await supabase
+      .from('service_providers')
+      .select('hero_image_url')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -234,6 +248,8 @@ export class ProNetworxService {
 
     return {
       userId,
+      avatarUrl: (user as any)?.avatar_url ?? null,
+      heroImageUrl: (provider as any)?.hero_image_url ?? null,
       availableForWork: profile?.available_for_work ?? true,
       skillsHeadline: profile?.skills_headline ?? null,
       currentTitle: (profile as any)?.current_title ?? null,

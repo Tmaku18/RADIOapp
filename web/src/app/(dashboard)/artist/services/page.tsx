@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { discoveryApi, serviceProvidersApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
@@ -140,7 +140,8 @@ export default function ArtistServicesPage() {
   const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
   const [portfolioSaving, setPortfolioSaving] = useState(false);
 
-  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
   const [instagramUrl, setInstagramUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
   const [portfolioUrlProfile, setPortfolioUrlProfile] = useState('');
@@ -184,7 +185,6 @@ export default function ArtistServicesPage() {
       setBio(data.bio ?? '');
       setLocationRegion(data.locationRegion ?? '');
       setServiceTypes(data.serviceTypes ?? []);
-      setHeroImageUrl(data.heroImageUrl ?? '');
       setInstagramUrl(data.instagramUrl ?? '');
       setLinkedinUrl(data.linkedinUrl ?? '');
       setPortfolioUrlProfile(data.portfolioUrl ?? '');
@@ -226,7 +226,6 @@ export default function ArtistServicesPage() {
         bio: bio.trim() || undefined,
         locationRegion: locationRegion.trim() || undefined,
         serviceTypes,
-        heroImageUrl: heroImageUrl.trim() || undefined,
         instagramUrl: instagramUrl.trim() || undefined,
         linkedinUrl: linkedinUrl.trim() || undefined,
         portfolioUrl: portfolioUrlProfile.trim() || undefined,
@@ -395,11 +394,45 @@ export default function ArtistServicesPage() {
                   <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="What you do, who you help, and what your process looks like…" />
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Hero image URL</Label>
-                    <Input value={heroImageUrl} onChange={(e) => setHeroImageUrl(e.target.value)} placeholder="https://… (best work image)" />
+                <div className="space-y-2">
+                  <Label>Cover / hero image</Label>
+                  <p className="text-sm text-muted-foreground">Best work image shown at the top of your profile. Upload an image (no URLs).</p>
+                  <div className="flex items-center gap-4">
+                    <div className="relative h-24 w-40 shrink-0 overflow-hidden rounded-lg border border-border bg-muted">
+                      {me?.heroImageUrl ? (
+                        <Image src={me.heroImageUrl} alt="Cover" fill className="object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">No cover</div>
+                      )}
+                    </div>
+                    <div>
+                      <input
+                        ref={coverInputRef}
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        className="sr-only"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          e.target.value = '';
+                          if (!file) return;
+                          setUploadingCover(true);
+                          try {
+                            await serviceProvidersApi.uploadCover(file);
+                            await loadMe();
+                          } finally {
+                            setUploadingCover(false);
+                          }
+                        }}
+                      />
+                      <Button type="button" variant="outline" size="sm" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()}>
+                        {uploadingCover ? 'Uploading…' : 'Upload image'}
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 5MB</p>
+                    </div>
                   </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label>Social & portfolio</Label>
                     <div className="space-y-2">

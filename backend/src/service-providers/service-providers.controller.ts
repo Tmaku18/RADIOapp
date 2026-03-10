@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,8 +9,11 @@ import {
   Post,
   Put,
   UnauthorizedException,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -71,6 +75,29 @@ export class ServiceProvidersController {
   ) {
     const userId = await this.getUserId(user.uid);
     return this.service.upsertMyProviderProfile(userId, dto);
+  }
+
+  /**
+   * Upload cover/background image for ProNetworx profile. JPEG, PNG, WebP up to 5MB.
+   */
+  @Post('me/cover')
+  @UseGuards(RolesGuard)
+  @Roles('service_provider', 'admin')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+    }),
+  )
+  async uploadCover(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException('No file uploaded. Send a file in the "file" field.');
+    }
+    const userId = await this.getUserId(user.uid);
+    const heroImageUrl = await this.uploads.uploadHeroImage(file, userId);
+    return this.service.upsertMyProviderProfile(userId, { heroImageUrl });
   }
 
   @Post('me/listings')
