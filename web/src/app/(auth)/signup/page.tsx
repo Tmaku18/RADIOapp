@@ -4,6 +4,7 @@ import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,7 +16,8 @@ import { cn } from '@/lib/utils';
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUpWithEmail, signInWithGoogle, loading, error } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, loading, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp } = useAuth();
+  const isProNetworxRedirect = (redirectParam ?? redirectTo ?? '').includes('pro-networx');
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
 
@@ -72,7 +74,7 @@ function SignupForm() {
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('radioapp_signup_role', role);
       }
-      await signInWithGoogle();
+      await signInWithGoogle({ intent: 'signup' });
       router.push(redirectTo);
     } catch (err) {
       if (typeof window !== 'undefined') {
@@ -85,9 +87,30 @@ function SignupForm() {
     }
   };
 
+  const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
+    setLocalError(null);
+    try {
+      await completeGoogleSignUp(role);
+      router.push(redirectTo);
+    } catch (err) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up'));
+    }
+  };
+
   const displayError = localError || error;
 
   return (
+    <>
+      {pendingGoogleUser && (
+        <RoleSelectionModal
+          onSelect={handleRoleSelect}
+          onCancel={cancelGoogleSignUp}
+          loading={loading}
+          error={displayError}
+          allowCatalyst={isProNetworxRedirect}
+        />
+      )}
     <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
@@ -254,6 +277,7 @@ function SignupForm() {
         </Link>
       </p>
     </div>
+    </>
   );
 }
 
