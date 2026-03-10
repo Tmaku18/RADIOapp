@@ -107,10 +107,10 @@ export default async function HomePage() {
       {/* 4 AM Story — blue section to alternate with dark */}
       <section className="py-16 sm:py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-center">
+          <h2 className="text-6xl sm:text-7xl font-bold mb-6 text-center">
             Our Story: The 4 AM Catalyst
           </h2>
-          <div className="space-y-4 text-primary-foreground/90 font-story text-lg leading-relaxed">
+          <div className="space-y-4 text-primary-foreground/90 font-story text-4xl leading-relaxed">
             <p>
               Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.
             </p>
