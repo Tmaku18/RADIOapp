@@ -47,11 +47,8 @@ export default function MarketingLayout({
               )}
             </Link>
 
-            {/* Navigation Links — ProNetworx first (left), then rest */}
+            {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-2">
-              <Button asChild className="bg-networx text-black hover:opacity-90">
-                <Link href="/pro-networx">ProNetworx</Link>
-              </Button>
               <Button variant="ghost" asChild>
                 <Link href="/about">About</Link>
               </Button>
@@ -69,13 +66,13 @@ export default function MarketingLayout({
               </Button>
             </div>
 
-            {/* Auth Buttons */}
+            {/* Auth + ProNetworx: one blue CTA, ProNetworx far right */}
             <div className="flex items-center space-x-2">
-              <Button variant="ghost" asChild>
-                <Link href="/login">Log in</Link>
-              </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/signup">Get Started</Link>
+              </Button>
+              <Button asChild className="bg-networx text-black hover:opacity-90">
+                <Link href="/pro-networx">ProNetworx</Link>
               </Button>
             </div>
           </div>
