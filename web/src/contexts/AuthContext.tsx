@@ -27,14 +27,22 @@ interface UserProfile {
   locationRegion?: string | null;
 }
 
+interface PendingGoogleUser {
+  firebaseUser: User;
+  idToken: string;
+}
+
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
+  pendingGoogleUser: PendingGoogleUser | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider', displayName?: string) => Promise<void>;
+  completeGoogleSignUp: (role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
+  cancelGoogleSignUp: () => void;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
@@ -47,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingGoogleUser, setPendingGoogleUser] = useState<PendingGoogleUser | null>(null);
 
   // Fetch user profile from backend
   const fetchProfile = useCallback(async () => {
@@ -66,6 +75,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }, [profile?.role]);
 
+  const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
+  const CHOOSE_ROLE_KEY = 'radioapp_choose_role';
+
   // Create Supabase profile (name + role). Role optional: when omitted, backend uses admin allowlist or listener.
   const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
     await usersApi.create({
@@ -83,6 +95,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const response = await usersApi.getMe();
         if (response.data) {
           setProfile(response.data);
+          setPendingGoogleUser(null);
           return true;
         }
       } catch {
@@ -91,25 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     return false;
   }, []);
-
-  const createProfileForNewUser = useCallback(async (firebaseUser: User): Promise<boolean> => {
-    try {
-      const { data } = await usersApi.checkAdmin();
-      if (data?.isAdmin) {
-        await createDefaultProfile(firebaseUser);
-        return true;
-      }
-    } catch {
-      // ignore
-    }
-
-    try {
-      await createDefaultProfile(firebaseUser, 'listener');
-      return true;
-    } catch {
-      return await fetchProfileWithRetry();
-    }
-  }, [createDefaultProfile, fetchProfileWithRetry]);
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
@@ -127,22 +121,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Try to load existing profile (with retry for session-cookie race)
         const found = await fetchProfileWithRetry();
         if (!found) {
-          const created = await createProfileForNewUser(firebaseUser);
+          // New user: signup role in sessionStorage, admin allowlist, explicit choose-role flag, or default listener
+          let created = false;
+          if (typeof window !== 'undefined') {
+            const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
+            if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
+              sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+              try {
+                await createDefaultProfile(firebaseUser, stored);
+                created = true;
+              } catch {
+                // Creation failed — user may already exist; retry getMe
+                const retryOk = await fetchProfileWithRetry();
+                if (retryOk) created = true;
+              }
+            }
+            if (!created) {
+              try {
+                const { data } = await usersApi.checkAdmin();
+                if (data?.isAdmin) {
+                  await createDefaultProfile(firebaseUser);
+                  created = true;
+                }
+              } catch {
+                // ignore
+              }
+            }
+            // If user explicitly asked to choose role, show modal; otherwise default to listener
+            if (!created) {
+              const wantsToChoose = sessionStorage.getItem(CHOOSE_ROLE_KEY);
+              if (wantsToChoose) {
+                sessionStorage.removeItem(CHOOSE_ROLE_KEY);
+              } else {
+                try {
+                  await createDefaultProfile(firebaseUser, 'listener');
+                  created = true;
+                } catch {
+                  const retryOk = await fetchProfileWithRetry();
+                  if (retryOk) created = true;
+                }
+              }
+            }
+          }
           if (!created) {
-            setError('We could not finish setting up your account. Please try again.');
-            await signOut().catch(() => undefined);
+            setPendingGoogleUser({ firebaseUser, idToken: await firebaseUser.getIdToken() });
             setProfile(null);
           }
         }
       } else {
         setProfile(null);
+        setPendingGoogleUser(null);
       }
       
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [createProfileForNewUser, fetchProfileWithRetry]);
+  }, [createDefaultProfile]);
 
   const handleSignInWithGoogle = async () => {
     setError(null);
@@ -158,14 +193,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const created = await createProfileForNewUser(firebaseUser);
-      if (!created) {
-        setError('We could not finish setting up your account. Please try again.');
-        await signOut().catch(() => undefined);
-        setProfile(null);
-        setLoading(false);
-        throw new Error('Failed to complete account setup');
+      // New user: signup role in sessionStorage, admin allowlist, explicit choose-role, or default listener
+      if (typeof window !== 'undefined') {
+        const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
+        if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
+          sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+          try {
+            await createDefaultProfile(firebaseUser, stored);
+            setLoading(false);
+            return;
+          } catch {
+            const retryOk = await fetchProfileWithRetry();
+            if (retryOk) { setLoading(false); return; }
+          }
+        }
+        try {
+          const { data } = await usersApi.checkAdmin();
+          if (data?.isAdmin) {
+            await createDefaultProfile(firebaseUser);
+            setLoading(false);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+        // If user explicitly asked to choose role, show modal; otherwise default to listener
+        const wantsToChoose = sessionStorage.getItem(CHOOSE_ROLE_KEY);
+        if (wantsToChoose) {
+          sessionStorage.removeItem(CHOOSE_ROLE_KEY);
+        } else {
+          try {
+            await createDefaultProfile(firebaseUser, 'listener');
+            setLoading(false);
+            return;
+          } catch {
+            const retryOk = await fetchProfileWithRetry();
+            if (retryOk) { setLoading(false); return; }
+          }
+        }
       }
+      setPendingGoogleUser({ firebaseUser, idToken });
+      setProfile(null);
       setLoading(false);
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -174,6 +242,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       throw err;
     }
+  };
+
+  const completeGoogleSignUp = async (role: 'listener' | 'artist' | 'service_provider') => {
+    if (!pendingGoogleUser) {
+      setError('No pending Google sign-up');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { firebaseUser } = pendingGoogleUser;
+      
+      // Create user profile in backend with selected role
+      await usersApi.create({
+        email: firebaseUser.email!,
+        displayName: firebaseUser.displayName || undefined,
+        role,
+      });
+      
+      await fetchProfile();
+      setPendingGoogleUser(null);
+    } catch (err) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const fallback =
+        status === 404
+          ? 'Sign-up service unavailable. Please try again later or contact support.'
+          : err instanceof Error
+            ? err.message
+            : 'Failed to complete sign up';
+      const message = apiMessage ?? fallback;
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cancelGoogleSignUp = () => {
+    setPendingGoogleUser(null);
+    // Sign out of Firebase since they cancelled
+    signOut().catch(console.error);
   };
 
   const handleSignInWithEmail = async (email: string, password: string) => {
@@ -244,9 +355,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     loading,
     error,
+    pendingGoogleUser,
     signInWithGoogle: handleSignInWithGoogle,
     signInWithEmail: handleSignInWithEmail,
     signUpWithEmail: handleSignUpWithEmail,
+    completeGoogleSignUp,
+    cancelGoogleSignUp,
     signOut: handleSignOut,
     getIdToken,
     refreshProfile: fetchProfile,

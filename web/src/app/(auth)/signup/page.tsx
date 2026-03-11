@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
 
 function SignupForm() {
   const router = useRouter();
@@ -21,6 +23,10 @@ function SignupForm() {
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const roleParam = searchParams.get('role') as 'listener' | 'artist' | null;
+  const [role, setRole] = useState<'listener' | 'artist'>(
+    roleParam === 'artist' ? 'artist' : 'listener'
+  );
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,7 +56,7 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      await signUpWithEmail(email, password, 'listener', displayName.trim() || undefined);
+      await signUpWithEmail(email, password, role as 'listener' | 'artist', displayName.trim() || undefined);
       router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
@@ -63,9 +69,15 @@ function SignupForm() {
     setLocalError(null);
     setIsSubmitting(true);
     try {
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('radioapp_signup_role', role);
+      }
       await signInWithGoogle();
       router.push(redirectTo);
     } catch (err) {
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem('radioapp_signup_role');
+      }
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign up with Google'));
     } finally {
@@ -88,9 +100,43 @@ function SignupForm() {
         </Alert>
       )}
 
-      <p className="text-sm text-muted-foreground mb-6 text-center">
-        You can choose your account type after you finish your profile.
-      </p>
+      {/* Role Selection: Prospector (listener) or Gem (artist). Catalysts sign up on ProNetworx. */}
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-gray-700 mb-3">
+          I want to...
+        </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={() => setRole('listener')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              role === 'listener'
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-muted-foreground/30'
+            }`}
+          >
+            <div className="text-2xl mb-2">🎧</div>
+            <div className="font-medium text-foreground">Prospector</div>
+            <div className="text-sm text-muted-foreground">Discover new music</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole('artist')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              role === 'artist'
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-muted-foreground/30'
+            }`}
+          >
+            <div className="text-2xl mb-2">🎤</div>
+            <div className="font-medium text-foreground">Gem</div>
+            <div className="text-sm text-muted-foreground">Share my music</div>
+          </button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-2">
+          Want to offer services to artists? Sign up as a Catalyst on ProNetworx after you create your account.
+        </p>
+      </div>
 
       {/* Google Sign Up */}
       <Button
@@ -186,7 +232,7 @@ function SignupForm() {
           className="w-full"
           disabled={isSubmitting || loading}
         >
-          {isSubmitting || loading ? 'Creating account...' : 'Create account'}
+          {isSubmitting || loading ? 'Creating account...' : `Create ${role === 'artist' ? 'Gem' : 'Prospector'} Account`}
         </Button>
       </form>
 

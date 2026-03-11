@@ -377,13 +377,6 @@ export default function ProfilePage() {
             )}
 
             <div className="space-y-3">
-              {currentRole === 'listener' && (
-                <Alert>
-                  <AlertDescription>
-                    You&apos;re currently a Prospector. Want to upload music or offer services? Choose an account type below — you can upgrade anytime.
-                  </AlertDescription>
-                </Alert>
-              )}
               <Label>Account Type</Label>
               {isAdmin ? (
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">Admin</div>
