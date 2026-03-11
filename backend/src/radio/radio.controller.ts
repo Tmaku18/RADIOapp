@@ -13,6 +13,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { ProspectorYieldService } from './prospector-yield.service';
+import { DEFAULT_RADIO_ID } from './radio-state.service';
 
 @Controller('radio')
 export class RadioController {
@@ -25,9 +26,10 @@ export class RadioController {
 
   @Public()
   @Get('current')
-  async getCurrentTrack() {
+  async getCurrentTrack(@Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
     try {
-      return await this.radioService.getCurrentTrack();
+      return await this.radioService.getCurrentTrack(id);
     } catch (err) {
       this.logger.warn(
         `getCurrentTrack failed: ${err?.message || err}`,
@@ -40,8 +42,9 @@ export class RadioController {
 
   @Public()
   @Get('next')
-  async getNextTrack() {
-    return this.radioService.getNextTrack();
+  async getNextTrack(@Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.radioService.getNextTrack(id);
   }
 
   @Post('play')
@@ -59,14 +62,16 @@ export class RadioController {
   }
 
   @Get('queue')
-  async getUpcomingQueue(@Query('limit') limit?: string) {
+  async getUpcomingQueue(@Query('limit') limit?: string, @Query('radio') radioId?: string) {
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
-    return this.radioService.getUpcomingQueue(parsedLimit);
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.radioService.getUpcomingQueue(parsedLimit, id);
   }
 
   @Delete('queue')
   @Roles('admin')
-  async clearQueue() {
-    return this.radioService.clearQueueState();
+  async clearQueue(@Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.radioService.clearQueueState(id);
   }
 }

@@ -16,6 +16,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { DEFAULT_RADIO_ID } from '../radio/radio-state.service';
 
 @Controller('admin')
 @Roles('admin')
@@ -129,8 +130,9 @@ export class AdminController {
   // ========== Fallback Playlist Endpoints ==========
 
   @Get('fallback-songs')
-  async getFallbackSongs() {
-    const songs = await this.adminService.getFallbackSongs();
+  async getFallbackSongs(@Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const songs = await this.adminService.getFallbackSongs(id);
     return { songs };
   }
 
@@ -143,8 +145,10 @@ export class AdminController {
       artworkUrl?: string;
       durationSeconds?: number;
     },
+    @Query('radio') radioId?: string,
   ) {
-    const song = await this.adminService.addFallbackSong(dto);
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const song = await this.adminService.addFallbackSong(dto, id);
     return { song };
   }
 
@@ -158,18 +162,24 @@ export class AdminController {
       artworkPath?: string;
       durationSeconds?: number;
     },
+    @Query('radio') radioId?: string,
   ) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
     const adminId = await this.getAdminDbId(user.uid);
     if (!adminId) {
       throw new BadRequestException('Admin user not found');
     }
-    const song = await this.adminService.addFallbackSongFromUpload(adminId, dto);
+    const song = await this.adminService.addFallbackSongFromUpload(adminId, dto, id);
     return { song };
   }
 
   @Post('fallback-songs/from-song/:songId')
-  async addFallbackSongFromSong(@Param('songId') songId: string) {
-    const song = await this.adminService.addFallbackSongFromSong(songId);
+  async addFallbackSongFromSong(
+    @Param('songId') songId: string,
+    @Query('radio') radioId?: string,
+  ) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const song = await this.adminService.addFallbackSongFromSong(songId, id);
     return { song };
   }
 
@@ -177,14 +187,17 @@ export class AdminController {
   async updateFallbackSong(
     @Param('id') songId: string,
     @Body() dto: { isActive?: boolean },
+    @Query('radio') radioId?: string,
   ) {
-    const song = await this.adminService.updateFallbackSong(songId, dto);
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const song = await this.adminService.updateFallbackSong(songId, dto, id);
     return { song };
   }
 
   @Delete('fallback-songs/:id')
-  async deleteFallbackSong(@Param('id') songId: string) {
-    return this.adminService.deleteFallbackSong(songId);
+  async deleteFallbackSong(@Param('id') songId: string, @Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.adminService.deleteFallbackSong(songId, id);
   }
 
   // ========== User Ban Management Endpoints ==========

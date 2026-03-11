@@ -243,12 +243,13 @@ export class AdminService {
 
   // ========== Fallback Playlist Management ==========
 
-  async getFallbackSongs() {
+  async getFallbackSongs(radioId: string = 'default') {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from('admin_fallback_songs')
       .select('*')
+      .eq('radio_id', radioId)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -258,18 +259,22 @@ export class AdminService {
     return data;
   }
 
-  async addFallbackSong(dto: {
-    title: string;
-    artistName: string;
-    audioUrl: string;
-    artworkUrl?: string;
-    durationSeconds?: number;
-  }) {
+  async addFallbackSong(
+    dto: {
+      title: string;
+      artistName: string;
+      audioUrl: string;
+      artworkUrl?: string;
+      durationSeconds?: number;
+    },
+    radioId: string = 'default',
+  ) {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
       .from('admin_fallback_songs')
       .insert({
+        radio_id: radioId,
         title: dto.title,
         artist_name: dto.artistName,
         audio_url: dto.audioUrl,
@@ -299,6 +304,7 @@ export class AdminService {
       artworkPath?: string;
       durationSeconds?: number;
     },
+    radioId: string = 'default',
   ) {
     const supabase = getSupabaseClient();
 
@@ -318,6 +324,7 @@ export class AdminService {
     const { data, error } = await supabase
       .from('admin_fallback_songs')
       .insert({
+        radio_id: radioId,
         title: dto.title,
         artist_name: dto.artistName,
         audio_url: audioUrl,
@@ -338,7 +345,7 @@ export class AdminService {
   /**
    * Add a fallback song by copying an existing approved song.
    */
-  async addFallbackSongFromSong(songId: string) {
+  async addFallbackSongFromSong(songId: string, radioId: string = 'default') {
     const supabase = getSupabaseClient();
 
     const { data: song, error: fetchError } = await supabase
@@ -357,6 +364,7 @@ export class AdminService {
     const { data, error } = await supabase
       .from('admin_fallback_songs')
       .insert({
+        radio_id: radioId,
         title: song.title,
         artist_name: artistName,
         audio_url: song.audio_url,
@@ -374,7 +382,7 @@ export class AdminService {
     return data;
   }
 
-  async updateFallbackSong(songId: string, dto: { isActive?: boolean }) {
+  async updateFallbackSong(songId: string, dto: { isActive?: boolean }, radioId: string = 'default') {
     const supabase = getSupabaseClient();
 
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -386,6 +394,7 @@ export class AdminService {
       .from('admin_fallback_songs')
       .update(updateData)
       .eq('id', songId)
+      .eq('radio_id', radioId)
       .select()
       .single();
 
@@ -396,13 +405,14 @@ export class AdminService {
     return data;
   }
 
-  async deleteFallbackSong(songId: string) {
+  async deleteFallbackSong(songId: string, radioId: string = 'default') {
     const supabase = getSupabaseClient();
 
     const { error } = await supabase
       .from('admin_fallback_songs')
       .delete()
-      .eq('id', songId);
+      .eq('id', songId)
+      .eq('radio_id', radioId);
 
     if (error) {
       throw new BadRequestException(`Failed to delete fallback song: ${error.message}`);

@@ -189,6 +189,7 @@ Current rotation state (can be replaced with Redis in production).
 ```sql
 CREATE TABLE rotation_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  radio_id TEXT NOT NULL DEFAULT 'default',
   song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
   priority_score DECIMAL NOT NULL,
   played_at TIMESTAMPTZ,
@@ -196,6 +197,7 @@ CREATE TABLE rotation_queue (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE INDEX idx_rotation_queue_radio_id ON rotation_queue(radio_id);
 CREATE INDEX idx_rotation_queue_priority ON rotation_queue(priority_score DESC);
 CREATE INDEX idx_rotation_queue_played_at ON rotation_queue(played_at DESC NULLS LAST);
 ```
@@ -236,11 +238,12 @@ CREATE TABLE play_decision_log (
 ```
 
 ### admin_fallback_songs
-Admin-curated free rotation tracks.
+Admin-curated free rotation (fallback) playlist. Each radio has its own list via `radio_id`.
 
 ```sql
 CREATE TABLE admin_fallback_songs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  radio_id TEXT NOT NULL DEFAULT 'default',
   title TEXT NOT NULL,
   artist_name TEXT NOT NULL,
   audio_url TEXT NOT NULL,
@@ -252,14 +255,17 @@ CREATE TABLE admin_fallback_songs (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE INDEX idx_admin_fallback_songs_radio_id ON admin_fallback_songs(radio_id);
 ```
 
 ### radio_playlist_state
-Persistent state for free rotation stack and playlist type.
+Persistent state for free rotation stack and playlist type. One row per radio via `radio_id`.
 
 ```sql
 CREATE TABLE radio_playlist_state (
   id TEXT PRIMARY KEY,
+  radio_id TEXT NOT NULL DEFAULT 'default' UNIQUE,
   playlist_type TEXT NOT NULL DEFAULT 'free_rotation',
   fallback_stack JSONB DEFAULT '[]'::jsonb,
   fallback_position INTEGER DEFAULT 0,
@@ -269,7 +275,11 @@ CREATE TABLE radio_playlist_state (
   last_checkpoint_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX idx_radio_playlist_state_radio_id ON radio_playlist_state(radio_id);
 ```
+
+**Per-radio playlists:** Each radio has its own free and paid playlist state. The API accepts an optional `?radio=<id>` query (e.g. `/radio/current?radio=default`). When omitted, `radio_id = 'default'` is used. Admin fallback endpoints also accept `?radio=` to list/add/update/delete fallback songs per radio.
 
 ### credit_allocations
 Ledger for credit allocation/withdrawal events.
