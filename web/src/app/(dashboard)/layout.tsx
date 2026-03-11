@@ -61,6 +61,7 @@ const artistNavigation = [
   { name: 'The Wake', href: '/artist/stats', icon: '📈' },
   { name: 'Pro-Network', href: '/job-board', icon: '💼' },
   { name: 'Chat', href: '/messages', icon: '💬' },
+  { name: 'The Yield', href: '/yield', icon: '⛏️' },
 ];
 
 const moreNav = [

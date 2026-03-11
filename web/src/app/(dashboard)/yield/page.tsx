@@ -2,9 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useAuth } from '@/contexts/AuthContext';
 import { prospectorApi } from '@/lib/api';
-import { hasListenerCapability } from '@/lib/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -27,9 +25,6 @@ function safeRequestId(): string {
 }
 
 export default function YieldPage() {
-  const { profile } = useAuth();
-  const isProspector = hasListenerCapability(profile?.role);
-
   const [status, setStatus] = useState<YieldStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,26 +77,6 @@ export default function YieldPage() {
       setIsRedeeming(false);
     }
   };
-
-  if (!isProspector) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>The Yield</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            The Yield is only available to Prospectors.
-          </p>
-          <div className="mt-4">
-            <Button asChild variant="outline">
-              <Link href="/dashboard">Back to dashboard</Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="space-y-6">

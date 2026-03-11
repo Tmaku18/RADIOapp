@@ -48,6 +48,7 @@ const ROLE_HOME: Record<
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
       { href: '/job-board', icon: '💼', title: 'Pro-Network', desc: 'Find and offer creative services.' },
+      { href: '/yield', icon: '⛏️', title: 'The Yield', desc: 'Track rewards and redeem at thresholds.' },
       { href: '/profile', icon: '👤', title: 'Your Profile', desc: 'View and edit your profile.' },
     ],
   },
