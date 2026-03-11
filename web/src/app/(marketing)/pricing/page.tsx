@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
   title: 'Pricing - Networx',
-  description: 'Simple, transparent Networx pricing for artists and free listening for Prospectors, plus access to ProNetworx opportunities.',
+  description: 'Simple, transparent Networx pricing: free listening for everyone, pay for play credits when you want promotion, plus ProNetworx opportunities.',
 };
 
 export const revalidate = 3600;
@@ -48,17 +48,17 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-muted-foreground">
-            Listening stays free. Artists pay only when they want additional promotion.
+            Listening is free for everyone. Pay only when you want additional promotion for your tracks.
           </p>
         </div>
 
-        {/* Listener Section */}
+        {/* Free for everyone */}
         <div className="mb-20">
           <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="pt-8 pb-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">For Listeners</h2>
+              <h2 className="text-2xl font-bold mb-4">For Everyone</h2>
               <div className="text-5xl font-bold mb-2">Free</div>
-              <p className="text-primary-foreground/80 mb-6">Forever. No intrusive ads. No hidden limits.</p>
+              <p className="text-primary-foreground/80 mb-6">Listen, discover, upload, and use the job board. No intrusive ads. No hidden limits.</p>
               <ul className="text-left max-w-md mx-auto space-y-3 mb-8">
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -70,7 +70,7 @@ export default function PricingPage() {
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Follow gems
+                  Upload music and use the job board
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -78,16 +78,16 @@ export default function PricingPage() {
                 </li>
               </ul>
               <Button variant="outline" size="lg" asChild className="border-2 border-primary-foreground bg-transparent text-primary-foreground hover:bg-primary-foreground/10">
-                <Link href="/signup?role=listener">Sign up as Prospector</Link>
+                <Link href="/signup">Sign up</Link>
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Gems Section */}
+        {/* Play credits */}
         <div>
           <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-            For Gems - Play Credits
+            Play Credits
           </h2>
           <p className="text-center text-muted-foreground mb-4 max-w-2xl mx-auto">
             Credits are used to promote your tracks in our radio rotation. 
@@ -117,7 +117,7 @@ export default function PricingPage() {
                   </div>
                   <p className="text-sm text-muted-foreground mb-6">{pkg.description}</p>
                   <Button className="w-full" variant={pkg.popular ? 'default' : 'secondary'} asChild>
-                    <Link href="/signup?role=artist">Sign up as Gem</Link>
+                    <Link href="/signup">Sign up</Link>
                   </Button>
                 </CardContent>
               </Card>

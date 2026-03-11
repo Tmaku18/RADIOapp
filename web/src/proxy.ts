@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-/** Roles with Gem (artist) capability: artist, Catalyst (service_provider), admin. */
-const ARTIST_ROLES = ['artist', 'admin', 'service_provider'];
-const APPLY_PATH = '/apply';
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
@@ -46,22 +43,9 @@ export function proxy(request: NextRequest) {
     res.cookies.set(REF_COOKIE, ref, { path: '/', maxAge: REF_MAX_AGE, sameSite: 'lax', httpOnly: true });
   }
 
-  // Protect /artist/* and /job-board: only artist or admin may access
-  const isArtistArea = pathname.startsWith('/artist') || pathname === '/job-board';
-  if (!isArtistArea) {
-    return res;
-  }
-
-  const roleCookie = request.cookies.get('user_role')?.value?.toLowerCase();
-  const isAllowed = roleCookie && ARTIST_ROLES.includes(roleCookie);
-
-  if (isAllowed) {
-    return res;
-  }
-
-  const applyUrl = new URL(APPLY_PATH, request.url);
-  applyUrl.searchParams.set('from', pathname);
-  return NextResponse.redirect(applyUrl);
+  // /artist/* and /job-board: allow all (single user type; auth enforced by dashboard layout and backend)
+  // No redirect to /apply; all logged-in users have full access.
+  return res;
 }
 
 export const config = {

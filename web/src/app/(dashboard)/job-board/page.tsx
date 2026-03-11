@@ -1,11 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { jobBoardApi } from '@/lib/api';
-import { hasArtistCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -55,16 +53,6 @@ const SERVICE_TYPES = ['mixing', 'mastering', 'production', 'session', 'collab',
 export default function JobBoardPage() {
   const { profile } = useAuth();
   const myId = profile?.id ?? null;
-  const router = useRouter();
-  const pathname = usePathname();
-  const isArtist = hasArtistCapability(profile?.role);
-
-  useEffect(() => {
-    if (profile && !isArtist) {
-      router.replace('/apply?from=' + encodeURIComponent(pathname || '/job-board'));
-    }
-  }, [profile, isArtist, router, pathname]);
-
   const [tab, setTab] = useState<'browse' | 'mine'>('browse');
   const [items, setItems] = useState<ServiceRequestRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -107,8 +95,8 @@ export default function JobBoardPage() {
   );
 
   useEffect(() => {
-    if (isArtist) loadRequests(tab === 'mine');
-  }, [tab, loadRequests, isArtist]);
+    if (profile) loadRequests(tab === 'mine');
+  }, [tab, loadRequests, profile]);
 
   const loadDetail = useCallback(async (requestId: string, currentUserId: string | undefined) => {
     setLoadingDetail(true);

@@ -77,9 +77,10 @@ export class UsersService {
 
     const emailLower = createUserDto.email.trim().toLowerCase();
     const adminEmails = this.getAdminEmails();
+    // Single user type: all non-admin users get full access (artist) and a credits row
     const role = adminEmails.includes(emailLower)
       ? 'admin'
-      : (createUserDto.role ?? 'listener');
+      : 'artist';
     const displayName = createUserDto.displayName?.trim() || null;
     const { data, error } = await supabase
       .from('users')
@@ -124,8 +125,8 @@ export class UsersService {
       );
     }
 
-    // Create credits row for Gem (artist) and Catalyst (service_provider) so they can buy/allocate plays
-    if (role === 'artist' || role === 'service_provider') {
+    // Create credits row for all non-admin users so they can buy/allocate plays on radio
+    if (role === 'artist') {
       const { error: creditsError } = await supabase.from('credits').insert({
         artist_id: data.id,
         balance: 0,
@@ -270,15 +271,15 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if already an artist or admin
-    if (user.role === 'artist') {
-      throw new BadRequestException('User is already an artist');
+    // No-op if already artist (single user type: everyone is artist by default)
+    if (user.role === 'artist' || user.role === 'service_provider') {
+      return transformUser(user);
     }
     if (user.role === 'admin') {
       throw new BadRequestException('Admin users cannot be upgraded to artist');
     }
 
-    // Update role to artist
+    // Update role to artist (legacy listener upgrade path)
     const { data, error: updateError } = await supabase
       .from('users')
       .update({

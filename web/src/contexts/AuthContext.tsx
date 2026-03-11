@@ -27,22 +27,14 @@ interface UserProfile {
   locationRegion?: string | null;
 }
 
-interface PendingGoogleUser {
-  firebaseUser: User;
-  idToken: string;
-}
-
 interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
   error: string | null;
-  pendingGoogleUser: PendingGoogleUser | null;
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, role: 'listener' | 'artist' | 'service_provider', displayName?: string) => Promise<void>;
-  completeGoogleSignUp: (role: 'listener' | 'artist' | 'service_provider') => Promise<void>;
-  cancelGoogleSignUp: () => void;
+  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
@@ -55,7 +47,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [pendingGoogleUser, setPendingGoogleUser] = useState<PendingGoogleUser | null>(null);
 
   // Fetch user profile from backend
   const fetchProfile = useCallback(async () => {
@@ -75,14 +66,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }, [profile?.role]);
 
-  const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
-
-  // Create Supabase profile (name + role). Role optional: when omitted, backend uses admin allowlist or listener.
-  const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
+  // Create profile; backend defaults non-admin to artist (single user type, full access).
+  const createDefaultProfile = useCallback(async (firebaseUser: User) => {
     await usersApi.create({
       email: firebaseUser.email!,
       displayName: firebaseUser.displayName?.trim() || undefined,
-      ...(role != null ? { role } : {}),
     });
     await fetchProfile();
   }, [fetchProfile]);
@@ -104,46 +92,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const response = await usersApi.getMe();
           if (response.data) {
             setProfile(response.data);
-            setPendingGoogleUser(null);
           } else {
             setProfile(null);
           }
         } catch {
-          // New user: signup role in sessionStorage, or admin allowlist, or show role modal
-          let created = false;
-          if (typeof window !== 'undefined') {
-            const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
-            if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
-              sessionStorage.removeItem(SIGNUP_ROLE_KEY);
-              try {
-                await createDefaultProfile(firebaseUser, stored);
-                created = true;
-              } catch (createErr) {
-                const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
-                setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
-                setProfile(null);
-              }
-            }
-            if (!created) {
-              try {
-                const { data } = await usersApi.checkAdmin();
-                if (data?.isAdmin) {
-                  await createDefaultProfile(firebaseUser);
-                  created = true;
-                }
-              } catch {
-                // ignore; will show role modal
-              }
-            }
-          }
-          if (!created) {
-            setPendingGoogleUser({ firebaseUser, idToken: await firebaseUser.getIdToken() });
+          // New user: create profile (backend defaults to artist for non-admin)
+          try {
+            await createDefaultProfile(firebaseUser);
+          } catch (createErr) {
+            const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
             setProfile(null);
           }
         }
       } else {
         setProfile(null);
-        setPendingGoogleUser(null);
       }
       
       setLoading(false);
@@ -167,34 +130,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } catch {
-        // New user: signup role in sessionStorage, or admin allowlist, or ask (set pending)
-        if (typeof window !== 'undefined') {
-          const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
-          if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
-            sessionStorage.removeItem(SIGNUP_ROLE_KEY);
-            try {
-              await createDefaultProfile(firebaseUser, stored);
-              setLoading(false);
-              return;
-            } catch (createErr) {
-              const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
-              setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
-              throw createErr;
-            }
-          }
-          try {
-            const { data } = await usersApi.checkAdmin();
-            if (data?.isAdmin) {
-              await createDefaultProfile(firebaseUser);
-              setLoading(false);
-              return;
-            }
-          } catch {
-            // ignore; will show role modal
-          }
+        // New user: create profile (backend defaults to artist)
+        try {
+          await createDefaultProfile(firebaseUser);
+          setLoading(false);
+          return;
+        } catch (createErr) {
+          const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+          setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
+          throw createErr;
         }
-        setPendingGoogleUser({ firebaseUser, idToken });
-        setProfile(null);
       }
       setLoading(false);
     } catch (err) {
@@ -204,42 +149,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
       throw err;
     }
-  };
-
-  const completeGoogleSignUp = async (role: 'listener' | 'artist' | 'service_provider') => {
-    if (!pendingGoogleUser) {
-      setError('No pending Google sign-up');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    try {
-      const { firebaseUser } = pendingGoogleUser;
-      
-      // Create user profile in backend with selected role
-      await usersApi.create({
-        email: firebaseUser.email!,
-        displayName: firebaseUser.displayName || undefined,
-        role,
-      });
-      
-      await fetchProfile();
-      setPendingGoogleUser(null);
-    } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const message = apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up');
-      setError(message);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const cancelGoogleSignUp = () => {
-    setPendingGoogleUser(null);
-    // Sign out of Firebase since they cancelled
-    signOut().catch(console.error);
   };
 
   const handleSignInWithEmail = async (email: string, password: string) => {
@@ -265,7 +174,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleSignUpWithEmail = async (
     email: string,
     password: string,
-    role: 'listener' | 'artist' | 'service_provider',
     displayName?: string
   ) => {
     setError(null);
@@ -276,11 +184,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
 
-      // Create Supabase user with chosen role and name (Firebase → equivalent Supabase row)
+      // Create profile; backend defaults non-admin to artist (single user type)
       await usersApi.create({
         email: firebaseUser.email!,
         displayName: (displayName?.trim() || firebaseUser.displayName) || undefined,
-        role,
       });
 
       await fetchProfile();
@@ -310,12 +217,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     profile,
     loading,
     error,
-    pendingGoogleUser,
     signInWithGoogle: handleSignInWithGoogle,
     signInWithEmail: handleSignInWithEmail,
     signUpWithEmail: handleSignUpWithEmail,
-    completeGoogleSignUp,
-    cancelGoogleSignUp,
     signOut: handleSignOut,
     getIdToken,
     refreshProfile: fetchProfile,

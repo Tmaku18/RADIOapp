@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 const MESSAGE =
-  'The Pro-Network is an exclusive hub for verified Networx Artists. Want to move from the crowd to the stage?';
+  'Sign up to get full access: upload music, use the job board, and connect with other creators.';
 
 export default function ApplyPage() {
   const searchParams = useSearchParams();
@@ -23,7 +23,7 @@ export default function ApplyPage() {
           <p className="text-muted-foreground mb-6">{MESSAGE}</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <Button asChild size="lg" className="bg-primary text-primary-foreground hover:opacity-90">
-              <Link href="/signup?role=artist">Apply for Artist Status</Link>
+              <Link href="/signup">Sign up</Link>
             </Button>
             {from && (
               <Button asChild variant="outline" size="lg">

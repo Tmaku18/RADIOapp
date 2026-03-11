@@ -85,8 +85,10 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
 
-  const role = (profile?.role ?? 'listener') as Role;
-  const home = ROLE_HOME[role] ?? ROLE_HOME.listener;
+  // Single user type: non-admin users see full-access (artist) home; admin/catalyst keep their own
+  const role = (profile?.role ?? 'artist') as Role;
+  const homeKey = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
+  const home = ROLE_HOME[homeKey] ?? ROLE_HOME.artist;
 
   useEffect(() => {
     async function loadStats() {

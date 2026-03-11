@@ -8,7 +8,6 @@ import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationsApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
-import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -156,8 +155,7 @@ export default function DashboardLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, profile, loading, signOut, error, pendingGoogleUser, completeGoogleSignUp, cancelGoogleSignUp, refreshProfile } = useAuth();
-  const [isCompletingSignUp, setIsCompletingSignUp] = useState(false);
+  const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const isArtistMode = hasArtistCapability(profile?.role);
   const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
 
@@ -204,17 +202,6 @@ export default function DashboardLayout({
     }
   }, [user, profile]);
 
-  const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
-    setIsCompletingSignUp(true);
-    try {
-      await completeGoogleSignUp(role);
-    } catch (err) {
-      console.error('Failed to complete sign up:', err);
-    } finally {
-      setIsCompletingSignUp(false);
-    }
-  };
-
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -235,19 +222,6 @@ export default function DashboardLayout({
 
   if (!user) {
     return null;
-  }
-
-  if (pendingGoogleUser) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted/50">
-        <RoleSelectionModal
-          onSelect={handleRoleSelect}
-          onCancel={cancelGoogleSignUp}
-          loading={isCompletingSignUp}
-          error={error}
-        />
-      </div>
-    );
   }
 
   const isAdminPath = pathname.startsWith('/admin');

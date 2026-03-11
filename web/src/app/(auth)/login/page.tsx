@@ -4,13 +4,11 @@ import { useState, Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { RoleSelectionModal } from '@/components/auth/RoleSelectionModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
 
 function LoginForm() {
   const router = useRouter();
@@ -21,9 +19,6 @@ function LoginForm() {
     signInWithEmail,
     loading,
     error,
-    pendingGoogleUser,
-    completeGoogleSignUp,
-    cancelGoogleSignUp,
   } = useAuth();
   
   const [email, setEmail] = useState('');
@@ -45,10 +40,10 @@ function LoginForm() {
   }, [redirectParam]);
 
   useEffect(() => {
-    if (profile && !pendingGoogleUser) {
+    if (profile) {
       router.push(redirectTo);
     }
-  }, [profile, pendingGoogleUser, router, redirectTo]);
+  }, [profile, router, redirectTo]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,29 +74,9 @@ function LoginForm() {
     }
   };
 
-  const handleRoleSelect = async (role: 'listener' | 'artist' | 'service_provider') => {
-    setLocalError(null);
-    try {
-      await completeGoogleSignUp(role);
-      router.push(redirectTo);
-    } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up'));
-    }
-  };
-
   const displayError = localError || error;
 
   return (
-    <>
-      {pendingGoogleUser && (
-        <RoleSelectionModal
-          onSelect={handleRoleSelect}
-          onCancel={cancelGoogleSignUp}
-          loading={loading}
-          error={displayError}
-        />
-      )}
       <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
@@ -188,7 +163,6 @@ function LoginForm() {
         </Link>
       </p>
       </div>
-    </>
   );
 }
 
