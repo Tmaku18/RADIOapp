@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-type ApiError = { response?: { data?: { message?: string } } };
+type ApiError = { response?: { status?: number; data?: { message?: string } } };
 
 function errorMessage(err: unknown, fallback: string): string {
   const msg =
@@ -163,19 +163,21 @@ export default function MySongsPage() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         {song.artworkUrl ? (
-                          <img
-                            className="h-10 w-10 rounded-lg object-cover"
-                            src={song.artworkUrl}
-                            alt={song.title}
-                            referrerPolicy="no-referrer"
-                            onError={(e) => {
-                              e.currentTarget.style.display = 'none';
-                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 hidden flex items-center justify-center">
-                            <span className="text-primary">🎵</span>
-                          </div>
+                          <>
+                            <img
+                              className="h-10 w-10 rounded-lg object-cover"
+                              src={song.artworkUrl}
+                              alt={song.title}
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="h-10 w-10 rounded-lg bg-primary/10 hidden flex items-center justify-center">
+                              <span className="text-primary">🎵</span>
+                            </div>
+                          </>
                         ) : (
                           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                             <span className="text-primary">🎵</span>
