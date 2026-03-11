@@ -43,7 +43,7 @@ export class SongsController {
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 2, {
-      limits: { fileSize: 50 * 1024 * 1024 }, // 50MB
+      limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
     }),
   )
   async uploadSong(
@@ -182,8 +182,8 @@ export class SongsController {
           const contentLength = res.headers.get('content-length');
           if (contentLength) {
             const bytes = Number(contentLength);
-            // Extra buffer above the 50MB client limit for safety.
-            if (Number.isFinite(bytes) && bytes > 55 * 1024 * 1024) {
+            // Extra buffer above the 100MB client limit for safety.
+            if (Number.isFinite(bytes) && bytes > 105 * 1024 * 1024) {
               this.logger.warn(
                 `Skipping duration extraction for large audio (${bytes} bytes) at ${audioUrl}`,
               );

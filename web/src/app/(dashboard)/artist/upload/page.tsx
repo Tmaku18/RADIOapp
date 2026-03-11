@@ -78,8 +78,8 @@ export default function UploadPage() {
         setError('Please select a valid audio file (MP3, WAV, M4A, AAC, OGG, FLAC, or WebM)');
         return;
       }
-      if (file.size > 50 * 1024 * 1024) {
-        setError('Audio file must be less than 50MB');
+      if (file.size > 100 * 1024 * 1024) {
+        setError('Audio file must be less than 100MB');
         return;
       }
       setAudioFile(file);
@@ -249,7 +249,7 @@ export default function UploadPage() {
                 <div>
                   <span className="text-4xl mb-2 block">📤</span>
                   <p className="text-foreground">Click to select audio file</p>
-                  <p className="text-sm text-muted-foreground mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 50MB</p>
+                  <p className="text-sm text-muted-foreground mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 100MB</p>
                 </div>
               )}
               </Button>

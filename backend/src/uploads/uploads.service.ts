@@ -36,7 +36,7 @@ export class UploadsService {
    * Internal method to handle file uploads to Supabase Storage.
    * Consolidates validation and upload logic for all file types.
    * 
-   * WARNING: Files are buffered in RAM via Multer. With maxSize of 50MB,
+   * WARNING: Files are buffered in RAM via Multer. With maxSize of 100MB,
    * concurrent uploads could cause OOM on low-memory servers.
    * Consider streaming uploads for production at scale.
    */
@@ -96,7 +96,7 @@ export class UploadsService {
 
   /**
    * Upload an audio file (song) to storage.
-   * Accepts MP3, WAV, M4A, AAC, OGG, FLAC, WebM up to 50MB.
+   * Accepts MP3, WAV, M4A, AAC, OGG, FLAC, WebM up to 100MB.
    */
   async uploadAudioFile(
     file: Express.Multer.File,
@@ -109,7 +109,7 @@ export class UploadsService {
         'audio/mp4', 'audio/x-m4a', 'audio/aac',
         'audio/ogg', 'audio/flac', 'audio/webm',
       ],
-      maxSizeBytes: 50 * 1024 * 1024, // 50MB
+      maxSizeBytes: 100 * 1024 * 1024, // 100MB
       errorPrefix: 'Audio file',
     });
   }

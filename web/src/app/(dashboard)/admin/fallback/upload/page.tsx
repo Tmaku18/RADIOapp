@@ -26,8 +26,8 @@ export default function AdminFallbackUploadPage() {
         setError('Please select a valid audio file (MP3, WAV, M4A, AAC, OGG, FLAC, or WebM)');
         return;
       }
-      if (file.size > 50 * 1024 * 1024) {
-        setError('Audio file must be less than 50MB');
+      if (file.size > 100 * 1024 * 1024) {
+        setError('Audio file must be less than 100MB');
         return;
       }
       setAudioFile(file);
@@ -174,7 +174,7 @@ export default function AdminFallbackUploadPage() {
                 <div>
                   <span className="text-4xl mb-2 block">📤</span>
                   <p className="text-gray-600">Click to select audio file</p>
-                  <p className="text-sm text-gray-400 mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 50MB</p>
+                  <p className="text-sm text-gray-400 mt-1">MP3, WAV, M4A, AAC, OGG, FLAC, WebM — max 100MB</p>
                 </div>
               )}
             </button>

@@ -221,7 +221,7 @@ All endpoints (except webhooks) require `Authorization: Bearer <firebase-id-toke
 
 | File Type | Max Size | Concurrent Risk |
 |-----------|----------|-----------------|
-| Audio | 50MB | High |
+| Audio | 100MB | High |
 | Artwork | 5MB | Medium |
 | Profile | 2MB | Low |
 

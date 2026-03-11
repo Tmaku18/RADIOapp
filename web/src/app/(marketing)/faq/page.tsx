@@ -84,7 +84,7 @@ const faqs = [
     questions: [
       {
         q: 'What audio formats are supported?',
-        a: 'We accept MP3, WAV, M4A, AAC, OGG, FLAC, and WebM files up to 50MB. For best quality, upload lossless WAV or FLAC files.',
+        a: 'We accept MP3, WAV, M4A, AAC, OGG, FLAC, and WebM files up to 100MB. For best quality, upload lossless WAV or FLAC files.',
       },
       {
         q: 'Is my payment information secure?',
