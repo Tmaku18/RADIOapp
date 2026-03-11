@@ -87,7 +87,15 @@ export default function MySongsPage() {
       const response = await songsApi.getMine();
       setSongs(response.data);
     } catch (err: unknown) {
-      setError(errorMessage(err, 'Failed to load ores. If this persists, check that BACKEND_URL is set on Vercel.'));
+      const status = (err as ApiError).response?.status;
+      const msg = errorMessage(err, 'Failed to load ores. If this persists, check that BACKEND_URL is set on Vercel.');
+      if (status === 403) {
+        setError(
+          'You need an artist account to view My Ores. Upgrade in Settings or sign up as an artist to upload and manage ores.'
+        );
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -155,7 +163,19 @@ export default function MySongsPage() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         {song.artworkUrl ? (
-                          <img className="h-10 w-10 rounded-lg object-cover" src={song.artworkUrl} alt={song.title} />
+                          <img
+                            className="h-10 w-10 rounded-lg object-cover"
+                            src={song.artworkUrl}
+                            alt={song.title}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = 'none';
+                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                            }}
+                          />
+                          <div className="h-10 w-10 rounded-lg bg-primary/10 hidden flex items-center justify-center">
+                            <span className="text-primary">🎵</span>
+                          </div>
                         ) : (
                           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                             <span className="text-primary">🎵</span>
