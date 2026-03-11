@@ -135,7 +135,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/live')) return 'Live';
   if (pathname.startsWith('/stream-settings')) return 'Stream settings';
   if (pathname.startsWith('/settings')) return 'Settings';
-  if (pathname.startsWith('/artist/songs')) return 'My Ores';
+  if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Ores';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'The Wake';
@@ -292,6 +292,11 @@ export default function DashboardLayout({
                       )}
                       {hasArtistCapability(profile?.role) && (
                         <>
+                          <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/songs')}>
+                              <Link href="/artist/songs">My Ores</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/upload')}>
                               <Link href="/artist/upload">Upload</Link>

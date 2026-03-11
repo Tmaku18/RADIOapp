@@ -100,34 +100,40 @@ export default function MySongsPage() {
     );
   }
 
-  if (error) {
-    return (
-      <Alert variant="destructive">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">My Ores</h1>
-          <p className="text-muted-foreground mt-1">Manage your ores and buy plays for approved tracks</p>
+          <p className="text-muted-foreground mt-1">Manage your uploaded songs and buy plays for approved tracks</p>
         </div>
         <Button onClick={() => router.push('/artist/upload')}>Upload New Ore</Button>
       </div>
 
-      {songs.length === 0 ? (
+      {error && (
+        <Alert variant="destructive" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <AlertDescription>{error}</AlertDescription>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => { setError(null); loadSongs(); }}>
+              Retry
+            </Button>
+            <Button size="sm" onClick={() => router.push('/artist/upload')}>
+              Upload Ore
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      {!error && songs.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <div className="text-6xl mb-4">🎵</div>
             <h3 className="text-lg font-medium text-foreground mb-2">No ores yet</h3>
-            <p className="text-muted-foreground mb-6">Upload your first ore to start promoting your music!</p>
+            <p className="text-muted-foreground mb-6">Upload your first song to get on the radio and buy plays for approved tracks.</p>
             <Button onClick={() => router.push('/artist/upload')}>Upload Your First Ore</Button>
           </CardContent>
         </Card>
-      ) : (
+      ) : !error ? (
         <Card>
           <Table>
             <TableHeader>
@@ -209,7 +215,7 @@ export default function MySongsPage() {
             </TableBody>
           </Table>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
