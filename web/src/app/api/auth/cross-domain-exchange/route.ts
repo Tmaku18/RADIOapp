@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendBaseUrl } from '@/lib/backend-url';
 
 /**
  * Exchange a one-time cross-domain token for a session cookie on this origin.
@@ -19,11 +20,7 @@ export async function POST(request: NextRequest) {
       request.nextUrl.origin;
     const currentHost = origin.replace(/\/$/, '');
 
-    const backendUrl =
-      process.env.BACKEND_URL ||
-      process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:3005';
-    const base = backendUrl.replace(/\/$/, '');
+    const base = getBackendBaseUrl();
     const res = await fetch(`${base}/api/auth/cross-domain-exchange`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

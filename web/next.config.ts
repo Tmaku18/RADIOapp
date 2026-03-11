@@ -14,11 +14,12 @@ const nextConfig: NextConfig = {
   async rewrites() {
     const raw =
       process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+    const trimmed = raw.trim().replace(/\/$/, "");
     const backendUrl =
-      raw.startsWith("http://") || raw.startsWith("https://")
-        ? raw
-        : "http://localhost:3000";
-    const normalized = backendUrl.replace(/\/$/, '');
+      trimmed.startsWith("http://") || trimmed.startsWith("https://")
+        ? trimmed
+        : `https://${trimmed}`;
+    const normalized = backendUrl;
     const apiHost = normalized.endsWith('/api')
       ? normalized.slice(0, -4)
       : normalized;

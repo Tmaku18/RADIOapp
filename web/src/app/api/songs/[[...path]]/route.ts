@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendBaseUrl } from '@/lib/backend-url';
 
-const backendUrl =
-  process.env.BACKEND_URL ||
-  process.env.NEXT_PUBLIC_API_URL ||
-  'http://localhost:3000';
-const base = backendUrl.replace(/\/$/, '');
+const base = getBackendBaseUrl();
 const apiBase = base.endsWith('/api') ? base : `${base}/api`;
 
 /**

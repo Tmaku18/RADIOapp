@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
+import { getBackendBaseUrl } from '@/lib/backend-url';
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
@@ -22,8 +23,8 @@ function formatListens(n: number): string {
 // Fetch platform stats from the API
 async function getHomepageData() {
   try {
-    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-    const response = await fetch(`${backendUrl}/api/analytics/platform`, {
+    const baseUrl = getBackendBaseUrl();
+    const response = await fetch(`${baseUrl}/api/analytics/platform`, {
       next: { revalidate: 60 }, // Cache for 60 seconds
     });
     
