@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
       : normalized;
     return {
       afterFiles: [
+        // Let /api/songs and /api/users be handled by App Route handlers (they use runtime BACKEND_URL)
+        { source: "/api/songs", destination: "/api/songs" },
+        { source: "/api/songs/:path*", destination: "/api/songs/:path*" },
+        { source: "/api/users", destination: "/api/users" },
+        { source: "/api/users/:path*", destination: "/api/users/:path*" },
+        // All other /api/* go to the backend
         {
           source: "/api/:path*",
           destination: `${apiHost}/api/:path*`,

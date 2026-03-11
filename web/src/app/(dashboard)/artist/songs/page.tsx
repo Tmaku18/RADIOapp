@@ -83,10 +83,11 @@ export default function MySongsPage() {
   const loadSongs = async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await songsApi.getMine();
       setSongs(response.data);
     } catch (err: unknown) {
-      setError(errorMessage(err, 'Failed to load ores'));
+      setError(errorMessage(err, 'Failed to load ores. If this persists, check that BACKEND_URL is set on Vercel.'));
     } finally {
       setLoading(false);
     }
