@@ -141,14 +141,6 @@ export default function JobBoardPage() {
 
   const isOwner = myId && requestDetail && requestDetail.artistId === myId;
 
-  if (profile && !isArtist) {
-    return (
-      <div className="flex items-center justify-center min-h-48">
-        <p className="text-muted-foreground">Redirecting...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="container max-w-4xl py-6 space-y-6">
       <div className="relative overflow-hidden rounded-2xl border border-primary/30 bg-artist-pro p-6">
