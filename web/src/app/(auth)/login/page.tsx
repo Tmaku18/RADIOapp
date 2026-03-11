@@ -34,8 +34,6 @@ function LoginForm() {
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
   const sessionExpired = searchParams.get('session_expired') === 'true';
-  const isProNetworxRedirect = (redirectParam ?? redirectTo ?? '').includes('pro-networx');
-  const [chooseRoleBeforeGoogle, setChooseRoleBeforeGoogle] = useState(false);
 
   // On discovermeradio.com, default to ProNetworx app (directory) so users land in the app after login
   useEffect(() => {
@@ -72,10 +70,6 @@ function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      // When user explicitly chose a role via "Choose your role", store it so AuthContext uses it
-      if (chooseRoleBeforeGoogle && typeof sessionStorage !== 'undefined') {
-        sessionStorage.setItem('radioapp_choose_role', '1');
-      }
       await signInWithGoogle();
     } catch (err) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -106,7 +100,6 @@ function LoginForm() {
           onCancel={cancelGoogleSignUp}
           loading={loading}
           error={displayError}
-          allowCatalyst={isProNetworxRedirect}
         />
       )}
       <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
@@ -143,18 +136,6 @@ function LoginForm() {
         </svg>
         <span>Continue with Google</span>
       </Button>
-
-      <p className="text-center text-sm text-muted-foreground mb-4">
-        Signing in as Artist or Catalyst?{' '}
-        <button
-          type="button"
-          onClick={() => setChooseRoleBeforeGoogle(true)}
-          className="text-primary font-medium hover:underline"
-        >
-          Choose your role
-        </button>
-        {' before continuing with Google.'}
-      </p>
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">

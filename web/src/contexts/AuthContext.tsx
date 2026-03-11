@@ -76,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [profile?.role]);
 
   const SIGNUP_ROLE_KEY = 'radioapp_signup_role';
-  const CHOOSE_ROLE_KEY = 'radioapp_choose_role';
 
   // Create Supabase profile (name + role). Role optional: when omitted, backend uses admin allowlist or listener.
   const createDefaultProfile = useCallback(async (firebaseUser: User, role?: 'listener' | 'artist' | 'service_provider') => {
@@ -87,23 +86,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     await fetchProfile();
   }, [fetchProfile]);
-
-  // Try getMe() with a small retry — handles race where session cookie isn't ready yet for existing users
-  const fetchProfileWithRetry = useCallback(async (): Promise<boolean> => {
-    for (let i = 0; i < 2; i++) {
-      try {
-        const response = await usersApi.getMe();
-        if (response.data) {
-          setProfile(response.data);
-          setPendingGoogleUser(null);
-          return true;
-        }
-      } catch {
-        if (i === 0) await new Promise(r => setTimeout(r, 500));
-      }
-    }
-    return false;
-  }, []);
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
@@ -118,10 +100,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
-        // Try to load existing profile (with retry for session-cookie race)
-        const found = await fetchProfileWithRetry();
-        if (!found) {
-          // New user: signup role in sessionStorage, admin allowlist, explicit choose-role flag, or default listener
+        try {
+          const response = await usersApi.getMe();
+          if (response.data) {
+            setProfile(response.data);
+            setPendingGoogleUser(null);
+          } else {
+            setProfile(null);
+          }
+        } catch {
+          // New user: signup role in sessionStorage, or admin allowlist, or show role modal
           let created = false;
           if (typeof window !== 'undefined') {
             const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
@@ -130,10 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               try {
                 await createDefaultProfile(firebaseUser, stored);
                 created = true;
-              } catch {
-                // Creation failed — user may already exist; retry getMe
-                const retryOk = await fetchProfileWithRetry();
-                if (retryOk) created = true;
+              } catch (createErr) {
+                const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+                setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
+                setProfile(null);
               }
             }
             if (!created) {
@@ -144,22 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   created = true;
                 }
               } catch {
-                // ignore
-              }
-            }
-            // If user explicitly asked to choose role, show modal; otherwise default to listener
-            if (!created) {
-              const wantsToChoose = sessionStorage.getItem(CHOOSE_ROLE_KEY);
-              if (wantsToChoose) {
-                sessionStorage.removeItem(CHOOSE_ROLE_KEY);
-              } else {
-                try {
-                  await createDefaultProfile(firebaseUser, 'listener');
-                  created = true;
-                } catch {
-                  const retryOk = await fetchProfileWithRetry();
-                  if (retryOk) created = true;
-                }
+                // ignore; will show role modal
               }
             }
           }
@@ -186,54 +159,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const firebaseUser = await signInWithGoogle();
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
-      // Try to load existing profile (with retry for session-cookie race)
-      const found = await fetchProfileWithRetry();
-      if (found) {
-        setLoading(false);
-        return;
-      }
-
-      // New user: signup role in sessionStorage, admin allowlist, explicit choose-role, or default listener
-      if (typeof window !== 'undefined') {
-        const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
-        if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
-          sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+      try {
+        const response = await usersApi.getMe();
+        if (response.data) {
+          setProfile(response.data);
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // New user: signup role in sessionStorage, or admin allowlist, or ask (set pending)
+        if (typeof window !== 'undefined') {
+          const stored = sessionStorage.getItem(SIGNUP_ROLE_KEY);
+          if (stored === 'artist' || stored === 'listener' || stored === 'service_provider') {
+            sessionStorage.removeItem(SIGNUP_ROLE_KEY);
+            try {
+              await createDefaultProfile(firebaseUser, stored);
+              setLoading(false);
+              return;
+            } catch (createErr) {
+              const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
+              setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
+              throw createErr;
+            }
+          }
           try {
-            await createDefaultProfile(firebaseUser, stored);
-            setLoading(false);
-            return;
+            const { data } = await usersApi.checkAdmin();
+            if (data?.isAdmin) {
+              await createDefaultProfile(firebaseUser);
+              setLoading(false);
+              return;
+            }
           } catch {
-            const retryOk = await fetchProfileWithRetry();
-            if (retryOk) { setLoading(false); return; }
+            // ignore; will show role modal
           }
         }
-        try {
-          const { data } = await usersApi.checkAdmin();
-          if (data?.isAdmin) {
-            await createDefaultProfile(firebaseUser);
-            setLoading(false);
-            return;
-          }
-        } catch {
-          // ignore
-        }
-        // If user explicitly asked to choose role, show modal; otherwise default to listener
-        const wantsToChoose = sessionStorage.getItem(CHOOSE_ROLE_KEY);
-        if (wantsToChoose) {
-          sessionStorage.removeItem(CHOOSE_ROLE_KEY);
-        } else {
-          try {
-            await createDefaultProfile(firebaseUser, 'listener');
-            setLoading(false);
-            return;
-          } catch {
-            const retryOk = await fetchProfileWithRetry();
-            if (retryOk) { setLoading(false); return; }
-          }
-        }
+        setPendingGoogleUser({ firebaseUser, idToken });
+        setProfile(null);
       }
-      setPendingGoogleUser({ firebaseUser, idToken });
-      setProfile(null);
       setLoading(false);
     } catch (err) {
       const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -265,15 +227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetchProfile();
       setPendingGoogleUser(null);
     } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
       const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const fallback =
-        status === 404
-          ? 'Sign-up service unavailable. Please try again later or contact support.'
-          : err instanceof Error
-            ? err.message
-            : 'Failed to complete sign up';
-      const message = apiMessage ?? fallback;
+      const message = apiMessage ?? (err instanceof Error ? err.message : 'Failed to complete sign up');
       setError(message);
       throw err;
     } finally {
