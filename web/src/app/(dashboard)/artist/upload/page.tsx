@@ -9,6 +9,18 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+type ApiError = { response?: { data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 export default function UploadPage() {
   const router = useRouter();
   const audioInputRef = useRef<HTMLInputElement>(null);
@@ -166,7 +178,7 @@ export default function UploadPage() {
       setReadyForRotation(true);
     } catch (err) {
       console.error('Upload failed:', err);
-      setError(err instanceof Error ? err.message : 'Upload failed. Please try again.');
+      setError(errorMessage(err, 'Upload failed. Please try again.'));
     } finally {
       setIsUploading(false);
     }
