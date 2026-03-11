@@ -127,7 +127,44 @@ export class AdminController {
     return { user };
   }
 
+  // ========== Radios (stations) – for fallback multi-select, state-scoped ==========
+
+  @Get('radios')
+  getRadios(@Query('state') stateCode?: string) {
+    return { radios: this.adminService.getRadios(stateCode) };
+  }
+
   // ========== Fallback Playlist Endpoints ==========
+
+  @Get('fallback-songs/grouped')
+  async getFallbackSongsGrouped() {
+    const songs = await this.adminService.getFallbackSongsGrouped();
+    return { songs };
+  }
+
+  @Patch('fallback-songs/:id/radios')
+  async setFallbackSongRadios(
+    @Param('id') representativeRowId: string,
+    @Body() body: { radioIds: string[] },
+  ) {
+    return this.adminService.setFallbackSongRadios(
+      representativeRowId,
+      Array.isArray(body.radioIds) ? body.radioIds : [],
+    );
+  }
+
+  @Patch('fallback-songs/:id/group')
+  async updateFallbackSongGroup(
+    @Param('id') representativeRowId: string,
+    @Body() dto: { isActive?: boolean },
+  ) {
+    return this.adminService.updateFallbackSongGroup(representativeRowId, dto);
+  }
+
+  @Delete('fallback-songs/:id/group')
+  async deleteFallbackSongGroup(@Param('id') representativeRowId: string) {
+    return this.adminService.deleteFallbackSongGroup(representativeRowId);
+  }
 
   @Get('fallback-songs')
   async getFallbackSongs(@Query('radio') radioId?: string) {

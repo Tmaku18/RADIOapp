@@ -37,7 +37,12 @@ function roleToLabel(role: string): string {
   }
 }
 
-export function RadioPlayer() {
+interface RadioPlayerProps {
+  /** Station/radio id (e.g. ga-nw-rap). When set, track and heartbeat use this radio. */
+  radioId?: string;
+}
+
+export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
@@ -93,7 +98,7 @@ export function RadioPlayer() {
     
     try {
       // Immediately fetch and play next track
-      const response = await radioApi.getCurrentTrack();
+      const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
       
       // Check for no_content flag
@@ -220,11 +225,14 @@ export function RadioPlayer() {
     let cancelled = false;
     const send = async () => {
       try {
-        const res = await radioApi.sendHeartbeat({
-          streamToken: streamTokenRef.current,
-          songId: state.track!.id,
-          timestamp: new Date().toISOString(),
-        });
+        const res = await radioApi.sendHeartbeat(
+          {
+            streamToken: streamTokenRef.current,
+            songId: state.track!.id,
+            timestamp: new Date().toISOString(),
+          },
+          radioId,
+        );
         if (cancelled) return;
         const sessionId = res?.data?.sessionId;
         lastHeartbeatSessionIdRef.current = typeof sessionId === 'string' ? sessionId : null;
@@ -242,12 +250,12 @@ export function RadioPlayer() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [isProspector, state.track?.id, state.isPlaying]);
+  }, [isProspector, state.track?.id, state.isPlaying, radioId]);
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
     try {
-      const response = await radioApi.getCurrentTrack();
+      const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
       
       // Check for no_content flag (or backend returned it on error)
@@ -314,7 +322,7 @@ export function RadioPlayer() {
       setPinnedCatalysts([]);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
-  }, [actions, state.track, state.isLive, hasUserInteracted]);
+  }, [actions, state.track, state.isLive, hasUserInteracted, radioId]);
 
   // Reset vote state when play changes
   useEffect(() => {

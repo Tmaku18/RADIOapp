@@ -60,13 +60,16 @@ api.interceptors.response.use(
 
 // API methods for different endpoints
 export const radioApi = {
-  getCurrentTrack: () => api.get('/radio/current'),
-  getNextTrack: () => api.get('/radio/next'),
-  getStream: () => api.get('/radio/stream'),
-  sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }) => 
-    api.post('/radio/heartbeat', data),
-  reportPlay: (data: { songId: string; skipped?: boolean }) => 
-    api.post('/radio/play', data),
+  getCurrentTrack: (radioId?: string) =>
+    api.get('/radio/current', { params: radioId ? { radio: radioId } : undefined }),
+  getNextTrack: (radioId?: string) =>
+    api.get('/radio/next', { params: radioId ? { radio: radioId } : undefined }),
+  getStream: (radioId?: string) =>
+    api.get('/radio/stream', { params: radioId ? { radio: radioId } : undefined }),
+  sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
+    api.post('/radio/heartbeat', data, { params: radioId ? { radio: radioId } : undefined }),
+  reportPlay: (data: { songId: string; skipped?: boolean }, radioId?: string) =>
+    api.post('/radio/play', data, { params: radioId ? { radio: radioId } : undefined }),
 };
 
 export const prospectorApi = {
@@ -436,17 +439,30 @@ export const adminApi = {
   lifetimeBanUser: (id: string, reason?: string) =>
     api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
   deleteUserAccount: (id: string) => api.delete(`/admin/users/${id}`),
+  // Radios (stations) – state-scoped for fallback multi-select
+  getRadios: (state?: string) =>
+    api.get<{ radios: Array<{ id: string; state: string; label: string }> }>('/admin/radios', { params: state ? { state } : undefined }),
   // Fallback playlist management
-  getFallbackSongs: () => api.get('/admin/fallback-songs'),
+  getFallbackSongs: (radio?: string) =>
+    api.get('/admin/fallback-songs', { params: radio ? { radio } : undefined }),
+  getFallbackSongsGrouped: () =>
+    api.get<{ songs: Array<{ id: string; title: string; artist_name: string; audio_url: string; artwork_url: string | null; duration_seconds: number; is_active: boolean; created_at: string; radio_ids: string[] }> }>('/admin/fallback-songs/grouped'),
+  setFallbackSongRadios: (id: string, radioIds: string[]) =>
+    api.patch(`/admin/fallback-songs/${id}/radios`, { radioIds }),
+  updateFallbackSongGroup: (id: string, data: { isActive?: boolean }) =>
+    api.patch(`/admin/fallback-songs/${id}/group`, data),
+  deleteFallbackSongGroup: (id: string) =>
+    api.delete(`/admin/fallback-songs/${id}/group`),
   addFallbackSong: (data: { title: string; artistName: string; audioUrl: string; artworkUrl?: string; durationSeconds?: number }) =>
     api.post('/admin/fallback-songs', data),
   addFallbackSongFromUpload: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) =>
     api.post('/admin/fallback-songs/from-upload', data),
-  addFallbackSongFromSong: (songId: string) =>
-    api.post(`/admin/fallback-songs/from-song/${songId}`),
-  updateFallbackSong: (id: string, data: { isActive?: boolean }) =>
-    api.patch(`/admin/fallback-songs/${id}`, data),
-  deleteFallbackSong: (id: string) => api.delete(`/admin/fallback-songs/${id}`),
+  addFallbackSongFromSong: (songId: string, radio?: string) =>
+    api.post(`/admin/fallback-songs/from-song/${songId}`, {}, { params: radio ? { radio } : undefined }),
+  updateFallbackSong: (id: string, data: { isActive?: boolean }, radio?: string) =>
+    api.patch(`/admin/fallback-songs/${id}`, data, { params: radio ? { radio } : undefined }),
+  deleteFallbackSong: (id: string, radio?: string) =>
+    api.delete(`/admin/fallback-songs/${id}`, { params: radio ? { radio } : undefined }),
   // Free rotation management (Item 5)
   searchSongsForFreeRotation: (query: string) => 
     api.get('/admin/free-rotation/search/songs', { params: { q: query } }),

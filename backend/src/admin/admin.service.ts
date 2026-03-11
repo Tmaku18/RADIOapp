@@ -241,7 +241,178 @@ export class AdminService {
     return data;
   }
 
+  // ========== Radios (stations) – used for fallback multi-select, state-scoped ==========
+
+  /** Radios/stations (id, state, label). Match web/src/data/station-map.ts TOWERS for consistency. */
+  getRadios(stateCode?: string): { id: string; state: string; label: string }[] {
+    const radios = [
+      { id: 'ga-nw-rap', state: 'GA', label: 'Rap (Rome)' },
+      { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
+      { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
+      { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },
+      { id: 'default', state: 'GA', label: 'Default' },
+    ];
+    if (stateCode?.trim()) {
+      return radios.filter((r) => r.state === stateCode.trim());
+    }
+    return radios;
+  }
+
   // ========== Fallback Playlist Management ==========
+
+  /** All fallback rows grouped by (title, artist_name, audio_url); each group has radio_ids[]. */
+  async getFallbackSongsGrouped(): Promise<
+    {
+      id: string;
+      title: string;
+      artist_name: string;
+      audio_url: string;
+      artwork_url: string | null;
+      duration_seconds: number;
+      is_active: boolean;
+      created_at: string;
+      radio_ids: string[];
+    }[]
+  > {
+    const supabase = getSupabaseClient();
+    const { data: rows, error } = await supabase
+      .from('admin_fallback_songs')
+      .select('id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active, created_at, radio_id')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(`Failed to fetch fallback songs: ${error.message}`);
+    }
+
+    const key = (r: { title: string; artist_name: string; audio_url: string }) =>
+      `${r.title}|${r.artist_name}|${r.audio_url}`;
+    const groups = new Map<
+      string,
+      { id: string; title: string; artist_name: string; audio_url: string; artwork_url: string | null; duration_seconds: number; is_active: boolean; created_at: string; radio_ids: string[] }
+    >();
+    for (const r of rows || []) {
+      const k = key(r);
+      if (!groups.has(k)) {
+        groups.set(k, {
+          id: r.id,
+          title: r.title,
+          artist_name: r.artist_name,
+          audio_url: r.audio_url,
+          artwork_url: r.artwork_url ?? null,
+          duration_seconds: r.duration_seconds ?? 180,
+          is_active: r.is_active ?? true,
+          created_at: r.created_at,
+          radio_ids: [],
+        });
+      }
+      const g = groups.get(k)!;
+      if (!g.radio_ids.includes(r.radio_id)) {
+        g.radio_ids.push(r.radio_id);
+      }
+    }
+    return Array.from(groups.values());
+  }
+
+  /** Set which radios a fallback song (group) is on. Replaces all rows for that content with one row per radio. */
+  async setFallbackSongRadios(representativeRowId: string, radioIds: string[]) {
+    const supabase = getSupabaseClient();
+    const { data: row, error: fetchError } = await supabase
+      .from('admin_fallback_songs')
+      .select('id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active')
+      .eq('id', representativeRowId)
+      .single();
+
+    if (fetchError || !row) {
+      throw new NotFoundException('Fallback song not found');
+    }
+
+    const contentKey = `${row.title}|${row.artist_name}|${row.audio_url}`;
+    const { data: existing } = await supabase
+      .from('admin_fallback_songs')
+      .select('id')
+      .eq('title', row.title)
+      .eq('artist_name', row.artist_name)
+      .eq('audio_url', row.audio_url);
+
+    const idsToDelete = (existing || []).map((r) => r.id);
+    if (idsToDelete.length > 0) {
+      const { error: delError } = await supabase
+        .from('admin_fallback_songs')
+        .delete()
+        .in('id', idsToDelete);
+      if (delError) {
+        throw new BadRequestException(`Failed to update radios: ${delError.message}`);
+      }
+    }
+
+    const distinctRadios = [...new Set(radioIds.filter((id) => id?.trim()))];
+    if (distinctRadios.length === 0) {
+      return { updated: true, radio_ids: [] };
+    }
+
+    const inserts = distinctRadios.map((radio_id) => ({
+      radio_id,
+      title: row.title,
+      artist_name: row.artist_name,
+      audio_url: row.audio_url,
+      artwork_url: row.artwork_url ?? null,
+      duration_seconds: row.duration_seconds ?? 180,
+      is_active: row.is_active ?? true,
+    }));
+    const { error: insertError } = await supabase.from('admin_fallback_songs').insert(inserts);
+    if (insertError) {
+      throw new BadRequestException(`Failed to set radios: ${insertError.message}`);
+    }
+    return { updated: true, radio_ids: distinctRadios };
+  }
+
+  /** Update is_active for all rows that share the same content as the given row (all radios). */
+  async updateFallbackSongGroup(representativeRowId: string, dto: { isActive?: boolean }) {
+    const supabase = getSupabaseClient();
+    const { data: row, error: fetchError } = await supabase
+      .from('admin_fallback_songs')
+      .select('id, title, artist_name, audio_url')
+      .eq('id', representativeRowId)
+      .single();
+    if (fetchError || !row) {
+      throw new NotFoundException('Fallback song not found');
+    }
+    const updatePayload: { is_active?: boolean; updated_at: string } = { updated_at: new Date().toISOString() };
+    if (dto.isActive !== undefined) updatePayload.is_active = dto.isActive;
+    const { error: updateError } = await supabase
+      .from('admin_fallback_songs')
+      .update(updatePayload)
+      .eq('title', row.title)
+      .eq('artist_name', row.artist_name)
+      .eq('audio_url', row.audio_url);
+    if (updateError) {
+      throw new BadRequestException(`Failed to update fallback song: ${updateError.message}`);
+    }
+    return { updated: true };
+  }
+
+  /** Delete all rows that share the same content (remove song from all radios). */
+  async deleteFallbackSongGroup(representativeRowId: string) {
+    const supabase = getSupabaseClient();
+    const { data: row, error: fetchError } = await supabase
+      .from('admin_fallback_songs')
+      .select('id, title, artist_name, audio_url')
+      .eq('id', representativeRowId)
+      .single();
+    if (fetchError || !row) {
+      throw new NotFoundException('Fallback song not found');
+    }
+    const { error: delError } = await supabase
+      .from('admin_fallback_songs')
+      .delete()
+      .eq('title', row.title)
+      .eq('artist_name', row.artist_name)
+      .eq('audio_url', row.audio_url);
+    if (delError) {
+      throw new BadRequestException(`Failed to delete fallback song: ${delError.message}`);
+    }
+    return { deleted: true };
+  }
 
   async getFallbackSongs(radioId: string = 'default') {
     const supabase = getSupabaseClient();

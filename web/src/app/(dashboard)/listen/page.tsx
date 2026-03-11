@@ -125,7 +125,7 @@ export default function ListenPage() {
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
             <Card className="relative now-playing-deck">
               <CardContent className="pt-6">
-                <RadioPlayer />
+                <RadioPlayer radioId={stationId ?? undefined} />
               </CardContent>
             </Card>
           </div>

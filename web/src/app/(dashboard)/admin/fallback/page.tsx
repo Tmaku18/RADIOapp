@@ -9,25 +9,47 @@ import { Card } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+} from '@/components/ui/dropdown-menu';
 
-interface FallbackSong {
+interface RadioOption {
+  id: string;
+  state: string;
+  label: string;
+}
+
+interface FallbackSongGrouped {
   id: string;
   title: string;
   artist_name: string;
   audio_url: string;
-  artwork_url?: string;
+  artwork_url: string | null;
   duration_seconds: number;
   is_active: boolean;
   created_at: string;
+  radio_ids: string[];
 }
+
+const DEFAULT_STATE = 'GA';
 
 export default function AdminFallbackPage() {
   const searchParams = useSearchParams();
-  const [songs, setSongs] = useState<FallbackSong[]>([]);
+  const [songs, setSongs] = useState<FallbackSongGrouped[]>([]);
+  const [radios, setRadios] = useState<RadioOption[]>([]);
+  const [stateFilter, setStateFilter] = useState(DEFAULT_STATE);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
+
+  useEffect(() => {
+    loadRadios();
+  }, [stateFilter]);
 
   useEffect(() => {
     loadSongs();
@@ -40,10 +62,20 @@ export default function AdminFallbackPage() {
     }
   }, [searchParams]);
 
+  const loadRadios = async () => {
+    try {
+      const res = await adminApi.getRadios(stateFilter);
+      setRadios(res.data?.radios ?? []);
+    } catch {
+      setRadios([]);
+    }
+  };
+
   const loadSongs = async () => {
     try {
-      const response = await adminApi.getFallbackSongs();
-      setSongs(response.data.songs || []);
+      const response = await adminApi.getFallbackSongsGrouped();
+      setSongs(response.data?.songs ?? []);
+      setError(null);
     } catch (err) {
       console.error('Failed to load fallback songs:', err);
       setError('Failed to load fallback playlist');
@@ -52,13 +84,29 @@ export default function AdminFallbackPage() {
     }
   };
 
+  const handleRadiosChange = async (songId: string, newRadioIds: string[]) => {
+    setActionLoading(songId);
+    setError(null);
+    try {
+      await adminApi.setFallbackSongRadios(songId, newRadioIds);
+      setSongs((prev) =>
+        prev.map((s) => (s.id === songId ? { ...s, radio_ids: newRadioIds } : s))
+      );
+    } catch (err) {
+      console.error('Failed to update radios:', err);
+      setError('Failed to update which radios this song is on');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const handleToggleActive = async (songId: string, currentActive: boolean) => {
     setActionLoading(songId);
     try {
-      await adminApi.updateFallbackSong(songId, { isActive: !currentActive });
-      setSongs(songs.map(s =>
-        s.id === songId ? { ...s, is_active: !currentActive } : s
-      ));
+      await adminApi.updateFallbackSongGroup(songId, { isActive: !currentActive });
+      setSongs((prev) =>
+        prev.map((s) => (s.id === songId ? { ...s, is_active: !currentActive } : s))
+      );
     } catch (err) {
       console.error('Failed to update song:', err);
       setError('Failed to update song');
@@ -68,14 +116,13 @@ export default function AdminFallbackPage() {
   };
 
   const handleDelete = async (songId: string) => {
-    if (!confirm('Are you sure you want to delete this song from the fallback playlist?')) {
+    if (!confirm('Remove this song from the fallback playlist on all radios?')) {
       return;
     }
-
     setActionLoading(songId);
     try {
-      await adminApi.deleteFallbackSong(songId);
-      setSongs(songs.filter(s => s.id !== songId));
+      await adminApi.deleteFallbackSongGroup(songId);
+      setSongs((prev) => prev.filter((s) => s.id !== songId));
     } catch (err) {
       console.error('Failed to delete song:', err);
       setError('Failed to delete song');
@@ -90,7 +137,9 @@ export default function AdminFallbackPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const activeCount = songs.filter(s => s.is_active).length;
+  const getRadioLabel = (radioId: string) => radios.find((r) => r.id === radioId)?.label ?? radioId;
+
+  const activeCount = songs.filter((s) => s.is_active).length;
 
   if (loading) {
     return (
@@ -102,18 +151,30 @@ export default function AdminFallbackPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Fallback Playlist</h1>
           <p className="text-gray-600 mt-1">
-            These songs play when no credited or opt-in songs are available.
+            These songs play when no credited or opt-in songs are available. Assign each song to one
+            or more radios (limited to state so it stays local).
             {activeCount > 0 && ` ${activeCount} active songs.`}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button asChild><Link href="/admin/fallback/upload">Upload Song</Link></Button>
-          <Button variant="outline" asChild><Link href="/admin/fallback/song-database">View Song Database</Link></Button>
+        <div className="flex gap-2 items-center">
+          <span className="text-sm text-muted-foreground">State:</span>
+          <select
+            className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
+            value={stateFilter}
+            onChange={(e) => setStateFilter(e.target.value)}
+          >
+            <option value="GA">GA</option>
+          </select>
+          <Button asChild>
+            <Link href="/admin/fallback/upload">Upload Song</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link href="/admin/fallback/song-database">View Song Database</Link>
+          </Button>
         </div>
       </div>
 
@@ -121,7 +182,13 @@ export default function AdminFallbackPage() {
         <Alert>
           <AlertDescription>
             Song uploaded successfully.
-            <Button variant="link" className="ml-2 p-0 h-auto" onClick={() => setUploadSuccess(false)}>Dismiss</Button>
+            <Button
+              variant="link"
+              className="ml-2 p-0 h-auto"
+              onClick={() => setUploadSuccess(false)}
+            >
+              Dismiss
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -130,7 +197,9 @@ export default function AdminFallbackPage() {
         <Alert variant="destructive">
           <AlertDescription>
             {error}
-            <Button variant="link" className="ml-2 p-0 h-auto text-destructive" onClick={() => setError(null)}>Dismiss</Button>
+            <Button variant="link" className="ml-2 p-0 h-auto text-destructive" onClick={() => setError(null)}>
+              Dismiss
+            </Button>
           </AlertDescription>
         </Alert>
       )}
@@ -140,7 +209,9 @@ export default function AdminFallbackPage() {
           <div className="p-12 text-center text-muted-foreground">
             <div className="text-4xl mb-4">🎵</div>
             <p>No fallback songs yet.</p>
-            <p className="text-sm mt-2">Add royalty-free or licensed music for when no paid content is available.</p>
+            <p className="text-sm mt-2">
+              Add royalty-free or licensed music for when no paid content is available.
+            </p>
           </div>
         ) : (
           <Table>
@@ -149,6 +220,7 @@ export default function AdminFallbackPage() {
                 <TableHead>Song</TableHead>
                 <TableHead>Artist</TableHead>
                 <TableHead>Duration</TableHead>
+                <TableHead>Radios</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -180,16 +252,70 @@ export default function AdminFallbackPage() {
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{song.artist_name}</TableCell>
-                  <TableCell className="text-muted-foreground font-mono text-sm">{formatDuration(song.duration_seconds)}</TableCell>
+                  <TableCell className="text-muted-foreground font-mono text-sm">
+                    {formatDuration(song.duration_seconds)}
+                  </TableCell>
                   <TableCell>
-                    <Badge variant={song.is_active ? 'default' : 'secondary'}>{song.is_active ? 'Active' : 'Inactive'}</Badge>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={actionLoading === song.id}
+                          className="min-w-[140px] justify-between"
+                        >
+                          {song.radio_ids.length === 0
+                            ? 'Select radios'
+                            : song.radio_ids.length === 1
+                              ? getRadioLabel(song.radio_ids[0])
+                              : `${song.radio_ids.length} radios`}
+                          <span className="ml-1">▾</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto">
+                        <DropdownMenuLabel>Add to radio (state: {stateFilter})</DropdownMenuLabel>
+                        {radios.map((radio) => {
+                          const checked = song.radio_ids.includes(radio.id);
+                          return (
+                            <DropdownMenuCheckboxItem
+                              key={radio.id}
+                              checked={checked}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                const next = checked
+                                  ? song.radio_ids.filter((id) => id !== radio.id)
+                                  : [...song.radio_ids, radio.id];
+                                handleRadiosChange(song.id, next);
+                              }}
+                            >
+                              {radio.label}
+                            </DropdownMenuCheckboxItem>
+                          );
+                        })}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={song.is_active ? 'default' : 'secondary'}>
+                      {song.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button size="sm" variant={song.is_active ? 'secondary' : 'default'} onClick={() => handleToggleActive(song.id, song.is_active)} disabled={actionLoading === song.id}>
+                      <Button
+                        size="sm"
+                        variant={song.is_active ? 'secondary' : 'default'}
+                        onClick={() => handleToggleActive(song.id, song.is_active)}
+                        disabled={actionLoading === song.id}
+                      >
                         {song.is_active ? 'Deactivate' : 'Activate'}
                       </Button>
-                      <Button size="sm" variant="destructive" onClick={() => handleDelete(song.id)} disabled={actionLoading === song.id}>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleDelete(song.id)}
+                        disabled={actionLoading === song.id}
+                      >
                         Delete
                       </Button>
                     </div>
