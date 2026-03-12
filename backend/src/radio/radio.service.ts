@@ -790,8 +790,12 @@ export class RadioService {
           (s as { audio_url?: string | null }).audio_url ?? null,
         ),
       );
-      const candidateSongs =
-        preferredForWeb.length > 0 ? preferredForWeb : songsData;
+      // Avoid collapsing rotation to one repeating song. If preferred subset has
+      // fewer than 2 tracks while the full pool has more, keep the full pool.
+      const usePreferredSubset =
+        preferredForWeb.length > 0 &&
+        (preferredForWeb.length >= 2 || songsData.length === 1);
+      const candidateSongs = usePreferredSubset ? preferredForWeb : songsData;
       const candidateIds = new Set(candidateSongs.map((candidate) => candidate.id));
       for (const s of songsData) {
         const artistId =
