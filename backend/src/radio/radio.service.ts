@@ -40,6 +40,9 @@ const CHECKPOINT_INTERVAL = parseInt(
   10,
 );
 
+/** Rap radio: we temporarily do not require paid_play_count for free rotation so it can play nonstop (uploaded songs are rap). */
+const RAP_RADIO_ID = 'ga-nw-rap';
+
 // Trial-by-Fire window (daily, UTC)
 // Defaults: off unless TRIAL_BY_FIRE_START_UTC is set.
 // Format: "HH:MM" (24h)
@@ -725,12 +728,17 @@ export class RadioService {
       }
     }
 
-    const { data: songsData, error: songsError } = await supabase
+    let songsQuery = supabase
       .from('songs')
       .select('id, artist_id')
       .eq('status', 'approved')
       .eq('admin_free_rotation', true)
       .eq('opt_in_free_play', true);
+    // Temporarily skip paid-play requirement for rap radio so it can play nonstop (uploaded songs are only rap)
+    if (radioId !== RAP_RADIO_ID) {
+      songsQuery = songsQuery.gt('paid_play_count', 0);
+    }
+    const { data: songsData, error: songsError } = await songsQuery;
 
     if (songsError) {
       this.logger.error(
@@ -833,14 +841,18 @@ export class RadioService {
       .single();
     if (adminData) return { ...adminData, _source: 'admin_fallback' as const };
 
-    const { data: songData } = await supabase
+    let songQuery = supabase
       .from('songs')
       .select('*')
       .eq('id', stackId)
       .eq('status', 'approved')
       .eq('admin_free_rotation', true)
-      .eq('opt_in_free_play', true)
-      .single();
+      .eq('opt_in_free_play', true);
+    // Rap radio: do not require paid_play_count (see RAP_RADIO_ID / getAllFreeRotationSongs)
+    if (radioId !== RAP_RADIO_ID) {
+      songQuery = songQuery.gt('paid_play_count', 0);
+    }
+    const { data: songData } = await songQuery.single();
     if (songData) return { ...songData, _source: 'songs' as const };
 
     return null;
