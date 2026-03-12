@@ -25,15 +25,37 @@ export class AdminController {
 
   /**
    * Helper to get admin's database user ID from Firebase UID.
+   * Falls back to email and backfills firebase_uid when needed.
    */
-  private async getAdminDbId(firebaseUid: string): Promise<string> {
+  private async getAdminDbId(
+    firebaseUid: string,
+    email?: string | null,
+  ): Promise<string | null> {
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('users')
       .select('id')
       .eq('firebase_uid', firebaseUid)
       .single();
-    return data?.id;
+    if (data?.id) return data.id;
+
+    const normalizedEmail = email?.trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const { data: byEmail } = await supabase
+      .from('users')
+      .select('id, role, firebase_uid')
+      .eq('email', normalizedEmail)
+      .single();
+    if (!byEmail?.id || byEmail.role !== 'admin') return null;
+
+    if (byEmail.firebase_uid !== firebaseUid) {
+      await supabase
+        .from('users')
+        .update({ firebase_uid: firebaseUid })
+        .eq('id', byEmail.id);
+    }
+    return byEmail.id;
   }
 
   @Get('songs')
@@ -62,7 +84,10 @@ export class AdminController {
     @Param('id') songId: string,
     @Body() dto: UpdateSongStatusDto,
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) {
+      throw new BadRequestException('Admin user not found');
+    }
     const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason, adminId);
     return { song };
   }
@@ -214,7 +239,7 @@ export class AdminController {
     @Query('radio') radioId?: string,
   ) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
-    const adminId = await this.getAdminDbId(user.uid);
+    const adminId = await this.getAdminDbId(user.uid, user.email);
     if (!adminId) {
       throw new BadRequestException('Admin user not found');
     }
@@ -261,7 +286,8 @@ export class AdminController {
     @Param('id') userId: string,
     @Body() dto: { reason: string; deleteData?: boolean },
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
     const result = await this.adminService.hardBanUser(
       userId,
       adminId,
@@ -281,7 +307,8 @@ export class AdminController {
     @Param('id') userId: string,
     @Body() dto: { reason: string },
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
     const result = await this.adminService.shadowBanUser(userId, adminId, dto.reason);
     return result;
   }
@@ -304,7 +331,8 @@ export class AdminController {
     @CurrentUser() admin: FirebaseUser,
     @Param('id') userId: string,
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
     if (adminId === userId) {
       throw new BadRequestException('Cannot delete your own account');
     }
@@ -322,7 +350,8 @@ export class AdminController {
     @Param('id') userId: string,
     @Body() dto: { reason?: string },
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
     const result = await this.adminService.lifetimeBanUser(userId, adminId, dto.reason || 'Lifetime ban by admin');
     return result;
   }
@@ -389,7 +418,7 @@ export class AdminController {
 
   @Post('live/start')
   async startLive(@CurrentUser() admin: FirebaseUser) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
     if (!adminId) throw new BadRequestException('Admin user not found');
     return this.adminService.startLiveBroadcast(adminId);
   }
@@ -416,7 +445,7 @@ export class AdminController {
     @CurrentUser() admin: FirebaseUser,
     @Param('contentId') contentId: string,
   ) {
-    const adminId = await this.getAdminDbId(admin.uid);
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
     if (!adminId) throw new BadRequestException('Admin user not found');
     await this.adminService.removeFromFeed(contentId, adminId);
     return { removed: true };

@@ -671,13 +671,17 @@ export class RadioService {
     });
 
     if (eligibleSongs.length === 0) return null;
+    const webPlayableSongs = eligibleSongs.filter((song) =>
+      hasPreferredWebAudioExtension(song.audio_url),
+    );
+    if (webPlayableSongs.length === 0) return null;
 
     const selectedSong = this.selectWeightedRandom(
-      eligibleSongs,
+      webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,
     );
-    return { song: selectedSong, competingSongs: eligibleSongs.length };
+    return { song: selectedSong, competingSongs: webPlayableSongs.length };
   }
 
   /**
@@ -699,13 +703,17 @@ export class RadioService {
       .lte('credits_remaining', 0);
 
     if (!songs || songs.length === 0) return null;
+    const webPlayableSongs = songs.filter((song) =>
+      hasPreferredWebAudioExtension(song.audio_url),
+    );
+    if (webPlayableSongs.length === 0) return null;
 
     const selectedSong = this.selectWeightedRandom(
-      songs,
+      webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,
     );
-    return { song: selectedSong, competingSongs: songs.length };
+    return { song: selectedSong, competingSongs: webPlayableSongs.length };
   }
 
   /**
@@ -727,13 +735,17 @@ export class RadioService {
       .lte('credits_remaining', 0);
 
     if (!songs || songs.length === 0) return null;
+    const webPlayableSongs = songs.filter((song) =>
+      hasPreferredWebAudioExtension(song.audio_url),
+    );
+    if (webPlayableSongs.length === 0) return null;
 
     const selectedSong = this.selectWeightedRandom(
-      songs,
+      webPlayableSongs,
       currentSongId,
       lastPlayedArtistId,
     );
-    return { song: selectedSong, competingSongs: songs.length };
+    return { song: selectedSong, competingSongs: webPlayableSongs.length };
   }
 
   // === Free Rotation Stack Methods ===
@@ -790,12 +802,8 @@ export class RadioService {
           (s as { audio_url?: string | null }).audio_url ?? null,
         ),
       );
-      // Avoid collapsing rotation to one repeating song. If preferred subset has
-      // fewer than 2 tracks while the full pool has more, keep the full pool.
-      const usePreferredSubset =
-        preferredForWeb.length > 0 &&
-        (preferredForWeb.length >= 2 || songsData.length === 1);
-      const candidateSongs = usePreferredSubset ? preferredForWeb : songsData;
+      // Keep rotation web-playable to avoid "silent spinner / no audio" tracks.
+      const candidateSongs = preferredForWeb;
       const candidateIds = new Set(candidateSongs.map((candidate) => candidate.id));
       for (const s of songsData) {
         const artistId =
