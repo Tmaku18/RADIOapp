@@ -717,7 +717,8 @@ export class RadioService {
   }
 
   /**
-   * Get opt-in song for free rotation after trial plays are exhausted.
+   * Get free-rotation eligible song after trial plays are exhausted.
+   * Admin controls free rotation eligibility via admin_free_rotation.
    * Prefers a different artist than last played (artist spacing).
    */
   private async getOptInSong(
@@ -730,7 +731,7 @@ export class RadioService {
       .from('songs')
       .select('*')
       .eq('status', 'approved')
-      .eq('opt_in_free_play', true)
+      .eq('admin_free_rotation', true)
       .lte('trial_plays_remaining', 0)
       .lte('credits_remaining', 0);
 
@@ -784,8 +785,7 @@ export class RadioService {
       .from('songs')
       .select('id, artist_id, audio_url')
       .eq('status', 'approved')
-      .eq('admin_free_rotation', true)
-      .eq('opt_in_free_play', true);
+      .eq('admin_free_rotation', true);
     // Temporarily skip paid-play requirement for rap radio so it can play nonstop (uploaded songs are only rap)
     if (radioId !== RAP_RADIO_ID) {
       songsQuery = songsQuery.gt('paid_play_count', 0);
@@ -909,8 +909,7 @@ export class RadioService {
       .select('*')
       .eq('id', stackId)
       .eq('status', 'approved')
-      .eq('admin_free_rotation', true)
-      .eq('opt_in_free_play', true);
+      .eq('admin_free_rotation', true);
     // Rap radio: do not require paid_play_count (see RAP_RADIO_ID / getAllFreeRotationSongs)
     if (radioId !== RAP_RADIO_ID) {
       songQuery = songQuery.gt('paid_play_count', 0);

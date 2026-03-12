@@ -122,10 +122,15 @@ export class AdminService {
     if (status === 'rejected') {
       updateData.rejection_reason = reason || null;
       updateData.rejected_at = now;
+      updateData.admin_free_rotation = false;
     } else if (status === 'pending') {
       // Clear rejection fields when reverting to pending
       updateData.rejection_reason = null;
       updateData.rejected_at = null;
+      updateData.admin_free_rotation = false;
+    } else if (status === 'approved') {
+      // Admin approval now instantly places the song in free rotation.
+      updateData.admin_free_rotation = true;
     }
 
     // Update the song status
@@ -1200,17 +1205,15 @@ export class AdminService {
       throw new BadRequestException(`Failed to search songs: ${error.message}`);
     }
 
-    // Add eligibility status to each song
-    // NOTE: paid_play_count check is commented out for now - see README for details
+    // Add eligibility status to each song.
+    // Free rotation is admin-controlled only (no artist opt-in requirement).
     return (data || []).map(song => ({
       ...song,
       isEligibleForFreeRotation: 
-        // song.paid_play_count > 0 && // DISABLED: Paid play requirement temporarily removed
-        song.opt_in_free_play === true && 
         song.admin_free_rotation === true,
       eligibilityChecks: {
-        hasPaidPlay: true, // song.paid_play_count > 0, // DISABLED: Always true for now
-        artistOptedIn: song.opt_in_free_play === true,
+        hasPaidPlay: true, // currently not required
+        artistOptedIn: true, // no longer required
         adminApproved: song.admin_free_rotation === true,
       },
     }));
@@ -1258,17 +1261,15 @@ export class AdminService {
       throw new BadRequestException(`Failed to fetch user songs: ${error.message}`);
     }
 
-    // Add eligibility status to each song
-    // NOTE: paid_play_count check is commented out for now - see README for details
+    // Add eligibility status to each song.
+    // Free rotation is admin-controlled only (no artist opt-in requirement).
     return (data || []).map(song => ({
       ...song,
       isEligibleForFreeRotation: 
-        // song.paid_play_count > 0 && // DISABLED: Paid play requirement temporarily removed
-        song.opt_in_free_play === true && 
         song.admin_free_rotation === true,
       eligibilityChecks: {
-        hasPaidPlay: true, // song.paid_play_count > 0, // DISABLED: Always true for now
-        artistOptedIn: song.opt_in_free_play === true,
+        hasPaidPlay: true, // currently not required
+        artistOptedIn: true, // no longer required
         adminApproved: song.admin_free_rotation === true,
       },
     }));
@@ -1276,34 +1277,20 @@ export class AdminService {
 
   /**
    * Toggle free rotation status for a song (admin side).
-   * NOTE: Paid play validation is temporarily disabled - see README for details.
    */
   async toggleFreeRotation(songId: string, enabled: boolean): Promise<any> {
     const supabase = getSupabaseClient();
 
-    // If enabling, verify song meets requirements
+    // If enabling, verify song exists.
     if (enabled) {
       const { data: song, error: fetchError } = await supabase
         .from('songs')
-        .select('paid_play_count, opt_in_free_play, title')
+        .select('title')
         .eq('id', songId)
         .single();
 
       if (fetchError || !song) {
         throw new BadRequestException('Song not found');
-      }
-
-      // DISABLED: Paid play requirement temporarily removed - see README for details
-      // if (song.paid_play_count < 1) {
-      //   throw new BadRequestException(
-      //     'Song must have at least 1 paid play before being added to free rotation'
-      //   );
-      // }
-
-      if (!song.opt_in_free_play) {
-        throw new BadRequestException(
-          'Artist must opt-in to free play before admin can enable free rotation'
-        );
       }
     }
 
@@ -1324,7 +1311,6 @@ export class AdminService {
 
   /**
    * Get all songs currently in free rotation.
-   * NOTE: paid_play_count requirement is temporarily disabled - see README for details.
    */
   async getSongsInFreeRotation(): Promise<any[]> {
     const supabase = getSupabaseClient();
@@ -1339,9 +1325,7 @@ export class AdminService {
         users!songs_artist_id_fkey(id, display_name, email)
       `)
       .eq('status', 'approved')
-      .eq('opt_in_free_play', true)
       .eq('admin_free_rotation', true)
-      // .gt('paid_play_count', 0) // DISABLED: Paid play requirement temporarily removed
       .order('last_played_at', { ascending: true, nullsFirst: true });
 
     if (error) {
