@@ -197,18 +197,35 @@ export class RadioService {
   private async ensurePlayableAudioUrl(audioUrl: string | null): Promise<string | null> {
     if (!audioUrl || typeof audioUrl !== 'string') return null;
     try {
-      const publicMarker = '/storage/v1/object/public/';
-      const markerIndex = audioUrl.indexOf(publicMarker);
-      if (markerIndex === -1) return audioUrl;
+      const raw = audioUrl.trim();
+      if (!raw) return null;
 
-      const after = audioUrl.slice(markerIndex + publicMarker.length);
+      // Legacy rows may store only storage path (not full URL).
+      // Convert those to a signed URL so browser playback works.
+      if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
+        let path = raw.replace(/^\/+/, '');
+        if (path.startsWith('songs/')) {
+          path = path.slice('songs/'.length);
+        }
+        if (!path) return null;
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
+        if (error || !data?.signedUrl) return null;
+        return data.signedUrl;
+      }
+
+      const publicMarker = '/storage/v1/object/public/';
+      const markerIndex = raw.indexOf(publicMarker);
+      if (markerIndex === -1) return raw;
+
+      const after = raw.slice(markerIndex + publicMarker.length);
       const [bucket, ...rest] = after.split('/');
-      if (bucket !== 'songs' || rest.length === 0) return audioUrl;
+      if (bucket !== 'songs' || rest.length === 0) return raw;
 
       const path = rest.join('/');
       const supabase = getSupabaseClient();
       const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
-      if (error || !data?.signedUrl) return audioUrl;
+      if (error || !data?.signedUrl) return raw;
       return data.signedUrl;
     } catch {
       return audioUrl;

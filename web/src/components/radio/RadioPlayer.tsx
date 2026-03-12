@@ -155,7 +155,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, []);
+  }, [radioId]);
 
   useEffect(() => {
     setOnRadioTrackEnded(handleTrackEnded);
