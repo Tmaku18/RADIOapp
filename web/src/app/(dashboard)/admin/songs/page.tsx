@@ -211,6 +211,23 @@ export default function AdminSongsPage() {
     setTrimEndSeconds(duration);
   };
 
+  const getTrimTotalSeconds = (song: Song) =>
+    Math.max(1, durationOverrides[song.id] ?? song.duration_seconds ?? 180);
+
+  const handleTrimStartDrag = (value: number) => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    const nextStart = Math.max(0, Math.min(Math.floor(value), trimEndSeconds - 1));
+    setTrimStartSeconds(Math.min(nextStart, total - 1));
+  };
+
+  const handleTrimEndDrag = (value: number) => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    const nextEnd = Math.min(total, Math.max(Math.floor(value), trimStartSeconds + 1));
+    setTrimEndSeconds(nextEnd);
+  };
+
   const handleTrimSave = async () => {
     if (!trimmingSong) return;
     if (!Number.isFinite(trimStartSeconds) || !Number.isFinite(trimEndSeconds)) {
@@ -517,11 +534,51 @@ export default function AdminSongsPage() {
 
       {trimmingSong && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Ore</h3>
             <p className="text-gray-600 mb-4">
-              Set start and end points in seconds. A new trimmed audio file will be generated and saved.
+              Drag the handles to cut the section you want to keep. A new trimmed audio file will be generated and saved.
             </p>
+            <div className="rounded-lg border border-gray-200 p-4 mb-4">
+              <div className="flex justify-between text-sm text-gray-700 mb-2">
+                <span>Start: <span className="font-mono">{formatDuration(trimStartSeconds)}</span></span>
+                <span>End: <span className="font-mono">{formatDuration(trimEndSeconds)}</span></span>
+                <span>Keep: <span className="font-mono">{formatDuration(Math.max(1, trimEndSeconds - trimStartSeconds))}</span></span>
+              </div>
+              <div className="relative h-10">
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-gray-200" />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full bg-indigo-500"
+                  style={{
+                    left: `${(trimStartSeconds / getTrimTotalSeconds(trimmingSong)) * 100}%`,
+                    right: `${100 - (trimEndSeconds / getTrimTotalSeconds(trimmingSong)) * 100}%`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={1}
+                  value={trimStartSeconds}
+                  onChange={(e) => handleTrimStartDrag(Number(e.target.value))}
+                  className="absolute inset-0 w-full bg-transparent pointer-events-auto z-10"
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={1}
+                  value={trimEndSeconds}
+                  onChange={(e) => handleTrimEndDrag(Number(e.target.value))}
+                  className="absolute inset-0 w-full bg-transparent pointer-events-auto z-20"
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0:00</span>
+                <span>{formatDuration(getTrimTotalSeconds(trimmingSong))}</span>
+              </div>
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Start (s)</label>
@@ -530,7 +587,7 @@ export default function AdminSongsPage() {
                   min={0}
                   step={1}
                   value={trimStartSeconds}
-                  onChange={(e) => setTrimStartSeconds(Number(e.target.value))}
+                  onChange={(e) => handleTrimStartDrag(Number(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
@@ -541,7 +598,7 @@ export default function AdminSongsPage() {
                   min={1}
                   step={1}
                   value={trimEndSeconds}
-                  onChange={(e) => setTrimEndSeconds(Number(e.target.value))}
+                  onChange={(e) => handleTrimEndDrag(Number(e.target.value))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                 />
               </div>
