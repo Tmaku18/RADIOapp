@@ -297,11 +297,16 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
         
-        // Only load if different track
-        if (!state.track || state.track.id !== track.id) {
+        // Load when track changed, or recover same track after an audio error/URL change.
+        const shouldReloadCurrentTrack =
+          !!state.track &&
+          state.track.id === track.id &&
+          (!!state.error || state.track.audioUrl !== track.audioUrl);
+
+        if (!state.track || state.track.id !== track.id || shouldReloadCurrentTrack) {
           actions.loadTrack(track, 'radio');
           actions.syncToPosition(serverPosition);
-          if (autoPlay && hasUserInteracted) {
+          if ((autoPlay && hasUserInteracted) || (shouldReloadCurrentTrack && hasUserInteracted)) {
             requestAnimationFrame(async () => {
               try {
                 await actions.play();
@@ -323,7 +328,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       setPinnedCatalysts([]);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
-  }, [actions, state.track, state.isLive, hasUserInteracted, radioId]);
+  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId]);
 
   // Reset vote state when play changes
   useEffect(() => {
