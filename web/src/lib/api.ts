@@ -50,7 +50,9 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token truly invalid - redirect to login, preserving current path so user returns after re-login
       if (typeof window !== 'undefined') {
-        const redirect = encodeURIComponent(window.location.pathname || '/');
+        const path = window.location.pathname || '/';
+        const search = window.location.search || '';
+        const redirect = encodeURIComponent(`${path}${search}`);
         window.location.href = `/login?session_expired=true&redirect=${redirect}`;
       }
     }

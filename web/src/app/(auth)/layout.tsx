@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
@@ -14,16 +14,21 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, loading } = useAuth();
+  const redirectParam = searchParams.get('redirect');
 
-  // Redirect authenticated users: on discovermeradio.com send to ProNetworx app, else dashboard
+  // Redirect authenticated users: respect redirect param when present
   useEffect(() => {
     if (!loading && user) {
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
       const isDiscoverMe = host === 'discovermeradio.com' || host === 'www.discovermeradio.com';
-      router.push(isDiscoverMe ? '/pro-networx/directory' : '/dashboard');
+      const safeRedirect =
+        redirectParam && redirectParam.startsWith('/') ? redirectParam : null;
+      const target = safeRedirect ?? (isDiscoverMe ? '/pro-networx/directory' : '/dashboard');
+      router.push(target);
     }
-  }, [loading, user, router]);
+  }, [loading, user, router, redirectParam]);
 
   // Show loading while checking auth
   if (loading) {
