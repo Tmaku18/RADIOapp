@@ -62,6 +62,9 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const lastVotedPlayIdRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
+  const isFetchingCurrentTrackRef = useRef(false);
+  const consecutiveFetchFailuresRef = useRef(0);
+  const nextFetchAllowedAtRef = useRef(0);
 
   // Admins can listen but should not run prospector yield/check-in flows.
   const isProspector = hasListenerCapability(profile?.role) && profile?.role !== 'admin';
@@ -121,9 +124,9 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
         if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
-          console.warn('Next track has no audio URL, fetching again');
-          isFetchingNextTrack.current = false;
-          setTimeout(() => handleTrackEnded(), 500);
+          console.warn('Next track has no audio URL; waiting for next poll');
+          setNoContent(true);
+          setNoContentMessage('Track has no playable source.');
           return;
         }
         const track: PlaybackTrack = {
@@ -255,6 +258,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
+    const nowMs = Date.now();
+    if (nowMs < nextFetchAllowedAtRef.current) return;
+    if (isFetchingCurrentTrackRef.current) return;
+    isFetchingCurrentTrackRef.current = true;
+
     try {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
@@ -320,7 +328,16 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           actions.syncToPosition(serverPosition);
         }
       }
+      consecutiveFetchFailuresRef.current = 0;
+      nextFetchAllowedAtRef.current = 0;
     } catch (error: unknown) {
+      consecutiveFetchFailuresRef.current += 1;
+      const backoffMs = Math.min(
+        30000,
+        1000 * Math.pow(2, Math.max(0, consecutiveFetchFailuresRef.current - 1)),
+      );
+      nextFetchAllowedAtRef.current = Date.now() + backoffMs;
+
       const msg = (error as { response?: { data?: { message?: string }; status?: number } })?.response?.data?.message;
       if (msg) setNoContentMessage(msg);
       else setNoContentMessage("No ore's are currently available. Please try again later.");
@@ -328,6 +345,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       setArtistLiveNow(null);
       setPinnedCatalysts([]);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
+    } finally {
+      isFetchingCurrentTrackRef.current = false;
     }
   }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId]);
 
