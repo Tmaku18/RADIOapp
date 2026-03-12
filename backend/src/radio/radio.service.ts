@@ -199,33 +199,39 @@ export class RadioService {
     try {
       const raw = audioUrl.trim();
       if (!raw) return null;
+      const normalizedHttp = raw.startsWith('http://')
+        ? `https://${raw.slice('http://'.length)}`
+        : raw;
 
       // Legacy rows may store only storage path (not full URL).
       // Convert those to a signed URL so browser playback works.
-      if (!raw.startsWith('http://') && !raw.startsWith('https://')) {
-        let path = raw.replace(/^\/+/, '');
+      if (!normalizedHttp.startsWith('https://')) {
+        let path = normalizedHttp.replace(/^\/+/, '');
         if (path.startsWith('songs/')) {
           path = path.slice('songs/'.length);
         }
         if (!path) return null;
         const supabase = getSupabaseClient();
         const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
-        if (error || !data?.signedUrl) return null;
+        if (error || !data?.signedUrl) {
+          const { data: publicData } = supabase.storage.from('songs').getPublicUrl(path);
+          return publicData?.publicUrl || null;
+        }
         return data.signedUrl;
       }
 
       const publicMarker = '/storage/v1/object/public/';
-      const markerIndex = raw.indexOf(publicMarker);
-      if (markerIndex === -1) return raw;
+      const markerIndex = normalizedHttp.indexOf(publicMarker);
+      if (markerIndex === -1) return normalizedHttp;
 
-      const after = raw.slice(markerIndex + publicMarker.length);
+      const after = normalizedHttp.slice(markerIndex + publicMarker.length);
       const [bucket, ...rest] = after.split('/');
-      if (bucket !== 'songs' || rest.length === 0) return raw;
+      if (bucket !== 'songs' || rest.length === 0) return normalizedHttp;
 
       const path = rest.join('/');
       const supabase = getSupabaseClient();
       const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
-      if (error || !data?.signedUrl) return raw;
+      if (error || !data?.signedUrl) return normalizedHttp;
       return data.signedUrl;
     } catch {
       return audioUrl;
