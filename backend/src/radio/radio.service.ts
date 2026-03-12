@@ -42,6 +42,7 @@ const CHECKPOINT_INTERVAL = parseInt(
 
 /** Rap radio: we temporarily do not require paid_play_count for free rotation so it can play nonstop (uploaded songs are rap). */
 const RAP_RADIO_ID = 'ga-nw-rap';
+const WEB_PREFERRED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg'];
 
 // Trial-by-Fire window (daily, UTC)
 // Defaults: off unless TRIAL_BY_FIRE_START_UTC is set.
@@ -91,6 +92,16 @@ function isTrialByFireActiveAt(now: Date): {
     windowStart,
     windowEnd,
   };
+}
+
+function hasPreferredWebAudioExtension(audioUrl: string | null | undefined): boolean {
+  if (!audioUrl) return false;
+  const raw = String(audioUrl).trim().toLowerCase();
+  if (!raw) return false;
+  const withoutQuery = raw.split('?')[0];
+  return WEB_PREFERRED_AUDIO_EXTENSIONS.some((ext) =>
+    withoutQuery.endsWith(ext),
+  );
 }
 
 /**
@@ -759,7 +770,7 @@ export class RadioService {
 
     let songsQuery = supabase
       .from('songs')
-      .select('id, artist_id')
+      .select('id, artist_id, audio_url')
       .eq('status', 'approved')
       .eq('admin_free_rotation', true)
       .eq('opt_in_free_play', true);
@@ -774,9 +785,20 @@ export class RadioService {
         `Failed to fetch admin-free-rotation songs: ${songsError.message}`,
       );
     } else if (songsData?.length) {
+      const preferredForWeb = songsData.filter((s) =>
+        hasPreferredWebAudioExtension(
+          (s as { audio_url?: string | null }).audio_url ?? null,
+        ),
+      );
+      const candidateSongs =
+        preferredForWeb.length > 0 ? preferredForWeb : songsData;
+      const candidateIds = new Set(candidateSongs.map((candidate) => candidate.id));
       for (const s of songsData) {
         const artistId =
           (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
+        if (!candidateIds.has(s.id)) {
+          continue;
+        }
         result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
       }
     }
