@@ -191,6 +191,31 @@ export class RadioService {
   }
 
   /**
+   * Ensure audio URL is playable for clients. If it is a Supabase public URL,
+   * provide a signed URL (helps when bucket privacy or CORS policies cause 403s).
+   */
+  private async ensurePlayableAudioUrl(audioUrl: string | null): Promise<string | null> {
+    if (!audioUrl || typeof audioUrl !== 'string') return null;
+    try {
+      const publicMarker = '/storage/v1/object/public/';
+      const markerIndex = audioUrl.indexOf(publicMarker);
+      if (markerIndex === -1) return audioUrl;
+
+      const after = audioUrl.slice(markerIndex + publicMarker.length);
+      const [bucket, ...rest] = after.split('/');
+      if (bucket !== 'songs' || rest.length === 0) return audioUrl;
+
+      const path = rest.join('/');
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
+      if (error || !data?.signedUrl) return audioUrl;
+      return data.signedUrl;
+    } catch {
+      return audioUrl;
+    }
+  }
+
+  /**
    * Credits required per play: 1 credit = 1 play.
    * (Pricing is $1/min per play, purchased per song; credits_remaining = plays remaining.)
    */
@@ -413,8 +438,11 @@ export class RadioService {
       ? null
       : await this.getArtistLiveNow(song.artist_id ?? null);
 
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+
     return {
       ...song,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: queueState.playedAt,
       server_time: new Date(now).toISOString(),
@@ -1300,9 +1328,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1384,9 +1414,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1466,9 +1498,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1550,12 +1584,13 @@ export class RadioService {
     const pinnedCatalysts = isFromAdminTable
       ? []
       : await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       id: song.id,
       title: song.title,
       artist_name: song.artist_name,
-      audio_url: song.audio_url,
+      audio_url: audioUrl,
       artwork_url: song.artwork_url,
       duration_seconds: durationSeconds,
       is_playing: true,

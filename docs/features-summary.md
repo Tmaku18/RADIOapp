@@ -3,7 +3,7 @@
 **Product name:** NETWORX Radio: The Butterfly Effect  
 **Tagline:** By artists, for artists.
 
-This document is a single reference for all platform features across web, mobile, and backend. For terminology (Prospectors, Ripples, Ores, The Wake, The Yield, etc.), see [branding-terminology.md](branding-terminology.md). For API details, see [api-spec.md](api-spec.md).
+This document is a single reference for all platform features across web, mobile, and backend. For terminology (Prospectors, Ripples, Songs, The Wake, The Yield, etc.), see [branding-terminology.md](branding-terminology.md). For API details, see [api-spec.md](api-spec.md).
 
 ---
 
@@ -108,7 +108,7 @@ This document is a single reference for all platform features across web, mobile
 
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
-| **Yield balance** | Prospector balance (cents), tier, ores refined count | ✅ | ✅ | `GET /prospector/yield`, `GET /yield/balance` |
+| **Yield balance** | Prospector balance (cents), tier, songs refined count | ✅ | ✅ | `GET /prospector/yield`, `GET /yield/balance` |
 | **Check-in** | Anti-bot check-in (Ripple tap); gates Yield accrual | ✅ | ✅ | `POST /prospector/check-in` |
 | **Refinement** | Score song 1–10 in Refinery; idempotent; credits Yield | ✅ | ✅ | `POST /prospector/refinement` |
 | **Survey** | Survey responses for Refinery song; credits Yield | ✅ | ✅ | `POST /prospector/survey` |

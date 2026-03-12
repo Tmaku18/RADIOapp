@@ -275,7 +275,7 @@ export default function AdminSongsPage() {
           </div>
         ) : songs.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
-            No ores found with status: {filter}
+            No songs found with status: {filter}
           </div>
         ) : (
           <table className="w-full">
