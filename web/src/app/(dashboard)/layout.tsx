@@ -57,6 +57,7 @@ const listenerNavigation = [
 ];
 
 const artistNavigation = [
+  { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'The Wake', href: '/artist/stats', icon: '📈' },
   { name: 'Pro-Network', href: '/job-board', icon: '💼' },
@@ -113,6 +114,7 @@ const adminSubNavigation = [
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
+  { name: 'Listen', href: '/listen', icon: '🎵' },
 ];
 
 // Flattened nav for page title lookup
