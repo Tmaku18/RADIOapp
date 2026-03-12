@@ -10,7 +10,8 @@ const apiBase = base.endsWith('/api') ? base : `${base}/api`;
  */
 async function proxy(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.length ? pathSegments.join('/') : '';
-  const url = `${apiBase}/songs${path ? `/${path}` : ''}`;
+  const search = request.nextUrl.search || '';
+  const url = `${apiBase}/songs${path ? `/${path}` : ''}${search}`;
   const auth = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
   const headers: Record<string, string> = {};
