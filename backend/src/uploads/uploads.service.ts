@@ -244,8 +244,16 @@ export class UploadsService {
       throw new BadRequestException(`Failed to generate upload URL: ${error.message}`);
     }
 
+    const supabaseUrl = (this.configService.get<string>('SUPABASE_URL') || '').trim();
+    const normalizedBase = supabaseUrl.endsWith('/')
+      ? supabaseUrl.slice(0, -1)
+      : supabaseUrl;
+    const normalizedSignedUrl = data.signedUrl.startsWith('http')
+      ? data.signedUrl
+      : `${normalizedBase}${data.signedUrl.startsWith('/') ? '' : '/'}${data.signedUrl}`;
+
     return {
-      signedUrl: data.signedUrl,
+      signedUrl: normalizedSignedUrl,
       path: data.path,
       expiresIn: 60,
     };

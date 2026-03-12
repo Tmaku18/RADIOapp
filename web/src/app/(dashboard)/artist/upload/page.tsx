@@ -124,16 +124,39 @@ export default function UploadPage() {
     const { signedUrl, path } = response.data;
 
     // Upload directly to Supabase
-    const uploadResponse = await fetch(signedUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type,
-      },
-    });
+    const controller = new AbortController();
+    const timeoutMs = 120000; // 2 minutes to avoid hanging forever at 20%
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    let uploadResponse: Response;
+    try {
+      uploadResponse = await fetch(signedUrl, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error('Upload timed out. Please try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!uploadResponse.ok) {
-      throw new Error('Failed to upload file');
+      let details = '';
+      try {
+        details = await uploadResponse.text();
+      } catch {
+        details = '';
+      }
+      throw new Error(
+        `Failed to upload file (${uploadResponse.status}). ${details || 'Please try again.'}`,
+      );
     }
 
     return path;
