@@ -142,10 +142,11 @@ export default function AdminSongsPage() {
       alert('Artist has not opted into free play');
       return;
     }
-    if ((song.paid_play_count || 0) < 1) {
-      alert('Ore must have at least 1 paid play');
-      return;
-    }
+    // Temporarily removed: paid-play requirement so rap radio can play nonstop (uploaded songs are rap)
+    // if ((song.paid_play_count || 0) < 1) {
+    //   alert('Ore must have at least 1 paid play');
+    //   return;
+    // }
 
     setActionLoading(song.id);
     try {
@@ -368,13 +369,12 @@ export default function AdminSongsPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => handleToggleFreeRotation(song)}
-                          disabled={actionLoading === song.id}
+                          disabled={actionLoading === song.id || !song.opt_in_free_play}
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                             song.admin_free_rotation ? 'bg-purple-600' : 'bg-gray-200'
-                          } ${(!song.opt_in_free_play || (song.paid_play_count || 0) < 1) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                          } ${!song.opt_in_free_play ? 'opacity-50 cursor-not-allowed' : ''}`}
                           title={
                             !song.opt_in_free_play ? 'Artist has not opted in' :
-                            (song.paid_play_count || 0) < 1 ? 'No paid plays yet' :
                             song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'
                           }
                         >
