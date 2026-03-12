@@ -2,6 +2,10 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
+import ffmpeg from 'fluent-ffmpeg';
+import { promises as fs } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 export interface BanResult {
   success: boolean;
@@ -185,6 +189,142 @@ export class AdminService {
     }
 
     return data;
+  }
+
+  /**
+   * Trim a song's audio to a new start/end range and save as a new file in storage.
+   * The song row is updated to point to the new trimmed file.
+   */
+  async trimSongAudio(
+    songId: string,
+    startSeconds: number,
+    endSeconds: number,
+  ) {
+    const supabase = getSupabaseClient();
+
+    if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) {
+      throw new BadRequestException('startSeconds and endSeconds must be numbers');
+    }
+    if (startSeconds < 0 || endSeconds <= startSeconds) {
+      throw new BadRequestException('Invalid trim range');
+    }
+
+    const { data: song, error: fetchError } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, audio_url, duration_seconds, status')
+      .eq('id', songId)
+      .single();
+
+    if (fetchError || !song) {
+      throw new NotFoundException('Song not found');
+    }
+    if (!song.audio_url) {
+      throw new BadRequestException('Song has no audio source');
+    }
+
+    const originalDuration = Number(song.duration_seconds || 0);
+    if (originalDuration > 0 && endSeconds > originalDuration) {
+      throw new BadRequestException(
+        `endSeconds cannot exceed song duration (${originalDuration}s)`,
+      );
+    }
+
+    // Download source audio from existing URL.
+    const sourceResponse = await fetch(song.audio_url);
+    if (!sourceResponse.ok) {
+      throw new BadRequestException(
+        `Failed to fetch source audio: ${sourceResponse.status} ${sourceResponse.statusText}`,
+      );
+    }
+    const sourceBuffer = Buffer.from(await sourceResponse.arrayBuffer());
+    if (!sourceBuffer.length) {
+      throw new BadRequestException('Source audio file is empty');
+    }
+
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const inputPath = join(tmpdir(), `trim-input-${songId}-${runId}.bin`);
+    const outputPath = join(tmpdir(), `trim-output-${songId}-${runId}.mp3`);
+    const duration = endSeconds - startSeconds;
+    try {
+      await fs.writeFile(inputPath, sourceBuffer);
+
+      try {
+        await new Promise<void>((resolve, reject) => {
+          ffmpeg(inputPath)
+            .seekInput(startSeconds)
+            .duration(duration)
+            .audioCodec('libmp3lame')
+            .audioBitrate('192k')
+            .format('mp3')
+            .on('end', () => resolve())
+            .on('error', (err) => reject(err))
+            .save(outputPath);
+        });
+      } catch (error) {
+        throw new BadRequestException(
+          `Failed to trim audio. Ensure ffmpeg is available on the server. ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+
+      const trimmedBuffer = await fs.readFile(outputPath);
+      if (!trimmedBuffer.length) {
+        throw new BadRequestException('Trimmed audio file is empty');
+      }
+
+      const storagePath = `${song.artist_id}/trimmed/${song.id}-${Date.now()}.mp3`;
+      const { error: uploadError } = await supabase.storage
+        .from('songs')
+        .upload(storagePath, trimmedBuffer, {
+          contentType: 'audio/mpeg',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw new BadRequestException(
+          `Failed to upload trimmed file: ${uploadError.message}`,
+        );
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('songs')
+        .getPublicUrl(storagePath);
+
+      const newDurationSeconds = Math.ceil(duration);
+      const { data: updatedSong, error: updateError } = await supabase
+        .from('songs')
+        .update({
+          audio_url: publicUrlData.publicUrl,
+          duration_seconds: newDurationSeconds,
+          file_size_bytes: trimmedBuffer.length,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', songId)
+        .select('*')
+        .single();
+
+      if (updateError) {
+        throw new BadRequestException(
+          `Failed to update song after trim: ${updateError.message}`,
+        );
+      }
+
+      this.logger.log(
+        `Trimmed song ${songId} (${startSeconds}-${endSeconds}s) and saved ${storagePath}`,
+      );
+
+      return {
+        song: updatedSong,
+        trim: {
+          startSeconds,
+          endSeconds,
+          durationSeconds: newDurationSeconds,
+          storagePath,
+        },
+      };
+    } finally {
+      // Best-effort cleanup of local temp files.
+      await Promise.allSettled([fs.unlink(inputPath), fs.unlink(outputPath)]);
+    }
   }
 
   /**

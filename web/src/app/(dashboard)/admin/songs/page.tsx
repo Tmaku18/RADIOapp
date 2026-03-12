@@ -41,6 +41,9 @@ export default function AdminSongsPage() {
   // Rejection modal state
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [trimmingSong, setTrimmingSong] = useState<Song | null>(null);
+  const [trimStartSeconds, setTrimStartSeconds] = useState(0);
+  const [trimEndSeconds, setTrimEndSeconds] = useState(0);
   
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -196,6 +199,50 @@ export default function AdminSongsPage() {
     } catch (err) {
       console.error('Failed to reject song:', err);
       alert('Failed to reject ore');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openTrimModal = (song: Song) => {
+    const duration = durationOverrides[song.id] ?? song.duration_seconds ?? 180;
+    setTrimmingSong(song);
+    setTrimStartSeconds(0);
+    setTrimEndSeconds(duration);
+  };
+
+  const handleTrimSave = async () => {
+    if (!trimmingSong) return;
+    if (!Number.isFinite(trimStartSeconds) || !Number.isFinite(trimEndSeconds)) {
+      alert('Trim values must be valid numbers');
+      return;
+    }
+    if (trimStartSeconds < 0 || trimEndSeconds <= trimStartSeconds) {
+      alert('End time must be greater than start time');
+      return;
+    }
+
+    const actionKey = `trim:${trimmingSong.id}`;
+    setActionLoading(actionKey);
+    try {
+      const response = await adminApi.trimSong(trimmingSong.id, {
+        startSeconds: trimStartSeconds,
+        endSeconds: trimEndSeconds,
+      });
+      const updatedSong = response.data?.song as Song | undefined;
+      if (updatedSong) {
+        setSongs((prev) =>
+          prev.map((song) => (song.id === updatedSong.id ? { ...song, ...updatedSong } : song)),
+        );
+        setDurationOverrides((prev) => ({
+          ...prev,
+          [updatedSong.id]: updatedSong.duration_seconds || Math.ceil(trimEndSeconds - trimStartSeconds),
+        }));
+      }
+      setTrimmingSong(null);
+    } catch (err) {
+      console.error('Failed to trim song:', err);
+      alert('Failed to trim and save song');
     } finally {
       setActionLoading(null);
     }
@@ -396,8 +443,16 @@ export default function AdminSongsPage() {
                     {new Date(song.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    {song.status === 'pending' && (
-                      <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => openTrimModal(song)}
+                        disabled={actionLoading === `trim:${song.id}`}
+                        className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Trim
+                      </button>
+                      {song.status === 'pending' && (
+                        <>
                         <button
                           onClick={() => handleApprove(song.id)}
                           disabled={actionLoading === song.id}
@@ -412,8 +467,9 @@ export default function AdminSongsPage() {
                         >
                           Reject
                         </button>
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -453,6 +509,59 @@ export default function AdminSongsPage() {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Ore'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {trimmingSong && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Ore</h3>
+            <p className="text-gray-600 mb-4">
+              Set start and end points in seconds. A new trimmed audio file will be generated and saved.
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Start (s)</label>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={trimStartSeconds}
+                  onChange={(e) => setTrimStartSeconds(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">End (s)</label>
+                <input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={trimEndSeconds}
+                  onChange={(e) => setTrimEndSeconds(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Current duration: {formatDuration(durationOverrides[trimmingSong.id] ?? trimmingSong.duration_seconds)}
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setTrimmingSong(null)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTrimSave}
+                disabled={actionLoading === `trim:${trimmingSong.id}`}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === `trim:${trimmingSong.id}` ? 'Saving...' : 'Trim & Save'}
               </button>
             </div>
           </div>

@@ -67,6 +67,18 @@ export class AdminController {
     return { song };
   }
 
+  @Post('songs/:id/trim')
+  async trimSong(
+    @Param('id') songId: string,
+    @Body() dto: { startSeconds: number; endSeconds: number },
+  ) {
+    return this.adminService.trimSongAudio(
+      songId,
+      Number(dto.startSeconds),
+      Number(dto.endSeconds),
+    );
+  }
+
   @Delete('songs/:id')
   async deleteSong(@Param('id') songId: string) {
     await this.adminService.deleteSong(songId);

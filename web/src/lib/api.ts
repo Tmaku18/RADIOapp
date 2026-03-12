@@ -431,6 +431,8 @@ export const adminApi = {
   updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),
   deleteSong: (id: string) => api.delete(`/admin/songs/${id}`),
+  trimSong: (id: string, data: { startSeconds: number; endSeconds: number }) =>
+    api.post(`/admin/songs/${id}/trim`, data),
   getUserProfile: (id: string) => api.get(`/admin/users/${id}`),
   getUsers: (params?: { 
     role?: string; 
