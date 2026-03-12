@@ -925,6 +925,11 @@ export class RadioService {
     return shuffled;
   }
 
+  /** Normalize prefixed stack ids (admin:/song:) to bare id for repeat checks. */
+  private normalizeStackSongId(songId: string): string {
+    return songId.replace(/^admin:|^song:/, '');
+  }
+
   /**
    * Get the next song from the free rotation stack.
    * If the stack is empty, fetches all songs from admin_fallback_songs,
@@ -932,7 +937,13 @@ export class RadioService {
    * Uses stack_version_hash to only write full stack when content changes.
    * Returns null if no free rotation songs are available.
    */
-  private async getNextFreeRotationSong(radioId: string = DEFAULT_RADIO_ID): Promise<any | null> {
+  private async getNextFreeRotationSong(
+    radioId: string = DEFAULT_RADIO_ID,
+    excludeSongId?: string,
+  ): Promise<any | null> {
+    const excludedComparable = excludeSongId
+      ? this.normalizeStackSongId(excludeSongId)
+      : null;
     let songId = await this.radioStateService.popFreeRotationSong(radioId);
 
     if (!songId) {
@@ -961,7 +972,14 @@ export class RadioService {
 
       // Fallback when Redis is unavailable: pick random song directly from shuffled list
       if (!songId && shuffledIds.length > 0) {
-        songId = shuffledIds[Math.floor(Math.random() * shuffledIds.length)];
+        const randomPool = excludedComparable
+          ? shuffledIds.filter(
+              (id) => this.normalizeStackSongId(id) !== excludedComparable,
+            )
+          : shuffledIds;
+        const candidatePool = randomPool.length > 0 ? randomPool : shuffledIds;
+        songId =
+          candidatePool[Math.floor(Math.random() * candidatePool.length)];
         this.logger.log(
           'Redis unavailable - picked random song directly from pool',
         );
@@ -973,7 +991,43 @@ export class RadioService {
     }
 
     // Fetch the full song data
-    return await this.getFreeRotationSongById(songId, radioId);
+    let pickedSong = await this.getFreeRotationSongById(songId, radioId);
+    const pickedComparable = this.normalizeStackSongId(songId);
+
+    // Guard against immediate repeat when alternatives exist.
+    if (excludedComparable && pickedComparable === excludedComparable) {
+      // Try next item in stack first.
+      const alternateStackId = await this.radioStateService.popFreeRotationSong(
+        radioId,
+      );
+      if (
+        alternateStackId &&
+        this.normalizeStackSongId(alternateStackId) !== excludedComparable
+      ) {
+        const alternateSong = await this.getFreeRotationSongById(
+          alternateStackId,
+          radioId,
+        );
+        if (alternateSong) return alternateSong;
+      }
+
+      // Final fallback: random non-repeating item from full pool.
+      const allSongs = await this.getAllFreeRotationSongs(radioId);
+      const alternatives = allSongs.filter(
+        (s) => this.normalizeStackSongId(s._stackId) !== excludedComparable,
+      );
+      if (alternatives.length > 0) {
+        const pickedAlt =
+          alternatives[Math.floor(Math.random() * alternatives.length)];
+        const altSong = await this.getFreeRotationSongById(
+          pickedAlt._stackId,
+          radioId,
+        );
+        if (altSong) return altSong;
+      }
+    }
+
+    return pickedSong;
   }
 
   /**
@@ -1205,7 +1259,10 @@ export class RadioService {
     }
 
     // Free rotation mode (or fallback from paid mode)
-    const freeRotationSong = await this.getNextFreeRotationSong(radioId);
+    const freeRotationSong = await this.getNextFreeRotationSong(
+      radioId,
+      currentSongId ?? undefined,
+    );
     if (freeRotationSong) {
       this.logger.log(`Playing free rotation song: ${freeRotationSong.title}`);
       const result = await this.playFreeRotationSong(freeRotationSong, radioId);
