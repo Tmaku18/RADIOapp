@@ -25,6 +25,21 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+function mergeMessages(
+  current: ChatMessage[],
+  incoming: ChatMessage[],
+): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const msg of current) byId.set(msg.id, msg);
+  for (const msg of incoming) byId.set(msg.id, msg);
+  return [...byId.values()]
+    .sort(
+      (a, b) =>
+        new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    )
+    .slice(-100);
+}
+
 export default function ChatSidebar() {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -84,6 +99,36 @@ export default function ChatSidebar() {
     if (user) loadHistory();
   }, [user, loadHistory]);
 
+  // Polling fallback: keeps chat fresh when Realtime is flaky/backgrounded.
+  useEffect(() => {
+    if (!user) return;
+    let stopped = false;
+
+    const poll = async () => {
+      if (stopped || document.visibilityState !== 'visible') return;
+      try {
+        const [historyRes, statusRes] = await Promise.all([
+          chatApi.getHistory({ limit: 50 }),
+          chatApi.getStatus(),
+        ]);
+        const fetched = (historyRes.data.messages || []) as ChatMessage[];
+        setMessages((prev) => mergeMessages(prev, fetched));
+        setChatEnabled(statusRes.data.enabled ?? true);
+      } catch {
+        // Silent fallback: realtime may still be working.
+      }
+    };
+
+    // Keep UI fresh for users even without manual refresh.
+    const interval = setInterval(poll, 3000);
+    void poll();
+
+    return () => {
+      stopped = true;
+      clearInterval(interval);
+    };
+  }, [user]);
+
   // Subscribe to Supabase Realtime for new messages
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) {
@@ -133,10 +178,7 @@ export default function ChatSidebar() {
         .channel('radio-chat')
         .on('broadcast', { event: 'new_message' }, (payload) => {
           const newMsg = payload.payload as ChatMessage;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === newMsg.id)) return prev; // avoid duplicate (e.g. own optimistic message)
-            return [...prev.slice(-99), newMsg];
-          });
+          setMessages((prev) => mergeMessages(prev, [newMsg]));
           // If we receive a message, we're definitely connected
           if (!hasConnected) {
             hasConnected = true;
@@ -251,7 +293,7 @@ export default function ChatSidebar() {
           message: text,
           createdAt: new Date().toISOString(),
         };
-        setMessages((prev) => [...prev.slice(-99), optimistic]);
+        setMessages((prev) => mergeMessages(prev, [optimistic]));
       }
     } catch (err: unknown) {
       const errObj = err as { response?: { status?: number; data?: { message?: string } } };
