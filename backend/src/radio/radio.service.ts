@@ -400,7 +400,7 @@ export class RadioService {
     if (!song) {
       // Song was deleted, get next track
       this.logger.log('Current song not found, auto-starting next track');
-      return this.getNextTrack();
+      return this.getNextTrack(radioId);
     }
 
     const startedAt = queueState.startedAt;
@@ -461,11 +461,9 @@ export class RadioService {
       ? null
       : await this.getArtistLiveNow(song.artist_id ?? null);
 
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
-
     return {
       ...song,
-      audio_url: audioUrl,
+      audio_url: song.audio_url ?? null,
       is_playing: true,
       started_at: queueState.playedAt,
       server_time: new Date(now).toISOString(),
@@ -484,9 +482,7 @@ export class RadioService {
    * Close to pure random with minor nudges:
    * - +0.1 weight for above-average credits (reward investment)
    * - +0.1 weight for not played in last hour (anti-repetition)
-   * - +0.1 weight for above-median popularity (plays+profile plays, with likes as tie-break)
    * - Exclude same artist as last played when possible (artist spacing)
-   * - Max weight 1.2 (no song >20% more likely than another)
    */
   private selectWeightedRandom(
     songs: any[],
@@ -500,13 +496,6 @@ export class RadioService {
       songs.reduce((sum, s) => sum + (s.credits_remaining || 0), 0) /
       songs.length;
 
-    const totals = songs
-      .map((s) => (s.play_count || 0) + (s.profile_play_count || 0))
-      .sort((a, b) => a - b);
-    const medianTotal = totals.length
-      ? totals[Math.floor(totals.length / 2)]
-      : 0;
-
     const weightedSongs = songs.map((song) => {
       let weight = 1.0; // Base weight
 
@@ -517,16 +506,6 @@ export class RadioService {
       if (!song.last_played_at || new Date(song.last_played_at) < oneHourAgo)
         weight += 0.1;
 
-      // +0.1 for above-median popularity (small nudge, capped below)
-      const totalListens =
-        (song.play_count || 0) + (song.profile_play_count || 0);
-      if (
-        totalListens > medianTotal ||
-        ((song.like_count || 0) > 0 && totalListens === medianTotal)
-      ) {
-        weight += 0.1;
-      }
-
       // Exclude current song to avoid immediate repeat
       if (song.id === currentSongId) weight = 0;
 
@@ -534,8 +513,6 @@ export class RadioService {
       if (lastPlayedArtistId != null && song.artist_id === lastPlayedArtistId)
         weight = 0;
 
-      // Cap weight to prevent domination
-      if (weight > 1.2) weight = 1.2;
       return { song, weight };
     });
 
@@ -1351,11 +1328,10 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: audioUrl,
+      audio_url: song.audio_url ?? null,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1418,6 +1394,7 @@ export class RadioService {
         playRow.id,
         song.artist_id,
         startedAt,
+        radioId,
       );
     }
 
@@ -1437,11 +1414,10 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: audioUrl,
+      audio_url: song.audio_url ?? null,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1521,11 +1497,10 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: audioUrl,
+      audio_url: song.audio_url ?? null,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1607,13 +1582,12 @@ export class RadioService {
     const pinnedCatalysts = isFromAdminTable
       ? []
       : await this.getPinnedCatalystsForSong(song.id);
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       id: song.id,
       title: song.title,
       artist_name: song.artist_name,
-      audio_url: audioUrl,
+      audio_url: song.audio_url ?? null,
       artwork_url: song.artwork_url,
       duration_seconds: durationSeconds,
       is_playing: true,

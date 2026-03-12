@@ -67,6 +67,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const hlsRef = useRef<Hls | null>(null);
   const onRadioTrackEndedRef = useRef<(() => void) | null>(null);
   const sourceRef = useRef<PlaybackSource>(null);
+  /** One recovery attempt for same track before advancing on media error (avoid skip cascade). */
+  const hasRetriedAfterErrorRef = useRef(false);
 
   useEffect(() => {
     sourceRef.current = state.source;
@@ -102,8 +104,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         error: isUnsupported ? 'Audio source not available.' : 'Failed to load audio',
         isLoading: false,
       }));
-      if (isUnsupported && sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
-        onRadioTrackEndedRef.current();
+      if (isUnsupported && sourceRef.current === 'radio') {
+        if (!hasRetriedAfterErrorRef.current) {
+          hasRetriedAfterErrorRef.current = true;
+          audio.load();
+          audio.play().catch(() => {
+            onRadioTrackEndedRef.current?.();
+          });
+        } else {
+          onRadioTrackEndedRef.current?.();
+        }
       }
     };
     const onEnded = () => {
@@ -143,6 +153,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const loadTrack = useCallback((track: PlaybackTrack, source: PlaybackSource) => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    hasRetriedAfterErrorRef.current = false;
 
     const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
     if (!url) {
