@@ -39,13 +39,66 @@ export class RolesGuard implements CanActivate {
     email?: string | null,
   ): Promise<string | null> {
     const normalizedEmail = email?.trim().toLowerCase() || null;
-    if (!normalizedEmail) return null;
-
     const adminEmails = this.getAdminEmails();
-    const defaultRole = adminEmails.includes(normalizedEmail)
-      ? 'admin'
-      : 'listener';
+    const isAdminEmail = normalizedEmail
+      ? adminEmails.includes(normalizedEmail)
+      : false;
+    const defaultRole = isAdminEmail ? 'admin' : 'listener';
     const supabase = getSupabaseClient();
+
+    const { data: existingByUid } = await supabase
+      .from('users')
+      .select('role, email')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (existingByUid) {
+      let nextRole = existingByUid.role;
+      if (isAdminEmail && existingByUid.role !== 'admin') {
+        nextRole = 'admin';
+      }
+
+      const updatePayload: { role?: string; email?: string } = {};
+      if (nextRole !== existingByUid.role) {
+        updatePayload.role = nextRole;
+      }
+      if (normalizedEmail && existingByUid.email !== normalizedEmail) {
+        updatePayload.email = normalizedEmail;
+      }
+
+      if (Object.keys(updatePayload).length > 0) {
+        await supabase
+          .from('users')
+          .update(updatePayload)
+          .eq('firebase_uid', firebaseUid);
+      }
+      return nextRole;
+    }
+
+    if (normalizedEmail) {
+      const { data: existingByEmail } = await supabase
+        .from('users')
+        .select('role')
+        .eq('email', normalizedEmail)
+        .single();
+
+      if (existingByEmail) {
+        const roleToKeep =
+          isAdminEmail && existingByEmail.role !== 'admin'
+            ? 'admin'
+            : existingByEmail.role;
+        await supabase
+          .from('users')
+          .update({
+            firebase_uid: firebaseUid,
+            role: roleToKeep,
+          })
+          .eq('email', normalizedEmail);
+        return roleToKeep;
+      }
+    }
+
+    if (!normalizedEmail) return null;
 
     const { data, error } = await supabase
       .from('users')
@@ -65,7 +118,16 @@ export class RolesGuard implements CanActivate {
           .select('role')
           .eq('firebase_uid', firebaseUid)
           .single();
-        return existing?.role ?? null;
+        if (existing?.role) return existing.role;
+        if (normalizedEmail) {
+          const { data: byEmail } = await supabase
+            .from('users')
+            .select('role')
+            .eq('email', normalizedEmail)
+            .single();
+          return byEmail?.role ?? null;
+        }
+        return null;
       }
       return null;
     }
