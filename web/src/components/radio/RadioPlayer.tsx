@@ -305,11 +305,18 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
 
+        const normalizeAudioSource = (url: string) => url.split('?')[0];
+        const sameTrackDifferentSourcePath =
+          !!state.track &&
+          state.track.id === track.id &&
+          normalizeAudioSource(state.track.audioUrl) !==
+            normalizeAudioSource(track.audioUrl);
+
         // Reload same track only when recovering from an audio error or URL refresh.
         const shouldReloadCurrentTrack =
           !!state.track &&
           state.track.id === track.id &&
-          (!!state.error || state.track.audioUrl !== track.audioUrl);
+          (!!state.error || sameTrackDifferentSourcePath);
 
         // Keep normal path strict to avoid duplicate advance from poll + ended.
         if (!state.track || state.track.id !== track.id || shouldReloadCurrentTrack) {
