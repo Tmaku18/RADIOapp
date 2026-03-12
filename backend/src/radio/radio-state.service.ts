@@ -4,7 +4,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import * as crypto from 'crypto';
 
 /** Default radio when none specified (single-radio backward compatibility). */
-export const DEFAULT_RADIO_ID = 'default';
+export const DEFAULT_RADIO_ID = 'global';
 
 /**
  * Redis key structure per radio: radio:{radioId}:* so each radio has its own state.

@@ -155,7 +155,7 @@ export default function UploadPage() {
         details = '';
       }
       throw new Error(
-        `Failed to upload file (${uploadResponse.status}). ${details || 'Please try again.'}`,
+        `Failed to upload ${bucket} file (${uploadResponse.status}). ${details || 'Please try again.'}`,
       );
     }
 
@@ -177,25 +177,53 @@ export default function UploadPage() {
     try {
       // Upload audio file
       setUploadProgress(20);
-      const audioPath = await uploadToSignedUrl(audioFile, 'songs');
+      let audioPath: string;
+      try {
+        audioPath = await uploadToSignedUrl(audioFile, 'songs');
+      } catch (uploadErr) {
+        throw new Error(
+          `Audio storage upload failed: ${errorMessage(
+            uploadErr,
+            'Could not upload audio file.',
+          )}`,
+        );
+      }
       setUploadProgress(50);
 
       // Upload artwork if provided
       let artworkPath: string | undefined;
       if (artworkFile) {
-        artworkPath = await uploadToSignedUrl(artworkFile, 'artwork');
+        try {
+          artworkPath = await uploadToSignedUrl(artworkFile, 'artwork');
+        } catch (uploadErr) {
+          throw new Error(
+            `Artwork storage upload failed: ${errorMessage(
+              uploadErr,
+              'Could not upload artwork file.',
+            )}`,
+          );
+        }
         setUploadProgress(70);
       }
 
       // Create song record
       setUploadProgress(80);
-      await songsApi.create({
-        title,
-        artistName,
-        audioPath,
-        artworkPath,
-        durationSeconds: durationSeconds ?? undefined,
-      });
+      try {
+        await songsApi.create({
+          title,
+          artistName,
+          audioPath,
+          artworkPath,
+          durationSeconds: durationSeconds ?? undefined,
+        });
+      } catch (dbErr) {
+        throw new Error(
+          `Database save failed after upload: ${errorMessage(
+            dbErr,
+            'Audio uploaded but song record could not be saved.',
+          )}`,
+        );
+      }
 
       setUploadProgress(100);
       setReadyForRotation(true);

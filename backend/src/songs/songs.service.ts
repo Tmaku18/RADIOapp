@@ -90,15 +90,18 @@ export class SongsService {
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
 
-    // Verify user is an artist or admin
+    // Any authenticated app role can upload songs.
     const { data: user } = await supabase
       .from('users')
       .select('role')
       .eq('id', userId)
       .single();
 
-    if (!user || (user.role !== 'artist' && user.role !== 'admin')) {
-      throw new ForbiddenException('Only artists and admins can upload songs');
+    if (
+      !user ||
+      !['listener', 'artist', 'service_provider', 'admin'].includes(user.role)
+    ) {
+      throw new ForbiddenException('Your account role cannot upload songs');
     }
 
     const { data, error } = await supabase

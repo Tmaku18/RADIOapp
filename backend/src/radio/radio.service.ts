@@ -158,7 +158,7 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 @Injectable()
 export class RadioService {
   private readonly logger = new Logger(RadioService.name);
-  private nextSongNotifiedFor: string | null = null;
+  private nextSongNotifiedFor = new Map<string, string>();
 
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
@@ -426,7 +426,7 @@ export class RadioService {
       timeRemainingMs <= 60000 &&
       timeRemainingMs > SONG_END_BUFFER_MS
     ) {
-      this.checkAndScheduleUpNext(timeRemainingMs, song.id).catch((e) =>
+      this.checkAndScheduleUpNext(timeRemainingMs, song.id, radioId).catch((e) =>
         this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
       );
     }
@@ -1138,7 +1138,7 @@ export class RadioService {
     }
 
     const currentSongId = currentState?.songId;
-    this.nextSongNotifiedFor = null;
+    this.nextSongNotifiedFor.delete(radioId);
 
     // Finalize previous play: update per-play metrics and send "Your song has been played" notification
     await this.finalizePreviousPlay(radioId);
@@ -1801,7 +1801,10 @@ export class RadioService {
   /**
    * Preview the next song for Up Next notifications without changing state.
    */
-  private async preSelectNextSong(currentSongId?: string): Promise<any | null> {
+  private async preSelectNextSong(
+    currentSongId?: string,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<any | null> {
     const creditedResult = await this.getCreditedSong(currentSongId);
     if (creditedResult) return creditedResult.song;
 
@@ -1810,6 +1813,10 @@ export class RadioService {
 
     const optInResult = await this.getOptInSong(currentSongId);
     if (optInResult) return optInResult.song;
+
+    // Keep fallback preview scoped to station.
+    const fallbackSong = await this.getNextFreeRotationSong(radioId, currentSongId);
+    if (fallbackSong) return fallbackSong;
 
     return null;
   }
@@ -1820,17 +1827,18 @@ export class RadioService {
   private async checkAndScheduleUpNext(
     timeRemainingMs: number,
     currentSongId: string,
+    radioId: string = DEFAULT_RADIO_ID,
   ): Promise<void> {
     if (timeRemainingMs > 60000 || timeRemainingMs < 30000) return;
-    if (this.nextSongNotifiedFor === currentSongId) return;
+    if (this.nextSongNotifiedFor.get(radioId) === currentSongId) return;
 
-    const nextSong = await this.preSelectNextSong(currentSongId);
+    const nextSong = await this.preSelectNextSong(currentSongId, radioId);
     if (nextSong) {
       await this.pushNotificationService.scheduleUpNextNotification(
         nextSong,
         60,
       );
-      this.nextSongNotifiedFor = currentSongId;
+      this.nextSongNotifiedFor.set(radioId, currentSongId);
     }
   }
 }

@@ -107,7 +107,7 @@ export class SongsController {
    */
   @Post('upload-url')
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin')
   async getUploadUrl(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: GetUploadUrlDto,
@@ -137,7 +137,7 @@ export class SongsController {
    */
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin')
   async createSong(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CreateSongFromPathDto,
