@@ -258,7 +258,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Songs</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Top Performing Ores</h2>
           <div className="divide-y divide-border">
             {analytics?.topSongs && analytics.topSongs.length > 0 ? (
               analytics.topSongs.map((song, index) => (
@@ -276,7 +276,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No songs with discoveries yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No ores with discoveries yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>

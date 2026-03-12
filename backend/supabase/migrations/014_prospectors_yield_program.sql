@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS prospector_yield (
   balance_cents INTEGER NOT NULL DEFAULT 0 CHECK (balance_cents >= 0),
   total_earned_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_earned_cents >= 0),
   total_redeemed_cents INTEGER NOT NULL DEFAULT 0 CHECK (total_redeemed_cents >= 0),
-  ores_refined_count INTEGER NOT NULL DEFAULT 0 CHECK (ores_refined_count >= 0),
+  songs_refined_count INTEGER NOT NULL DEFAULT 0 CHECK (songs_refined_count >= 0),
   tier TEXT NOT NULL DEFAULT 'none' CHECK (tier IN ('none', 'copper', 'silver', 'gold', 'diamond')),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS prospector_refinements (
 
 CREATE INDEX IF NOT EXISTS idx_prospector_refinements_song ON prospector_refinements(song_id, created_at DESC);
 
-COMMENT ON TABLE prospector_refinements IS 'Prospector 1-10 refinement score per ore (song).';
+COMMENT ON TABLE prospector_refinements IS 'Prospector 1-10 refinement score per song.';
 
 -- ---------------------------------------------------------------------------
 -- 4) Survey (context) - one per user per song
@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS prospector_surveys (
 
 CREATE INDEX IF NOT EXISTS idx_prospector_surveys_song ON prospector_surveys(song_id, created_at DESC);
 
-COMMENT ON TABLE prospector_surveys IS 'Prospector survey responses per ore (song). Stored as JSONB for flexibility.';
+COMMENT ON TABLE prospector_surveys IS 'Prospector survey responses per song. Stored as JSONB for flexibility.';
 
 -- ---------------------------------------------------------------------------
 -- 5) Anti-bot check-ins (Ripple tap)

@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 /**
- * /artist has no content; redirect to My Songs (songs list) so the Studio nav always lands somewhere useful.
+ * /artist has no content; redirect to My Ores (songs list) so the Studio nav always lands somewhere useful.
  */
 export default function ArtistIndexPage() {
   const router = useRouter();

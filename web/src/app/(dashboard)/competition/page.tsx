@@ -363,7 +363,7 @@ export default function CompetitionPage() {
         <Card className="roadmap-card animate-in fade-in slide-in-from-bottom-3 duration-500 delay-300">
           <CardHeader>
             <CardTitle>Democratic Development — Vote for Top 7</CardTitle>
-            <p className="text-sm text-muted-foreground">Pick 7 songs and rank them 1–7. Voting closes at end of week.</p>
+            <p className="text-sm text-muted-foreground">Pick 7 ores and rank them 1–7. Voting closes at end of week.</p>
             <div className="mt-2 h-2 w-full rounded-full bg-muted overflow-hidden">
               <div
                 className="roadmap-progress h-full rounded-full transition-all duration-300"
@@ -373,7 +373,7 @@ export default function CompetitionPage() {
             <p className="text-xs text-muted-foreground">{voteSongIds.length}/7 selected</p>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">Select 7 songs from approved tracks (e.g. from Listen or Songs). Paste or type song IDs below (comma-separated) as your rank 1–7:</p>
+            <p className="text-sm text-muted-foreground mb-2">Select 7 ores from approved tracks (e.g. from Listen or Ores). Paste or type ore IDs below (comma-separated) as your rank 1–7:</p>
             <input
               type="text"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"

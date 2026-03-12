@@ -117,7 +117,7 @@ User-facing copy uses the following terms. See **[docs/branding-terminology.md](
 | **Ripples** | Likes/votes on tracks | `likes` |
 | **The Wake** | Artist analytics report; tagline: *“The path left behind by a thousand Ripples.”* | analytics, stats |
 | **The Yield** | Prospector rewards balance and redemption | prospector yield tables |
-| **Ores** | Tracks/songs | `song`, `songs` |
+| **Songs** | Tracks/songs | `song`, `songs` |
 
 API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_count`, role `listener`).
 
@@ -924,7 +924,7 @@ Supabase Storage (Audio Files)
 - ✅ **My Songs page** with status, duration, credits, trial plays, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
 - ✅ **Notifications page** with unread indicator and delete functionality
-- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Ores from real API)
+- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Songs from real API)
 - ✅ **Discover** (providers/artists with service type, location, search; link to profile and Messages)
 - ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
 - ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)

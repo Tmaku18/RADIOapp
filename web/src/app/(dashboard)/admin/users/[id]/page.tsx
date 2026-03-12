@@ -130,7 +130,7 @@ export default function AdminUserProfilePage() {
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Songs</p>
+              <p className="text-sm text-muted-foreground">Ores</p>
               <p className="text-2xl font-semibold text-foreground">{songs.length}</p>
             </CardContent>
           </Card>
@@ -152,7 +152,7 @@ export default function AdminUserProfilePage() {
       {songs.length > 0 && (
         <Card>
           <CardHeader>
-            <h2 className="text-lg font-semibold text-foreground">Songs</h2>
+            <h2 className="text-lg font-semibold text-foreground">Ores</h2>
           </CardHeader>
           <CardContent>
             <Table>
@@ -213,7 +213,7 @@ export default function AdminUserProfilePage() {
       {songs.length === 0 && user.role === 'artist' && (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
-            No songs uploaded yet.
+            No ores uploaded yet.
           </CardContent>
         </Card>
       )}

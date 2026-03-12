@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 type YieldStatus = {
   balanceCents: number;
   tier: 'none' | 'copper' | 'silver' | 'gold' | 'diamond';
-  songsRefinedCount: number;
+  oresRefinedCount: number;
 };
 
 function formatUsdFromCents(cents: number): string {
@@ -111,14 +111,14 @@ export default function YieldPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Tier</div>
             <div className="text-3xl font-bold text-foreground mt-1">{loading ? '—' : tierLabel}</div>
-            <div className="text-xs text-muted-foreground mt-2">Based on songs refined.</div>
+            <div className="text-xs text-muted-foreground mt-2">Based on ores refined.</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Songs refined</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{loading ? '—' : (status?.songsRefinedCount ?? 0).toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground font-medium">Ores refined</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{loading ? '—' : (status?.oresRefinedCount ?? 0).toLocaleString()}</div>
             <div className="text-xs text-muted-foreground mt-2">1 refinement (1–10) = 1 ore refined.</div>
           </CardContent>
         </Card>

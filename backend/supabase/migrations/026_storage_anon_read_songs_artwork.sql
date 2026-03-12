@@ -1,5 +1,5 @@
 -- Explicit anon SELECT so unauthenticated requests (e.g. browser loading artwork/audio URLs) can read.
--- "Forbidden resource" when viewing My Ores is often from img/audio requests to Storage as anon.
+-- "Forbidden resource" when viewing My Songs is often from img/audio requests to Storage as anon.
 
 DROP POLICY IF EXISTS "Anon read songs bucket" ON storage.objects;
 CREATE POLICY "Anon read songs bucket"

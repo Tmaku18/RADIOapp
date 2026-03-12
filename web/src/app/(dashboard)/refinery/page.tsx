@@ -130,7 +130,7 @@ export default function RefineryPage() {
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">
-            The Refinery is only available to Prospectors. Sign up as a Prospector to hear songs under review, answer survey questions, rank, and leave comments for rewards.
+            The Refinery is only available to Prospectors. Sign up as a Prospector to hear ores under review, answer survey questions, rank, and leave comments for rewards.
           </p>
           <div className="mt-4">
             <Button asChild variant="outline">
@@ -147,7 +147,7 @@ export default function RefineryPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">The Refinery</h1>
         <p className="text-muted-foreground mt-1">
-          Listen to songs under review unlimited times. Rank, answer surveys, and leave comments to earn Yield rewards.
+          Listen to ores under review unlimited times. Rank, answer surveys, and leave comments to earn Yield rewards.
         </p>
       </div>
 
@@ -162,7 +162,7 @@ export default function RefineryPage() {
       ) : songs.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-muted-foreground">No songs in The Refinery right now. Artists add their songs here for Prospector review.</p>
+            <p className="text-muted-foreground">No ores in The Refinery right now. Artists add their songs here for Prospector review.</p>
           </CardContent>
         </Card>
       ) : (

@@ -4,11 +4,11 @@ import { randomUUID } from 'crypto';
 
 type ProspectorTier = 'none' | 'copper' | 'silver' | 'gold' | 'diamond';
 
-function computeTier(songsRefinedCount: number): ProspectorTier {
-  if (songsRefinedCount >= 5000) return 'diamond';
-  if (songsRefinedCount >= 1000) return 'gold';
-  if (songsRefinedCount >= 250) return 'silver';
-  if (songsRefinedCount >= 50) return 'copper';
+function computeTier(oresRefinedCount: number): ProspectorTier {
+  if (oresRefinedCount >= 5000) return 'diamond';
+  if (oresRefinedCount >= 1000) return 'gold';
+  if (oresRefinedCount >= 250) return 'silver';
+  if (oresRefinedCount >= 50) return 'copper';
   return 'none';
 }
 
@@ -40,7 +40,7 @@ export class ProspectorYieldService {
         balance_cents: 0,
         total_earned_cents: 0,
         total_redeemed_cents: 0,
-        songs_refined_count: 0,
+        ores_refined_count: 0,
         tier: 'none',
         updated_at: new Date().toISOString(),
       },
@@ -58,11 +58,11 @@ export class ProspectorYieldService {
   async getYield(firebaseUid: string): Promise<{
     balanceCents: number;
     tier: ProspectorTier;
-    songsRefinedCount: number;
+    oresRefinedCount: number;
   }> {
     const { id: userId, role } = await this.getUserByFirebaseUid(firebaseUid);
     if (role !== 'listener') {
-      return { balanceCents: 0, tier: 'none', songsRefinedCount: 0 };
+      return { balanceCents: 0, tier: 'none', oresRefinedCount: 0 };
     }
 
     await this.ensureYieldRow(userId);
@@ -70,7 +70,7 @@ export class ProspectorYieldService {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('prospector_yield')
-      .select('balance_cents, tier, songs_refined_count')
+      .select('balance_cents, tier, ores_refined_count')
       .eq('user_id', userId)
       .single();
 
@@ -79,7 +79,7 @@ export class ProspectorYieldService {
     return {
       balanceCents: data.balance_cents ?? 0,
       tier: (data.tier ?? 'none') as ProspectorTier,
-      songsRefinedCount: data.songs_refined_count ?? 0,
+      oresRefinedCount: data.ores_refined_count ?? 0,
     };
   }
 
@@ -260,7 +260,7 @@ export class ProspectorYieldService {
       const { data: yieldRow, error: yErr } = await supabase
         .from('prospector_yield')
         .select(
-          'balance_cents, total_earned_cents, total_redeemed_cents, songs_refined_count, tier',
+          'balance_cents, total_earned_cents, total_redeemed_cents, ores_refined_count, tier',
         )
         .eq('user_id', userId)
         .single();
@@ -361,22 +361,22 @@ export class ProspectorYieldService {
     const { data: yieldRow, error: yErr } = await supabase
       .from('prospector_yield')
       .select(
-        'balance_cents, total_earned_cents, songs_refined_count, total_redeemed_cents',
+        'balance_cents, total_earned_cents, ores_refined_count, total_redeemed_cents',
       )
       .eq('user_id', userId)
       .single();
     if (yErr || !yieldRow)
       throw new BadRequestException('Failed to update Yield');
 
-    const songsRefinedCount = (yieldRow.songs_refined_count ?? 0) + 1;
-    const tier = computeTier(songsRefinedCount);
+    const oresRefinedCount = (yieldRow.ores_refined_count ?? 0) + 1;
+    const tier = computeTier(oresRefinedCount);
 
     const { error: upErr } = await supabase
       .from('prospector_yield')
       .update({
         balance_cents: (yieldRow.balance_cents ?? 0) + creditedCents,
         total_earned_cents: (yieldRow.total_earned_cents ?? 0) + creditedCents,
-        songs_refined_count: songsRefinedCount,
+        ores_refined_count: oresRefinedCount,
         tier,
         updated_at: now,
       })
@@ -384,7 +384,7 @@ export class ProspectorYieldService {
     if (upErr)
       throw new BadRequestException(`Failed to credit Yield: ${upErr.message}`);
 
-    return { refined: true, creditedCents, tier, songsRefinedCount };
+    return { refined: true, creditedCents, tier, oresRefinedCount };
   }
 
   async submitSurvey(

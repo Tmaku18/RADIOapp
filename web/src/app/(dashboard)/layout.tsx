@@ -108,7 +108,7 @@ function DashboardSidebarLogo() {
 }
 
 const adminSubNavigation = [
-  { name: 'Songs', href: '/admin/songs', icon: '🎶' },
+  { name: 'Ores', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
   { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
@@ -119,7 +119,7 @@ const adminSubNavigation = [
 
 // Flattened nav for page title lookup
 function getPageTitle(pathname: string): string {
-  if (pathname.startsWith('/admin/songs')) return 'Songs';
+  if (pathname.startsWith('/admin/songs')) return 'Ores';
   if (pathname.startsWith('/admin/users')) return 'Users';
   if (pathname.startsWith('/admin/streamers')) return 'Streamers';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
@@ -137,7 +137,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/live')) return 'Live';
   if (pathname.startsWith('/stream-settings')) return 'Stream settings';
   if (pathname.startsWith('/settings')) return 'Settings';
-  if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Songs';
+  if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Ores';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'The Wake';
@@ -296,7 +296,7 @@ export default function DashboardLayout({
                         <>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/songs')}>
-                              <Link href="/artist/songs">My Songs</Link>
+                              <Link href="/artist/songs">My Ores</Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                           <SidebarMenuSubItem>

@@ -318,7 +318,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _navTile(
                       context,
                       icon: Icons.library_music_outlined,
-                      title: 'Studio & Songs',
+                      title: 'Studio & Ores',
                       subtitle: 'Upload, credits, rotation',
                       onTap: () => Navigator.push(
                         context,
