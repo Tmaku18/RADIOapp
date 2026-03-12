@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi, refineryApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
@@ -163,7 +163,7 @@ export default function MySongsPage() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
                         {song.artworkUrl ? (
-                          <>
+                          <React.Fragment>
                             <img
                               className="h-10 w-10 rounded-lg object-cover"
                               src={song.artworkUrl}
@@ -177,7 +177,7 @@ export default function MySongsPage() {
                             <div className="h-10 w-10 rounded-lg bg-primary/10 hidden flex items-center justify-center">
                               <span className="text-primary">🎵</span>
                             </div>
-                          </>
+                          </React.Fragment>
                         ) : (
                           <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                             <span className="text-primary">🎵</span>
