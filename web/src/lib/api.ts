@@ -50,6 +50,10 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       // Token truly invalid - redirect to login, preserving current path so user returns after re-login
       if (typeof window !== 'undefined') {
+        // Avoid redirect loops on the radio player; let the page handle the error.
+        if (window.location.pathname.startsWith('/listen')) {
+          return Promise.reject(error);
+        }
         const path = window.location.pathname || '/';
         const search = window.location.search || '';
         const redirect = encodeURIComponent(`${path}${search}`);

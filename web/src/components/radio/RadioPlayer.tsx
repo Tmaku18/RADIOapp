@@ -63,7 +63,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
 
-  const isProspector = hasListenerCapability(profile?.role);
+  // Admins can listen but should not run prospector yield/check-in flows.
+  const isProspector = hasListenerCapability(profile?.role) && profile?.role !== 'admin';
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
