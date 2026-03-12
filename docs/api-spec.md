@@ -2,7 +2,7 @@
 
 Base URL: `http://localhost:3000/api`
 
-> **Product terminology**: In the UI and marketing, we use **Prospectors** (audience), **Ripples** (likes), **The Wake** (analytics), **The Yield** (Prospector rewards), **The Refinery** (Prospector portal for reviewing ores), and **Ore's** (songs). This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
+> **Product terminology**: In the UI and marketing, we use **Prospectors** (audience), **Ripples** (likes), **The Wake** (analytics), **The Yield** (Prospector rewards), **The Refinery** (Prospector portal for reviewing songs), and **Songs**. This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
 
 All endpoints require Firebase ID token in Authorization header: `Authorization: Bearer <token>`
 
@@ -78,7 +78,7 @@ Track selection (free vs paid mode, four-tier fallback, artist spacing) is docum
 
 ### Get Yield
 - **GET** `/prospector/yield`
-- Returns: `{ balanceCents, tier, oresRefinedCount }`
+- Returns: `{ balanceCents, tier, songsRefinedCount }`
 
 ### Check-in
 - **POST** `/prospector/check-in`
@@ -88,7 +88,7 @@ Track selection (free vs paid mode, four-tier fallback, artist spacing) is docum
 ### Submit Refinement
 - **POST** `/prospector/refinement`
 - Body: `{ songId: uuid, score: 1..10, playId?: uuid }`
-- Idempotent per user + song; first submission increases ores refined count and credits Yield.
+- Idempotent per user + song; first submission increases songs refined count and credits Yield.
 
 ### Submit Survey
 - **POST** `/prospector/survey`

@@ -208,7 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ListTile(
                     leading: const Icon(Icons.science_outlined),
                     title: const Text('The Refinery'),
-                    subtitle: const Text('Review ores, rank, survey, comment for rewards'),
+                    subtitle: const Text('Review songs, rank, survey, comment for rewards'),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.push(

@@ -109,7 +109,7 @@ export default function BuyPlaysPage() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
         <Button variant="outline" onClick={() => router.push('/artist/songs')}>
-          Back to My Ores
+          Back to My Songs
         </Button>
       </div>
     );
@@ -123,7 +123,7 @@ export default function BuyPlaysPage() {
     <div className="space-y-6 max-w-2xl">
       <div>
         <Button variant="ghost" onClick={() => router.push('/artist/songs')} className="mb-4">
-          ← Back to My Ores
+          ← Back to My Songs
         </Button>
         <h1 className="text-2xl font-bold text-foreground">Buy plays</h1>
         <p className="text-muted-foreground mt-1">

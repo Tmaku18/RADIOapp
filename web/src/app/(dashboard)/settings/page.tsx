@@ -104,7 +104,7 @@ export default function SettingsPage() {
                     <HugeiconsIcon icon={ChartHistogramIcon} className="size-5 text-muted-foreground" strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground">Studio & Ores</p>
+                    <p className="font-medium text-foreground">Studio & Songs</p>
                     <p className="text-sm text-muted-foreground">Upload, credits, rotation</p>
                   </div>
                   <span className="text-muted-foreground" aria-hidden>›</span>

@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
             <AlertDialogTitle>Lifetime Ban / Deactivate Account</AlertDialogTitle>
             <AlertDialogDescription>
               This will permanently deactivate {lifetimeBanUser?.display_name || lifetimeBanUser?.email}&apos;s account.
-              All their ores will be deleted from the database and storage. The user record will be kept so they cannot create a new account.
+              All their songs will be deleted from the database and storage. The user record will be kept so they cannot create a new account.
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

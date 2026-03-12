@@ -138,7 +138,7 @@ class _RefineryScreenState extends State<RefineryScreen> {
               : _songs.isEmpty
                   ? Center(
                       child: Text(
-                        'No ores in The Refinery right now.',
+                        'No songs in The Refinery right now.',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     )

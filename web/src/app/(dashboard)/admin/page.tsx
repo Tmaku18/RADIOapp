@@ -130,7 +130,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center">
             <span className="text-3xl mr-3">🎵</span>
             <div>
-              <div className="text-sm text-muted-foreground">Total Ores</div>
+              <div className="text-sm text-muted-foreground">Total Songs</div>
               <div className="text-2xl font-bold text-foreground">{analytics?.totalSongs?.toLocaleString() || 0}</div>
             </div>
           </div>
@@ -219,7 +219,7 @@ export default function AdminDashboardPage() {
               <div className="text-3xl font-bold text-foreground mt-1">{analytics?.pendingSongs || 0}</div>
             </div>
             <div className="bg-muted rounded-xl p-4">
-              <div className="text-sm text-muted-foreground font-medium">Approved Ores</div>
+              <div className="text-sm text-muted-foreground font-medium">Approved Songs</div>
               <div className="text-3xl font-bold text-foreground mt-1">{analytics?.approvedSongs || 0}</div>
             </div>
             <div className="bg-muted rounded-xl p-4">

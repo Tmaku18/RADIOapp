@@ -88,10 +88,10 @@ export default function MySongsPage() {
       setSongs(response.data);
     } catch (err: unknown) {
       const status = (err as ApiError).response?.status;
-      const msg = errorMessage(err, 'Failed to load ores. If this persists, check that BACKEND_URL is set on Vercel.');
+      const msg = errorMessage(err, 'Failed to load songs. If this persists, check that BACKEND_URL is set on Vercel.');
       if (status === 403) {
         setError(
-          'You need an artist account to view My Ores. Upgrade in Settings or sign up as an artist to upload and manage ores.'
+          'You need an artist account to view My Songs. Upgrade in Settings or sign up as an artist to upload and manage songs.'
         );
       } else {
         setError(msg);
@@ -113,10 +113,10 @@ export default function MySongsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">My Ores</h1>
+          <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
           <p className="text-muted-foreground mt-1">Manage your uploaded songs and buy plays for approved tracks</p>
         </div>
-        <Button onClick={() => router.push('/artist/upload')}>Upload New Ore</Button>
+        <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
       </div>
 
       {error && (
@@ -137,7 +137,7 @@ export default function MySongsPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <div className="text-6xl mb-4">🎵</div>
-            <h3 className="text-lg font-medium text-foreground mb-2">No ores yet</h3>
+            <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
             <p className="text-muted-foreground mb-6">Upload your first song to get on the radio and buy plays for approved tracks.</p>
             <Button onClick={() => router.push('/artist/upload')}>Upload Your First Ore</Button>
           </CardContent>

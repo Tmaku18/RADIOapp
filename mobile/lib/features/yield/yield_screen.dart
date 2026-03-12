@@ -25,7 +25,7 @@ class _YieldScreenState extends State<YieldScreen> {
 
   int _balanceCents = 0;
   String _tier = 'none';
-  int _oresRefinedCount = 0;
+  int _songsRefinedCount = 0;
 
   @override
   void initState() {
@@ -60,8 +60,8 @@ class _YieldScreenState extends State<YieldScreen> {
             (res?['balance_cents'] as num?)?.toInt() ??
             0;
         _tier = (res?['tier'] ?? 'none').toString();
-        _oresRefinedCount = (res?['oresRefinedCount'] as num?)?.toInt() ??
-            (res?['ores_refined_count'] as num?)?.toInt() ??
+        _songsRefinedCount = (res?['songsRefinedCount'] as num?)?.toInt() ??
+            (res?['songs_refined_count'] as num?)?.toInt() ??
             0;
       });
     } catch (e) {
@@ -191,8 +191,8 @@ class _YieldScreenState extends State<YieldScreen> {
                     ),
                     const SizedBox(height: 12),
                     _StatCard(
-                      label: 'Ores refined',
-                      value: _loading ? '—' : _oresRefinedCount.toString(),
+                      label: 'Songs refined',
+                      value: _loading ? '—' : _songsRefinedCount.toString(),
                       accent: NetworxTokens.cloudDancer,
                     ),
                     const SizedBox(height: 20),
