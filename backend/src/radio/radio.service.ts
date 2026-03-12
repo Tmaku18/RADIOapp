@@ -460,10 +460,11 @@ export class RadioService {
     const artistLiveNow = isAdminSong
       ? null
       : await this.getArtistLiveNow(song.artist_id ?? null);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: song.audio_url ?? null,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: queueState.playedAt,
       server_time: new Date(now).toISOString(),
@@ -1034,8 +1035,12 @@ export class RadioService {
           const artistLiveNow = currentState.isAdminFallback
             ? null
             : await this.getArtistLiveNow(currentSong.artist_id ?? null);
+          const audioUrl = await this.ensurePlayableAudioUrl(
+            currentSong.audio_url ?? null,
+          );
           return {
             ...currentSong,
+            audio_url: audioUrl,
             is_playing: true,
             started_at: currentState.playedAt,
             server_time: new Date(now).toISOString(),
@@ -1328,10 +1333,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: song.audio_url ?? null,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1414,10 +1420,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: song.audio_url ?? null,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1497,10 +1504,11 @@ export class RadioService {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       ...song,
-      audio_url: song.audio_url ?? null,
+      audio_url: audioUrl,
       is_playing: true,
       started_at: startedAt,
       server_time: startedAt,
@@ -1582,12 +1590,13 @@ export class RadioService {
     const pinnedCatalysts = isFromAdminTable
       ? []
       : await this.getPinnedCatalystsForSong(song.id);
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       id: song.id,
       title: song.title,
       artist_name: song.artist_name,
-      audio_url: song.audio_url ?? null,
+      audio_url: audioUrl,
       artwork_url: song.artwork_url,
       duration_seconds: durationSeconds,
       is_playing: true,
