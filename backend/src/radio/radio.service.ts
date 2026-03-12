@@ -1155,7 +1155,13 @@ export class RadioService {
     // Apply hysteresis logic to determine target playlist type
     let targetType = currentType;
 
+    // Rap station is intended to run nonstop free rotation.
+    if (radioId === RAP_RADIO_ID) {
+      targetType = 'free_rotation';
+    }
+
     if (
+      radioId !== RAP_RADIO_ID &&
       currentType === 'free_rotation' &&
       listenerCount >= THRESHOLD_ENTER_PAID
     ) {
@@ -1163,7 +1169,11 @@ export class RadioService {
       this.logger.log(
         `Switching to PAID playlist (listeners: ${listenerCount} >= ${THRESHOLD_ENTER_PAID})`,
       );
-    } else if (currentType === 'paid' && listenerCount <= THRESHOLD_EXIT_PAID) {
+    } else if (
+      radioId !== RAP_RADIO_ID &&
+      currentType === 'paid' &&
+      listenerCount <= THRESHOLD_EXIT_PAID
+    ) {
       targetType = 'free_rotation';
       this.logger.log(
         `Switching to FREE playlist (listeners: ${listenerCount} <= ${THRESHOLD_EXIT_PAID})`,
