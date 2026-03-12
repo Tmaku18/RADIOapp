@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePlaybackOptional } from './PlaybackProvider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -38,12 +37,16 @@ export function NowPlayingBar() {
         >
           <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/60 shrink-0 flex items-center justify-center">
             {track?.artworkUrl ? (
-              <Image
+              // Use <img> for dynamic remote artwork to avoid optimizer 400 loops.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
                 src={track.artworkUrl}
                 alt=""
-                width={48}
-                height={48}
                 className="object-cover w-full h-full"
+                onError={(e) => {
+                  // Hide broken artwork if URL is invalid/expired.
+                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                }}
               />
             ) : (
               <span className="text-xl text-muted-foreground">🎵</span>
