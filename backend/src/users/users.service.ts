@@ -77,10 +77,10 @@ export class UsersService {
 
     const emailLower = createUserDto.email.trim().toLowerCase();
     const adminEmails = this.getAdminEmails();
-    // Single user type: all non-admin users get full access (artist) and a credits row
+    // Default all non-admin users to listener. They can switch roles later in profile settings.
     const role = adminEmails.includes(emailLower)
       ? 'admin'
-      : 'artist';
+      : 'listener';
     const displayName = createUserDto.displayName?.trim() || null;
     const { data, error } = await supabase
       .from('users')
@@ -123,17 +123,6 @@ export class UsersService {
       throw new BadRequestException(
         `Failed to create account: ${error.message}. Please try again.`,
       );
-    }
-
-    // Create credits row for all non-admin users so they can buy/allocate plays on radio
-    if (role === 'artist') {
-      const { error: creditsError } = await supabase.from('credits').insert({
-        artist_id: data.id,
-        balance: 0,
-      });
-      if (creditsError && creditsError.code !== '23505') {
-        console.error('Failed to create credits record for new user:', creditsError);
-      }
     }
 
     return transformUser(data);
@@ -196,17 +185,43 @@ export class UsersService {
     if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
     if (updateUserDto.discoverable !== undefined) updatePayload.discoverable = updateUserDto.discoverable;
     if (updateUserDto.role !== undefined) {
-      if (user.role === 'service_provider' || user.role === 'admin') {
-        throw new BadRequestException('Catalysts and admins cannot change account type here.');
+      if (user.role === 'admin') {
+        throw new BadRequestException('Admin users cannot change account type here.');
       }
-      if (updateUserDto.role !== 'listener' && updateUserDto.role !== 'artist') {
-        throw new BadRequestException('Role must be listener or artist.');
+      if (
+        updateUserDto.role !== 'listener' &&
+        updateUserDto.role !== 'artist' &&
+        updateUserDto.role !== 'service_provider'
+      ) {
+        throw new BadRequestException(
+          'Role must be listener, artist, or service_provider.',
+        );
       }
       updatePayload.role = updateUserDto.role;
-      if (updateUserDto.role === 'artist' && user.role !== 'artist') {
-        const { error: creditsError } = await supabase.from('credits').insert({ artist_id: user.id, balance: 0 });
+      if (
+        (updateUserDto.role === 'artist' ||
+          updateUserDto.role === 'service_provider') &&
+        user.role !== updateUserDto.role
+      ) {
+        const { error: creditsError } = await supabase
+          .from('credits')
+          .insert({ artist_id: user.id, balance: 0 });
         if (creditsError && creditsError.code !== '23505') {
           console.error('Failed to create credits for new artist:', creditsError);
+        }
+      }
+      if (
+        updateUserDto.role === 'service_provider' &&
+        user.role !== 'service_provider'
+      ) {
+        const { error: providerError } = await supabase
+          .from('service_providers')
+          .insert({ user_id: user.id });
+        if (providerError && providerError.code !== '23505') {
+          console.error(
+            'Failed to create service_providers row during role switch:',
+            providerError,
+          );
         }
       }
     }

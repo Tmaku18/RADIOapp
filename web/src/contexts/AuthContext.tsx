@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }, [profile?.role]);
 
-  // Create profile; backend defaults non-admin to artist (single user type, full access).
+  // Create profile; backend defaults non-admin users to listener.
   const createDefaultProfile = useCallback(async (firebaseUser: User) => {
     await usersApi.create({
       email: firebaseUser.email!,
@@ -96,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setProfile(null);
           }
         } catch {
-          // New user: create profile (backend defaults to artist for non-admin)
+          // New user: create profile (backend defaults to listener for non-admin)
           try {
             await createDefaultProfile(firebaseUser);
           } catch (createErr) {
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
       } catch {
-        // New user: create profile (backend defaults to artist)
+        // New user: create profile (backend defaults to listener)
         try {
           await createDefaultProfile(firebaseUser);
           setLoading(false);
@@ -184,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const idToken = await firebaseUser.getIdToken();
       await createSessionCookie(idToken);
 
-      // Create profile; backend defaults non-admin to artist (single user type)
+      // Create profile; backend defaults non-admin users to listener
       await usersApi.create({
         email: firebaseUser.email!,
         displayName: (displayName?.trim() || firebaseUser.displayName) || undefined,

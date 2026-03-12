@@ -5,10 +5,10 @@ export class UpdateUserDto {
   @IsOptional()
   displayName?: string;
 
-  /** Switch between Prospector (listener) and Gem (artist) on the radio app. Catalysts are created via ProNetworx. */
-  @IsIn(['listener', 'artist'])
+  /** Switch account mode between listener, artist, and catalyst (service_provider). */
+  @IsIn(['listener', 'artist', 'service_provider'])
   @IsOptional()
-  role?: 'listener' | 'artist';
+  role?: 'listener' | 'artist' | 'service_provider';
 
   @ValidateIf((o) => o.avatarUrl != null && o.avatarUrl !== '')
   @IsUrl()

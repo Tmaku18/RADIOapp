@@ -124,7 +124,7 @@ export const songsApi = {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; role?: 'listener' | 'artist' }) => 
+  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();

@@ -44,7 +44,7 @@ export class RolesGuard implements CanActivate {
     const adminEmails = this.getAdminEmails();
     const defaultRole = adminEmails.includes(normalizedEmail)
       ? 'admin'
-      : 'artist';
+      : 'listener';
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase
@@ -68,13 +68,6 @@ export class RolesGuard implements CanActivate {
         return existing?.role ?? null;
       }
       return null;
-    }
-
-    // Keep role-specific side effects in sync with createUser behavior.
-    if (defaultRole === 'artist') {
-      await supabase
-        .from('credits')
-        .insert({ artist_id: (data as any).id, balance: 0 });
     }
 
     return data?.role ?? defaultRole;

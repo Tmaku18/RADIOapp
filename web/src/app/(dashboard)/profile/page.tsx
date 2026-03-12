@@ -25,9 +25,11 @@ export default function ProfilePage() {
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [headline, setHeadline] = useState(profile?.headline ?? '');
   const [locationRegion, setLocationRegion] = useState(profile?.locationRegion ?? '');
+  const [selectedRole, setSelectedRole] = useState<
+    'listener' | 'artist' | 'service_provider'
+  >((profile?.role as 'listener' | 'artist' | 'service_provider') || 'listener');
   const [isSaving, setIsSaving] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [isUpgradingToCatalyst, setIsUpgradingToCatalyst] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [hasCreatorAccess, setHasCreatorAccess] = useState<boolean | null>(null);
@@ -64,8 +66,11 @@ export default function ProfilePage() {
       if (profile?.bio !== undefined) setBio(profile.bio ?? '');
       if (profile?.headline !== undefined) setHeadline(profile.headline ?? '');
       if (profile?.locationRegion !== undefined) setLocationRegion(profile.locationRegion ?? '');
+      if (profile?.role && profile.role !== 'admin') {
+        setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
+      }
     }
-  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, isEditing]);
+  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.role, isEditing]);
 
   const handleSave = async () => {
     setError(null);
@@ -80,6 +85,7 @@ export default function ProfilePage() {
         bio: bio.trim() || undefined,
         headline: headline.trim() || undefined,
         locationRegion: locationRegion.trim() || undefined,
+        role: !isAdmin ? selectedRole : undefined,
       });
       await refreshProfile();
       setIsEditing(false);
@@ -101,6 +107,9 @@ export default function ProfilePage() {
     setBio(profile?.bio ?? '');
     setHeadline(profile?.headline ?? '');
     setLocationRegion(profile?.locationRegion ?? '');
+    if (profile?.role && profile.role !== 'admin') {
+      setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
+    }
     setIsEditing(false);
     setError(null);
   };
@@ -155,23 +164,16 @@ export default function ProfilePage() {
     }
   };
 
-  const handleUpgradeToCatalyst = async () => {
-    setError(null);
-    setIsUpgradingToCatalyst(true);
-    try {
-      await usersApi.upgradeToCatalyst();
-      await refreshProfile();
-      router.push('/pro-networx/onboarding');
-    } catch (err) {
-      setError((err as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Failed to become a Catalyst');
-    } finally {
-      setIsUpgradingToCatalyst(false);
-    }
-  };
-
   const isCatalyst = profile?.role === 'service_provider';
   const isAdmin = profile?.role === 'admin';
-  const roleLabel = profile?.role === 'admin' ? 'Admin' : profile?.role === 'service_provider' ? 'Catalyst' : 'Member';
+  const roleLabel =
+    profile?.role === 'admin'
+      ? 'Admin'
+      : profile?.role === 'service_provider'
+        ? 'Catalyst'
+        : profile?.role === 'artist'
+          ? 'Artist'
+          : 'Listener';
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -341,19 +343,28 @@ export default function ProfilePage() {
 
             <div className="space-y-3">
               <Label>Account</Label>
-              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">{roleLabel}</div>
-              {!isAdmin && !isCatalyst && (
+              {isEditing && !isAdmin ? (
+                <select
+                  value={selectedRole}
+                  onChange={(e) =>
+                    setSelectedRole(
+                      e.target.value as 'listener' | 'artist' | 'service_provider',
+                    )
+                  }
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                >
+                  <option value="listener">Listener</option>
+                  <option value="artist">Artist</option>
+                  <option value="service_provider">Catalyst</option>
+                </select>
+              ) : (
+                <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">
+                  {roleLabel}
+                </div>
+              )}
+              {!isAdmin && (
                 <p className="text-sm text-muted-foreground">
-                  You have full access: upload music, use credits, and use the job board. Want to offer services to other artists?{' '}
-                  <Button
-                    type="button"
-                    variant="link"
-                    className="p-0 h-auto font-medium"
-                    onClick={handleUpgradeToCatalyst}
-                    disabled={isUpgradingToCatalyst}
-                  >
-                    {isUpgradingToCatalyst ? 'Upgrading…' : 'Become a Catalyst'}
-                  </Button>
+                  You can switch between Listener, Artist, and Catalyst here.
                 </p>
               )}
               {isCatalyst && (

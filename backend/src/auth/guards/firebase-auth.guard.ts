@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { getFirebaseAuth } from '../../config/firebase.config';
 import { getSupabaseClient } from '../../config/supabase.config';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -15,7 +16,42 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 export class FirebaseAuthGuard implements CanActivate {
   private readonly logger = new Logger(FirebaseAuthGuard.name);
 
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private readonly configService: ConfigService,
+  ) {}
+
+  private getAdminEmails(): string[] {
+    const raw = this.configService.get<string>('ADMIN_EMAILS');
+    if (!raw?.trim()) return [];
+    return raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  private async ensureUserProfile(
+    firebaseUid: string,
+    email?: string | null,
+  ): Promise<void> {
+    const normalizedEmail = email?.trim().toLowerCase() || null;
+    if (!normalizedEmail) return;
+    const supabase = getSupabaseClient();
+
+    const adminEmails = this.getAdminEmails();
+    const role = adminEmails.includes(normalizedEmail) ? 'admin' : 'listener';
+
+    const { error } = await supabase.from('users').insert({
+      firebase_uid: firebaseUid,
+      email: normalizedEmail,
+      role,
+    });
+    if (error && error.code !== '23505') {
+      this.logger.warn(
+        `Failed to auto-provision user profile for ${firebaseUid}: ${error.message}`,
+      );
+    }
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if endpoint is marked as public
@@ -48,6 +84,10 @@ export class FirebaseAuthGuard implements CanActivate {
         .select('id, is_banned, ban_reason')
         .eq('firebase_uid', decodedToken.uid)
         .single();
+
+      if (!user) {
+        await this.ensureUserProfile(decodedToken.uid, decodedToken.email);
+      }
 
       if (user?.is_banned) {
         this.logger.warn(`Banned user attempted access: ${decodedToken.uid}`);
