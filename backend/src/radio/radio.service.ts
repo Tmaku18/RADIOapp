@@ -1126,7 +1126,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const newHash = crypto
       .createHash('md5')
-      .update(newStack.sort().join(','))
+      // Keep order-sensitive hashing so admin reorders are persisted.
+      .update([...newStack].join(','))
       .digest('hex');
 
     const { data } = await supabase
@@ -1138,7 +1139,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const currentHash = data?.stack_version_hash;
 
     if (currentHash !== newHash) {
-      await this.radioStateService.saveFullPlaylistState(newStack, 0, radioId);
+      const fallbackPosition = await this.radioStateService.getFallbackPosition(radioId);
+      await this.radioStateService.saveFullPlaylistState(
+        [...newStack],
+        fallbackPosition,
+        radioId,
+      );
       this.logger.log(
         `Stack content changed - saved full stack to Supabase (${newStack.length} songs)`,
       );
