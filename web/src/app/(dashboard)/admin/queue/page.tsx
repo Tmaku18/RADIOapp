@@ -1,0 +1,347 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { adminApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+type RadioOption = { id: string; state: string; label: string };
+type QueueEntry = {
+  position: number;
+  stackId: string;
+  normalizedSongId: string;
+  source: 'songs' | 'admin_fallback' | null;
+  title: string | null;
+  artistName: string | null;
+  artworkUrl: string | null;
+  durationSeconds: number;
+};
+type QueueState = {
+  radioId: string;
+  currentSong: { title: string | null; artistName: string | null } | null;
+  upcoming: QueueEntry[];
+};
+type Candidate = {
+  stackId: string;
+  title: string;
+  artistName: string;
+  source: 'songs' | 'admin_fallback';
+};
+
+function fmtDuration(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds || 0));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    (error as any).response?.data?.message
+  ) {
+    const msg = (error as any).response.data.message;
+    return typeof msg === 'string' ? msg : fallback;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+export default function AdminQueuePage() {
+  const [radios, setRadios] = useState<RadioOption[]>([]);
+  const [selectedRadioId, setSelectedRadioId] = useState<string>('ga-nw-rap');
+  const [queueState, setQueueState] = useState<QueueState | null>(null);
+  const [draftStackIds, setDraftStackIds] = useState<string[]>([]);
+  const [originalStackIds, setOriginalStackIds] = useState<string[]>([]);
+  const [songCandidates, setSongCandidates] = useState<Candidate[]>([]);
+  const [fallbackCandidates, setFallbackCandidates] = useState<Candidate[]>([]);
+  const [selectedAddStackId, setSelectedAddStackId] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const loadRadios = useCallback(async () => {
+    const res = await adminApi.getRadios();
+    const list = res.data.radios || [];
+    setRadios(list);
+    if (list.length > 0 && !list.find((r) => r.id === selectedRadioId)) {
+      setSelectedRadioId(list[0].id);
+    }
+  }, [selectedRadioId]);
+
+  const loadQueue = useCallback(async (radioId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminApi.getRadioQueue(radioId, 200);
+      const state = {
+        radioId: res.data.radioId,
+        currentSong: res.data.currentSong,
+        upcoming: res.data.upcoming || [],
+      };
+      setQueueState(state);
+      const stackIds = state.upcoming.map((row) => row.stackId);
+      setDraftStackIds(stackIds);
+      setOriginalStackIds(stackIds);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to load queue state'));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCandidates = useCallback(async (radioId: string) => {
+    try {
+      const [songsRes, fallbackRes] = await Promise.all([
+        adminApi.getSongsInFreeRotation(),
+        adminApi.getFallbackSongs(radioId),
+      ]);
+      const songs = (songsRes.data.songs || []).map((song: any) => ({
+        stackId: `song:${song.id}`,
+        title: song.title || 'Untitled',
+        artistName: song.users?.display_name || song.artist_name || 'Unknown Artist',
+        source: 'songs' as const,
+      }));
+      const fallback = (fallbackRes.data.songs || []).map((song: any) => ({
+        stackId: `admin:${song.id}`,
+        title: song.title || 'Untitled',
+        artistName: song.artist_name || 'Unknown Artist',
+        source: 'admin_fallback' as const,
+      }));
+      setSongCandidates(songs);
+      setFallbackCandidates(fallback);
+      if (!selectedAddStackId && songs.length > 0) {
+        setSelectedAddStackId(songs[0].stackId);
+      }
+    } catch {
+      // Non-blocking; queue view is still useful without candidate lists.
+      setSongCandidates([]);
+      setFallbackCandidates([]);
+    }
+  }, [selectedAddStackId]);
+
+  useEffect(() => {
+    loadRadios();
+  }, [loadRadios]);
+
+  useEffect(() => {
+    if (!selectedRadioId) return;
+    loadQueue(selectedRadioId);
+    loadCandidates(selectedRadioId);
+  }, [selectedRadioId, loadQueue, loadCandidates]);
+
+  const queueMap = useMemo(() => {
+    const map = new Map<string, QueueEntry>();
+    for (const row of queueState?.upcoming || []) {
+      map.set(row.stackId, row);
+    }
+    return map;
+  }, [queueState]);
+
+  const allCandidates = useMemo(() => {
+    const seen = new Set<string>();
+    const merged = [...songCandidates, ...fallbackCandidates].filter((item) => {
+      if (seen.has(item.stackId)) return false;
+      seen.add(item.stackId);
+      return true;
+    });
+    return merged;
+  }, [songCandidates, fallbackCandidates]);
+
+  const draftRows = useMemo(
+    () =>
+      draftStackIds.map((stackId, index) => {
+        const row = queueMap.get(stackId);
+        return {
+          position: index,
+          stackId,
+          title: row?.title || stackId,
+          artistName: row?.artistName || null,
+          source: row?.source || (stackId.startsWith('song:') ? 'songs' : 'admin_fallback'),
+          durationSeconds: row?.durationSeconds || 0,
+        };
+      }),
+    [draftStackIds, queueMap],
+  );
+
+  const hasChanges =
+    draftStackIds.length !== originalStackIds.length ||
+    draftStackIds.some((value, idx) => value !== originalStackIds[idx]);
+
+  const moveRow = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= draftStackIds.length) return;
+    const next = [...draftStackIds];
+    const [item] = next.splice(index, 1);
+    next.splice(target, 0, item);
+    setDraftStackIds(next);
+  };
+
+  const removeRow = (index: number) => {
+    const next = [...draftStackIds];
+    next.splice(index, 1);
+    setDraftStackIds(next);
+  };
+
+  const addSelected = () => {
+    if (!selectedAddStackId) return;
+    setDraftStackIds((prev) => [...prev, selectedAddStackId]);
+  };
+
+  const saveQueue = async () => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await adminApi.replaceRadioQueue(selectedRadioId, draftStackIds);
+      setOriginalStackIds(draftStackIds);
+      await loadQueue(selectedRadioId);
+      setSuccess('Queue updated for upcoming tracks.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to save queue'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetDraft = () => {
+    setDraftStackIds(originalStackIds);
+    setSuccess(null);
+    setError(null);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold">Queue Manager</h2>
+          <p className="text-sm text-muted-foreground">
+            Manage upcoming queue only. Current song keeps playing.
+          </p>
+        </div>
+        <div className="w-full sm:w-72">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">
+            Station
+          </label>
+          <select
+            value={selectedRadioId}
+            onChange={(e) => setSelectedRadioId(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+          >
+            {radios.map((radio) => (
+              <option key={radio.id} value={radio.id}>
+                {radio.label} ({radio.id})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-800">
+          {success}
+        </div>
+      )}
+
+      <Card className="p-4">
+        <h3 className="font-semibold">Now Playing</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {queueState?.currentSong?.title
+            ? `${queueState.currentSong.title} - ${queueState.currentSong.artistName || 'Unknown Artist'}`
+            : 'No active track'}
+        </p>
+      </Card>
+
+      <Card className="space-y-4 p-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Add Eligible Song
+            </label>
+            <select
+              value={selectedAddStackId}
+              onChange={(e) => setSelectedAddStackId(e.target.value)}
+              className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+            >
+              {allCandidates.map((candidate) => (
+                <option key={candidate.stackId} value={candidate.stackId}>
+                  {candidate.title} - {candidate.artistName} [{candidate.source}]
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button onClick={addSelected} disabled={!selectedAddStackId}>
+            Add to Draft Queue
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold">Upcoming Queue (Draft)</h3>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={resetDraft} disabled={!hasChanges || saving}>
+              Reset
+            </Button>
+            <Button onClick={saveQueue} disabled={!hasChanges || saving || loading}>
+              {saving ? 'Saving...' : 'Apply Queue Changes'}
+            </Button>
+          </div>
+        </div>
+
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading queue...</p>
+        ) : draftRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No upcoming entries.</p>
+        ) : (
+          <div className="space-y-2">
+            {draftRows.map((entry, idx) => (
+              <div
+                key={`${entry.stackId}-${idx}`}
+                className="flex items-center gap-3 rounded-md border p-3"
+              >
+                <div className="w-10 text-sm text-muted-foreground">#{idx + 1}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{entry.title}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {entry.artistName || 'Unknown Artist'} - {entry.source} -{' '}
+                    {fmtDuration(entry.durationSeconds)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => moveRow(idx, -1)}
+                    disabled={idx === 0}
+                  >
+                    Up
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => moveRow(idx, 1)}
+                    disabled={idx === draftRows.length - 1}
+                  >
+                    Down
+                  </Button>
+                  <Button size="sm" variant="destructive" onClick={() => removeRow(idx)}>
+                    Remove
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}

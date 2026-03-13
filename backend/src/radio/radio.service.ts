@@ -5,6 +5,7 @@ import {
   forwardRef,
   OnModuleDestroy,
   OnModuleInit,
+  BadRequestException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -27,6 +28,16 @@ type PinnedCatalystCredit = {
   displayName: string;
   avatarUrl: string | null;
   role: string;
+};
+
+type QueueCandidate = {
+  stackId: string;
+  source: 'songs' | 'admin_fallback';
+  id: string;
+  title: string;
+  artistName: string | null;
+  artworkUrl: string | null;
+  durationSeconds: number;
 };
 
 // === Hysteresis Thresholds ===
@@ -1928,6 +1939,258 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       nextCount: nextSongs.length,
       nextSongs,
     };
+  }
+
+  private async getQueueCandidates(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<QueueCandidate[]> {
+    const supabase = getSupabaseClient();
+    const items = await this.getAllFreeRotationSongs(radioId);
+    if (items.length === 0) return [];
+
+    const songIds = items
+      .filter((item) => item._stackId.startsWith('song:'))
+      .map((item) => item.id);
+    const adminIds = items
+      .filter((item) => item._stackId.startsWith('admin:'))
+      .map((item) => item.id);
+
+    const [songsRes, adminRes] = await Promise.all([
+      songIds.length
+        ? supabase
+            .from('songs')
+            .select('id, title, artist_name, artwork_url, duration_seconds')
+            .in('id', songIds)
+        : Promise.resolve({ data: [], error: null } as any),
+      adminIds.length
+        ? supabase
+            .from('admin_fallback_songs')
+            .select('id, title, artist_name, artwork_url, duration_seconds')
+            .eq('radio_id', radioId)
+            .in('id', adminIds)
+        : Promise.resolve({ data: [], error: null } as any),
+    ]);
+
+    const songMap = new Map(
+      ((songsRes.data ?? []) as any[]).map((row) => [row.id, row]),
+    );
+    const adminMap = new Map(
+      ((adminRes.data ?? []) as any[]).map((row) => [row.id, row]),
+    );
+
+    return items
+      .map((item) => {
+        if (item._stackId.startsWith('song:')) {
+          const row = songMap.get(item.id);
+          if (!row) return null;
+          return {
+            stackId: item._stackId,
+            source: 'songs' as const,
+            id: row.id,
+            title: row.title,
+            artistName: row.artist_name ?? null,
+            artworkUrl: row.artwork_url ?? null,
+            durationSeconds: row.duration_seconds ?? DEFAULT_DURATION_SECONDS,
+          };
+        }
+        const row = adminMap.get(item.id);
+        if (!row) return null;
+        return {
+          stackId: item._stackId,
+          source: 'admin_fallback' as const,
+          id: row.id,
+          title: row.title,
+          artistName: row.artist_name ?? null,
+          artworkUrl: row.artwork_url ?? null,
+          durationSeconds: row.duration_seconds ?? DEFAULT_DURATION_SECONDS,
+        };
+      })
+      .filter((item): item is QueueCandidate => !!item);
+  }
+
+  private async normalizeQueueInputToStackId(
+    radioId: string,
+    input: {
+      stackId?: string;
+      songId?: string;
+      source?: 'songs' | 'admin_fallback';
+    },
+  ): Promise<string> {
+    const candidates = await this.getQueueCandidates(radioId);
+    const candidateStackIds = new Set(candidates.map((c) => c.stackId));
+
+    if (input.stackId?.trim()) {
+      const id = input.stackId.trim();
+      if (!candidateStackIds.has(id)) {
+        throw new BadRequestException(
+          `stackId "${id}" is not eligible for this station queue`,
+        );
+      }
+      return id;
+    }
+
+    const songId = input.songId?.trim();
+    if (!songId) {
+      throw new BadRequestException('Provide stackId or songId');
+    }
+
+    const preferredSource = input.source;
+    if (preferredSource) {
+      const resolved = `${preferredSource === 'songs' ? 'song' : 'admin'}:${songId}`;
+      if (candidateStackIds.has(resolved)) return resolved;
+      throw new BadRequestException(
+        `songId "${songId}" is not eligible in source "${preferredSource}"`,
+      );
+    }
+
+    const songCandidate = `song:${songId}`;
+    if (candidateStackIds.has(songCandidate)) return songCandidate;
+    const adminCandidate = `admin:${songId}`;
+    if (candidateStackIds.has(adminCandidate)) return adminCandidate;
+
+    throw new BadRequestException(
+      `songId "${songId}" is not eligible for this station queue`,
+    );
+  }
+
+  async getAdminQueueState(
+    radioId: string = DEFAULT_RADIO_ID,
+    limit: number = 50,
+  ) {
+    const safeLimit = Math.min(Math.max(1, limit), 200);
+    const debug = await this.getQueueDebug(safeLimit, radioId);
+    const candidates = await this.getQueueCandidates(radioId);
+    const candidateByStackId = new Map(candidates.map((c) => [c.stackId, c]));
+
+    const upcoming = debug.nextSongs.map((row, index) => {
+      const candidate = candidateByStackId.get(row.stackId);
+      return {
+        position: index,
+        stackId: row.stackId,
+        normalizedSongId: row.normalizedSongId,
+        source: row.source,
+        title: candidate?.title ?? row.title,
+        artistName: candidate?.artistName ?? row.artistName,
+        artworkUrl: candidate?.artworkUrl ?? null,
+        durationSeconds: candidate?.durationSeconds ?? DEFAULT_DURATION_SECONDS,
+      };
+    });
+
+    return {
+      ...debug,
+      upcoming,
+      availableCount: candidates.length,
+    };
+  }
+
+  async addAdminQueueEntries(
+    radioId: string = DEFAULT_RADIO_ID,
+    payload: {
+      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      position?: number;
+      allowDuplicates?: boolean;
+    },
+  ) {
+    const existing = await this.radioStateService.getFreeRotationStack(radioId);
+    const maxQueueSize = 1000;
+    const allowDuplicates = payload.allowDuplicates === true;
+    if (!Array.isArray(payload.items) || payload.items.length === 0) {
+      throw new BadRequestException('At least one queue item is required');
+    }
+    const positionRaw = payload.position;
+    const insertAt =
+      typeof positionRaw === 'number' && Number.isFinite(positionRaw)
+        ? Math.min(Math.max(0, Math.floor(positionRaw)), existing.length)
+        : existing.length;
+
+    const normalizedItems: string[] = [];
+    for (const item of payload.items ?? []) {
+      const stackId = await this.normalizeQueueInputToStackId(radioId, item);
+      normalizedItems.push(stackId);
+    }
+
+    if (!allowDuplicates) {
+      const existingSet = new Set(existing);
+      for (const id of normalizedItems) {
+        if (existingSet.has(id)) continue;
+        existingSet.add(id);
+      }
+      const deduped = normalizedItems.filter(
+        (id, idx) =>
+          normalizedItems.indexOf(id) === idx && !existing.includes(id),
+      );
+      normalizedItems.length = 0;
+      normalizedItems.push(...deduped);
+    }
+
+    const next = [
+      ...existing.slice(0, insertAt),
+      ...normalizedItems,
+      ...existing.slice(insertAt),
+    ].slice(0, maxQueueSize);
+
+    await this.radioStateService.setFreeRotationStack(next, radioId);
+    await this.saveStackIfChanged(next, radioId);
+
+    return this.getAdminQueueState(radioId, 100);
+  }
+
+  async replaceAdminQueue(
+    radioId: string = DEFAULT_RADIO_ID,
+    stackIds: string[] = [],
+  ) {
+    const maxQueueSize = 1000;
+    const normalized: string[] = [];
+    for (const stackId of stackIds.slice(0, maxQueueSize)) {
+      normalized.push(
+        await this.normalizeQueueInputToStackId(radioId, { stackId }),
+      );
+    }
+    await this.radioStateService.setFreeRotationStack(normalized, radioId);
+    await this.saveStackIfChanged(normalized, radioId);
+    return this.getAdminQueueState(radioId, 100);
+  }
+
+  async removeAdminQueueEntry(
+    radioId: string = DEFAULT_RADIO_ID,
+    params: { position?: number; stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' },
+  ) {
+    const stack = await this.radioStateService.getFreeRotationStack(radioId);
+    if (stack.length === 0) return this.getAdminQueueState(radioId, 100);
+
+    let next = [...stack];
+    if (
+      typeof params.position === 'number' &&
+      Number.isFinite(params.position) &&
+      params.position >= 0 &&
+      params.position < next.length
+    ) {
+      next.splice(Math.floor(params.position), 1);
+    } else {
+      const rawStackId = params.stackId?.trim();
+      const rawSongId = params.songId?.trim();
+      const stackId =
+        rawStackId ||
+        (rawSongId
+          ? params.source
+            ? `${params.source === 'songs' ? 'song' : 'admin'}:${rawSongId}`
+            : next.find((entry) => entry.endsWith(`:${rawSongId}`))
+          : undefined);
+      if (!stackId) {
+        throw new BadRequestException(
+          'Provide a valid position, stackId, or songId to remove',
+        );
+      }
+      const idx = next.indexOf(stackId);
+      if (idx === -1) {
+        throw new BadRequestException(`Queue entry "${stackId}" not found`);
+      }
+      next.splice(idx, 1);
+    }
+
+    await this.radioStateService.setFreeRotationStack(next, radioId);
+    await this.saveStackIfChanged(next, radioId);
+    return this.getAdminQueueState(radioId, 100);
   }
 
   /**

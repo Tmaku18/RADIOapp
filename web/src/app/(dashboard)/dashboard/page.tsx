@@ -59,6 +59,7 @@ const ROLE_HOME: Record<
       { href: '/admin', icon: '⚙️', title: 'Admin Overview', desc: 'Platform stats and quick actions.' },
       { href: '/admin/songs', icon: '🎶', title: "Ore's", desc: 'Review and moderate submissions.' },
       { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and prospectors.' },
+      { href: '/admin/queue', icon: '🧵', title: 'Queue', desc: 'Inspect and control upcoming station queue.' },
       { href: '/admin/feed', icon: '📱', title: 'Feed', desc: 'News and promotions.' },
       { href: '/admin/free-rotation', icon: '🔄', title: 'Free Rotation', desc: 'Manage free rotation queue.' },
       { href: '/admin/fallback', icon: '📻', title: 'Fallback', desc: 'Fallback and default tracks.' },

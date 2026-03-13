@@ -28,6 +28,37 @@ export class AdminService {
     return this.radioService.getQueueDebug(limit, radioId);
   }
 
+  async getRadioQueue(radioId: string, limit: number) {
+    return this.radioService.getAdminQueueState(radioId, limit);
+  }
+
+  async addRadioQueueEntries(
+    radioId: string,
+    payload: {
+      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      position?: number;
+      allowDuplicates?: boolean;
+    },
+  ) {
+    return this.radioService.addAdminQueueEntries(radioId, payload);
+  }
+
+  async replaceRadioQueue(radioId: string, stackIds: string[]) {
+    return this.radioService.replaceAdminQueue(radioId, stackIds);
+  }
+
+  async removeRadioQueueEntry(
+    radioId: string,
+    params: {
+      position?: number;
+      stackId?: string;
+      songId?: string;
+      source?: 'songs' | 'admin_fallback';
+    },
+  ) {
+    return this.radioService.removeAdminQueueEntry(radioId, params);
+  }
+
   async getSongsPendingApproval(filters: {
     status?: string;
     search?: string;

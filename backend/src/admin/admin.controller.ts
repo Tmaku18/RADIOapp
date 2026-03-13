@@ -182,6 +182,91 @@ export class AdminController {
     return this.adminService.getRadioQueueDebug(id, safeLimit);
   }
 
+  @Get('radios/:id/queue')
+  async getRadioQueue(
+    @Param('id') radioId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 50;
+    const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 50;
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.adminService.getRadioQueue(id, safeLimit);
+  }
+
+  @Post('radios/:id/queue')
+  async addRadioQueueEntry(
+    @Param('id') radioId: string,
+    @Body()
+    body: {
+      items?: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      stackId?: string;
+      songId?: string;
+      source?: 'songs' | 'admin_fallback';
+      position?: number;
+      allowDuplicates?: boolean;
+    },
+  ) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const items = Array.isArray(body?.items)
+      ? body.items
+      : [{ stackId: body?.stackId, songId: body?.songId, source: body?.source }];
+    if (!items.length) {
+      throw new BadRequestException('At least one queue item is required');
+    }
+    if (items.length > 100) {
+      throw new BadRequestException('Cannot add more than 100 items at once');
+    }
+    return this.adminService.addRadioQueueEntries(id, {
+      items,
+      position: body?.position,
+      allowDuplicates: body?.allowDuplicates === true,
+    });
+  }
+
+  @Patch('radios/:id/queue')
+  async replaceRadioQueue(
+    @Param('id') radioId: string,
+    @Body()
+    body: {
+      stackIds?: string[];
+    },
+  ) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const stackIds = Array.isArray(body?.stackIds) ? body.stackIds : [];
+    if (stackIds.length > 1000) {
+      throw new BadRequestException('Queue cannot exceed 1000 entries');
+    }
+    return this.adminService.replaceRadioQueue(id, stackIds);
+  }
+
+  @Delete('radios/:id/queue')
+  async removeRadioQueueEntry(
+    @Param('id') radioId: string,
+    @Query('position') position?: string,
+    @Query('stackId') stackId?: string,
+    @Query('songId') songId?: string,
+    @Query('source') source?: 'songs' | 'admin_fallback',
+  ) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    const parsedPosition =
+      typeof position === 'string' && position.length > 0
+        ? parseInt(position, 10)
+        : undefined;
+    const hasByPosition =
+      typeof parsedPosition === 'number' && Number.isFinite(parsedPosition);
+    if (!hasByPosition && !stackId && !songId) {
+      throw new BadRequestException(
+        'Provide position, stackId, or songId to remove an entry',
+      );
+    }
+    return this.adminService.removeRadioQueueEntry(id, {
+      position: hasByPosition ? parsedPosition : undefined,
+      stackId,
+      songId,
+      source,
+    });
+  }
+
   // ========== Fallback Playlist Endpoints ==========
 
   @Get('fallback-songs/grouped')

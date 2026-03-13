@@ -461,6 +461,52 @@ export const adminApi = {
       nextCount: number;
       nextSongs: Array<{ stackId: string; normalizedSongId: string; title: string | null; artistName: string | null; source: 'songs' | 'admin_fallback' | null }>;
     }>(`/admin/radios/${radioId}/queue-debug`, { params: limit ? { limit } : undefined }),
+  getRadioQueue: (radioId: string, limit?: number) =>
+    api.get<{
+      radioId: string;
+      playlistType: 'free_rotation' | 'paid';
+      fallbackPosition: number;
+      currentSong: {
+        id: string | null;
+        title: string | null;
+        artistName: string | null;
+        source: 'songs' | 'admin_fallback' | 'unknown';
+      } | null;
+      queueLength: number;
+      nextCount: number;
+      nextSongs: Array<{
+        stackId: string;
+        normalizedSongId: string;
+        title: string | null;
+        artistName: string | null;
+        source: 'songs' | 'admin_fallback' | null;
+      }>;
+      upcoming: Array<{
+        position: number;
+        stackId: string;
+        normalizedSongId: string;
+        source: 'songs' | 'admin_fallback' | null;
+        title: string | null;
+        artistName: string | null;
+        artworkUrl: string | null;
+        durationSeconds: number;
+      }>;
+      availableCount: number;
+    }>(`/admin/radios/${radioId}/queue`, { params: limit ? { limit } : undefined }),
+  addRadioQueueEntries: (
+    radioId: string,
+    data: {
+      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      position?: number;
+      allowDuplicates?: boolean;
+    },
+  ) => api.post(`/admin/radios/${radioId}/queue`, data),
+  replaceRadioQueue: (radioId: string, stackIds: string[]) =>
+    api.patch(`/admin/radios/${radioId}/queue`, { stackIds }),
+  removeRadioQueueEntry: (
+    radioId: string,
+    params: { position?: number; stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' },
+  ) => api.delete(`/admin/radios/${radioId}/queue`, { params }),
   // Fallback playlist management
   getFallbackSongs: (radio?: string) =>
     api.get('/admin/fallback-songs', { params: radio ? { radio } : undefined }),

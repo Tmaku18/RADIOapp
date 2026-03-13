@@ -110,6 +110,7 @@ function DashboardSidebarLogo() {
 const adminSubNavigation = [
   { name: 'Songs', href: '/admin/songs', icon: '🎶' },
   { name: 'Users', href: '/admin/users', icon: '👥' },
+  { name: 'Queue', href: '/admin/queue', icon: '🧵' },
   { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
@@ -121,6 +122,7 @@ const adminSubNavigation = [
 function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin/songs')) return 'Songs';
   if (pathname.startsWith('/admin/users')) return 'Users';
+  if (pathname.startsWith('/admin/queue')) return 'Queue';
   if (pathname.startsWith('/admin/streamers')) return 'Streamers';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
   if (pathname.startsWith('/admin/fallback')) return 'Fallback';

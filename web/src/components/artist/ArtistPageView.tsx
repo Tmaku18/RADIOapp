@@ -118,17 +118,14 @@ export function ArtistPageView({
         const res = await usersApi.getArtistProfile(artistId);
         if (ignore) return;
         setData(res.data as ArtistProfileResponse);
-      } catch {
+      } catch (aggregateError) {
         // Compatibility fallback: if aggregate endpoint fails in a not-yet-migrated env,
         // hydrate from legacy endpoints instead of hard-failing the page.
         try {
-          const [userRes, songsRes] = await Promise.all([
-            usersApi.getById(artistId),
-            songsApi.getAll({ artistId, status: 'approved', limit: 300 }),
-          ]);
+          const userRes = await usersApi.getById(artistId);
           if (ignore) return;
           const user = userRes.data as LegacyUserResponse;
-          const songRows = (Array.isArray(songsRes.data) ? songsRes.data : []) as Array<{
+          let songRows: Array<{
             id: string;
             title: string;
             artist_id: string;
@@ -140,7 +137,19 @@ export function ArtistPageView({
             profile_play_count?: number;
             like_count?: number;
             created_at: string;
-          }>;
+          }> = [];
+          try {
+            const songsRes = await songsApi.getAll({
+              artistId,
+              status: 'approved',
+              limit: 300,
+            });
+            songRows = (Array.isArray(songsRes.data) ? songsRes.data : []) as typeof songRows;
+          } catch (songsError) {
+            // Keep page usable even when legacy songs endpoint errors.
+            console.warn('Artist page fallback songs fetch failed:', songsError);
+          }
+
           const mappedSongs: ArtistSong[] = songRows.map((song) => {
             const playCount = song.play_count || 0;
             const profilePlayCount = song.profile_play_count || 0;
@@ -191,7 +200,12 @@ export function ArtistPageView({
               .slice(0, 10),
             librarySongs: mappedSongs,
           });
-        } catch {
+        } catch (fallbackError) {
+          console.error('Artist page aggregate/fallback both failed:', {
+            artistId,
+            aggregateError,
+            fallbackError,
+          });
           if (!ignore) setError('Unable to load artist page.');
         }
       } finally {
