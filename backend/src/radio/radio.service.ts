@@ -1050,65 +1050,60 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
 
       songId = await this.radioStateService.popFreeRotationSong(radioId);
-
-      // Fallback when Redis is unavailable: pick random song directly from shuffled list
-      if (!songId && shuffledIds.length > 0) {
-        const randomPool = excludedComparable
-          ? shuffledIds.filter(
-              (id) => this.normalizeStackSongId(id) !== excludedComparable,
-            )
-          : shuffledIds;
-        const candidatePool = randomPool.length > 0 ? randomPool : shuffledIds;
-        songId =
-          candidatePool[Math.floor(Math.random() * candidatePool.length)];
-        this.logger.log(
-          'Redis unavailable - picked random song directly from pool',
-        );
-      }
     }
 
     if (!songId) {
       return null;
     }
 
-    // Fetch the full song data
-    let pickedSong = await this.getFreeRotationSongById(songId, radioId);
+    // Avoid immediate repeat when alternatives remain in current cycle.
     const pickedComparable = this.normalizeStackSongId(songId);
-
-    // Guard against immediate repeat when alternatives exist.
     if (excludedComparable && pickedComparable === excludedComparable) {
-      // Try next item in stack first.
-      const alternateStackId = await this.radioStateService.popFreeRotationSong(
+      const remainingStack = await this.radioStateService.getFreeRotationStack(
         radioId,
       );
-      if (
-        alternateStackId &&
-        this.normalizeStackSongId(alternateStackId) !== excludedComparable
-      ) {
-        const alternateSong = await this.getFreeRotationSongById(
-          alternateStackId,
-          radioId,
-        );
-        if (alternateSong) return alternateSong;
-      }
-
-      // Final fallback: random non-repeating item from full pool.
-      const allSongs = await this.getAllFreeRotationSongs(radioId);
-      const alternatives = allSongs.filter(
-        (s) => this.normalizeStackSongId(s._stackId) !== excludedComparable,
+      const nextIndex = remainingStack.findIndex(
+        (id) => this.normalizeStackSongId(id) !== excludedComparable,
       );
-      if (alternatives.length > 0) {
-        const pickedAlt =
-          alternatives[Math.floor(Math.random() * alternatives.length)];
-        const altSong = await this.getFreeRotationSongById(
-          pickedAlt._stackId,
-          radioId,
-        );
-        if (altSong) return altSong;
+      if (nextIndex >= 0) {
+        const [alternateStackId] = remainingStack.splice(nextIndex, 1);
+        // Put excluded song at the end, keeping "play all before repeat" behavior.
+        remainingStack.push(songId);
+        await this.radioStateService.setFreeRotationStack(remainingStack, radioId);
+        songId = alternateStackId;
       }
     }
 
-    return pickedSong;
+    return this.getFreeRotationSongById(songId, radioId);
+  }
+
+  /**
+   * Preview next free-rotation song without consuming queue state.
+   */
+  private async peekNextFreeRotationSong(
+    radioId: string = DEFAULT_RADIO_ID,
+    excludeSongId?: string,
+  ): Promise<any | null> {
+    let stack = await this.radioStateService.getFreeRotationStack(radioId);
+    if (stack.length === 0) {
+      const allSongs = await this.getAllFreeRotationSongs(radioId);
+      if (allSongs.length === 0) return null;
+      const shuffledIds = this.shuffleWithArtistSpacing(allSongs);
+      await this.radioStateService.setFreeRotationStack(shuffledIds, radioId);
+      await this.saveStackIfChanged(shuffledIds, radioId);
+      await this.radioStateService.setFallbackPosition(0, radioId);
+      stack = shuffledIds;
+    }
+
+    const excludedComparable = excludeSongId
+      ? this.normalizeStackSongId(excludeSongId)
+      : null;
+    const candidate =
+      stack.find((id) => this.normalizeStackSongId(id) !== excludedComparable) ??
+      stack[0];
+    if (!candidate) return null;
+
+    return this.getFreeRotationSongById(candidate, radioId);
   }
 
   /**
@@ -1896,7 +1891,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     if (optInResult) return optInResult.song;
 
     // Keep fallback preview scoped to station.
-    const fallbackSong = await this.getNextFreeRotationSong(radioId, currentSongId);
+    const fallbackSong = await this.peekNextFreeRotationSong(
+      radioId,
+      currentSongId,
+    );
     if (fallbackSong) return fallbackSong;
 
     return null;

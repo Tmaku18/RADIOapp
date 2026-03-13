@@ -291,7 +291,10 @@ export class RadioStateService implements OnModuleInit {
    * Get the current free rotation stack (shuffled song IDs).
    */
   async getFreeRotationStack(radioId: string = DEFAULT_RADIO_ID): Promise<string[]> {
-    if (!this.redisAvailable) return [];
+    if (!this.redisAvailable) {
+      const state = await this.loadPlaylistStateFromDb(radioId);
+      return state?.fallbackStack ?? [];
+    }
     
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
@@ -311,7 +314,13 @@ export class RadioStateService implements OnModuleInit {
    * Set the free rotation stack (after shuffling).
    */
   async setFreeRotationStack(songIds: string[], radioId: string = DEFAULT_RADIO_ID): Promise<void> {
-    if (!this.redisAvailable) return;
+    if (!this.redisAvailable) {
+      const state = await this.loadPlaylistStateFromDb(radioId);
+      const position = state?.fallbackPosition ?? 0;
+      await this.saveFullPlaylistState(songIds, position, radioId);
+      this.logger.log(`Free rotation stack set in DB with ${songIds.length} songs for radio ${radioId}`);
+      return;
+    }
     
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
@@ -330,7 +339,16 @@ export class RadioStateService implements OnModuleInit {
    * Returns null if stack is empty.
    */
   async popFreeRotationSong(radioId: string = DEFAULT_RADIO_ID): Promise<string | null> {
-    if (!this.redisAvailable) return null;
+    if (!this.redisAvailable) {
+      const stack = await this.getFreeRotationStack(radioId);
+      if (stack.length === 0) return null;
+
+      const songId = stack.shift()!;
+      const state = await this.loadPlaylistStateFromDb(radioId);
+      const position = state?.fallbackPosition ?? 0;
+      await this.saveFullPlaylistState(stack, position, radioId);
+      return songId;
+    }
     
     const stack = await this.getFreeRotationStack(radioId);
     
@@ -369,7 +387,13 @@ export class RadioStateService implements OnModuleInit {
    * Clear the free rotation stack (for admin/testing).
    */
   async clearFreeRotationStack(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
-    if (!this.redisAvailable) return;
+    if (!this.redisAvailable) {
+      const state = await this.loadPlaylistStateFromDb(radioId);
+      const position = state?.fallbackPosition ?? 0;
+      await this.saveFullPlaylistState([], position, radioId);
+      this.logger.log(`Free rotation stack cleared in DB for radio ${radioId}`);
+      return;
+    }
     
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
