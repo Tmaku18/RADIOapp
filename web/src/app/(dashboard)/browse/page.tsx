@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { browseApi } from '@/lib/api';
+import { artistProfilePath } from '@/lib/artist-links';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -211,7 +212,7 @@ export default function BrowsePage() {
                 )}
                 <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between">
                   <Link
-                    href={`/artist/${item.provider.userId}`}
+                    href={artistProfilePath(item.provider.userId)}
                     className="flex items-center gap-2 rounded-full bg-black/50 px-2 py-1 text-white text-sm hover:bg-black/70"
                   >
                     {item.provider.avatarUrl ? (

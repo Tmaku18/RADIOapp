@@ -25,6 +25,11 @@ export default function ProfilePage() {
   const [bio, setBio] = useState(profile?.bio ?? '');
   const [headline, setHeadline] = useState(profile?.headline ?? '');
   const [locationRegion, setLocationRegion] = useState(profile?.locationRegion ?? '');
+  const [instagramUrl, setInstagramUrl] = useState(profile?.instagramUrl ?? '');
+  const [twitterUrl, setTwitterUrl] = useState(profile?.twitterUrl ?? '');
+  const [youtubeUrl, setYoutubeUrl] = useState(profile?.youtubeUrl ?? '');
+  const [tiktokUrl, setTiktokUrl] = useState(profile?.tiktokUrl ?? '');
+  const [websiteUrl, setWebsiteUrl] = useState(profile?.websiteUrl ?? '');
   const [selectedRole, setSelectedRole] = useState<
     'listener' | 'artist' | 'service_provider'
   >((profile?.role as 'listener' | 'artist' | 'service_provider') || 'listener');
@@ -66,11 +71,16 @@ export default function ProfilePage() {
       if (profile?.bio !== undefined) setBio(profile.bio ?? '');
       if (profile?.headline !== undefined) setHeadline(profile.headline ?? '');
       if (profile?.locationRegion !== undefined) setLocationRegion(profile.locationRegion ?? '');
+      if (profile?.instagramUrl !== undefined) setInstagramUrl(profile.instagramUrl ?? '');
+      if (profile?.twitterUrl !== undefined) setTwitterUrl(profile.twitterUrl ?? '');
+      if (profile?.youtubeUrl !== undefined) setYoutubeUrl(profile.youtubeUrl ?? '');
+      if (profile?.tiktokUrl !== undefined) setTiktokUrl(profile.tiktokUrl ?? '');
+      if (profile?.websiteUrl !== undefined) setWebsiteUrl(profile.websiteUrl ?? '');
       if (profile?.role && profile.role !== 'admin') {
         setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
       }
     }
-  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.role, isEditing]);
+  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.role, isEditing]);
 
   const handleSave = async () => {
     setError(null);
@@ -85,6 +95,11 @@ export default function ProfilePage() {
         bio: bio.trim() || undefined,
         headline: headline.trim() || undefined,
         locationRegion: locationRegion.trim() || undefined,
+        instagramUrl: instagramUrl.trim() || undefined,
+        twitterUrl: twitterUrl.trim() || undefined,
+        youtubeUrl: youtubeUrl.trim() || undefined,
+        tiktokUrl: tiktokUrl.trim() || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
         role: !isAdmin ? selectedRole : undefined,
       });
       await refreshProfile();
@@ -107,6 +122,11 @@ export default function ProfilePage() {
     setBio(profile?.bio ?? '');
     setHeadline(profile?.headline ?? '');
     setLocationRegion(profile?.locationRegion ?? '');
+    setInstagramUrl(profile?.instagramUrl ?? '');
+    setTwitterUrl(profile?.twitterUrl ?? '');
+    setYoutubeUrl(profile?.youtubeUrl ?? '');
+    setTiktokUrl(profile?.tiktokUrl ?? '');
+    setWebsiteUrl(profile?.websiteUrl ?? '');
     if (profile?.role && profile.role !== 'admin') {
       setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
     }
@@ -338,6 +358,20 @@ export default function ProfilePage() {
                   <Textarea value={bio || 'Not set'} disabled rows={4} className="resize-none" />
                 )}
                 <p className="text-xs text-muted-foreground">Shown on your artist or provider profile</p>
+              </div>
+            )}
+
+            {hasArtistCapability(profile?.role) && (
+              <div className="space-y-3 rounded-lg border border-border p-4">
+                <Label>Social links</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" disabled={!isEditing} />
+                  <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="X / Twitter URL" disabled={!isEditing} />
+                  <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="YouTube URL" disabled={!isEditing} />
+                  <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" disabled={!isEditing} />
+                  <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" disabled={!isEditing} className="md:col-span-2" />
+                </div>
+                <p className="text-xs text-muted-foreground">These links appear on your Spotify-style artist page.</p>
               </div>
             )}
 

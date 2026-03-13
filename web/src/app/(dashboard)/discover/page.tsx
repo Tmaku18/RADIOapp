@@ -27,6 +27,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { artistProfilePath } from '@/lib/artist-links';
 
 interface DiscoveryProfile {
   id: string;
@@ -271,7 +272,7 @@ export default function DiscoverPage() {
                   {feedPosts.map((post) => (
                     <Card key={post.id} className="overflow-hidden border-border/80">
                       <CardContent className="p-0">
-                        <Link href={`/artist/${post.authorUserId}`} className="flex items-center gap-3 p-3 border-b border-border/60">
+                        <Link href={artistProfilePath(post.authorUserId)} className="flex items-center gap-3 p-3 border-b border-border/60">
                           {post.authorAvatarUrl ? (
                             <Image
                               src={post.authorAvatarUrl}
@@ -509,7 +510,7 @@ function PeopleTabContent({
                   {items.map((profile) => (
                     <Card key={profile.userId} className="overflow-hidden border-border/80 transition-colors hover:border-primary/30 hover:bg-elevated/50">
                       <CardContent className="p-4 flex gap-4">
-                        <Link href={`/artist/${profile.userId}`} className="shrink-0">
+                        <Link href={artistProfilePath(profile.userId)} className="shrink-0">
                     {profile.avatarUrl ? (
                       <Image
                         src={profile.avatarUrl}
@@ -527,7 +528,7 @@ function PeopleTabContent({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/artist/${profile.userId}`}
+                        href={artistProfilePath(profile.userId)}
                         className="font-medium text-foreground hover:underline truncate"
                       >
                         {profile.displayName || 'Unnamed'}
@@ -563,7 +564,7 @@ function PeopleTabContent({
                     )}
                     <div className="flex gap-2 mt-3">
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={`/artist/${profile.userId}`}>View profile</Link>
+                        <Link href={artistProfilePath(profile.userId)}>View profile</Link>
                       </Button>
                       <Button size="sm" asChild>
                         <Link href={`/messages?with=${profile.userId}`}>Message</Link>

@@ -20,6 +20,11 @@ export interface UserResponse {
   headline?: string | null;
   locationRegion?: string | null;
   discoverable?: boolean;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 function transformUser(data: any): UserResponse {
@@ -37,6 +42,11 @@ function transformUser(data: any): UserResponse {
     headline: data.headline ?? null,
     locationRegion: data.location_region ?? null,
     discoverable: data.discoverable ?? true,
+    instagramUrl: data.instagram_url ?? null,
+    twitterUrl: data.twitter_url ?? null,
+    youtubeUrl: data.youtube_url ?? null,
+    tiktokUrl: data.tiktok_url ?? null,
+    websiteUrl: data.website_url ?? null,
   };
 }
 
@@ -184,6 +194,11 @@ export class UsersService {
     if (updateUserDto.headline !== undefined) updatePayload.headline = updateUserDto.headline;
     if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
     if (updateUserDto.discoverable !== undefined) updatePayload.discoverable = updateUserDto.discoverable;
+    if (updateUserDto.instagramUrl !== undefined) updatePayload.instagram_url = updateUserDto.instagramUrl || null;
+    if (updateUserDto.twitterUrl !== undefined) updatePayload.twitter_url = updateUserDto.twitterUrl || null;
+    if (updateUserDto.youtubeUrl !== undefined) updatePayload.youtube_url = updateUserDto.youtubeUrl || null;
+    if (updateUserDto.tiktokUrl !== undefined) updatePayload.tiktok_url = updateUserDto.tiktokUrl || null;
+    if (updateUserDto.websiteUrl !== undefined) updatePayload.website_url = updateUserDto.websiteUrl || null;
     if (updateUserDto.role !== undefined) {
       if (user.role === 'admin') {
         throw new BadRequestException('Admin users cannot change account type here.');
@@ -377,5 +392,136 @@ export class UsersService {
     }
 
     return transformUser(data);
+  }
+
+  /**
+   * Spotify-style artist profile aggregate used by public and dashboard artist pages.
+   * Includes artist metadata, social links, summary stats, popular tracks, and full library.
+   */
+  async getArtistProfile(userId: string) {
+    const supabase = getSupabaseClient();
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select(
+        [
+          'id',
+          'display_name',
+          'avatar_url',
+          'bio',
+          'role',
+          'headline',
+          'instagram_url',
+          'twitter_url',
+          'youtube_url',
+          'tiktok_url',
+          'website_url',
+        ].join(','),
+      )
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new NotFoundException('Artist not found');
+    }
+
+    const { data: songs, error: songsError } = await supabase
+      .from('songs')
+      .select(
+        [
+          'id',
+          'title',
+          'artist_id',
+          'artist_name',
+          'audio_url',
+          'artwork_url',
+          'duration_seconds',
+          'play_count',
+          'profile_play_count',
+          'like_count',
+          'created_at',
+          'status',
+        ].join(','),
+      )
+      .eq('artist_id', userId)
+      .eq('status', 'approved')
+      .order('created_at', { ascending: false });
+
+    if (songsError) {
+      throw new BadRequestException(
+        `Failed to load artist songs: ${songsError.message}`,
+      );
+    }
+
+    const songRows = (songs ?? []) as any[];
+    const mappedSongs = songRows.map((song) => {
+      const playCount = song.play_count || 0;
+      const profilePlayCount = song.profile_play_count || 0;
+      const likeCount = song.like_count || 0;
+      const popularityScore = playCount + profilePlayCount + likeCount * 3;
+      return {
+        id: song.id,
+        title: song.title,
+        artistId: song.artist_id,
+        artistName: song.artist_name,
+        audioUrl: song.audio_url,
+        artworkUrl: song.artwork_url,
+        durationSeconds: song.duration_seconds || 0,
+        playCount,
+        profilePlayCount,
+        likeCount,
+        popularityScore,
+        createdAt: song.created_at,
+      };
+    });
+
+    const popularSongs = [...mappedSongs]
+      .sort((a, b) => b.popularityScore - a.popularityScore)
+      .slice(0, 10);
+
+    const { count: followerCount } = await supabase
+      .from('artist_follows')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('artist_id', userId);
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const { count: monthlyListenerCount } = await supabase
+      .from('song_profile_listens')
+      .select('id', { count: 'exact', head: true })
+      .eq('artist_id', userId)
+      .gte('created_at', thirtyDaysAgo.toISOString());
+
+    const totalPlays = mappedSongs.reduce(
+      (sum, s) => sum + s.playCount + s.profilePlayCount,
+      0,
+    );
+
+    const userRow = user as any;
+
+    return {
+      artist: {
+        id: userRow.id,
+        displayName: userRow.display_name ?? null,
+        avatarUrl: userRow.avatar_url ?? null,
+        bio: userRow.bio ?? null,
+        headline: userRow.headline ?? null,
+        role: userRow.role,
+        socials: {
+          instagramUrl: userRow.instagram_url ?? null,
+          twitterUrl: userRow.twitter_url ?? null,
+          youtubeUrl: userRow.youtube_url ?? null,
+          tiktokUrl: userRow.tiktok_url ?? null,
+          websiteUrl: userRow.website_url ?? null,
+        },
+      },
+      stats: {
+        totalSongs: mappedSongs.length,
+        followerCount: followerCount ?? 0,
+        monthlyListenerCount: monthlyListenerCount ?? 0,
+        totalPlayCount: totalPlays,
+      },
+      popularSongs,
+      librarySongs: mappedSongs,
+    };
   }
 }

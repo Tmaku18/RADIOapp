@@ -25,6 +25,11 @@ interface UserProfile {
   bio?: string | null;
   headline?: string | null;
   locationRegion?: string | null;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
 }
 
 interface AuthContextType {

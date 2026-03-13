@@ -1,11 +1,11 @@
 import { ArtistPageView } from '@/components/artist/ArtistPageView';
 
-export default async function ArtistProfilePage({
+export default async function PublicArtistPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ArtistPageView artistId={id} mode="dashboard" />;
+  return <ArtistPageView artistId={id} mode="public" />;
 }
 

@@ -15,6 +15,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('users')
 export class UsersController {
@@ -97,6 +98,12 @@ export class UsersController {
   @Post('upgrade-to-catalyst')
   async upgradeToCatalyst(@CurrentUser() user: FirebaseUser) {
     return this.usersService.upgradeToCatalyst(user.uid);
+  }
+
+  @Public()
+  @Get(':id/artist-profile')
+  async getArtistProfile(@Param('id') id: string) {
+    return this.usersService.getArtistProfile(id);
   }
 
   @Get(':id')

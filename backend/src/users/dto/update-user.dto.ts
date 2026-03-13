@@ -44,4 +44,30 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   discoverable?: boolean;
+
+  /** Artist social links */
+  @ValidateIf((o) => o.instagramUrl != null && o.instagramUrl !== '')
+  @IsUrl()
+  @IsOptional()
+  instagramUrl?: string;
+
+  @ValidateIf((o) => o.twitterUrl != null && o.twitterUrl !== '')
+  @IsUrl()
+  @IsOptional()
+  twitterUrl?: string;
+
+  @ValidateIf((o) => o.youtubeUrl != null && o.youtubeUrl !== '')
+  @IsUrl()
+  @IsOptional()
+  youtubeUrl?: string;
+
+  @ValidateIf((o) => o.tiktokUrl != null && o.tiktokUrl !== '')
+  @IsUrl()
+  @IsOptional()
+  tiktokUrl?: string;
+
+  @ValidateIf((o) => o.websiteUrl != null && o.websiteUrl !== '')
+  @IsUrl()
+  @IsOptional()
+  websiteUrl?: string;
 }
