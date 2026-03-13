@@ -22,7 +22,7 @@
   <rect width="512" height="512" rx="112" fill="#05070d"/>
   <circle cx="256" cy="256" r="210" fill="url(#g)"/>
 
-  <!-- Minimal signal mark -->
+  <!-- Minimal signal mark -->
   <g filter="url(#glow)" fill="none" stroke="#00f5ff" stroke-width="18" stroke-linecap="round">
     <path d="M184 272c18 22 44 34 72 34s54-12 72-34"/>
     <path d="M160 230c28-36 62-54 96-54s68 18 96 54"/>

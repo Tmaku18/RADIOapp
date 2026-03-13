@@ -9,7 +9,7 @@ type ArtworkImageProps = {
   fallbackSrc?: string;
 };
 
-const DEFAULT_ALBUM_ART_FALLBACK = '/icons/icon.svg';
+const DEFAULT_ALBUM_ART_FALLBACK = '/images/Logo_0.png';
 
 export function ArtworkImage({
   src,
