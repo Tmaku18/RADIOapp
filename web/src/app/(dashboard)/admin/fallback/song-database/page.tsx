@@ -85,7 +85,7 @@ export default function AdminFallbackSongDatabasePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Song Database</h1>
         <p className="text-gray-600 mt-1">
-          Songs opted in by both artist and admin for free rotation. Add any of these to the fallback playlist.
+          Songs approved for free rotation by admin. Add any of these to the fallback playlist.
         </p>
       </div>
 
@@ -98,13 +98,13 @@ export default function AdminFallbackSongDatabasePage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
         {songs.length === 0 ? (
           <div className="p-12 text-center text-gray-500">
             <div className="text-4xl mb-4">🎵</div>
             <p>No songs in free rotation yet.</p>
             <p className="text-sm mt-2">
-              Songs appear here when artists opt in and admins approve them on the Free Rotation page.
+              Songs appear here when admins approve them on the Free Rotation page.
             </p>
             <Link
               href="/admin/free-rotation"
@@ -114,7 +114,7 @@ export default function AdminFallbackSongDatabasePage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full">
+          <table className="w-full min-w-[760px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Song</th>
