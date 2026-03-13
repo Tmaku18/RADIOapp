@@ -908,6 +908,34 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Keep persisted stack aligned with current eligible free-rotation pool.
+   * - Removes entries that are no longer eligible.
+   * - Appends newly eligible entries so admin-approved songs appear quickly.
+   */
+  private async reconcileFreeRotationStack(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<string[]> {
+    const eligible = await this.getAllFreeRotationSongs(radioId);
+    const eligibleIds = new Set(eligible.map((item) => item._stackId));
+    const existing = await this.radioStateService.getFreeRotationStack(radioId);
+
+    const kept = existing.filter((stackId) => eligibleIds.has(stackId));
+    const existingSet = new Set(kept);
+    const missing = eligible
+      .map((item) => item._stackId)
+      .filter((stackId) => !existingSet.has(stackId));
+
+    if (missing.length === 0 && kept.length === existing.length) {
+      return existing;
+    }
+
+    const next = [...kept, ...this.shuffleArray(missing)];
+    await this.radioStateService.setFreeRotationStack(next, radioId);
+    await this.saveStackIfChanged(next, radioId);
+    return next;
+  }
+
+  /**
    * Build an ordered list of stack IDs so that songs from the same artist are spaced out
    * (round-robin by artist). Shuffles within each artist's group so order isn't predictable.
    */
@@ -1033,6 +1061,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     radioId: string = DEFAULT_RADIO_ID,
     excludeSongId?: string,
   ): Promise<any | null> {
+    await this.reconcileFreeRotationStack(radioId);
     const excludedComparable = excludeSongId
       ? this.normalizeStackSongId(excludeSongId)
       : null;
@@ -2063,6 +2092,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     radioId: string = DEFAULT_RADIO_ID,
     limit: number = 50,
   ) {
+    await this.reconcileFreeRotationStack(radioId);
     const safeLimit = Math.min(Math.max(1, limit), 200);
     const debug = await this.getQueueDebug(safeLimit, radioId);
     const candidates = await this.getQueueCandidates(radioId);
