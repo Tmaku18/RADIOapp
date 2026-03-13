@@ -1867,6 +1867,70 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Admin/debug view of the active queue and next stack entries.
+   * Useful for validating "no repeat before reshuffle" behavior.
+   */
+  async getQueueDebug(limit: number = 10, radioId: string = DEFAULT_RADIO_ID) {
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    const state = await this.getQueueState(radioId);
+    const playlistType = await this.radioStateService.getCurrentPlaylistType(radioId);
+    const fallbackPosition = await this.radioStateService.getFallbackPosition(radioId);
+    const stack = await this.radioStateService.getFreeRotationStack(radioId);
+
+    let currentSong: {
+      id: string | null;
+      title: string | null;
+      artistName: string | null;
+      source: 'songs' | 'admin_fallback' | 'unknown';
+    } | null = null;
+    if (state?.songId) {
+      const stackId = state.songId.startsWith('admin:') || state.songId.startsWith('song:')
+        ? state.songId
+        : `song:${state.songId}`;
+      const resolved = await this.getFreeRotationSongById(stackId, radioId);
+      if (resolved) {
+        currentSong = {
+          id: resolved.id ?? null,
+          title: resolved.title ?? null,
+          artistName: resolved.artist_name ?? null,
+          source: resolved._source === 'admin_fallback' ? 'admin_fallback' : 'songs',
+        };
+      } else {
+        currentSong = {
+          id: state.songId ?? null,
+          title: null,
+          artistName: null,
+          source: 'unknown',
+        };
+      }
+    }
+
+    const nextStackIds = stack.slice(0, safeLimit);
+    const nextSongs = await Promise.all(
+      nextStackIds.map(async (stackId) => {
+        const resolved = await this.getFreeRotationSongById(stackId, radioId);
+        return {
+          stackId,
+          normalizedSongId: this.normalizeStackSongId(stackId),
+          title: resolved?.title ?? null,
+          artistName: resolved?.artist_name ?? null,
+          source: resolved?._source ?? null,
+        };
+      }),
+    );
+
+    return {
+      radioId,
+      playlistType,
+      fallbackPosition,
+      currentSong,
+      queueLength: stack.length,
+      nextCount: nextSongs.length,
+      nextSongs,
+    };
+  }
+
+  /**
    * Clear the current queue state (useful for admin operations).
    */
   async clearQueueState(radioId: string = DEFAULT_RADIO_ID) {

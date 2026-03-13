@@ -451,6 +451,16 @@ export const adminApi = {
   // Radios (stations) – state-scoped for fallback multi-select
   getRadios: (state?: string) =>
     api.get<{ radios: Array<{ id: string; state: string; label: string }> }>('/admin/radios', { params: state ? { state } : undefined }),
+  getRadioQueueDebug: (radioId: string, limit?: number) =>
+    api.get<{
+      radioId: string;
+      playlistType: 'free_rotation' | 'paid';
+      fallbackPosition: number;
+      currentSong: { id: string | null; title: string | null; artistName: string | null; source: 'songs' | 'admin_fallback' | 'unknown' } | null;
+      queueLength: number;
+      nextCount: number;
+      nextSongs: Array<{ stackId: string; normalizedSongId: string; title: string | null; artistName: string | null; source: 'songs' | 'admin_fallback' | null }>;
+    }>(`/admin/radios/${radioId}/queue-debug`, { params: limit ? { limit } : undefined }),
   // Fallback playlist management
   getFallbackSongs: (radio?: string) =>
     api.get('/admin/fallback-songs', { params: radio ? { radio } : undefined }),

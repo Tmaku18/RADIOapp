@@ -171,6 +171,17 @@ export class AdminController {
     return { radios: this.adminService.getRadios(stateCode) };
   }
 
+  @Get('radios/:id/queue-debug')
+  async getRadioQueueDebug(
+    @Param('id') radioId: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : 10;
+    const safeLimit = Number.isFinite(parsedLimit) ? parsedLimit : 10;
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.adminService.getRadioQueueDebug(id, safeLimit);
+  }
+
   // ========== Fallback Playlist Endpoints ==========
 
   @Get('fallback-songs/grouped')

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
+import { RadioService } from '../radio/radio.service';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -18,7 +19,15 @@ export interface BanResult {
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
 
-  constructor(private readonly emailService: EmailService) {}
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly radioService: RadioService,
+  ) {}
+
+  async getRadioQueueDebug(radioId: string, limit: number) {
+    return this.radioService.getQueueDebug(limit, radioId);
+  }
+
   async getSongsPendingApproval(filters: {
     status?: string;
     search?: string;
