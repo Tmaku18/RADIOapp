@@ -82,7 +82,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const audio = new Audio();
-    audio.volume = state.volume;
+    const isIosDevice =
+      /iPad|iPhone|iPod/.test(window.navigator.userAgent) ||
+      (window.navigator.platform === 'MacIntel' &&
+        window.navigator.maxTouchPoints > 1);
+    // iOS Safari ignores programmatic volume changes for media playback.
+    // Keep volume at 1 and use mute/unmute for zero-volume UX.
+    audio.volume = isIosDevice ? 1 : state.volume;
+    audio.muted = state.volume <= 0.001;
     audioRef.current = audio;
 
     const onTimeUpdate = () => {
@@ -239,7 +246,21 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
   const setVolume = useCallback((vol: number) => {
     const v = Math.max(0, Math.min(1, vol));
-    if (audioRef.current) audioRef.current.volume = v;
+    if (audioRef.current) {
+      const audio = audioRef.current;
+      const isIosDevice =
+        typeof window !== 'undefined' &&
+        (/iPad|iPhone|iPod/.test(window.navigator.userAgent) ||
+          (window.navigator.platform === 'MacIntel' &&
+            window.navigator.maxTouchPoints > 1));
+      if (isIosDevice) {
+        audio.volume = 1;
+        audio.muted = v <= 0.001;
+      } else {
+        audio.volume = v;
+        audio.muted = v <= 0.001;
+      }
+    }
     setState((s) => ({ ...s, volume: v }));
   }, []);
 

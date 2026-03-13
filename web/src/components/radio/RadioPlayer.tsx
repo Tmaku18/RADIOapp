@@ -83,6 +83,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [remindsOf, setRemindsOf] = useState('');
   const [comments, setComments] = useState('');
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
+  const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
   const { state, actions, setOnRadioTrackEnded } = usePlayback();
   const loadTrackRef = useRef<((t: PlaybackTrack) => void) | null>(null);
@@ -90,10 +91,28 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const playRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isIosDevice =
+      /iPad|iPhone|iPod/.test(window.navigator.userAgent) ||
+      (window.navigator.platform === 'MacIntel' &&
+        window.navigator.maxTouchPoints > 1);
+    setIsIosVolumeLocked(isIosDevice);
+  }, []);
+
+  useEffect(() => {
     loadTrackRef.current = (t: PlaybackTrack) => actions.loadTrack(t, 'radio');
     syncToPositionRef.current = actions.syncToPosition;
     playRef.current = actions.play;
   }, [actions]);
+
+  const handleVolumeInput = useCallback(
+    (value: string) => {
+      const parsed = Number(value);
+      if (!Number.isFinite(parsed)) return;
+      actions.setVolume(parsed);
+    },
+    [actions],
+  );
 
   // Callback for when track ends - immediately fetch next track
   const handleTrackEnded = useCallback(async () => {
@@ -737,7 +756,10 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             max={1}
             step={0.05}
             value={state.volume}
-            onChange={(e) => actions.setVolume(Number(e.target.value))}
+            onInput={(e) =>
+              handleVolumeInput((e.target as HTMLInputElement).value)
+            }
+            onChange={(e) => handleVolumeInput(e.target.value)}
             className="w-32 h-1 bg-gray-200 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3 [&::-webkit-slider-thumb]:h-3 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary"
           />
           <svg
@@ -748,6 +770,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
           </svg>
         </div>
+        {isIosVolumeLocked && (
+          <p className="mt-2 text-center text-xs text-muted-foreground">
+            iPhone/iPad web limits volume control. Use device volume buttons.
+          </p>
+        )}
       </div>
 
       <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
