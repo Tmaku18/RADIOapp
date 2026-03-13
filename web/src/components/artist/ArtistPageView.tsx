@@ -52,6 +52,20 @@ type ArtistProfileResponse = {
   librarySongs: ArtistSong[];
 };
 
+type LegacyUserResponse = {
+  id: string;
+  displayName?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  headline?: string | null;
+  role?: string;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  websiteUrl?: string | null;
+};
+
 function formatNumber(n: number) {
   return new Intl.NumberFormat().format(n || 0);
 }
@@ -105,7 +119,81 @@ export function ArtistPageView({
         if (ignore) return;
         setData(res.data as ArtistProfileResponse);
       } catch {
-        if (!ignore) setError('Unable to load artist page.');
+        // Compatibility fallback: if aggregate endpoint fails in a not-yet-migrated env,
+        // hydrate from legacy endpoints instead of hard-failing the page.
+        try {
+          const [userRes, songsRes] = await Promise.all([
+            usersApi.getById(artistId),
+            songsApi.getAll({ artistId, status: 'approved', limit: 300 }),
+          ]);
+          if (ignore) return;
+          const user = userRes.data as LegacyUserResponse;
+          const songRows = (Array.isArray(songsRes.data) ? songsRes.data : []) as Array<{
+            id: string;
+            title: string;
+            artist_id: string;
+            artist_name: string;
+            audio_url: string | null;
+            artwork_url: string | null;
+            duration_seconds?: number;
+            play_count?: number;
+            profile_play_count?: number;
+            like_count?: number;
+            created_at: string;
+          }>;
+          const mappedSongs: ArtistSong[] = songRows.map((song) => {
+            const playCount = song.play_count || 0;
+            const profilePlayCount = song.profile_play_count || 0;
+            const likeCount = song.like_count || 0;
+            return {
+              id: song.id,
+              title: song.title,
+              artistId: song.artist_id,
+              artistName: song.artist_name,
+              audioUrl: song.audio_url,
+              artworkUrl: song.artwork_url,
+              durationSeconds: song.duration_seconds || 0,
+              playCount,
+              profilePlayCount,
+              likeCount,
+              popularityScore: playCount + profilePlayCount + likeCount * 3,
+              createdAt: song.created_at,
+            };
+          });
+          const totalPlayCount = mappedSongs.reduce(
+            (sum, song) => sum + song.playCount + song.profilePlayCount,
+            0,
+          );
+          setData({
+            artist: {
+              id: user.id,
+              displayName: user.displayName ?? null,
+              avatarUrl: user.avatarUrl ?? null,
+              bio: user.bio ?? null,
+              headline: user.headline ?? null,
+              role: user.role ?? 'artist',
+              socials: {
+                instagramUrl: user.instagramUrl ?? null,
+                twitterUrl: user.twitterUrl ?? null,
+                youtubeUrl: user.youtubeUrl ?? null,
+                tiktokUrl: user.tiktokUrl ?? null,
+                websiteUrl: user.websiteUrl ?? null,
+              },
+            },
+            stats: {
+              totalSongs: mappedSongs.length,
+              followerCount: 0,
+              monthlyListenerCount: 0,
+              totalPlayCount,
+            },
+            popularSongs: [...mappedSongs]
+              .sort((a, b) => b.popularityScore - a.popularityScore)
+              .slice(0, 10),
+            librarySongs: mappedSongs,
+          });
+        } catch {
+          if (!ignore) setError('Unable to load artist page.');
+        }
       } finally {
         if (!ignore) setLoading(false);
       }

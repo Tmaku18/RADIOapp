@@ -400,23 +400,10 @@ export class UsersService {
    */
   async getArtistProfile(userId: string) {
     const supabase = getSupabaseClient();
+    // Use select('*') for backward compatibility when some envs lag migrations.
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select(
-        [
-          'id',
-          'display_name',
-          'avatar_url',
-          'bio',
-          'role',
-          'headline',
-          'instagram_url',
-          'twitter_url',
-          'youtube_url',
-          'tiktok_url',
-          'website_url',
-        ].join(','),
-      )
+      .select('*')
       .eq('id', userId)
       .single();
 
