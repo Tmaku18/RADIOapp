@@ -6,8 +6,6 @@ import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
-import ChatSidebar from '@/components/chat/ChatSidebar';
-import { VenueAdSlot } from '@/components/radio/VenueAdSlot';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
@@ -33,7 +31,6 @@ export default function ListenPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const stationId = searchParams.get('station');
-  const [showChat, setShowChat] = useState(true);
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
@@ -156,16 +153,19 @@ export default function ListenPage() {
             <p>Everyone listening hears the same stream. Send a ripple (like) to like an ore and support the artist.</p>
           </div>
 
+          {/* Chat entry toggle temporarily disabled until chat is restored.
           <div className="mt-4 text-center lg:hidden">
             <Button onClick={() => setShowChat(!showChat)}>
               <span className="mr-2">💬</span>
               {showChat ? 'Leave the Room' : 'Enter the Room'}
             </Button>
           </div>
+          */}
         </div>
         </div>
       </div>
 
+      {/* Chat sidebar temporarily hidden. Keep code for quick restore later.
       <div className={`${showChat ? 'flex flex-col' : 'hidden'} lg:flex flex-col min-w-0`}>
         <div className="p-2 border-b border-border shrink-0">
           <VenueAdSlot className="w-full" />
@@ -174,6 +174,7 @@ export default function ListenPage() {
           <ChatSidebar />
         </div>
       </div>
+      */}
     </div>
   );
 }
