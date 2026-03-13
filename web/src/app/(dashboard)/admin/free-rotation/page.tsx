@@ -6,6 +6,7 @@ import { adminApi } from '@/lib/api';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 type ApiError = { response?: { data?: { message?: string } } };
 
@@ -309,11 +310,11 @@ export default function FreeRotationPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-muted rounded flex items-center justify-center flex-shrink-0">
-                        {song.artwork_url ? (
-                          <img src={song.artwork_url} alt="" className="w-10 h-10 rounded object-cover" />
-                        ) : (
-                          <span className="text-muted-foreground">🎵</span>
-                        )}
+                        <ArtworkImage
+                          src={song.artwork_url}
+                          alt={song.title}
+                          className="w-10 h-10 rounded object-cover"
+                        />
                       </div>
                       {(song.artist_id ?? song.users?.id) ? (
                         <Link

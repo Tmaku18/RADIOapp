@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 type ApiError = { response?: { status?: number; data?: { message?: string } } };
 
@@ -162,27 +163,11 @@ export default function MySongsPage() {
                   <TableCell>
                     <div className="flex items-center">
                       <div className="h-10 w-10 flex-shrink-0">
-                        {song.artworkUrl ? (
-                          <React.Fragment>
-                            <img
-                              className="h-10 w-10 rounded-lg object-cover"
-                              src={song.artworkUrl}
-                              alt={song.title}
-                              referrerPolicy="no-referrer"
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                              }}
-                            />
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 hidden flex items-center justify-center">
-                              <span className="text-primary">🎵</span>
-                            </div>
-                          </React.Fragment>
-                        ) : (
-                          <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <span className="text-primary">🎵</span>
-                          </div>
-                        )}
+                        <ArtworkImage
+                          src={song.artworkUrl}
+                          alt={song.title}
+                          className="h-10 w-10 rounded-lg object-cover"
+                        />
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-foreground">{song.title}</div>

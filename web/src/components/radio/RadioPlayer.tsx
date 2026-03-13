@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 type PinnedCatalyst = {
   userId: string;
@@ -556,17 +557,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       {/* Album Art — subtle signature gradient behind */}
       <div className="aspect-square bg-signature relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
-        {state.track?.artworkUrl ? (
-          <img
-            src={state.track.artworkUrl}
-            alt={state.track.title}
-            className="w-full h-full object-cover relative z-0"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center relative z-0">
-            <span className="text-8xl">🎵</span>
-          </div>
-        )}
+        <ArtworkImage
+          src={state.track?.artworkUrl}
+          alt={state.track?.title || 'Album art'}
+          className="w-full h-full object-cover relative z-0"
+        />
         
         {/* Loading overlay */}
         {state.isLoading && (

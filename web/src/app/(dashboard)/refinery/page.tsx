@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 type RefinerySong = {
   id: string;
@@ -171,11 +172,11 @@ export default function RefineryPage() {
             <Card key={song.id}>
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-3">
-                  {song.artwork_url ? (
-                    <img src={song.artwork_url} alt="" className="h-14 w-14 rounded object-cover" />
-                  ) : (
-                    <div className="h-14 w-14 rounded bg-muted flex items-center justify-center text-2xl">🎵</div>
-                  )}
+                  <ArtworkImage
+                    src={song.artwork_url}
+                    alt={song.title}
+                    className="h-14 w-14 rounded object-cover"
+                  />
                   <div className="flex-1 min-w-0">
                     <CardTitle className="text-lg truncate">{song.title}</CardTitle>
                     <p className="text-sm text-muted-foreground truncate">{song.artist_name}</p>

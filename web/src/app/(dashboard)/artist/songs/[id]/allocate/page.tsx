@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 
 interface Song {
@@ -206,17 +207,11 @@ export default function AllocatePage() {
       <Card>
         <CardContent className="pt-6">
         <div className="flex items-center space-x-4">
-          {song.artworkUrl ? (
-            <img
-              src={song.artworkUrl}
-              alt={song.title}
-              className="w-20 h-20 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="w-20 h-20 rounded-lg bg-primary/10 flex items-center justify-center">
-              <span className="text-3xl">🎵</span>
-            </div>
-          )}
+          <ArtworkImage
+            src={song.artworkUrl}
+            alt={song.title}
+            className="w-20 h-20 rounded-lg object-cover"
+          />
           <div>
             <h2 className="text-xl font-semibold text-foreground">{song.title}</h2>
             <p className="text-muted-foreground">{song.artistName}</p>

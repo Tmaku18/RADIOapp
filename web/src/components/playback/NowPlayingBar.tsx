@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePlaybackOptional } from './PlaybackProvider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 const BAR_HEIGHT = 72;
 
@@ -36,21 +37,11 @@ export function NowPlayingBar() {
           aria-label={hasTrack ? 'Expand to full player' : 'Go to Radio'}
         >
           <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/60 shrink-0 flex items-center justify-center">
-            {track?.artworkUrl ? (
-              // Use <img> for dynamic remote artwork to avoid optimizer 400 loops.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={track.artworkUrl}
-                alt=""
-                className="object-cover w-full h-full"
-                onError={(e) => {
-                  // Hide broken artwork if URL is invalid/expired.
-                  (e.currentTarget as HTMLImageElement).style.display = 'none';
-                }}
-              />
-            ) : (
-              <span className="text-xl text-muted-foreground">🎵</span>
-            )}
+            <ArtworkImage
+              src={track?.artworkUrl}
+              alt=""
+              className="object-cover w-full h-full"
+            />
           </div>
           <div className="min-w-0 flex-1">
             <p className="font-medium truncate text-sm text-foreground">

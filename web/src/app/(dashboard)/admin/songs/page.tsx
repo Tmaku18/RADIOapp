@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { adminApi } from '@/lib/api';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 interface Song {
   id: string;
@@ -372,15 +373,11 @@ export default function AdminSongsPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
-                        {song.artwork_url ? (
-                          <img
-                            src={song.artwork_url}
-                            alt={song.title}
-                            className="w-10 h-10 rounded object-cover"
-                          />
-                        ) : (
-                          <span>🎵</span>
-                        )}
+                        <ArtworkImage
+                          src={song.artwork_url}
+                          alt={song.title}
+                          className="w-10 h-10 rounded object-cover"
+                        />
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{song.title}</p>
