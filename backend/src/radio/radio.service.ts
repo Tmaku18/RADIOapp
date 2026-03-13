@@ -1,4 +1,11 @@
-import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  Inject,
+  forwardRef,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
@@ -156,9 +163,15 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
  * - Redis-backed state management for scalability
  */
 @Injectable()
-export class RadioService {
+export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RadioService.name);
   private nextSongNotifiedFor = new Map<string, string>();
+  private backgroundRotationTimer: ReturnType<typeof setInterval> | null = null;
+  private backgroundTickInFlight = false;
+  private readonly backgroundPollMs = parseInt(
+    process.env.RADIO_BACKGROUND_POLL_MS || '15000',
+    10,
+  );
 
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
@@ -167,6 +180,75 @@ export class RadioService {
     private readonly emojiService: EmojiService,
     private readonly radioStateService: RadioStateService,
   ) {}
+
+  onModuleInit() {
+    if (!Number.isFinite(this.backgroundPollMs) || this.backgroundPollMs <= 0) {
+      this.logger.warn('Background radio rotation disabled (RADIO_BACKGROUND_POLL_MS <= 0)');
+      return;
+    }
+
+    this.backgroundRotationTimer = setInterval(() => {
+      this.runBackgroundRotationTick().catch((e) =>
+        this.logger.warn(`Background radio tick failed: ${e?.message ?? e}`),
+      );
+    }, this.backgroundPollMs);
+
+    // Prime playback on startup so radio advances even before first listener request.
+    void this.runBackgroundRotationTick();
+    this.logger.log(
+      `Background radio rotation enabled (${this.backgroundPollMs}ms interval)`,
+    );
+  }
+
+  onModuleDestroy() {
+    if (this.backgroundRotationTimer) {
+      clearInterval(this.backgroundRotationTimer);
+      this.backgroundRotationTimer = null;
+    }
+  }
+
+  private async getBackgroundRadioIds(): Promise<string[]> {
+    const ids = new Set<string>([DEFAULT_RADIO_ID, RAP_RADIO_ID]);
+    const supabase = getSupabaseClient();
+
+    const { data: playlistRows } = await supabase
+      .from('radio_playlist_state')
+      .select('radio_id');
+    for (const row of playlistRows ?? []) {
+      const id = (row as { radio_id?: string | null }).radio_id?.trim();
+      if (id) ids.add(id);
+    }
+
+    const { data: fallbackRows } = await supabase
+      .from('admin_fallback_songs')
+      .select('radio_id')
+      .eq('is_active', true);
+    for (const row of fallbackRows ?? []) {
+      const id = (row as { radio_id?: string | null }).radio_id?.trim();
+      if (id) ids.add(id);
+    }
+
+    return [...ids];
+  }
+
+  private async runBackgroundRotationTick(): Promise<void> {
+    if (this.backgroundTickInFlight) return;
+    this.backgroundTickInFlight = true;
+    try {
+      const radioIds = await this.getBackgroundRadioIds();
+      for (const radioId of radioIds) {
+        try {
+          await this.getCurrentTrack(radioId);
+        } catch (e) {
+          this.logger.warn(
+            `Background rotation failed for radio "${radioId}": ${e?.message ?? e}`,
+          );
+        }
+      }
+    } finally {
+      this.backgroundTickInFlight = false;
+    }
+  }
 
   private async getPinnedCatalystsForSong(
     songId: string,
