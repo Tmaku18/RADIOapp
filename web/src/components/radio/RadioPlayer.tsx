@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -571,17 +572,23 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.track?.title || 'No track playing'}
           </h2>
-          <button
-            type="button"
-            onClick={() => {
-              if (state.track?.id) {
-                analyticsApi.recordProfileClick(state.track.id).catch(() => {});
-              }
-            }}
-            className="text-muted-foreground truncate text-left hover:text-foreground hover:underline transition-colors"
-          >
-            {state.track?.artistName || 'Unknown artist'}
-          </button>
+          {state.track?.artistId ? (
+            <Link
+              href={artistProfilePath(state.track.artistId)}
+              onClick={() => {
+                if (state.track?.id) {
+                  analyticsApi.recordProfileClick(state.track.id).catch(() => {});
+                }
+              }}
+              className="inline-block text-muted-foreground truncate text-left hover:text-foreground hover:underline transition-colors"
+            >
+              {state.track?.artistName || 'Unknown artist'}
+            </Link>
+          ) : (
+            <span className="text-muted-foreground truncate text-left">
+              {state.track?.artistName || 'Unknown artist'}
+            </span>
+          )}
           {artistLiveNow && state.track?.artistId && (
             <div className="mt-2">
               <Link href={`/watch/${state.track.artistId}`}>
