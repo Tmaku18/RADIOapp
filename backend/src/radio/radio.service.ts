@@ -47,7 +47,7 @@ const CHECKPOINT_INTERVAL = parseInt(
   10,
 );
 
-/** Rap radio: we temporarily do not require paid_play_count for free rotation so it can play nonstop (uploaded songs are rap). */
+/** Rap radio ID retained for station-specific mode behavior. */
 const RAP_RADIO_ID = 'ga-nw-rap';
 const WEB_PREFERRED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg'];
 
@@ -868,10 +868,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .select('id, artist_id, audio_url')
       .eq('status', 'approved')
       .eq('admin_free_rotation', true);
-    // Temporarily skip paid-play requirement for rap radio so it can play nonstop (uploaded songs are only rap)
-    if (radioId !== RAP_RADIO_ID) {
-      songsQuery = songsQuery.gt('paid_play_count', 0);
-    }
     const { data: songsData, error: songsError } = await songsQuery;
 
     if (songsError) {
@@ -992,10 +988,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .eq('id', stackId)
       .eq('status', 'approved')
       .eq('admin_free_rotation', true);
-    // Rap radio: do not require paid_play_count (see RAP_RADIO_ID / getAllFreeRotationSongs)
-    if (radioId !== RAP_RADIO_ID) {
-      songQuery = songQuery.gt('paid_play_count', 0);
-    }
     const { data: songData } = await songQuery.single();
     if (songData) return { ...songData, _source: 'songs' as const };
 
