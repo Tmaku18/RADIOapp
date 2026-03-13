@@ -30,7 +30,61 @@ interface UploadOptions {
 
 @Injectable()
 export class UploadsService {
+  private readonly songBucketTargetBytes = 100 * 1024 * 1024;
+  private readonly songBucketAllowedMimeTypes = [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/aac',
+    'audio/ogg',
+    'audio/flac',
+    'audio/webm',
+  ];
+  private lastSongBucketEnsureAt = 0;
+
   constructor(private configService: ConfigService) {}
+
+  private async ensureSongBucketLimit(): Promise<void> {
+    // Avoid calling storage metadata APIs on every single upload request.
+    const now = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+    if (now - this.lastSongBucketEnsureAt < tenMinutesMs) return;
+
+    const supabase = getSupabaseClient();
+    const { data: bucket, error: getError } = await supabase.storage.getBucket('songs');
+    if (getError || !bucket) {
+      // Do not block uploads if metadata lookup fails.
+      return;
+    }
+
+    const currentLimit =
+      typeof (bucket as any).file_size_limit === 'number'
+        ? (bucket as any).file_size_limit
+        : typeof (bucket as any).fileSizeLimit === 'number'
+          ? (bucket as any).fileSizeLimit
+          : null;
+
+    if (currentLimit !== null && currentLimit >= this.songBucketTargetBytes) {
+      this.lastSongBucketEnsureAt = now;
+      return;
+    }
+
+    const maybeAllowedMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
+      ? (bucket as any).allowed_mime_types
+      : Array.isArray((bucket as any).allowedMimeTypes)
+        ? (bucket as any).allowedMimeTypes
+        : this.songBucketAllowedMimeTypes;
+
+    await supabase.storage.updateBucket('songs', {
+      public: Boolean((bucket as any).public),
+      fileSizeLimit: this.songBucketTargetBytes,
+      allowedMimeTypes: maybeAllowedMimeTypes,
+    });
+    this.lastSongBucketEnsureAt = now;
+  }
 
   /**
    * Internal method to handle file uploads to Supabase Storage.
@@ -236,6 +290,9 @@ export class UploadsService {
 
     // Generate signed upload URL (60 seconds expiry)
     const supabase = getSupabaseClient();
+    if (bucket === 'songs') {
+      await this.ensureSongBucketLimit();
+    }
     const { data, error } = await supabase.storage
       .from(bucket)
       .createSignedUploadUrl(path);
