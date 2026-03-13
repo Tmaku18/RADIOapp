@@ -113,6 +113,7 @@ export class SongsService {
         audio_url: createSongDto.audioUrl,
         artwork_url: createSongDto.artworkUrl,
         duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
+        station_id: createSongDto.stationId,
         status: 'pending',
       })
       .select()

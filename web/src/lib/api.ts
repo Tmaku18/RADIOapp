@@ -110,7 +110,7 @@ export const songsApi = {
   getMine: () => api.get('/songs/mine'),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
-  create: (data: { title: string; artistName: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) => 
+  create: (data: { title: string; artistName: string; stationId: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) => 
     api.post('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),
@@ -537,7 +537,8 @@ export const adminApi = {
     api.get(`/admin/free-rotation/users/${userId}/songs`),
   toggleFreeRotation: (songId: string, enabled: boolean) => 
     api.patch(`/admin/free-rotation/songs/${songId}`, { enabled }),
-  getSongsInFreeRotation: () => api.get('/admin/free-rotation/songs'),
+  getSongsInFreeRotation: (radio?: string) =>
+    api.get('/admin/free-rotation/songs', { params: radio ? { radio } : undefined }),
   // Live broadcast
   startLive: () => api.post('/admin/live/start'),
   stopLive: () => api.post('/admin/live/stop'),

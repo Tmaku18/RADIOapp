@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
+import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -32,6 +33,7 @@ export default function UploadPage() {
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
+  const [stationId, setStationId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -169,6 +171,10 @@ export default function UploadPage() {
       setError('Please fill in all required fields');
       return;
     }
+    if (!stationId) {
+      setError('Please select a station/category');
+      return;
+    }
 
     setIsUploading(true);
     setError(null);
@@ -212,6 +218,7 @@ export default function UploadPage() {
         await songsApi.create({
           title,
           artistName,
+          stationId,
           audioPath,
           artworkPath,
           durationSeconds: durationSeconds ?? undefined,
@@ -352,6 +359,24 @@ export default function UploadPage() {
               <Input id="artistName" required value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Enter artist name" />
             </div>
 
+            <div className="space-y-2">
+              <Label htmlFor="stationId">Station / Category <span className="text-destructive">*</span></Label>
+              <select
+                id="stationId"
+                required
+                value={stationId}
+                onChange={(e) => setStationId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select a station</option>
+                {TOWERS.map((tower) => (
+                  <option key={tower.id} value={tower.id}>
+                    {tower.genre} ({tower.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {isUploading && (
               <div>
                 <div className="flex justify-between text-sm text-muted-foreground mb-1">
@@ -364,7 +389,7 @@ export default function UploadPage() {
               </div>
             )}
 
-            <Button type="submit" disabled={isUploading || !audioFile} className="w-full">
+            <Button type="submit" disabled={isUploading || !audioFile || !stationId} className="w-full">
               {isUploading ? 'Uploading...' : 'Submit for Rotation'}
             </Button>
 

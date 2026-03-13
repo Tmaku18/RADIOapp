@@ -29,6 +29,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { STATION_IDS } from '../radio/station.constants';
 
 @Controller('songs')
 export class SongsController {
@@ -49,7 +50,7 @@ export class SongsController {
   async uploadSong(
     @CurrentUser() user: FirebaseUser,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: { title: string; artistName: string },
+    @Body() body: { title: string; artistName: string; stationId: string },
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -74,6 +75,10 @@ export class SongsController {
       throw new Error('Audio file is required');
     }
 
+    if (!body.stationId || !STATION_IDS.includes(body.stationId as any)) {
+      throw new Error('Valid stationId is required');
+    }
+
     // SECURITY: Extract real duration server-side to prevent spoofing
     // Artists could otherwise claim shorter durations to pay fewer credits
     const durationSeconds = await this.durationService.extractDuration(
@@ -95,6 +100,7 @@ export class SongsController {
       audioUrl,
       artworkUrl,
       durationSeconds, // Server-validated duration
+      stationId: body.stationId,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -223,6 +229,7 @@ export class SongsController {
       audioUrl: audioUrlData.publicUrl,
       artworkUrl,
       durationSeconds,
+      stationId: dto.stationId,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);

@@ -23,6 +23,8 @@ const GENRE_SYMBOLS: Record<string, string> = {
   edm: '⚡',
   rnb: '♪',
   podcasts: '🎙',
+  'spoken-word': '📜',
+  comedian: '🎭',
 };
 
 function MapController({

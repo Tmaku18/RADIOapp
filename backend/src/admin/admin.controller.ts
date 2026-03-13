@@ -505,8 +505,8 @@ export class AdminController {
    * Get all songs currently in free rotation.
    */
   @Get('free-rotation/songs')
-  async getSongsInFreeRotation() {
-    const songs = await this.adminService.getSongsInFreeRotation();
+  async getSongsInFreeRotation(@Query('radio') radioId?: string) {
+    const songs = await this.adminService.getSongsInFreeRotation(radioId);
     return { songs, total: songs.length };
   }
 

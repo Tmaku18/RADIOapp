@@ -96,7 +96,7 @@ export default function AdminQueuePage() {
   const loadCandidates = useCallback(async (radioId: string) => {
     try {
       const [songsRes, fallbackRes] = await Promise.all([
-        adminApi.getSongsInFreeRotation(),
+        adminApi.getSongsInFreeRotation(radioId),
         adminApi.getFallbackSongs(radioId),
       ]);
       const songs = (songsRes.data.songs || []).map((song: any) => ({

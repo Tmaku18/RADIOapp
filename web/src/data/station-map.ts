@@ -3,7 +3,13 @@
  * Used by StationPickerMap for zoom and tower markers.
  */
 
-export type GenreId = 'rap' | 'edm' | 'rnb' | 'podcasts';
+export type GenreId =
+  | 'rap'
+  | 'edm'
+  | 'rnb'
+  | 'podcasts'
+  | 'spoken-word'
+  | 'comedian';
 
 export interface Tower {
   id: string;
@@ -52,10 +58,12 @@ const GA_LAT_SPAN = GA_NE[0] - GA_SW[0];
 const GA_LNG_SPAN = GA_NE[1] - GA_SW[1];
 /** Offset from edges so markers sit evenly in the state */
 const PAD = 0.15;
-const lat = (row: number) => GA_SW[0] + PAD * GA_LAT_SPAN + (row / 1) * (1 - 2 * PAD) * GA_LAT_SPAN;
-const lng = (col: number) => GA_SW[1] + PAD * GA_LNG_SPAN + (col / 1) * (1 - 2 * PAD) * GA_LNG_SPAN;
+const latAt = (fraction: number) =>
+  GA_SW[0] + PAD * GA_LAT_SPAN + fraction * (1 - 2 * PAD) * GA_LAT_SPAN;
+const lngAt = (fraction: number) =>
+  GA_SW[1] + PAD * GA_LNG_SPAN + fraction * (1 - 2 * PAD) * GA_LNG_SPAN;
 
-/** Towers evenly spaced across Georgia (NW, NE, SW, SE) */
+/** Towers evenly spaced across Georgia. */
 export const TOWERS: Tower[] = [
   {
     id: 'ga-nw-rap',
@@ -63,8 +71,8 @@ export const TOWERS: Tower[] = [
     city: 'Rome',
     genre: 'Rap',
     genreId: 'rap',
-    lat: lat(1),
-    lng: lng(0),
+    lat: latAt(1),
+    lng: lngAt(0),
   },
   {
     id: 'ga-ne-edm',
@@ -72,8 +80,8 @@ export const TOWERS: Tower[] = [
     city: 'Augusta',
     genre: 'EDM',
     genreId: 'edm',
-    lat: lat(1),
-    lng: lng(1),
+    lat: latAt(1),
+    lng: lngAt(0.5),
   },
   {
     id: 'ga-sw-rnb',
@@ -81,8 +89,8 @@ export const TOWERS: Tower[] = [
     city: 'Albany',
     genre: 'R&B',
     genreId: 'rnb',
-    lat: lat(0),
-    lng: lng(0),
+    lat: latAt(0),
+    lng: lngAt(0),
   },
   {
     id: 'ga-se-podcasts',
@@ -90,8 +98,26 @@ export const TOWERS: Tower[] = [
     city: 'Savannah',
     genre: 'Podcasts',
     genreId: 'podcasts',
-    lat: lat(0),
-    lng: lng(1),
+    lat: latAt(0),
+    lng: lngAt(0.5),
+  },
+  {
+    id: 'ga-central-spoken-word',
+    state: 'GA',
+    city: 'Macon',
+    genre: 'Spoken Word',
+    genreId: 'spoken-word',
+    lat: latAt(0.66),
+    lng: lngAt(1),
+  },
+  {
+    id: 'ga-coast-comedian',
+    state: 'GA',
+    city: 'Brunswick',
+    genre: 'Comedian',
+    genreId: 'comedian',
+    lat: latAt(0.2),
+    lng: lngAt(1),
   },
 ];
 

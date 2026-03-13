@@ -3,6 +3,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
+import { normalizeSongStationId } from '../radio/station.constants';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -435,6 +436,8 @@ export class AdminService {
       { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
       { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
       { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },
+      { id: 'ga-central-spoken-word', state: 'GA', label: 'Spoken Word (Macon)' },
+      { id: 'ga-coast-comedian', state: 'GA', label: 'Comedian (Brunswick)' },
       { id: 'default', state: 'GA', label: 'Default' },
     ];
     if (stateCode?.trim()) {
@@ -1352,8 +1355,9 @@ export class AdminService {
   /**
    * Get all songs currently in free rotation.
    */
-  async getSongsInFreeRotation(): Promise<any[]> {
+  async getSongsInFreeRotation(radioId?: string): Promise<any[]> {
     const supabase = getSupabaseClient();
+    const stationId = normalizeSongStationId(radioId);
 
     const { data, error } = await supabase
       .from('songs')
@@ -1365,6 +1369,7 @@ export class AdminService {
         users!songs_artist_id_fkey(id, display_name, email)
       `)
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .eq('admin_free_rotation', true)
       .order('last_played_at', { ascending: true, nullsFirst: true });
 

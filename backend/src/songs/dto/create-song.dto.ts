@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsUrl, IsNumber, Min } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsUrl, IsNumber, Min, IsIn } from 'class-validator';
+import { STATION_IDS } from '../../radio/station.constants';
 
 export class CreateSongDto {
   @IsString()
@@ -21,4 +22,9 @@ export class CreateSongDto {
   @IsOptional()
   @Min(1)
   durationSeconds?: number;
+
+  @IsString()
+  @IsNotEmpty()
+  @IsIn([...STATION_IDS])
+  stationId: string;
 }

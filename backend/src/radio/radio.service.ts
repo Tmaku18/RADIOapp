@@ -17,6 +17,10 @@ import {
   PlaylistState,
   DEFAULT_RADIO_ID,
 } from './radio-state.service';
+import {
+  RAP_STATION_ID,
+  normalizeSongStationId,
+} from './station.constants';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -58,8 +62,6 @@ const CHECKPOINT_INTERVAL = parseInt(
   10,
 );
 
-/** Rap radio ID retained for station-specific mode behavior. */
-const RAP_RADIO_ID = 'ga-nw-rap';
 const WEB_PREFERRED_AUDIO_EXTENSIONS = [
   '.mp3',
   '.wav',
@@ -227,7 +229,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async getBackgroundRadioIds(): Promise<string[]> {
-    const ids = new Set<string>([DEFAULT_RADIO_ID, RAP_RADIO_ID]);
+    const ids = new Set<string>([DEFAULT_RADIO_ID, RAP_STATION_ID]);
     const supabase = getSupabaseClient();
 
     const { data: playlistRows } = await supabase
@@ -752,13 +754,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async getCreditedSong(
     currentSongId?: string,
     lastPlayedArtistId?: string | null,
+    radioId: string = DEFAULT_RADIO_ID,
   ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
+    const stationId = normalizeSongStationId(radioId);
 
     const { data: songs } = await supabase
       .from('songs')
       .select('*')
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .gt('credits_remaining', 0);
 
     if (!songs || songs.length === 0) return null;
@@ -793,13 +798,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async getTrialSong(
     currentSongId?: string,
     lastPlayedArtistId?: string | null,
+    radioId: string = DEFAULT_RADIO_ID,
   ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
+    const stationId = normalizeSongStationId(radioId);
 
     const { data: songs } = await supabase
       .from('songs')
       .select('*')
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .gt('trial_plays_remaining', 0)
       .lte('credits_remaining', 0);
 
@@ -825,13 +833,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async getOptInSong(
     currentSongId?: string,
     lastPlayedArtistId?: string | null,
+    radioId: string = DEFAULT_RADIO_ID,
   ): Promise<{ song: any; competingSongs: number } | null> {
     const supabase = getSupabaseClient();
+    const stationId = normalizeSongStationId(radioId);
 
     const { data: songs } = await supabase
       .from('songs')
       .select('*')
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .eq('admin_free_rotation', true)
       .lte('trial_plays_remaining', 0)
       .lte('credits_remaining', 0);
@@ -861,6 +872,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   > {
     const supabase = getSupabaseClient();
     const result: { id: string; _stackId: string; artistId: string }[] = [];
+    const stationId = normalizeSongStationId(radioId);
 
     const { data: adminSongs, error: adminError } = await supabase
       .from('admin_fallback_songs')
@@ -886,6 +898,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .from('songs')
       .select('id, artist_id, audio_url')
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .eq('admin_free_rotation', true);
     const { data: songsData, error: songsError } = await songsQuery;
 
@@ -989,6 +1002,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    */
   private async getFreeRotationSongById(stackId: string, radioId: string = DEFAULT_RADIO_ID): Promise<any | null> {
     const supabase = getSupabaseClient();
+    const stationId = normalizeSongStationId(radioId);
     const isAdmin = stackId.startsWith('admin:');
     const isSong = stackId.startsWith('song:');
     const actualId = stackId.replace(/^admin:|^song:/, '');
@@ -1012,6 +1026,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .from('songs')
         .select('*')
         .eq('id', actualId)
+        .eq('station_id', stationId)
         .single();
       if (error || !data) {
         this.logger.warn(`Free rotation song ${actualId} not found`);
@@ -1034,6 +1049,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .select('*')
       .eq('id', stackId)
       .eq('status', 'approved')
+      .eq('station_id', stationId)
       .eq('admin_free_rotation', true);
     const { data: songData } = await songQuery.single();
     if (songData) return { ...songData, _source: 'songs' as const };
@@ -1286,12 +1302,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     let targetType = currentType;
 
     // Rap station is intended to run nonstop free rotation.
-    if (radioId === RAP_RADIO_ID) {
+    if (radioId === RAP_STATION_ID) {
       targetType = 'free_rotation';
     }
 
     if (
-      radioId !== RAP_RADIO_ID &&
+      radioId !== RAP_STATION_ID &&
       currentType === 'free_rotation' &&
       listenerCount >= THRESHOLD_ENTER_PAID
     ) {
@@ -1300,7 +1316,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         `Switching to PAID playlist (listeners: ${listenerCount} >= ${THRESHOLD_ENTER_PAID})`,
       );
     } else if (
-      radioId !== RAP_RADIO_ID &&
+      radioId !== RAP_STATION_ID &&
       currentType === 'paid' &&
       listenerCount <= THRESHOLD_EXIT_PAID
     ) {
@@ -1324,6 +1340,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const creditedResult = await this.getCreditedSong(
         currentSongId,
         lastPlayedArtistId,
+        radioId,
       );
       if (creditedResult) {
         const result = await this.playCreditedSong(
@@ -1348,6 +1365,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const trialResult = await this.getTrialSong(
         currentSongId,
         lastPlayedArtistId,
+        radioId,
       );
       if (trialResult) {
         const result = await this.playTrialSong(
@@ -1372,6 +1390,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const optInResult = await this.getOptInSong(
         currentSongId,
         lastPlayedArtistId,
+        radioId,
       );
       if (optInResult) {
         const result = await this.playOptInSong(
@@ -2252,13 +2271,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     currentSongId?: string,
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<any | null> {
-    const creditedResult = await this.getCreditedSong(currentSongId);
+    const creditedResult = await this.getCreditedSong(
+      currentSongId,
+      null,
+      radioId,
+    );
     if (creditedResult) return creditedResult.song;
 
-    const trialResult = await this.getTrialSong(currentSongId);
+    const trialResult = await this.getTrialSong(currentSongId, null, radioId);
     if (trialResult) return trialResult.song;
 
-    const optInResult = await this.getOptInSong(currentSongId);
+    const optInResult = await this.getOptInSong(currentSongId, null, radioId);
     if (optInResult) return optInResult.song;
 
     // Keep fallback preview scoped to station.
