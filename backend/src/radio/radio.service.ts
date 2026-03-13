@@ -60,7 +60,15 @@ const CHECKPOINT_INTERVAL = parseInt(
 
 /** Rap radio ID retained for station-specific mode behavior. */
 const RAP_RADIO_ID = 'ga-nw-rap';
-const WEB_PREFERRED_AUDIO_EXTENSIONS = ['.mp3', '.wav', '.ogg'];
+const WEB_PREFERRED_AUDIO_EXTENSIONS = [
+  '.mp3',
+  '.wav',
+  '.ogg',
+  '.m4a',
+  '.mp4',
+  '.aac',
+  '.webm',
+];
 
 // Trial-by-Fire window (daily, UTC)
 // Defaults: off unless TRIAL_BY_FIRE_START_UTC is set.
