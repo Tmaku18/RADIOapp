@@ -240,11 +240,36 @@ export const creatorNetworkApi = {
 };
 
 export const messagesApi = {
-  listConversations: () => api.get('/messages/conversations'),
+  listConversations: (params?: { search?: string }) =>
+    api.get('/messages/conversations', { params: params ?? {} }),
   getThread: (otherUserId: string, params?: { limit?: number; before?: string }) =>
     api.get(`/messages/conversations/${otherUserId}`, { params }),
-  sendMessage: (otherUserId: string, body: string, requestId?: string | null) =>
-    api.post(`/messages/conversations/${otherUserId}`, { body, requestId }),
+  sendMessage: (
+    otherUserId: string,
+    data: {
+      body?: string;
+      requestId?: string | null;
+      messageType?: 'text' | 'image' | 'video' | 'voice';
+      mediaUrl?: string | null;
+      mediaMime?: string | null;
+      mediaDurationMs?: number | null;
+      replyToMessageId?: string | null;
+    },
+  ) => api.post(`/messages/conversations/${otherUserId}`, data),
+  editMessage: (messageId: string, body: string) =>
+    api.patch(`/messages/messages/${messageId}`, { body }),
+  unsendMessage: (messageId: string) =>
+    api.post(`/messages/messages/${messageId}/unsend`),
+  addReaction: (messageId: string, emoji: string) =>
+    api.post(`/messages/messages/${messageId}/reactions`, { emoji }),
+  removeReaction: (messageId: string, emoji: string) =>
+    api.delete(`/messages/messages/${messageId}/reactions`, { params: { emoji } }),
+  markThreadRead: (otherUserId: string, lastReadMessageId?: string | null) =>
+    api.post(`/messages/conversations/${otherUserId}/read`, { lastReadMessageId: lastReadMessageId ?? null }),
+  getUnreadSummary: () => api.get('/messages/unread-summary'),
+  sendTyping: (otherUserId: string) => api.post(`/messages/conversations/${otherUserId}/typing`),
+  getUploadUrl: (data: { filename: string; contentType: string }) =>
+    api.post<{ signedUrl: string; path: string; expiresIn: number }>('/messages/upload-url', data),
 };
 
 export const serviceProvidersApi = {
