@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,13 +37,15 @@ function fmtDuration(seconds: number): string {
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
+  type MaybeApiError = { response?: { data?: { message?: unknown } } };
+  const maybeApiError = error as MaybeApiError;
   if (
     error &&
     typeof error === 'object' &&
     'response' in error &&
-    (error as any).response?.data?.message
+    maybeApiError.response?.data?.message
   ) {
-    const msg = (error as any).response.data.message;
+    const msg = maybeApiError.response?.data?.message;
     return typeof msg === 'string' ? msg : fallback;
   }
   if (error instanceof Error && error.message) return error.message;
@@ -50,11 +53,18 @@ function getErrorMessage(error: unknown, fallback: string): string {
 }
 
 export default function AdminQueuePage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const stationParam = searchParams.get('station')?.trim() || '';
   const [radios, setRadios] = useState<RadioOption[]>([]);
-  const [selectedRadioId, setSelectedRadioId] = useState<string>('ga-nw-rap');
+  const [selectedRadioId, setSelectedRadioId] = useState<string>(stationParam || 'ga-nw-rap');
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [draftStackIds, setDraftStackIds] = useState<string[]>([]);
   const [originalStackIds, setOriginalStackIds] = useState<string[]>([]);
+  const [queueCache, setQueueCache] = useState<Record<string, QueueState>>({});
+  const [draftCache, setDraftCache] = useState<Record<string, string[]>>({});
+  const [originalCache, setOriginalCache] = useState<Record<string, string[]>>({});
   const [songCandidates, setSongCandidates] = useState<Candidate[]>([]);
   const [fallbackCandidates, setFallbackCandidates] = useState<Candidate[]>([]);
   const [selectedAddStackId, setSelectedAddStackId] = useState<string>('');
@@ -67,13 +77,15 @@ export default function AdminQueuePage() {
     const res = await adminApi.getRadios();
     const list = res.data.radios || [];
     setRadios(list);
-    if (list.length > 0 && !list.find((r) => r.id === selectedRadioId)) {
-      setSelectedRadioId(list[0].id);
+    if (list.length > 0) {
+      const requested = stationParam || selectedRadioId;
+      const existing = list.find((r) => r.id === requested);
+      setSelectedRadioId(existing ? existing.id : list[0].id);
     }
-  }, [selectedRadioId]);
+  }, [selectedRadioId, stationParam]);
 
-  const loadQueue = useCallback(async (radioId: string) => {
-    setLoading(true);
+  const loadQueue = useCallback(async (radioId: string, applyToView = true) => {
+    if (applyToView) setLoading(true);
     setError(null);
     try {
       const res = await adminApi.getRadioQueue(radioId, 200);
@@ -82,14 +94,21 @@ export default function AdminQueuePage() {
         currentSong: res.data.currentSong,
         upcoming: res.data.upcoming || [],
       };
-      setQueueState(state);
       const stackIds = state.upcoming.map((row) => row.stackId);
-      setDraftStackIds(stackIds);
-      setOriginalStackIds(stackIds);
+      setQueueCache((prev) => ({ ...prev, [radioId]: state }));
+      setDraftCache((prev) => ({ ...prev, [radioId]: stackIds }));
+      setOriginalCache((prev) => ({ ...prev, [radioId]: stackIds }));
+      if (applyToView) {
+        setQueueState(state);
+        setDraftStackIds(stackIds);
+        setOriginalStackIds(stackIds);
+      }
     } catch (err: unknown) {
-      setError(getErrorMessage(err, 'Failed to load queue state'));
+      if (applyToView) {
+        setError(getErrorMessage(err, 'Failed to load queue state'));
+      }
     } finally {
-      setLoading(false);
+      if (applyToView) setLoading(false);
     }
   }, []);
 
@@ -99,13 +118,24 @@ export default function AdminQueuePage() {
         adminApi.getSongsInFreeRotation(radioId),
         adminApi.getFallbackSongs(radioId),
       ]);
-      const songs = (songsRes.data.songs || []).map((song: any) => ({
+      const songsRaw = (songsRes.data.songs || []) as Array<{
+        id: string;
+        title?: string;
+        artist_name?: string;
+        users?: { display_name?: string };
+      }>;
+      const fallbackRaw = (fallbackRes.data.songs || []) as Array<{
+        id: string;
+        title?: string;
+        artist_name?: string;
+      }>;
+      const songs = songsRaw.map((song) => ({
         stackId: `song:${song.id}`,
         title: song.title || 'Untitled',
         artistName: song.users?.display_name || song.artist_name || 'Unknown Artist',
         source: 'songs' as const,
       }));
-      const fallback = (fallbackRes.data.songs || []).map((song: any) => ({
+      const fallback = fallbackRaw.map((song) => ({
         stackId: `admin:${song.id}`,
         title: song.title || 'Untitled',
         artistName: song.artist_name || 'Unknown Artist',
@@ -129,9 +159,44 @@ export default function AdminQueuePage() {
 
   useEffect(() => {
     if (!selectedRadioId) return;
-    loadQueue(selectedRadioId);
+    const cachedQueue = queueCache[selectedRadioId];
+    if (cachedQueue) {
+      setQueueState(cachedQueue);
+      setDraftStackIds(draftCache[selectedRadioId] || cachedQueue.upcoming.map((row) => row.stackId));
+      setOriginalStackIds(
+        originalCache[selectedRadioId] || cachedQueue.upcoming.map((row) => row.stackId),
+      );
+      setLoading(false);
+      void loadQueue(selectedRadioId, false);
+    } else {
+      loadQueue(selectedRadioId, true);
+    }
     loadCandidates(selectedRadioId);
-  }, [selectedRadioId, loadQueue, loadCandidates]);
+  }, [selectedRadioId, loadQueue, loadCandidates, queueCache, draftCache, originalCache]);
+
+  useEffect(() => {
+    if (!selectedRadioId) return;
+    const currentStation = searchParams.get('station')?.trim() || '';
+    if (currentStation === selectedRadioId) return;
+    const next = new URLSearchParams(searchParams.toString());
+    next.set('station', selectedRadioId);
+    const nextUrl = `${pathname}?${next.toString()}`;
+    router.replace(nextUrl, { scroll: false });
+  }, [selectedRadioId, pathname, router, searchParams]);
+
+  useEffect(() => {
+    if (!radios.length) return;
+    const others = radios
+      .map((r) => r.id)
+      .filter((id) => id !== selectedRadioId && !queueCache[id]);
+    if (!others.length) return;
+    void Promise.all(others.map((id) => loadQueue(id, false)));
+  }, [radios, selectedRadioId, queueCache, loadQueue]);
+
+  useEffect(() => {
+    if (!selectedRadioId) return;
+    setDraftCache((prev) => ({ ...prev, [selectedRadioId]: draftStackIds }));
+  }, [selectedRadioId, draftStackIds]);
 
   const queueMap = useMemo(() => {
     const map = new Map<string, QueueEntry>();
@@ -198,6 +263,7 @@ export default function AdminQueuePage() {
     try {
       await adminApi.replaceRadioQueue(selectedRadioId, draftStackIds);
       setOriginalStackIds(draftStackIds);
+      setOriginalCache((prev) => ({ ...prev, [selectedRadioId]: draftStackIds }));
       await loadQueue(selectedRadioId);
       setSuccess('Queue updated for upcoming tracks.');
     } catch (err: unknown) {
@@ -208,7 +274,8 @@ export default function AdminQueuePage() {
   };
 
   const resetDraft = () => {
-    setDraftStackIds(originalStackIds);
+    const original = originalCache[selectedRadioId] || originalStackIds;
+    setDraftStackIds(original);
     setSuccess(null);
     setError(null);
   };
@@ -222,21 +289,25 @@ export default function AdminQueuePage() {
             Manage upcoming queue only. Current song keeps playing.
           </p>
         </div>
-        <div className="w-full sm:w-72">
-          <label className="mb-1 block text-xs font-medium text-muted-foreground">
-            Station
-          </label>
-          <select
-            value={selectedRadioId}
-            onChange={(e) => setSelectedRadioId(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-          >
+        <div className="w-full">
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Stations</label>
+          <div className="flex flex-wrap gap-2">
             {radios.map((radio) => (
-              <option key={radio.id} value={radio.id}>
-                {radio.label} ({radio.id})
-              </option>
+              <button
+                key={radio.id}
+                type="button"
+                onClick={() => setSelectedRadioId(radio.id)}
+                className={`rounded-md border px-3 py-1.5 text-xs transition-colors ${
+                  selectedRadioId === radio.id
+                    ? 'border-primary bg-primary/10 text-primary'
+                    : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                }`}
+                title={radio.id}
+              >
+                {radio.label}
+              </button>
             ))}
-          </select>
+          </div>
         </div>
       </div>
 

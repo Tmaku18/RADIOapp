@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { adminApi } from '@/lib/api';
+import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { TOWERS } from '@/data/station-map';
 
 interface Song {
   id: string;
   title: string;
   artist_name: string;
+  station_id?: string | null;
   artwork_url: string | null;
   audio_url: string;
   duration_seconds?: number;
@@ -38,6 +40,12 @@ export default function AdminSongsPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editStationId, setEditStationId] = useState('');
+  const [editArtworkUrl, setEditArtworkUrl] = useState('');
+  const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
   
   // Rejection modal state
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -262,6 +270,92 @@ export default function AdminSongsPage() {
     }
   };
 
+  const getArtworkPublicUrl = (path: string): string => {
+    const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    return `${base}/storage/v1/object/public/artwork/${path}`;
+  };
+
+  const uploadArtwork = async (file: File): Promise<string> => {
+    const response = await songsApi.getUploadUrl({
+      filename: file.name,
+      contentType: file.type || 'image/jpeg',
+      bucket: 'artwork',
+    });
+    const { signedUrl, path } = response.data as { signedUrl: string; path: string };
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Artwork upload failed (${uploadResponse.status})`);
+    }
+    return getArtworkPublicUrl(path);
+  };
+
+  const openEditModal = (song: Song) => {
+    setEditingSong(song);
+    setEditTitle(song.title || '');
+    setEditStationId(song.station_id || '');
+    setEditArtworkUrl(song.artwork_url || '');
+    setEditArtworkFile(null);
+  };
+
+  const closeEditModal = () => {
+    setEditingSong(null);
+    setEditArtworkFile(null);
+    setEditSaving(false);
+  };
+
+  const handleSaveMetadata = async () => {
+    if (!editingSong) return;
+    const title = editTitle.trim();
+    if (!title) {
+      alert('Title cannot be empty');
+      return;
+    }
+    if (!editStationId) {
+      alert('Please select a station');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      let finalArtworkUrl = editArtworkUrl.trim();
+      if (editArtworkFile) {
+        finalArtworkUrl = await uploadArtwork(editArtworkFile);
+      }
+      const response = await songsApi.update(editingSong.id, {
+        title,
+        stationId: editStationId,
+        artworkUrl: finalArtworkUrl,
+      });
+      const updated = response.data as {
+        id: string;
+        title: string;
+        stationId?: string;
+        artworkUrl?: string | null;
+      };
+      setSongs((prev) =>
+        prev.map((song) =>
+          song.id === editingSong.id
+            ? {
+                ...song,
+                title: updated.title ?? title,
+                station_id: updated.stationId ?? editStationId,
+                artwork_url: updated.artworkUrl !== undefined ? updated.artworkUrl : finalArtworkUrl,
+              }
+            : song,
+        ),
+      );
+      closeEditModal();
+    } catch (err) {
+      console.error('Failed to update song metadata:', err);
+      alert('Failed to update song metadata');
+      setEditSaving(false);
+    }
+  };
+
   const formatDuration = (seconds?: number): string => {
     if (!seconds) return '--:--';
     const mins = Math.floor(seconds / 60);
@@ -460,6 +554,13 @@ export default function AdminSongsPage() {
                       >
                         Trim
                       </button>
+                      <button
+                        onClick={() => openEditModal(song)}
+                        disabled={editSaving && editingSong?.id === song.id}
+                        className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
                       {song.status === 'pending' && (
                         <>
                         <button
@@ -611,6 +712,75 @@ export default function AdminSongsPage() {
                 className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
               >
                 {actionLoading === `trim:${trimmingSong.id}` ? 'Saving...' : 'Trim & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingSong && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Song Metadata</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Station / Genre</label>
+                <select
+                  value={editStationId}
+                  onChange={(e) => setEditStationId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select station</option>
+                  {TOWERS.map((tower) => (
+                    <option key={tower.id} value={tower.id}>
+                      {tower.genre} ({tower.city})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Album Cover URL</label>
+                <input
+                  type="text"
+                  value={editArtworkUrl}
+                  onChange={(e) => setEditArtworkUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">Or upload new cover</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={(e) => setEditArtworkFile(e.target.files?.[0] ?? null)}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                disabled={editSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleSaveMetadata()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                disabled={editSaving}
+              >
+                {editSaving ? 'Saving...' : 'Save Metadata'}
               </button>
             </div>
           </div>

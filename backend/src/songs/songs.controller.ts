@@ -12,6 +12,7 @@ import {
   UseGuards,
   ForbiddenException,
   UnauthorizedException,
+  BadRequestException,
   Logger,
   Headers,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { DurationService } from '../uploads/duration.service';
 import { CreateSongDto } from './dto/create-song.dto';
 import { CreateSongFromPathDto } from './dto/create-song-from-path.dto';
 import { GetUploadUrlDto } from './dto/get-upload-url.dto';
+import { UpdateSongDto } from './dto/update-song.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -290,6 +292,7 @@ export class SongsController {
       playCount: song.play_count || 0,
       likeCount: song.like_count || 0,
       status: song.status,
+      stationId: song.station_id || null,
       optInFreePlay: song.opt_in_free_play || false,
       inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
       rejectionReason: song.rejection_reason,
@@ -314,7 +317,7 @@ export class SongsController {
   async updateSong(
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
-    @Body() body: { optInFreePlay?: boolean },
+    @Body() body: UpdateSongDto,
   ) {
     const supabase = getSupabaseClient();
 
@@ -345,8 +348,25 @@ export class SongsController {
 
     // Build update object
     const updateData: any = { updated_at: new Date().toISOString() };
+    if (body.title !== undefined) {
+      const nextTitle = body.title.trim();
+      if (!nextTitle) {
+        throw new BadRequestException('Title cannot be empty');
+      }
+      updateData.title = nextTitle;
+    }
+    if (body.artworkUrl !== undefined) {
+      const nextArtwork = body.artworkUrl.trim();
+      updateData.artwork_url = nextArtwork.length > 0 ? nextArtwork : null;
+    }
+    if (body.stationId !== undefined) {
+      updateData.station_id = body.stationId;
+    }
     if (body.optInFreePlay !== undefined) {
       updateData.opt_in_free_play = body.optInFreePlay;
+    }
+    if (Object.keys(updateData).length === 1) {
+      throw new BadRequestException('No editable fields provided');
     }
 
     const { data: updated, error } = await supabase
@@ -364,6 +384,8 @@ export class SongsController {
       id: updated.id,
       title: updated.title,
       optInFreePlay: updated.opt_in_free_play,
+      artworkUrl: updated.artwork_url,
+      stationId: updated.station_id,
     };
   }
 

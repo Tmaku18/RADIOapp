@@ -117,6 +117,15 @@ export const songsApi = {
   getLikeStatus: (id: string) => api.get(`/songs/${id}/like`),
   recordProfileListen: (id: string, data?: { startedAt?: string; secondsListened?: number }) =>
     api.post(`/songs/${id}/profile-listen`, data ?? {}),
+  update: (
+    id: string,
+    data: {
+      title?: string;
+      artworkUrl?: string;
+      stationId?: string;
+      optInFreePlay?: boolean;
+    },
+  ) => api.patch(`/songs/${id}`, data),
   updateOptIn: (id: string, optInFreePlay: boolean) => 
     api.patch(`/songs/${id}`, { optInFreePlay }),
 };

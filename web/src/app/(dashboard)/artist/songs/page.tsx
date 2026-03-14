@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi, refineryApi } from '@/lib/api';
+import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,6 +33,7 @@ interface Song {
   playCount: number;
   likeCount: number;
   status: 'pending' | 'approved' | 'rejected';
+  stationId?: string;
   optInFreePlay: boolean;
   inRefinery?: boolean;
   rejectionReason?: string;
@@ -60,6 +62,13 @@ export default function MySongsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refineryToggling, setRefineryToggling] = useState<string | null>(null);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editStationId, setEditStationId] = useState('');
+  const [editArtworkUrl, setEditArtworkUrl] = useState('');
+  const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+  const [editArtworkPreview, setEditArtworkPreview] = useState<string | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     loadSongs();
@@ -99,6 +108,98 @@ export default function MySongsPage() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const getArtworkPublicUrl = (path: string): string => {
+    const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base) {
+      throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    }
+    return `${base}/storage/v1/object/public/artwork/${path}`;
+  };
+
+  const uploadArtwork = async (file: File): Promise<string> => {
+    const response = await songsApi.getUploadUrl({
+      filename: file.name,
+      contentType: file.type || 'image/jpeg',
+      bucket: 'artwork',
+    });
+    const { signedUrl, path } = response.data as { signedUrl: string; path: string };
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'image/jpeg',
+      },
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Artwork upload failed (${uploadResponse.status})`);
+    }
+    return getArtworkPublicUrl(path);
+  };
+
+  const openEditModal = (song: Song) => {
+    setEditingSong(song);
+    setEditTitle(song.title);
+    setEditStationId(song.stationId || '');
+    setEditArtworkUrl(song.artworkUrl || '');
+    setEditArtworkFile(null);
+    setEditArtworkPreview(song.artworkUrl || null);
+  };
+
+  const closeEditModal = () => {
+    setEditingSong(null);
+    setEditArtworkFile(null);
+    setEditArtworkPreview(null);
+    setEditSaving(false);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSong) return;
+    const nextTitle = editTitle.trim();
+    if (!nextTitle) {
+      setError('Title cannot be empty');
+      return;
+    }
+    if (!editStationId) {
+      setError('Please select a station/category');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      let finalArtworkUrl = editArtworkUrl.trim();
+      if (editArtworkFile) {
+        finalArtworkUrl = await uploadArtwork(editArtworkFile);
+      }
+      const response = await songsApi.update(editingSong.id, {
+        title: nextTitle,
+        stationId: editStationId,
+        artworkUrl: finalArtworkUrl,
+      });
+      const updated = response.data as {
+        id: string;
+        title: string;
+        stationId?: string;
+        artworkUrl?: string | null;
+      };
+      setSongs((prev) =>
+        prev.map((song) =>
+          song.id === editingSong.id
+            ? {
+                ...song,
+                title: updated.title ?? nextTitle,
+                stationId: updated.stationId ?? editStationId,
+                artworkUrl:
+                  updated.artworkUrl !== undefined ? updated.artworkUrl || undefined : finalArtworkUrl || undefined,
+              }
+            : song,
+        ),
+      );
+      closeEditModal();
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to update song metadata'));
+      setEditSaving(false);
     }
   };
 
@@ -205,17 +306,32 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell>
                     {song.status === 'approved' ? (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        onClick={() => router.push(`/artist/songs/${song.id}/buy-plays`)}
-                      >
-                        Buy plays
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
+                          Edit
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => router.push(`/artist/songs/${song.id}/buy-plays`)}
+                        >
+                          Buy plays
+                        </Button>
+                      </div>
                     ) : song.status === 'pending' ? (
-                      <span className="text-muted-foreground">Pending review</span>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
+                          Edit
+                        </Button>
+                        <span className="text-muted-foreground">Pending review</span>
+                      </div>
                     ) : (
-                      <span className="text-muted-foreground">N/A</span>
+                      <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
+                          Edit
+                        </Button>
+                        <span className="text-muted-foreground">N/A</span>
+                      </div>
                     )}
                   </TableCell>
                 </TableRow>
@@ -224,6 +340,80 @@ export default function MySongsPage() {
           </Table>
         </Card>
       ) : null}
+
+      {editingSong && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-lg border bg-card p-5 space-y-4">
+            <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Song title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Station / Genre</label>
+              <select
+                value={editStationId}
+                onChange={(e) => setEditStationId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              >
+                <option value="">Select a station</option>
+                {TOWERS.map((tower) => (
+                  <option key={tower.id} value={tower.id}>
+                    {tower.genre} ({tower.city})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Album Cover URL</label>
+              <input
+                value={editArtworkUrl}
+                onChange={(e) => setEditArtworkUrl(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="https://..."
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditArtworkFile(file);
+                    if (file) {
+                      const preview = URL.createObjectURL(file);
+                      setEditArtworkPreview(preview);
+                    } else {
+                      setEditArtworkPreview(editArtworkUrl || null);
+                    }
+                  }}
+                  className="text-sm"
+                />
+                {editArtworkFile && <span className="text-xs text-muted-foreground">{editArtworkFile.name}</span>}
+              </div>
+              {editArtworkPreview && (
+                <ArtworkImage
+                  src={editArtworkPreview}
+                  alt="Artwork preview"
+                  className="h-16 w-16 rounded object-cover border border-border"
+                />
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={closeEditModal} disabled={editSaving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSaveEdit()} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
