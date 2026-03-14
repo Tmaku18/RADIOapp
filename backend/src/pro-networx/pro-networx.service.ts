@@ -63,6 +63,7 @@ export type ProDirectoryItem = {
   startingAtRateType?: 'hourly' | 'fixed' | null;
   verifiedCatalyst?: boolean;
   mentorOptIn?: boolean;
+  isFollowing?: boolean;
   updatedAt: string | null;
 };
 
@@ -78,6 +79,15 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
 
 @Injectable()
 export class ProNetworxService {
+  private deterministicSeededRank(id: string, seed: string): number {
+    const input = `${seed}:${id}`;
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  }
+
   async getProfileByUserId(userId: string): Promise<ProPublicProfileResponse> {
     const supabase = getSupabaseClient();
 
@@ -319,14 +329,19 @@ export class ProNetworxService {
   }
 
   async listDirectory(params: {
+    viewerUserId?: string;
     skill?: string;
     availableForWork?: boolean;
     search?: string;
     location?: string;
     sort?: 'asc' | 'desc';
+    mode?: 'default' | 'random';
+    seed?: string;
   }): Promise<{ items: ProDirectoryItem[]; total: number }> {
     const supabase = getSupabaseClient();
     const sort = params.sort ?? 'desc';
+    const mode = params.mode ?? 'default';
+    const seed = (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
 
     // Get pro profiles (include current_title for directory card display)
     let q = supabase
@@ -465,6 +480,28 @@ export class ProNetworxService {
     let filtered = requestedSkill
       ? items.filter((i) => i.skills.some((s) => s.toLowerCase() === requestedSkill))
       : items;
+
+    if (params.viewerUserId && filtered.length > 0) {
+      const targetIds = filtered.map((i) => i.userId);
+      const { data: followRows } = await supabase
+        .from('user_follows')
+        .select('followed_user_id')
+        .eq('follower_user_id', params.viewerUserId)
+        .in('followed_user_id', targetIds);
+      const followedSet = new Set((followRows || []).map((r: any) => r.followed_user_id));
+      filtered = filtered.map((item) => ({
+        ...item,
+        isFollowing: followedSet.has(item.userId),
+      }));
+    }
+
+    if (mode === 'random') {
+      filtered.sort(
+        (a, b) =>
+          this.deterministicSeededRank(a.userId, seed) -
+          this.deterministicSeededRank(b.userId, seed),
+      );
+    }
 
     // If user filtering removed some userIds, total should match visible list.
     return { items: filtered, total: filtered.length ?? count ?? 0 };

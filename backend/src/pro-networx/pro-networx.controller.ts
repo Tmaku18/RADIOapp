@@ -5,11 +5,25 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { ProNetworxService } from './pro-networx.service';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
 import { ListProDirectoryDto } from './dto/list-pro-directory.dto';
+import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('pro-networx')
 @UseGuards(FirebaseAuthGuard)
 export class ProNetworxController {
   constructor(private readonly pro: ProNetworxService) {}
+
+  private async getUserId(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data?.id) {
+      throw new Error('User not found');
+    }
+    return data.id;
+  }
 
   @Get('me/profile')
   async getMe(@CurrentUser() user: FirebaseUser) {
@@ -22,13 +36,17 @@ export class ProNetworxController {
   }
 
   @Get('directory')
-  async list(@Query() q: ListProDirectoryDto) {
+  async list(@CurrentUser() user: FirebaseUser, @Query() q: ListProDirectoryDto) {
+    const viewerUserId = await this.getUserId(user.uid);
     return this.pro.listDirectory({
+      viewerUserId,
       skill: q.skill,
       availableForWork: q.availableForWork != null ? q.availableForWork === 'true' : undefined,
       search: q.search,
       location: q.location,
       sort: q.sort,
+      mode: q.mode,
+      seed: q.seed,
     });
   }
 

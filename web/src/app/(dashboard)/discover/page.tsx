@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { discoveryApi, type DiscoverFeedPost } from '@/lib/api';
+import { discoveryApi, type DiscoverFeedPost, usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -42,6 +42,7 @@ interface DiscoveryProfile {
   createdAt: string;
   mentorOptIn?: boolean;
   distanceKm?: number;
+  isFollowing?: boolean;
 }
 
 const PAGE_SIZE = 20;
@@ -64,6 +65,9 @@ export default function DiscoverPage() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [randomMode, setRandomMode] = useState(false);
+  const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
+  const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
   const [nearbyEnabled, setNearbyEnabled] = useState(false);
   const [userLat, setUserLat] = useState<number | null>(null);
   const [userLng, setUserLng] = useState<number | null>(null);
@@ -164,6 +168,8 @@ export default function DiscoverPage() {
           lat: nearbyEnabled && role === 'service_provider' && userLat != null ? userLat : undefined,
           lng: nearbyEnabled && role === 'service_provider' && userLng != null ? userLng : undefined,
           radiusKm: nearbyEnabled && role === 'service_provider' && userLat != null && userLng != null ? 100 : undefined,
+          mode: randomMode ? 'random' : 'default',
+          seed: randomMode ? randomSeed : undefined,
         });
         const data = res.data as { items: DiscoveryProfile[]; total: number };
         if (append) {
@@ -182,7 +188,7 @@ export default function DiscoverPage() {
         setLoadingMore(false);
       }
     },
-    [search, location, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents],
+    [search, location, serviceType, role, nearbyEnabled, userLat, userLng, minRateCents, maxRateCents, randomMode, randomSeed],
   );
 
   useEffect(() => {
@@ -192,7 +198,25 @@ export default function DiscoverPage() {
     if (activeTab === 'feed') return;
     setOffset(0);
     load(false, 0);
-  }, [activeTab, search, location, serviceType, role]);
+  }, [activeTab, search, location, serviceType, role, randomMode, randomSeed]);
+
+  const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
+    setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
+    const prev = items;
+    setItems((current) =>
+      current.map((p) =>
+        p.userId === targetUserId ? { ...p, isFollowing: !currentlyFollowing } : p,
+      ),
+    );
+    try {
+      if (currentlyFollowing) await usersApi.unfollow(targetUserId);
+      else await usersApi.follow(targetUserId);
+    } catch {
+      setItems(prev);
+    } finally {
+      setFollowBusy((prevState) => ({ ...prevState, [targetUserId]: false }));
+    }
+  };
 
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -348,6 +372,12 @@ export default function DiscoverPage() {
               hasMore={hasMore}
               loadingMore={loadingMore}
               loadMore={loadMore}
+              randomMode={randomMode}
+              setRandomMode={setRandomMode}
+              randomSeed={randomSeed}
+              reshuffle={() => setRandomSeed(String(Date.now()))}
+              followBusy={followBusy}
+              toggleFollow={toggleFollow}
             />
           </TabsContent>
           <TabsContent value="service_provider" className="mt-0 pt-6">
@@ -376,6 +406,12 @@ export default function DiscoverPage() {
               hasMore={hasMore}
               loadingMore={loadingMore}
               loadMore={loadMore}
+              randomMode={randomMode}
+              setRandomMode={setRandomMode}
+              randomSeed={randomSeed}
+              reshuffle={() => setRandomSeed(String(Date.now()))}
+              followBusy={followBusy}
+              toggleFollow={toggleFollow}
             />
           </TabsContent>
         </Tabs>
@@ -409,6 +445,11 @@ function PeopleTabContent({
   hasMore,
   loadingMore,
   loadMore,
+  randomMode,
+  setRandomMode,
+  reshuffle,
+  followBusy,
+  toggleFollow,
 }: {
   search: string;
   setSearch: (s: string) => void;
@@ -434,7 +475,18 @@ function PeopleTabContent({
   hasMore: boolean;
   loadingMore: boolean;
   loadMore: () => void;
+  randomMode: boolean;
+  setRandomMode: (v: boolean) => void;
+  randomSeed: string;
+  reshuffle: () => void;
+  followBusy: Record<string, boolean>;
+  toggleFollow: (targetUserId: string, currentlyFollowing: boolean) => Promise<void>;
 }) {
+  const getProfileHref = (profile: DiscoveryProfile): string =>
+    profile.role === 'service_provider'
+      ? `/pro-networx/u/${profile.userId}`
+      : artistProfilePath(profile.userId);
+
   return (
     <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -469,6 +521,15 @@ function PeopleTabContent({
                 Apply filters
               </Button>
             </div>
+      <div className="flex items-center gap-2">
+        <Switch id="discover-random" checked={randomMode} onCheckedChange={setRandomMode} />
+        <Label htmlFor="discover-random" className="text-sm">Random profiles</Label>
+        {randomMode && (
+          <Button type="button" size="sm" variant="outline" onClick={reshuffle}>
+            Shuffle
+          </Button>
+        )}
+      </div>
       {role === 'service_provider' && (
               <>
                 <div className="flex items-center gap-2">
@@ -510,7 +571,7 @@ function PeopleTabContent({
                   {items.map((profile) => (
                     <Card key={profile.userId} className="overflow-hidden border-border/80 transition-colors hover:border-primary/30 hover:bg-elevated/50">
                       <CardContent className="p-4 flex gap-4">
-                        <Link href={artistProfilePath(profile.userId)} className="shrink-0">
+                        <Link href={getProfileHref(profile)} className="shrink-0">
                     {profile.avatarUrl ? (
                       <Image
                         src={profile.avatarUrl}
@@ -528,7 +589,7 @@ function PeopleTabContent({
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Link
-                        href={artistProfilePath(profile.userId)}
+                        href={getProfileHref(profile)}
                         className="font-medium text-foreground hover:underline truncate"
                       >
                         {profile.displayName || 'Unnamed'}
@@ -564,7 +625,19 @@ function PeopleTabContent({
                     )}
                     <div className="flex gap-2 mt-3">
                       <Button variant="outline" size="sm" asChild>
-                        <Link href={artistProfilePath(profile.userId)}>View profile</Link>
+                        <Link href={getProfileHref(profile)}>View profile</Link>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={profile.isFollowing ? 'outline' : 'secondary'}
+                        disabled={!!followBusy[profile.userId]}
+                        onClick={() => toggleFollow(profile.userId, !!profile.isFollowing)}
+                      >
+                        {followBusy[profile.userId]
+                          ? '...'
+                          : profile.isFollowing
+                            ? 'Following'
+                            : 'Follow'}
                       </Button>
                       <Button size="sm" asChild>
                         <Link href={`/messages?with=${profile.userId}`}>Message</Link>

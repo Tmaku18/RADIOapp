@@ -74,14 +74,29 @@ export class LiveServicesService {
 
   async upcomingFromFollowed(userId: string, limit = 20): Promise<any[]> {
     const supabase = getSupabaseClient();
-    const { data: follows } = await supabase.from('artist_follows').select('artist_id').eq('user_id', userId);
-    if (!follows?.length) return [];
-    const artistIds = follows.map((f: any) => f.artist_id);
+    const [{ data: userFollows }, { data: legacyFollows }] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('followed_user_id')
+        .eq('follower_user_id', userId),
+      supabase
+        .from('artist_follows')
+        .select('artist_id')
+        .eq('user_id', userId),
+    ]);
+    const artistIds = new Set<string>();
+    for (const f of userFollows || []) {
+      artistIds.add((f as any).followed_user_id);
+    }
+    for (const f of legacyFollows || []) {
+      artistIds.add((f as any).artist_id);
+    }
+    if (artistIds.size === 0) return [];
     const now = new Date().toISOString();
     const { data } = await supabase
       .from('artist_live_services')
       .select('*')
-      .in('artist_id', artistIds)
+      .in('artist_id', [...artistIds])
       .or(`scheduled_at.gte.${now},scheduled_at.is.null`)
       .order('scheduled_at', { ascending: true, nullsFirst: false })
       .limit(limit);
@@ -91,20 +106,56 @@ export class LiveServicesService {
   async followArtist(userId: string, artistId: string): Promise<void> {
     if (userId === artistId) throw new ForbiddenException('Cannot follow yourself');
     const supabase = getSupabaseClient();
-    const { error } = await supabase.from('artist_follows').upsert({ user_id: userId, artist_id: artistId }, { onConflict: 'user_id,artist_id' });
-    if (error) throw new Error(`Failed to follow: ${error.message}`);
+    const [legacy, generic] = await Promise.all([
+      supabase
+        .from('artist_follows')
+        .upsert({ user_id: userId, artist_id: artistId }, { onConflict: 'user_id,artist_id' }),
+      supabase
+        .from('user_follows')
+        .upsert(
+          { follower_user_id: userId, followed_user_id: artistId },
+          { onConflict: 'follower_user_id,followed_user_id' },
+        ),
+    ]);
+    if (legacy.error) throw new Error(`Failed to follow: ${legacy.error.message}`);
+    if (generic.error) throw new Error(`Failed to follow: ${generic.error.message}`);
   }
 
   async unfollowArtist(userId: string, artistId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase.from('artist_follows').delete().eq('user_id', userId).eq('artist_id', artistId);
-    if (error) throw new Error(`Failed to unfollow: ${error.message}`);
+    const [legacy, generic] = await Promise.all([
+      supabase
+        .from('artist_follows')
+        .delete()
+        .eq('user_id', userId)
+        .eq('artist_id', artistId),
+      supabase
+        .from('user_follows')
+        .delete()
+        .eq('follower_user_id', userId)
+        .eq('followed_user_id', artistId),
+    ]);
+    if (legacy.error) throw new Error(`Failed to unfollow: ${legacy.error.message}`);
+    if (generic.error) throw new Error(`Failed to unfollow: ${generic.error.message}`);
   }
 
   async isFollowing(userId: string, artistId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('artist_follows').select('user_id').eq('user_id', userId).eq('artist_id', artistId).maybeSingle();
-    return !!data;
+    const [{ data: generic }, { data: legacy }] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('follower_user_id')
+        .eq('follower_user_id', userId)
+        .eq('followed_user_id', artistId)
+        .maybeSingle(),
+      supabase
+        .from('artist_follows')
+        .select('user_id')
+        .eq('user_id', userId)
+        .eq('artist_id', artistId)
+        .maybeSingle(),
+    ]);
+    return Boolean(generic || legacy);
   }
 
   private mapRow(row: any) {

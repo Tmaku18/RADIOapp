@@ -5,9 +5,11 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { proNetworxApi } from '@/lib/api';
+import { usersApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ProviderListing = {
   id: string;
@@ -63,9 +65,13 @@ function formatRate(rateCents: number | null, rateType: 'hourly' | 'fixed'): str
 export default function ProProfilePage() {
   const params = useParams();
   const id = params.id as string;
+  const { profile } = useAuth();
+  const myUserId = profile?.id ?? null;
 
   const [data, setData] = useState<ProPublicProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -80,6 +86,38 @@ export default function ProProfilePage() {
     }).finally(() => alive && setLoading(false));
     return () => { alive = false; };
   }, [id]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!id || !myUserId || id === myUserId) return;
+    usersApi
+      .isFollowing(id)
+      .then((res) => {
+        if (!alive) return;
+        setIsFollowing(Boolean((res.data as { following?: boolean })?.following));
+      })
+      .catch(() => {
+        if (alive) setIsFollowing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, myUserId]);
+
+  const toggleFollow = async () => {
+    if (!id || !myUserId || id === myUserId || followBusy) return;
+    setFollowBusy(true);
+    const prev = isFollowing;
+    setIsFollowing(!prev);
+    try {
+      if (prev) await usersApi.unfollow(id);
+      else await usersApi.follow(id);
+    } catch {
+      setIsFollowing(prev);
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   const activeListings = useMemo(() => (data?.listings ?? []).filter((l) => l.status === 'active'), [data?.listings]);
 
@@ -153,6 +191,15 @@ export default function ProProfilePage() {
                   </div>
                 </div>
                 <div className="hidden md:flex gap-2 shrink-0">
+                  {myUserId && myUserId !== data.userId && (
+                    <Button
+                      variant={isFollowing ? 'outline' : 'secondary'}
+                      onClick={toggleFollow}
+                      disabled={followBusy}
+                    >
+                      {followBusy ? '...' : isFollowing ? 'Following' : 'Follow'}
+                    </Button>
+                  )}
                   <Button asChild>
                     <Link href={`/messages?with=${data.userId}`}>Message</Link>
                   </Button>
@@ -260,6 +307,16 @@ export default function ProProfilePage() {
               </Card>
 
               <div className="md:hidden flex gap-2">
+                {myUserId && myUserId !== data.userId && (
+                  <Button
+                    variant={isFollowing ? 'outline' : 'secondary'}
+                    onClick={toggleFollow}
+                    disabled={followBusy}
+                    className="flex-1"
+                  >
+                    {followBusy ? '...' : isFollowing ? 'Following' : 'Follow'}
+                  </Button>
+                )}
                 <Button asChild className="flex-1">
                   <Link href={`/messages?with=${data.userId}`}>Message</Link>
                 </Button>

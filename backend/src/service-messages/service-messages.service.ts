@@ -20,6 +20,7 @@ export interface ConversationSummary {
   unreadCount: number;
   lastMessageType: 'text' | 'image' | 'video' | 'voice';
   lastMessageStatus: 'sent' | 'delivered' | 'read';
+  canDm: boolean;
 }
 
 export interface ServiceMessageRow {
@@ -129,6 +130,11 @@ export class ServiceMessagesService {
       .in('id', [...otherIds]);
 
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
+    const { data: followRows } = await supabase
+      .from('user_follows')
+      .select('followed_user_id')
+      .eq('follower_user_id', userId);
+    const followedUserIds = new Set((followRows || []).map((r: any) => r.followed_user_id as string));
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
@@ -180,6 +186,7 @@ export class ServiceMessagesService {
         unreadCount: unreadCountByOther.get(otherId) ?? 0,
         lastMessageType: last.message_type,
         lastMessageStatus: lastStatus,
+        canDm: followedUserIds.has(otherId),
       });
     }
     summaries.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
@@ -274,6 +281,11 @@ export class ServiceMessagesService {
     }
     if (input.senderId === input.recipientId) {
       throw new BadRequestException('Cannot message yourself');
+    }
+
+    const canDm = await this.canSendDm(input.senderId, input.recipientId);
+    if (!canDm) {
+      throw new ForbiddenException('Follow this user to send a DM');
     }
 
     const supabase = getSupabaseClient();
@@ -581,5 +593,16 @@ export class ServiceMessagesService {
     const supabase = getSupabaseClient();
     const { data } = await supabase.from('users').select('display_name').eq('id', userId).maybeSingle();
     return data?.display_name ?? null;
+  }
+
+  private async canSendDm(senderId: string, recipientId: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('user_follows')
+      .select('follower_user_id')
+      .eq('follower_user_id', senderId)
+      .eq('followed_user_id', recipientId)
+      .maybeSingle();
+    return Boolean(data);
   }
 }

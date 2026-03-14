@@ -120,6 +120,10 @@ export const usersApi = {
     return api.post('/users/me/avatar', formData);
   },
   getById: (id: string) => api.get(`/users/${id}`),
+  follow: (id: string) => api.post(`/users/${id}/follow`),
+  unfollow: (id: string) => api.delete(`/users/${id}/follow`),
+  isFollowing: (id: string) => api.get<{ following: boolean }>(`/users/${id}/follow`),
+  getFollowCounts: (id: string) => api.get<{ followers: number; following: number }>(`/users/${id}/follow-counts`),
   create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
@@ -181,6 +185,8 @@ export const discoveryApi = {
     lat?: number;
     lng?: number;
     radiusKm?: number;
+    mode?: 'default' | 'random';
+    seed?: string;
   }) => api.get('/discovery/people', { params }),
 };
 
@@ -268,7 +274,7 @@ export const proNetworxApi = {
   getMeProfile: () => api.get('/pro-networx/me/profile'),
   updateMeProfile: (data: { availableForWork?: boolean; skillsHeadline?: string; skillNames?: string[] }) =>
     api.put('/pro-networx/me/profile', data),
-  listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc' }) =>
+  listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
     api.get('/pro-networx/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
 };

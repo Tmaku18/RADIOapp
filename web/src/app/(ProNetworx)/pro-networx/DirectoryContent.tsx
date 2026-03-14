@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { proNetworxApi } from '@/lib/api';
+import { proNetworxApi, usersApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,7 @@ export type DirectoryItem = {
   startingAtRateType?: 'hourly' | 'fixed' | null;
   verifiedCatalyst?: boolean;
   mentorOptIn?: boolean;
+  isFollowing?: boolean;
   updatedAt: string | null;
 };
 
@@ -63,6 +64,9 @@ export function ProNetworxDirectoryContent({
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [randomMode, setRandomMode] = useState(false);
+  const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
+  const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
 
   const params = useMemo(() => {
     const s = search.trim() || undefined;
@@ -74,8 +78,10 @@ export function ProNetworxDirectoryContent({
       skill: sk,
       availableForWork: availableOnly ? true : undefined,
       sort: 'desc' as const,
+      mode: randomMode ? ('random' as const) : ('default' as const),
+      seed: randomMode ? randomSeed : undefined,
     };
-  }, [search, location, skill, availableOnly]);
+  }, [search, location, skill, availableOnly, randomMode, randomSeed]);
 
   const load = useCallback(async (append: boolean, currentOffset: number) => {
     if (append) setLoadingMore(true);
@@ -108,6 +114,24 @@ export function ProNetworxDirectoryContent({
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
     load(true, offset);
+  };
+
+  const toggleFollow = async (targetUserId: string, currentlyFollowing: boolean) => {
+    setFollowBusy((prev) => ({ ...prev, [targetUserId]: true }));
+    const prev = items;
+    setItems((current) =>
+      current.map((p) =>
+        p.userId === targetUserId ? { ...p, isFollowing: !currentlyFollowing } : p,
+      ),
+    );
+    try {
+      if (currentlyFollowing) await usersApi.unfollow(targetUserId);
+      else await usersApi.follow(targetUserId);
+    } catch {
+      setItems(prev);
+    } finally {
+      setFollowBusy((prevState) => ({ ...prevState, [targetUserId]: false }));
+    }
   };
 
   return (
@@ -149,6 +173,15 @@ export function ProNetworxDirectoryContent({
               <Switch id="available-only" checked={availableOnly} onCheckedChange={setAvailableOnly} />
               <Label htmlFor="available-only" className="text-sm text-foreground">Available for work</Label>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Switch id="pn-random" checked={randomMode} onCheckedChange={setRandomMode} />
+            <Label htmlFor="pn-random" className="text-sm text-foreground">Random profiles</Label>
+            {randomMode && (
+              <Button size="sm" variant="outline" onClick={() => setRandomSeed(String(Date.now()))}>
+                Shuffle
+              </Button>
+            )}
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => load(false, 0)} disabled={loading}>
@@ -259,6 +292,18 @@ export function ProNetworxDirectoryContent({
                   <div className="flex gap-2 pt-1">
                     <Button variant="outline" size="sm" asChild className="flex-1">
                       <Link href={`/pro-networx/u/${p.userId}`}>View profile</Link>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={p.isFollowing ? 'outline' : 'secondary'}
+                      disabled={!!followBusy[p.userId]}
+                      onClick={() => toggleFollow(p.userId, !!p.isFollowing)}
+                    >
+                      {followBusy[p.userId]
+                        ? '...'
+                        : p.isFollowing
+                          ? 'Following'
+                          : 'Follow'}
                     </Button>
                     <Button size="sm" asChild className="flex-1 bg-primary text-primary-foreground hover:opacity-90">
                       <Link href={`/messages?with=${p.userId}`}>Message</Link>

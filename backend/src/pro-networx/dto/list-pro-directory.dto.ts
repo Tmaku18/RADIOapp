@@ -20,5 +20,13 @@ export class ListProDirectoryDto {
   @IsOptional()
   @IsIn(['asc', 'desc'])
   sort?: 'asc' | 'desc';
+
+  @IsOptional()
+  @IsIn(['default', 'random'])
+  mode?: 'default' | 'random';
+
+  @IsOptional()
+  @IsString()
+  seed?: string;
 }
 

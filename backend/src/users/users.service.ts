@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UploadsService } from '../uploads/uploads.service';
@@ -152,6 +158,19 @@ export class UsersService {
     }
 
     return transformUser(data);
+  }
+
+  async getDbUserIdByFirebaseUid(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data?.id) {
+      throw new NotFoundException('User not found');
+    }
+    return data.id;
   }
 
   async getUserById(userId: string): Promise<UserResponse> {
@@ -466,9 +485,9 @@ export class UsersService {
       .slice(0, 10);
 
     const { count: followerCount } = await supabase
-      .from('artist_follows')
-      .select('user_id', { count: 'exact', head: true })
-      .eq('artist_id', userId);
+      .from('user_follows')
+      .select('follower_user_id', { count: 'exact', head: true })
+      .eq('followed_user_id', userId);
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -510,5 +529,119 @@ export class UsersService {
       popularSongs,
       librarySongs: mappedSongs,
     };
+  }
+
+  async followUser(firebaseUid: string, followedUserId: string): Promise<{ followed: true }> {
+    const supabase = getSupabaseClient();
+    const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    if (followerUserId === followedUserId) {
+      throw new ForbiddenException('Cannot follow yourself');
+    }
+
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', followedUserId)
+      .maybeSingle();
+    if (!targetUser) {
+      throw new NotFoundException('Target user not found');
+    }
+
+    const { error } = await supabase
+      .from('user_follows')
+      .upsert(
+        {
+          follower_user_id: followerUserId,
+          followed_user_id: followedUserId,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'follower_user_id,followed_user_id' },
+      );
+    if (error) throw new BadRequestException(`Failed to follow user: ${error.message}`);
+
+    // Backward compatibility for existing artist follow endpoints/features.
+    await supabase
+      .from('artist_follows')
+      .upsert(
+        {
+          user_id: followerUserId,
+          artist_id: followedUserId,
+          created_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id,artist_id' },
+      );
+
+    return { followed: true };
+  }
+
+  async unfollowUser(firebaseUid: string, followedUserId: string): Promise<{ unfollowed: true }> {
+    const supabase = getSupabaseClient();
+    const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+
+    const { error } = await supabase
+      .from('user_follows')
+      .delete()
+      .eq('follower_user_id', followerUserId)
+      .eq('followed_user_id', followedUserId);
+    if (error) throw new BadRequestException(`Failed to unfollow user: ${error.message}`);
+
+    // Backward compatibility cleanup.
+    await supabase
+      .from('artist_follows')
+      .delete()
+      .eq('user_id', followerUserId)
+      .eq('artist_id', followedUserId);
+
+    return { unfollowed: true };
+  }
+
+  async isFollowingUser(firebaseUid: string, followedUserId: string): Promise<{ following: boolean }> {
+    const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const following = await this.isFollowingByIds(followerUserId, followedUserId);
+    return { following };
+  }
+
+  async getFollowCounts(userId: string): Promise<{ followers: number; following: number }> {
+    const supabase = getSupabaseClient();
+    const [{ count: followers }, { count: following }] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('follower_user_id', { count: 'exact', head: true })
+        .eq('followed_user_id', userId),
+      supabase
+        .from('user_follows')
+        .select('followed_user_id', { count: 'exact', head: true })
+        .eq('follower_user_id', userId),
+    ]);
+    return {
+      followers: followers ?? 0,
+      following: following ?? 0,
+    };
+  }
+
+  async getFollowedUserIds(followerUserId: string): Promise<Set<string>> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('user_follows')
+      .select('followed_user_id')
+      .eq('follower_user_id', followerUserId);
+    return new Set((data || []).map((r: any) => r.followed_user_id as string));
+  }
+
+  async isFollowingByIds(followerUserId: string, followedUserId: string): Promise<boolean> {
+    if (!followerUserId || !followedUserId) return false;
+    if (followerUserId === followedUserId) return false;
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('user_follows')
+      .select('follower_user_id')
+      .eq('follower_user_id', followerUserId)
+      .eq('followed_user_id', followedUserId)
+      .maybeSingle();
+    return Boolean(data);
+  }
+
+  async canSendDirectMessage(senderUserId: string, recipientUserId: string): Promise<boolean> {
+    return this.isFollowingByIds(senderUserId, recipientUserId);
   }
 }

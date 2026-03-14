@@ -1,4 +1,5 @@
 import {
+  Delete,
   Controller,
   Get,
   Post,
@@ -109,5 +110,35 @@ export class UsersController {
   @Get(':id')
   async getUserById(@Param('id') id: string) {
     return this.usersService.getUserById(id);
+  }
+
+  @Post(':id/follow')
+  async followUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.followUser(user.uid, id);
+  }
+
+  @Delete(':id/follow')
+  async unfollowUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.unfollowUser(user.uid, id);
+  }
+
+  @Get(':id/follow')
+  async isFollowingUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.isFollowingUser(user.uid, id);
+  }
+
+  @Public()
+  @Get(':id/follow-counts')
+  async getFollowCounts(@Param('id') id: string) {
+    return this.usersService.getFollowCounts(id);
   }
 }

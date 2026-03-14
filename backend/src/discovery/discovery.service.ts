@@ -14,6 +14,7 @@ export interface DiscoveryProfile {
   createdAt: string;
   mentorOptIn?: boolean;
   distanceKm?: number;
+  isFollowing?: boolean;
 }
 
 export interface DiscoverFeedPost {
@@ -29,11 +30,23 @@ export interface DiscoverFeedPost {
 
 @Injectable()
 export class DiscoveryService {
+  private deterministicSeededRank(id: string, seed: string): number {
+    const input = `${seed}:${id}`;
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
+    }
+    return hash;
+  }
+
   async listPeople(params: {
+    viewerUserId?: string;
     serviceType?: string;
     location?: string;
     search?: string;
     role?: 'artist' | 'service_provider' | 'all';
+    mode?: 'default' | 'random';
+    seed?: string;
     limit?: number;
     offset?: number;
     minRateCents?: number;
@@ -45,6 +58,8 @@ export class DiscoveryService {
     const limit = Math.min(params.limit ?? 20, 50);
     const offset = params.offset ?? 0;
     const supabase = getSupabaseClient();
+    const mode = params.mode ?? 'default';
+    const seed = (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
 
     // Build list of Catalyst (service provider) user_ids with their types and mentor flag
     const { data: providerRows } = await supabase
@@ -144,9 +159,21 @@ export class DiscoveryService {
       userQuery = userQuery.or(`display_name.ilike.${term},headline.ilike.${term},bio.ilike.${term}`);
     }
 
-    const { data: users, count: totalCount } = await userQuery
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    let usersResult:
+      | { data: any[] | null; count: number | null }
+      | null = null;
+    if (mode === 'random') {
+      const { data: users, count: totalCount } = await userQuery
+        .order('created_at', { ascending: false });
+      usersResult = { data: users as any[] | null, count: totalCount ?? null };
+    } else {
+      const { data: users, count: totalCount } = await userQuery
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      usersResult = { data: users as any[] | null, count: totalCount ?? null };
+    }
+    const users = usersResult.data;
+    const totalCount = usersResult.count;
 
     if (!users?.length) {
       return { items: [], total: totalCount ?? 0 };
@@ -164,7 +191,20 @@ export class DiscoveryService {
       });
     }
 
-    const items: DiscoveryProfile[] = filtered.map((u) => {
+    const followMap = new Set<string>();
+    if (params.viewerUserId && filtered.length > 0) {
+      const targetIds = filtered.map((u: any) => u.id);
+      const { data: followRows } = await supabase
+        .from('user_follows')
+        .select('followed_user_id')
+        .eq('follower_user_id', params.viewerUserId)
+        .in('followed_user_id', targetIds);
+      for (const r of followRows || []) {
+        followMap.add((r as any).followed_user_id);
+      }
+    }
+
+    let items: DiscoveryProfile[] = filtered.map((u) => {
       const prov = providerByUserId.get(u.id) as any;
       const providerId = prov?.id;
       const serviceTypes = providerId ? typesByProviderId.get(providerId) ?? [] : [];
@@ -182,6 +222,7 @@ export class DiscoveryService {
         createdAt: u.created_at,
         mentorOptIn: prov?.mentor_opt_in ?? false,
         distanceKm,
+        isFollowing: followMap.has(u.id),
       };
     });
 
@@ -192,6 +233,15 @@ export class DiscoveryService {
         const db = b.distanceKm ?? Infinity;
         return da - db;
       });
+    }
+
+    if (mode === 'random') {
+      items.sort(
+        (a, b) =>
+          this.deterministicSeededRank(a.userId, seed) -
+          this.deterministicSeededRank(b.userId, seed),
+      );
+      items = items.slice(offset, offset + limit);
     }
 
     return { items, total: totalCount ?? items.length };

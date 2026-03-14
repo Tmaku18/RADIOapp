@@ -74,6 +74,8 @@ export default function MessagesPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [canDm, setCanDm] = useState(true);
+  const [followBusy, setFollowBusy] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -143,6 +145,26 @@ export default function MessagesPage() {
       loadThread(selectedOther.userId);
     }
   }, [selectedOther?.userId, loadThread]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!selectedOther?.userId || !myId || selectedOther.userId === myId) {
+      setCanDm(false);
+      return;
+    }
+    usersApi
+      .isFollowing(selectedOther.userId)
+      .then((res) => {
+        if (!alive) return;
+        setCanDm(Boolean((res.data as { following?: boolean })?.following));
+      })
+      .catch(() => {
+        if (alive) setCanDm(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [selectedOther?.userId, myId]);
 
   useEffect(() => {
     if (withUserId && conversations.length > 0) {
@@ -241,7 +263,7 @@ export default function MessagesPage() {
 
   const handleSend = async () => {
     const body = draft.trim();
-    if ((!body && !attachment) || !selectedOther || sending) return;
+    if ((!body && !attachment) || !selectedOther || sending || !canDm) return;
     setSending(true);
     setError(null);
     try {
@@ -277,7 +299,13 @@ export default function MessagesPage() {
       await loadThread(selectedOther.userId);
       await loadConversations();
     } catch (e: unknown) {
+      const status = (e as { response?: { status?: number } })?.response?.status;
+      if (status === 403) {
+        setCanDm(false);
+        setError('Follow this user to send a DM.');
+      } else {
       setError((e as Error)?.message || 'Failed to send message');
+      }
       setUploadProgress(null);
     } finally {
       setSending(false);
@@ -329,6 +357,20 @@ export default function MessagesPage() {
     if (!selectedOther) return 0;
     return conversations.find((c) => c.otherUserId === selectedOther.userId)?.unreadCount ?? 0;
   }, [conversations, selectedOther]);
+
+  const handleFollowToDm = async () => {
+    if (!selectedOther?.userId || followBusy) return;
+    setFollowBusy(true);
+    try {
+      await usersApi.follow(selectedOther.userId);
+      setCanDm(true);
+      setError(null);
+    } catch {
+      setError('Failed to follow user');
+    } finally {
+      setFollowBusy(false);
+    }
+  };
 
   return (
     <div className="container max-w-4xl py-6">
@@ -481,6 +523,16 @@ export default function MessagesPage() {
                 </div>
 
                 {error && <Alert variant="destructive" className="mx-4 mt-2"><AlertDescription>{error}</AlertDescription></Alert>}
+                {!canDm && selectedOther?.userId !== myId && (
+                  <Alert className="mx-4 mt-2">
+                    <AlertDescription className="flex items-center justify-between gap-3">
+                      <span>Follow this user to send a DM.</span>
+                      <Button size="sm" onClick={handleFollowToDm} disabled={followBusy}>
+                        {followBusy ? 'Following...' : 'Follow'}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 <div className="p-3 border-t space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -528,7 +580,7 @@ export default function MessagesPage() {
                     }}
                     className="flex-1"
                   />
-                  <Button onClick={handleSend} disabled={(!draft.trim() && !attachment) || sending}>
+                  <Button onClick={handleSend} disabled={(!draft.trim() && !attachment) || sending || !canDm}>
                     {sending ? 'Sending...' : 'Send'}
                   </Button>
                 </div>

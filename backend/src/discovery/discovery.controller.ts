@@ -42,7 +42,10 @@ export class DiscoveryController {
     @Query('lat') latStr?: string,
     @Query('lng') lngStr?: string,
     @Query('radiusKm') radiusKmStr?: string,
+    @Query('mode') mode?: 'default' | 'random',
+    @Query('seed') seed?: string,
   ) {
+    const viewerUserId = await this.getUserId(user.uid);
     const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 20, 50) : undefined;
     const offset = offsetStr ? Math.max(0, parseInt(offsetStr, 10)) : undefined;
     const minRateCents = minRateCentsStr != null ? parseInt(minRateCentsStr, 10) : undefined;
@@ -52,10 +55,13 @@ export class DiscoveryController {
     const radiusKm = radiusKmStr != null ? parseFloat(radiusKmStr) : undefined;
     const radiusKmVal = typeof radiusKm === 'number' && Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : undefined;
     return this.discovery.listPeople({
+      viewerUserId,
       serviceType,
       location,
       search,
       role: role ?? 'all',
+      mode: mode ?? 'default',
+      seed,
       limit,
       offset,
       minRateCents: Number.isFinite(minRateCents) ? minRateCents : undefined,
