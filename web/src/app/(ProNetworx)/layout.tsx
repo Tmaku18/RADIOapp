@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
 const NETWORXRADIO_CROSS_LOGIN = 'https://www.networxradio.com/cross-domain-login';
+const NETWORXRADIO_LISTEN_URL = 'https://www.networxradio.com/listen';
 
 function isDiscoverMeHost() {
   if (typeof window === 'undefined') return false;
@@ -22,6 +23,9 @@ export default function ProNetworxLayout({
 }) {
   const pathname = usePathname();
   const { user, profile, loading } = useAuth();
+  const radioHref = isDiscoverMeHost()
+    ? `/auth-handoff?return_url=${encodeURIComponent(NETWORXRADIO_LISTEN_URL)}`
+    : NETWORXRADIO_LISTEN_URL;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -51,6 +55,13 @@ export default function ProNetworxLayout({
               </Button>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/pro-networx/directory">Directory</Link>
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                {radioHref.startsWith('http') ? (
+                  <a href={radioHref}>Radio</a>
+                ) : (
+                  <Link href={radioHref}>Radio</Link>
+                )}
               </Button>
               {!loading && (
                 user ? (
