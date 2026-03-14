@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import { discoveryApi, type DiscoverFeedPost, usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -50,18 +51,25 @@ const FEED_PAGE_SIZE = 16;
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
 
 export default function DiscoverPage() {
+  const searchParams = useSearchParams();
   const { profile } = useAuth();
   const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
+  const initialTabParam = searchParams.get('tab');
+  const initialSearchParam = searchParams.get('q')?.trim() ?? '';
+  const initialTab: 'feed' | 'artist' | 'service_provider' =
+    initialTabParam === 'artist' || initialTabParam === 'service_provider'
+      ? initialTabParam
+      : 'feed';
 
   // People tab state
   const [items, setItems] = useState<DiscoveryProfile[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(initialSearchParam);
   const [location, setLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
   const [role, setRole] = useState<'artist' | 'service_provider'>('artist');
-  const [activeTab, setActiveTab] = useState<'feed' | 'artist' | 'service_provider'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'artist' | 'service_provider'>(initialTab);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
