@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 
 const LOGO_SRC = '/networx-logo.png';
+const EXTERNAL_PRO_NETWORX_URL = 'https://discovermeradio.com/pro-networx';
 
 export default function MarketingLayout({
   children,
@@ -72,7 +73,13 @@ export default function MarketingLayout({
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
-                <Link href="/pro-networx">ProNetworx</Link>
+                <a
+                  href={EXTERNAL_PRO_NETWORX_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  ProNetworx
+                </a>
               </Button>
             </div>
           </div>
