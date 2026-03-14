@@ -19,17 +19,17 @@ interface DashboardStats {
 }
 
 type Role = 'listener' | 'artist' | 'admin' | 'service_provider';
+const PRO_NETWORX_EXTERNAL_URL = 'https://www.discovermeradio.com/pro-networx/directory';
 
 const ROLE_HOME: Record<
   Role,
-  { title: string; subtitle: string; actions: { href: string; icon: string; title: string; desc: string }[] }
+  { title: string; subtitle: string; actions: { href: string; icon: string; title: string; desc: string; external?: boolean }[] }
 > = {
   listener: {
     title: "Prospector Home",
     subtitle: "Discover gems, tune in to the radio, and refine ore's into signal.",
     actions: [
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
-      { href: '/browse', icon: '🔍', title: 'Browse', desc: "Explore ore's and gems." },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and Catalysts (service providers).' },
       { href: '/competition', icon: '🏆', title: 'Competition', desc: 'Leaderboards, diamonds, and Top 7.' },
       { href: '/messages', icon: '💬', title: 'Messages', desc: 'Chat with gems and creators.' },
@@ -47,7 +47,7 @@ const ROLE_HOME: Record<
       { href: '/artist/stats', icon: '📈', title: 'The Wake', desc: 'The path left behind by a thousand Ripples.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
-      { href: '/job-board', icon: '💼', title: 'Pro-Network', desc: 'Find and offer creative services.' },
+      { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Find and offer creative services.', external: true },
       { href: '/yield', icon: '⛏️', title: 'The Yield', desc: 'Track rewards and redeem at thresholds.' },
       { href: '/profile', icon: '👤', title: 'Your Profile', desc: 'View and edit your profile.' },
     ],
@@ -71,11 +71,9 @@ const ROLE_HOME: Record<
     title: "Catalyst (service provider) Home",
     subtitle: "Offer your services to gems and manage your listings.",
     actions: [
-      { href: '/artist/services', icon: '🛠️', title: 'My Services', desc: 'Manage your service offerings.' },
+      { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Manage your Catalyst profile and services.', external: true },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule live sessions.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find gems and other providers.' },
-      { href: '/job-board', icon: '💼', title: 'Pro-Network', desc: 'Browse requests and offer services.' },
-      { href: '/browse', icon: '🔍', title: 'Browse', desc: 'Explore the platform.' },
       { href: '/messages', icon: '💬', title: 'Messages', desc: 'Chat with clients.' },
       { href: '/profile', icon: '👤', title: 'Your Profile', desc: 'View and edit your profile.' },
     ],
@@ -142,13 +140,23 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {home.actions.map((action) => (
             <Card key={action.href} className="hover:shadow-md transition-shadow">
-              <Link href={action.href}>
-                <CardContent className="pt-6">
-                  <div className="text-4xl mb-4">{action.icon}</div>
-                  <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
-                  <p className="text-muted-foreground">{action.desc}</p>
-                </CardContent>
-              </Link>
+              {action.external ? (
+                <a href={action.href} target="_blank" rel="noopener noreferrer">
+                  <CardContent className="pt-6">
+                    <div className="text-4xl mb-4">{action.icon}</div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
+                    <p className="text-muted-foreground">{action.desc}</p>
+                  </CardContent>
+                </a>
+              ) : (
+                <Link href={action.href}>
+                  <CardContent className="pt-6">
+                    <div className="text-4xl mb-4">{action.icon}</div>
+                    <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
+                    <p className="text-muted-foreground">{action.desc}</p>
+                  </CardContent>
+                </Link>
+              )}
             </Card>
           ))}
         </div>

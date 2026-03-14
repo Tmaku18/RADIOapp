@@ -47,7 +47,10 @@ import {
   ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
 
-const listenerNavigation = [
+const PRO_NETWORX_EXTERNAL_URL = 'https://www.discovermeradio.com/pro-networx/directory';
+type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
+
+const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Discovery', href: '/discover', icon: '✨' },
   { name: 'Vote', href: '/competition', icon: '📢' },
@@ -56,11 +59,11 @@ const listenerNavigation = [
   { name: 'The Yield', href: '/yield', icon: '⛏️' },
 ];
 
-const artistNavigation = [
+const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'The Wake', href: '/artist/stats', icon: '📈' },
-  { name: 'Pro-Network', href: '/job-board', icon: '💼' },
+  { name: 'Pro-Networx', href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', external: true },
   { name: 'Chat', href: '/messages', icon: '💬' },
   { name: 'The Yield', href: '/yield', icon: '⛏️' },
 ];
@@ -69,7 +72,6 @@ const moreNav = [
   { name: 'Dashboard', href: '/dashboard', icon: '📊' },
   { name: 'Profile', href: '/profile', icon: '👤' },
   { name: 'Live', href: '/live', icon: '🔴' },
-  { name: 'Browse', href: '/browse', icon: '🔍' },
   { name: 'Settings', href: '/settings', icon: '⚙️' },
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
@@ -128,7 +130,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin/fallback')) return 'Fallback';
   if (pathname.startsWith('/admin/free-rotation')) return 'Free Rotation';
   if (pathname.startsWith('/admin')) return 'Admin';
-  if (pathname.startsWith('/browse')) return 'Browse';
+  if (pathname.startsWith('/browse')) return 'Discover';
   if (pathname.startsWith('/discover')) return 'Discover';
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
@@ -144,10 +146,10 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'The Wake';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
-  if (pathname.startsWith('/artist/services')) return 'Services';
+  if (pathname.startsWith('/artist/services')) return 'Pro-Networx';
   if (pathname.startsWith('/browse/saved')) return 'Saved';
   if (pathname.startsWith('/competition')) return 'Vote';
-  if (pathname.startsWith('/job-board')) return 'Pro-Network';
+  if (pathname.startsWith('/job-board')) return 'Pro-Networx';
   if (pathname.startsWith('/apply')) return 'Apply for Artist';
   if (pathname.match(/^\/artist\/[^/]+$/)) return 'Artist';
   return 'Dashboard';
@@ -255,12 +257,26 @@ export default function DashboardLayout({
                 const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
                 return (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton asChild isActive={isActive}>
-                      <Link href={item.href} className="flex items-center">
-                        <span className="mr-3 text-lg">{item.icon}</span>
-                        <span>{item.name}</span>
-                      </Link>
-                    </SidebarMenuButton>
+                    {item.external ? (
+                      <SidebarMenuButton asChild isActive={false}>
+                        <a
+                          href={item.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center"
+                        >
+                          <span className="mr-3 text-lg">{item.icon}</span>
+                          <span>{item.name}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    ) : (
+                      <SidebarMenuButton asChild isActive={isActive}>
+                        <Link href={item.href} className="flex items-center">
+                          <span className="mr-3 text-lg">{item.icon}</span>
+                          <span>{item.name}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    )}
                   </SidebarMenuItem>
                 );
               })}
@@ -314,11 +330,6 @@ export default function DashboardLayout({
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/live-services')}>
                               <Link href="/artist/live-services">Live services</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/services')}>
-                              <Link href="/artist/services">Services</Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         </>

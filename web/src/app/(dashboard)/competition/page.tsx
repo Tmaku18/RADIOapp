@@ -349,8 +349,8 @@ export default function CompetitionPage() {
                       </li>
                     ))}
                   </ul>
-                  <Link href="/browse" className="inline-block mt-3">
-                    <Button variant="outline" size="sm">View all in Browse</Button>
+                  <Link href="/discover" className="inline-block mt-3">
+                    <Button variant="outline" size="sm">View all in Discover</Button>
                   </Link>
                 </TabsContent>
               ))}

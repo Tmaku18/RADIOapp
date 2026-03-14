@@ -6,14 +6,24 @@ const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 const DISCOVERME_HOSTS = ['discovermeradio.com', 'www.discovermeradio.com'];
 const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
 const PRO_NETWORX_DOMAIN = 'https://www.discovermeradio.com';
+const PRO_NETWORX_REDIRECT_PATH = '/pro-networx/directory';
 
 export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
 
-  // ProNetworx lives on discovermeradio.com only: redirect networxradio.com/pro-networx* to www.discovermeradio.com
-  if (NETWORXRADIO_HOSTS.some((h) => hostname === h) && (pathname === '/pro-networx' || pathname.startsWith('/pro-networx/'))) {
-    const discoverMeUrl = new URL(pathname + request.nextUrl.search, PRO_NETWORX_DOMAIN);
+  const isNetworxDomain = NETWORXRADIO_HOSTS.some((h) => hostname === h);
+  const isProNetworxRoute =
+    pathname === '/pro-networx' ||
+    pathname.startsWith('/pro-networx/') ||
+    pathname === '/job-board' ||
+    pathname.startsWith('/job-board/') ||
+    pathname === '/artist/services' ||
+    pathname.startsWith('/artist/services/');
+
+  // ProNetworx/Catalyst pages are discovermeradio.com-only.
+  if (isNetworxDomain && isProNetworxRoute) {
+    const discoverMeUrl = new URL(PRO_NETWORX_REDIRECT_PATH + request.nextUrl.search, PRO_NETWORX_DOMAIN);
     return NextResponse.redirect(discoverMeUrl, 302);
   }
 
