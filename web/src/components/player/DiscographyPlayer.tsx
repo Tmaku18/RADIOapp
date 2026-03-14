@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 export type DiscographyTrack = {
   id: string;
@@ -168,7 +168,11 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
                   aria-label={isActive && isPlaying ? 'Pause' : 'Play'}
                 >
                   {t.artworkUrl ? (
-                    <Image src={t.artworkUrl} alt="" width={40} height={40} className="object-cover" />
+                    <ArtworkImage
+                      src={t.artworkUrl}
+                      alt={t.title}
+                      className="h-10 w-10 object-cover"
+                    />
                   ) : (
                     <span className="text-sm">{isActive && isPlaying ? '⏸' : '▶'}</span>
                   )}
