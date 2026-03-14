@@ -17,6 +17,7 @@ export type DiscographyTrack = {
   artworkUrl: string | null;
   durationSeconds?: number | null;
   likeCount?: number | null;
+  individualListenCount?: number | null;
   liked?: boolean;
 };
 
@@ -29,6 +30,10 @@ function formatTime(seconds: number): string {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${r.toString().padStart(2, '0')}`;
+}
+
+function formatCount(n?: number | null): string {
+  return new Intl.NumberFormat().format(Math.max(0, n ?? 0));
 }
 
 type Props = {
@@ -188,6 +193,9 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
                     )}
                   </div>
                   <p className="text-sm text-muted-foreground truncate">{t.artistName}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {formatCount(t.individualListenCount)} individual listens · {formatCount(t.likeCount)} likes
+                  </p>
                 </div>
 
                 <div className="hidden sm:flex items-center gap-2 shrink-0 text-xs text-muted-foreground font-mono">

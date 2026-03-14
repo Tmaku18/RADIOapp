@@ -89,6 +89,7 @@ function toDiscographyTrack(
     artworkUrl: song.artworkUrl,
     durationSeconds: song.durationSeconds,
     likeCount: song.likeCount,
+    individualListenCount: song.profilePlayCount,
     liked: likedMap[song.id] ?? false,
   };
 }
@@ -383,6 +384,9 @@ export function ArtistPageView({
                 <div className="min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
                   <p className="text-xs text-muted-foreground">{formatNumber(song.playCount + song.profilePlayCount)} plays</p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatNumber(song.profilePlayCount)} individual listens · {formatNumber(song.likeCount)} likes
+                  </p>
                 </div>
                 <span className="text-xs text-muted-foreground">{formatDuration(song.durationSeconds)}</span>
                 <Button size="sm" onClick={() => void handlePlayPopular(song)} disabled={!song.audioUrl}>Play</Button>
