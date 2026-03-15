@@ -61,7 +61,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     currentViewers?: number;
   } | null>(null);
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
-  const lastVotedPlayIdRef = useRef<string | null>(null);
+  const lastVoteKeyRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
   const isFetchingNextTrack = useRef(false);
   const isFetchingCurrentTrackRef = useRef(false);
@@ -414,13 +414,19 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }
   }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, coerceListenerCount]);
 
-  // Reset vote state when play changes
+  const getVoteKey = useCallback(
+    (track: PlaybackTrack | null) =>
+      track ? track.playId ?? `track:${track.id}` : null,
+    [],
+  );
+
+  // Reset vote state when the current vote key changes.
   useEffect(() => {
-    const playId = state.track?.playId ?? null;
-    if (playId && playId !== lastVotedPlayIdRef.current) {
+    const voteKey = getVoteKey(state.track ?? null);
+    if (voteKey && voteKey !== lastVoteKeyRef.current) {
       setHasVoted(false);
     }
-  }, [state.track?.playId]);
+  }, [state.track, getVoteKey]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -493,12 +499,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const handleVote = async () => {
     if (!state.track) return;
     if (isVoting || hasVoted) return;
-    if (!state.track.playId) return;
 
     setIsVoting(true);
     try {
       await leaderboardApi.addLeaderboardLike(state.track.id, state.track.playId);
-      lastVotedPlayIdRef.current = state.track.playId;
+      lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(true);
     } catch (error) {
       console.error('Failed to vote:', error);
@@ -724,7 +729,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           {/* Vote Button (1 per play) */}
           <button
             onClick={handleVote}
-            disabled={!state.track || isVoting || hasVoted || !state.track?.playId}
+            disabled={!state.track || isVoting || hasVoted}
             className={`p-3 rounded-full transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
               hasVoted
                 ? 'bg-primary text-primary-foreground signal-glow'
