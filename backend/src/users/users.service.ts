@@ -218,7 +218,8 @@ export class UsersService {
     const message = (maybeError?.message ?? '').toLowerCase();
     return (
       maybeError?.code === '42P01' &&
-      (message.includes('user_follows') || message.includes('public.user_follows'))
+      (message.includes('user_follows') ||
+        message.includes('public.user_follows'))
     );
   }
 
@@ -705,35 +706,43 @@ export class UsersService {
   ): Promise<{ followers: number; following: number }> {
     const supabase = getSupabaseClient();
     const resolvedUserId = await this.resolveUserId(userId);
-    const [{ count: followers, error: followersError }, { count: following, error: followingError }] =
-      await Promise.all([
-        supabase
-          .from('user_follows')
-          .select('follower_user_id', { count: 'exact', head: true })
-          .eq('followed_user_id', resolvedUserId),
-        supabase
-          .from('user_follows')
-          .select('followed_user_id', { count: 'exact', head: true })
-          .eq('follower_user_id', resolvedUserId),
-      ]);
+    const [
+      { count: followers, error: followersError },
+      { count: following, error: followingError },
+    ] = await Promise.all([
+      supabase
+        .from('user_follows')
+        .select('follower_user_id', { count: 'exact', head: true })
+        .eq('followed_user_id', resolvedUserId),
+      supabase
+        .from('user_follows')
+        .select('followed_user_id', { count: 'exact', head: true })
+        .eq('follower_user_id', resolvedUserId),
+    ]);
     if (
       (followersError && !this.isMissingUserFollowsTable(followersError)) ||
       (followingError && !this.isMissingUserFollowsTable(followingError))
     ) {
       const err = followersError || followingError;
-      throw new BadRequestException(`Failed to load follow counts: ${err?.message}`);
+      throw new BadRequestException(
+        `Failed to load follow counts: ${err?.message}`,
+      );
     }
-    if (this.isMissingUserFollowsTable(followersError) || this.isMissingUserFollowsTable(followingError)) {
-      const [{ count: legacyFollowers }, { count: legacyFollowing }] = await Promise.all([
-        supabase
-          .from('artist_follows')
-          .select('user_id', { count: 'exact', head: true })
-          .eq('artist_id', resolvedUserId),
-        supabase
-          .from('artist_follows')
-          .select('artist_id', { count: 'exact', head: true })
-          .eq('user_id', resolvedUserId),
-      ]);
+    if (
+      this.isMissingUserFollowsTable(followersError) ||
+      this.isMissingUserFollowsTable(followingError)
+    ) {
+      const [{ count: legacyFollowers }, { count: legacyFollowing }] =
+        await Promise.all([
+          supabase
+            .from('artist_follows')
+            .select('user_id', { count: 'exact', head: true })
+            .eq('artist_id', resolvedUserId),
+          supabase
+            .from('artist_follows')
+            .select('artist_id', { count: 'exact', head: true })
+            .eq('user_id', resolvedUserId),
+        ]);
       return {
         followers: legacyFollowers ?? 0,
         following: legacyFollowing ?? 0,
@@ -781,9 +790,10 @@ export class UsersService {
       : null;
     const legacyRows = legacyResult?.data ?? null;
 
-    const ids = ((rows || []).length
-      ? (rows || []).map((r: any) => r.follower_user_id as string)
-      : (legacyRows || []).map((r: any) => r.user_id as string)
+    const ids = (
+      (rows || []).length
+        ? (rows || []).map((r: any) => r.follower_user_id as string)
+        : (legacyRows || []).map((r: any) => r.user_id as string)
     ).filter(Boolean);
     if (!ids.length) {
       return { items: [], total: count ?? 0 };
@@ -852,10 +862,11 @@ export class UsersService {
       : null;
     const legacyRows = legacyResult?.data ?? null;
 
-    const ids = ((rows || []).length
-      ? (rows || []).map((r: any) => r.followed_user_id as string)
-      : (legacyRows || []).map((r: any) => r.artist_id as string))
-      .filter(Boolean);
+    const ids = (
+      (rows || []).length
+        ? (rows || []).map((r: any) => r.followed_user_id as string)
+        : (legacyRows || []).map((r: any) => r.artist_id as string)
+    ).filter(Boolean);
     if (!ids.length) {
       return { items: [], total: count ?? 0 };
     }
@@ -894,17 +905,23 @@ export class UsersService {
       .select('followed_user_id')
       .eq('follower_user_id', followerUserId);
     if (!error) {
-      return new Set((data || []).map((r: any) => r.followed_user_id as string));
+      return new Set(
+        (data || []).map((r: any) => r.followed_user_id as string),
+      );
     }
     if (!this.isMissingUserFollowsTable(error)) {
-      throw new BadRequestException(`Failed to load followed users: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to load followed users: ${error.message}`,
+      );
     }
     const { data: legacyData, error: legacyError } = await supabase
       .from('artist_follows')
       .select('artist_id')
       .eq('user_id', followerUserId);
     if (legacyError) {
-      throw new BadRequestException(`Failed to load followed users: ${legacyError.message}`);
+      throw new BadRequestException(
+        `Failed to load followed users: ${legacyError.message}`,
+      );
     }
     return new Set((legacyData || []).map((r: any) => r.artist_id as string));
   }
@@ -923,7 +940,9 @@ export class UsersService {
       .eq('followed_user_id', followedUserId)
       .maybeSingle();
     if (error && !this.isMissingUserFollowsTable(error)) {
-      throw new BadRequestException(`Failed to check follow status: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to check follow status: ${error.message}`,
+      );
     }
     if (!error && data) return true;
 

@@ -32,6 +32,20 @@ export interface DiscoverLikedListItem extends DiscoverSongCard {
 
 @Injectable()
 export class SongsService {
+  private isMissingTableError(error: unknown, tableName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    return maybe?.code === '42P01' && message.includes(tableName.toLowerCase());
+  }
+
+  private isMissingColumnError(error: unknown, columnName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    return (
+      maybe?.code === '42703' && message.includes(columnName.toLowerCase())
+    );
+  }
+
   private getDiscoverClipDuration(
     start?: number | null,
     end?: number | null,
@@ -432,23 +446,66 @@ export class SongsService {
     const limit = Math.min(Math.max(1, limitInput), 100);
     const offset = Math.max(0, offsetInput);
 
-    const {
-      data: likes,
-      count,
-      error: likesError,
-    } = await supabase
+    let likes: Array<{
+      song_id: string;
+      created_at?: string | null;
+      liked_at?: string | null;
+    }> | null = null;
+    let count: number | null = null;
+
+    const likesCreatedAtRes = await supabase
       .from('discover_song_likes')
       .select('song_id, created_at', { count: 'exact' })
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
-    if (likesError)
-      throw new Error(`Failed to load discover likes: ${likesError.message}`);
+
+    if (likesCreatedAtRes.error) {
+      if (
+        this.isMissingTableError(likesCreatedAtRes.error, 'discover_song_likes')
+      ) {
+        // If migration is not present yet, prefer empty state over a 500.
+        return { items: [], total: 0 };
+      }
+
+      if (this.isMissingColumnError(likesCreatedAtRes.error, 'created_at')) {
+        const likesLegacyRes = await supabase
+          .from('discover_song_likes')
+          .select('song_id, liked_at', { count: 'exact' })
+          .eq('user_id', userId)
+          .order('liked_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        if (likesLegacyRes.error) {
+          throw new Error(
+            `Failed to load discover likes: ${likesLegacyRes.error.message}`,
+          );
+        }
+        likes = (likesLegacyRes.data || []) as Array<{
+          song_id: string;
+          liked_at?: string | null;
+        }>;
+        count = likesLegacyRes.count ?? null;
+      } else {
+        throw new Error(
+          `Failed to load discover likes: ${likesCreatedAtRes.error.message}`,
+        );
+      }
+    } else {
+      likes = (likesCreatedAtRes.data || []) as Array<{
+        song_id: string;
+        created_at?: string | null;
+      }>;
+      count = likesCreatedAtRes.count ?? null;
+    }
+
     if (!likes?.length) return { items: [], total: count ?? 0 };
 
-    const songIds = likes.map((l) => l.song_id as string);
+    const songIds = likes.map((l) => l.song_id);
     const likedAtBySongId = new Map(
-      likes.map((l) => [l.song_id as string, l.created_at as string]),
+      likes.map((l) => [
+        l.song_id,
+        l.created_at ?? l.liked_at ?? new Date().toISOString(),
+      ]),
     );
 
     const { data: songs, error: songsError } = await supabase

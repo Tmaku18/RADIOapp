@@ -83,7 +83,8 @@ export class ServiceMessagesService {
     const message = (maybeError?.message ?? '').toLowerCase();
     return (
       maybeError?.code === '42P01' &&
-      (message.includes('user_follows') || message.includes('public.user_follows'))
+      (message.includes('user_follows') ||
+        message.includes('public.user_follows'))
     );
   }
 
@@ -676,7 +677,9 @@ export class ServiceMessagesService {
       .eq('followed_user_id', recipientId)
       .maybeSingle();
     if (error && !this.isMissingUserFollowsTable(error)) {
-      throw new BadRequestException(`Failed to verify DM follow gate: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to verify DM follow gate: ${error.message}`,
+      );
     }
     if (!error && data) return true;
 
