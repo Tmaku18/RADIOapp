@@ -78,11 +78,12 @@ export default function AdminQueuePage() {
     const list = res.data.radios || [];
     setRadios(list);
     if (list.length > 0) {
-      const requested = stationParam || selectedRadioId;
-      const existing = list.find((r) => r.id === requested);
-      setSelectedRadioId(existing ? existing.id : list[0].id);
+      setSelectedRadioId((prev) => {
+        const existing = list.find((r) => r.id === prev);
+        return existing ? existing.id : list[0].id;
+      });
     }
-  }, [selectedRadioId, stationParam]);
+  }, []);
 
   const loadQueue = useCallback(async (radioId: string, applyToView = true) => {
     if (applyToView) setLoading(true);
@@ -154,6 +155,16 @@ export default function AdminQueuePage() {
   useEffect(() => {
     loadRadios();
   }, [loadRadios]);
+
+  // Keep local tab selection in sync with explicit URL station changes
+  // (e.g. deep links, browser back/forward), without fighting user clicks.
+  useEffect(() => {
+    if (!stationParam || !radios.length) return;
+    const exists = radios.some((r) => r.id === stationParam);
+    if (!exists) return;
+    if (stationParam === selectedRadioId) return;
+    setSelectedRadioId(stationParam);
+  }, [stationParam, radios, selectedRadioId]);
 
   useEffect(() => {
     if (!selectedRadioId) return;
