@@ -1,12 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { usePlaybackOptional } from './PlaybackProvider';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasListenerCapability } from '@/lib/roles';
+import { radioApi } from '@/lib/api';
 
 const BAR_HEIGHT = 72;
 
@@ -16,14 +20,60 @@ const BAR_HEIGHT = 72;
  */
 export function NowPlayingBar() {
   const [expanded, setExpanded] = useState(false);
+  const pathname = usePathname();
+  const { profile } = useAuth();
   const playback = usePlaybackOptional();
   const state = playback?.state;
   const actions = playback?.actions;
+  const streamTokenRef = useRef<string>('now-playing-bar');
 
   const hasTrack = !!state?.track;
   const track = state?.track;
   const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = state?.isPlaying ?? false;
+  const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
+
+  // Keep listener presence alive when radio audio continues outside the /listen page.
+  useEffect(() => {
+    if (pathname === '/listen') return;
+    if (!canSendPresenceHeartbeat) return;
+    if (state?.source !== 'radio') return;
+    if (!isPlaying) return;
+    const songId = track?.id;
+    if (!songId) return;
+
+    let cancelled = false;
+    const send = async () => {
+      try {
+        await radioApi.sendHeartbeat(
+          {
+            streamToken: streamTokenRef.current,
+            songId,
+            timestamp: new Date().toISOString(),
+          },
+          activeRadioId ?? undefined,
+        );
+      } catch {
+        // Presence heartbeat should not block playback UX.
+      }
+    };
+
+    void send();
+    const interval = setInterval(() => {
+      if (!cancelled) void send();
+    }, 30_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [
+    pathname,
+    canSendPresenceHeartbeat,
+    state?.source,
+    isPlaying,
+    track?.id,
+    activeRadioId,
+  ]);
 
   return (
     <>
