@@ -57,6 +57,7 @@ export function NowPlayingBar() {
     if (!songId) return;
 
     let cancelled = false;
+    const heartbeatIntervalMs = 12000;
     const send = async () => {
       try {
         await radioApi.sendHeartbeat(
@@ -83,7 +84,7 @@ export function NowPlayingBar() {
     void send();
     const interval = setInterval(() => {
       if (!cancelled) void send();
-    }, 30_000);
+    }, heartbeatIntervalMs);
     return () => {
       cancelled = true;
       clearInterval(interval);

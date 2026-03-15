@@ -288,6 +288,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     if (!state.isPlaying) return;
 
     let cancelled = false;
+    const heartbeatIntervalMs = 12000;
     const send = async () => {
       try {
         await radioApi.sendPresence(
@@ -318,7 +319,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     };
 
     send();
-    const interval = setInterval(send, 30_000);
+    const interval = setInterval(send, heartbeatIntervalMs);
     return () => {
       cancelled = true;
       clearInterval(interval);
