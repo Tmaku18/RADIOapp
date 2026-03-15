@@ -149,10 +149,12 @@ export class ProspectorYieldService {
     balanceCents?: number;
   }> {
     const { id: userId, role } = await this.getUserByFirebaseUid(firebaseUid);
-    if (role !== 'listener') return { received: true, ignored: true };
+    const canAccrueYield = role === 'listener';
     if (!body.songId) throw new BadRequestException('songId is required');
 
-    await this.ensureYieldRow(userId);
+    if (canAccrueYield) {
+      await this.ensureYieldRow(userId);
+    }
     const now = new Date();
 
     const supabase = getSupabaseClient();
@@ -244,17 +246,14 @@ export class ProspectorYieldService {
         );
     }
 
-    const requiresCheckIn = !(await this.isCheckInValid(
-      userId,
-      now,
-      20,
-      sessionStartedAtIso,
-    ));
+    const requiresCheckIn = canAccrueYield
+      ? !(await this.isCheckInValid(userId, now, 20, sessionStartedAtIso))
+      : false;
 
     // Micro-accrual: 1 cent per verified minute (2 heartbeats @ 30s cadence).
     // We only accrue sync time if the Prospector has a recent check-in.
     let accrualCents = 0;
-    if (!requiresCheckIn && nextHeartbeatCount % 2 === 0) {
+    if (canAccrueYield && !requiresCheckIn && nextHeartbeatCount % 2 === 0) {
       accrualCents = 1;
 
       const { data: yieldRow, error: yErr } = await supabase
