@@ -41,9 +41,18 @@ export class SongsService {
   private isMissingColumnError(error: unknown, columnName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
-    return (
-      maybe?.code === '42703' && message.includes(columnName.toLowerCase())
-    );
+    if (maybe?.code === '42703') {
+      return message.includes(columnName.toLowerCase());
+    }
+    // PostgREST schema cache error format:
+    // "Could not find the 'column_name' column of 'table' in the schema cache"
+    if (maybe?.code === 'PGRST204') {
+      return (
+        message.includes(`'${columnName.toLowerCase()}'`) ||
+        message.includes(columnName.toLowerCase())
+      );
+    }
+    return false;
   }
 
   private isMissingAnyColumnError(
