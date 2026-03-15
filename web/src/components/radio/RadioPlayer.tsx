@@ -44,7 +44,10 @@ interface RadioPlayerProps {
   radioId?: string;
 }
 
+const DEFAULT_RADIO_ID = 'global';
+
 export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
+  const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
   const [isVoting, setIsVoting] = useState(false);
@@ -172,6 +175,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           title: trackData.title,
           artistName: trackData.artist_name,
           artistId: trackData.artist_id ?? null,
+          radioId: effectiveRadioId,
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
@@ -197,7 +201,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, [radioId, coerceListenerCount]);
+  }, [radioId, effectiveRadioId, coerceListenerCount]);
 
   useEffect(() => {
     setOnRadioTrackEnded(handleTrackEnded);
@@ -354,6 +358,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           title: trackData.title,
           artistName: trackData.artist_name,
           artistId: trackData.artist_id ?? null,
+          radioId: effectiveRadioId,
           artworkUrl: trackData.artwork_url,
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
@@ -415,7 +420,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingCurrentTrackRef.current = false;
     }
-  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, coerceListenerCount]);
+  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount]);
 
   const getVoteKey = useCallback(
     (track: PlaybackTrack | null) =>

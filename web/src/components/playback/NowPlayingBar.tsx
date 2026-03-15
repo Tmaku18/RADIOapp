@@ -22,6 +22,7 @@ export function NowPlayingBar() {
 
   const hasTrack = !!state?.track;
   const track = state?.track;
+  const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = state?.isPlaying ?? false;
 
   return (
@@ -34,7 +35,7 @@ export function NowPlayingBar() {
                 Collapse
               </Button>
             </div>
-            <RadioPlayer />
+            <RadioPlayer radioId={activeRadioId ?? undefined} />
           </div>
         </div>
       )}
@@ -96,7 +97,15 @@ export function NowPlayingBar() {
                 {expanded ? 'Hide' : 'Expand'}
               </Button>
               <Button variant="ghost" size="sm" asChild aria-label="Open full player page">
-                <Link href="/listen">Page</Link>
+                <Link
+                  href={
+                    activeRadioId
+                      ? `/listen?station=${encodeURIComponent(activeRadioId)}`
+                      : '/listen'
+                  }
+                >
+                  Page
+                </Link>
               </Button>
             </div>
           )}
