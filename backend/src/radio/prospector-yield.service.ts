@@ -16,6 +16,12 @@ function computeTier(songsRefinedCount: number): ProspectorTier {
 export class ProspectorYieldService {
   private readonly logger = new Logger(ProspectorYieldService.name);
 
+  private isMissingStreamTokenColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return maybeError?.code === '42703' && message.includes('stream_token');
+  }
+
   private async getUserByFirebaseUid(
     firebaseUid: string,
   ): Promise<{ id: string; role: string }> {
@@ -156,15 +162,54 @@ export class ProspectorYieldService {
       await this.ensureYieldRow(userId);
     }
     const now = new Date();
+    const streamToken = body.streamToken?.trim() || null;
 
     const supabase = getSupabaseClient();
-    const { data: activeRows, error: activeError } = await supabase
-      .from('prospector_sessions')
-      .select('id, song_id, heartbeat_count, started_at')
-      .eq('user_id', userId)
-      .is('ended_at', null)
-      .order('started_at', { ascending: false })
-      .limit(1);
+    let streamTokenColumnAvailable = true;
+    let activeRows: Array<{
+      id: string;
+      song_id: string;
+      heartbeat_count: number;
+      started_at: string;
+      stream_token?: string | null;
+    }> = [];
+    let activeError: any = null;
+
+    const loadByStreamToken = async () =>
+      supabase
+        .from('prospector_sessions')
+        .select('id, song_id, heartbeat_count, started_at, stream_token')
+        .eq('user_id', userId)
+        .eq('stream_token', streamToken as string)
+        .is('ended_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+    const loadByUserOnly = async () =>
+      supabase
+        .from('prospector_sessions')
+        .select('id, song_id, heartbeat_count, started_at')
+        .eq('user_id', userId)
+        .is('ended_at', null)
+        .order('started_at', { ascending: false })
+        .limit(1);
+
+    if (streamToken) {
+      const byToken = await loadByStreamToken();
+      if (byToken.error && this.isMissingStreamTokenColumn(byToken.error)) {
+        streamTokenColumnAvailable = false;
+        const legacy = await loadByUserOnly();
+        activeRows = (legacy.data ?? []) as typeof activeRows;
+        activeError = legacy.error;
+      } else {
+        activeRows = (byToken.data ?? []) as typeof activeRows;
+        activeError = byToken.error;
+      }
+    } else {
+      const legacy = await loadByUserOnly();
+      activeRows = (legacy.data ?? []) as typeof activeRows;
+      activeError = legacy.error;
+    }
 
     if (activeError)
       throw new BadRequestException(
@@ -184,15 +229,26 @@ export class ProspectorYieldService {
     let sessionStartedAtIso: string | null = null;
 
     if (!active) {
+      const insertPayload: {
+        user_id: string;
+        song_id: string;
+        started_at: string;
+        last_heartbeat_at: string;
+        heartbeat_count: number;
+        stream_token?: string;
+      } = {
+        user_id: userId,
+        song_id: body.songId,
+        started_at: now.toISOString(),
+        last_heartbeat_at: now.toISOString(),
+        heartbeat_count: 1,
+      };
+      if (streamToken && streamTokenColumnAvailable) {
+        insertPayload.stream_token = streamToken;
+      }
       const { data: created, error } = await supabase
         .from('prospector_sessions')
-        .insert({
-          user_id: userId,
-          song_id: body.songId,
-          started_at: now.toISOString(),
-          last_heartbeat_at: now.toISOString(),
-          heartbeat_count: 1,
-        })
+        .insert(insertPayload)
         .select('id, heartbeat_count')
         .single();
 
@@ -210,15 +266,26 @@ export class ProspectorYieldService {
         .update({ ended_at: now.toISOString() })
         .eq('id', active.id);
 
+      const insertPayload: {
+        user_id: string;
+        song_id: string;
+        started_at: string;
+        last_heartbeat_at: string;
+        heartbeat_count: number;
+        stream_token?: string;
+      } = {
+        user_id: userId,
+        song_id: body.songId,
+        started_at: now.toISOString(),
+        last_heartbeat_at: now.toISOString(),
+        heartbeat_count: 1,
+      };
+      if (streamToken && streamTokenColumnAvailable) {
+        insertPayload.stream_token = streamToken;
+      }
       const { data: created, error } = await supabase
         .from('prospector_sessions')
-        .insert({
-          user_id: userId,
-          song_id: body.songId,
-          started_at: now.toISOString(),
-          last_heartbeat_at: now.toISOString(),
-          heartbeat_count: 1,
-        })
+        .insert(insertPayload)
         .select('id, heartbeat_count')
         .single();
 

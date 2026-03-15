@@ -197,6 +197,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     10,
   );
 
+  private isMissingStreamTokenColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return maybeError?.code === '42703' && message.includes('stream_token');
+  }
+
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
     private readonly pushNotificationService: PushNotificationService,
@@ -468,12 +474,30 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         : 90;
     const cutoffIso = new Date(Date.now() - windowSeconds * 1000).toISOString();
 
-    const { data, error } = await supabase
+    type SessionRow = { user_id?: string | null; stream_token?: string | null };
+    let data: SessionRow[] = [];
+    let error: any = null;
+
+    const withStream = await supabase
       .from('prospector_sessions')
-      .select('user_id')
+      .select('user_id, stream_token')
       .eq('song_id', songId)
       .is('ended_at', null)
       .gte('last_heartbeat_at', cutoffIso);
+
+    if (withStream.error && this.isMissingStreamTokenColumn(withStream.error)) {
+      const legacy = await supabase
+        .from('prospector_sessions')
+        .select('user_id')
+        .eq('song_id', songId)
+        .is('ended_at', null)
+        .gte('last_heartbeat_at', cutoffIso);
+      data = (legacy.data ?? []) as SessionRow[];
+      error = legacy.error;
+    } else {
+      data = (withStream.data ?? []) as SessionRow[];
+      error = withStream.error;
+    }
 
     if (error) {
       this.logger.warn(
@@ -482,12 +506,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
 
-    const users = new Set(
-      ((data ?? []) as Array<{ user_id?: string | null }>)
-        .map((row) => row.user_id)
-        .filter((id): id is string => !!id),
-    );
-    return users.size;
+    const listeners = new Set<string>();
+    for (const row of data) {
+      const userId = row.user_id?.trim();
+      if (!userId) continue;
+      const streamToken = row.stream_token?.trim();
+      listeners.add(streamToken ? `${userId}:${streamToken}` : userId);
+    }
+    return listeners.size;
   }
 
   /**
