@@ -182,13 +182,45 @@ export class UsersService {
     return data.id;
   }
 
+  private async resolveUserId(identifier: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const normalized = (identifier || '').trim();
+    if (!normalized) throw new NotFoundException('User not found');
+
+    const { data: byId } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', normalized)
+      .maybeSingle();
+    if (byId?.id) return byId.id;
+
+    const { data: byFirebaseUid } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', normalized)
+      .maybeSingle();
+    if (byFirebaseUid?.id) return byFirebaseUid.id;
+
+    const { data: byProviderId } = await supabase
+      .from('service_providers')
+      .select('user_id')
+      .eq('id', normalized)
+      .maybeSingle();
+    if ((byProviderId as { user_id?: string } | null)?.user_id) {
+      return (byProviderId as { user_id: string }).user_id;
+    }
+
+    throw new NotFoundException('User not found');
+  }
+
   async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
 
     const { data, error } = await supabase
       .from('users')
       .select('*')
-      .eq('id', userId)
+      .eq('id', resolvedUserId)
       .single();
 
     if (error || !data) {
@@ -460,11 +492,12 @@ export class UsersService {
    */
   async getArtistProfile(userId: string) {
     const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
     // Use select('*') for backward compatibility when some envs lag migrations.
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
-      .eq('id', userId)
+      .eq('id', resolvedUserId)
       .single();
 
     if (userError || !user) {
@@ -489,7 +522,7 @@ export class UsersService {
           'status',
         ].join(','),
       )
-      .eq('artist_id', userId)
+      .eq('artist_id', resolvedUserId)
       .eq('status', 'approved')
       .order('created_at', { ascending: false });
 
@@ -528,14 +561,14 @@ export class UsersService {
     const { count: followerCount } = await supabase
       .from('user_follows')
       .select('follower_user_id', { count: 'exact', head: true })
-      .eq('followed_user_id', userId);
+      .eq('followed_user_id', resolvedUserId);
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
     const { count: monthlyListenerCount } = await supabase
       .from('song_profile_listens')
       .select('id', { count: 'exact', head: true })
-      .eq('artist_id', userId)
+      .eq('artist_id', resolvedUserId)
       .gte('created_at', thirtyDaysAgo.toISOString());
 
     const totalPlays = mappedSongs.reduce(
@@ -578,14 +611,15 @@ export class UsersService {
   ): Promise<{ followed: true }> {
     const supabase = getSupabaseClient();
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
-    if (followerUserId === followedUserId) {
+    const resolvedFollowedUserId = await this.resolveUserId(followedUserId);
+    if (followerUserId === resolvedFollowedUserId) {
       throw new ForbiddenException('Cannot follow yourself');
     }
 
     const { data: targetUser } = await supabase
       .from('users')
       .select('id')
-      .eq('id', followedUserId)
+      .eq('id', resolvedFollowedUserId)
       .maybeSingle();
     if (!targetUser) {
       throw new NotFoundException('Target user not found');
@@ -594,7 +628,7 @@ export class UsersService {
     const { error } = await supabase.from('user_follows').upsert(
       {
         follower_user_id: followerUserId,
-        followed_user_id: followedUserId,
+        followed_user_id: resolvedFollowedUserId,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'follower_user_id,followed_user_id' },
@@ -606,7 +640,7 @@ export class UsersService {
     await supabase.from('artist_follows').upsert(
       {
         user_id: followerUserId,
-        artist_id: followedUserId,
+        artist_id: resolvedFollowedUserId,
         created_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,artist_id' },
@@ -621,12 +655,13 @@ export class UsersService {
   ): Promise<{ unfollowed: true }> {
     const supabase = getSupabaseClient();
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const resolvedFollowedUserId = await this.resolveUserId(followedUserId);
 
     const { error } = await supabase
       .from('user_follows')
       .delete()
       .eq('follower_user_id', followerUserId)
-      .eq('followed_user_id', followedUserId);
+      .eq('followed_user_id', resolvedFollowedUserId);
     if (error)
       throw new BadRequestException(
         `Failed to unfollow user: ${error.message}`,
@@ -637,7 +672,7 @@ export class UsersService {
       .from('artist_follows')
       .delete()
       .eq('user_id', followerUserId)
-      .eq('artist_id', followedUserId);
+      .eq('artist_id', resolvedFollowedUserId);
 
     return { unfollowed: true };
   }
@@ -647,9 +682,10 @@ export class UsersService {
     followedUserId: string,
   ): Promise<{ following: boolean }> {
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const resolvedFollowedUserId = await this.resolveUserId(followedUserId);
     const following = await this.isFollowingByIds(
       followerUserId,
-      followedUserId,
+      resolvedFollowedUserId,
     );
     return { following };
   }
@@ -658,15 +694,16 @@ export class UsersService {
     userId: string,
   ): Promise<{ followers: number; following: number }> {
     const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
     const [{ count: followers }, { count: following }] = await Promise.all([
       supabase
         .from('user_follows')
         .select('follower_user_id', { count: 'exact', head: true })
-        .eq('followed_user_id', userId),
+        .eq('followed_user_id', resolvedUserId),
       supabase
         .from('user_follows')
         .select('followed_user_id', { count: 'exact', head: true })
-        .eq('follower_user_id', userId),
+        .eq('follower_user_id', resolvedUserId),
     ]);
     return {
       followers: followers ?? 0,
@@ -680,6 +717,7 @@ export class UsersService {
     offset = 0,
   ): Promise<{ items: FollowListItem[]; total: number }> {
     const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
     const pageSize = Math.min(Math.max(limit, 1), 200);
     const pageOffset = Math.max(offset, 0);
 
@@ -690,7 +728,7 @@ export class UsersService {
     } = await supabase
       .from('user_follows')
       .select('follower_user_id', { count: 'exact' })
-      .eq('followed_user_id', userId)
+      .eq('followed_user_id', resolvedUserId)
       .order('created_at', { ascending: false })
       .range(pageOffset, pageOffset + pageSize - 1);
     if (error) {
@@ -739,6 +777,7 @@ export class UsersService {
     offset = 0,
   ): Promise<{ items: FollowListItem[]; total: number }> {
     const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
     const pageSize = Math.min(Math.max(limit, 1), 200);
     const pageOffset = Math.max(offset, 0);
 
@@ -749,7 +788,7 @@ export class UsersService {
     } = await supabase
       .from('user_follows')
       .select('followed_user_id', { count: 'exact' })
-      .eq('follower_user_id', userId)
+      .eq('follower_user_id', resolvedUserId)
       .order('created_at', { ascending: false })
       .range(pageOffset, pageOffset + pageSize - 1);
     if (error) {

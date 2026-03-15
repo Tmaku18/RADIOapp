@@ -360,13 +360,20 @@ export default function MessagesPage() {
 
   const handleFollowToDm = async () => {
     if (!selectedOther?.userId || followBusy) return;
+    if (selectedOther.userId === myId) {
+      setError('You cannot follow yourself.');
+      return;
+    }
     setFollowBusy(true);
     try {
       await usersApi.follow(selectedOther.userId);
       setCanDm(true);
       setError(null);
-    } catch {
-      setError('Failed to follow user');
+    } catch (e: unknown) {
+      const apiMessage =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message || (e instanceof Error ? e.message : '');
+      setError(apiMessage || 'Failed to follow user');
     } finally {
       setFollowBusy(false);
     }
