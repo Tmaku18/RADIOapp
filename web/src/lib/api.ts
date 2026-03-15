@@ -25,9 +25,22 @@ api.interceptors.request.use(
         const token = await getIdToken(true);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+        } else if (typeof window !== 'undefined') {
+          const path = window.location.pathname || '/';
+          const search = window.location.search || '';
+          const redirect = encodeURIComponent(`${path}${search}`);
+          window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+          throw new Error('Authentication required');
         }
       } catch (error) {
         console.error('Failed to get ID token:', error);
+        if (typeof window !== 'undefined') {
+          const path = window.location.pathname || '/';
+          const search = window.location.search || '';
+          const redirect = encodeURIComponent(`${path}${search}`);
+          window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+        }
+        throw error;
       }
     }
 
