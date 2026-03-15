@@ -25,7 +25,7 @@ export function NowPlayingBar() {
   const playback = usePlaybackOptional();
   const state = playback?.state;
   const actions = playback?.actions;
-  const streamTokenRef = useRef<string>('now-playing-bar');
+  const streamTokenRef = useRef<string | null>(null);
 
   const hasTrack = !!state?.track;
   const track = state?.track;
@@ -33,12 +33,26 @@ export function NowPlayingBar() {
   const isPlaying = state?.isPlaying ?? false;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
 
+  useEffect(() => {
+    if (streamTokenRef.current) return;
+    if (
+      typeof window !== 'undefined' &&
+      typeof window.crypto !== 'undefined' &&
+      typeof window.crypto.randomUUID === 'function'
+    ) {
+      streamTokenRef.current = `npb-${window.crypto.randomUUID()}`;
+      return;
+    }
+    streamTokenRef.current = `npb-${Date.now()}`;
+  }, []);
+
   // Keep listener presence alive when radio audio continues outside the /listen page.
   useEffect(() => {
     if (pathname === '/listen') return;
     if (!canSendPresenceHeartbeat) return;
     if (state?.source !== 'radio') return;
     if (!isPlaying) return;
+    if (!streamTokenRef.current) return;
     const songId = track?.id;
     if (!songId) return;
 
