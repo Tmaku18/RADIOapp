@@ -55,7 +55,8 @@ export function NowPlayingBar() {
     if (!canSendPresenceHeartbeat) return;
     if (state?.source !== 'radio') return;
     if (!isPlaying) return;
-    if (!streamTokenRef.current) return;
+    const streamToken = streamTokenRef.current;
+    if (!streamToken) return;
     const songId = track?.id;
     if (!songId) return;
 
@@ -65,7 +66,7 @@ export function NowPlayingBar() {
       try {
         await radioApi.sendHeartbeat(
           {
-            streamToken: streamTokenRef.current,
+            streamToken,
             songId,
             timestamp: new Date().toISOString(),
           },
@@ -73,7 +74,7 @@ export function NowPlayingBar() {
         );
         await radioApi.sendPresence(
           {
-            streamToken: streamTokenRef.current,
+            streamToken,
             songId,
             timestamp: new Date().toISOString(),
           },

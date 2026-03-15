@@ -519,7 +519,10 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
     setIsVoting(true);
     try {
-      await leaderboardApi.addLeaderboardLike(state.track.id, state.track.playId);
+      await leaderboardApi.addLeaderboardLike(
+        state.track.id,
+        state.track.playId ?? undefined,
+      );
       lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(true);
     } catch (error) {
