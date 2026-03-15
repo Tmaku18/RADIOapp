@@ -46,6 +46,15 @@ export class SongsService {
     );
   }
 
+  private isMissingAnyColumnError(
+    error: unknown,
+    columnNames: string[],
+  ): boolean {
+    return columnNames.some((columnName) =>
+      this.isMissingColumnError(error, columnName),
+    );
+  }
+
   private getDiscoverClipDuration(
     start?: number | null,
     end?: number | null,
@@ -508,7 +517,8 @@ export class SongsService {
       ]),
     );
 
-    const { data: songs, error: songsError } = await supabase
+    let songs: any[] = [];
+    const songsDiscoverRes = await supabase
       .from('songs')
       .select(
         'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status',
@@ -517,26 +527,91 @@ export class SongsService {
       .eq('status', 'approved')
       .eq('discover_enabled', true)
       .not('discover_clip_url', 'is', null);
-    if (songsError)
-      throw new Error(`Failed to load discover songs: ${songsError.message}`);
+    if (songsDiscoverRes.error) {
+      if (
+        this.isMissingAnyColumnError(songsDiscoverRes.error, [
+          'discover_enabled',
+          'discover_clip_url',
+          'discover_background_url',
+          'discover_clip_start_seconds',
+          'discover_clip_end_seconds',
+        ])
+      ) {
+        // Schema fallback for partially migrated environments.
+        const songsLegacyRes = await supabase
+          .from('songs')
+          .select(
+            'id, artist_id, artist_name, title, artwork_url, audio_url, status',
+          )
+          .in('id', songIds)
+          .eq('status', 'approved');
+        if (songsLegacyRes.error) {
+          throw new Error(
+            `Failed to load discover songs: ${songsLegacyRes.error.message}`,
+          );
+        }
+        songs = (songsLegacyRes.data || []).map((song) => ({
+          ...song,
+          discover_enabled: true,
+          discover_clip_url: (song as any).audio_url ?? null,
+          discover_background_url: (song as any).artwork_url ?? null,
+          discover_clip_start_seconds: null,
+          discover_clip_end_seconds: null,
+        }));
+      } else {
+        throw new Error(
+          `Failed to load discover songs: ${songsDiscoverRes.error.message}`,
+        );
+      }
+    } else {
+      songs = songsDiscoverRes.data || [];
+    }
 
     const artistIds = [
       ...new Set((songs || []).map((s: any) => s.artist_id as string)),
     ];
-    const [artistsRes, likeCountsRes] = await Promise.all([
+    const [artistsRawRes, likeCountsRes] = await Promise.all([
       artistIds.length > 0
         ? supabase
             .from('users')
             .select('id, display_name, avatar_url, headline')
             .in('id', artistIds)
-        : Promise.resolve({ data: [] as any[] }),
+        : Promise.resolve({ data: [] as any[], error: null } as any),
       songIds.length > 0
         ? supabase
             .from('discover_song_likes')
             .select('song_id')
             .in('song_id', songIds)
-        : Promise.resolve({ data: [] as any[] }),
+        : Promise.resolve({ data: [] as any[], error: null } as any),
     ]);
+
+    let artistsRes = artistsRawRes;
+    if (artistsRawRes?.error) {
+      if (
+        this.isMissingAnyColumnError(artistsRawRes.error, [
+          'headline',
+          'avatar_url',
+          'display_name',
+        ])
+      ) {
+        const artistsLegacyRes = artistIds.length
+          ? await supabase
+              .from('users')
+              .select('id, display_name')
+              .in('id', artistIds)
+          : ({ data: [] as any[], error: null } as any);
+        if (artistsLegacyRes.error) {
+          throw new Error(
+            `Failed to load discover artists: ${artistsLegacyRes.error.message}`,
+          );
+        }
+        artistsRes = artistsLegacyRes;
+      } else {
+        throw new Error(
+          `Failed to load discover artists: ${artistsRawRes.error.message}`,
+        );
+      }
+    }
 
     const artistById = new Map(
       (artistsRes.data || []).map((u: any) => [u.id, u]),
