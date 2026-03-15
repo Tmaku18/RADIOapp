@@ -244,7 +244,7 @@ export const leaderboardApi = {
     api.get('/leaderboard/songs', { params }),
   getUpvotesPerMinute: (params?: { windowMinutes?: number; limit?: number; offset?: number }) =>
     api.get('/leaderboard/upvotes-per-minute', { params }),
-  addLeaderboardLike: (songId: string, playId?: string) => 
+  addLeaderboardLike: (songId: string, playId?: string | null) => 
     api.post(`/leaderboard/songs/${songId}/like`, { playId }),
 };
 
