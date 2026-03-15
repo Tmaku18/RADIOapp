@@ -32,6 +32,9 @@ export function NowPlayingBar() {
   const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = state?.isPlaying ?? false;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
+  const isListenPage = pathname === '/listen';
+  const canExpandInlinePlayer = !isListenPage;
+  const showExpandedPlayer = expanded && canExpandInlinePlayer;
 
   useEffect(() => {
     if (streamTokenRef.current) return;
@@ -100,7 +103,7 @@ export function NowPlayingBar() {
 
   return (
     <>
-      {expanded && (
+      {showExpandedPlayer && (
         <div className="fixed inset-x-0 bottom-[72px] z-40 max-h-[82vh] overflow-auto border-t border-border bg-background">
           <div className="mx-auto w-full max-w-xl p-3">
             <div className="mb-2 flex justify-end">
@@ -120,7 +123,9 @@ export function NowPlayingBar() {
         <div className="h-full px-4 flex items-center gap-3 max-w-full">
           <button
             type="button"
-            onClick={() => setExpanded((v) => !v)}
+            onClick={() => {
+              if (canExpandInlinePlayer) setExpanded((v) => !v);
+            }}
           className={cn(
             'flex items-center gap-3 min-w-0 flex-1 rounded-md transition-colors',
             hasTrack && 'hover:bg-muted/50',
@@ -164,7 +169,10 @@ export function NowPlayingBar() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setExpanded((v) => !v)}
+                onClick={() => {
+                  if (canExpandInlinePlayer) setExpanded((v) => !v);
+                }}
+                disabled={!canExpandInlinePlayer}
                 aria-label={expanded ? 'Collapse player' : 'Expand player'}
               >
                 {expanded ? 'Hide' : 'Expand'}
