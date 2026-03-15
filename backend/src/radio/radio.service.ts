@@ -539,7 +539,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
     } else if (!presenceRows.error) {
       for (const row of presenceRows.data ?? []) {
-        const token = (row as { stream_token?: string | null }).stream_token?.trim();
+        const token = (
+          row as { stream_token?: string | null }
+        ).stream_token?.trim();
         if (token) listeners.add(`presence:${token}`);
       }
     }

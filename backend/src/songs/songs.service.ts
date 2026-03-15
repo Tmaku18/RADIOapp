@@ -201,36 +201,61 @@ export class SongsService {
       throw new ForbiddenException('Your account role cannot upload songs');
     }
 
-    const { data, error } = await supabase
+    const baseInsertPayload = {
+      artist_id: userId,
+      title: createSongDto.title,
+      artist_name: createSongDto.artistName,
+      audio_url: createSongDto.audioUrl,
+      artwork_url: createSongDto.artworkUrl,
+      duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
+      station_id: createSongDto.stationId,
+      status: 'pending',
+    };
+
+    const discoverInsertPayload = {
+      ...baseInsertPayload,
+      discover_enabled: !!createSongDto.discoverClipUrl,
+      discover_clip_url: createSongDto.discoverClipUrl ?? null,
+      discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
+      discover_clip_start_seconds:
+        createSongDto.discoverClipStartSeconds ?? null,
+      discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
+      discover_clip_duration_seconds: this.getDiscoverClipDuration(
+        createSongDto.discoverClipStartSeconds,
+        createSongDto.discoverClipEndSeconds,
+      ),
+    };
+
+    let insertRes = await supabase
       .from('songs')
-      .insert({
-        artist_id: userId,
-        title: createSongDto.title,
-        artist_name: createSongDto.artistName,
-        audio_url: createSongDto.audioUrl,
-        artwork_url: createSongDto.artworkUrl,
-        duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
-        station_id: createSongDto.stationId,
-        discover_enabled: !!createSongDto.discoverClipUrl,
-        discover_clip_url: createSongDto.discoverClipUrl ?? null,
-        discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
-        discover_clip_start_seconds:
-          createSongDto.discoverClipStartSeconds ?? null,
-        discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
-        discover_clip_duration_seconds: this.getDiscoverClipDuration(
-          createSongDto.discoverClipStartSeconds,
-          createSongDto.discoverClipEndSeconds,
-        ),
-        status: 'pending',
-      })
+      .insert(discoverInsertPayload)
       .select()
       .single();
 
-    if (error) {
-      throw new Error(`Failed to create song: ${error.message}`);
+    // Backward-compatible fallback when production DB has not applied Discover migration.
+    if (
+      insertRes.error &&
+      this.isMissingAnyColumnError(insertRes.error, [
+        'discover_enabled',
+        'discover_clip_url',
+        'discover_background_url',
+        'discover_clip_start_seconds',
+        'discover_clip_end_seconds',
+        'discover_clip_duration_seconds',
+      ])
+    ) {
+      insertRes = await supabase
+        .from('songs')
+        .insert(baseInsertPayload)
+        .select()
+        .single();
     }
 
-    return data;
+    if (insertRes.error) {
+      throw new Error(`Failed to create song: ${insertRes.error.message}`);
+    }
+
+    return insertRes.data;
   }
 
   async getSongById(songId: string) {

@@ -464,6 +464,7 @@ export class AdminService {
   ): { id: string; state: string; label: string }[] {
     const radios = [
       { id: 'ga-nw-rap', state: 'GA', label: 'Rap (Rome)' },
+      { id: 'ga-atl-hip-hop', state: 'GA', label: 'Hip Hop (Atlanta)' },
       { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
       { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
       { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },

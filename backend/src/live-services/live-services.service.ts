@@ -130,8 +130,10 @@ export class LiveServicesService {
 
   async upcomingFromFollowed(userId: string, limit = 20): Promise<any[]> {
     const supabase = getSupabaseClient();
-    const [{ data: userFollows, error: userFollowsError }, { data: legacyFollows }] =
-      await Promise.all([
+    const [
+      { data: userFollows, error: userFollowsError },
+      { data: legacyFollows },
+    ] = await Promise.all([
       supabase
         .from('user_follows')
         .select('followed_user_id')
@@ -206,20 +208,21 @@ export class LiveServicesService {
 
   async isFollowing(userId: string, artistId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    const [{ data: generic, error: genericError }, { data: legacy }] = await Promise.all([
-      supabase
-        .from('user_follows')
-        .select('follower_user_id')
-        .eq('follower_user_id', userId)
-        .eq('followed_user_id', artistId)
-        .maybeSingle(),
-      supabase
-        .from('artist_follows')
-        .select('user_id')
-        .eq('user_id', userId)
-        .eq('artist_id', artistId)
-        .maybeSingle(),
-    ]);
+    const [{ data: generic, error: genericError }, { data: legacy }] =
+      await Promise.all([
+        supabase
+          .from('user_follows')
+          .select('follower_user_id')
+          .eq('follower_user_id', userId)
+          .eq('followed_user_id', artistId)
+          .maybeSingle(),
+        supabase
+          .from('artist_follows')
+          .select('user_id')
+          .eq('user_id', userId)
+          .eq('artist_id', artistId)
+          .maybeSingle(),
+      ]);
     if (genericError && !this.isMissingUserFollowsTable(genericError)) {
       throw new Error(`Failed to check follow status: ${genericError.message}`);
     }
