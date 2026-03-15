@@ -57,6 +57,7 @@ export default function ProfilePage() {
   const [followers, setFollowers] = useState<FollowListItem[]>([]);
   const [following, setFollowing] = useState<FollowListItem[]>([]);
   const [followLoading, setFollowLoading] = useState(false);
+  const [followMutatingId, setFollowMutatingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -243,6 +244,24 @@ export default function ProfilePage() {
           : 'Listener';
   const getPublicProfileHref = (userId: string, role: FollowListItem['role']) =>
     role === 'service_provider' ? `/pro-networx/u/${userId}` : `/artist/${userId}`;
+
+  const handleUnfollow = async (targetUserId: string) => {
+    setFollowMutatingId(targetUserId);
+    try {
+      await usersApi.unfollow(targetUserId);
+      setFollowing((prev) => prev.filter((u) => u.id !== targetUserId));
+      setFollowCounts((prev) => ({
+        ...prev,
+        following: Math.max(0, (prev.following || 0) - 1),
+      }));
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to unfollow user',
+      );
+    } finally {
+      setFollowMutatingId(null);
+    }
+  };
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -541,20 +560,33 @@ export default function ProfilePage() {
                   <p className="text-sm text-muted-foreground">You are not following anyone yet.</p>
                 ) : (
                   following.map((u) => (
-                    <Link
+                    <div
                       key={`following-${u.id}`}
-                      href={getPublicProfileHref(u.id, u.role)}
-                      className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
                     >
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={u.avatarUrl ?? undefined} />
-                        <AvatarFallback>👤</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
-                      </div>
-                    </Link>
+                      <Link
+                        href={getPublicProfileHref(u.id, u.role)}
+                        className="flex min-w-0 items-center gap-3"
+                      >
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={u.avatarUrl ?? undefined} />
+                          <AvatarFallback>👤</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
+                          <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
+                        </div>
+                      </Link>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={followMutatingId === u.id}
+                        onClick={() => void handleUnfollow(u.id)}
+                        className="shrink-0"
+                      >
+                        {followMutatingId === u.id ? '...' : 'Unfollow'}
+                      </Button>
+                    </div>
                   ))
                 )}
               </div>

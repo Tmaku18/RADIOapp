@@ -9,6 +9,16 @@ export type LiveServiceType = 'performance' | 'session' | 'meetup';
 
 @Injectable()
 export class LiveServicesService {
+  private isMissingUserFollowsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42P01' &&
+      (message.includes('user_follows') ||
+        message.includes('public.user_follows'))
+    );
+  }
+
   async create(
     artistId: string,
     data: {
@@ -120,13 +130,17 @@ export class LiveServicesService {
 
   async upcomingFromFollowed(userId: string, limit = 20): Promise<any[]> {
     const supabase = getSupabaseClient();
-    const [{ data: userFollows }, { data: legacyFollows }] = await Promise.all([
+    const [{ data: userFollows, error: userFollowsError }, { data: legacyFollows }] =
+      await Promise.all([
       supabase
         .from('user_follows')
         .select('followed_user_id')
         .eq('follower_user_id', userId),
       supabase.from('artist_follows').select('artist_id').eq('user_id', userId),
     ]);
+    if (userFollowsError && !this.isMissingUserFollowsTable(userFollowsError)) {
+      throw new Error(`Failed to load follows: ${userFollowsError.message}`);
+    }
     const artistIds = new Set<string>();
     for (const f of userFollows || []) {
       artistIds.add((f as any).followed_user_id);
@@ -166,7 +180,7 @@ export class LiveServicesService {
     ]);
     if (legacy.error)
       throw new Error(`Failed to follow: ${legacy.error.message}`);
-    if (generic.error)
+    if (generic.error && !this.isMissingUserFollowsTable(generic.error))
       throw new Error(`Failed to follow: ${generic.error.message}`);
   }
 
@@ -186,13 +200,13 @@ export class LiveServicesService {
     ]);
     if (legacy.error)
       throw new Error(`Failed to unfollow: ${legacy.error.message}`);
-    if (generic.error)
+    if (generic.error && !this.isMissingUserFollowsTable(generic.error))
       throw new Error(`Failed to unfollow: ${generic.error.message}`);
   }
 
   async isFollowing(userId: string, artistId: string): Promise<boolean> {
     const supabase = getSupabaseClient();
-    const [{ data: generic }, { data: legacy }] = await Promise.all([
+    const [{ data: generic, error: genericError }, { data: legacy }] = await Promise.all([
       supabase
         .from('user_follows')
         .select('follower_user_id')
@@ -206,6 +220,9 @@ export class LiveServicesService {
         .eq('artist_id', artistId)
         .maybeSingle(),
     ]);
+    if (genericError && !this.isMissingUserFollowsTable(genericError)) {
+      throw new Error(`Failed to check follow status: ${genericError.message}`);
+    }
     return Boolean(generic || legacy);
   }
 

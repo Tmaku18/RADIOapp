@@ -343,9 +343,9 @@ export function ArtistPageView({
               )}
             </div>
             <div className="md:ml-auto flex items-center gap-2">
-              {profile?.id && profile.id !== data.artist.id && mode === 'dashboard' && (
+              {profile?.id && profile.id !== data.artist.id && (
                 <Button variant={following ? 'secondary' : 'default'} onClick={toggleFollow} disabled={followLoading}>
-                  {followLoading ? '...' : following ? 'Following' : 'Follow'}
+                  {followLoading ? '...' : following ? 'Following (tap to unfollow)' : 'Follow'}
                 </Button>
               )}
               {mode === 'dashboard' ? (
