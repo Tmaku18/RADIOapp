@@ -50,6 +50,10 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   String? _risingStarText;
   StreamSubscription? _risingStarSub;
   bool _rippleActive = false;
+  Timer? _presenceTimer;
+  bool _presenceTickInFlight = false;
+  final String _streamToken =
+      'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
 
   @override
@@ -81,6 +85,7 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         _loadNextTrack();
       }
     });
+    _startPresenceTimer();
   }
 
   Future<void> _loadMe() async {
@@ -201,6 +206,41 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       _isLoading = false;
       _hasVoted = alreadyVoted;
     });
+    _presenceTick();
+  }
+
+  void _startPresenceTimer() {
+    _presenceTimer?.cancel();
+    _presenceTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _presenceTick();
+    });
+  }
+
+  Future<void> _presenceTick() async {
+    if (!mounted || _presenceTickInFlight) return;
+    final track = _currentTrack;
+    if (!_isPlaying || track == null || track.id.isEmpty) return;
+
+    _presenceTickInFlight = true;
+    try {
+      await _radioService.sendHeartbeat(
+        streamToken: _streamToken,
+        songId: track.id,
+        timestamp: DateTime.now().toUtc().toIso8601String(),
+      );
+
+      final latest = await _radioService.getCurrentTrack();
+      final latestTrack = latest.track;
+      if (!mounted || latestTrack == null || latestTrack.id != track.id) return;
+
+      setState(() {
+        _currentTrack = track.copyWith(listenerCount: latestTrack.listenerCount);
+      });
+    } catch (_) {
+      // Best effort only; do not block playback on presence errors.
+    } finally {
+      _presenceTickInFlight = false;
+    }
   }
 
   Future<void> _vote() async {
@@ -325,11 +365,15 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     setState(() {
       _isPlaying = !_isPlaying;
     });
+    if (_isPlaying) {
+      _presenceTick();
+    }
   }
 
   @override
   void dispose() {
     _risingStarSub?.cancel();
+    _presenceTimer?.cancel();
     StationEventsService().stop();
     _rippleController.dispose();
     super.dispose();
@@ -813,6 +857,23 @@ class _PlayerBody extends StatelessWidget {
                       .titleMedium
                       ?.copyWith(color: surfaces.textSecondary),
                 ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(
+                    Icons.people_alt_outlined,
+                    size: 16,
+                    color: surfaces.textMuted,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Live listeners: ${track.listenerCount}',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: surfaces.textSecondary,
+                        ),
+                  ),
+                ],
               ),
               if (track.pinnedCatalysts.isNotEmpty) ...[
                 const SizedBox(height: 10),

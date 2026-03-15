@@ -117,6 +117,17 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     [actions],
   );
 
+  const coerceListenerCount = useCallback((value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.floor(value));
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+    }
+    return 0;
+  }, []);
+
   // Callback for when track ends - immediately fetch next track
   const handleTrackEnded = useCallback(async () => {
     // Prevent multiple concurrent fetches
@@ -127,6 +138,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       // Immediately fetch and play next track
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
+      setListenerCount(coerceListenerCount(trackData?.listener_count));
       
       // Check for no_content flag
       if (trackData?.no_content) {
@@ -134,6 +146,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         setNoContentMessage(trackData.message || "No ore's are currently available.");
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
+        setListenerCount(0);
         return;
       }
       
@@ -178,10 +191,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       }
     } catch (error) {
       console.error('Failed to fetch next track:', error);
+      setListenerCount(0);
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, [radioId]);
+  }, [radioId, coerceListenerCount]);
 
   useEffect(() => {
     setOnRadioTrackEnded(handleTrackEnded);
@@ -306,6 +320,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     try {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
+      setListenerCount(coerceListenerCount(trackData?.listener_count));
       
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
@@ -313,6 +328,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         setNoContentMessage(trackData.message || "No ore's are currently available.");
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
+        setListenerCount(0);
         return;
       }
       
@@ -391,11 +407,12 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       setNoContent(true);
       setArtistLiveNow(null);
       setPinnedCatalysts([]);
+      setListenerCount(0);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     } finally {
       isFetchingCurrentTrackRef.current = false;
     }
-  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId]);
+  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, coerceListenerCount]);
 
   // Reset vote state when play changes
   useEffect(() => {
@@ -602,6 +619,9 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
               Now Live
             </span>
           )}
+          <div className="mb-2 text-xs text-muted-foreground">
+            Live listeners: {listenerCount}
+          </div>
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.track?.title || 'No track playing'}
           </h2>

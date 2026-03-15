@@ -78,6 +78,15 @@ export class ServiceMessagesService {
     private readonly pushNotification: PushNotificationService,
   ) {}
 
+  private isMissingUserFollowsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42P01' &&
+      (message.includes('user_follows') || message.includes('public.user_follows'))
+    );
+  }
+
   async listConversations(
     userId: string,
     search?: string,
@@ -131,13 +140,22 @@ export class ServiceMessagesService {
       .in('id', [...otherIds]);
 
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-    const { data: followRows } = await supabase
+    const { data: followRows, error: followError } = await supabase
       .from('user_follows')
       .select('followed_user_id')
       .eq('follower_user_id', userId);
-    const followedUserIds = new Set(
+    let followedUserIds = new Set(
       (followRows || []).map((r: any) => r.followed_user_id as string),
     );
+    if (followError && this.isMissingUserFollowsTable(followError)) {
+      const { data: legacyFollows } = await supabase
+        .from('artist_follows')
+        .select('artist_id')
+        .eq('user_id', userId);
+      followedUserIds = new Set(
+        (legacyFollows || []).map((r: any) => r.artist_id as string),
+      );
+    }
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
@@ -651,12 +669,24 @@ export class ServiceMessagesService {
     recipientId: string,
   ): Promise<boolean> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('user_follows')
       .select('follower_user_id')
       .eq('follower_user_id', senderId)
       .eq('followed_user_id', recipientId)
       .maybeSingle();
+    if (error && !this.isMissingUserFollowsTable(error)) {
+      throw new BadRequestException(`Failed to verify DM follow gate: ${error.message}`);
+    }
+    if (!error && data) return true;
+
+    const { data: legacyData } = await supabase
+      .from('artist_follows')
+      .select('user_id')
+      .eq('user_id', senderId)
+      .eq('artist_id', recipientId)
+      .maybeSingle();
+    if (legacyData) return true;
     return Boolean(data);
   }
 }

@@ -23,6 +23,10 @@ import { RAP_STATION_ID, normalizeSongStationId } from './station.constants';
 const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
+const ACTIVE_LISTENER_WINDOW_SECONDS = parseInt(
+  process.env.LISTENER_HEARTBEAT_ACTIVE_WINDOW_SECONDS || '90',
+  10,
+);
 
 type PinnedCatalystCredit = {
   userId: string;
@@ -449,6 +453,44 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Approximate currently active listeners by counting unique Prospector sessions
+   * that have heartbeated recently for the same song.
+   */
+  private async getActiveListenerCountForSong(
+    songId?: string | null,
+  ): Promise<number> {
+    if (!songId) return 0;
+    const supabase = getSupabaseClient();
+    const windowSeconds =
+      Number.isFinite(ACTIVE_LISTENER_WINDOW_SECONDS) &&
+      ACTIVE_LISTENER_WINDOW_SECONDS > 0
+        ? ACTIVE_LISTENER_WINDOW_SECONDS
+        : 90;
+    const cutoffIso = new Date(Date.now() - windowSeconds * 1000).toISOString();
+
+    const { data, error } = await supabase
+      .from('prospector_sessions')
+      .select('user_id')
+      .eq('song_id', songId)
+      .is('ended_at', null)
+      .gte('last_heartbeat_at', cutoffIso);
+
+    if (error) {
+      this.logger.warn(
+        `Failed to compute active listeners for song ${songId}: ${error.message}`,
+      );
+      return 0;
+    }
+
+    const users = new Set(
+      ((data ?? []) as Array<{ user_id?: string | null }>)
+        .map((row) => row.user_id)
+        .filter((id): id is string => !!id),
+    );
+    return users.size;
+  }
+
+  /**
    * Prompt artists to go live when their song starts if livestreaming is enabled for them.
    */
   private async maybeSendGoLiveNudge(song: any): Promise<void> {
@@ -586,6 +628,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       ? null
       : await this.getArtistLiveNow(song.artist_id ?? null);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+    const listenerCount = await this.getActiveListenerCountForSong(song.id);
 
     return {
       ...song,
@@ -600,6 +643,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       pinned_catalysts: pinnedCatalysts,
       play_id: playId,
       artist_live_now: artistLiveNow,
+      listener_count: listenerCount,
     };
   }
 
@@ -1290,6 +1334,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           const audioUrl = await this.ensurePlayableAudioUrl(
             currentSong.audio_url ?? null,
           );
+          const listenerCount = await this.getActiveListenerCountForSong(
+            currentSong.id,
+          );
           return {
             ...currentSong,
             audio_url: audioUrl,
@@ -1304,6 +1351,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             trial_by_fire_active: trial.active,
             pinned_catalysts: pinnedCatalysts,
             artist_live_now: artistLiveNow,
+            listener_count: listenerCount,
           };
         }
       }
@@ -1945,6 +1993,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       is_admin_fallback: true,
       no_content: true,
       message: 'Sorry for the inconvenience. No songs are currently available.',
+      listener_count: 0,
     };
   }
 

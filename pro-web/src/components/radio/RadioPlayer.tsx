@@ -65,6 +65,17 @@ export function RadioPlayer() {
   const [remindsOf, setRemindsOf] = useState('');
   const [comments, setComments] = useState('');
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
+
+  const coerceListenerCount = useCallback((value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return Math.max(0, Math.floor(value));
+    }
+    if (typeof value === 'string') {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
+    }
+    return 0;
+  }, []);
   
   // Refs for accessing radio functions in callback
   const loadTrackRef = useRef<typeof loadTrack | null>(null);
@@ -81,12 +92,14 @@ export function RadioPlayer() {
       // Immediately fetch and play next track
       const response = await radioApi.getCurrentTrack();
       const trackData = response.data;
+      setListenerCount(coerceListenerCount(trackData?.listener_count));
       
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No ore's are currently available.");
         setPinnedCatalysts([]);
+        setListenerCount(0);
         return;
       }
       
@@ -130,10 +143,11 @@ export function RadioPlayer() {
       }
     } catch (error) {
       console.error('Failed to fetch next track:', error);
+      setListenerCount(0);
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, []);
+  }, [coerceListenerCount]);
 
   const handleCheckIn = async () => {
     if (!isProspector || isCheckingIn) return;
@@ -248,12 +262,14 @@ export function RadioPlayer() {
     try {
       const response = await radioApi.getCurrentTrack();
       const trackData = response.data;
+      setListenerCount(coerceListenerCount(trackData?.listener_count));
       
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No ore's are currently available.");
         setPinnedCatalysts([]);
+        setListenerCount(0);
         return;
       }
       
@@ -319,9 +335,10 @@ export function RadioPlayer() {
       else setNoContentMessage("No ore's are currently available. Please try again later.");
       setNoContent(true);
       setPinnedCatalysts([]);
+      setListenerCount(0);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
-  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted]);
+  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted, coerceListenerCount]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -530,6 +547,9 @@ export function RadioPlayer() {
               Now Live
             </span>
           )}
+          <div className="mb-2 text-xs text-muted-foreground">
+            Live listeners: {listenerCount}
+          </div>
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.currentTrack?.title || 'No track playing'}
           </h2>

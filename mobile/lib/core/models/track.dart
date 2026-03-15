@@ -23,6 +23,9 @@ class Track {
   /// Server-reported position (seconds) if provided.
   final int positionSeconds;
 
+  /// Live listener count reported by the radio backend.
+  final int listenerCount;
+
   /// Catalyst deep-link credits pinned during this song's airtime.
   final List<PinnedCatalystCredit> pinnedCatalysts;
 
@@ -38,6 +41,7 @@ class Track {
     this.isLiveBroadcast = false,
     this.trialByFireActive = false,
     this.positionSeconds = 0,
+    this.listenerCount = 0,
     this.pinnedCatalysts = const [],
   });
 
@@ -81,7 +85,46 @@ class Track {
                       .toString(),
                 ) ??
               0,
+      listenerCount: (json['listener_count'] ?? json['listenerCount'] ?? 0) is int
+          ? (json['listener_count'] ?? json['listenerCount'] ?? 0) as int
+          : int.tryParse(
+                  (json['listener_count'] ?? json['listenerCount'] ?? '0')
+                      .toString(),
+                ) ??
+              0,
       pinnedCatalysts: pinned,
+    );
+  }
+
+  Track copyWith({
+    String? id,
+    String? title,
+    String? artistName,
+    String? artistId,
+    String? audioUrl,
+    String? artworkUrl,
+    int? durationSeconds,
+    String? playId,
+    bool? isLiveBroadcast,
+    bool? trialByFireActive,
+    int? positionSeconds,
+    int? listenerCount,
+    List<PinnedCatalystCredit>? pinnedCatalysts,
+  }) {
+    return Track(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      artistName: artistName ?? this.artistName,
+      artistId: artistId ?? this.artistId,
+      audioUrl: audioUrl ?? this.audioUrl,
+      artworkUrl: artworkUrl ?? this.artworkUrl,
+      durationSeconds: durationSeconds ?? this.durationSeconds,
+      playId: playId ?? this.playId,
+      isLiveBroadcast: isLiveBroadcast ?? this.isLiveBroadcast,
+      trialByFireActive: trialByFireActive ?? this.trialByFireActive,
+      positionSeconds: positionSeconds ?? this.positionSeconds,
+      listenerCount: listenerCount ?? this.listenerCount,
+      pinnedCatalysts: pinnedCatalysts ?? this.pinnedCatalysts,
     );
   }
 }
