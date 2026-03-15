@@ -74,6 +74,8 @@ export const radioApi = {
     api.get('/radio/stream', { params: radioId ? { radio: radioId } : undefined }),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
     api.post('/radio/heartbeat', data, { params: radioId ? { radio: radioId } : undefined }),
+  sendPresence: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
+    api.post('/radio/presence', data, { params: radioId ? { radio: radioId } : undefined }),
   reportPlay: (data: { songId: string; skipped?: boolean }, radioId?: string) =>
     api.post('/radio/play', data, { params: radioId ? { radio: radioId } : undefined }),
 };

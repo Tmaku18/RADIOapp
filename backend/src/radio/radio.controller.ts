@@ -61,6 +61,15 @@ export class RadioController {
     return this.prospectorYieldService.recordHeartbeat(user.uid, body);
   }
 
+  @Public()
+  @Post('presence')
+  async presence(
+    @Body() body: { streamToken?: string; songId: string; timestamp?: string },
+  ) {
+    await this.radioService.recordListenerPresence(body);
+    return { received: true };
+  }
+
   @Get('queue')
   async getUpcomingQueue(
     @Query('limit') limit?: string,

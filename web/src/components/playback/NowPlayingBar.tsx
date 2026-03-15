@@ -67,6 +67,14 @@ export function NowPlayingBar() {
           },
           activeRadioId ?? undefined,
         );
+        await radioApi.sendPresence(
+          {
+            streamToken: streamTokenRef.current,
+            songId,
+            timestamp: new Date().toISOString(),
+          },
+          activeRadioId ?? undefined,
+        );
       } catch {
         // Presence heartbeat should not block playback UX.
       }

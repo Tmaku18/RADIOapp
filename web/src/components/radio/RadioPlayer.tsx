@@ -290,6 +290,14 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     let cancelled = false;
     const send = async () => {
       try {
+        await radioApi.sendPresence(
+          {
+            streamToken: streamTokenRef.current,
+            songId: state.track!.id,
+            timestamp: new Date().toISOString(),
+          },
+          radioId,
+        );
         const res = await radioApi.sendHeartbeat(
           {
             streamToken: streamTokenRef.current,

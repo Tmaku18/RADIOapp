@@ -203,6 +203,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return maybeError?.code === '42703' && message.includes('stream_token');
   }
 
+  private isMissingListenerPresenceTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42P01' &&
+      (message.includes('radio_listener_presence') ||
+        message.includes('public.radio_listener_presence'))
+    );
+  }
+
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
     private readonly pushNotificationService: PushNotificationService,
@@ -513,7 +523,56 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const streamToken = row.stream_token?.trim();
       listeners.add(streamToken ? `${userId}:${streamToken}` : userId);
     }
+
+    const presenceRows = await supabase
+      .from('radio_listener_presence')
+      .select('stream_token')
+      .eq('song_id', songId)
+      .gte('last_seen_at', cutoffIso);
+
+    if (
+      presenceRows.error &&
+      !this.isMissingListenerPresenceTable(presenceRows.error)
+    ) {
+      this.logger.warn(
+        `Failed to load listener presence rows for song ${songId}: ${presenceRows.error.message}`,
+      );
+    } else if (!presenceRows.error) {
+      for (const row of presenceRows.data ?? []) {
+        const token = (row as { stream_token?: string | null }).stream_token?.trim();
+        if (token) listeners.add(`presence:${token}`);
+      }
+    }
+
     return listeners.size;
+  }
+
+  async recordListenerPresence(body: {
+    streamToken?: string;
+    songId: string;
+    timestamp?: string;
+  }): Promise<void> {
+    const streamToken = body.streamToken?.trim();
+    const songId = body.songId?.trim();
+    if (!streamToken || !songId) return;
+
+    const supabase = getSupabaseClient();
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from('radio_listener_presence').upsert(
+      {
+        stream_token: streamToken,
+        song_id: songId,
+        last_seen_at: nowIso,
+        updated_at: nowIso,
+      },
+      { onConflict: 'stream_token,song_id' },
+    );
+
+    if (error && !this.isMissingListenerPresenceTable(error)) {
+      this.logger.warn(
+        `Failed to record listener presence for song ${songId}: ${error.message}`,
+      );
+    }
   }
 
   /**
