@@ -68,8 +68,10 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const consecutiveFetchFailuresRef = useRef(0);
   const nextFetchAllowedAtRef = useRef(0);
 
-  // Admins can listen but should not run prospector yield/check-in flows.
-  const isProspector = hasListenerCapability(profile?.role) && profile?.role !== 'admin';
+  // Prospector-only flows (yield/check-ins/refinery) stay listener-only.
+  const isProspector = profile?.role === 'listener';
+  // Presence heartbeat should include all authenticated listener-capable roles.
+  const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
@@ -274,9 +276,10 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     setPendingRefinerySongId(null);
   }, []);
 
-  // Heartbeat: every 30s while playing to verify listening (Yield accrual is server-side gated by check-ins).
+  // Heartbeat presence: every 30s while playing so live listener count stays accurate.
+  // Yield accrual/check-ins are gated server-side and remain listener-only.
   useEffect(() => {
-    if (!isProspector) return;
+    if (!canSendPresenceHeartbeat) return;
     if (!state.track?.id) return;
     if (!state.isPlaying) return;
 
@@ -308,7 +311,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [isProspector, state.track?.id, state.isPlaying, radioId]);
+  }, [canSendPresenceHeartbeat, state.track?.id, state.isPlaying, radioId]);
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
