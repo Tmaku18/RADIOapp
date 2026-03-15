@@ -174,6 +174,22 @@ export class SongsController {
       artworkUrl = artworkUrlData.publicUrl;
     }
 
+    let discoverClipUrl: string | undefined;
+    if (dto.discoverClipPath) {
+      const { data: discoverClipUrlData } = supabase.storage
+        .from('songs')
+        .getPublicUrl(dto.discoverClipPath);
+      discoverClipUrl = discoverClipUrlData.publicUrl;
+    }
+
+    let discoverBackgroundUrl: string | undefined;
+    if (dto.discoverBackgroundPath) {
+      const { data: discoverBackgroundUrlData } = supabase.storage
+        .from('artwork')
+        .getPublicUrl(dto.discoverBackgroundPath);
+      discoverBackgroundUrl = discoverBackgroundUrlData.publicUrl;
+    }
+
     // SECURITY + DATA QUALITY:
     // For direct-to-storage uploads, compute the real duration server-side from the stored file.
     // This prevents spoofing and avoids the UI/credits falling back to the default 180s.
@@ -232,7 +248,24 @@ export class SongsController {
       artworkUrl,
       durationSeconds,
       stationId: dto.stationId,
+      discoverClipUrl,
+      discoverBackgroundUrl,
+      discoverClipStartSeconds: dto.discoverClipStartSeconds,
+      discoverClipEndSeconds: dto.discoverClipEndSeconds,
     };
+    if (
+      createSongDto.discoverClipStartSeconds != null &&
+      createSongDto.discoverClipEndSeconds != null
+    ) {
+      const clipDuration =
+        createSongDto.discoverClipEndSeconds -
+        createSongDto.discoverClipStartSeconds;
+      if (clipDuration <= 0 || clipDuration > 15) {
+        throw new BadRequestException(
+          'Discover clip duration must be greater than 0 and at most 15 seconds',
+        );
+      }
+    }
 
     return this.songsService.createSong(userData.id, createSongDto);
   }
@@ -250,6 +283,85 @@ export class SongsController {
       limit: limit ? parseInt(limit, 10) : undefined,
       offset: offset ? parseInt(offset, 10) : undefined,
     });
+  }
+
+  @Get('discover/feed')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getDiscoverFeed(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limit?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    const limitNum = limit
+      ? Math.min(Math.max(parseInt(limit, 10) || 12, 1), 30)
+      : 12;
+    return this.songsService.getDiscoverFeed(userData.id, limitNum, cursor);
+  }
+
+  @Post('discover/swipe')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async swipeDiscover(
+    @CurrentUser() user: FirebaseUser,
+    @Body()
+    body: {
+      songId: string;
+      direction: 'left_skip' | 'right_like';
+      decisionMs?: number;
+    },
+  ) {
+    if (!body?.songId) throw new BadRequestException('songId is required');
+    if (body.direction !== 'left_skip' && body.direction !== 'right_like') {
+      throw new BadRequestException(
+        'direction must be left_skip or right_like',
+      );
+    }
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    return this.songsService.swipeDiscoverSong(userData.id, {
+      songId: body.songId,
+      direction: body.direction,
+      decisionMs: body.decisionMs,
+    });
+  }
+
+  @Get('discover/list')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getDiscoverLikedList(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    const limitNum = limit
+      ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100)
+      : 50;
+    const offsetNum = offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0;
+    return this.songsService.getDiscoverLikedList(
+      userData.id,
+      limitNum,
+      offsetNum,
+    );
   }
 
   /**
@@ -293,6 +405,12 @@ export class SongsController {
       likeCount: song.like_count || 0,
       status: song.status,
       stationId: song.station_id || null,
+      discoverEnabled: song.discover_enabled || false,
+      discoverClipUrl: song.discover_clip_url || null,
+      discoverBackgroundUrl: song.discover_background_url || null,
+      discoverClipStartSeconds: song.discover_clip_start_seconds ?? null,
+      discoverClipEndSeconds: song.discover_clip_end_seconds ?? null,
+      discoverClipDurationSeconds: song.discover_clip_duration_seconds ?? null,
       optInFreePlay: song.opt_in_free_play || false,
       inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
       rejectionReason: song.rejection_reason,
@@ -365,6 +483,42 @@ export class SongsController {
     if (body.optInFreePlay !== undefined) {
       updateData.opt_in_free_play = body.optInFreePlay;
     }
+    if (body.discoverEnabled !== undefined) {
+      updateData.discover_enabled = body.discoverEnabled;
+    }
+    if (body.discoverClipUrl !== undefined) {
+      const nextClip = body.discoverClipUrl.trim();
+      updateData.discover_clip_url = nextClip.length > 0 ? nextClip : null;
+    }
+    if (body.discoverBackgroundUrl !== undefined) {
+      const nextBg = body.discoverBackgroundUrl.trim();
+      updateData.discover_background_url = nextBg.length > 0 ? nextBg : null;
+    }
+    if (body.discoverClipStartSeconds !== undefined) {
+      updateData.discover_clip_start_seconds = body.discoverClipStartSeconds;
+    }
+    if (body.discoverClipEndSeconds !== undefined) {
+      updateData.discover_clip_end_seconds = body.discoverClipEndSeconds;
+    }
+    if (
+      updateData.discover_clip_start_seconds != null &&
+      updateData.discover_clip_end_seconds != null
+    ) {
+      const start = Number(updateData.discover_clip_start_seconds);
+      const end = Number(updateData.discover_clip_end_seconds);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        throw new BadRequestException(
+          'Discover clip start/end must be valid and end > start',
+        );
+      }
+      const duration = Math.round((end - start) * 100) / 100;
+      if (duration > 15) {
+        throw new BadRequestException(
+          'Discover clip duration must be 15 seconds or less',
+        );
+      }
+      updateData.discover_clip_duration_seconds = duration;
+    }
     if (Object.keys(updateData).length === 1) {
       throw new BadRequestException('No editable fields provided');
     }
@@ -386,6 +540,12 @@ export class SongsController {
       optInFreePlay: updated.opt_in_free_play,
       artworkUrl: updated.artwork_url,
       stationId: updated.station_id,
+      discoverEnabled: updated.discover_enabled,
+      discoverClipUrl: updated.discover_clip_url,
+      discoverBackgroundUrl: updated.discover_background_url,
+      discoverClipStartSeconds: updated.discover_clip_start_seconds,
+      discoverClipEndSeconds: updated.discover_clip_end_seconds,
+      discoverClipDurationSeconds: updated.discover_clip_duration_seconds,
     };
   }
 

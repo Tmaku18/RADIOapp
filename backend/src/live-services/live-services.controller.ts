@@ -1,4 +1,14 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { LiveServicesService } from './live-services.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -12,7 +22,11 @@ export class LiveServicesController {
 
   private async getUserId(uid: string): Promise<string> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('users').select('id').eq('firebase_uid', uid).single();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', uid)
+      .single();
     if (!data) throw new Error('User not found');
     return data.id;
   }
@@ -23,7 +37,10 @@ export class LiveServicesController {
   }
 
   @Get('upcoming')
-  async upcomingFromFollowed(@CurrentUser() user: FirebaseUser, @Query('limit') limit?: string) {
+  async upcomingFromFollowed(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limit?: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     const limitNum = limit ? Math.min(parseInt(limit, 10) || 20, 50) : 20;
     return this.liveServices.upcomingFromFollowed(userId, limitNum);
@@ -42,7 +59,14 @@ export class LiveServicesController {
   @Roles('artist', 'admin')
   async create(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { title: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string },
+    @Body()
+    body: {
+      title: string;
+      description?: string;
+      type?: string;
+      scheduledAt?: string;
+      linkOrPlace?: string;
+    },
   ) {
     const userId = await this.getUserId(user.uid);
     return this.liveServices.create(userId, {
@@ -65,7 +89,14 @@ export class LiveServicesController {
   async update(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
-    @Body() body: { title?: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string },
+    @Body()
+    body: {
+      title?: string;
+      description?: string;
+      type?: string;
+      scheduledAt?: string;
+      linkOrPlace?: string;
+    },
   ) {
     const userId = await this.getUserId(user.uid);
     return this.liveServices.update(id, userId, {
@@ -93,27 +124,40 @@ export class ArtistFollowsController {
 
   private async getUserId(uid: string): Promise<string> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('users').select('id').eq('firebase_uid', uid).single();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', uid)
+      .single();
     if (!data) throw new Error('User not found');
     return data.id;
   }
 
   @Post(':artistId/follow')
-  async follow(@CurrentUser() user: FirebaseUser, @Param('artistId') artistId: string) {
+  async follow(
+    @CurrentUser() user: FirebaseUser,
+    @Param('artistId') artistId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     await this.liveServices.followArtist(userId, artistId);
     return { followed: true };
   }
 
   @Delete(':artistId/follow')
-  async unfollow(@CurrentUser() user: FirebaseUser, @Param('artistId') artistId: string) {
+  async unfollow(
+    @CurrentUser() user: FirebaseUser,
+    @Param('artistId') artistId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     await this.liveServices.unfollowArtist(userId, artistId);
     return { unfollowed: true };
   }
 
   @Get(':artistId/follow')
-  async isFollowing(@CurrentUser() user: FirebaseUser, @Param('artistId') artistId: string) {
+  async isFollowing(
+    @CurrentUser() user: FirebaseUser,
+    @Param('artistId') artistId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     const following = await this.liveServices.isFollowing(userId, artistId);
     return { following };

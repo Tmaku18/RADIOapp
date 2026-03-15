@@ -9,7 +9,11 @@ describe('UsersController', () => {
 
     const result = await controller.createUser(
       { uid: 'firebase-uid' } as any,
-      { email: 'user@example.com', displayName: 'User', role: 'listener' } as any,
+      {
+        email: 'user@example.com',
+        displayName: 'User',
+        role: 'listener',
+      } as any,
     );
 
     expect(usersService.createUser).toHaveBeenCalledWith('firebase-uid', {
@@ -26,15 +30,21 @@ describe('UsersController', () => {
     };
     const controller = new UsersController(usersService as any);
 
-    const result = await controller.getCurrentUser({ uid: 'firebase-uid' } as any);
+    const result = await controller.getCurrentUser({
+      uid: 'firebase-uid',
+    } as any);
 
-    expect(usersService.getUserByFirebaseUid).toHaveBeenCalledWith('firebase-uid');
+    expect(usersService.getUserByFirebaseUid).toHaveBeenCalledWith(
+      'firebase-uid',
+    );
     expect(result).toEqual({ id: 'user-1' });
   });
 
   it('updates current user', async () => {
     const usersService = {
-      updateUser: jest.fn().mockResolvedValue({ id: 'user-1', displayName: 'Updated' }),
+      updateUser: jest
+        .fn()
+        .mockResolvedValue({ id: 'user-1', displayName: 'Updated' }),
     };
     const controller = new UsersController(usersService as any);
 
@@ -43,7 +53,9 @@ describe('UsersController', () => {
       { displayName: 'Updated' } as any,
     );
 
-    expect(usersService.updateUser).toHaveBeenCalledWith('firebase-uid', { displayName: 'Updated' });
+    expect(usersService.updateUser).toHaveBeenCalledWith('firebase-uid', {
+      displayName: 'Updated',
+    });
     expect(result).toEqual({ id: 'user-1', displayName: 'Updated' });
   });
 
@@ -53,7 +65,9 @@ describe('UsersController', () => {
     };
     const controller = new UsersController(usersService as any);
 
-    const result = await controller.upgradeToArtist({ uid: 'firebase-uid' } as any);
+    const result = await controller.upgradeToArtist({
+      uid: 'firebase-uid',
+    } as any);
 
     expect(usersService.upgradeToArtist).toHaveBeenCalledWith('firebase-uid');
     expect(result).toEqual({ role: 'artist' });

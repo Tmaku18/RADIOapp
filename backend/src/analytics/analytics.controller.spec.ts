@@ -16,12 +16,21 @@ describe('AnalyticsController', () => {
     const controller = new AnalyticsController(analyticsService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'artist-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'artist-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
-    const result = await controller.getMyAnalytics({ uid: 'firebase-uid' } as any, '7');
+    const result = await controller.getMyAnalytics(
+      { uid: 'firebase-uid' } as any,
+      '7',
+    );
 
-    expect(analyticsService.getArtistAnalytics).toHaveBeenCalledWith('artist-id', 7);
+    expect(analyticsService.getArtistAnalytics).toHaveBeenCalledWith(
+      'artist-id',
+      7,
+    );
     expect(result).toEqual({ totalPlays: 10 });
   });
 

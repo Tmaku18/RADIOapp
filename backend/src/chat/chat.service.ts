@@ -1,4 +1,10 @@
-import { Injectable, Logger, BadRequestException, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  BadRequestException,
+  OnModuleInit,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -19,21 +25,21 @@ interface RateLimitEntry {
 
 /**
  * Chat Service implementing the Backend Gatekeeper Pattern
- * 
+ *
  * CRITICAL: Clients must NEVER broadcast directly to Supabase Realtime.
  * All messages flow through this service for validation, rate limiting,
  * and shadow ban checks.
- * 
+ *
  * IMPORTANT: The broadcast channel must be SUBSCRIBED before sending.
  * This service maintains a persistent subscription on module init.
  */
 @Injectable()
 export class ChatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChatService.name);
-  
+
   // Persistent Realtime channel for broadcasting
   private chatChannel: RealtimeChannel | null = null;
-  
+
   // Track if channel is ready for broadcasting
   private isChannelReady = false;
   private channelReadyPromise: Promise<void> | null = null;
@@ -41,7 +47,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
   // In-memory rate limiting (use Redis in production for multi-instance)
   private rateLimits: Map<string, RateLimitEntry> = new Map();
-  
+
   // Rate limit config: 1 msg/3s sustained, 5 msg/10s burst
   private readonly RATE_LIMIT_WINDOW_MS = 10000; // 10 seconds
   private readonly RATE_LIMIT_MAX_MESSAGES = 5; // Max 5 messages per window
@@ -55,14 +61,14 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    */
   async onModuleInit() {
     const supabase = getSupabaseClient();
-    
+
     // Create promise to wait for channel ready state
     this.channelReadyPromise = new Promise((resolve) => {
       this.channelReadyResolve = resolve;
     });
-    
+
     this.chatChannel = supabase.channel('radio-chat');
-    
+
     // Subscribe to the channel (required before sending)
     this.chatChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
@@ -93,20 +99,20 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    */
   private async reconnectChannel() {
     this.logger.log('Attempting to reconnect chat channel...');
-    
+
     if (this.chatChannel) {
       await this.chatChannel.unsubscribe();
     }
-    
+
     // Reset ready state
     this.isChannelReady = false;
     this.channelReadyPromise = new Promise((resolve) => {
       this.channelReadyResolve = resolve;
     });
-    
+
     const supabase = getSupabaseClient();
     this.chatChannel = supabase.channel('radio-chat');
-    
+
     this.chatChannel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
         this.logger.log('Chat channel reconnected successfully');
@@ -126,14 +132,17 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    */
   private async waitForChannel(timeoutMs = 5000): Promise<boolean> {
     if (this.isChannelReady) return true;
-    
+
     if (!this.channelReadyPromise) return false;
-    
+
     try {
       await Promise.race([
         this.channelReadyPromise,
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Channel ready timeout')), timeoutMs)
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error('Channel ready timeout')),
+            timeoutMs,
+          ),
         ),
       ]);
       return true;
@@ -154,7 +163,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Send a chat message (Backend Gatekeeper)
-   * 
+   *
    * Flow:
    * 1. Check rate limits
    * 2. Check shadow ban status
@@ -178,7 +187,9 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
       .single();
 
     if (!config?.enabled) {
-      throw new BadRequestException(config?.disabled_reason || 'Chat is currently disabled');
+      throw new BadRequestException(
+        config?.disabled_reason || 'Chat is currently disabled',
+      );
     }
 
     // Check rate limits
@@ -193,7 +204,10 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
     // If shadow banned and ban hasn't expired
     if (user?.is_shadow_banned) {
-      if (!user.shadow_banned_until || new Date(user.shadow_banned_until) > new Date()) {
+      if (
+        !user.shadow_banned_until ||
+        new Date(user.shadow_banned_until) > new Date()
+      ) {
         // Return success but DON'T broadcast - troll screams into the void
         this.logger.log(`Shadow banned message from ${userId} suppressed`);
         return { success: true, id: `shadow-${Date.now()}` };
@@ -230,7 +244,9 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     // Broadcast to Supabase Realtime channel
     await this.broadcast(savedMessage);
 
-    this.logger.log(`Chat message sent by ${displayName}: ${message.substring(0, 50)}...`);
+    this.logger.log(
+      `Chat message sent by ${displayName}: ${message.substring(0, 50)}...`,
+    );
 
     return { success: true, id: savedMessage.id };
   }
@@ -277,7 +293,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   /**
    * Broadcast message to Supabase Realtime channel
    * ONLY the backend should call this - never clients
-   * 
+   *
    * IMPORTANT: Uses the persistent chatChannel which was subscribed on init.
    * Creating a new channel each time does NOT work - the channel must be
    * subscribed before broadcasting.
@@ -293,7 +309,9 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn('Chat channel not ready, waiting...');
       const ready = await this.waitForChannel(5000);
       if (!ready) {
-        this.logger.error('Chat channel not ready after timeout - message not broadcasted');
+        this.logger.error(
+          'Chat channel not ready after timeout - message not broadcasted',
+        );
         return;
       }
     }
@@ -314,7 +332,9 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      this.logger.debug(`Broadcasted message ${message.id} to radio-chat channel`);
+      this.logger.debug(
+        `Broadcasted message ${message.id} to radio-chat channel`,
+      );
     } catch (error) {
       this.logger.error(`Failed to broadcast message: ${error.message}`);
       // Don't throw - message is already saved
@@ -331,13 +351,17 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     // Check minimum interval between messages (3 seconds)
     const lastTime = this.lastMessageTime.get(userId);
     if (lastTime && now - lastTime < this.MIN_MESSAGE_INTERVAL_MS) {
-      const waitSeconds = Math.ceil((this.MIN_MESSAGE_INTERVAL_MS - (now - lastTime)) / 1000);
-      throw new BadRequestException(`Please wait ${waitSeconds} seconds before sending another message`);
+      const waitSeconds = Math.ceil(
+        (this.MIN_MESSAGE_INTERVAL_MS - (now - lastTime)) / 1000,
+      );
+      throw new BadRequestException(
+        `Please wait ${waitSeconds} seconds before sending another message`,
+      );
     }
 
     // Check burst limit (5 messages per 10 seconds)
     let entry = this.rateLimits.get(userId);
-    
+
     if (!entry || now - entry.windowStart > this.RATE_LIMIT_WINDOW_MS) {
       // Start new window
       entry = { count: 1, windowStart: now };
@@ -345,7 +369,9 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     } else {
       entry.count++;
       if (entry.count > this.RATE_LIMIT_MAX_MESSAGES) {
-        throw new BadRequestException('You are sending messages too quickly. Please slow down.');
+        throw new BadRequestException(
+          'You are sending messages too quickly. Please slow down.',
+        );
       }
     }
 

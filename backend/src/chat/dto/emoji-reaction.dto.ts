@@ -5,6 +5,8 @@ export const ALLOWED_EMOJIS = ['❤️', '🔥', '🎵', '👏', '😍', '🙌',
 
 export class EmojiReactionDto {
   @IsString()
-  @IsIn(ALLOWED_EMOJIS, { message: 'Invalid emoji. Allowed: ❤️ 🔥 🎵 👏 😍 🙌 💯 ✨' })
+  @IsIn(ALLOWED_EMOJIS, {
+    message: 'Invalid emoji. Allowed: ❤️ 🔥 🎵 👏 😍 🙌 💯 ✨',
+  })
   emoji: string;
 }

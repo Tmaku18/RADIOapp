@@ -21,16 +21,22 @@ export class FeedService {
     const now = new Date().toISOString();
     const { data: rows, error } = await supabase
       .from('news_promotions')
-      .select('id, type, title, body_or_description, image_url, link_url, starts_at, ends_at, sort_order, created_at')
+      .select(
+        'id, type, title, body_or_description, image_url, link_url, starts_at, ends_at, sort_order, created_at',
+      )
       .eq('is_active', true)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
       .limit(limit * 2);
-    if (error) throw new Error(`Failed to fetch news/promotions: ${error.message}`);
-    const data = (rows || []).filter(
-      (r: any) =>
-        (!r.starts_at || r.starts_at <= now) && (!r.ends_at || r.ends_at >= now),
-    ).slice(0, limit);
+    if (error)
+      throw new Error(`Failed to fetch news/promotions: ${error.message}`);
+    const data = (rows || [])
+      .filter(
+        (r: any) =>
+          (!r.starts_at || r.starts_at <= now) &&
+          (!r.ends_at || r.ends_at >= now),
+      )
+      .slice(0, limit);
 
     return data.map((r: any) => ({
       id: r.id,

@@ -9,16 +9,21 @@ jest.mock('../config/supabase.config', () => ({
 describe('CreditsService', () => {
   it('rejects non-positive allocations', async () => {
     const service = new CreditsService();
-    await expect(service.allocateCreditsToSong('artist', 'song', 0)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.allocateCreditsToSong('artist', 'song', 0),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('allocates credits via RPC', async () => {
     const service = new CreditsService();
     const supabase = {
       rpc: jest.fn().mockResolvedValue({
-        data: { success: true, balance_before: 10, balance_after: 5, song_credits: 5 },
+        data: {
+          success: true,
+          balance_before: 10,
+          balance_after: 5,
+          song_credits: 5,
+        },
         error: null,
       }),
     };

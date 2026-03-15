@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type DirectoryItem = {
   userId: string;
@@ -52,6 +53,7 @@ export function ProNetworxDirectoryContent({
   subtitle = 'Find Catalysts by skill, availability, and location.',
   showEditProfile = true,
 }: Props) {
+  const { profile } = useAuth();
   const [items, setItems] = useState<DirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -293,18 +295,24 @@ export function ProNetworxDirectoryContent({
                     <Button variant="outline" size="sm" asChild className="flex-1">
                       <Link href={`/pro-networx/u/${p.userId}`}>View profile</Link>
                     </Button>
-                    <Button
-                      size="sm"
-                      variant={p.isFollowing ? 'outline' : 'secondary'}
-                      disabled={!!followBusy[p.userId]}
-                      onClick={() => toggleFollow(p.userId, !!p.isFollowing)}
-                    >
-                      {followBusy[p.userId]
-                        ? '...'
-                        : p.isFollowing
-                          ? 'Following'
-                          : 'Follow'}
-                    </Button>
+                    {profile?.id !== p.userId ? (
+                      <Button
+                        size="sm"
+                        variant={p.isFollowing ? 'outline' : 'secondary'}
+                        disabled={!!followBusy[p.userId]}
+                        onClick={() => toggleFollow(p.userId, !!p.isFollowing)}
+                      >
+                        {followBusy[p.userId]
+                          ? '...'
+                          : p.isFollowing
+                            ? 'Following'
+                            : 'Follow'}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled>
+                        You
+                      </Button>
+                    )}
                     <Button size="sm" asChild className="flex-1 bg-primary text-primary-foreground hover:opacity-90">
                       <Link href={`/messages?with=${p.userId}`}>Message</Link>
                     </Button>

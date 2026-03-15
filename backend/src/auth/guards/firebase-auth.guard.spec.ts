@@ -24,7 +24,9 @@ const createContext = (request: any) =>
 
 describe('FirebaseAuthGuard', () => {
   it('allows public routes', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(true) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(true),
+    } as unknown as Reflector;
     const guard = new FirebaseAuthGuard(reflector);
     const context = createContext({ headers: {} });
 
@@ -32,15 +34,21 @@ describe('FirebaseAuthGuard', () => {
   });
 
   it('rejects missing auth header', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(false) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(false),
+    } as unknown as Reflector;
     const guard = new FirebaseAuthGuard(reflector);
     const context = createContext({ headers: {} });
 
-    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 
   it('blocks banned users', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(false) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(false),
+    } as unknown as Reflector;
     const guard = new FirebaseAuthGuard(reflector);
     const request = { headers: { authorization: 'Bearer token' } };
     const context = createContext(request);
@@ -60,11 +68,15 @@ describe('FirebaseAuthGuard', () => {
       }),
     });
 
-    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(context)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
   it('attaches user on valid token', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(false) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(false),
+    } as unknown as Reflector;
     const guard = new FirebaseAuthGuard(reflector);
     const request: any = { headers: { authorization: 'Bearer token' } };
     const context = createContext(request);

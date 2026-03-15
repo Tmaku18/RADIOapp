@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { usersApi, creatorNetworkApi, paymentsApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
@@ -14,6 +15,14 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+
+type FollowListItem = {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  headline: string | null;
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
+};
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -41,6 +50,13 @@ export default function ProfilePage() {
   const [creatorNetworkLoading, setCreatorNetworkLoading] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [followCounts, setFollowCounts] = useState<{ followers: number; following: number }>({
+    followers: 0,
+    following: 0,
+  });
+  const [followers, setFollowers] = useState<FollowListItem[]>([]);
+  const [following, setFollowing] = useState<FollowListItem[]>([]);
+  const [followLoading, setFollowLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -81,6 +97,37 @@ export default function ProfilePage() {
       }
     }
   }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.role, isEditing]);
+
+  useEffect(() => {
+    const userId = profile?.id;
+    if (!userId) return;
+    let mounted = true;
+    const loadFollowData = async () => {
+      setFollowLoading(true);
+      try {
+        const [countsRes, followersRes, followingRes] = await Promise.all([
+          usersApi.getFollowCounts(userId),
+          usersApi.getFollowers(userId, { limit: 24, offset: 0 }),
+          usersApi.getFollowing(userId, { limit: 24, offset: 0 }),
+        ]);
+        if (!mounted) return;
+        setFollowCounts({
+          followers: countsRes.data?.followers ?? 0,
+          following: countsRes.data?.following ?? 0,
+        });
+        setFollowers((followersRes.data?.items ?? []) as FollowListItem[]);
+        setFollowing((followingRes.data?.items ?? []) as FollowListItem[]);
+      } catch (err) {
+        console.error('Failed to load follow lists', err);
+      } finally {
+        if (mounted) setFollowLoading(false);
+      }
+    };
+    void loadFollowData();
+    return () => {
+      mounted = false;
+    };
+  }, [profile?.id]);
 
   const handleSave = async () => {
     setError(null);
@@ -194,6 +241,8 @@ export default function ProfilePage() {
         : profile?.role === 'artist'
           ? 'Artist'
           : 'Listener';
+  const getPublicProfileHref = (userId: string, role: FollowListItem['role']) =>
+    role === 'service_provider' ? `/pro-networx/u/${userId}` : `/artist/${userId}`;
 
   return (
     <div className="max-w-2xl space-y-6">
@@ -429,6 +478,87 @@ export default function ProfilePage() {
             ) : (
               <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
             )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-foreground">Social</h3>
+              <p className="text-sm text-muted-foreground">
+                Your public follow graph (Instagram-style).
+              </p>
+            </div>
+            <div className="flex items-center gap-4 text-sm">
+              <span>
+                <span className="font-semibold text-foreground">{followCounts.followers}</span>{' '}
+                <span className="text-muted-foreground">Followers</span>
+              </span>
+              <span>
+                <span className="font-semibold text-foreground">{followCounts.following}</span>{' '}
+                <span className="text-muted-foreground">Following</span>
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="rounded-lg border border-border p-3">
+              <h4 className="text-sm font-medium mb-3">Followers</h4>
+              <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                {followLoading && followers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : followers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No followers yet.</p>
+                ) : (
+                  followers.map((u) => (
+                    <Link
+                      key={`follower-${u.id}`}
+                      href={getPublicProfileHref(u.id, u.role)}
+                      className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={u.avatarUrl ?? undefined} />
+                        <AvatarFallback>👤</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border p-3">
+              <h4 className="text-sm font-medium mb-3">Following</h4>
+              <div className="space-y-2 max-h-72 overflow-auto pr-1">
+                {followLoading && following.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Loading...</p>
+                ) : following.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">You are not following anyone yet.</p>
+                ) : (
+                  following.map((u) => (
+                    <Link
+                      key={`following-${u.id}`}
+                      href={getPublicProfileHref(u.id, u.role)}
+                      className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={u.avatarUrl ?? undefined} />
+                        <AvatarFallback>👤</AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
+                        <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
+                      </div>
+                    </Link>
+                  ))
+                )}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

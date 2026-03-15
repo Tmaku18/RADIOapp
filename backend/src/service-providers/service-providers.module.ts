@@ -9,4 +9,3 @@ import { UploadsModule } from '../uploads/uploads.module';
   providers: [ServiceProvidersService],
 })
 export class ServiceProvidersModule {}
-

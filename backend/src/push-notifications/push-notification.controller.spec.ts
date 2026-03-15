@@ -13,10 +13,15 @@ describe('PushNotificationController', () => {
       unregisterDeviceToken: jest.fn(),
       getUserDevices: jest.fn(),
     };
-    const controller = new PushNotificationController(pushNotificationService as any);
+    const controller = new PushNotificationController(
+      pushNotificationService as any,
+    );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'user-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.registerDevice(

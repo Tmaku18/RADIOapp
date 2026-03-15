@@ -31,15 +31,34 @@ export class SpotlightController {
   @Post('listen')
   async recordListen(
     @CurrentUser() user: FirebaseUser,
-    @Body() body: { songId: string; artistId: string; context: 'featured_replay' | 'artist_of_week' | 'artist_of_month' },
+    @Body()
+    body: {
+      songId: string;
+      artistId: string;
+      context: 'featured_replay' | 'artist_of_week' | 'artist_of_month';
+    },
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase.from('users').select('id').eq('firebase_uid', user.uid).single();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
     if (!userData) throw new Error('User not found');
-    if (!body?.songId || !body?.artistId || !body?.context) throw new Error('songId, artistId, and context required');
-    const allowed = await this.spotlightService.canListenUnlimited(body.artistId, body.songId);
-    if (!allowed.allowed) throw new Error('Unlimited listening not allowed for this song/artist');
-    await this.spotlightService.recordListen(userData.id, body.songId, body.artistId, body.context);
+    if (!body?.songId || !body?.artistId || !body?.context)
+      throw new Error('songId, artistId, and context required');
+    const allowed = await this.spotlightService.canListenUnlimited(
+      body.artistId,
+      body.songId,
+    );
+    if (!allowed.allowed)
+      throw new Error('Unlimited listening not allowed for this song/artist');
+    await this.spotlightService.recordListen(
+      userData.id,
+      body.songId,
+      body.artistId,
+      body.context,
+    );
     return { ok: true };
   }
 }

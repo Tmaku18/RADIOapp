@@ -18,7 +18,9 @@ const createContext = (request: any) =>
 
 describe('RolesGuard', () => {
   it('allows when no required roles', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(undefined) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(undefined),
+    } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
     const context = createContext({ headers: {} });
 
@@ -26,7 +28,9 @@ describe('RolesGuard', () => {
   });
 
   it('denies when request user missing', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['admin']) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(['admin']),
+    } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
     const context = createContext({ headers: {} });
 
@@ -34,7 +38,9 @@ describe('RolesGuard', () => {
   });
 
   it('allows when user role matches', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['admin']) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(['admin']),
+    } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 
@@ -50,7 +56,9 @@ describe('RolesGuard', () => {
   });
 
   it('allows service_provider when artist is required (Gem ← Catalyst hierarchy)', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['artist', 'admin']) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(['artist', 'admin']),
+    } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 
@@ -66,7 +74,9 @@ describe('RolesGuard', () => {
   });
 
   it('allows artist when listener is required (listener ← Gem hierarchy)', async () => {
-    const reflector = { getAllAndOverride: jest.fn().mockReturnValue(['listener', 'artist']) } as unknown as Reflector;
+    const reflector = {
+      getAllAndOverride: jest.fn().mockReturnValue(['listener', 'artist']),
+    } as unknown as Reflector;
     const guard = new RolesGuard(reflector);
     const context = createContext({ user: { uid: 'firebase-uid' } });
 

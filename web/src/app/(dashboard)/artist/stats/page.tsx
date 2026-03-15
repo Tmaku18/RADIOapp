@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { creditsApi, analyticsApi } from '@/lib/api';
+import { creditsApi, analyticsApi, discoverAudioApi, type DiscoverSwipeAnalytics } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface DailyPlayCount {
@@ -68,6 +68,7 @@ export default function StatsPage() {
   const [playDetail, setPlayDetail] = useState<PlayDetail | null>(null);
   const [roi, setRoi] = useState<RoiStats | null>(null);
   const [regions, setRegions] = useState<RegionCount[]>([]);
+  const [discoverSwipes, setDiscoverSwipes] = useState<DiscoverSwipeAnalytics | null>(null);
 
   useEffect(() => {
     loadStats();
@@ -85,16 +86,18 @@ export default function StatsPage() {
 
   const loadStats = async () => {
     try {
-      const [creditsRes, analyticsRes, roiRes, regionsRes] = await Promise.all([
+      const [creditsRes, analyticsRes, roiRes, regionsRes, discoverRes] = await Promise.all([
         creditsApi.getBalance(),
         analyticsApi.getMyAnalytics(30),
         analyticsApi.getMyRoi(30),
         analyticsApi.getMyPlaysByRegion(30),
+        discoverAudioApi.getMySwipeAnalytics(30),
       ]);
       setCredits(creditsRes.data);
       setAnalytics(analyticsRes.data as ArtistAnalytics);
       setRoi(roiRes.data as RoiStats);
       setRegions((regionsRes.data as RegionCount[]) ?? []);
+      setDiscoverSwipes(discoverRes.data as DiscoverSwipeAnalytics);
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
@@ -207,6 +210,67 @@ export default function StatsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Right Swipes</div>
+            <div className="text-3xl font-bold text-foreground mt-1">
+              {(discoverSwipes?.rightSwipes ?? 0).toLocaleString()}
+            </div>
+            <div className="text-sm text-primary mt-2">Last {discoverSwipes?.days ?? 30} days</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Left Swipes</div>
+            <div className="text-3xl font-bold text-foreground mt-1">
+              {(discoverSwipes?.leftSwipes ?? 0).toLocaleString()}
+            </div>
+            <div className="text-sm text-primary mt-2">Last {discoverSwipes?.days ?? 30} days</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Avg Time to Swipe</div>
+            <div className="text-3xl font-bold text-foreground mt-1">
+              {discoverSwipes?.avgDecisionMs == null
+                ? '—'
+                : `${(discoverSwipes.avgDecisionMs / 1000).toFixed(1)}s`}
+            </div>
+            <div className="text-sm text-primary mt-2">
+              {discoverSwipes?.totalSwipes ?? 0} total decisions
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-semibold text-foreground mb-4">Discover Swipe Breakdown</h2>
+          {discoverSwipes?.bySong?.length ? (
+            <div className="space-y-3">
+              {discoverSwipes.bySong.map((song) => (
+                <div key={song.songId} className="flex items-center justify-between gap-4 border-b border-border/60 pb-3">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{song.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Avg decision:{' '}
+                      {song.avgDecisionMs == null ? '—' : `${(song.avgDecisionMs / 1000).toFixed(1)}s`}
+                    </p>
+                  </div>
+                  <div className="text-sm text-muted-foreground shrink-0">
+                    <span className="mr-3">➡️ {song.rightSwipes}</span>
+                    <span>⬅️ {song.leftSwipes}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground">No discover swipe data yet.</p>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="pt-6">

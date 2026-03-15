@@ -33,6 +33,14 @@ export interface UserResponse {
   websiteUrl?: string | null;
 }
 
+export interface FollowListItem {
+  id: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  headline: string | null;
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
+}
+
 function transformUser(data: any): UserResponse {
   return {
     id: data.id,
@@ -67,7 +75,10 @@ export class UsersService {
   private getAdminEmails(): string[] {
     const raw = this.configService.get<string>('ADMIN_EMAILS');
     if (!raw?.trim()) return [];
-    return raw.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    return raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
   }
 
   /** Returns true if the given email is in the admin allowlist (for first-time login detection). */
@@ -78,7 +89,7 @@ export class UsersService {
 
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {
     const supabase = getSupabaseClient();
-    
+
     // Check if user already exists
     const { data: existingUser } = await supabase
       .from('users')
@@ -94,9 +105,7 @@ export class UsersService {
     const emailLower = createUserDto.email.trim().toLowerCase();
     const adminEmails = this.getAdminEmails();
     // Default all non-admin users to listener. They can switch roles later in profile settings.
-    const role = adminEmails.includes(emailLower)
-      ? 'admin'
-      : 'listener';
+    const role = adminEmails.includes(emailLower) ? 'admin' : 'listener';
     const displayName = createUserDto.displayName?.trim() || null;
     const { data, error } = await supabase
       .from('users')
@@ -146,7 +155,7 @@ export class UsersService {
 
   async getUserByFirebaseUid(firebaseUid: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -175,7 +184,7 @@ export class UsersService {
 
   async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
-    
+
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -189,9 +198,12 @@ export class UsersService {
     return transformUser(data);
   }
 
-  async updateUser(firebaseUid: string, updateUserDto: UpdateUserDto): Promise<UserResponse> {
+  async updateUser(
+    firebaseUid: string,
+    updateUserDto: UpdateUserDto,
+  ): Promise<UserResponse> {
     const supabase = getSupabaseClient();
-    
+
     const { data: user } = await supabase
       .from('users')
       .select('id, role')
@@ -205,22 +217,36 @@ export class UsersService {
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-    if (updateUserDto.displayName !== undefined) updatePayload.display_name = updateUserDto.displayName;
-    if (updateUserDto.avatarUrl !== undefined) updatePayload.avatar_url = updateUserDto.avatarUrl;
-    if (updateUserDto.region !== undefined) updatePayload.region = updateUserDto.region;
-    if (updateUserDto.suggestLocalArtists !== undefined) updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
+    if (updateUserDto.displayName !== undefined)
+      updatePayload.display_name = updateUserDto.displayName;
+    if (updateUserDto.avatarUrl !== undefined)
+      updatePayload.avatar_url = updateUserDto.avatarUrl;
+    if (updateUserDto.region !== undefined)
+      updatePayload.region = updateUserDto.region;
+    if (updateUserDto.suggestLocalArtists !== undefined)
+      updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
     if (updateUserDto.bio !== undefined) updatePayload.bio = updateUserDto.bio;
-    if (updateUserDto.headline !== undefined) updatePayload.headline = updateUserDto.headline;
-    if (updateUserDto.locationRegion !== undefined) updatePayload.location_region = updateUserDto.locationRegion;
-    if (updateUserDto.discoverable !== undefined) updatePayload.discoverable = updateUserDto.discoverable;
-    if (updateUserDto.instagramUrl !== undefined) updatePayload.instagram_url = updateUserDto.instagramUrl || null;
-    if (updateUserDto.twitterUrl !== undefined) updatePayload.twitter_url = updateUserDto.twitterUrl || null;
-    if (updateUserDto.youtubeUrl !== undefined) updatePayload.youtube_url = updateUserDto.youtubeUrl || null;
-    if (updateUserDto.tiktokUrl !== undefined) updatePayload.tiktok_url = updateUserDto.tiktokUrl || null;
-    if (updateUserDto.websiteUrl !== undefined) updatePayload.website_url = updateUserDto.websiteUrl || null;
+    if (updateUserDto.headline !== undefined)
+      updatePayload.headline = updateUserDto.headline;
+    if (updateUserDto.locationRegion !== undefined)
+      updatePayload.location_region = updateUserDto.locationRegion;
+    if (updateUserDto.discoverable !== undefined)
+      updatePayload.discoverable = updateUserDto.discoverable;
+    if (updateUserDto.instagramUrl !== undefined)
+      updatePayload.instagram_url = updateUserDto.instagramUrl || null;
+    if (updateUserDto.twitterUrl !== undefined)
+      updatePayload.twitter_url = updateUserDto.twitterUrl || null;
+    if (updateUserDto.youtubeUrl !== undefined)
+      updatePayload.youtube_url = updateUserDto.youtubeUrl || null;
+    if (updateUserDto.tiktokUrl !== undefined)
+      updatePayload.tiktok_url = updateUserDto.tiktokUrl || null;
+    if (updateUserDto.websiteUrl !== undefined)
+      updatePayload.website_url = updateUserDto.websiteUrl || null;
     if (updateUserDto.role !== undefined) {
       if (user.role === 'admin') {
-        throw new BadRequestException('Admin users cannot change account type here.');
+        throw new BadRequestException(
+          'Admin users cannot change account type here.',
+        );
       }
       if (
         updateUserDto.role !== 'listener' &&
@@ -241,7 +267,10 @@ export class UsersService {
           .from('credits')
           .insert({ artist_id: user.id, balance: 0 });
         if (creditsError && creditsError.code !== '23505') {
-          console.error('Failed to create credits for new artist:', creditsError);
+          console.error(
+            'Failed to create credits for new artist:',
+            creditsError,
+          );
         }
       }
       if (
@@ -278,7 +307,10 @@ export class UsersService {
    * Upload a profile picture and set it as the user's avatar.
    * Accepts JPEG, PNG, WebP up to 2MB.
    */
-  async updateAvatar(firebaseUid: string, file: Express.Multer.File): Promise<UserResponse> {
+  async updateAvatar(
+    firebaseUid: string,
+    file: Express.Multer.File,
+  ): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     const { data: user, error: fetchError } = await supabase
       .from('users')
@@ -290,7 +322,10 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    const avatarUrl = await this.uploadsService.uploadProfileImage(file, user.id);
+    const avatarUrl = await this.uploadsService.uploadProfileImage(
+      file,
+      user.id,
+    );
 
     const { data: updated, error: updateError } = await supabase
       .from('users')
@@ -300,7 +335,9 @@ export class UsersService {
       .single();
 
     if (updateError) {
-      throw new BadRequestException(`Failed to update avatar: ${updateError.message}`);
+      throw new BadRequestException(
+        `Failed to update avatar: ${updateError.message}`,
+      );
     }
 
     return transformUser(updated);
@@ -308,7 +345,7 @@ export class UsersService {
 
   async upgradeToArtist(firebaseUid: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
-    
+
     // Get current user
     const { data: user, error: fetchError } = await supabase
       .from('users')
@@ -378,7 +415,9 @@ export class UsersService {
       throw new BadRequestException('You are already a Catalyst');
     }
     if (user.role === 'admin') {
-      throw new BadRequestException('Admin users cannot be upgraded to Catalyst');
+      throw new BadRequestException(
+        'Admin users cannot be upgraded to Catalyst',
+      );
     }
 
     const { data, error: updateError } = await supabase
@@ -392,7 +431,9 @@ export class UsersService {
       .single();
 
     if (updateError) {
-      throw new BadRequestException(`Failed to upgrade: ${updateError.message}`);
+      throw new BadRequestException(
+        `Failed to upgrade: ${updateError.message}`,
+      );
     }
 
     const { error: creditsError } = await supabase.from('credits').insert({
@@ -502,7 +543,7 @@ export class UsersService {
       0,
     );
 
-    const userRow = user as any;
+    const userRow = user;
 
     return {
       artist: {
@@ -531,7 +572,10 @@ export class UsersService {
     };
   }
 
-  async followUser(firebaseUid: string, followedUserId: string): Promise<{ followed: true }> {
+  async followUser(
+    firebaseUid: string,
+    followedUserId: string,
+  ): Promise<{ followed: true }> {
     const supabase = getSupabaseClient();
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
     if (followerUserId === followedUserId) {
@@ -547,34 +591,34 @@ export class UsersService {
       throw new NotFoundException('Target user not found');
     }
 
-    const { error } = await supabase
-      .from('user_follows')
-      .upsert(
-        {
-          follower_user_id: followerUserId,
-          followed_user_id: followedUserId,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: 'follower_user_id,followed_user_id' },
-      );
-    if (error) throw new BadRequestException(`Failed to follow user: ${error.message}`);
+    const { error } = await supabase.from('user_follows').upsert(
+      {
+        follower_user_id: followerUserId,
+        followed_user_id: followedUserId,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'follower_user_id,followed_user_id' },
+    );
+    if (error)
+      throw new BadRequestException(`Failed to follow user: ${error.message}`);
 
     // Backward compatibility for existing artist follow endpoints/features.
-    await supabase
-      .from('artist_follows')
-      .upsert(
-        {
-          user_id: followerUserId,
-          artist_id: followedUserId,
-          created_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,artist_id' },
-      );
+    await supabase.from('artist_follows').upsert(
+      {
+        user_id: followerUserId,
+        artist_id: followedUserId,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,artist_id' },
+    );
 
     return { followed: true };
   }
 
-  async unfollowUser(firebaseUid: string, followedUserId: string): Promise<{ unfollowed: true }> {
+  async unfollowUser(
+    firebaseUid: string,
+    followedUserId: string,
+  ): Promise<{ unfollowed: true }> {
     const supabase = getSupabaseClient();
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
 
@@ -583,7 +627,10 @@ export class UsersService {
       .delete()
       .eq('follower_user_id', followerUserId)
       .eq('followed_user_id', followedUserId);
-    if (error) throw new BadRequestException(`Failed to unfollow user: ${error.message}`);
+    if (error)
+      throw new BadRequestException(
+        `Failed to unfollow user: ${error.message}`,
+      );
 
     // Backward compatibility cleanup.
     await supabase
@@ -595,13 +642,21 @@ export class UsersService {
     return { unfollowed: true };
   }
 
-  async isFollowingUser(firebaseUid: string, followedUserId: string): Promise<{ following: boolean }> {
+  async isFollowingUser(
+    firebaseUid: string,
+    followedUserId: string,
+  ): Promise<{ following: boolean }> {
     const followerUserId = await this.getDbUserIdByFirebaseUid(firebaseUid);
-    const following = await this.isFollowingByIds(followerUserId, followedUserId);
+    const following = await this.isFollowingByIds(
+      followerUserId,
+      followedUserId,
+    );
     return { following };
   }
 
-  async getFollowCounts(userId: string): Promise<{ followers: number; following: number }> {
+  async getFollowCounts(
+    userId: string,
+  ): Promise<{ followers: number; following: number }> {
     const supabase = getSupabaseClient();
     const [{ count: followers }, { count: following }] = await Promise.all([
       supabase
@@ -619,6 +674,124 @@ export class UsersService {
     };
   }
 
+  async getFollowers(
+    userId: string,
+    limit = 100,
+    offset = 0,
+  ): Promise<{ items: FollowListItem[]; total: number }> {
+    const supabase = getSupabaseClient();
+    const pageSize = Math.min(Math.max(limit, 1), 200);
+    const pageOffset = Math.max(offset, 0);
+
+    const {
+      data: rows,
+      error,
+      count,
+    } = await supabase
+      .from('user_follows')
+      .select('follower_user_id', { count: 'exact' })
+      .eq('followed_user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(pageOffset, pageOffset + pageSize - 1);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load followers: ${error.message}`,
+      );
+    }
+
+    const ids = (rows || [])
+      .map((r: any) => r.follower_user_id as string)
+      .filter(Boolean);
+    if (!ids.length) {
+      return { items: [], total: count ?? 0 };
+    }
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, headline, role')
+      .in('id', ids);
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to load follower profiles: ${usersError.message}`,
+      );
+    }
+
+    const usersById = new Map(
+      (users || []).map((u: any) => [u.id as string, u]),
+    );
+    const items: FollowListItem[] = ids
+      .map((id) => usersById.get(id))
+      .filter(Boolean)
+      .map((u: any) => ({
+        id: u.id,
+        displayName: u.display_name ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        headline: u.headline ?? null,
+        role: (u.role as FollowListItem['role']) ?? null,
+      }));
+
+    return { items, total: count ?? items.length };
+  }
+
+  async getFollowing(
+    userId: string,
+    limit = 100,
+    offset = 0,
+  ): Promise<{ items: FollowListItem[]; total: number }> {
+    const supabase = getSupabaseClient();
+    const pageSize = Math.min(Math.max(limit, 1), 200);
+    const pageOffset = Math.max(offset, 0);
+
+    const {
+      data: rows,
+      error,
+      count,
+    } = await supabase
+      .from('user_follows')
+      .select('followed_user_id', { count: 'exact' })
+      .eq('follower_user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(pageOffset, pageOffset + pageSize - 1);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load following list: ${error.message}`,
+      );
+    }
+
+    const ids = (rows || [])
+      .map((r: any) => r.followed_user_id as string)
+      .filter(Boolean);
+    if (!ids.length) {
+      return { items: [], total: count ?? 0 };
+    }
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, headline, role')
+      .in('id', ids);
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to load following profiles: ${usersError.message}`,
+      );
+    }
+
+    const usersById = new Map(
+      (users || []).map((u: any) => [u.id as string, u]),
+    );
+    const items: FollowListItem[] = ids
+      .map((id) => usersById.get(id))
+      .filter(Boolean)
+      .map((u: any) => ({
+        id: u.id,
+        displayName: u.display_name ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        headline: u.headline ?? null,
+        role: (u.role as FollowListItem['role']) ?? null,
+      }));
+
+    return { items, total: count ?? items.length };
+  }
+
   async getFollowedUserIds(followerUserId: string): Promise<Set<string>> {
     const supabase = getSupabaseClient();
     const { data } = await supabase
@@ -628,7 +801,10 @@ export class UsersService {
     return new Set((data || []).map((r: any) => r.followed_user_id as string));
   }
 
-  async isFollowingByIds(followerUserId: string, followedUserId: string): Promise<boolean> {
+  async isFollowingByIds(
+    followerUserId: string,
+    followedUserId: string,
+  ): Promise<boolean> {
     if (!followerUserId || !followedUserId) return false;
     if (followerUserId === followedUserId) return false;
     const supabase = getSupabaseClient();
@@ -641,7 +817,10 @@ export class UsersService {
     return Boolean(data);
   }
 
-  async canSendDirectMessage(senderUserId: string, recipientUserId: string): Promise<boolean> {
+  async canSendDirectMessage(
+    senderUserId: string,
+    recipientUserId: string,
+  ): Promise<boolean> {
     return this.isFollowingByIds(senderUserId, recipientUserId);
   }
 }

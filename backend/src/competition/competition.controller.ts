@@ -14,16 +14,24 @@ export class CompetitionController {
   }
 
   @Post('vote')
-  async vote(@CurrentUser() user: FirebaseUser, @Body() body: { songIds: string[] }) {
+  async vote(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { songIds: string[] },
+  ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase.from('users').select('id').eq('firebase_uid', user.uid).single();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
     if (!userData) throw new Error('User not found');
     return this.competitionService.submitVote(userData.id, body?.songIds ?? []);
   }
 
   @Get('weekly-results')
   async getWeeklyResults(@Query('period') period?: string) {
-    const periodStart = period || this.competitionService.getCurrentWeek().periodStart;
+    const periodStart =
+      period || this.competitionService.getCurrentWeek().periodStart;
     return this.competitionService.getWeeklyResults(periodStart);
   }
 

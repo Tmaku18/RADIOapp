@@ -134,7 +134,9 @@ export class FirebaseAuthGuard implements CanActivate {
     const authHeader = request.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Missing or invalid authorization header');
+      throw new UnauthorizedException(
+        'Missing or invalid authorization header',
+      );
     }
 
     const token = authHeader.substring(7);
@@ -142,7 +144,7 @@ export class FirebaseAuthGuard implements CanActivate {
     try {
       const auth = getFirebaseAuth();
       const decodedToken = await auth.verifyIdToken(token);
-      
+
       // Check if user is banned in database
       const supabase = getSupabaseClient();
       const { data: user } = await supabase
@@ -158,9 +160,9 @@ export class FirebaseAuthGuard implements CanActivate {
       if (user?.is_banned) {
         this.logger.warn(`Banned user attempted access: ${decodedToken.uid}`);
         throw new ForbiddenException(
-          user.ban_reason 
-            ? `Account suspended: ${user.ban_reason}` 
-            : 'Your account has been suspended'
+          user.ban_reason
+            ? `Account suspended: ${user.ban_reason}`
+            : 'Your account has been suspended',
         );
       }
 

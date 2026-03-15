@@ -1,4 +1,12 @@
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { STATION_IDS } from '../../radio/station.constants';
 
 export class UpdateSongDto {
@@ -19,4 +27,26 @@ export class UpdateSongDto {
   @IsBoolean()
   @IsOptional()
   optInFreePlay?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  discoverEnabled?: boolean;
+
+  @IsString()
+  @IsOptional()
+  discoverClipUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  discoverBackgroundUrl?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  discoverClipStartSeconds?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  discoverClipEndSeconds?: number;
 }

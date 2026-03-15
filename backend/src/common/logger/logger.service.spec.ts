@@ -49,7 +49,9 @@ describe('LoggerService', () => {
     const configService = { get: jest.fn().mockReturnValue('development') };
     const service = new LoggerService(configService as any);
 
-    service.logWithRequestId('info', 'message', 'req-1', 'Test', { userId: 'u1' });
+    service.logWithRequestId('info', 'message', 'req-1', 'Test', {
+      userId: 'u1',
+    });
 
     expect(mockLogger.info).toHaveBeenCalledWith(
       expect.objectContaining({

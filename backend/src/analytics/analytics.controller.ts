@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AnalyticsService } from './analytics.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -85,7 +93,35 @@ export class AnalyticsController {
     }
 
     const daysNum = days ? parseInt(days, 10) : 30;
-    return this.analyticsService.getPlaysByRegionForArtist(userData.id, daysNum);
+    return this.analyticsService.getPlaysByRegionForArtist(
+      userData.id,
+      daysNum,
+    );
+  }
+
+  @Get('me/discover-swipes')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async getMyDiscoverSwipeAnalytics(
+    @CurrentUser() user: FirebaseUser,
+    @Query('days') days?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    const daysNum = days ? parseInt(days, 10) : 30;
+    return this.analyticsService.getDiscoverSwipeAnalyticsForArtist(
+      userData.id,
+      daysNum,
+    );
   }
 
   /**
@@ -101,7 +137,7 @@ export class AnalyticsController {
     @Query('days') days?: string,
   ) {
     const supabase = getSupabaseClient();
-    
+
     // Check ownership (unless admin)
     const { data: userData } = await supabase
       .from('users')
@@ -180,7 +216,10 @@ export class AnalyticsController {
     if (!isAdmin && songRow.artist_id !== userData.id) {
       throw new Error('Access denied');
     }
-    const result = await this.analyticsService.getPlayById(playId, songRow.artist_id);
+    const result = await this.analyticsService.getPlayById(
+      playId,
+      songRow.artist_id,
+    );
     if (!result) {
       throw new Error('Play not found');
     }

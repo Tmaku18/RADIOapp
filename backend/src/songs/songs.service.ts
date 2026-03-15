@@ -1,10 +1,82 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
 
+export interface DiscoverSongCard {
+  songId: string;
+  artistId: string;
+  artistName: string;
+  artistDisplayName: string | null;
+  artistAvatarUrl: string | null;
+  artistHeadline: string | null;
+  title: string;
+  clipUrl: string;
+  backgroundUrl: string | null;
+  clipDurationSeconds: number;
+  likeCount: number;
+  likedByMe: boolean;
+}
+
+export interface DiscoverFeedResponse {
+  items: DiscoverSongCard[];
+  nextCursor: string | null;
+}
+
+export interface DiscoverLikedListItem extends DiscoverSongCard {
+  likedAt: string;
+}
+
 @Injectable()
 export class SongsService {
-  private async maybeEmitRisingStarForCurrentPlay(songId: string): Promise<void> {
+  private getDiscoverClipDuration(
+    start?: number | null,
+    end?: number | null,
+  ): number {
+    if (
+      start != null &&
+      end != null &&
+      Number.isFinite(start) &&
+      Number.isFinite(end) &&
+      end > start
+    ) {
+      const computed = Math.round((end - start) * 100) / 100;
+      return Math.min(15, Math.max(1, computed));
+    }
+    return 15;
+  }
+
+  private toDiscoverCard(
+    song: any,
+    artist: any,
+    likeCountBySongId: Map<string, number>,
+    likedSongIds: Set<string>,
+  ): DiscoverSongCard {
+    return {
+      songId: song.id,
+      artistId: song.artist_id,
+      artistName: song.artist_name,
+      artistDisplayName: artist?.display_name ?? null,
+      artistAvatarUrl: artist?.avatar_url ?? null,
+      artistHeadline: artist?.headline ?? null,
+      title: song.title,
+      clipUrl: song.discover_clip_url,
+      backgroundUrl: song.discover_background_url ?? song.artwork_url ?? null,
+      clipDurationSeconds: this.getDiscoverClipDuration(
+        song.discover_clip_start_seconds,
+        song.discover_clip_end_seconds,
+      ),
+      likeCount: likeCountBySongId.get(song.id) ?? 0,
+      likedByMe: likedSongIds.has(song.id),
+    };
+  }
+
+  private async maybeEmitRisingStarForCurrentPlay(
+    songId: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
 
     try {
@@ -36,7 +108,9 @@ export class SongsService {
         .order('played_at', { ascending: false })
         .limit(1);
 
-      const play = (playRows ?? [])[0] as { id: string; listener_count: number | null; played_at: string } | undefined;
+      const play = (playRows ?? [])[0] as
+        | { id: string; listener_count: number | null; played_at: string }
+        | undefined;
       if (!play?.id) return;
       const listenersAtStart = play.listener_count ?? 0;
       if (listenersAtStart <= 0) return;
@@ -114,6 +188,16 @@ export class SongsService {
         artwork_url: createSongDto.artworkUrl,
         duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
         station_id: createSongDto.stationId,
+        discover_enabled: !!createSongDto.discoverClipUrl,
+        discover_clip_url: createSongDto.discoverClipUrl ?? null,
+        discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
+        discover_clip_start_seconds:
+          createSongDto.discoverClipStartSeconds ?? null,
+        discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
+        discover_clip_duration_seconds: this.getDiscoverClipDuration(
+          createSongDto.discoverClipStartSeconds,
+          createSongDto.discoverClipEndSeconds,
+        ),
         status: 'pending',
       })
       .select()
@@ -166,7 +250,10 @@ export class SongsService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 20) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 20) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -176,6 +263,249 @@ export class SongsService {
     }
 
     return data;
+  }
+
+  async getDiscoverFeed(
+    userId: string,
+    limitInput = 12,
+    cursor?: string,
+  ): Promise<DiscoverFeedResponse> {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(1, limitInput), 30);
+    const offset = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
+    const fetchCount = limit + 30;
+
+    const { data: swipes } = await supabase
+      .from('discover_swipes')
+      .select('song_id')
+      .eq('user_id', userId);
+    const swipedSongIds = new Set<string>(
+      (swipes || []).map((r) => r.song_id as string),
+    );
+
+    const { data: rows, error } = await supabase
+      .from('songs')
+      .select(
+        'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status, created_at',
+      )
+      .eq('status', 'approved')
+      .eq('discover_enabled', true)
+      .not('discover_clip_url', 'is', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + fetchCount - 1);
+
+    if (error) {
+      throw new Error(`Failed to load discover feed: ${error.message}`);
+    }
+
+    const filtered = (rows || []).filter(
+      (row: any) => !swipedSongIds.has(row.id) && row.artist_id !== userId,
+    );
+    const pageRows = filtered.slice(0, limit);
+
+    const songIds = pageRows.map((r: any) => r.id);
+    const artistIds = [...new Set(pageRows.map((r: any) => r.artist_id))];
+
+    const [artistsRes, likesRes, myLikesRes] = await Promise.all([
+      artistIds.length > 0
+        ? supabase
+            .from('users')
+            .select('id, display_name, avatar_url, headline')
+            .in('id', artistIds)
+        : Promise.resolve({ data: [] as any[] }),
+      songIds.length > 0
+        ? supabase
+            .from('discover_song_likes')
+            .select('song_id')
+            .in('song_id', songIds)
+        : Promise.resolve({ data: [] as any[] }),
+      songIds.length > 0
+        ? supabase
+            .from('discover_song_likes')
+            .select('song_id')
+            .eq('user_id', userId)
+            .in('song_id', songIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const artistById = new Map(
+      (artistsRes.data || []).map((u: any) => [u.id, u]),
+    );
+    const likeCountBySongId = new Map<string, number>();
+    for (const row of likesRes.data || []) {
+      const songId = row.song_id as string;
+      likeCountBySongId.set(songId, (likeCountBySongId.get(songId) ?? 0) + 1);
+    }
+    const likedSongIds = new Set<string>(
+      (myLikesRes.data || []).map((row: any) => row.song_id as string),
+    );
+
+    const items = pageRows.map((song: any) =>
+      this.toDiscoverCard(
+        song,
+        artistById.get(song.artist_id),
+        likeCountBySongId,
+        likedSongIds,
+      ),
+    );
+
+    const nextCursor =
+      (rows || []).length >= fetchCount ? String(offset + fetchCount) : null;
+    return { items, nextCursor };
+  }
+
+  async swipeDiscoverSong(
+    userId: string,
+    params: {
+      songId: string;
+      direction: 'left_skip' | 'right_like';
+      decisionMs?: number;
+    },
+  ): Promise<{ direction: 'left_skip' | 'right_like'; liked: boolean }> {
+    const supabase = getSupabaseClient();
+    const { data: song, error: songError } = await supabase
+      .from('songs')
+      .select('id, artist_id, status, discover_enabled, discover_clip_url')
+      .eq('id', params.songId)
+      .single();
+    if (songError || !song) throw new NotFoundException('Song not found');
+    if (
+      (song as any).status !== 'approved' ||
+      !(song as any).discover_enabled ||
+      !(song as any).discover_clip_url
+    ) {
+      throw new ForbiddenException('Song is not available for Discover');
+    }
+
+    const decisionMs =
+      params.decisionMs != null && Number.isFinite(params.decisionMs)
+        ? Math.max(0, Math.min(params.decisionMs, 5 * 60 * 1000))
+        : null;
+
+    const { error: swipeError } = await supabase.from('discover_swipes').upsert(
+      {
+        user_id: userId,
+        song_id: params.songId,
+        artist_id: (song as any).artist_id,
+        direction: params.direction,
+        decision_ms: decisionMs,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,song_id' },
+    );
+    if (swipeError) {
+      throw new Error(`Failed to record swipe: ${swipeError.message}`);
+    }
+
+    if (params.direction === 'right_like') {
+      const { error: likeError } = await supabase
+        .from('discover_song_likes')
+        .upsert(
+          {
+            user_id: userId,
+            song_id: params.songId,
+            artist_id: (song as any).artist_id,
+          },
+          { onConflict: 'user_id,song_id' },
+        );
+      if (likeError)
+        throw new Error(`Failed to save discover like: ${likeError.message}`);
+      return { direction: params.direction, liked: true };
+    }
+
+    const { error: unlikeError } = await supabase
+      .from('discover_song_likes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('song_id', params.songId);
+    if (unlikeError)
+      throw new Error(`Failed to remove discover like: ${unlikeError.message}`);
+    return { direction: params.direction, liked: false };
+  }
+
+  async getDiscoverLikedList(
+    userId: string,
+    limitInput = 50,
+    offsetInput = 0,
+  ): Promise<{ items: DiscoverLikedListItem[]; total: number }> {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(1, limitInput), 100);
+    const offset = Math.max(0, offsetInput);
+
+    const {
+      data: likes,
+      count,
+      error: likesError,
+    } = await supabase
+      .from('discover_song_likes')
+      .select('song_id, created_at', { count: 'exact' })
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (likesError)
+      throw new Error(`Failed to load discover likes: ${likesError.message}`);
+    if (!likes?.length) return { items: [], total: count ?? 0 };
+
+    const songIds = likes.map((l) => l.song_id as string);
+    const likedAtBySongId = new Map(
+      likes.map((l) => [l.song_id as string, l.created_at as string]),
+    );
+
+    const { data: songs, error: songsError } = await supabase
+      .from('songs')
+      .select(
+        'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status',
+      )
+      .in('id', songIds)
+      .eq('status', 'approved')
+      .eq('discover_enabled', true)
+      .not('discover_clip_url', 'is', null);
+    if (songsError)
+      throw new Error(`Failed to load discover songs: ${songsError.message}`);
+
+    const artistIds = [
+      ...new Set((songs || []).map((s: any) => s.artist_id as string)),
+    ];
+    const [artistsRes, likeCountsRes] = await Promise.all([
+      artistIds.length > 0
+        ? supabase
+            .from('users')
+            .select('id, display_name, avatar_url, headline')
+            .in('id', artistIds)
+        : Promise.resolve({ data: [] as any[] }),
+      songIds.length > 0
+        ? supabase
+            .from('discover_song_likes')
+            .select('song_id')
+            .in('song_id', songIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
+    const artistById = new Map(
+      (artistsRes.data || []).map((u: any) => [u.id, u]),
+    );
+    const likeCountBySongId = new Map<string, number>();
+    for (const row of likeCountsRes.data || []) {
+      const id = row.song_id as string;
+      likeCountBySongId.set(id, (likeCountBySongId.get(id) ?? 0) + 1);
+    }
+    const likedSongIds = new Set(songIds);
+    const songById = new Map((songs || []).map((s: any) => [s.id, s]));
+
+    const ordered = songIds
+      .map((songId) => songById.get(songId))
+      .filter(Boolean)
+      .map((song: any) => ({
+        ...this.toDiscoverCard(
+          song,
+          artistById.get(song.artist_id),
+          likeCountBySongId,
+          likedSongIds,
+        ),
+        likedAt: likedAtBySongId.get(song.id) ?? new Date().toISOString(),
+      }));
+
+    return { items: ordered, total: count ?? ordered.length };
   }
 
   async likeSong(userId: string, songId: string) {
@@ -195,12 +525,10 @@ export class SongsService {
     }
 
     // Like
-    await supabase
-      .from('likes')
-      .insert({
-        user_id: userId,
-        song_id: songId,
-      });
+    await supabase.from('likes').insert({
+      user_id: userId,
+      song_id: songId,
+    });
     return { liked: true };
   }
 
@@ -243,24 +571,22 @@ export class SongsService {
 
     if (existingLike) {
       // Unlike
-      await supabase
-        .from('likes')
-        .delete()
-        .eq('id', existingLike.id);
+      await supabase.from('likes').delete().eq('id', existingLike.id);
       return { liked: false };
     } else {
       // Like
-      await supabase
-        .from('likes')
-        .insert({
-          user_id: userId,
-          song_id: songId,
-        });
+      await supabase.from('likes').insert({
+        user_id: userId,
+        song_id: songId,
+      });
       return { liked: true };
     }
   }
 
-  async recordProfileListen(songId: string, userId: string | null): Promise<{ recorded: true }> {
+  async recordProfileListen(
+    songId: string,
+    userId: string | null,
+  ): Promise<{ recorded: true }> {
     const supabase = getSupabaseClient();
 
     const { data: song, error: songErr } = await supabase

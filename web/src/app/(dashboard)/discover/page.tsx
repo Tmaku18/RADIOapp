@@ -386,6 +386,7 @@ export default function DiscoverPage() {
               reshuffle={() => setRandomSeed(String(Date.now()))}
               followBusy={followBusy}
               toggleFollow={toggleFollow}
+              currentUserId={profile?.id ?? null}
             />
           </TabsContent>
           <TabsContent value="service_provider" className="mt-0 pt-6">
@@ -420,6 +421,7 @@ export default function DiscoverPage() {
               reshuffle={() => setRandomSeed(String(Date.now()))}
               followBusy={followBusy}
               toggleFollow={toggleFollow}
+              currentUserId={profile?.id ?? null}
             />
           </TabsContent>
         </Tabs>
@@ -458,6 +460,7 @@ function PeopleTabContent({
   reshuffle,
   followBusy,
   toggleFollow,
+  currentUserId,
 }: {
   search: string;
   setSearch: (s: string) => void;
@@ -489,6 +492,7 @@ function PeopleTabContent({
   reshuffle: () => void;
   followBusy: Record<string, boolean>;
   toggleFollow: (targetUserId: string, currentlyFollowing: boolean) => Promise<void>;
+  currentUserId: string | null;
 }) {
   const getProfileHref = (profile: DiscoveryProfile): string =>
     profile.role === 'service_provider'
@@ -635,18 +639,24 @@ function PeopleTabContent({
                       <Button variant="outline" size="sm" asChild>
                         <Link href={getProfileHref(profile)}>View profile</Link>
                       </Button>
-                      <Button
-                        size="sm"
-                        variant={profile.isFollowing ? 'outline' : 'secondary'}
-                        disabled={!!followBusy[profile.userId]}
-                        onClick={() => toggleFollow(profile.userId, !!profile.isFollowing)}
-                      >
-                        {followBusy[profile.userId]
-                          ? '...'
-                          : profile.isFollowing
-                            ? 'Following'
-                            : 'Follow'}
-                      </Button>
+                      {currentUserId !== profile.userId ? (
+                        <Button
+                          size="sm"
+                          variant={profile.isFollowing ? 'outline' : 'secondary'}
+                          disabled={!!followBusy[profile.userId]}
+                          onClick={() => toggleFollow(profile.userId, !!profile.isFollowing)}
+                        >
+                          {followBusy[profile.userId]
+                            ? '...'
+                            : profile.isFollowing
+                              ? 'Following'
+                              : 'Follow'}
+                        </Button>
+                      ) : (
+                        <Button size="sm" variant="outline" disabled>
+                          You
+                        </Button>
+                      )}
                       <Button size="sm" asChild>
                         <Link href={`/messages?with=${profile.userId}`}>Message</Link>
                       </Button>

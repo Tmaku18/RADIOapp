@@ -6,6 +6,7 @@ import {
   Put,
   Body,
   Param,
+  Query,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -113,10 +114,7 @@ export class UsersController {
   }
 
   @Post(':id/follow')
-  async followUser(
-    @CurrentUser() user: FirebaseUser,
-    @Param('id') id: string,
-  ) {
+  async followUser(@CurrentUser() user: FirebaseUser, @Param('id') id: string) {
     return this.usersService.followUser(user.uid, id);
   }
 
@@ -140,5 +138,37 @@ export class UsersController {
   @Get(':id/follow-counts')
   async getFollowCounts(@Param('id') id: string) {
     return this.usersService.getFollowCounts(id);
+  }
+
+  @Public()
+  @Get(':id/followers')
+  async getFollowers(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFollowers(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
+  }
+
+  @Public()
+  @Get(':id/following')
+  async getFollowing(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFollowing(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
   }
 }

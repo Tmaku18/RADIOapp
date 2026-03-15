@@ -1,4 +1,11 @@
-import { IsIn, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class CreateServiceListingDto {
@@ -31,4 +38,3 @@ export class CreateServiceListingDto {
   @IsIn(['active', 'paused'])
   status?: 'active' | 'paused';
 }
-

@@ -17,10 +17,7 @@ import {
   PlaylistState,
   DEFAULT_RADIO_ID,
 } from './radio-state.service';
-import {
-  RAP_STATION_ID,
-  normalizeSongStationId,
-} from './station.constants';
+import { RAP_STATION_ID, normalizeSongStationId } from './station.constants';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -122,7 +119,9 @@ function isTrialByFireActiveAt(now: Date): {
   };
 }
 
-function hasPreferredWebAudioExtension(audioUrl: string | null | undefined): boolean {
+function hasPreferredWebAudioExtension(
+  audioUrl: string | null | undefined,
+): boolean {
   if (!audioUrl) return false;
   const raw = String(audioUrl).trim().toLowerCase();
   if (!raw) return false;
@@ -204,7 +203,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit() {
     if (!Number.isFinite(this.backgroundPollMs) || this.backgroundPollMs <= 0) {
-      this.logger.warn('Background radio rotation disabled (RADIO_BACKGROUND_POLL_MS <= 0)');
+      this.logger.warn(
+        'Background radio rotation disabled (RADIO_BACKGROUND_POLL_MS <= 0)',
+      );
       return;
     }
 
@@ -308,7 +309,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * Ensure audio URL is playable for clients. If it is a Supabase public URL,
    * provide a signed URL (helps when bucket privacy or CORS policies cause 403s).
    */
-  private async ensurePlayableAudioUrl(audioUrl: string | null): Promise<string | null> {
+  private async ensurePlayableAudioUrl(
+    audioUrl: string | null,
+  ): Promise<string | null> {
     if (!audioUrl || typeof audioUrl !== 'string') return null;
     try {
       const raw = audioUrl.trim();
@@ -326,9 +329,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         }
         if (!path) return null;
         const supabase = getSupabaseClient();
-        const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
+        const { data, error } = await supabase.storage
+          .from('songs')
+          .createSignedUrl(path, 60 * 60);
         if (error || !data?.signedUrl) {
-          const { data: publicData } = supabase.storage.from('songs').getPublicUrl(path);
+          const { data: publicData } = supabase.storage
+            .from('songs')
+            .getPublicUrl(path);
           return publicData?.publicUrl || null;
         }
         return data.signedUrl;
@@ -344,7 +351,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
       const path = rest.join('/');
       const supabase = getSupabaseClient();
-      const { data, error } = await supabase.storage.from('songs').createSignedUrl(path, 60 * 60);
+      const { data, error } = await supabase.storage
+        .from('songs')
+        .createSignedUrl(path, 60 * 60);
       if (error || !data?.signedUrl) return normalizedHttp;
       return data.signedUrl;
     } catch {
@@ -363,7 +372,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get queue state from Redis (with DB fallback).
    */
-  private async getQueueState(radioId: string = DEFAULT_RADIO_ID): Promise<RadioState | null> {
+  private async getQueueState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioState | null> {
     return this.radioStateService.getCurrentState(radioId);
   }
 
@@ -529,8 +540,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       timeRemainingMs <= 60000 &&
       timeRemainingMs > SONG_END_BUFFER_MS
     ) {
-      this.checkAndScheduleUpNext(timeRemainingMs, song.id, radioId).catch((e) =>
-        this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
+      this.checkAndScheduleUpNext(timeRemainingMs, song.id, radioId).catch(
+        (e) => this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
       );
     }
 
@@ -670,7 +681,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * (listeners, likes/comments/profile clicks during the play) and send the artist
    * a "Your song has been played" notification with a link to view analytics.
    */
-  private async finalizePreviousPlay(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  private async finalizePreviousPlay(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     const info = await this.radioStateService.getCurrentPlayInfo(radioId);
     if (!info) return;
 
@@ -689,7 +702,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const listenerCountAtEnd = await this.radioStateService.getListenerCount(radioId);
+    const listenerCountAtEnd =
+      await this.radioStateService.getListenerCount(radioId);
     const startAt = info.startedAt;
 
     const [likesRes, commentsRes, profileRes] = await Promise.all([
@@ -867,9 +881,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * Get all active songs from free rotation: admin_fallback_songs + songs table (admin_free_rotation).
    * Returns artistId for artist-spaced shuffle: admin entries use unique id so they don't cluster.
    */
-  private async getAllFreeRotationSongs(radioId: string = DEFAULT_RADIO_ID): Promise<
-    { id: string; _stackId: string; artistId: string }[]
-  > {
+  private async getAllFreeRotationSongs(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<{ id: string; _stackId: string; artistId: string }[]> {
     const supabase = getSupabaseClient();
     const result: { id: string; _stackId: string; artistId: string }[] = [];
     const stationId = normalizeSongStationId(radioId);
@@ -894,7 +908,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    let songsQuery = supabase
+    const songsQuery = supabase
       .from('songs')
       .select('id, artist_id, audio_url')
       .eq('status', 'approved')
@@ -914,7 +928,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
       // Keep rotation web-playable to avoid "silent spinner / no audio" tracks.
       const candidateSongs = preferredForWeb;
-      const candidateIds = new Set(candidateSongs.map((candidate) => candidate.id));
+      const candidateIds = new Set(
+        candidateSongs.map((candidate) => candidate.id),
+      );
       for (const s of songsData) {
         const artistId =
           (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
@@ -1000,7 +1016,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get a specific free rotation song by stack ID (admin:uuid, song:uuid, or legacy plain uuid).
    */
-  private async getFreeRotationSongById(stackId: string, radioId: string = DEFAULT_RADIO_ID): Promise<any | null> {
+  private async getFreeRotationSongById(
+    stackId: string,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<any | null> {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
     const isAdmin = stackId.startsWith('admin:');
@@ -1044,7 +1063,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .single();
     if (adminData) return { ...adminData, _source: 'admin_fallback' as const };
 
-    let songQuery = supabase
+    const songQuery = supabase
       .from('songs')
       .select('*')
       .eq('id', stackId)
@@ -1123,9 +1142,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     // Avoid immediate repeat when alternatives remain in current cycle.
     const pickedComparable = this.normalizeStackSongId(songId);
     if (excludedComparable && pickedComparable === excludedComparable) {
-      const remainingStack = await this.radioStateService.getFreeRotationStack(
-        radioId,
-      );
+      const remainingStack =
+        await this.radioStateService.getFreeRotationStack(radioId);
       const nextIndex = remainingStack.findIndex(
         (id) => this.normalizeStackSongId(id) !== excludedComparable,
       );
@@ -1133,7 +1151,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         const [alternateStackId] = remainingStack.splice(nextIndex, 1);
         // Put excluded song at the end, keeping "play all before repeat" behavior.
         remainingStack.push(songId);
-        await this.radioStateService.setFreeRotationStack(remainingStack, radioId);
+        await this.radioStateService.setFreeRotationStack(
+          remainingStack,
+          radioId,
+        );
         songId = alternateStackId;
       }
     }
@@ -1163,8 +1184,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       ? this.normalizeStackSongId(excludeSongId)
       : null;
     const candidate =
-      stack.find((id) => this.normalizeStackSongId(id) !== excludedComparable) ??
-      stack[0];
+      stack.find(
+        (id) => this.normalizeStackSongId(id) !== excludedComparable,
+      ) ?? stack[0];
     if (!candidate) return null;
 
     return this.getFreeRotationSongById(candidate, radioId);
@@ -1173,7 +1195,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Save stack to Supabase only if the content has changed.
    */
-  private async saveStackIfChanged(newStack: string[], radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  private async saveStackIfChanged(
+    newStack: string[],
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
     const crypto = require('crypto');
 
@@ -1192,7 +1217,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const currentHash = data?.stack_version_hash;
 
     if (currentHash !== newHash) {
-      const fallbackPosition = await this.radioStateService.getFallbackPosition(radioId);
+      const fallbackPosition =
+        await this.radioStateService.getFallbackPosition(radioId);
       await this.radioStateService.saveFullPlaylistState(
         [...newStack],
         fallbackPosition,
@@ -1231,12 +1257,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       let currentSong;
       if (isAdminSong) {
         const { data } = await supabase
-.from('admin_fallback_songs')
-      .select('*')
-      .eq('id', actualSongId)
-      .eq('radio_id', radioId)
-      .single();
-    currentSong = data;
+          .from('admin_fallback_songs')
+          .select('*')
+          .eq('id', actualSongId)
+          .eq('radio_id', radioId)
+          .single();
+        currentSong = data;
       } else {
         const { data } = await supabase
           .from('songs')
@@ -1295,8 +1321,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Get listener count and current playlist type
-    const listenerCount = await this.radioStateService.getListenerCount(radioId);
-    const currentType = await this.radioStateService.getCurrentPlaylistType(radioId);
+    const listenerCount =
+      await this.radioStateService.getListenerCount(radioId);
+    const currentType =
+      await this.radioStateService.getCurrentPlaylistType(radioId);
 
     // Apply hysteresis logic to determine target playlist type
     let targetType = currentType;
@@ -1426,7 +1454,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       this.logger.log(`Playing free rotation song: ${freeRotationSong.title}`);
       const result = await this.playFreeRotationSong(freeRotationSong, radioId);
 
-      const position = await this.radioStateService.getFallbackPosition(radioId);
+      const position =
+        await this.radioStateService.getFallbackPosition(radioId);
       await this.radioStateService.checkpointPosition(position + 1, radioId);
 
       return {
@@ -1459,13 +1488,15 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<void> {
     if (from === 'free_rotation' && to === 'paid') {
-      const position = await this.radioStateService.getFallbackPosition(radioId);
+      const position =
+        await this.radioStateService.getFallbackPosition(radioId);
       await this.radioStateService.syncPositionToSupabase(position, radioId);
       this.logger.log(
         `Saved free rotation position before switching to paid: ${position}`,
       );
     } else if (from === 'paid' && to === 'free_rotation') {
-      const state = await this.radioStateService.loadPlaylistStateFromDb(radioId);
+      const state =
+        await this.radioStateService.loadPlaylistStateFromDb(radioId);
       if (state) {
         if (state.fallbackStack.length > 0) {
           await this.radioStateService.setFreeRotationStack(
@@ -1515,13 +1546,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return null;
     }
 
-    await this.setCurrentSong(song.id, durationSeconds, radioId, 0, false, false);
+    await this.setCurrentSong(
+      song.id,
+      durationSeconds,
+      radioId,
+      0,
+      false,
+      false,
+    );
 
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id);
 
     // Log play decision for transparency
-    const listenerCount = await this.radioStateService.getListenerCount(radioId);
+    const listenerCount =
+      await this.radioStateService.getListenerCount(radioId);
     await this.radioStateService.logPlayDecision({
       songId: song.id,
       selectedAt: startedAt,
@@ -1593,13 +1632,24 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Play a trial song (free plays before credits are required).
    */
-  private async playTrialSong(song: any, competingSongs: number = 0, radioId: string = DEFAULT_RADIO_ID) {
+  private async playTrialSong(
+    song: any,
+    competingSongs: number = 0,
+    radioId: string = DEFAULT_RADIO_ID,
+  ) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
 
-    await this.setCurrentSong(song.id, durationSeconds, radioId, 0, false, false);
+    await this.setCurrentSong(
+      song.id,
+      durationSeconds,
+      radioId,
+      0,
+      false,
+      false,
+    );
 
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id);
@@ -1618,7 +1668,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .eq('id', song.id);
 
     // Log play decision
-    const listenerCount = await this.radioStateService.getListenerCount(radioId);
+    const listenerCount =
+      await this.radioStateService.getListenerCount(radioId);
     await this.radioStateService.logPlayDecision({
       songId: song.id,
       selectedAt: startedAt,
@@ -1681,19 +1732,31 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Play an opt-in song (free rotation opt-in).
    */
-  private async playOptInSong(song: any, competingSongs: number = 0, radioId: string = DEFAULT_RADIO_ID) {
+  private async playOptInSong(
+    song: any,
+    competingSongs: number = 0,
+    radioId: string = DEFAULT_RADIO_ID,
+  ) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
 
-    await this.setCurrentSong(song.id, durationSeconds, radioId, 0, false, false);
+    await this.setCurrentSong(
+      song.id,
+      durationSeconds,
+      radioId,
+      0,
+      false,
+      false,
+    );
 
     // Update emoji service with current song for aggregation
     this.emojiService.setCurrentSong(song.id);
 
     // Log play decision
-    const listenerCount = await this.radioStateService.getListenerCount(radioId);
+    const listenerCount =
+      await this.radioStateService.getListenerCount(radioId);
     await this.radioStateService.logPlayDecision({
       songId: song.id,
       selectedAt: startedAt,
@@ -1765,7 +1828,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * Uses the shuffled stack pattern - songs are played in random order
    * and the stack is refilled when empty.
    */
-  private async playFreeRotationSong(song: any, radioId: string = DEFAULT_RADIO_ID) {
+  private async playFreeRotationSong(
+    song: any,
+    radioId: string = DEFAULT_RADIO_ID,
+  ) {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
@@ -1773,17 +1839,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const isFromAdminTable = song._source === 'admin_fallback';
     const stateSongId = isFromAdminTable ? `admin:${song.id}` : song.id;
 
-    await this.radioStateService.setCurrentState({
-      songId: stateSongId,
-      startedAt: now,
-      durationMs: durationSeconds * 1000,
-      priorityScore: 0,
-      isFallback: true,
-      isAdminFallback: true,
-      playedAt: startedAt,
-    }, radioId);
+    await this.radioStateService.setCurrentState(
+      {
+        songId: stateSongId,
+        startedAt: now,
+        durationMs: durationSeconds * 1000,
+        priorityScore: 0,
+        isFallback: true,
+        isAdminFallback: true,
+        playedAt: startedAt,
+      },
+      radioId,
+    );
 
-    const listenerCount = await this.radioStateService.getListenerCount(radioId);
+    const listenerCount =
+      await this.radioStateService.getListenerCount(radioId);
     await this.radioStateService.logPlayDecision({
       songId: song.id,
       selectedAt: startedAt,
@@ -1906,7 +1976,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get upcoming songs in the queue (for preview/admin purposes).
    */
-  async getUpcomingQueue(limit: number = 10, radioId: string = DEFAULT_RADIO_ID) {
+  async getUpcomingQueue(
+    limit: number = 10,
+    radioId: string = DEFAULT_RADIO_ID,
+  ) {
     const supabase = getSupabaseClient();
 
     const currentState = await this.getQueueState(radioId);
@@ -1946,8 +2019,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   async getQueueDebug(limit: number = 10, radioId: string = DEFAULT_RADIO_ID) {
     const safeLimit = Math.min(Math.max(1, limit), 50);
     const state = await this.getQueueState(radioId);
-    const playlistType = await this.radioStateService.getCurrentPlaylistType(radioId);
-    const fallbackPosition = await this.radioStateService.getFallbackPosition(radioId);
+    const playlistType =
+      await this.radioStateService.getCurrentPlaylistType(radioId);
+    const fallbackPosition =
+      await this.radioStateService.getFallbackPosition(radioId);
     const stack = await this.radioStateService.getFreeRotationStack(radioId);
 
     let currentSong: {
@@ -1957,16 +2032,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       source: 'songs' | 'admin_fallback' | 'unknown';
     } | null = null;
     if (state?.songId) {
-      const stackId = state.songId.startsWith('admin:') || state.songId.startsWith('song:')
-        ? state.songId
-        : `song:${state.songId}`;
+      const stackId =
+        state.songId.startsWith('admin:') || state.songId.startsWith('song:')
+          ? state.songId
+          : `song:${state.songId}`;
       const resolved = await this.getFreeRotationSongById(stackId, radioId);
       if (resolved) {
         currentSong = {
           id: resolved.id ?? null,
           title: resolved.title ?? null,
           artistName: resolved.artist_name ?? null,
-          source: resolved._source === 'admin_fallback' ? 'admin_fallback' : 'songs',
+          source:
+            resolved._source === 'admin_fallback' ? 'admin_fallback' : 'songs',
         };
       } else {
         currentSong = {
@@ -2149,7 +2226,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   async addAdminQueueEntries(
     radioId: string = DEFAULT_RADIO_ID,
     payload: {
-      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      items: Array<{
+        stackId?: string;
+        songId?: string;
+        source?: 'songs' | 'admin_fallback';
+      }>;
       position?: number;
       allowDuplicates?: boolean;
     },
@@ -2216,12 +2297,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   async removeAdminQueueEntry(
     radioId: string = DEFAULT_RADIO_ID,
-    params: { position?: number; stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' },
+    params: {
+      position?: number;
+      stackId?: string;
+      songId?: string;
+      source?: 'songs' | 'admin_fallback';
+    },
   ) {
     const stack = await this.radioStateService.getFreeRotationStack(radioId);
     if (stack.length === 0) return this.getAdminQueueState(radioId, 100);
 
-    let next = [...stack];
+    const next = [...stack];
     if (
       typeof params.position === 'number' &&
       Number.isFinite(params.position) &&

@@ -3,7 +3,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 
 /**
  * Admin service for chat moderation
- * 
+ *
  * Features:
  * - Kill Switch: Instantly disable chat globally
  * - Shadow Ban: Ban users without them knowing (they think messages send)
@@ -34,7 +34,9 @@ export class ChatAdminService {
       throw new Error(`Failed to toggle chat: ${error.message}`);
     }
 
-    this.logger.log(`Chat ${enabled ? 'enabled' : 'disabled'}${reason ? `: ${reason}` : ''}`);
+    this.logger.log(
+      `Chat ${enabled ? 'enabled' : 'disabled'}${reason ? `: ${reason}` : ''}`,
+    );
 
     return {
       enabled: data.enabled,

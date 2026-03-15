@@ -25,12 +25,18 @@ export class StripeService {
   }
 
   async verifyWebhookSignature(payload: string, signature: string) {
-    const webhookSecret = this.configService.get<string>('STRIPE_WEBHOOK_SECRET');
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET',
+    );
     if (!webhookSecret) {
       throw new Error('STRIPE_WEBHOOK_SECRET is not configured');
     }
 
-    return this.stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    return this.stripe.webhooks.constructEvent(
+      payload,
+      signature,
+      webhookSecret,
+    );
   }
 
   /**
@@ -75,7 +81,9 @@ export class StripeService {
     successUrl: string,
     cancelUrl: string,
   ): Promise<Stripe.Checkout.Session> {
-    const priceId = this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID');
+    const priceId = this.configService.get<string>(
+      'STRIPE_CREATOR_NETWORK_PRICE_ID',
+    );
     if (!priceId) {
       throw new Error('STRIPE_CREATOR_NETWORK_PRICE_ID is not configured');
     }
@@ -124,7 +132,9 @@ export class StripeService {
 
   /** Return the configured Creator Network price ID, or null if not set. */
   getCreatorNetworkPriceId(): string | null {
-    return this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID') ?? null;
+    return (
+      this.configService.get<string>('STRIPE_CREATOR_NETWORK_PRICE_ID') ?? null
+    );
   }
 
   /** Fetch a subscription by ID (for webhook handling). */

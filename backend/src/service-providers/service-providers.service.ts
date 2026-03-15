@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UpdateServiceProviderProfileDto } from './dto/update-service-provider-profile.dto';
 import { CreateServiceListingDto } from './dto/create-service-listing.dto';
@@ -27,7 +31,9 @@ export class ServiceProvidersService {
     return [...new Set(cleaned)];
   }
 
-  private async getOrCreateProviderByUserId(userId: string): Promise<ProviderRow> {
+  private async getOrCreateProviderByUserId(
+    userId: string,
+  ): Promise<ProviderRow> {
     const supabase = getSupabaseClient();
     const { data: existing } = await supabase
       .from('service_providers')
@@ -42,7 +48,8 @@ export class ServiceProvidersService {
       .insert({ user_id: userId })
       .select('*')
       .single();
-    if (error) throw new Error(`Failed to create provider profile: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to create provider profile: ${error.message}`);
     return inserted as ProviderRow;
   }
 
@@ -51,11 +58,14 @@ export class ServiceProvidersService {
 
     const { data: user, error: userErr } = await supabase
       .from('users')
-      .select('id, display_name, headline, avatar_url, bio, location_region, role, created_at')
+      .select(
+        'id, display_name, headline, avatar_url, bio, location_region, role, created_at',
+      )
       .eq('id', userId)
       .maybeSingle();
     if (userErr) throw new Error(`Failed to fetch user: ${userErr.message}`);
-    if (!user || user.role !== 'service_provider') throw new NotFoundException('Service provider not found');
+    if (!user || user.role !== 'service_provider')
+      throw new NotFoundException('Service provider not found');
 
     const { data: provider } = await supabase
       .from('service_providers')
@@ -63,7 +73,7 @@ export class ServiceProvidersService {
       .eq('user_id', userId)
       .maybeSingle();
 
-    const providerId = (provider as any)?.id as string | undefined;
+    const providerId = provider?.id as string | undefined;
 
     const { data: types } = providerId
       ? await supabase
@@ -88,7 +98,7 @@ export class ServiceProvidersService {
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
-    const p = provider as any;
+    const p = provider;
     return {
       userId: user.id,
       displayName: user.display_name ?? null,
@@ -157,7 +167,10 @@ export class ServiceProvidersService {
     };
   }
 
-  async upsertMyProviderProfile(userId: string, dto: UpdateServiceProviderProfileDto) {
+  async upsertMyProviderProfile(
+    userId: string,
+    dto: UpdateServiceProviderProfileDto,
+  ) {
     const supabase = getSupabaseClient();
     const provider = await this.getOrCreateProviderByUserId(userId);
 
@@ -172,7 +185,8 @@ export class ServiceProvidersService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', userId);
-    if (userErr) throw new Error(`Failed to update user profile: ${userErr.message}`);
+    if (userErr)
+      throw new Error(`Failed to update user profile: ${userErr.message}`);
 
     const updatePayload: Record<string, unknown> = {
       bio: dto.bio ?? undefined,
@@ -181,29 +195,41 @@ export class ServiceProvidersService {
       lng: dto.lng ?? undefined,
       updated_at: new Date().toISOString(),
     };
-    if (dto.heroImageUrl !== undefined) updatePayload.hero_image_url = dto.heroImageUrl || null;
-    if (dto.instagramUrl !== undefined) updatePayload.instagram_url = dto.instagramUrl || null;
-    if (dto.linkedinUrl !== undefined) updatePayload.linkedin_url = dto.linkedinUrl || null;
-    if (dto.portfolioUrl !== undefined) updatePayload.portfolio_url = dto.portfolioUrl || null;
-    if (dto.mentorOptIn !== undefined) updatePayload.mentor_opt_in = dto.mentorOptIn;
+    if (dto.heroImageUrl !== undefined)
+      updatePayload.hero_image_url = dto.heroImageUrl || null;
+    if (dto.instagramUrl !== undefined)
+      updatePayload.instagram_url = dto.instagramUrl || null;
+    if (dto.linkedinUrl !== undefined)
+      updatePayload.linkedin_url = dto.linkedinUrl || null;
+    if (dto.portfolioUrl !== undefined)
+      updatePayload.portfolio_url = dto.portfolioUrl || null;
+    if (dto.mentorOptIn !== undefined)
+      updatePayload.mentor_opt_in = dto.mentorOptIn;
 
     const { error: provErr } = await supabase
       .from('service_providers')
       .update(updatePayload)
       .eq('id', provider.id);
-    if (provErr) throw new Error(`Failed to update provider profile: ${provErr.message}`);
+    if (provErr)
+      throw new Error(`Failed to update provider profile: ${provErr.message}`);
 
     if (dto.serviceTypes) {
       // Reset types to exactly match the current set.
-      await supabase.from('service_provider_types').delete().eq('provider_id', provider.id);
+      await supabase
+        .from('service_provider_types')
+        .delete()
+        .eq('provider_id', provider.id);
       if (serviceTypes.length > 0) {
-        const { error: typeErr } = await supabase.from('service_provider_types').insert(
-          serviceTypes.map((st) => ({
-            provider_id: provider.id,
-            service_type: st,
-          })),
-        );
-        if (typeErr) throw new Error(`Failed to update service types: ${typeErr.message}`);
+        const { error: typeErr } = await supabase
+          .from('service_provider_types')
+          .insert(
+            serviceTypes.map((st) => ({
+              provider_id: provider.id,
+              service_type: st,
+            })),
+          );
+        if (typeErr)
+          throw new Error(`Failed to update service types: ${typeErr.message}`);
       }
     }
 
@@ -232,7 +258,11 @@ export class ServiceProvidersService {
     return inserted;
   }
 
-  async updateListing(userId: string, listingId: string, dto: UpdateServiceListingDto) {
+  async updateListing(
+    userId: string,
+    listingId: string,
+    dto: UpdateServiceListingDto,
+  ) {
     const supabase = getSupabaseClient();
     const provider = await this.getOrCreateProviderByUserId(userId);
 
@@ -243,12 +273,17 @@ export class ServiceProvidersService {
       .maybeSingle();
 
     if (!existing) throw new NotFoundException('Listing not found');
-    if ((existing as any).provider_id !== provider.id) throw new ForbiddenException('Not your listing');
+    if ((existing as any).provider_id !== provider.id)
+      throw new ForbiddenException('Not your listing');
 
-    const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
-    if (dto.serviceType !== undefined) patch.service_type = dto.serviceType.trim().toLowerCase();
+    const patch: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+    if (dto.serviceType !== undefined)
+      patch.service_type = dto.serviceType.trim().toLowerCase();
     if (dto.title !== undefined) patch.title = dto.title.trim();
-    if (dto.description !== undefined) patch.description = dto.description?.trim() ?? null;
+    if (dto.description !== undefined)
+      patch.description = dto.description?.trim() ?? null;
     if (dto.rateCents !== undefined) patch.rate_cents = dto.rateCents;
     if (dto.rateType !== undefined) patch.rate_type = dto.rateType;
     if (dto.status !== undefined) patch.status = dto.status;
@@ -274,9 +309,13 @@ export class ServiceProvidersService {
       .maybeSingle();
 
     if (!existing) throw new NotFoundException('Listing not found');
-    if ((existing as any).provider_id !== provider.id) throw new ForbiddenException('Not your listing');
+    if ((existing as any).provider_id !== provider.id)
+      throw new ForbiddenException('Not your listing');
 
-    const { error } = await supabase.from('service_listings').delete().eq('id', listingId);
+    const { error } = await supabase
+      .from('service_listings')
+      .delete()
+      .eq('id', listingId);
     if (error) throw new Error(`Failed to delete listing: ${error.message}`);
     return { ok: true };
   }
@@ -299,7 +338,8 @@ export class ServiceProvidersService {
       .select('*')
       .single();
 
-    if (error) throw new Error(`Failed to add portfolio item: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to add portfolio item: ${error.message}`);
     return inserted;
   }
 
@@ -312,11 +352,15 @@ export class ServiceProvidersService {
       .maybeSingle();
 
     if (!existing) throw new NotFoundException('Portfolio item not found');
-    if ((existing as any).user_id !== userId) throw new ForbiddenException('Not your portfolio item');
+    if ((existing as any).user_id !== userId)
+      throw new ForbiddenException('Not your portfolio item');
 
-    const { error } = await supabase.from('provider_portfolio_items').delete().eq('id', portfolioItemId);
-    if (error) throw new Error(`Failed to delete portfolio item: ${error.message}`);
+    const { error } = await supabase
+      .from('provider_portfolio_items')
+      .delete()
+      .eq('id', portfolioItemId);
+    if (error)
+      throw new Error(`Failed to delete portfolio item: ${error.message}`);
     return { ok: true };
   }
 }
-

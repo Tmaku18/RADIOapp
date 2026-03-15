@@ -1,4 +1,12 @@
-import { Controller, Get, Put, Query, Body, UseGuards, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Put,
+  Query,
+  Body,
+  UseGuards,
+  Param,
+} from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -31,17 +39,24 @@ export class ProNetworxController {
   }
 
   @Put('me/profile')
-  async upsertMe(@CurrentUser() user: FirebaseUser, @Body() dto: UpdateProProfileDto) {
+  async upsertMe(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: UpdateProProfileDto,
+  ) {
     return this.pro.upsertMyProfile(user.uid, dto);
   }
 
   @Get('directory')
-  async list(@CurrentUser() user: FirebaseUser, @Query() q: ListProDirectoryDto) {
+  async list(
+    @CurrentUser() user: FirebaseUser,
+    @Query() q: ListProDirectoryDto,
+  ) {
     const viewerUserId = await this.getUserId(user.uid);
     return this.pro.listDirectory({
       viewerUserId,
       skill: q.skill,
-      availableForWork: q.availableForWork != null ? q.availableForWork === 'true' : undefined,
+      availableForWork:
+        q.availableForWork != null ? q.availableForWork === 'true' : undefined,
       search: q.search,
       location: q.location,
       sort: q.sort,
@@ -55,4 +70,3 @@ export class ProNetworxController {
     return this.pro.getProfileByUserId(userId);
   }
 }
-

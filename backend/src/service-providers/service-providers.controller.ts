@@ -93,7 +93,9 @@ export class ServiceProvidersController {
     @UploadedFile() file: Express.Multer.File,
   ) {
     if (!file) {
-      throw new BadRequestException('No file uploaded. Send a file in the "file" field.');
+      throw new BadRequestException(
+        'No file uploaded. Send a file in the "file" field.',
+      );
     }
     const userId = await this.getUserId(user.uid);
     const heroImageUrl = await this.uploads.uploadHeroImage(file, userId);
@@ -178,7 +180,9 @@ export class ServiceProvidersController {
     );
 
     const supabase = getSupabaseClient();
-    const { data } = supabase.storage.from('portfolio').getPublicUrl(signed.path);
+    const { data } = supabase.storage
+      .from('portfolio')
+      .getPublicUrl(signed.path);
 
     return {
       ...signed,
@@ -186,4 +190,3 @@ export class ServiceProvidersController {
     };
   }
 }
-

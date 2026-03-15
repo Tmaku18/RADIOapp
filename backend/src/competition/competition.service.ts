@@ -19,7 +19,11 @@ function getWeekEnd(d: Date): string {
 
 @Injectable()
 export class CompetitionService {
-  getCurrentWeek(): { periodStart: string; periodEnd: string; votingOpen: boolean } {
+  getCurrentWeek(): {
+    periodStart: string;
+    periodEnd: string;
+    votingOpen: boolean;
+  } {
     const now = new Date();
     const periodStart = getWeekStart(now);
     const periodEnd = getWeekEnd(now);
@@ -28,8 +32,12 @@ export class CompetitionService {
     return { periodStart, periodEnd, votingOpen };
   }
 
-  async submitVote(userId: string, songIds: string[]): Promise<{ ok: boolean }> {
-    if (!songIds || songIds.length !== 7) throw new Error('Exactly 7 song IDs required (rank 1-7)');
+  async submitVote(
+    userId: string,
+    songIds: string[],
+  ): Promise<{ ok: boolean }> {
+    if (!songIds || songIds.length !== 7)
+      throw new Error('Exactly 7 song IDs required (rank 1-7)');
     const supabase = getSupabaseClient();
     const { periodStart } = this.getCurrentWeek();
 
@@ -52,7 +60,14 @@ export class CompetitionService {
     return { ok: true };
   }
 
-  async getWeeklyResults(periodStart: string): Promise<{ songId: string; artistId: string; artistName: string; rankScore: number }[]> {
+  async getWeeklyResults(periodStart: string): Promise<
+    {
+      songId: string;
+      artistId: string;
+      artistName: string;
+      rankScore: number;
+    }[]
+  > {
     const supabase = getSupabaseClient();
     const { data: votes } = await supabase
       .from('weekly_votes')
@@ -84,16 +99,31 @@ export class CompetitionService {
     });
   }
 
-  async getMonthlyWinners(year?: number, month?: number): Promise<{ year: number; month: number; artistId: string; artistName: string }[]> {
+  async getMonthlyWinners(
+    year?: number,
+    month?: number,
+  ): Promise<
+    { year: number; month: number; artistId: string; artistName: string }[]
+  > {
     const supabase = getSupabaseClient();
-    let q = supabase.from('monthly_winners').select('year, month, artist_id').order('year', { ascending: false }).order('month', { ascending: false }).limit(12);
+    let q = supabase
+      .from('monthly_winners')
+      .select('year, month, artist_id')
+      .order('year', { ascending: false })
+      .order('month', { ascending: false })
+      .limit(12);
     if (year != null) q = q.eq('year', year);
     if (month != null) q = q.eq('month', month);
     const { data: rows } = await q;
     if (!rows?.length) return [];
     const ids = [...new Set(rows.map((r: any) => r.artist_id))];
-    const { data: users } = await supabase.from('users').select('id, display_name').in('id', ids);
-    const nameBy = new Map((users || []).map((u: any) => [u.id, u.display_name ?? 'Artist']));
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .in('id', ids);
+    const nameBy = new Map(
+      (users || []).map((u: any) => [u.id, u.display_name ?? 'Artist']),
+    );
     return rows.map((r: any) => ({
       year: r.year,
       month: r.month,
@@ -102,15 +132,26 @@ export class CompetitionService {
     }));
   }
 
-  async getYearlyWinners(year?: number): Promise<{ year: number; artistId: string; artistName: string }[]> {
+  async getYearlyWinners(
+    year?: number,
+  ): Promise<{ year: number; artistId: string; artistName: string }[]> {
     const supabase = getSupabaseClient();
-    let q = supabase.from('yearly_winners').select('year, artist_id').order('year', { ascending: false }).limit(10);
+    let q = supabase
+      .from('yearly_winners')
+      .select('year, artist_id')
+      .order('year', { ascending: false })
+      .limit(10);
     if (year != null) q = q.eq('year', year);
     const { data: rows } = await q;
     if (!rows?.length) return [];
     const ids = rows.map((r: any) => r.artist_id);
-    const { data: users } = await supabase.from('users').select('id, display_name').in('id', ids);
-    const nameBy = new Map((users || []).map((u: any) => [u.id, u.display_name ?? 'Artist']));
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .in('id', ids);
+    const nameBy = new Map(
+      (users || []).map((u: any) => [u.id, u.display_name ?? 'Artist']),
+    );
     return rows.map((r: any) => ({
       year: r.year,
       artistId: r.artist_id,

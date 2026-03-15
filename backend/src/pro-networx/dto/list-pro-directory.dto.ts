@@ -29,4 +29,3 @@ export class ListProDirectoryDto {
   @IsString()
   seed?: string;
 }
-

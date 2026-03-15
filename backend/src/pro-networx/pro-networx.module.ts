@@ -7,4 +7,3 @@ import { ProNetworxService } from './pro-networx.service';
   providers: [ProNetworxService],
 })
 export class ProNetworxModule {}
-

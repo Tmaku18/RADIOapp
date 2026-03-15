@@ -1,4 +1,11 @@
-import { Controller, Get, Post, Body, UseGuards, BadRequestException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  BadRequestException,
+} from '@nestjs/common';
 import { FirebaseAuthGuard } from './guards/firebase-auth.guard';
 import { CurrentUser } from './decorators/user.decorator';
 import type { FirebaseUser } from './decorators/user.decorator';
@@ -65,7 +72,9 @@ export class AuthController {
     }
     const auth = getFirebaseAuth();
     const expiresIn = 60 * 60 * 24 * 5 * 1000; // 5 days
-    const sessionCookie = await auth.createSessionCookie(entry.idToken, { expiresIn });
+    const sessionCookie = await auth.createSessionCookie(entry.idToken, {
+      expiresIn,
+    });
     return {
       sessionCookie,
       maxAge: Math.floor(expiresIn / 1000),

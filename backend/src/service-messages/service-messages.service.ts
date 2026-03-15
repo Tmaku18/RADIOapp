@@ -91,7 +91,8 @@ export class ServiceMessagesService {
       )
       .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
       .order('created_at', { ascending: false });
-    if (error) throw new Error(`Failed to load conversations: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to load conversations: ${error.message}`);
 
     if (!messages?.length) return [];
 
@@ -134,15 +135,21 @@ export class ServiceMessagesService {
       .from('user_follows')
       .select('followed_user_id')
       .eq('follower_user_id', userId);
-    const followedUserIds = new Set((followRows || []).map((r: any) => r.followed_user_id as string));
+    const followedUserIds = new Set(
+      (followRows || []).map((r: any) => r.followed_user_id as string),
+    );
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
       .select('other_user_id, last_read_at')
       .eq('user_id', userId);
-    if (readError) throw new Error(`Failed to load read rows: ${readError.message}`);
+    if (readError)
+      throw new Error(`Failed to load read rows: ${readError.message}`);
     const readAtByOther = new Map<string, string | null>(
-      (readRows || []).map((r: any) => [r.other_user_id, r.last_read_at ?? null]),
+      (readRows || []).map((r: any) => [
+        r.other_user_id,
+        r.last_read_at ?? null,
+      ]),
     );
 
     const unreadCountByOther = new Map<string, number>();
@@ -150,7 +157,10 @@ export class ServiceMessagesService {
       if (m.recipient_id !== userId) continue;
       const other = m.sender_id;
       const readAt = readAtByOther.get(other);
-      if (!readAt || new Date(m.created_at).getTime() > new Date(readAt).getTime()) {
+      if (
+        !readAt ||
+        new Date(m.created_at).getTime() > new Date(readAt).getTime()
+      ) {
         unreadCountByOther.set(other, (unreadCountByOther.get(other) ?? 0) + 1);
       }
     }
@@ -161,7 +171,9 @@ export class ServiceMessagesService {
       const u = userMap.get(otherId);
       const readByOther = await this.getConversationReadAt(otherId, userId);
       const lastStatus: 'sent' | 'delivered' | 'read' =
-        last.fromMe && readByOther && new Date(readByOther).getTime() >= new Date(last.created_at).getTime()
+        last.fromMe &&
+        readByOther &&
+        new Date(readByOther).getTime() >= new Date(last.created_at).getTime()
           ? 'read'
           : last.fromMe
             ? 'delivered'
@@ -189,7 +201,11 @@ export class ServiceMessagesService {
         canDm: followedUserIds.has(otherId),
       });
     }
-    summaries.sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+    summaries.sort(
+      (a, b) =>
+        new Date(b.lastMessageAt).getTime() -
+        new Date(a.lastMessageAt).getTime(),
+    );
 
     const term = (search ?? '').trim().toLowerCase();
     if (!term) return summaries;
@@ -212,7 +228,9 @@ export class ServiceMessagesService {
       .select(
         'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at',
       )
-      .or(`and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`)
+      .or(
+        `and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`,
+      )
       .order('created_at', { ascending: false })
       .limit(limit);
     if (before) q = q.lt('created_at', before);
@@ -227,7 +245,9 @@ export class ServiceMessagesService {
           .in('message_id', messageIds)
       : { data: [], error: null as any };
     if (reactionsError) {
-      throw new Error(`Failed to load message reactions: ${reactionsError.message}`);
+      throw new Error(
+        `Failed to load message reactions: ${reactionsError.message}`,
+      );
     }
     const reactionsByMessage = new Map<
       string,
@@ -252,7 +272,11 @@ export class ServiceMessagesService {
       requestId: m.request_id,
       body: m.body,
       createdAt: m.created_at,
-      messageType: (m.message_type ?? 'text') as 'text' | 'image' | 'video' | 'voice',
+      messageType: (m.message_type ?? 'text') as
+        | 'text'
+        | 'image'
+        | 'video'
+        | 'voice',
       mediaUrl: m.media_url ?? null,
       mediaMime: m.media_mime ?? null,
       mediaDurationMs: m.media_duration_ms ?? null,
@@ -261,7 +285,8 @@ export class ServiceMessagesService {
       unsentAt: m.unsent_at ?? null,
       status:
         m.sender_id === userId
-          ? readAt && new Date(readAt).getTime() >= new Date(m.created_at).getTime()
+          ? readAt &&
+            new Date(readAt).getTime() >= new Date(m.created_at).getTime()
             ? ('read' as const)
             : ('delivered' as const)
           : ('sent' as const),
@@ -357,7 +382,11 @@ export class ServiceMessagesService {
       userId: input.recipientId,
       title,
       body: messageText,
-      data: { type: 'new_message', senderId: input.senderId, messageId: inserted.id },
+      data: {
+        type: 'new_message',
+        senderId: input.senderId,
+        messageId: inserted.id,
+      },
     });
 
     return msg;
@@ -385,7 +414,10 @@ export class ServiceMessagesService {
       throw new BadRequestException('Only text messages can be edited');
     }
     const fifteenMinutesMs = 15 * 60 * 1000;
-    if (Date.now() - new Date(message.created_at).getTime() > fifteenMinutesMs) {
+    if (
+      Date.now() - new Date(message.created_at).getTime() >
+      fifteenMinutesMs
+    ) {
       throw new BadRequestException('Edit window expired');
     }
     const editedAt = new Date().toISOString();
@@ -470,7 +502,11 @@ export class ServiceMessagesService {
     userId: string,
     otherUserId: string,
     lastReadMessageId?: string | null,
-  ): Promise<{ ok: true; lastReadAt: string; lastReadMessageId: string | null }> {
+  ): Promise<{
+    ok: true;
+    lastReadAt: string;
+    lastReadMessageId: string | null;
+  }> {
     const supabase = getSupabaseClient();
     let resolvedLastReadMessageId = lastReadMessageId ?? null;
     if (!resolvedLastReadMessageId) {
@@ -505,15 +541,19 @@ export class ServiceMessagesService {
     };
   }
 
-  async getUnreadSummary(
-    userId: string,
-  ): Promise<{ totalUnread: number; byConversation: Array<{ otherUserId: string; unreadCount: number }> }> {
+  async getUnreadSummary(userId: string): Promise<{
+    totalUnread: number;
+    byConversation: Array<{ otherUserId: string; unreadCount: number }>;
+  }> {
     const conversations = await this.listConversations(userId);
     const byConversation = conversations
       .filter((c) => c.unreadCount > 0)
       .map((c) => ({ otherUserId: c.otherUserId, unreadCount: c.unreadCount }));
     return {
-      totalUnread: byConversation.reduce((sum, row) => sum + row.unreadCount, 0),
+      totalUnread: byConversation.reduce(
+        (sum, row) => sum + row.unreadCount,
+        0,
+      ),
       byConversation,
     };
   }
@@ -545,9 +585,13 @@ export class ServiceMessagesService {
       .from('dm-media')
       .createSignedUploadUrl(path);
     if (error) {
-      throw new BadRequestException(`Failed to generate upload URL: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to generate upload URL: ${error.message}`,
+      );
     }
-    const supabaseUrl = (this.configService.get<string>('SUPABASE_URL') || '').trim();
+    const supabaseUrl = (
+      this.configService.get<string>('SUPABASE_URL') || ''
+    ).trim();
     const normalizedBase = supabaseUrl.endsWith('/')
       ? supabaseUrl.slice(0, -1)
       : supabaseUrl;
@@ -562,7 +606,10 @@ export class ServiceMessagesService {
     };
   }
 
-  private async ensureParticipant(messageId: string, userId: string): Promise<void> {
+  private async ensureParticipant(
+    messageId: string,
+    userId: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
     const { data: msg, error } = await supabase
       .from('service_messages')
@@ -591,11 +638,18 @@ export class ServiceMessagesService {
 
   private async getDisplayName(userId: string): Promise<string | null> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('users').select('display_name').eq('id', userId).maybeSingle();
+    const { data } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', userId)
+      .maybeSingle();
     return data?.display_name ?? null;
   }
 
-  private async canSendDm(senderId: string, recipientId: string): Promise<boolean> {
+  private async canSendDm(
+    senderId: string,
+    recipientId: string,
+  ): Promise<boolean> {
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('user_follows')

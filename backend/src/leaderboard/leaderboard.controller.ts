@@ -28,10 +28,17 @@ export class LeaderboardController {
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string,
   ) {
-    const windowMinutes = Math.min(Math.max(1, parseInt(windowMinutesStr || '60', 10) || 60), 24 * 60);
+    const windowMinutes = Math.min(
+      Math.max(1, parseInt(windowMinutesStr || '60', 10) || 60),
+      24 * 60,
+    );
     const limit = Math.min(parseInt(limitStr || '50', 10) || 50, 100);
     const offset = Math.max(0, parseInt(offsetStr || '0', 10) || 0);
-    return this.leaderboardService.getSongsByUpvotesPerMinute(windowMinutes, limit, offset);
+    return this.leaderboardService.getSongsByUpvotesPerMinute(
+      windowMinutes,
+      limit,
+      offset,
+    );
   }
 
   @Post('songs/:id/like')
@@ -47,6 +54,10 @@ export class LeaderboardController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.leaderboardService.addLeaderboardLike(userData.id, songId, body?.playId ?? null);
+    return this.leaderboardService.addLeaderboardLike(
+      userData.id,
+      songId,
+      body?.playId ?? null,
+    );
   }
 }

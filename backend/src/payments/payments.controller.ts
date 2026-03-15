@@ -85,7 +85,10 @@ export class PaymentsController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.paymentsService.createCheckoutSessionSongPlays(userData.id, dto);
+    return this.paymentsService.createCheckoutSessionSongPlays(
+      userData.id,
+      dto,
+    );
   }
 
   /**
@@ -109,7 +112,10 @@ export class PaymentsController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.paymentsService.createCheckoutSessionSongPlays(userData.id, { songId: body.songId, plays: 5 } as BuySongPlaysDto);
+    return this.paymentsService.createCheckoutSessionSongPlays(userData.id, {
+      songId: body.songId,
+      plays: 5,
+    } as BuySongPlaysDto);
   }
 
   /**
@@ -176,14 +182,20 @@ export class PaymentsController {
       .single();
     if (!userData) throw new Error('User not found');
     const webUrl = process.env.WEB_URL || 'http://localhost:3001';
-    const successUrl = body.successUrl || `${webUrl}/profile?creator_network=success`;
-    const cancelUrl = body.cancelUrl || `${webUrl}/profile?creator_network=canceled`;
-    return this.paymentsService.createCreatorNetworkCheckoutSession(userData.id, successUrl, cancelUrl);
+    const successUrl =
+      body.successUrl || `${webUrl}/profile?creator_network=success`;
+    const cancelUrl =
+      body.cancelUrl || `${webUrl}/profile?creator_network=canceled`;
+    return this.paymentsService.createCreatorNetworkCheckoutSession(
+      userData.id,
+      successUrl,
+      cancelUrl,
+    );
   }
 
   /**
    * Stripe webhook handler for payment events.
-   * 
+   *
    * Events handled:
    * - payment_intent.succeeded: Mobile app payment completed
    * - payment_intent.payment_failed: Mobile app payment failed
@@ -198,9 +210,12 @@ export class PaymentsController {
     @Headers('stripe-signature') signature: string,
   ) {
     const payload = req.rawBody?.toString() || '';
-    
+
     try {
-      const event = await this.stripeService.verifyWebhookSignature(payload, signature);
+      const event = await this.stripeService.verifyWebhookSignature(
+        payload,
+        signature,
+      );
 
       switch (event.type) {
         // Mobile app flow - PaymentIntent events
@@ -209,7 +224,7 @@ export class PaymentsController {
           await this.paymentsService.handlePaymentSuccess(paymentIntent.id);
           break;
         }
-        
+
         case 'payment_intent.payment_failed': {
           const paymentIntent = event.data.object as { id: string };
           await this.paymentsService.handlePaymentFailed(paymentIntent.id);
@@ -225,23 +240,29 @@ export class PaymentsController {
             subscription?: string;
             client_reference_id?: string | null;
           };
-          if (session.mode === 'subscription' && session.subscription && session.client_reference_id) {
+          if (
+            session.mode === 'subscription' &&
+            session.subscription &&
+            session.client_reference_id
+          ) {
             await this.paymentsService.handleCreatorNetworkCheckoutCompleted(
               session.subscription,
               session.client_reference_id,
             );
           } else if (session.payment_status === 'paid') {
-            await this.paymentsService.handleCheckoutSessionCompleted(session.id);
+            await this.paymentsService.handleCheckoutSessionCompleted(
+              session.id,
+            );
           }
           break;
         }
-        
+
         case 'checkout.session.async_payment_succeeded': {
           const session = event.data.object as { id: string };
           await this.paymentsService.handleCheckoutSessionCompleted(session.id);
           break;
         }
-        
+
         case 'checkout.session.async_payment_failed':
         case 'checkout.session.expired': {
           const session = event.data.object as { id: string };
@@ -256,13 +277,17 @@ export class PaymentsController {
             current_period_end?: number;
             items?: { data?: Array<{ price?: { id?: string } }> };
           };
-          await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(subscription);
+          await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(
+            subscription,
+          );
           break;
         }
 
         case 'customer.subscription.deleted': {
           const subscription = event.data.object as { id: string };
-          await this.paymentsService.handleCreatorNetworkSubscriptionDeleted(subscription.id);
+          await this.paymentsService.handleCreatorNetworkSubscriptionDeleted(
+            subscription.id,
+          );
           break;
         }
 
@@ -273,7 +298,8 @@ export class PaymentsController {
 
       return { received: true };
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(`Webhook error: ${errorMessage}`);
     }
   }

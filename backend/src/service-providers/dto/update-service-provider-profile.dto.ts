@@ -64,4 +64,3 @@ export class UpdateServiceProviderProfileDto {
   @IsBoolean()
   mentorOptIn?: boolean;
 }
-

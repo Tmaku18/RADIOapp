@@ -5,7 +5,10 @@ describe('EmojiController', () => {
     const emojiService = { addReaction: jest.fn() };
     const controller = new EmojiController(emojiService as any);
 
-    const result = await controller.sendEmoji({} as any, { emoji: '🔥' } as any);
+    const result = await controller.sendEmoji(
+      {} as any,
+      { emoji: '🔥' } as any,
+    );
 
     expect(result).toEqual({ success: false });
     expect(emojiService.addReaction).not.toHaveBeenCalled();

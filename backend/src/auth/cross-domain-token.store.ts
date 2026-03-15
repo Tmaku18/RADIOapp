@@ -2,17 +2,26 @@
  * In-memory store for one-time cross-domain login tokens.
  * Key: token string, Value: { idToken, targetHost, exp }
  */
-const store = new Map<string, { idToken: string; targetHost: string; exp: number }>();
+const store = new Map<
+  string,
+  { idToken: string; targetHost: string; exp: number }
+>();
 
 const TTL_SEC = 120;
 
-export function setCrossDomainToken(token: string, idToken: string, targetHost: string): void {
+export function setCrossDomainToken(
+  token: string,
+  idToken: string,
+  targetHost: string,
+): void {
   const exp = Math.floor(Date.now() / 1000) + TTL_SEC;
   store.set(token, { idToken, targetHost, exp });
   setTimeout(() => store.delete(token), TTL_SEC * 1000);
 }
 
-export function getAndDeleteCrossDomainToken(token: string): { idToken: string; targetHost: string } | null {
+export function getAndDeleteCrossDomainToken(
+  token: string,
+): { idToken: string; targetHost: string } | null {
   const entry = store.get(token);
   store.delete(token);
   if (!entry) return null;

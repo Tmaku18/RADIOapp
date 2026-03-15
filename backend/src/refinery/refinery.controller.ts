@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -107,6 +115,10 @@ export class RefineryController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.refineryService.addComment(songId, userData.id, body?.body ?? '');
+    return this.refineryService.addComment(
+      songId,
+      userData.id,
+      body?.body ?? '',
+    );
   }
 }

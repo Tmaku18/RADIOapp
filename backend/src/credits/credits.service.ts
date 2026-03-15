@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 /**
@@ -10,12 +14,16 @@ export class CreditsService {
   /**
    * Allocate credits from artist's bank to a specific song.
    * Uses atomic RPC function to ensure consistency.
-   * 
+   *
    * @param artistId - The artist's Supabase user ID
    * @param songId - The target song ID
    * @param amount - Number of credits to allocate
    */
-  async allocateCreditsToSong(artistId: string, songId: string, amount: number) {
+  async allocateCreditsToSong(
+    artistId: string,
+    songId: string,
+    amount: number,
+  ) {
     if (amount <= 0) {
       throw new BadRequestException('Amount must be positive');
     }
@@ -29,7 +37,9 @@ export class CreditsService {
     });
 
     if (error) {
-      throw new BadRequestException(`Failed to allocate credits: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to allocate credits: ${error.message}`,
+      );
     }
 
     if (!data.success) {
@@ -47,12 +57,16 @@ export class CreditsService {
   /**
    * Withdraw credits from a song back to artist's bank.
    * Uses atomic RPC function to ensure consistency.
-   * 
+   *
    * @param artistId - The artist's Supabase user ID
    * @param songId - The source song ID
    * @param amount - Number of credits to withdraw
    */
-  async withdrawCreditsFromSong(artistId: string, songId: string, amount: number) {
+  async withdrawCreditsFromSong(
+    artistId: string,
+    songId: string,
+    amount: number,
+  ) {
     if (amount <= 0) {
       throw new BadRequestException('Amount must be positive');
     }
@@ -66,7 +80,9 @@ export class CreditsService {
     });
 
     if (error) {
-      throw new BadRequestException(`Failed to withdraw credits: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to withdraw credits: ${error.message}`,
+      );
     }
 
     if (!data.success) {
@@ -83,7 +99,7 @@ export class CreditsService {
 
   /**
    * Get artist's credit balance and allocation history.
-   * 
+   *
    * @param artistId - The artist's Supabase user ID
    */
   async getArtistCredits(artistId: string) {
@@ -112,7 +128,7 @@ export class CreditsService {
 
   /**
    * Get allocation history for an artist.
-   * 
+   *
    * @param artistId - The artist's Supabase user ID
    * @param limit - Max records to return
    */
@@ -121,7 +137,8 @@ export class CreditsService {
 
     const { data, error } = await supabase
       .from('credit_allocations')
-      .select(`
+      .select(
+        `
         id,
         amount,
         direction,
@@ -132,13 +149,16 @@ export class CreditsService {
           id,
           title
         )
-      `)
+      `,
+      )
       .eq('artist_id', artistId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch allocation history: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch allocation history: ${error.message}`,
+      );
     }
 
     return data.map((a) => {
@@ -159,7 +179,7 @@ export class CreditsService {
   /**
    * Calculate credits required for a song's full play.
    * Formula: ceil(duration_seconds / 5)
-   * 
+   *
    * @param durationSeconds - Song duration in seconds
    */
   calculateCreditsForPlay(durationSeconds: number): number {

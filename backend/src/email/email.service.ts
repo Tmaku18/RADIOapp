@@ -10,11 +10,11 @@ export interface SendEmailOptions {
 
 /**
  * Email service for sending notifications.
- * 
+ *
  * Configure by setting EMAIL_PROVIDER and appropriate API keys:
  * - For SendGrid: SENDGRID_API_KEY
  * - For Resend: RESEND_API_KEY
- * 
+ *
  * If no provider is configured, emails are logged to console (dev mode).
  */
 @Injectable()
@@ -24,8 +24,10 @@ export class EmailService {
   private readonly fromEmail: string;
 
   constructor(private configService: ConfigService) {
-    this.provider = this.configService.get<string>('EMAIL_PROVIDER') || 'console';
-    this.fromEmail = this.configService.get<string>('EMAIL_FROM') || 'noreply@radioapp.com';
+    this.provider =
+      this.configService.get<string>('EMAIL_PROVIDER') || 'console';
+    this.fromEmail =
+      this.configService.get<string>('EMAIL_FROM') || 'noreply@radioapp.com';
   }
 
   async send(options: SendEmailOptions): Promise<boolean> {
@@ -39,7 +41,9 @@ export class EmailService {
           return this.logEmail(options);
       }
     } catch (error) {
-      this.logger.error(`Failed to send email to ${options.to}: ${error.message}`);
+      this.logger.error(
+        `Failed to send email to ${options.to}: ${error.message}`,
+      );
       return false;
     }
   }
@@ -54,7 +58,7 @@ export class EmailService {
     const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -88,7 +92,7 @@ export class EmailService {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -112,7 +116,9 @@ export class EmailService {
   private logEmail(options: SendEmailOptions): boolean {
     this.logger.log(`[DEV] Email to ${options.to}:`);
     this.logger.log(`  Subject: ${options.subject}`);
-    this.logger.log(`  Body: ${options.text || options.html?.substring(0, 100)}...`);
+    this.logger.log(
+      `  Body: ${options.text || options.html?.substring(0, 100)}...`,
+    );
     return true;
   }
 

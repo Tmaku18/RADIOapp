@@ -1,4 +1,14 @@
-import { Controller, Get, Param, Post, Query, Body, UseGuards, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Body,
+  UseGuards,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JobBoardService } from './job-board.service';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
@@ -15,7 +25,11 @@ export class JobBoardController {
 
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('users').select('id').eq('firebase_uid', firebaseUid).single();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
     if (error || !data) throw new UnauthorizedException('User not found');
     return data.id;
   }
@@ -29,7 +43,9 @@ export class JobBoardController {
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string,
   ) {
-    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 20, 50) : undefined;
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 20, 50)
+      : undefined;
     const offset = offsetStr ? Math.max(0, parseInt(offsetStr, 10)) : undefined;
     const mine = mineStr === 'true' || mineStr === '1';
     let artistId: string | undefined;
@@ -64,7 +80,10 @@ export class JobBoardController {
   }
 
   @Get('requests/:requestId/applications')
-  async listApplications(@CurrentUser() user: FirebaseUser, @Param('requestId') requestId: string) {
+  async listApplications(
+    @CurrentUser() user: FirebaseUser,
+    @Param('requestId') requestId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     return this.jobBoard.listApplicationsForRequest(requestId, userId);
   }

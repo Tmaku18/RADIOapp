@@ -16,7 +16,10 @@ export class SuggestionsService {
    * Region = country or country-region (e.g. "US", "US-Georgia").
    * If user has no region, returns empty array.
    */
-  async getLocalArtists(userRegion: string | null, limit = 10): Promise<LocalArtistSuggestion[]> {
+  async getLocalArtists(
+    userRegion: string | null,
+    limit = 10,
+  ): Promise<LocalArtistSuggestion[]> {
     const supabase = getSupabaseClient();
     if (!userRegion?.trim()) {
       return [];

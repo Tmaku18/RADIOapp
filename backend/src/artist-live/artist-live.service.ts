@@ -91,7 +91,9 @@ export class ArtistLiveService {
     const supabase = getSupabaseClient();
     const { data: existing, error } = await supabase
       .from('artist_live_profiles')
-      .select('user_id, cloudflare_live_input_uid, is_live_banned, streaming_approved_at')
+      .select(
+        'user_id, cloudflare_live_input_uid, is_live_banned, streaming_approved_at',
+      )
       .eq('user_id', userId)
       .maybeSingle();
     if (error) {
@@ -109,7 +111,9 @@ export class ArtistLiveService {
     const { data: created, error: createError } = await supabase
       .from('artist_live_profiles')
       .insert({ user_id: userId })
-      .select('user_id, cloudflare_live_input_uid, is_live_banned, streaming_approved_at')
+      .select(
+        'user_id, cloudflare_live_input_uid, is_live_banned, streaming_approved_at',
+      )
       .single();
     if (createError || !created) {
       throw new BadRequestException(
@@ -202,7 +206,11 @@ export class ArtistLiveService {
     if (dbUser.is_banned) {
       throw new ForbiddenException('Account suspended');
     }
-    if (dbUser.role !== 'artist' && dbUser.role !== 'admin' && dbUser.role !== 'service_provider') {
+    if (
+      dbUser.role !== 'artist' &&
+      dbUser.role !== 'admin' &&
+      dbUser.role !== 'service_provider'
+    ) {
       throw new ForbiddenException('Only artists or Catalysts can go live');
     }
     // Admins can always go live; others need streaming approval.
@@ -213,7 +221,9 @@ export class ArtistLiveService {
         .eq('user_id', dbUser.id)
         .maybeSingle();
       if (profile?.is_live_banned) {
-        throw new ForbiddenException('You are currently banned from livestreaming');
+        throw new ForbiddenException(
+          'You are currently banned from livestreaming',
+        );
       }
       if (!profile?.streaming_approved_at) {
         throw new ForbiddenException(
@@ -339,7 +349,9 @@ export class ArtistLiveService {
     const supabase = getSupabaseClient();
     const { data: profile } = await supabase
       .from('artist_live_profiles')
-      .select('streaming_applied_at, streaming_approved_at, streaming_rejected_at')
+      .select(
+        'streaming_applied_at, streaming_approved_at, streaming_rejected_at',
+      )
       .eq('user_id', dbUser.id)
       .maybeSingle();
 
@@ -404,32 +416,54 @@ export class ArtistLiveService {
     const supabase = getSupabaseClient();
     const { data: rows, error } = await supabase
       .from('artist_live_sessions')
-      .select('id, artist_id, title, current_viewers, peak_viewers, started_at, status')
+      .select(
+        'id, artist_id, title, current_viewers, peak_viewers, started_at, status',
+      )
       .in('status', ['starting', 'live'])
       .order('started_at', { ascending: false });
     if (error || !rows?.length) {
       return { sessions: [] };
     }
-    const artistIds = [...new Set(rows.map((r: { artist_id: string }) => r.artist_id))];
+    const artistIds = [
+      ...new Set(rows.map((r: { artist_id: string }) => r.artist_id)),
+    ];
     const { data: users } = await supabase
       .from('users')
       .select('id, display_name, avatar_url')
       .in('id', artistIds);
-    const userMap = new Map((users || []).map((u: { id: string; display_name?: string; avatar_url?: string | null }) => [u.id, u]));
-    const sessions = rows.map((r: { id: string; artist_id: string; title?: string | null; current_viewers?: number; peak_viewers?: number; started_at?: string; status?: string }) => {
-      const u = userMap.get(r.artist_id);
-      return {
-        sessionId: r.id,
-        artistId: r.artist_id,
-        displayName: u?.display_name ?? 'Artist',
-        avatarUrl: u?.avatar_url ?? null,
-        title: r.title ?? null,
-        currentViewers: r.current_viewers ?? 0,
-        peakViewers: r.peak_viewers ?? 0,
-        startedAt: r.started_at ?? new Date().toISOString(),
-        status: r.status ?? 'live',
-      };
-    });
+    const userMap = new Map(
+      (users || []).map(
+        (u: {
+          id: string;
+          display_name?: string;
+          avatar_url?: string | null;
+        }) => [u.id, u],
+      ),
+    );
+    const sessions = rows.map(
+      (r: {
+        id: string;
+        artist_id: string;
+        title?: string | null;
+        current_viewers?: number;
+        peak_viewers?: number;
+        started_at?: string;
+        status?: string;
+      }) => {
+        const u = userMap.get(r.artist_id);
+        return {
+          sessionId: r.id,
+          artistId: r.artist_id,
+          displayName: u?.display_name ?? 'Artist',
+          avatarUrl: u?.avatar_url ?? null,
+          title: r.title ?? null,
+          currentViewers: r.current_viewers ?? 0,
+          peakViewers: r.peak_viewers ?? 0,
+          startedAt: r.started_at ?? new Date().toISOString(),
+          status: r.status ?? 'live',
+        };
+      },
+    );
     return { sessions };
   }
 

@@ -13,7 +13,11 @@ function parseUtcHm(hm: string): { h: number; m: number } | null {
   return { h, m: mm };
 }
 
-function getTodayWindowUtc(now: Date, startHm: string, durationMin: number): { start: Date; end: Date } | null {
+function getTodayWindowUtc(
+  now: Date,
+  startHm: string,
+  durationMin: number,
+): { start: Date; end: Date } | null {
   const start = parseUtcHm(startHm);
   if (!start || durationMin <= 0) return null;
   const y = now.getUTCFullYear();
@@ -35,7 +39,10 @@ export class DailyDiamondCronService {
   @Cron('*/5 * * * *')
   async snapshotIfWindowEnded() {
     const startHm = (process.env.TRIAL_BY_FIRE_START_UTC || '').trim();
-    const durationMin = parseInt(process.env.TRIAL_BY_FIRE_DURATION_MIN || '0', 10);
+    const durationMin = parseInt(
+      process.env.TRIAL_BY_FIRE_DURATION_MIN || '0',
+      10,
+    );
     if (!startHm || !Number.isFinite(durationMin) || durationMin <= 0) return;
 
     const now = new Date();
@@ -64,7 +71,9 @@ export class DailyDiamondCronService {
       .lt('created_at', w.end.toISOString())
       .limit(20000);
     if (error) {
-      this.logger.warn(`Failed to load leaderboard_likes for window: ${error.message}`);
+      this.logger.warn(
+        `Failed to load leaderboard_likes for window: ${error.message}`,
+      );
       return;
     }
 
@@ -96,11 +105,14 @@ export class DailyDiamondCronService {
       votes: winnerVotes,
     });
     if (insErr) {
-      this.logger.warn(`Daily Diamond snapshot insert failed: ${insErr.message}`);
+      this.logger.warn(
+        `Daily Diamond snapshot insert failed: ${insErr.message}`,
+      );
       return;
     }
 
-    this.logger.log(`Daily Diamond crowned: song ${winnerSongId} with ${winnerVotes} votes`);
+    this.logger.log(
+      `Daily Diamond crowned: song ${winnerSongId} with ${winnerVotes} votes`,
+    );
   }
 }
-

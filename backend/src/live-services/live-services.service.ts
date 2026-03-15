@@ -1,11 +1,24 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 export type LiveServiceType = 'performance' | 'session' | 'meetup';
 
 @Injectable()
 export class LiveServicesService {
-  async create(artistId: string, data: { title: string; description?: string; type?: LiveServiceType; scheduledAt?: string; linkOrPlace?: string }) {
+  async create(
+    artistId: string,
+    data: {
+      title: string;
+      description?: string;
+      type?: LiveServiceType;
+      scheduledAt?: string;
+      linkOrPlace?: string;
+    },
+  ) {
     const supabase = getSupabaseClient();
     const { data: row, error } = await supabase
       .from('artist_live_services')
@@ -19,7 +32,8 @@ export class LiveServicesService {
       })
       .select()
       .single();
-    if (error) throw new Error(`Failed to create live service: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to create live service: ${error.message}`);
     return this.mapRow(row);
   }
 
@@ -30,7 +44,8 @@ export class LiveServicesService {
       .select('*')
       .eq('artist_id', artistId)
       .order('scheduled_at', { ascending: true, nullsFirst: false });
-    if (error) throw new Error(`Failed to list live services: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to list live services: ${error.message}`);
     return (data || []).map(this.mapRow);
   }
 
@@ -49,26 +64,57 @@ export class LiveServicesService {
     return this.mapRow(data);
   }
 
-  async update(id: string, artistId: string, data: { title?: string; description?: string; type?: LiveServiceType; scheduledAt?: string; linkOrPlace?: string }) {
+  async update(
+    id: string,
+    artistId: string,
+    data: {
+      title?: string;
+      description?: string;
+      type?: LiveServiceType;
+      scheduledAt?: string;
+      linkOrPlace?: string;
+    },
+  ) {
     const supabase = getSupabaseClient();
-    const { data: existing } = await supabase.from('artist_live_services').select('artist_id').eq('id', id).single();
-    if (!existing || existing.artist_id !== artistId) throw new ForbiddenException('Not your live service');
-    const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const { data: existing } = await supabase
+      .from('artist_live_services')
+      .select('artist_id')
+      .eq('id', id)
+      .single();
+    if (!existing || existing.artist_id !== artistId)
+      throw new ForbiddenException('Not your live service');
+    const updates: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
     if (data.title !== undefined) updates.title = data.title;
     if (data.description !== undefined) updates.description = data.description;
     if (data.type !== undefined) updates.type = data.type;
     if (data.scheduledAt !== undefined) updates.scheduled_at = data.scheduledAt;
-    if (data.linkOrPlace !== undefined) updates.link_or_place = data.linkOrPlace;
-    const { data: row, error } = await supabase.from('artist_live_services').update(updates).eq('id', id).select().single();
+    if (data.linkOrPlace !== undefined)
+      updates.link_or_place = data.linkOrPlace;
+    const { data: row, error } = await supabase
+      .from('artist_live_services')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
     if (error) throw new Error(`Failed to update: ${error.message}`);
     return this.mapRow(row);
   }
 
   async delete(id: string, artistId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { data: existing } = await supabase.from('artist_live_services').select('artist_id').eq('id', id).single();
-    if (!existing || existing.artist_id !== artistId) throw new ForbiddenException('Not your live service');
-    const { error } = await supabase.from('artist_live_services').delete().eq('id', id);
+    const { data: existing } = await supabase
+      .from('artist_live_services')
+      .select('artist_id')
+      .eq('id', id)
+      .single();
+    if (!existing || existing.artist_id !== artistId)
+      throw new ForbiddenException('Not your live service');
+    const { error } = await supabase
+      .from('artist_live_services')
+      .delete()
+      .eq('id', id);
     if (error) throw new Error(`Failed to delete: ${error.message}`);
   }
 
@@ -79,10 +125,7 @@ export class LiveServicesService {
         .from('user_follows')
         .select('followed_user_id')
         .eq('follower_user_id', userId),
-      supabase
-        .from('artist_follows')
-        .select('artist_id')
-        .eq('user_id', userId),
+      supabase.from('artist_follows').select('artist_id').eq('user_id', userId),
     ]);
     const artistIds = new Set<string>();
     for (const f of userFollows || []) {
@@ -104,12 +147,16 @@ export class LiveServicesService {
   }
 
   async followArtist(userId: string, artistId: string): Promise<void> {
-    if (userId === artistId) throw new ForbiddenException('Cannot follow yourself');
+    if (userId === artistId)
+      throw new ForbiddenException('Cannot follow yourself');
     const supabase = getSupabaseClient();
     const [legacy, generic] = await Promise.all([
       supabase
         .from('artist_follows')
-        .upsert({ user_id: userId, artist_id: artistId }, { onConflict: 'user_id,artist_id' }),
+        .upsert(
+          { user_id: userId, artist_id: artistId },
+          { onConflict: 'user_id,artist_id' },
+        ),
       supabase
         .from('user_follows')
         .upsert(
@@ -117,8 +164,10 @@ export class LiveServicesService {
           { onConflict: 'follower_user_id,followed_user_id' },
         ),
     ]);
-    if (legacy.error) throw new Error(`Failed to follow: ${legacy.error.message}`);
-    if (generic.error) throw new Error(`Failed to follow: ${generic.error.message}`);
+    if (legacy.error)
+      throw new Error(`Failed to follow: ${legacy.error.message}`);
+    if (generic.error)
+      throw new Error(`Failed to follow: ${generic.error.message}`);
   }
 
   async unfollowArtist(userId: string, artistId: string): Promise<void> {
@@ -135,8 +184,10 @@ export class LiveServicesService {
         .eq('follower_user_id', userId)
         .eq('followed_user_id', artistId),
     ]);
-    if (legacy.error) throw new Error(`Failed to unfollow: ${legacy.error.message}`);
-    if (generic.error) throw new Error(`Failed to unfollow: ${generic.error.message}`);
+    if (legacy.error)
+      throw new Error(`Failed to unfollow: ${legacy.error.message}`);
+    if (generic.error)
+      throw new Error(`Failed to unfollow: ${generic.error.message}`);
   }
 
   async isFollowing(userId: string, artistId: string): Promise<boolean> {

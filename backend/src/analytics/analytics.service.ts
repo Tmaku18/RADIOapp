@@ -18,6 +18,23 @@ interface SongAnalytics {
   lastPlayedAt: string | null;
 }
 
+export interface DiscoverSwipeSongMetric {
+  songId: string;
+  title: string;
+  rightSwipes: number;
+  leftSwipes: number;
+  avgDecisionMs: number | null;
+}
+
+export interface DiscoverSwipeAnalytics {
+  days: number;
+  rightSwipes: number;
+  leftSwipes: number;
+  totalSwipes: number;
+  avgDecisionMs: number | null;
+  bySong: DiscoverSwipeSongMetric[];
+}
+
 export interface ArtistAnalytics {
   totalPlays: number;
   totalSongs: number;
@@ -105,6 +122,109 @@ export class AnalyticsService {
       newFollowers: newFollowers ?? 0,
       creditsSpentInWindow,
       roi,
+    };
+  }
+
+  async getDiscoverSwipeAnalyticsForArtist(
+    artistId: string,
+    days: number = 30,
+  ): Promise<DiscoverSwipeAnalytics> {
+    const supabase = getSupabaseClient();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    const startIso = startDate.toISOString();
+
+    const { data: rows, error } = await supabase
+      .from('discover_swipes')
+      .select('song_id, direction, decision_ms, created_at')
+      .eq('artist_id', artistId)
+      .gte('created_at', startIso)
+      .limit(10000);
+
+    if (error) {
+      throw new Error(
+        `Failed to load discover swipe analytics: ${error.message}`,
+      );
+    }
+
+    const swipeRows = (rows || []) as Array<{
+      song_id: string;
+      direction: 'left_skip' | 'right_like';
+      decision_ms: number | null;
+    }>;
+
+    const rightSwipes = swipeRows.filter(
+      (r) => r.direction === 'right_like',
+    ).length;
+    const leftSwipes = swipeRows.filter(
+      (r) => r.direction === 'left_skip',
+    ).length;
+    const totalSwipes = swipeRows.length;
+
+    const decisionValues = swipeRows
+      .map((r) => r.decision_ms)
+      .filter((v): v is number => v != null && Number.isFinite(v));
+    const avgDecisionMs =
+      decisionValues.length > 0
+        ? Math.round(
+            decisionValues.reduce((sum, current) => sum + current, 0) /
+              decisionValues.length,
+          )
+        : null;
+
+    const songIds = [...new Set(swipeRows.map((r) => r.song_id))];
+    const { data: songs } =
+      songIds.length > 0
+        ? await supabase.from('songs').select('id, title').in('id', songIds)
+        : { data: [] as any[] };
+    const titleBySongId = new Map<string, string>(
+      (songs || []).map((s: any) => [s.id as string, s.title as string]),
+    );
+
+    const bySongMap = new Map<
+      string,
+      { rightSwipes: number; leftSwipes: number; decisions: number[] }
+    >();
+    for (const row of swipeRows) {
+      const metric = bySongMap.get(row.song_id) ?? {
+        rightSwipes: 0,
+        leftSwipes: 0,
+        decisions: [],
+      };
+      if (row.direction === 'right_like') metric.rightSwipes += 1;
+      if (row.direction === 'left_skip') metric.leftSwipes += 1;
+      if (row.decision_ms != null && Number.isFinite(row.decision_ms)) {
+        metric.decisions.push(row.decision_ms);
+      }
+      bySongMap.set(row.song_id, metric);
+    }
+
+    const bySong: DiscoverSwipeSongMetric[] = [...bySongMap.entries()]
+      .map(([songId, metric]) => ({
+        songId,
+        title: titleBySongId.get(songId) ?? 'Untitled',
+        rightSwipes: metric.rightSwipes,
+        leftSwipes: metric.leftSwipes,
+        avgDecisionMs:
+          metric.decisions.length > 0
+            ? Math.round(
+                metric.decisions.reduce((sum, current) => sum + current, 0) /
+                  metric.decisions.length,
+              )
+            : null,
+      }))
+      .sort(
+        (a, b) => b.rightSwipes + b.leftSwipes - (a.rightSwipes + a.leftSwipes),
+      )
+      .slice(0, 20);
+
+    return {
+      days,
+      rightSwipes,
+      leftSwipes,
+      totalSwipes,
+      avgDecisionMs,
+      bySong,
     };
   }
 

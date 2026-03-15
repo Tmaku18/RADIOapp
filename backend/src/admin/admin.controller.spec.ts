@@ -30,7 +30,14 @@ describe('AdminController', () => {
     };
     const controller = new AdminController(adminService as any);
 
-    const result = await controller.getSongs('pending', 'test', 'created_at', 'desc', '10', '0');
+    const result = await controller.getSongs(
+      'pending',
+      'test',
+      'created_at',
+      'desc',
+      '10',
+      '0',
+    );
 
     expect(adminService.getSongsPendingApproval).toHaveBeenCalledWith({
       status: 'pending',
@@ -67,7 +74,10 @@ describe('AdminController', () => {
     const controller = new AdminController(adminService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'admin-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'admin-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.updateSongStatus(

@@ -53,20 +53,32 @@ export class CompetitionCronService {
       .slice(0, 7)
       .map(([songId]) => songId);
 
-    const { data: songs } = await supabase.from('songs').select('id, artist_id').in('id', top7);
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('id, artist_id')
+      .in('id', top7);
     if (!songs?.length) return;
 
     const winnerSongId = top7[0];
     const winnerSong = songs.find((s: any) => s.id === winnerSongId);
     if (winnerSong) {
       await supabase.from('weekly_winners').upsert(
-        { period_start_date: lastWeekStart, artist_id: winnerSong.artist_id, song_id: winnerSongId },
+        {
+          period_start_date: lastWeekStart,
+          artist_id: winnerSong.artist_id,
+          song_id: winnerSongId,
+        },
         { onConflict: 'period_start_date' },
       );
     }
 
     const thisWeekStart = getWeekStart(now);
-    const toSpotlight: { date: string; artist_id: string; song_id: string; source: string }[] = [];
+    const toSpotlight: {
+      date: string;
+      artist_id: string;
+      song_id: string;
+      source: string;
+    }[] = [];
     for (let i = 0; i < Math.min(7, songs.length); i++) {
       const s = songs[i];
       toSpotlight.push({
@@ -77,9 +89,13 @@ export class CompetitionCronService {
       });
     }
     for (const row of toSpotlight) {
-      await supabase.from('artist_spotlight').upsert(row, { onConflict: 'date' });
+      await supabase
+        .from('artist_spotlight')
+        .upsert(row, { onConflict: 'date' });
     }
-    this.logger.log(`Assigned spotlight for week starting ${thisWeekStart} (${toSpotlight.length} days)`);
+    this.logger.log(
+      `Assigned spotlight for week starting ${thisWeekStart} (${toSpotlight.length} days)`,
+    );
   }
 
   /**
@@ -92,7 +108,9 @@ export class CompetitionCronService {
     if (now.getUTCDate() !== 1) return;
 
     const supabase = getSupabaseClient();
-    const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const prev = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+    );
     const year = prev.getUTCFullYear();
     const month = prev.getUTCMonth() + 1;
     const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -107,14 +125,20 @@ export class CompetitionCronService {
       .order('period_start_date', { ascending: false })
       .limit(1);
     if (!weekly?.length) {
-      this.logger.log(`No weekly winner for ${year}-${month}, skipping monthly winner`);
+      this.logger.log(
+        `No weekly winner for ${year}-${month}, skipping monthly winner`,
+      );
       return;
     }
-    await supabase.from('monthly_winners').upsert(
-      { year, month, artist_id: weekly[0].artist_id },
-      { onConflict: 'year,month' },
+    await supabase
+      .from('monthly_winners')
+      .upsert(
+        { year, month, artist_id: weekly[0].artist_id },
+        { onConflict: 'year,month' },
+      );
+    this.logger.log(
+      `Assigned monthly winner for ${year}-${month}: artist ${weekly[0].artist_id}`,
     );
-    this.logger.log(`Assigned monthly winner for ${year}-${month}: artist ${weekly[0].artist_id}`);
   }
 
   /**
@@ -133,13 +157,19 @@ export class CompetitionCronService {
       .order('month', { ascending: false })
       .limit(1);
     if (!monthly?.length) {
-      this.logger.log(`No monthly winner for year ${year}, skipping yearly winner`);
+      this.logger.log(
+        `No monthly winner for year ${year}, skipping yearly winner`,
+      );
       return;
     }
-    await supabase.from('yearly_winners').upsert(
-      { year, artist_id: monthly[0].artist_id },
-      { onConflict: 'year' },
+    await supabase
+      .from('yearly_winners')
+      .upsert(
+        { year, artist_id: monthly[0].artist_id },
+        { onConflict: 'year' },
+      );
+    this.logger.log(
+      `Assigned yearly winner for ${year}: artist ${monthly[0].artist_id}`,
     );
-    this.logger.log(`Assigned yearly winner for ${year}: artist ${monthly[0].artist_id}`);
   }
 }

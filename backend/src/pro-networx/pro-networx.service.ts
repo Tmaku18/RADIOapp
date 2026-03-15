@@ -94,16 +94,21 @@ export class ProNetworxService {
     // Identity
     const { data: u, error: userErr } = await supabase
       .from('users')
-      .select('id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at')
+      .select(
+        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at',
+      )
       .eq('id', userId)
       .maybeSingle();
     if (userErr) throw new Error(`Failed to fetch user: ${userErr.message}`);
-    if (!u || (u as any).is_banned) throw new UnauthorizedException('User not found');
+    if (!u || (u as any).is_banned)
+      throw new UnauthorizedException('User not found');
 
     // Pro profile (including LinkedIn-style fields)
     const { data: p } = await supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured, updated_at')
+      .select(
+        'user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured, updated_at',
+      )
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -111,12 +116,16 @@ export class ProNetworxService {
       .from('pro_networx.profile_skills')
       .select('skills:pro_networx.skills!inner(name)')
       .eq('user_id', userId);
-    const skills = (skillRows || []).map((r: any) => r?.skills?.name).filter(Boolean) as string[];
+    const skills = (skillRows || [])
+      .map((r: any) => r?.skills?.name)
+      .filter(Boolean) as string[];
 
     // Provider extension (optional)
     const { data: provider } = await supabase
       .from('service_providers')
-      .select('id, hero_image_url, mentor_opt_in, instagram_url, linkedin_url, portfolio_url')
+      .select(
+        'id, hero_image_url, mentor_opt_in, instagram_url, linkedin_url, portfolio_url',
+      )
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -125,7 +134,9 @@ export class ProNetworxService {
     const { data: listings } = providerId
       ? await supabase
           .from('service_listings')
-          .select('id, service_type, title, description, rate_cents, rate_type, status, created_at, updated_at')
+          .select(
+            'id, service_type, title, description, rate_cents, rate_type, status, created_at, updated_at',
+          )
           .eq('provider_id', providerId)
           .order('created_at', { ascending: false })
       : { data: [] as any[] };
@@ -138,7 +149,9 @@ export class ProNetworxService {
       .order('created_at', { ascending: false });
 
     // Starting price + service title
-    const activeListings = (listings || []).filter((l: any) => l.status === 'active');
+    const activeListings = (listings || []).filter(
+      (l: any) => l.status === 'active',
+    );
     let best: any | null = null;
     for (const l of activeListings) {
       const rate = l.rate_cents as number | null;
@@ -147,15 +160,24 @@ export class ProNetworxService {
     }
 
     const preview = (provider as any)?.hero_image_url
-      ? { type: 'image' as const, url: (provider as any).hero_image_url as string }
+      ? {
+          type: 'image' as const,
+          url: (provider as any).hero_image_url as string,
+        }
       : (portfolio || []).length > 0
-        ? { type: ((portfolio as any[])[0].type as 'image' | 'video' | 'audio') ?? 'image', url: ((portfolio as any[])[0].file_url as string) }
+        ? {
+            type:
+              ((portfolio as any[])[0].type as 'image' | 'video' | 'audio') ??
+              'image',
+            url: (portfolio as any[])[0].file_url as string,
+          }
         : null;
 
     const serviceTitle =
-      (best?.title?.trim() ? best.title.trim() : null)
-      ?? (p?.skills_headline?.trim() ? p.skills_headline.trim() : null)
-      ?? (skills[0] ?? null);
+      (best?.title?.trim() ? best.title.trim() : null) ??
+      (p?.skills_headline?.trim() ? p.skills_headline.trim() : null) ??
+      skills[0] ??
+      null;
 
     const experience = (p as any)?.experience ?? [];
     const education = (p as any)?.education ?? [];
@@ -163,7 +185,7 @@ export class ProNetworxService {
 
     return {
       userId,
-      role: ((u as any).role as any) ?? null,
+      role: (u as any).role ?? null,
       displayName: (u as any).display_name ?? null,
       avatarUrl: (u as any).avatar_url ?? null,
       headline: (u as any).headline ?? null,
@@ -232,7 +254,9 @@ export class ProNetworxService {
 
     const { data: profile } = await supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured')
+      .select(
+        'user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured',
+      )
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -250,7 +274,10 @@ export class ProNetworxService {
     const skills = (skillRows || [])
       .map((r: any) => r?.skills)
       .filter(Boolean)
-      .map((s: any) => ({ name: s.name as string, category: (s.category as string) ?? 'general' }));
+      .map((s: any) => ({
+        name: s.name as string,
+        category: (s.category as string) ?? 'general',
+      }));
 
     const experience = (profile as any)?.experience ?? [];
     const education = (profile as any)?.education ?? [];
@@ -272,7 +299,10 @@ export class ProNetworxService {
     };
   }
 
-  async upsertMyProfile(firebaseUid: string, dto: UpdateProProfileDto): Promise<ProProfileResponse> {
+  async upsertMyProfile(
+    firebaseUid: string,
+    dto: UpdateProProfileDto,
+  ): Promise<ProProfileResponse> {
     const supabase = getSupabaseClient();
     const userId = await this.getUserId(firebaseUid);
     const now = new Date().toISOString();
@@ -283,9 +313,12 @@ export class ProNetworxService {
       skills_headline: dto.skillsHeadline ?? null,
       updated_at: now,
     };
-    if (dto.currentTitle !== undefined) upsertPayload.current_title = dto.currentTitle?.trim() || null;
-    if (dto.about !== undefined) upsertPayload.about = dto.about?.trim() || null;
-    if (dto.websiteUrl !== undefined) upsertPayload.website_url = dto.websiteUrl?.trim() || null;
+    if (dto.currentTitle !== undefined)
+      upsertPayload.current_title = dto.currentTitle?.trim() || null;
+    if (dto.about !== undefined)
+      upsertPayload.about = dto.about?.trim() || null;
+    if (dto.websiteUrl !== undefined)
+      upsertPayload.website_url = dto.websiteUrl?.trim() || null;
     if (dto.experience !== undefined) upsertPayload.experience = dto.experience;
     if (dto.education !== undefined) upsertPayload.education = dto.education;
     if (dto.featured !== undefined) upsertPayload.featured = dto.featured;
@@ -303,13 +336,17 @@ export class ProNetworxService {
 
       // Ensure skills exist
       if (skillNames.length > 0) {
-        await supabase
-          .from('pro_networx.skills')
-          .upsert(skillNames.map((name) => ({ name, category: 'general' })), { onConflict: 'name' });
+        await supabase.from('pro_networx.skills').upsert(
+          skillNames.map((name) => ({ name, category: 'general' })),
+          { onConflict: 'name' },
+        );
       }
 
       // Delete old mappings
-      await supabase.from('pro_networx.profile_skills').delete().eq('user_id', userId);
+      await supabase
+        .from('pro_networx.profile_skills')
+        .delete()
+        .eq('user_id', userId);
 
       // Insert new mappings
       if (skillNames.length > 0) {
@@ -318,7 +355,10 @@ export class ProNetworxService {
           .select('id, name')
           .in('name', skillNames);
 
-        const rows = (skills || []).map((s: any) => ({ user_id: userId, skill_id: s.id }));
+        const rows = (skills || []).map((s: any) => ({
+          user_id: userId,
+          skill_id: s.id,
+        }));
         if (rows.length > 0) {
           await supabase.from('pro_networx.profile_skills').insert(rows);
         }
@@ -341,25 +381,33 @@ export class ProNetworxService {
     const supabase = getSupabaseClient();
     const sort = params.sort ?? 'desc';
     const mode = params.mode ?? 'default';
-    const seed = (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
+    const seed =
+      (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
 
     // Get pro profiles (include current_title for directory card display)
     let q = supabase
       .from('pro_networx.profiles')
-      .select('user_id, available_for_work, skills_headline, current_title, updated_at', { count: 'exact' });
+      .select(
+        'user_id, available_for_work, skills_headline, current_title, updated_at',
+        { count: 'exact' },
+      );
 
     if (params.availableForWork != null) {
       q = q.eq('available_for_work', params.availableForWork);
     }
 
-    const { data: profiles, count } = await q.order('updated_at', { ascending: sort === 'asc' });
+    const { data: profiles, count } = await q.order('updated_at', {
+      ascending: sort === 'asc',
+    });
     const userIds = (profiles || []).map((p: any) => p.user_id);
     if (userIds.length === 0) return { items: [], total: 0 };
 
     // Load user identity fields from public.users
     let usersQ = supabase
       .from('users')
-      .select('id, display_name, avatar_url, headline, bio, location_region, role, is_banned')
+      .select(
+        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned',
+      )
       .in('id', userIds)
       .eq('is_banned', false);
 
@@ -368,7 +416,9 @@ export class ProNetworxService {
     }
     if (params.search?.trim()) {
       const term = `%${params.search.trim()}%`;
-      usersQ = usersQ.or(`display_name.ilike.${term},headline.ilike.${term},location_region.ilike.${term}`);
+      usersQ = usersQ.or(
+        `display_name.ilike.${term},headline.ilike.${term},location_region.ilike.${term}`,
+      );
     }
 
     const { data: users } = await usersQ;
@@ -383,7 +433,7 @@ export class ProNetworxService {
     const skillsByUserId = new Map<string, string[]>();
     for (const r of skillRows || []) {
       const uid = (r as any).user_id as string;
-      const name = ((r as any).skills?.name) as string | undefined;
+      const name = (r as any).skills?.name as string | undefined;
       if (!uid || !name) continue;
       const list = skillsByUserId.get(uid) ?? [];
       list.push(name);
@@ -397,31 +447,45 @@ export class ProNetworxService {
       .from('service_providers')
       .select('id, user_id, hero_image_url, mentor_opt_in')
       .in('user_id', userIds);
-    const providerByUserId = new Map((providerRows || []).map((p: any) => [p.user_id, p]));
+    const providerByUserId = new Map(
+      (providerRows || []).map((p: any) => [p.user_id, p]),
+    );
     const providerIds = (providerRows || []).map((p: any) => p.id);
 
-    const { data: listingRows } = providerIds.length > 0
-      ? await supabase
-          .from('service_listings')
-          .select('provider_id, title, rate_cents, rate_type, status, created_at')
-          .in('provider_id', providerIds)
-          .eq('status', 'active')
-      : { data: [] as any[] };
-    const bestListingByProviderId = new Map<string, { title: string; rateCents: number | null; rateType: 'hourly' | 'fixed' }>();
+    const { data: listingRows } =
+      providerIds.length > 0
+        ? await supabase
+            .from('service_listings')
+            .select(
+              'provider_id, title, rate_cents, rate_type, status, created_at',
+            )
+            .in('provider_id', providerIds)
+            .eq('status', 'active')
+        : { data: [] as any[] };
+    const bestListingByProviderId = new Map<
+      string,
+      { title: string; rateCents: number | null; rateType: 'hourly' | 'fixed' }
+    >();
     for (const l of listingRows || []) {
-      const pid = (l as any).provider_id as string;
-      const rate = (l as any).rate_cents as number | null;
-      const rateType = ((l as any).rate_type as 'hourly' | 'fixed') ?? 'fixed';
-      const title = ((l as any).title as string) ?? '';
+      const pid = l.provider_id as string;
+      const rate = l.rate_cents as number | null;
+      const rateType = (l.rate_type as 'hourly' | 'fixed') ?? 'fixed';
+      const title = (l.title as string) ?? '';
       const existing = bestListingByProviderId.get(pid);
       if (!existing) {
-        bestListingByProviderId.set(pid, { title, rateCents: rate ?? null, rateType });
+        bestListingByProviderId.set(pid, {
+          title,
+          rateCents: rate ?? null,
+          rateType,
+        });
         continue;
       }
       // Prefer non-null rates; then smaller; else keep existing.
       const er = existing.rateCents;
-      if (er == null && rate != null) bestListingByProviderId.set(pid, { title, rateCents: rate, rateType });
-      else if (er != null && rate != null && rate < er) bestListingByProviderId.set(pid, { title, rateCents: rate, rateType });
+      if (er == null && rate != null)
+        bestListingByProviderId.set(pid, { title, rateCents: rate, rateType });
+      else if (er != null && rate != null && rate < er)
+        bestListingByProviderId.set(pid, { title, rateCents: rate, rateType });
     }
 
     const { data: portfolioRows } = await supabase
@@ -430,7 +494,10 @@ export class ProNetworxService {
       .in('user_id', userIds)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
-    const previewByUserId = new Map<string, { type: 'image' | 'video' | 'audio'; url: string }>();
+    const previewByUserId = new Map<
+      string,
+      { type: 'image' | 'video' | 'audio'; url: string }
+    >();
     for (const p of portfolioRows || []) {
       const uid = (p as any).user_id as string;
       if (previewByUserId.has(uid)) continue;
@@ -447,30 +514,36 @@ export class ProNetworxService {
         const skills = skillsByUserId.get(p.user_id) ?? [];
         const provider = providerByUserId.get(p.user_id);
         const providerId = provider?.id as string | undefined;
-        const best = providerId ? bestListingByProviderId.get(providerId) : undefined;
+        const best = providerId
+          ? bestListingByProviderId.get(providerId)
+          : undefined;
         const preview = previewByUserId.get(p.user_id);
         const serviceTitle =
-          (best?.title?.trim() ? best.title.trim() : null)
-          ?? (p.skills_headline?.trim() ? p.skills_headline.trim() : null)
-          ?? (skills[0] ?? null);
+          (best?.title?.trim() ? best.title.trim() : null) ??
+          (p.skills_headline?.trim() ? p.skills_headline.trim() : null) ??
+          skills[0] ??
+          null;
         return {
           userId: p.user_id,
-          role: (u.role as any) ?? null,
+          role: u.role ?? null,
           displayName: u.display_name ?? null,
           avatarUrl: u.avatar_url ?? null,
           headline: u.headline ?? null,
-          currentTitle: (p as any).current_title ?? null,
+          currentTitle: p.current_title ?? null,
           bio: u.bio ?? null,
           locationRegion: u.location_region ?? null,
           availableForWork: p.available_for_work ?? true,
           skillsHeadline: p.skills_headline ?? null,
           skills,
           serviceTitle,
-          mediaPreviewUrl: (provider?.hero_image_url as string | null) ?? preview?.url ?? null,
-          mediaPreviewType: preview?.type ?? ((provider?.hero_image_url ? 'image' : null) as any),
+          mediaPreviewUrl:
+            (provider?.hero_image_url as string | null) ?? preview?.url ?? null,
+          mediaPreviewType:
+            preview?.type ??
+            ((provider?.hero_image_url ? 'image' : null) as any),
           startingAtCents: best?.rateCents ?? null,
           startingAtRateType: best?.rateType ?? null,
-          verifiedCatalyst: (u.role === 'service_provider') || false,
+          verifiedCatalyst: u.role === 'service_provider' || false,
           mentorOptIn: (provider?.mentor_opt_in as boolean | null) ?? false,
           updatedAt: p.updated_at ?? null,
         } as ProDirectoryItem;
@@ -478,8 +551,14 @@ export class ProNetworxService {
       .filter(Boolean) as ProDirectoryItem[];
 
     let filtered = requestedSkill
-      ? items.filter((i) => i.skills.some((s) => s.toLowerCase() === requestedSkill))
+      ? items.filter((i) =>
+          i.skills.some((s) => s.toLowerCase() === requestedSkill),
+        )
       : items;
+
+    if (params.viewerUserId) {
+      filtered = filtered.filter((item) => item.userId !== params.viewerUserId);
+    }
 
     if (params.viewerUserId && filtered.length > 0) {
       const targetIds = filtered.map((i) => i.userId);
@@ -488,7 +567,9 @@ export class ProNetworxService {
         .select('followed_user_id')
         .eq('follower_user_id', params.viewerUserId)
         .in('followed_user_id', targetIds);
-      const followedSet = new Set((followRows || []).map((r: any) => r.followed_user_id));
+      const followedSet = new Set(
+        (followRows || []).map((r: any) => r.followed_user_id),
+      );
       filtered = filtered.map((item) => ({
         ...item,
         isFollowing: followedSet.has(item.userId),
@@ -507,4 +588,3 @@ export class ProNetworxService {
     return { items: filtered, total: filtered.length ?? count ?? 0 };
   }
 }
-

@@ -1,4 +1,9 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Injectable()
@@ -13,7 +18,9 @@ export class RefineryService {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artwork_url, audio_url, duration_seconds, created_at')
+      .select(
+        'id, title, artist_name, artwork_url, audio_url, duration_seconds, created_at',
+      )
       .eq('in_refinery', true)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
@@ -38,7 +45,9 @@ export class RefineryService {
 
     if (fetchErr || !song) throw new BadRequestException('Song not found');
     if ((song as { artist_id: string }).artist_id !== artistUserId) {
-      throw new ForbiddenException('You can only add your own songs to The Refinery');
+      throw new ForbiddenException(
+        'You can only add your own songs to The Refinery',
+      );
     }
 
     const { error: upErr } = await supabase
@@ -63,7 +72,9 @@ export class RefineryService {
 
     if (fetchErr || !song) throw new BadRequestException('Song not found');
     if ((song as { artist_id: string }).artist_id !== artistUserId) {
-      throw new ForbiddenException('You can only remove your own songs from The Refinery');
+      throw new ForbiddenException(
+        'You can only remove your own songs from The Refinery',
+      );
     }
 
     const { error: upErr } = await supabase
@@ -71,7 +82,8 @@ export class RefineryService {
       .update({ in_refinery: false, updated_at: new Date().toISOString() })
       .eq('id', songId);
 
-    if (upErr) throw new BadRequestException('Failed to remove song from Refinery');
+    if (upErr)
+      throw new BadRequestException('Failed to remove song from Refinery');
     return { removed: true, songId };
   }
 
@@ -92,13 +104,15 @@ export class RefineryService {
 
     const { data, error } = await supabase
       .from('refinery_comments')
-      .select(`
+      .select(
+        `
         id,
         user_id,
         body,
         created_at,
         users:user_id ( display_name )
-      `)
+      `,
+      )
       .eq('song_id', songId)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);

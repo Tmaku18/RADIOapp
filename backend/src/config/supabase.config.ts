@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 
 let supabaseClient: SupabaseClient;
 
-export const initializeSupabase = (configService: ConfigService): SupabaseClient => {
+export const initializeSupabase = (
+  configService: ConfigService,
+): SupabaseClient => {
   if (!supabaseClient) {
     const supabaseUrl = configService.get<string>('SUPABASE_URL');
     const supabaseKey = configService.get<string>('SUPABASE_SERVICE_KEY');

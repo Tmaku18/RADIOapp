@@ -46,14 +46,21 @@ export class DiscoveryController {
     @Query('seed') seed?: string,
   ) {
     const viewerUserId = await this.getUserId(user.uid);
-    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 20, 50) : undefined;
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 20, 50)
+      : undefined;
     const offset = offsetStr ? Math.max(0, parseInt(offsetStr, 10)) : undefined;
-    const minRateCents = minRateCentsStr != null ? parseInt(minRateCentsStr, 10) : undefined;
-    const maxRateCents = maxRateCentsStr != null ? parseInt(maxRateCentsStr, 10) : undefined;
+    const minRateCents =
+      minRateCentsStr != null ? parseInt(minRateCentsStr, 10) : undefined;
+    const maxRateCents =
+      maxRateCentsStr != null ? parseInt(maxRateCentsStr, 10) : undefined;
     const lat = latStr != null ? parseFloat(latStr) : undefined;
     const lng = lngStr != null ? parseFloat(lngStr) : undefined;
     const radiusKm = radiusKmStr != null ? parseFloat(radiusKmStr) : undefined;
-    const radiusKmVal = typeof radiusKm === 'number' && Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : undefined;
+    const radiusKmVal =
+      typeof radiusKm === 'number' && Number.isFinite(radiusKm) && radiusKm > 0
+        ? radiusKm
+        : undefined;
     return this.discovery.listPeople({
       viewerUserId,
       serviceType,
@@ -78,7 +85,9 @@ export class DiscoveryController {
     @Query('limit') limitStr?: string,
     @Query('cursor') cursor?: string,
   ) {
-    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 20, 50) : undefined;
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 20, 50)
+      : undefined;
     return this.discovery.listFeedPosts({ limit, cursor: cursor || undefined });
   }
 
@@ -97,7 +106,9 @@ export class DiscoveryController {
     @Body() body: { caption?: string },
   ) {
     if (!file) {
-      throw new BadRequestException('No file uploaded. Send an image in the "file" field.');
+      throw new BadRequestException(
+        'No file uploaded. Send an image in the "file" field.',
+      );
     }
     const userId = await this.getUserId(user.uid);
     const imageUrl = await this.uploads.uploadFeedPostImage(file, userId);

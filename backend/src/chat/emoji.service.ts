@@ -6,12 +6,12 @@ import { ALLOWED_EMOJIS } from './dto/emoji-reaction.dto';
 
 /**
  * Redis-backed emoji aggregation service.
- * 
+ *
  * Why Redis?
  * - Without Redis, horizontal scaling breaks aggregation
  * - User A on Server 1, User B on Server 2 would see different emoji counts
  * - Redis provides atomic HINCRBY for consistent counting across instances
- * 
+ *
  * Data Structure: Redis Hash
  * Key: song:{songId}:emojis
  * Fields: { "❤️": count, "🔥": count, ... }
@@ -38,7 +38,9 @@ export class EmojiService {
   private async checkRedisAvailability() {
     this.useRedis = await isRedisAvailable();
     if (!this.useRedis) {
-      this.logger.warn('Redis unavailable, using in-memory emoji counters (not suitable for production)');
+      this.logger.warn(
+        'Redis unavailable, using in-memory emoji counters (not suitable for production)',
+      );
     }
   }
 
@@ -94,7 +96,10 @@ export class EmojiService {
       } else {
         // Fallback to in-memory
         const key = emoji;
-        this.inMemoryCounters.set(key, (this.inMemoryCounters.get(key) || 0) + 1);
+        this.inMemoryCounters.set(
+          key,
+          (this.inMemoryCounters.get(key) || 0) + 1,
+        );
       }
       return true;
     } catch (error) {

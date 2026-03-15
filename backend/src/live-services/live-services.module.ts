@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
-import { LiveServicesController, ArtistFollowsController } from './live-services.controller';
+import {
+  LiveServicesController,
+  ArtistFollowsController,
+} from './live-services.controller';
 import { LiveServicesService } from './live-services.service';
 
 @Module({

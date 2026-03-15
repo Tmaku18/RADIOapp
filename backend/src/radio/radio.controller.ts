@@ -62,7 +62,10 @@ export class RadioController {
   }
 
   @Get('queue')
-  async getUpcomingQueue(@Query('limit') limit?: string, @Query('radio') radioId?: string) {
+  async getUpcomingQueue(
+    @Query('limit') limit?: string,
+    @Query('radio') radioId?: string,
+  ) {
     const parsedLimit = limit ? parseInt(limit, 10) : 10;
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     return this.radioService.getUpcomingQueue(parsedLimit, id);

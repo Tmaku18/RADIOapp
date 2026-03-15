@@ -1,4 +1,11 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber, Min, IsIn } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  IsOptional,
+  IsNumber,
+  Min,
+  IsIn,
+} from 'class-validator';
 import { STATION_IDS } from '../../radio/station.constants';
 
 export class CreateSongFromPathDto {
@@ -32,4 +39,22 @@ export class CreateSongFromPathDto {
   @IsNotEmpty()
   @IsIn([...STATION_IDS])
   stationId: string;
+
+  @IsString()
+  @IsOptional()
+  discoverClipPath?: string;
+
+  @IsString()
+  @IsOptional()
+  discoverBackgroundPath?: string;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  discoverClipStartSeconds?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  discoverClipEndSeconds?: number;
 }

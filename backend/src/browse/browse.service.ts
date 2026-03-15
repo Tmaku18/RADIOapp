@@ -72,7 +72,9 @@ export class BrowseService {
     if (seed) {
       query = query.order('id'); // stable order before shuffle in app
     } else {
-      query = query.order('created_at', { ascending: false }).order('id', { ascending: false });
+      query = query
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false });
     }
 
     const { data: rows, error } = await query.range(offset, offset + limit - 1);
@@ -87,19 +89,22 @@ export class BrowseService {
         for (let i = 0; i < s.length; i++) h = (h << 5) - h + s.charCodeAt(i);
         return h >>> 0;
       };
-      items = [...items].sort(
-        (a, b) => hash(a.id + seed) - hash(b.id + seed),
-      );
+      items = [...items].sort((a, b) => hash(a.id + seed) - hash(b.id + seed));
     }
 
     const contentIds = items.map((r) => r.id);
 
-    const [likeCounts, bookmarkCounts, userLikes, userBookmarks] = await Promise.all([
-      this.getLikeCounts(supabase, contentIds),
-      this.getBookmarkCounts(supabase, contentIds),
-      userId ? this.getUserLikes(supabase, userId, contentIds) : Promise.resolve(new Set<string>()),
-      userId ? this.getUserBookmarks(supabase, userId, contentIds) : Promise.resolve(new Set<string>()),
-    ]);
+    const [likeCounts, bookmarkCounts, userLikes, userBookmarks] =
+      await Promise.all([
+        this.getLikeCounts(supabase, contentIds),
+        this.getBookmarkCounts(supabase, contentIds),
+        userId
+          ? this.getUserLikes(supabase, userId, contentIds)
+          : Promise.resolve(new Set<string>()),
+        userId
+          ? this.getUserBookmarks(supabase, userId, contentIds)
+          : Promise.resolve(new Set<string>()),
+      ]);
 
     const feedItems: BrowseFeedItem[] = items.map((row) => {
       const u = row.users;
@@ -189,7 +194,10 @@ export class BrowseService {
     return new Set((data || []).map((r) => r.content_id));
   }
 
-  async toggleLike(userId: string, contentId: string): Promise<{ liked: boolean; likeCount: number }> {
+  async toggleLike(
+    userId: string,
+    contentId: string,
+  ): Promise<{ liked: boolean; likeCount: number }> {
     const supabase = getSupabaseClient();
     const { data: existing } = await supabase
       .from('browse_likes')
@@ -199,12 +207,21 @@ export class BrowseService {
       .maybeSingle();
 
     if (existing) {
-      await supabase.from('browse_likes').delete().eq('user_id', userId).eq('content_id', contentId);
+      await supabase
+        .from('browse_likes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('content_id', contentId);
       const count = await this.getLikeCountForContent(supabase, contentId);
       return { liked: false, likeCount: count };
     } else {
-      const item = await this.ensurePortfolioItemExistsAndReturn(supabase, contentId);
-      await supabase.from('browse_likes').insert({ user_id: userId, content_id: contentId });
+      const item = await this.ensurePortfolioItemExistsAndReturn(
+        supabase,
+        contentId,
+      );
+      await supabase
+        .from('browse_likes')
+        .insert({ user_id: userId, content_id: contentId });
       const count = await this.getLikeCountForContent(supabase, contentId);
       const likerName = await this.getDisplayName(supabase, userId);
       const title = 'Content liked';
@@ -231,15 +248,21 @@ export class BrowseService {
   async addBookmark(userId: string, contentId: string): Promise<void> {
     const supabase = getSupabaseClient();
     await this.ensurePortfolioItemExists(supabase, contentId);
-    await supabase.from('browse_bookmarks').upsert(
-      { user_id: userId, content_id: contentId },
-      { onConflict: 'user_id,content_id' },
-    );
+    await supabase
+      .from('browse_bookmarks')
+      .upsert(
+        { user_id: userId, content_id: contentId },
+        { onConflict: 'user_id,content_id' },
+      );
   }
 
   async removeBookmark(userId: string, contentId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase.from('browse_bookmarks').delete().eq('user_id', userId).eq('content_id', contentId);
+    await supabase
+      .from('browse_bookmarks')
+      .delete()
+      .eq('user_id', userId)
+      .eq('content_id', contentId);
   }
 
   async getBookmarks(userId: string, limit = 50): Promise<BrowseFeedItem[]> {
@@ -340,15 +363,27 @@ export class BrowseService {
     supabase: ReturnType<typeof getSupabaseClient>,
     userId: string,
   ): Promise<string | null> {
-    const { data } = await supabase.from('users').select('display_name').eq('id', userId).maybeSingle();
+    const { data } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', userId)
+      .maybeSingle();
     return data?.display_name ?? null;
   }
 
-  async reportContent(userId: string, contentId: string, reason: string): Promise<void> {
+  async reportContent(
+    userId: string,
+    contentId: string,
+    reason: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
     await this.ensurePortfolioItemExists(supabase, contentId);
     const { error } = await supabase.from('browse_reports').upsert(
-      { user_id: userId, content_id: contentId, reason: reason.trim().slice(0, 2000) },
+      {
+        user_id: userId,
+        content_id: contentId,
+        reason: reason.trim().slice(0, 2000),
+      },
       { onConflict: 'user_id,content_id' },
     );
     if (error) throw new Error(`Failed to submit report: ${error.message}`);
@@ -361,7 +396,9 @@ export class BrowseService {
     const supabase = getSupabaseClient();
     const { data: items } = await supabase
       .from('provider_portfolio_items')
-      .select('id, user_id, type, file_url, title, description, sort_order, created_at')
+      .select(
+        'id, user_id, type, file_url, title, description, sort_order, created_at',
+      )
       .eq('opt_in_feed', true)
       .is('feed_removed_at', null);
     if (!items?.length) return { categories: [] };
@@ -382,7 +419,8 @@ export class BrowseService {
       .select('id, user_id')
       .in('user_id', userIds);
     const providerByUserId = new Map<string, { id: string }>();
-    for (const p of providers || []) providerByUserId.set(p.user_id, { id: p.id });
+    for (const p of providers || [])
+      providerByUserId.set(p.user_id, { id: p.id });
 
     const providerIds = (providers || []).map((p) => p.id);
     const { data: types } = await supabase
@@ -405,13 +443,19 @@ export class BrowseService {
     const withLikes = items
       .map((row) => {
         const provider = providerByUserId.get(row.user_id);
-        const serviceTypes = provider ? typesByProviderId.get(provider.id) ?? ['general'] : ['general'];
+        const serviceTypes = provider
+          ? (typesByProviderId.get(provider.id) ?? ['general'])
+          : ['general'];
         const u = userMap.get(row.user_id);
         return {
           ...row,
           likeCount: likeCounts.get(row.id) ?? 0,
           serviceTypes,
-          provider: { userId: row.user_id, displayName: u?.display_name ?? null, avatarUrl: u?.avatar_url ?? null },
+          provider: {
+            userId: row.user_id,
+            displayName: u?.display_name ?? null,
+            avatarUrl: u?.avatar_url ?? null,
+          },
         };
       })
       .filter((r) => r.likeCount > 0)
@@ -426,21 +470,23 @@ export class BrowseService {
       }
     }
 
-    const categories = Array.from(byCategory.entries()).map(([serviceType, list]) => ({
-      serviceType,
-      items: list.slice(0, limitPerCategory).map((row) => ({
-        id: row.id,
-        type: row.type,
-        fileUrl: row.file_url,
-        title: row.title ?? null,
-        description: row.description ?? null,
-        sortOrder: row.sort_order ?? 0,
-        createdAt: row.created_at,
-        provider: row.provider,
-        likeCount: row.likeCount,
-        bookmarkCount: 0,
-      })),
-    }));
+    const categories = Array.from(byCategory.entries()).map(
+      ([serviceType, list]) => ({
+        serviceType,
+        items: list.slice(0, limitPerCategory).map((row) => ({
+          id: row.id,
+          type: row.type,
+          fileUrl: row.file_url,
+          title: row.title ?? null,
+          description: row.description ?? null,
+          sortOrder: row.sort_order ?? 0,
+          createdAt: row.created_at,
+          provider: row.provider,
+          likeCount: row.likeCount,
+          bookmarkCount: 0,
+        })),
+      }),
+    );
     return { categories };
   }
 }

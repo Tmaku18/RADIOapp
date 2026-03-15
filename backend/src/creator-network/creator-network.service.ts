@@ -12,7 +12,11 @@ export class CreatorNetworkService {
       .eq('status', 'active')
       .maybeSingle();
     if (!row) return false;
-    if (row.current_period_end && new Date(row.current_period_end) <= new Date()) return false;
+    if (
+      row.current_period_end &&
+      new Date(row.current_period_end) <= new Date()
+    )
+      return false;
     return true;
   }
 
@@ -35,7 +39,9 @@ export class CreatorNetworkService {
     );
   }
 
-  async getUserIdByStripeSubscriptionId(stripeSubscriptionId: string): Promise<string | null> {
+  async getUserIdByStripeSubscriptionId(
+    stripeSubscriptionId: string,
+  ): Promise<string | null> {
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('creator_network_subscriptions')

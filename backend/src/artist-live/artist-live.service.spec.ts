@@ -1,8 +1,7 @@
 import { ArtistLiveService } from './artist-live.service';
 
 describe('ArtistLiveService', () => {
-  const createService = () =>
-    new ArtistLiveService({} as any, {} as any);
+  const createService = () => new ArtistLiveService({} as any, {} as any);
 
   afterEach(() => {
     delete process.env.ARTIST_LIVE_ENABLED;
@@ -11,9 +10,9 @@ describe('ArtistLiveService', () => {
   it('rejects when artist live feature flag is disabled', async () => {
     process.env.ARTIST_LIVE_ENABLED = 'false';
     const service = createService();
-    await expect(
-      service.getArtistStatus('artist-id'),
-    ).rejects.toThrow('Artist livestream is currently disabled');
+    await expect(service.getArtistStatus('artist-id')).rejects.toThrow(
+      'Artist livestream is currently disabled',
+    );
   });
 
   it('rejects malformed Cloudflare webhook payload', async () => {
@@ -24,4 +23,3 @@ describe('ArtistLiveService', () => {
     ).rejects.toThrow('Malformed webhook payload');
   });
 });
-

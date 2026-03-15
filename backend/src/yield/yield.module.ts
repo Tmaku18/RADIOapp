@@ -7,4 +7,3 @@ import { RadioModule } from '../radio/radio.module';
   controllers: [YieldController],
 })
 export class YieldModule {}
-

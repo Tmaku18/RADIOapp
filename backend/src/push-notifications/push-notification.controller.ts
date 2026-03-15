@@ -1,19 +1,18 @@
-import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Delete,
-} from '@nestjs/common';
+import { Controller, Get, Post, Body, Delete } from '@nestjs/common';
 import { PushNotificationService } from './push-notification.service';
-import { RegisterDeviceDto, UnregisterDeviceDto } from './dto/register-device.dto';
+import {
+  RegisterDeviceDto,
+  UnregisterDeviceDto,
+} from './dto/register-device.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('push-notifications')
 export class PushNotificationController {
-  constructor(private readonly pushNotificationService: PushNotificationService) {}
+  constructor(
+    private readonly pushNotificationService: PushNotificationService,
+  ) {}
 
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
@@ -57,7 +56,10 @@ export class PushNotificationController {
     @Body() dto: UnregisterDeviceDto,
   ) {
     const userId = await this.getUserId(firebaseUser.uid);
-    return this.pushNotificationService.unregisterDeviceToken(userId, dto.fcmToken);
+    return this.pushNotificationService.unregisterDeviceToken(
+      userId,
+      dto.fcmToken,
+    );
   }
 
   /**

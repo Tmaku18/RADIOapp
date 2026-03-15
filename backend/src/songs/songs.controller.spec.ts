@@ -39,7 +39,11 @@ describe('SongsController', () => {
   });
 
   it('returns upload url for current artist', async () => {
-    const songsService = { getSongs: jest.fn(), createSong: jest.fn(), getSongById: jest.fn() };
+    const songsService = {
+      getSongs: jest.fn(),
+      createSong: jest.fn(),
+      getSongById: jest.fn(),
+    };
     const uploadsService = {
       getSignedUploadUrl: jest.fn().mockResolvedValue({ url: 'signed-url' }),
     };
@@ -51,7 +55,10 @@ describe('SongsController', () => {
     );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'artist-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'artist-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.getUploadUrl(
@@ -87,7 +94,10 @@ describe('SongsController', () => {
     );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'artist-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'artist-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.createSong(
@@ -112,7 +122,11 @@ describe('SongsController', () => {
   });
 
   it('updates song settings for admin', async () => {
-    const songsService = { createSong: jest.fn(), getSongs: jest.fn(), getSongById: jest.fn() };
+    const songsService = {
+      createSong: jest.fn(),
+      getSongs: jest.fn(),
+      getSongById: jest.fn(),
+    };
     const uploadsService = { getSignedUploadUrl: jest.fn() };
     const durationService = { extractDuration: jest.fn() };
     const controller = new SongsController(
@@ -123,7 +137,10 @@ describe('SongsController', () => {
     const supabase = createSupabaseMock();
 
     supabase.__builder.single
-      .mockResolvedValueOnce({ data: { id: 'admin-id', role: 'admin' }, error: null })
+      .mockResolvedValueOnce({
+        data: { id: 'admin-id', role: 'admin' },
+        error: null,
+      })
       .mockResolvedValueOnce({ data: { artist_id: 'artist-id' }, error: null })
       .mockResolvedValueOnce({
         data: { id: 'song-1', title: 'Track', opt_in_free_play: true },
@@ -137,6 +154,10 @@ describe('SongsController', () => {
       { optInFreePlay: true },
     );
 
-    expect(result).toEqual({ id: 'song-1', title: 'Track', optInFreePlay: true });
+    expect(result).toEqual({
+      id: 'song-1',
+      title: 'Track',
+      optInFreePlay: true,
+    });
   });
 });

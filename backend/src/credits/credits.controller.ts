@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Query, Param, Body, UseGuards, NotFoundException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Query,
+  Param,
+  Body,
+  UseGuards,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
@@ -14,7 +23,7 @@ export class CreditsController {
   @Get('balance')
   async getBalance(@CurrentUser() user: FirebaseUser) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -35,7 +44,7 @@ export class CreditsController {
     @Query('offset') offset?: string,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -54,7 +63,7 @@ export class CreditsController {
 
     const parsedLimit = limit ? parseInt(limit, 10) : 20;
     const parsedOffset = offset ? parseInt(offset, 10) : 0;
-    
+
     query = query.range(parsedOffset, parsedOffset + parsedLimit - 1);
 
     const { data: transactions, error } = await query;
@@ -86,7 +95,7 @@ export class CreditsController {
     @Query('limit') limit?: string,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -113,7 +122,7 @@ export class CreditsController {
     @Body() dto: AllocateCreditsDto,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -124,7 +133,11 @@ export class CreditsController {
       throw new NotFoundException('User not found');
     }
 
-    return this.creditsService.allocateCreditsToSong(userData.id, songId, dto.amount);
+    return this.creditsService.allocateCreditsToSong(
+      userData.id,
+      songId,
+      dto.amount,
+    );
   }
 
   /**
@@ -139,7 +152,7 @@ export class CreditsController {
     @Body() dto: AllocateCreditsDto,
   ) {
     const supabase = getSupabaseClient();
-    
+
     const { data: userData } = await supabase
       .from('users')
       .select('id')
@@ -150,6 +163,10 @@ export class CreditsController {
       throw new NotFoundException('User not found');
     }
 
-    return this.creditsService.withdrawCreditsFromSong(userData.id, songId, dto.amount);
+    return this.creditsService.withdrawCreditsFromSong(
+      userData.id,
+      songId,
+      dto.amount,
+    );
   }
 }

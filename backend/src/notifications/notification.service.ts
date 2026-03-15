@@ -1,4 +1,8 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 
 export interface CreateNotificationDto {
@@ -50,8 +54,12 @@ export class NotificationService {
       .limit(limit);
 
     if (error) {
-      this.logger.warn(`Failed to fetch notifications for user ${userId}: ${error.message}`);
-      throw new InternalServerErrorException('Failed to load notifications. Please try again.');
+      this.logger.warn(
+        `Failed to fetch notifications for user ${userId}: ${error.message}`,
+      );
+      throw new InternalServerErrorException(
+        'Failed to load notifications. Please try again.',
+      );
     }
 
     return Array.isArray(data) ? data : [];
@@ -69,13 +77,17 @@ export class NotificationService {
         .is('deleted_at', null); // Exclude soft-deleted
 
       if (error) {
-        this.logger.warn(`Failed to count notifications for user ${userId}: ${error.message}`);
+        this.logger.warn(
+          `Failed to count notifications for user ${userId}: ${error.message}`,
+        );
         return 0;
       }
 
       return count ?? 0;
     } catch (err) {
-      this.logger.warn(`getUnreadCount failed for user ${userId}: ${err instanceof Error ? err.message : String(err)}`);
+      this.logger.warn(
+        `getUnreadCount failed for user ${userId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
       return 0;
     }
   }

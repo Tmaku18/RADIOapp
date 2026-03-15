@@ -41,11 +41,14 @@ export class PaymentsService {
     }
 
     // Create Stripe payment intent
-    const paymentIntent = await this.stripeService.createPaymentIntent(dto.amount, {
-      userId,
-      transactionId: transaction.id,
-      credits: dto.credits.toString(),
-    });
+    const paymentIntent = await this.stripeService.createPaymentIntent(
+      dto.amount,
+      {
+        userId,
+        transactionId: transaction.id,
+        credits: dto.credits.toString(),
+      },
+    );
 
     // Update transaction with payment intent ID
     await supabase
@@ -88,7 +91,11 @@ export class PaymentsService {
       .eq('id', transaction.id);
 
     if (transaction.song_id != null && transaction.plays_purchased != null) {
-      await this.addPlaysToSong(supabase, transaction.song_id, transaction.plays_purchased);
+      await this.addPlaysToSong(
+        supabase,
+        transaction.song_id,
+        transaction.plays_purchased,
+      );
       return;
     }
 
@@ -109,23 +116,26 @@ export class PaymentsService {
           .from('credits')
           .update({
             balance: credits.balance + transaction.credits_purchased,
-            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            total_purchased:
+              credits.total_purchased + transaction.credits_purchased,
             updated_at: new Date().toISOString(),
           })
           .eq('id', credits.id);
       } else {
-        await supabase
-          .from('credits')
-          .insert({
-            artist_id: transaction.user_id,
-            balance: transaction.credits_purchased,
-            total_purchased: transaction.credits_purchased,
-          });
+        await supabase.from('credits').insert({
+          artist_id: transaction.user_id,
+          balance: transaction.credits_purchased,
+          total_purchased: transaction.credits_purchased,
+        });
       }
     }
   }
 
-  private async addPlaysToSong(supabase: any, songId: string, plays: number): Promise<void> {
+  private async addPlaysToSong(
+    supabase: any,
+    songId: string,
+    plays: number,
+  ): Promise<void> {
     const { data: song } = await supabase
       .from('songs')
       .select('credits_remaining')
@@ -171,28 +181,46 @@ export class PaymentsService {
   /**
    * Create a Stripe Checkout Session for Creator Network subscription.
    */
-  async createCreatorNetworkCheckoutSession(userId: string, successUrl: string, cancelUrl: string) {
-    const session = await this.stripeService.createCreatorNetworkCheckoutSession(userId, successUrl, cancelUrl);
+  async createCreatorNetworkCheckoutSession(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ) {
+    const session =
+      await this.stripeService.createCreatorNetworkCheckoutSession(
+        userId,
+        successUrl,
+        cancelUrl,
+      );
     return { sessionId: session.id, url: session.url };
   }
 
-  private isCreatorNetworkSubscription(subscription: { items?: { data?: Array<{ price?: { id?: string } }> } }): boolean {
+  private isCreatorNetworkSubscription(subscription: {
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): boolean {
     const priceId = this.stripeService.getCreatorNetworkPriceId();
     if (!priceId) return false;
     const itemPriceId = subscription.items?.data?.[0]?.price?.id;
     return itemPriceId === priceId;
   }
 
-  private mapStripeStatus(stripeStatus: string): 'active' | 'canceled' | 'past_due' {
+  private mapStripeStatus(
+    stripeStatus: string,
+  ): 'active' | 'canceled' | 'past_due' {
     if (stripeStatus === 'active') return 'active';
-    if (stripeStatus === 'canceled' || stripeStatus === 'unpaid') return 'canceled';
+    if (stripeStatus === 'canceled' || stripeStatus === 'unpaid')
+      return 'canceled';
     return 'past_due';
   }
 
-  async handleCreatorNetworkCheckoutCompleted(subscriptionId: string, userId: string): Promise<void> {
+  async handleCreatorNetworkCheckoutCompleted(
+    subscriptionId: string,
+    userId: string,
+  ): Promise<void> {
     const priceId = this.stripeService.getCreatorNetworkPriceId();
     if (!priceId) return;
-    const subscription = await this.stripeService.getSubscription(subscriptionId);
+    const subscription =
+      await this.stripeService.getSubscription(subscriptionId);
     if (!this.isCreatorNetworkSubscription(subscription)) return;
     const status = this.mapStripeStatus(subscription.status);
     const currentPeriodEnd = subscription.current_period_end
@@ -206,10 +234,15 @@ export class PaymentsService {
     });
   }
 
-  async handleCreatorNetworkSubscriptionUpdated(
-    subscription: { id: string; status: string; current_period_end?: number; items?: { data?: Array<{ price?: { id?: string } }> } },
-  ): Promise<void> {
-    const userId = await this.creatorNetwork.getUserIdByStripeSubscriptionId(subscription.id);
+  async handleCreatorNetworkSubscriptionUpdated(subscription: {
+    id: string;
+    status: string;
+    current_period_end?: number;
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): Promise<void> {
+    const userId = await this.creatorNetwork.getUserIdByStripeSubscriptionId(
+      subscription.id,
+    );
     if (!userId) return;
     if (!this.isCreatorNetworkSubscription(subscription)) return;
     const status = this.mapStripeStatus(subscription.status);
@@ -224,8 +257,11 @@ export class PaymentsService {
     });
   }
 
-  async handleCreatorNetworkSubscriptionDeleted(subscriptionId: string): Promise<void> {
-    const userId = await this.creatorNetwork.getUserIdByStripeSubscriptionId(subscriptionId);
+  async handleCreatorNetworkSubscriptionDeleted(
+    subscriptionId: string,
+  ): Promise<void> {
+    const userId =
+      await this.creatorNetwork.getUserIdByStripeSubscriptionId(subscriptionId);
     if (!userId) return;
     await this.creatorNetwork.setSubscription({
       userId,
@@ -306,7 +342,8 @@ export class PaymentsService {
    */
   async createCheckoutSessionSongPlays(userId: string, dto: BuySongPlaysDto) {
     const supabase = getSupabaseClient();
-    const webUrl = this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+    const webUrl =
+      this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
 
     const price = await this.getSongPlayPrice(userId, dto.songId);
     const option = price.options.find((o) => o.plays === dto.plays);
@@ -387,12 +424,15 @@ export class PaymentsService {
       throw new Error(`Failed to create transaction: ${txError.message}`);
     }
 
-    const paymentIntent = await this.stripeService.createPaymentIntent(option.totalCents, {
-      userId,
-      transactionId: transaction.id,
-      songId: dto.songId,
-      plays: dto.plays.toString(),
-    });
+    const paymentIntent = await this.stripeService.createPaymentIntent(
+      option.totalCents,
+      {
+        userId,
+        transactionId: transaction.id,
+        songId: dto.songId,
+        plays: dto.plays.toString(),
+      },
+    );
 
     await supabase
       .from('transactions')
@@ -411,7 +451,8 @@ export class PaymentsService {
    */
   async createCheckoutSession(userId: string, dto: CreateCheckoutSessionDto) {
     const supabase = getSupabaseClient();
-    const webUrl = this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+    const webUrl =
+      this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
 
     // Create transaction record
     const { data: transaction, error: txError } = await supabase
@@ -485,7 +526,11 @@ export class PaymentsService {
       .eq('id', transaction.id);
 
     if (transaction.song_id != null && transaction.plays_purchased != null) {
-      await this.addPlaysToSong(supabase, transaction.song_id, transaction.plays_purchased);
+      await this.addPlaysToSong(
+        supabase,
+        transaction.song_id,
+        transaction.plays_purchased,
+      );
       return;
     }
 
@@ -506,18 +551,17 @@ export class PaymentsService {
           .from('credits')
           .update({
             balance: credits.balance + transaction.credits_purchased,
-            total_purchased: credits.total_purchased + transaction.credits_purchased,
+            total_purchased:
+              credits.total_purchased + transaction.credits_purchased,
             updated_at: new Date().toISOString(),
           })
           .eq('id', credits.id);
       } else {
-        await supabase
-          .from('credits')
-          .insert({
-            artist_id: transaction.user_id,
-            balance: transaction.credits_purchased,
-            total_purchased: transaction.credits_purchased,
-          });
+        await supabase.from('credits').insert({
+          artist_id: transaction.user_id,
+          balance: transaction.credits_purchased,
+          total_purchased: transaction.credits_purchased,
+        });
       }
     }
   }

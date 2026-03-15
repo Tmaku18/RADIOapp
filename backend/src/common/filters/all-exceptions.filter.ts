@@ -48,7 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
       const exceptionResponse = exception.getResponse();
-      
+
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
       } else if (typeof exceptionResponse === 'object') {
@@ -79,7 +79,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Log the error with full context
     const logLevel = statusCode >= 500 ? 'error' : 'warn';
     const stack = exception instanceof Error ? exception.stack : undefined;
-    
+
     this.logger.logWithRequestId(
       logLevel,
       `${errorName}: ${message}`,

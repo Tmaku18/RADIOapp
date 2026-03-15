@@ -1,4 +1,12 @@
-import { IsArray, IsBoolean, IsOptional, IsString, MaxLength, ValidateNested, ArrayMaxSize } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsString,
+  MaxLength,
+  ValidateNested,
+  ArrayMaxSize,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { ExperienceItemDto } from './experience-item.dto';
 import { EducationItemDto } from './education-item.dto';
@@ -55,4 +63,3 @@ export class UpdateProProfileDto {
   @IsString({ each: true })
   skillNames?: string[];
 }
-

@@ -1,4 +1,12 @@
-import { IsIn, IsInt, IsOptional, IsString, IsUrl, MaxLength, Min } from 'class-validator';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export class AddPortfolioItemDto {
@@ -28,4 +36,3 @@ export class AddPortfolioItemDto {
   @Min(0)
   sortOrder?: number;
 }
-

@@ -50,6 +50,23 @@ export default function SocialPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="border-border/80">
           <CardHeader className="pb-2">
+            <CardTitle className="text-base">Discover audio swipe</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Button asChild className="w-full">
+              <Link href="/social/discover">Open discover</Link>
+            </Button>
+            <Button asChild variant="outline" className="w-full">
+              <Link href="/social/discover/list">Discover list</Link>
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Swipe right to like, left to skip. Your likes are saved to Discover list.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/80">
+          <CardHeader className="pb-2">
             <CardTitle className="text-base">Scroll feed</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">

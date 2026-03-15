@@ -9,7 +9,9 @@ describe('CleanupService', () => {
   it('handles archive RPC errors gracefully', async () => {
     const service = new CleanupService();
     const supabase = {
-      rpc: jest.fn().mockResolvedValue({ data: null, error: { message: 'rpc error' } }),
+      rpc: jest
+        .fn()
+        .mockResolvedValue({ data: null, error: { message: 'rpc error' } }),
     };
 
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);

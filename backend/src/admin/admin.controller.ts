@@ -88,7 +88,12 @@ export class AdminController {
     if (!adminId) {
       throw new BadRequestException('Admin user not found');
     }
-    const song = await this.adminService.updateSongStatus(songId, dto.status, dto.reason, adminId);
+    const song = await this.adminService.updateSongStatus(
+      songId,
+      dto.status,
+      dto.reason,
+      adminId,
+    );
     return { song };
   }
 
@@ -198,7 +203,11 @@ export class AdminController {
     @Param('id') radioId: string,
     @Body()
     body: {
-      items?: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      items?: Array<{
+        stackId?: string;
+        songId?: string;
+        source?: 'songs' | 'admin_fallback';
+      }>;
       stackId?: string;
       songId?: string;
       source?: 'songs' | 'admin_fallback';
@@ -209,7 +218,13 @@ export class AdminController {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     const items = Array.isArray(body?.items)
       ? body.items
-      : [{ stackId: body?.stackId, songId: body?.songId, source: body?.source }];
+      : [
+          {
+            stackId: body?.stackId,
+            songId: body?.songId,
+            source: body?.source,
+          },
+        ];
     if (!items.length) {
       throw new BadRequestException('At least one queue item is required');
     }
@@ -308,7 +323,8 @@ export class AdminController {
 
   @Post('fallback-songs')
   async addFallbackSong(
-    @Body() dto: {
+    @Body()
+    dto: {
       title: string;
       artistName: string;
       audioUrl: string;
@@ -325,7 +341,8 @@ export class AdminController {
   @Post('fallback-songs/from-upload')
   async addFallbackSongFromUpload(
     @CurrentUser() user: FirebaseUser,
-    @Body() dto: {
+    @Body()
+    dto: {
       title: string;
       artistName: string;
       audioPath: string;
@@ -339,7 +356,11 @@ export class AdminController {
     if (!adminId) {
       throw new BadRequestException('Admin user not found');
     }
-    const song = await this.adminService.addFallbackSongFromUpload(adminId, dto, id);
+    const song = await this.adminService.addFallbackSongFromUpload(
+      adminId,
+      dto,
+      id,
+    );
     return { song };
   }
 
@@ -365,7 +386,10 @@ export class AdminController {
   }
 
   @Delete('fallback-songs/:id')
-  async deleteFallbackSong(@Param('id') songId: string, @Query('radio') radioId?: string) {
+  async deleteFallbackSong(
+    @Param('id') songId: string,
+    @Query('radio') radioId?: string,
+  ) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     return this.adminService.deleteFallbackSong(songId, id);
   }
@@ -405,7 +429,11 @@ export class AdminController {
   ) {
     const adminId = await this.getAdminDbId(admin.uid, admin.email);
     if (!adminId) throw new BadRequestException('Admin user not found');
-    const result = await this.adminService.shadowBanUser(userId, adminId, dto.reason);
+    const result = await this.adminService.shadowBanUser(
+      userId,
+      adminId,
+      dto.reason,
+    );
     return result;
   }
 
@@ -448,7 +476,11 @@ export class AdminController {
   ) {
     const adminId = await this.getAdminDbId(admin.uid, admin.email);
     if (!adminId) throw new BadRequestException('Admin user not found');
-    const result = await this.adminService.lifetimeBanUser(userId, adminId, dto.reason || 'Lifetime ban by admin');
+    const result = await this.adminService.lifetimeBanUser(
+      userId,
+      adminId,
+      dto.reason || 'Lifetime ban by admin',
+    );
     return result;
   }
 
@@ -497,7 +529,10 @@ export class AdminController {
     @Param('id') songId: string,
     @Body() body: { enabled: boolean },
   ) {
-    const song = await this.adminService.toggleFreeRotation(songId, body.enabled);
+    const song = await this.adminService.toggleFreeRotation(
+      songId,
+      body.enabled,
+    );
     return { song };
   }
 

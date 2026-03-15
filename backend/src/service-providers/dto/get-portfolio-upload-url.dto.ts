@@ -23,4 +23,3 @@ export class GetPortfolioUploadUrlDto {
   ])
   contentType: string;
 }
-

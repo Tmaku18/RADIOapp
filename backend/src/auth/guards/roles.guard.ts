@@ -12,9 +12,14 @@ import { ConfigService } from '@nestjs/config';
 /** Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst). User satisfies required role if their role inherits it. */
 function roleSatisfies(userRole: string, requiredRole: string): boolean {
   if (requiredRole === 'admin') return userRole === 'admin';
-  if (requiredRole === 'service_provider') return userRole === 'service_provider' || userRole === 'admin';
-  if (requiredRole === 'artist') return ['artist', 'service_provider', 'admin'].includes(userRole);
-  if (requiredRole === 'listener') return ['listener', 'artist', 'service_provider', 'admin'].includes(userRole);
+  if (requiredRole === 'service_provider')
+    return userRole === 'service_provider' || userRole === 'admin';
+  if (requiredRole === 'artist')
+    return ['artist', 'service_provider', 'admin'].includes(userRole);
+  if (requiredRole === 'listener')
+    return ['listener', 'artist', 'service_provider', 'admin'].includes(
+      userRole,
+    );
   return userRole === requiredRole;
 }
 
@@ -136,10 +141,10 @@ export class RolesGuard implements CanActivate {
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.getAllAndOverride<string[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<string[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     if (!requiredRoles) {
       return true;
@@ -169,7 +174,7 @@ export class RolesGuard implements CanActivate {
     }
 
     const allowed = requiredRoles.some((required) =>
-      roleSatisfies(userRole!, required),
+      roleSatisfies(userRole, required),
     );
     if (!allowed) {
       throw new ForbiddenException(

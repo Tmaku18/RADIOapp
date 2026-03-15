@@ -15,7 +15,10 @@ export type SupabaseBuilderMock = {
 export const createSupabaseMock = () => {
   const builder: SupabaseBuilderMock & {
     __result: { data: any; error: any };
-    then: (resolve: (value: any) => void, reject?: (reason: any) => void) => void;
+    then: (
+      resolve: (value: any) => void,
+      reject?: (reason: any) => void,
+    ) => void;
   } = {
     select: jest.fn(() => builder),
     eq: jest.fn(() => builder),
@@ -40,7 +43,9 @@ export const createSupabaseMock = () => {
       createSignedUploadUrl: jest.fn(),
       upload: jest.fn(),
       remove: jest.fn(),
-      getPublicUrl: jest.fn(() => ({ data: { publicUrl: 'https://example.com/file' } })),
+      getPublicUrl: jest.fn(() => ({
+        data: { publicUrl: 'https://example.com/file' },
+      })),
     })),
   };
 

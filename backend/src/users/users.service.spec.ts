@@ -18,7 +18,10 @@ const mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
 
 describe('UsersService', () => {
   it('returns existing user if already present', async () => {
-    const service = new UsersService(mockUploadsService as any, mockConfigService as any);
+    const service = new UsersService(
+      mockUploadsService as any,
+      mockConfigService as any,
+    );
     const usersBuilder = createBuilder();
     const supabase = {
       from: jest.fn(() => usersBuilder),
@@ -49,9 +52,16 @@ describe('UsersService', () => {
   });
 
   it('inserts new artist (credits created by DB trigger)', async () => {
-    const service = new UsersService(mockUploadsService as any, mockConfigService as any);
+    const service = new UsersService(
+      mockUploadsService as any,
+      mockConfigService as any,
+    );
     const usersBuilder = createBuilder();
-    const insertChain = { ...createBuilder(), select: jest.fn().mockReturnThis(), single: jest.fn() };
+    const insertChain = {
+      ...createBuilder(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn(),
+    };
     (insertChain as any).single.mockResolvedValueOnce({
       data: {
         id: 'artist-id',
@@ -83,10 +93,23 @@ describe('UsersService', () => {
   });
 
   it('assigns admin role when email is in ADMIN_EMAILS', async () => {
-    const configWithAdmin = { get: jest.fn((key: string) => (key === 'ADMIN_EMAILS' ? 'admin@example.com, other@example.com ' : undefined)) };
-    const service = new UsersService(mockUploadsService as any, configWithAdmin as any);
+    const configWithAdmin = {
+      get: jest.fn((key: string) =>
+        key === 'ADMIN_EMAILS'
+          ? 'admin@example.com, other@example.com '
+          : undefined,
+      ),
+    };
+    const service = new UsersService(
+      mockUploadsService as any,
+      configWithAdmin as any,
+    );
     const usersBuilder = createBuilder();
-    const insertChain = { ...createBuilder(), select: jest.fn().mockReturnThis(), single: jest.fn() };
+    const insertChain = {
+      ...createBuilder(),
+      select: jest.fn().mockReturnThis(),
+      single: jest.fn(),
+    };
     (insertChain as any).single.mockResolvedValueOnce({
       data: {
         id: 'admin-id',

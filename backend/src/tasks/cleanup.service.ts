@@ -41,11 +41,15 @@ export class CleanupService {
         .lt('created_at', cutoffTime.toISOString());
 
       if (deleteError) {
-        this.logger.error(`Delete failed after archive: ${deleteError.message}`);
+        this.logger.error(
+          `Delete failed after archive: ${deleteError.message}`,
+        );
         return;
       }
 
-      this.logger.log(`Archived ${archivedCount || 0} chat messages to cold storage`);
+      this.logger.log(
+        `Archived ${archivedCount || 0} chat messages to cold storage`,
+      );
     } catch (error) {
       this.logger.error(`Chat archival error: ${error.message}`);
     }
@@ -70,7 +74,9 @@ export class CleanupService {
       .lt('rejected_at', cutoffTime.toISOString());
 
     if (fetchError) {
-      this.logger.error(`Failed to fetch rejected songs: ${fetchError.message}`);
+      this.logger.error(
+        `Failed to fetch rejected songs: ${fetchError.message}`,
+      );
       return;
     }
 
@@ -79,7 +85,9 @@ export class CleanupService {
       return;
     }
 
-    this.logger.log(`Found ${songsToDelete.length} expired rejected songs to delete`);
+    this.logger.log(
+      `Found ${songsToDelete.length} expired rejected songs to delete`,
+    );
 
     for (const song of songsToDelete) {
       try {
@@ -100,16 +108,22 @@ export class CleanupService {
           .eq('id', song.id);
 
         if (deleteError) {
-          this.logger.error(`Failed to delete song ${song.id}: ${deleteError.message}`);
+          this.logger.error(
+            `Failed to delete song ${song.id}: ${deleteError.message}`,
+          );
         } else {
           this.logger.log(`Deleted rejected song: ${song.title} (${song.id})`);
         }
       } catch (error) {
-        this.logger.error(`Error cleaning up song ${song.id}: ${error.message}`);
+        this.logger.error(
+          `Error cleaning up song ${song.id}: ${error.message}`,
+        );
       }
     }
 
-    this.logger.log(`Cleanup complete. Processed ${songsToDelete.length} songs.`);
+    this.logger.log(
+      `Cleanup complete. Processed ${songsToDelete.length} songs.`,
+    );
   }
 
   /**
@@ -122,8 +136,10 @@ export class CleanupService {
       // Extract the path from the URL
       // URL format: https://xxx.supabase.co/storage/v1/object/public/bucket/path
       const urlObj = new URL(url);
-      const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/[^\/]+\/(.+)/);
-      
+      const pathMatch = urlObj.pathname.match(
+        /\/storage\/v1\/object\/public\/[^\/]+\/(.+)/,
+      );
+
       if (!pathMatch) {
         this.logger.warn(`Could not extract path from URL: ${url}`);
         return;
@@ -131,12 +147,12 @@ export class CleanupService {
 
       const filePath = pathMatch[1];
 
-      const { error } = await supabase.storage
-        .from(bucket)
-        .remove([filePath]);
+      const { error } = await supabase.storage.from(bucket).remove([filePath]);
 
       if (error) {
-        this.logger.warn(`Failed to delete file from ${bucket}: ${error.message}`);
+        this.logger.warn(
+          `Failed to delete file from ${bucket}: ${error.message}`,
+        );
       } else {
         this.logger.debug(`Deleted file from ${bucket}: ${filePath}`);
       }

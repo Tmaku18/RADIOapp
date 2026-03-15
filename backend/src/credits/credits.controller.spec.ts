@@ -17,7 +17,10 @@ describe('CreditsController', () => {
     const controller = new CreditsController(creditsService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'artist-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'artist-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.getBalance({ uid: 'firebase-uid' } as any);
@@ -36,7 +39,10 @@ describe('CreditsController', () => {
     const controller = new CreditsController(creditsService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'artist-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'artist-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.allocateCredits(
@@ -45,7 +51,11 @@ describe('CreditsController', () => {
       { amount: 5 } as any,
     );
 
-    expect(creditsService.allocateCreditsToSong).toHaveBeenCalledWith('artist-id', 'song-1', 5);
+    expect(creditsService.allocateCreditsToSong).toHaveBeenCalledWith(
+      'artist-id',
+      'song-1',
+      5,
+    );
     expect(result).toEqual({ success: true });
   });
 });

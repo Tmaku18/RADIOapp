@@ -17,7 +17,10 @@ describe('SongsService', () => {
   it('rejects non-artist uploads', async () => {
     const service = new SongsService();
     const usersBuilder = createBuilder();
-    usersBuilder.single.mockResolvedValue({ data: { role: 'listener' }, error: null });
+    usersBuilder.single.mockResolvedValue({
+      data: { role: 'listener' },
+      error: null,
+    });
 
     const supabase = {
       from: jest.fn(() => usersBuilder),
@@ -41,14 +44,19 @@ describe('SongsService', () => {
     const usersBuilder = createBuilder();
     const songsBuilder = createBuilder();
 
-    usersBuilder.single.mockResolvedValue({ data: { role: 'artist' }, error: null });
+    usersBuilder.single.mockResolvedValue({
+      data: { role: 'artist' },
+      error: null,
+    });
     songsBuilder.single.mockResolvedValue({
       data: { id: 'song-id', title: 'Test Song' },
       error: null,
     });
 
     const supabase = {
-      from: jest.fn((table: string) => (table === 'users' ? usersBuilder : songsBuilder)),
+      from: jest.fn((table: string) =>
+        table === 'users' ? usersBuilder : songsBuilder,
+      ),
     };
 
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);

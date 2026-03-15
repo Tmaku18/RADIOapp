@@ -23,7 +23,7 @@ jest.mock('stripe', () => {
 });
 
 const Stripe = jest.requireMock('stripe').default as jest.Mock;
-const mockStripe = (Stripe as any).__mockStripe as any;
+const mockStripe = (Stripe as any).__mockStripe;
 
 describe('StripeService', () => {
   beforeEach(() => {
@@ -52,7 +52,9 @@ describe('StripeService', () => {
   });
 
   it('verifies webhook signature', async () => {
-    mockStripe.webhooks.constructEvent.mockReturnValue({ type: 'checkout.session.completed' });
+    mockStripe.webhooks.constructEvent.mockReturnValue({
+      type: 'checkout.session.completed',
+    });
     const configService = {
       get: jest.fn((key: string) => {
         if (key === 'STRIPE_SECRET_KEY') return 'sk_test';

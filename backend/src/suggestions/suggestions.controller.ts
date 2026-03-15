@@ -28,8 +28,14 @@ export class SuggestionsController {
     if (!me?.suggest_local_artists) {
       return { artists: [] };
     }
-    const limitNum = Math.min(Math.max(parseInt(limit || '10', 10) || 10, 1), 20);
-    const artists = await this.suggestionsService.getLocalArtists(me.region ?? null, limitNum);
+    const limitNum = Math.min(
+      Math.max(parseInt(limit || '10', 10) || 10, 1),
+      20,
+    );
+    const artists = await this.suggestionsService.getLocalArtists(
+      me.region ?? null,
+      limitNum,
+    );
     return { artists };
   }
 }

@@ -9,13 +9,21 @@ jest.mock('../config/supabase.config', () => ({
 describe('PaymentsController', () => {
   it('creates payment intent for current user', async () => {
     const paymentsService = {
-      createPaymentIntent: jest.fn().mockResolvedValue({ clientSecret: 'secret' }),
+      createPaymentIntent: jest
+        .fn()
+        .mockResolvedValue({ clientSecret: 'secret' }),
     };
     const stripeService = { verifyWebhookSignature: jest.fn() };
-    const controller = new PaymentsController(paymentsService as any, stripeService as any);
+    const controller = new PaymentsController(
+      paymentsService as any,
+      stripeService as any,
+    );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'user-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.createPaymentIntent(
@@ -23,10 +31,13 @@ describe('PaymentsController', () => {
       { amount: 500, credits: 25 } as any,
     );
 
-    expect(paymentsService.createPaymentIntent).toHaveBeenCalledWith('user-id', {
-      amount: 500,
-      credits: 25,
-    });
+    expect(paymentsService.createPaymentIntent).toHaveBeenCalledWith(
+      'user-id',
+      {
+        amount: 500,
+        credits: 25,
+      },
+    );
     expect(result).toEqual({ clientSecret: 'secret' });
   });
 
@@ -46,7 +57,10 @@ describe('PaymentsController', () => {
         data: { object: { id: 'pi_1' } },
       }),
     };
-    const controller = new PaymentsController(paymentsService as any, stripeService as any);
+    const controller = new PaymentsController(
+      paymentsService as any,
+      stripeService as any,
+    );
 
     const result = await controller.handleWebhook(
       { rawBody: Buffer.from('payload') } as any,

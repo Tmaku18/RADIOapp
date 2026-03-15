@@ -11,7 +11,10 @@ describe('ChatAdminController', () => {
     };
     const controller = new ChatAdminController(chatAdminService as any);
 
-    const result = await controller.toggleChat({ enabled: false, reason: 'test' });
+    const result = await controller.toggleChat({
+      enabled: false,
+      reason: 'test',
+    });
 
     expect(chatAdminService.toggleChat).toHaveBeenCalledWith(false, 'test');
     expect(result).toEqual({ enabled: false });
@@ -27,7 +30,9 @@ describe('ChatAdminController', () => {
     };
     const controller = new ChatAdminController(chatAdminService as any);
 
-    const result = await controller.shadowBanUser('user-1', { durationHours: 2 });
+    const result = await controller.shadowBanUser('user-1', {
+      durationHours: 2,
+    });
 
     expect(chatAdminService.shadowBanUser).toHaveBeenCalledWith('user-1', 2);
     expect(result).toEqual({ success: true });

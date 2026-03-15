@@ -27,22 +27,30 @@ function redisKeys(radioId: string) {
 }
 
 // Checkpoint frequency for saving to Supabase
-const CHECKPOINT_INTERVAL = parseInt(process.env.CHECKPOINT_INTERVAL || '5', 10);
+const CHECKPOINT_INTERVAL = parseInt(
+  process.env.CHECKPOINT_INTERVAL || '5',
+  10,
+);
 
 export interface RadioState {
   songId: string;
-  startedAt: number;  // Unix timestamp ms
+  startedAt: number; // Unix timestamp ms
   durationMs: number;
   priorityScore: number;
   isFallback: boolean;
   isAdminFallback: boolean;
-  playedAt: string;   // ISO string for compatibility
+  playedAt: string; // ISO string for compatibility
 }
 
 export interface PlayDecision {
   songId: string;
   selectedAt: string;
-  selectionReason: 'credits' | 'trial' | 'opt_in' | 'admin_fallback' | 'fallback';
+  selectionReason:
+    | 'credits'
+    | 'trial'
+    | 'opt_in'
+    | 'admin_fallback'
+    | 'fallback';
   tierAtSelection?: string;
   listenerCount?: number;
   weightScore?: number;
@@ -84,7 +92,9 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Get current radio state from Redis (or DB fallback).
    */
-  async getCurrentState(radioId: string = DEFAULT_RADIO_ID): Promise<RadioState | null> {
+  async getCurrentState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioState | null> {
     if (this.redisAvailable) {
       return this.getStateFromRedis(radioId);
     }
@@ -94,7 +104,10 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Set current playing song state.
    */
-  async setCurrentState(state: RadioState, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setCurrentState(
+    state: RadioState,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (this.redisAvailable) {
       await this.setStateInRedis(state, radioId);
     }
@@ -119,7 +132,7 @@ export class RadioStateService implements OnModuleInit {
    */
   async logPlayDecision(decision: PlayDecision): Promise<void> {
     const supabase = getSupabaseClient();
-    
+
     try {
       await supabase.from('play_decision_log').insert({
         song_id: decision.songId,
@@ -141,7 +154,7 @@ export class RadioStateService implements OnModuleInit {
    */
   async getListenerCount(radioId: string = DEFAULT_RADIO_ID): Promise<number> {
     if (!this.redisAvailable) return 0;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const count = await redis.get(keys.LISTENER_COUNT);
@@ -151,9 +164,11 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Increment listener count (called when client connects).
    */
-  async incrementListeners(radioId: string = DEFAULT_RADIO_ID): Promise<number> {
+  async incrementListeners(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<number> {
     if (!this.redisAvailable) return 0;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     return await redis.incr(keys.LISTENER_COUNT);
@@ -162,9 +177,11 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Decrement listener count (called when client disconnects).
    */
-  async decrementListeners(radioId: string = DEFAULT_RADIO_ID): Promise<number> {
+  async decrementListeners(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<number> {
     if (!this.redisAvailable) return 0;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const newCount = await redis.decr(keys.LISTENER_COUNT);
@@ -181,7 +198,9 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Get current play info (set when an artist song starts; cleared when next track starts).
    */
-  async getCurrentPlayInfo(radioId: string = DEFAULT_RADIO_ID): Promise<{ playId: string; artistId: string; startedAt: string } | null> {
+  async getCurrentPlayInfo(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<{ playId: string; artistId: string; startedAt: string } | null> {
     if (!this.redisAvailable) return null;
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
@@ -199,7 +218,12 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Set current play info so we can finalize (update metrics + notify) when next track starts.
    */
-  async setCurrentPlayInfo(playId: string, artistId: string, startedAt: string, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setCurrentPlayInfo(
+    playId: string,
+    artistId: string,
+    startedAt: string,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
@@ -211,7 +235,9 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Clear current play info after finalizing.
    */
-  async clearCurrentPlayInfo(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async clearCurrentPlayInfo(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
@@ -225,15 +251,17 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Get or create playlist state for continuous playback.
    */
-  async getPlaylistState(radioId: string = DEFAULT_RADIO_ID): Promise<PlaylistState | null> {
+  async getPlaylistState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<PlaylistState | null> {
     if (!this.redisAvailable) return null;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const data = await redis.get(keys.PLAYLIST_STATE);
-    
+
     if (!data) return null;
-    
+
     try {
       return JSON.parse(data) as PlaylistState;
     } catch (e) {
@@ -245,15 +273,18 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Save playlist state (shuffle order, current position).
    */
-  async setPlaylistState(state: PlaylistState, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setPlaylistState(
+    state: PlaylistState,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     await redis.setex(
       keys.PLAYLIST_STATE,
       3600, // 1 hour TTL (refreshed on each update)
-      JSON.stringify(state)
+      JSON.stringify(state),
     );
   }
 
@@ -261,7 +292,9 @@ export class RadioStateService implements OnModuleInit {
    * Advance to next song in playlist, reshuffle if at end.
    * Returns the new current index and whether we looped.
    */
-  async advancePlaylist(radioId: string = DEFAULT_RADIO_ID): Promise<{ newIndex: number; looped: boolean } | null> {
+  async advancePlaylist(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<{ newIndex: number; looped: boolean } | null> {
     const state = await this.getPlaylistState(radioId);
     if (!state || state.songIds.length === 0) {
       return null;
@@ -290,18 +323,20 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Get the current free rotation stack (shuffled song IDs).
    */
-  async getFreeRotationStack(radioId: string = DEFAULT_RADIO_ID): Promise<string[]> {
+  async getFreeRotationStack(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<string[]> {
     if (!this.redisAvailable) {
       const state = await this.loadPlaylistStateFromDb(radioId);
       return state?.fallbackStack ?? [];
     }
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const data = await redis.get(keys.FREE_ROTATION_STACK);
-    
+
     if (!data) return [];
-    
+
     try {
       return JSON.parse(data) as string[];
     } catch (e) {
@@ -313,32 +348,41 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Set the free rotation stack (after shuffling).
    */
-  async setFreeRotationStack(songIds: string[], radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setFreeRotationStack(
+    songIds: string[],
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) {
       const state = await this.loadPlaylistStateFromDb(radioId);
       const position = state?.fallbackPosition ?? 0;
       await this.saveFullPlaylistState(songIds, position, radioId);
-      this.logger.log(`Free rotation stack set in DB with ${songIds.length} songs for radio ${radioId}`);
+      this.logger.log(
+        `Free rotation stack set in DB with ${songIds.length} songs for radio ${radioId}`,
+      );
       return;
     }
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     // Set with 24 hour TTL (will be refreshed when stack is refilled)
     await redis.setex(
       keys.FREE_ROTATION_STACK,
       86400, // 24 hours TTL
-      JSON.stringify(songIds)
+      JSON.stringify(songIds),
     );
-    
-    this.logger.log(`Free rotation stack set with ${songIds.length} songs for radio ${radioId}`);
+
+    this.logger.log(
+      `Free rotation stack set with ${songIds.length} songs for radio ${radioId}`,
+    );
   }
 
   /**
    * Pop the next song from the free rotation stack.
    * Returns null if stack is empty.
    */
-  async popFreeRotationSong(radioId: string = DEFAULT_RADIO_ID): Promise<string | null> {
+  async popFreeRotationSong(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<string | null> {
     if (!this.redisAvailable) {
       const stack = await this.getFreeRotationStack(radioId);
       if (stack.length === 0) return null;
@@ -349,36 +393,34 @@ export class RadioStateService implements OnModuleInit {
       await this.saveFullPlaylistState(stack, position, radioId);
       return songId;
     }
-    
+
     const stack = await this.getFreeRotationStack(radioId);
-    
+
     if (stack.length === 0) {
       return null;
     }
-    
+
     // Pop from the beginning (FIFO after shuffle)
     const songId = stack.shift()!;
-    
+
     // Save the updated stack
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     if (stack.length > 0) {
-      await redis.setex(
-        keys.FREE_ROTATION_STACK,
-        86400,
-        JSON.stringify(stack)
-      );
+      await redis.setex(keys.FREE_ROTATION_STACK, 86400, JSON.stringify(stack));
     } else {
       await redis.del(keys.FREE_ROTATION_STACK);
     }
-    
+
     return songId;
   }
 
   /**
    * Check if free rotation stack is empty.
    */
-  async isFreeRotationStackEmpty(radioId: string = DEFAULT_RADIO_ID): Promise<boolean> {
+  async isFreeRotationStackEmpty(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<boolean> {
     const stack = await this.getFreeRotationStack(radioId);
     return stack.length === 0;
   }
@@ -386,7 +428,9 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Clear the free rotation stack (for admin/testing).
    */
-  async clearFreeRotationStack(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async clearFreeRotationStack(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) {
       const state = await this.loadPlaylistStateFromDb(radioId);
       const position = state?.fallbackPosition ?? 0;
@@ -394,7 +438,7 @@ export class RadioStateService implements OnModuleInit {
       this.logger.log(`Free rotation stack cleared in DB for radio ${radioId}`);
       return;
     }
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     await redis.del(keys.FREE_ROTATION_STACK);
@@ -407,7 +451,9 @@ export class RadioStateService implements OnModuleInit {
    * Get the current playlist type ('free_rotation' or 'paid').
    * First checks Redis, falls back to Supabase.
    */
-  async getCurrentPlaylistType(radioId: string = DEFAULT_RADIO_ID): Promise<'free_rotation' | 'paid'> {
+  async getCurrentPlaylistType(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<'free_rotation' | 'paid'> {
     if (this.redisAvailable) {
       const redis = getRedisClient();
       const keys = redisKeys(radioId);
@@ -416,7 +462,7 @@ export class RadioStateService implements OnModuleInit {
         return type;
       }
     }
-    
+
     // Fall back to Supabase
     const supabase = getSupabaseClient();
     const { data } = await supabase
@@ -424,52 +470,56 @@ export class RadioStateService implements OnModuleInit {
       .select('playlist_type')
       .eq('radio_id', radioId)
       .single();
-    
-    const playlistType = (data?.playlist_type === 'paid' ? 'paid' : 'free_rotation') as 'free_rotation' | 'paid';
-    
+
+    const playlistType =
+      data?.playlist_type === 'paid' ? 'paid' : 'free_rotation';
+
     // Cache in Redis for fast access
     if (this.redisAvailable) {
       const redis = getRedisClient();
       const keys = redisKeys(radioId);
       await redis.set(keys.PLAYLIST_TYPE, playlistType);
     }
-    
+
     return playlistType;
   }
 
   /**
    * Set the current playlist type (both Redis and Supabase).
    */
-  async setCurrentPlaylistType(type: 'free_rotation' | 'paid', radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setCurrentPlaylistType(
+    type: 'free_rotation' | 'paid',
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     // Update Redis for fast access
     if (this.redisAvailable) {
       const redis = getRedisClient();
       const keys = redisKeys(radioId);
       await redis.set(keys.PLAYLIST_TYPE, type);
     }
-    
+
     // Update Supabase for durability (upsert so new radios get a row)
     const supabase = getSupabaseClient();
-    await supabase
-      .from('radio_playlist_state')
-      .upsert(
-        {
-          id: radioId,
-          radio_id: radioId,
-          playlist_type: type,
-          last_switched_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'radio_id' }
-      );
-    
+    await supabase.from('radio_playlist_state').upsert(
+      {
+        id: radioId,
+        radio_id: radioId,
+        playlist_type: type,
+        last_switched_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'radio_id' },
+    );
+
     this.logger.log(`Playlist type set to: ${type} for radio ${radioId}`);
   }
 
   /**
    * Get the current fallback position from Redis.
    */
-  async getFallbackPosition(radioId: string = DEFAULT_RADIO_ID): Promise<number> {
+  async getFallbackPosition(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<number> {
     if (!this.redisAvailable) {
       const supabase = getSupabaseClient();
       const { data } = await supabase
@@ -479,7 +529,7 @@ export class RadioStateService implements OnModuleInit {
         .single();
       return data?.fallback_position || 0;
     }
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const position = await redis.get(keys.FALLBACK_POSITION);
@@ -489,9 +539,12 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Set the fallback position in Redis.
    */
-  async setFallbackPosition(position: number, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async setFallbackPosition(
+    position: number,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     await redis.set(keys.FALLBACK_POSITION, position.toString());
@@ -501,18 +554,23 @@ export class RadioStateService implements OnModuleInit {
    * Checkpoint the fallback position.
    * Always updates Redis, syncs to Supabase every CHECKPOINT_INTERVAL songs.
    */
-  async checkpointPosition(position: number, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async checkpointPosition(
+    position: number,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (this.redisAvailable) {
       const redis = getRedisClient();
       const keys = redisKeys(radioId);
       await redis.set(keys.FALLBACK_POSITION, position.toString());
-      
+
       const count = await redis.incr(keys.SONGS_SINCE_CHECKPOINT);
-      
+
       if (count >= CHECKPOINT_INTERVAL) {
         await this.syncPositionToSupabase(position, radioId);
         await redis.set(keys.SONGS_SINCE_CHECKPOINT, '0');
-        this.logger.log(`Checkpoint saved to Supabase at position: ${position} for radio ${radioId}`);
+        this.logger.log(
+          `Checkpoint saved to Supabase at position: ${position} for radio ${radioId}`,
+        );
       }
     } else {
       await this.syncPositionToSupabase(position, radioId);
@@ -522,63 +580,72 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Force sync position to Supabase (used during playlist switches).
    */
-  async syncPositionToSupabase(position: number, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async syncPositionToSupabase(
+    position: number,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
-    await supabase
-      .from('radio_playlist_state')
-      .upsert(
-        {
-          id: radioId,
-          radio_id: radioId,
-          fallback_position: position,
-          last_checkpoint_at: new Date().toISOString(),
-          songs_played_since_checkpoint: 0,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'radio_id' }
-      );
+    await supabase.from('radio_playlist_state').upsert(
+      {
+        id: radioId,
+        radio_id: radioId,
+        fallback_position: position,
+        last_checkpoint_at: new Date().toISOString(),
+        songs_played_since_checkpoint: 0,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'radio_id' },
+    );
   }
 
   /**
    * Save full playlist state to Supabase (only when stack content changes).
    */
-  async saveFullPlaylistState(stack: string[], position: number, radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async saveFullPlaylistState(
+    stack: string[],
+    position: number,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     const hash = this.computeStackHash(stack);
-    
+
     const supabase = getSupabaseClient();
-    await supabase
-      .from('radio_playlist_state')
-      .upsert(
-        {
-          id: radioId,
-          radio_id: radioId,
-          fallback_stack: stack,
-          fallback_position: position,
-          stack_version_hash: hash,
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'radio_id' }
-      );
-    
-    this.logger.log(`Full playlist state saved for radio ${radioId}. Stack size: ${stack.length}, Position: ${position}`);
+    await supabase.from('radio_playlist_state').upsert(
+      {
+        id: radioId,
+        radio_id: radioId,
+        fallback_stack: stack,
+        fallback_position: position,
+        stack_version_hash: hash,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'radio_id' },
+    );
+
+    this.logger.log(
+      `Full playlist state saved for radio ${radioId}. Stack size: ${stack.length}, Position: ${position}`,
+    );
   }
 
   /**
    * Load playlist state from Supabase.
    */
-  async loadPlaylistStateFromDb(radioId: string = DEFAULT_RADIO_ID): Promise<PlaylistPersistState | null> {
+  async loadPlaylistStateFromDb(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<PlaylistPersistState | null> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('radio_playlist_state')
       .select('*')
       .eq('radio_id', radioId)
       .single();
-    
+
     if (error || !data) {
-      this.logger.warn(`Failed to load playlist state for radio ${radioId}: ${error?.message}`);
+      this.logger.warn(
+        `Failed to load playlist state for radio ${radioId}: ${error?.message}`,
+      );
       return null;
     }
-    
+
     return {
       playlistType: data.playlist_type as 'free_rotation' | 'paid',
       fallbackStack: (data.fallback_stack as string[]) || [],
@@ -599,9 +666,11 @@ export class RadioStateService implements OnModuleInit {
   /**
    * Reset the songs-since-checkpoint counter.
    */
-  async resetCheckpointCounter(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+  async resetCheckpointCounter(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
     if (!this.redisAvailable) return;
-    
+
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     await redis.set(keys.SONGS_SINCE_CHECKPOINT, '0');
@@ -613,9 +682,9 @@ export class RadioStateService implements OnModuleInit {
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     const data = await redis.get(keys.CURRENT_STATE);
-    
+
     if (!data) return null;
-    
+
     try {
       return JSON.parse(data) as RadioState;
     } catch (e) {
@@ -624,21 +693,26 @@ export class RadioStateService implements OnModuleInit {
     }
   }
 
-  private async setStateInRedis(state: RadioState, radioId: string): Promise<void> {
+  private async setStateInRedis(
+    state: RadioState,
+    radioId: string,
+  ): Promise<void> {
     const redis = getRedisClient();
     const keys = redisKeys(radioId);
     await redis.setex(
       keys.CURRENT_STATE,
       600, // 10 minutes TTL
-      JSON.stringify(state)
+      JSON.stringify(state),
     );
   }
 
   // === Private Database Methods (Fallback) ===
 
-  private async getStateFromDatabase(radioId: string): Promise<RadioState | null> {
+  private async getStateFromDatabase(
+    radioId: string,
+  ): Promise<RadioState | null> {
     const supabase = getSupabaseClient();
-    
+
     const { data: existing } = await supabase
       .from('rotation_queue')
       .select('*')
@@ -670,29 +744,30 @@ export class RadioStateService implements OnModuleInit {
     };
   }
 
-  private async setStateInDatabase(state: RadioState, radioId: string): Promise<void> {
+  private async setStateInDatabase(
+    state: RadioState,
+    radioId: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
-    
+
     await supabase
       .from('rotation_queue')
       .delete()
       .eq('radio_id', radioId)
       .eq('position', 0);
 
-    await supabase
-      .from('rotation_queue')
-      .insert({
-        radio_id: radioId,
-        song_id: state.songId,
-        priority_score: state.priorityScore,
-        position: 0,
-        played_at: state.playedAt,
-      });
+    await supabase.from('rotation_queue').insert({
+      radio_id: radioId,
+      song_id: state.songId,
+      priority_score: state.priorityScore,
+      position: 0,
+      played_at: state.playedAt,
+    });
   }
 
   private async clearStateInDatabase(radioId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    
+
     await supabase
       .from('rotation_queue')
       .delete()

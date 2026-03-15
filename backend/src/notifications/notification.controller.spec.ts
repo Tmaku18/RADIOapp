@@ -19,10 +19,15 @@ describe('NotificationController', () => {
     const controller = new NotificationController(notificationService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'user-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
-    const result = await controller.getUnreadCount({ uid: 'firebase-uid' } as any);
+    const result = await controller.getUnreadCount({
+      uid: 'firebase-uid',
+    } as any);
 
     expect(notificationService.getUnreadCount).toHaveBeenCalledWith('user-id');
     expect(result).toEqual({ count: 3 });
@@ -40,12 +45,21 @@ describe('NotificationController', () => {
     const controller = new NotificationController(notificationService as any);
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({ data: { id: 'user-id' }, error: null });
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
-    const result = await controller.markAsRead({ uid: 'firebase-uid' } as any, 'notif-1');
+    const result = await controller.markAsRead(
+      { uid: 'firebase-uid' } as any,
+      'notif-1',
+    );
 
-    expect(notificationService.markAsRead).toHaveBeenCalledWith('notif-1', 'user-id');
+    expect(notificationService.markAsRead).toHaveBeenCalledWith(
+      'notif-1',
+      'user-id',
+    );
     expect(result).toEqual({ success: true });
   });
 });

@@ -5,9 +5,9 @@ import { EmojiReactionDto } from './dto/emoji-reaction.dto';
 
 /**
  * Emoji reaction controller for live radio chat.
- * 
+ *
  * POST /api/chat/emoji - Send an emoji reaction
- * 
+ *
  * Reactions are:
  * - Rate limited (1 per second per user)
  * - Validated against allowlist (8 emojis)

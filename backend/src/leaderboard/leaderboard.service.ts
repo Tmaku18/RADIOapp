@@ -21,7 +21,10 @@ export interface LeaderboardSong {
 
 @Injectable()
 export class LeaderboardService {
-  private async maybeEmitRisingStarForPlay(playId: string, songId: string): Promise<void> {
+  private async maybeEmitRisingStarForPlay(
+    playId: string,
+    songId: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
     try {
       const { data: play } = await supabase
@@ -81,17 +84,23 @@ export class LeaderboardService {
   /**
    * Songs ordered by persistent like count (profile likes).
    */
-  async getSongsByLikes(limit: number, offset: number): Promise<LeaderboardSong[]> {
+  async getSongsByLikes(
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
     const { data: songs, error } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count',
+      )
       .eq('status', 'approved')
       .order('like_count', { ascending: false, nullsFirst: false })
       .order('play_count', { ascending: false, nullsFirst: false })
       .range(offset, offset + limit - 1);
 
-    if (error) throw new Error(`Failed to fetch likes leaderboard: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch likes leaderboard: ${error.message}`);
     return (songs || []).map((s: any) => {
       const playCount = s.play_count ?? 0;
       const profilePlayCount = s.profile_play_count ?? 0;
@@ -112,15 +121,21 @@ export class LeaderboardService {
   /**
    * Songs ordered by combined listens: radio plays + profile listens.
    */
-  async getSongsByListens(limit: number, offset: number): Promise<LeaderboardSong[]> {
+  async getSongsByListens(
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
     const { data: songs, error } = await supabase
       .from('songs')
-      .select('id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, spotlight_listen_count, like_count')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, spotlight_listen_count, like_count',
+      )
       .eq('status', 'approved')
       .range(offset, offset + limit - 1);
 
-    if (error) throw new Error(`Failed to fetch listens leaderboard: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch listens leaderboard: ${error.message}`);
     const withTotals = (songs || []).map((s: any) => {
       const playCount = s.play_count ?? 0;
       const profilePlayCount = s.profile_play_count ?? 0;
@@ -137,7 +152,11 @@ export class LeaderboardService {
         spotlightListenCount: s.spotlight_listen_count ?? 0,
       } satisfies LeaderboardSong;
     });
-    withTotals.sort((a, b) => (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) || (b.playCount ?? 0) - (a.playCount ?? 0));
+    withTotals.sort(
+      (a, b) =>
+        (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) ||
+        (b.playCount ?? 0) - (a.playCount ?? 0),
+    );
     return withTotals.slice(0, limit);
   }
 
@@ -146,16 +165,19 @@ export class LeaderboardService {
    * Uses leaderboard_likes + plays within the window and computes:
    * upvotesPerMinute = likesInWindow / windowMinutes
    */
-  async getSongsByUpvotesPerMinute(windowMinutes: number, limit: number, offset: number): Promise<LeaderboardSong[]> {
+  async getSongsByUpvotesPerMinute(
+    windowMinutes: number,
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
     const supabase = getSupabaseClient();
     const safeWindow = Math.min(Math.max(1, windowMinutes || 60), 24 * 60);
-    const startIso = new Date(Date.now() - safeWindow * 60 * 1000).toISOString();
+    const startIso = new Date(
+      Date.now() - safeWindow * 60 * 1000,
+    ).toISOString();
 
     const [playsRes, likesRes] = await Promise.all([
-      supabase
-        .from('plays')
-        .select('song_id')
-        .gte('played_at', startIso),
+      supabase.from('plays').select('song_id').gte('played_at', startIso),
       supabase
         .from('leaderboard_likes')
         .select('song_id')
@@ -166,12 +188,16 @@ export class LeaderboardService {
     const likes = (likesRes.data ?? []) as Array<{ song_id: string }>;
 
     const playsBySong: Record<string, number> = {};
-    for (const p of plays) playsBySong[p.song_id] = (playsBySong[p.song_id] || 0) + 1;
+    for (const p of plays)
+      playsBySong[p.song_id] = (playsBySong[p.song_id] || 0) + 1;
 
     const likesBySong: Record<string, number> = {};
-    for (const l of likes) likesBySong[l.song_id] = (likesBySong[l.song_id] || 0) + 1;
+    for (const l of likes)
+      likesBySong[l.song_id] = (likesBySong[l.song_id] || 0) + 1;
 
-    const allSongIds = Array.from(new Set([...Object.keys(playsBySong), ...Object.keys(likesBySong)]));
+    const allSongIds = Array.from(
+      new Set([...Object.keys(playsBySong), ...Object.keys(likesBySong)]),
+    );
     if (allSongIds.length === 0) {
       // Fallback: nothing in the window yet.
       return this.getSongsByLikes(limit, offset);
@@ -188,7 +214,12 @@ export class LeaderboardService {
           upvotesPerMinute: likesInWindow / safeWindow,
         };
       })
-      .sort((a, b) => b.upvotesPerMinute - a.upvotesPerMinute || b.likesInWindow - a.likesInWindow || b.playsInWindow - a.playsInWindow)
+      .sort(
+        (a, b) =>
+          b.upvotesPerMinute - a.upvotesPerMinute ||
+          b.likesInWindow - a.likesInWindow ||
+          b.playsInWindow - a.playsInWindow,
+      )
       .slice(offset, offset + limit);
 
     const selectedIds = rankedSongIds.map((r) => r.id);
@@ -200,7 +231,9 @@ export class LeaderboardService {
 
     const statsById = new Map(rankedSongIds.map((r) => [r.id, r]));
     const order = new Map(selectedIds.map((id, i) => [id, i]));
-    const sorted = (songs ?? []).sort((a: any, b: any) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999));
+    const sorted = (songs ?? []).sort(
+      (a: any, b: any) => (order.get(a.id) ?? 999) - (order.get(b.id) ?? 999),
+    );
 
     return sorted.map((s: any) => {
       const st = statsById.get(s.id);
@@ -222,7 +255,11 @@ export class LeaderboardService {
   /**
    * Record a leaderboard like (one per user per play). Idempotent if same user + play_id.
    */
-  async addLeaderboardLike(userId: string, songId: string, playId: string | null): Promise<{ liked: boolean }> {
+  async addLeaderboardLike(
+    userId: string,
+    songId: string,
+    playId: string | null,
+  ): Promise<{ liked: boolean }> {
     const supabase = getSupabaseClient();
     if (playId) {
       const { data: existing } = await supabase

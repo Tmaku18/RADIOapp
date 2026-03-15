@@ -26,10 +26,17 @@ export default function UploadPage() {
   const router = useRouter();
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
+  const discoverClipInputRef = useRef<HTMLInputElement>(null);
+  const discoverBackgroundInputRef = useRef<HTMLInputElement>(null);
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
+  const [discoverClipFile, setDiscoverClipFile] = useState<File | null>(null);
+  const [discoverBackgroundFile, setDiscoverBackgroundFile] = useState<File | null>(null);
+  const [discoverBackgroundPreview, setDiscoverBackgroundPreview] = useState<string | null>(null);
+  const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0');
+  const [discoverClipEndSeconds, setDiscoverClipEndSeconds] = useState('15');
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
@@ -112,6 +119,37 @@ export default function UploadPage() {
     }
   };
 
+  const handleDiscoverClipSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.includes('audio')) {
+      setError('Please select a valid discover clip audio file');
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      setError('Discover clip must be less than 20MB');
+      return;
+    }
+    setDiscoverClipFile(file);
+    setError(null);
+  };
+
+  const handleDiscoverBackgroundSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.includes('image')) {
+      setError('Please select a valid discover background image');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Discover background image must be less than 5MB');
+      return;
+    }
+    setDiscoverBackgroundFile(file);
+    setDiscoverBackgroundPreview(URL.createObjectURL(file));
+    setError(null);
+  };
+
   const uploadToSignedUrl = async (
     file: File,
     bucket: 'songs' | 'artwork'
@@ -175,6 +213,18 @@ export default function UploadPage() {
       setError('Please select a station/category');
       return;
     }
+    if (discoverClipFile) {
+      const start = Number(discoverClipStartSeconds);
+      const end = Number(discoverClipEndSeconds);
+      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+        setError('Discover clip trim values must be valid and end must be greater than start');
+        return;
+      }
+      if (end - start > 15) {
+        setError('Discover clip trim range must be 15 seconds or less');
+        return;
+      }
+    }
 
     setIsUploading(true);
     setError(null);
@@ -212,8 +262,38 @@ export default function UploadPage() {
         setUploadProgress(70);
       }
 
+      let discoverClipPath: string | undefined;
+      if (discoverClipFile) {
+        try {
+          discoverClipPath = await uploadToSignedUrl(discoverClipFile, 'songs');
+        } catch (uploadErr) {
+          throw new Error(
+            `Discover clip upload failed: ${errorMessage(
+              uploadErr,
+              'Could not upload discover clip.',
+            )}`,
+          );
+        }
+        setUploadProgress(80);
+      }
+
+      let discoverBackgroundPath: string | undefined;
+      if (discoverBackgroundFile) {
+        try {
+          discoverBackgroundPath = await uploadToSignedUrl(discoverBackgroundFile, 'artwork');
+        } catch (uploadErr) {
+          throw new Error(
+            `Discover background upload failed: ${errorMessage(
+              uploadErr,
+              'Could not upload discover background image.',
+            )}`,
+          );
+        }
+        setUploadProgress(85);
+      }
+
       // Create song record
-      setUploadProgress(80);
+      setUploadProgress(90);
       try {
         await songsApi.create({
           title,
@@ -222,6 +302,10 @@ export default function UploadPage() {
           audioPath,
           artworkPath,
           durationSeconds: durationSeconds ?? undefined,
+          discoverClipPath,
+          discoverBackgroundPath,
+          discoverClipStartSeconds: discoverClipPath ? Number(discoverClipStartSeconds) : undefined,
+          discoverClipEndSeconds: discoverClipPath ? Number(discoverClipEndSeconds) : undefined,
         });
       } catch (dbErr) {
         throw new Error(
@@ -346,6 +430,98 @@ export default function UploadPage() {
                   <span className="text-muted-foreground">Add album artwork</span>
                 </div>
               )}
+              </Button>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-4">
+              <Label>Discover Clip Audio (Optional)</Label>
+              <input
+                ref={discoverClipInputRef}
+                type="file"
+                accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm"
+                onChange={handleDiscoverClipSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-auto py-4 border-dashed flex flex-col sm:flex-row"
+                onClick={() => discoverClipInputRef.current?.click()}
+              >
+                {discoverClipFile ? (
+                  <div className="text-left">
+                    <p className="text-foreground font-medium">{discoverClipFile.name}</p>
+                    <p className="text-sm text-muted-foreground">Discover clip selected</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2">
+                    <span className="text-2xl">🎚️</span>
+                    <span className="text-muted-foreground">Upload discover clip (max 15s after trim)</span>
+                  </div>
+                )}
+              </Button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label htmlFor="discover-start">Clip Start (seconds)</Label>
+                  <Input
+                    id="discover-start"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={discoverClipStartSeconds}
+                    onChange={(e) => setDiscoverClipStartSeconds(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="discover-end">Clip End (seconds)</Label>
+                  <Input
+                    id="discover-end"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={discoverClipEndSeconds}
+                    onChange={(e) => setDiscoverClipEndSeconds(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Artists can trim discover playback to 15 seconds max.
+              </p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-4">
+              <Label>Discover Background Image (Optional)</Label>
+              <input
+                ref={discoverBackgroundInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleDiscoverBackgroundSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full h-auto py-4 border-dashed flex flex-col sm:flex-row"
+                onClick={() => discoverBackgroundInputRef.current?.click()}
+              >
+                {discoverBackgroundPreview ? (
+                  <div className="flex items-center space-x-4">
+                    <img
+                      src={discoverBackgroundPreview}
+                      alt="Discover background preview"
+                      className="w-20 h-20 rounded-lg object-cover"
+                    />
+                    <div className="text-left">
+                      <p className="text-foreground font-medium">{discoverBackgroundFile?.name}</p>
+                      <p className="text-sm text-muted-foreground">Click to change</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center space-x-2">
+                    <span className="text-2xl">🌄</span>
+                    <span className="text-muted-foreground">Upload discover background image</span>
+                  </div>
+                )}
               </Button>
             </div>
 

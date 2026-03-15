@@ -52,7 +52,8 @@ export const initializeFirebase = (configService: ConfigService): App => {
         }),
       });
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage =
+        error instanceof Error ? error.message : String(error);
       throw new Error(
         `Failed to initialize Firebase: ${errorMessage}. Please check your FIREBASE_PRIVATE_KEY format in .env file.`,
       );

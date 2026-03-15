@@ -21,7 +21,11 @@ export class BrowseController {
 
   private async getUserId(uid: string): Promise<string | null> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('users').select('id').eq('firebase_uid', uid).single();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', uid)
+      .single();
     return data?.id ?? null;
   }
 
@@ -33,14 +37,19 @@ export class BrowseController {
     @Query('cursor') cursor?: string,
     @Query('seed') seed?: string,
   ) {
-    const limit = limitStr ? Math.min(parseInt(limitStr, 10) || 12, 30) : undefined;
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 12, 30)
+      : undefined;
     const userId = await this.getUserId(user.uid);
     return this.browseService.getFeed(limit, cursor, seed, userId ?? undefined);
   }
 
   @Post('feed/:contentId/like')
   @UseGuards(FirebaseAuthGuard)
-  async toggleLike(@CurrentUser() user: FirebaseUser, @Param('contentId') contentId: string) {
+  async toggleLike(
+    @CurrentUser() user: FirebaseUser,
+    @Param('contentId') contentId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     if (!userId) throw new BadRequestException('User not found');
     return this.browseService.toggleLike(userId, contentId);
@@ -48,7 +57,10 @@ export class BrowseController {
 
   @Post('feed/:contentId/bookmark')
   @UseGuards(FirebaseAuthGuard)
-  async addBookmark(@CurrentUser() user: FirebaseUser, @Param('contentId') contentId: string) {
+  async addBookmark(
+    @CurrentUser() user: FirebaseUser,
+    @Param('contentId') contentId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     if (!userId) throw new BadRequestException('User not found');
     await this.browseService.addBookmark(userId, contentId);
@@ -57,7 +69,10 @@ export class BrowseController {
 
   @Delete('feed/:contentId/bookmark')
   @UseGuards(FirebaseAuthGuard)
-  async removeBookmark(@CurrentUser() user: FirebaseUser, @Param('contentId') contentId: string) {
+  async removeBookmark(
+    @CurrentUser() user: FirebaseUser,
+    @Param('contentId') contentId: string,
+  ) {
     const userId = await this.getUserId(user.uid);
     if (!userId) throw new BadRequestException('User not found');
     await this.browseService.removeBookmark(userId, contentId);
@@ -74,7 +89,8 @@ export class BrowseController {
     const userId = await this.getUserId(user.uid);
     if (!userId) throw new BadRequestException('User not found');
     const reason = body?.reason?.trim();
-    if (!reason || reason.length < 1) throw new BadRequestException('Report reason is required');
+    if (!reason || reason.length < 1)
+      throw new BadRequestException('Report reason is required');
     await this.browseService.reportContent(userId, contentId, reason);
     return { reported: true };
   }

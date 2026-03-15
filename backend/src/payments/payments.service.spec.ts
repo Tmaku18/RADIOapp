@@ -16,7 +16,10 @@ describe('PaymentsService', () => {
     };
     const configService = { get: jest.fn() };
 
-    const service = new PaymentsService(stripeService as any, configService as any);
+    const service = new PaymentsService(
+      stripeService as any,
+      configService as any,
+    );
     const supabase = createSupabaseMock();
 
     supabase.__builder.single.mockResolvedValue({

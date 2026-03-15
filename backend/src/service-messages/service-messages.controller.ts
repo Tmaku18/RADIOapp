@@ -24,7 +24,11 @@ export class ServiceMessagesController {
 
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('users').select('id').eq('firebase_uid', firebaseUid).single();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
     if (error || !data) throw new UnauthorizedException('User not found');
     return data.id;
   }
@@ -70,7 +74,9 @@ export class ServiceMessagesController {
     const mediaUrl = body?.mediaUrl?.trim() ?? '';
 
     if (messageType === 'text' && !trimmedBody) {
-      throw new BadRequestException('Message body is required for text messages');
+      throw new BadRequestException(
+        'Message body is required for text messages',
+      );
     }
     if (messageType !== 'text' && !mediaUrl) {
       throw new BadRequestException('mediaUrl is required for media messages');

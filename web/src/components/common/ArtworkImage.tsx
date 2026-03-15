@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type ArtworkImageProps = {
   src?: string | null;
@@ -21,30 +21,35 @@ const DEFAULT_ALBUM_ART_FALLBACKS = [
   '/images/welcome-to-the-networx.png',
 ];
 
+function stableFallbackIndex(seed: string, size: number): number {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+  return hash % Math.max(size, 1);
+}
+
 export function ArtworkImage({
   src,
   alt = '',
   className,
   fallbackSrc,
 }: ArtworkImageProps) {
-  const [broken, setBroken] = useState(false);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
   const normalizedSrc = useMemo(() => {
     const trimmed = typeof src === 'string' ? src.trim() : '';
     return trimmed || null;
   }, [src]);
 
-  useEffect(() => {
-    // Re-evaluate when artwork URL changes (prevents stale fallback state).
-    setBroken(false);
-  }, [normalizedSrc]);
-
   const selectedFallbackSrc = useMemo(() => {
     if (fallbackSrc?.trim()) return fallbackSrc.trim();
-    const idx = Math.floor(Math.random() * DEFAULT_ALBUM_ART_FALLBACKS.length);
+    const seed = normalizedSrc || alt || 'default-fallback';
+    const idx = stableFallbackIndex(seed, DEFAULT_ALBUM_ART_FALLBACKS.length);
     return DEFAULT_ALBUM_ART_FALLBACKS[idx];
-  }, [fallbackSrc, normalizedSrc]);
+  }, [fallbackSrc, normalizedSrc, alt]);
 
-  const finalSrc = broken || !normalizedSrc ? selectedFallbackSrc : normalizedSrc;
+  const isBrokenCurrentSrc = !!normalizedSrc && failedSrc === normalizedSrc;
+  const finalSrc = isBrokenCurrentSrc || !normalizedSrc ? selectedFallbackSrc : normalizedSrc;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -55,7 +60,7 @@ export function ArtworkImage({
       referrerPolicy="no-referrer"
       onError={() => {
         // Only fallback when an uploaded artwork URL fails to load.
-        if (normalizedSrc) setBroken(true);
+        if (normalizedSrc) setFailedSrc(normalizedSrc);
       }}
     />
   );

@@ -1,4 +1,8 @@
-import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { NotificationService } from '../notifications/notification.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
@@ -46,19 +50,28 @@ export class JobBoardService {
 
     let q = supabase
       .from('service_requests')
-      .select('id, artist_id, title, description, service_type, status, created_at, updated_at', { count: 'exact' });
+      .select(
+        'id, artist_id, title, description, service_type, status, created_at, updated_at',
+        { count: 'exact' },
+      );
 
     if (params.status === 'open') q = q.eq('status', 'open');
     if (params.status === 'closed') q = q.eq('status', 'closed');
-    if (params.serviceType?.trim()) q = q.eq('service_type', params.serviceType.trim());
+    if (params.serviceType?.trim())
+      q = q.eq('service_type', params.serviceType.trim());
     if (params.mine && params.artistId) q = q.eq('artist_id', params.artistId);
 
-    const { data: rows, count } = await q.order('created_at', { ascending: false }).range(offset, offset + limit - 1);
+    const { data: rows, count } = await q
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (!rows?.length) return { items: [], total: count ?? 0 };
 
     const artistIds = [...new Set((rows as any[]).map((r) => r.artist_id))];
-    const { data: users } = await supabase.from('users').select('id, display_name').in('id', artistIds);
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .in('id', artistIds);
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
 
     const items: ServiceRequestRow[] = (rows as any[]).map((r) => ({
@@ -80,12 +93,18 @@ export class JobBoardService {
     const supabase = getSupabaseClient();
     const { data: r, error } = await supabase
       .from('service_requests')
-      .select('id, artist_id, title, description, service_type, status, created_at, updated_at')
+      .select(
+        'id, artist_id, title, description, service_type, status, created_at, updated_at',
+      )
       .eq('id', requestId)
       .single();
 
     if (error || !r) return null;
-    const { data: u } = await supabase.from('users').select('display_name').eq('id', r.artist_id).maybeSingle();
+    const { data: u } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', r.artist_id)
+      .maybeSingle();
     return {
       id: r.id,
       artistId: r.artist_id,
@@ -99,11 +118,18 @@ export class JobBoardService {
     };
   }
 
-  async apply(requestId: string, applicantId: string, message?: string | null): Promise<ServiceRequestApplicationRow> {
+  async apply(
+    requestId: string,
+    applicantId: string,
+    message?: string | null,
+  ): Promise<ServiceRequestApplicationRow> {
     const supabase = getSupabaseClient();
     const request = await this.getRequest(requestId);
     if (!request) throw new NotFoundException('Request not found');
-    if (request.status !== 'open') throw new ForbiddenException('This request is no longer open for applications');
+    if (request.status !== 'open')
+      throw new ForbiddenException(
+        'This request is no longer open for applications',
+      );
 
     const { data: existing } = await supabase
       .from('service_request_applications')
@@ -111,7 +137,8 @@ export class JobBoardService {
       .eq('request_id', requestId)
       .eq('applicant_id', applicantId)
       .maybeSingle();
-    if (existing) throw new ForbiddenException('You have already applied to this request');
+    if (existing)
+      throw new ForbiddenException('You have already applied to this request');
 
     const { data: inserted, error } = await supabase
       .from('service_request_applications')
@@ -124,7 +151,8 @@ export class JobBoardService {
       .select('id, request_id, applicant_id, message, status, created_at')
       .single();
 
-    if (error) throw new Error(`Failed to submit application: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to submit application: ${error.message}`);
 
     const applicantName = await this.getDisplayName(applicantId);
     const title = 'New job application';
@@ -158,10 +186,16 @@ export class JobBoardService {
     };
   }
 
-  async listApplicationsForRequest(requestId: string, userId: string): Promise<ServiceRequestApplicationRow[]> {
+  async listApplicationsForRequest(
+    requestId: string,
+    userId: string,
+  ): Promise<ServiceRequestApplicationRow[]> {
     const request = await this.getRequest(requestId);
     if (!request) throw new NotFoundException('Request not found');
-    if (request.artistId !== userId) throw new ForbiddenException('Only the request owner can view applications');
+    if (request.artistId !== userId)
+      throw new ForbiddenException(
+        'Only the request owner can view applications',
+      );
 
     const supabase = getSupabaseClient();
     const { data: rows } = await supabase
@@ -172,8 +206,13 @@ export class JobBoardService {
 
     if (!rows?.length) return [];
 
-    const applicantIds = [...new Set((rows as any[]).map((r) => r.applicant_id))];
-    const { data: users } = await supabase.from('users').select('id, display_name').in('id', applicantIds);
+    const applicantIds = [
+      ...new Set((rows as any[]).map((r) => r.applicant_id)),
+    ];
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .in('id', applicantIds);
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
 
     return (rows as any[]).map((r) => ({
@@ -189,7 +228,11 @@ export class JobBoardService {
 
   private async getDisplayName(userId: string): Promise<string | null> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase.from('users').select('display_name').eq('id', userId).maybeSingle();
+    const { data } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', userId)
+      .maybeSingle();
     return data?.display_name ?? null;
   }
 }

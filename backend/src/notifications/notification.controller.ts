@@ -67,7 +67,9 @@ export class NotificationController {
       };
     } catch (err) {
       if (err instanceof UnauthorizedException) throw err;
-      throw new InternalServerErrorException('Failed to load notifications. Please try again.');
+      throw new InternalServerErrorException(
+        'Failed to load notifications. Please try again.',
+      );
     }
   }
 

@@ -59,7 +59,8 @@ export class DiscoveryService {
     const offset = params.offset ?? 0;
     const supabase = getSupabaseClient();
     const mode = params.mode ?? 'default';
-    const seed = (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
+    const seed =
+      (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
 
     // Build list of Catalyst (service provider) user_ids with their types and mentor flag
     const { data: providerRows } = await supabase
@@ -96,12 +97,19 @@ export class DiscoveryService {
         p_radius_km: params.radiusKm,
       });
       if (Array.isArray(nearby)) {
-        nearbyMap = new Map((nearby as { user_id: string; distance_km: number }[]).map((r) => [r.user_id, r.distance_km]));
+        nearbyMap = new Map(
+          (nearby as { user_id: string; distance_km: number }[]).map((r) => [
+            r.user_id,
+            r.distance_km,
+          ]),
+        );
       }
     }
 
     // Price range: user_ids of providers that have at least one active listing in range
-    const providerIdToUserId = new Map((providerRows || []).map((p: any) => [p.id, p.user_id]));
+    const providerIdToUserId = new Map(
+      (providerRows || []).map((p: any) => [p.id, p.user_id]),
+    );
     let userIdsInPriceRange: Set<string> | null = null;
     if (
       (params.minRateCents != null || params.maxRateCents != null) &&
@@ -124,13 +132,18 @@ export class DiscoveryService {
           .map((l: any) => l.provider_id),
       );
       userIdsInPriceRange = new Set(
-        [...providerIdsInRange].map((pid) => providerIdToUserId.get(pid)).filter(Boolean) as string[],
+        [...providerIdsInRange]
+          .map((pid) => providerIdToUserId.get(pid))
+          .filter(Boolean) as string[],
       );
     }
 
     let userQuery = supabase
       .from('users')
-      .select('id, display_name, headline, avatar_url, bio, location_region, role, created_at', { count: 'exact' })
+      .select(
+        'id, display_name, headline, avatar_url, bio, location_region, role, created_at',
+        { count: 'exact' },
+      )
       .in('role', ['artist', 'service_provider'])
       .eq('discoverable', true)
       .eq('is_banned', false);
@@ -139,10 +152,16 @@ export class DiscoveryService {
     if (params.role === 'service_provider') {
       userQuery = userQuery.eq('role', 'service_provider');
       const nearbyIds = nearbyMap.size > 0 ? [...nearbyMap.keys()] : null;
-      const priceIds = userIdsInPriceRange != null && userIdsInPriceRange.size > 0 ? [...userIdsInPriceRange] : null;
+      const priceIds =
+        userIdsInPriceRange != null && userIdsInPriceRange.size > 0
+          ? [...userIdsInPriceRange]
+          : null;
       if (nearbyIds && priceIds) {
-        const intersection = nearbyIds.filter((id) => userIdsInPriceRange!.has(id));
-        if (intersection.length > 0) userQuery = userQuery.in('id', intersection);
+        const intersection = nearbyIds.filter((id) =>
+          userIdsInPriceRange!.has(id),
+        );
+        if (intersection.length > 0)
+          userQuery = userQuery.in('id', intersection);
         else return { items: [], total: 0 };
       } else if (nearbyIds) {
         userQuery = userQuery.in('id', nearbyIds);
@@ -152,19 +171,24 @@ export class DiscoveryService {
     }
 
     if (params.location?.trim()) {
-      userQuery = userQuery.ilike('location_region', `%${params.location.trim()}%`);
+      userQuery = userQuery.ilike(
+        'location_region',
+        `%${params.location.trim()}%`,
+      );
     }
     if (params.search?.trim()) {
       const term = `%${params.search.trim()}%`;
-      userQuery = userQuery.or(`display_name.ilike.${term},headline.ilike.${term},bio.ilike.${term}`);
+      userQuery = userQuery.or(
+        `display_name.ilike.${term},headline.ilike.${term},bio.ilike.${term}`,
+      );
     }
 
-    let usersResult:
-      | { data: any[] | null; count: number | null }
-      | null = null;
+    let usersResult: { data: any[] | null; count: number | null } | null = null;
     if (mode === 'random') {
-      const { data: users, count: totalCount } = await userQuery
-        .order('created_at', { ascending: false });
+      const { data: users, count: totalCount } = await userQuery.order(
+        'created_at',
+        { ascending: false },
+      );
       usersResult = { data: users as any[] | null, count: totalCount ?? null };
     } else {
       const { data: users, count: totalCount } = await userQuery
@@ -179,7 +203,10 @@ export class DiscoveryService {
       return { items: [], total: totalCount ?? 0 };
     }
 
-    let filtered = users as any[];
+    let filtered = users;
+    if (params.viewerUserId) {
+      filtered = filtered.filter((u) => u.id !== params.viewerUserId);
+    }
     if (params.serviceType?.trim()) {
       const st = params.serviceType.trim();
       filtered = filtered.filter((u) => {
@@ -205,9 +232,11 @@ export class DiscoveryService {
     }
 
     let items: DiscoveryProfile[] = filtered.map((u) => {
-      const prov = providerByUserId.get(u.id) as any;
+      const prov = providerByUserId.get(u.id);
       const providerId = prov?.id;
-      const serviceTypes = providerId ? typesByProviderId.get(providerId) ?? [] : [];
+      const serviceTypes = providerId
+        ? (typesByProviderId.get(providerId) ?? [])
+        : [];
       const distanceKm = nearbyMap.get(u.id);
       return {
         id: u.id,
@@ -259,14 +288,16 @@ export class DiscoveryService {
 
     let query = supabase
       .from('discover_feed_posts')
-      .select(`
+      .select(
+        `
         id,
         author_user_id,
         image_url,
         caption,
         created_at,
         users(display_name, avatar_url, headline)
-      `)
+      `,
+      )
       .order('created_at', { ascending: false })
       .limit(limit + 1);
 
@@ -275,14 +306,14 @@ export class DiscoveryService {
     }
 
     const { data: rows, error } = await query;
-    if (error) throw new Error(`Failed to fetch discover feed: ${error.message}`);
+    if (error)
+      throw new Error(`Failed to fetch discover feed: ${error.message}`);
 
     const list = (rows || []) as any[];
     const hasMore = list.length > limit;
     const slice = hasMore ? list.slice(0, limit) : list;
-    const nextCursor = hasMore && slice.length > 0
-      ? slice[slice.length - 1].created_at
-      : null;
+    const nextCursor =
+      hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
 
     const items: DiscoverFeedPost[] = slice.map((r) => {
       const u = r.users;
@@ -317,14 +348,16 @@ export class DiscoveryService {
         image_url: params.imageUrl,
         caption: params.caption ?? null,
       })
-      .select(`
+      .select(
+        `
         id,
         author_user_id,
         image_url,
         caption,
         created_at,
         users(display_name, avatar_url, headline)
-      `)
+      `,
+      )
       .single();
 
     if (error) throw new Error(`Failed to create feed post: ${error.message}`);

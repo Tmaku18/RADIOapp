@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  Logger,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
@@ -36,7 +41,11 @@ export class AdminService {
   async addRadioQueueEntries(
     radioId: string,
     payload: {
-      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      items: Array<{
+        stackId?: string;
+        songId?: string;
+        source?: 'songs' | 'admin_fallback';
+      }>;
       position?: number;
       allowDuplicates?: boolean;
     },
@@ -69,10 +78,8 @@ export class AdminService {
     offset?: number;
   }) {
     const supabase = getSupabaseClient();
-    
-    let query = supabase
-      .from('songs')
-      .select(`
+
+    let query = supabase.from('songs').select(`
         *,
         users:artist_id (
           id,
@@ -100,7 +107,7 @@ export class AdminService {
     const sortBy = filters.sortBy || 'created_at';
     const sortOrder = filters.sortOrder || 'asc';
     const ascending = sortOrder === 'asc';
-    
+
     // Map frontend sort keys to database columns
     const sortColumnMap: Record<string, string> = {
       title: 'title',
@@ -109,7 +116,7 @@ export class AdminService {
       status: 'status',
     };
     const sortColumn = sortColumnMap[sortBy] || 'created_at';
-    
+
     query = query.order(sortColumn, { ascending });
 
     if (filters.limit) {
@@ -117,7 +124,10 @@ export class AdminService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 50) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -130,8 +140,8 @@ export class AdminService {
   }
 
   async updateSongStatus(
-    songId: string, 
-    status: 'pending' | 'approved' | 'rejected', 
+    songId: string,
+    status: 'pending' | 'approved' | 'rejected',
     reason?: string,
     adminId?: string,
   ) {
@@ -140,7 +150,9 @@ export class AdminService {
     // Get song with artist info
     const { data: existingSong, error: fetchError } = await supabase
       .from('songs')
-      .select('id, status, title, artist_id, users:artist_id(id, email, display_name)')
+      .select(
+        'id, status, title, artist_id, users:artist_id(id, email, display_name)',
+      )
       .eq('id', songId)
       .single();
 
@@ -183,7 +195,9 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update song status: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update song status: ${error.message}`,
+      );
     }
 
     // Only send notifications if status actually changed
@@ -221,15 +235,24 @@ export class AdminService {
         },
       });
 
-      this.logger.log(`Song ${songId} status changed: ${previousStatus} -> ${status}`);
+      this.logger.log(
+        `Song ${songId} status changed: ${previousStatus} -> ${status}`,
+      );
 
       // Send email notification for approve/reject
       const artistEmail = (existingSong.users as any)?.email;
       if (artistEmail) {
         if (status === 'approved') {
-          await this.emailService.sendSongApprovedEmail(artistEmail, existingSong.title);
+          await this.emailService.sendSongApprovedEmail(
+            artistEmail,
+            existingSong.title,
+          );
         } else if (status === 'rejected') {
-          await this.emailService.sendSongRejectedEmail(artistEmail, existingSong.title, reason);
+          await this.emailService.sendSongRejectedEmail(
+            artistEmail,
+            existingSong.title,
+            reason,
+          );
         }
       }
     }
@@ -249,7 +272,9 @@ export class AdminService {
     const supabase = getSupabaseClient();
 
     if (!Number.isFinite(startSeconds) || !Number.isFinite(endSeconds)) {
-      throw new BadRequestException('startSeconds and endSeconds must be numbers');
+      throw new BadRequestException(
+        'startSeconds and endSeconds must be numbers',
+      );
     }
     if (startSeconds < 0 || endSeconds <= startSeconds) {
       throw new BadRequestException('Invalid trim range');
@@ -402,7 +427,9 @@ export class AdminService {
       .eq('id', songId);
 
     if (deleteError) {
-      throw new BadRequestException(`Failed to delete song: ${deleteError.message}`);
+      throw new BadRequestException(
+        `Failed to delete song: ${deleteError.message}`,
+      );
     }
 
     this.logger.log(`Deleted song ${songId}`);
@@ -416,7 +443,9 @@ export class AdminService {
 
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, display_name, role, avatar_url, created_at, updated_at, is_banned, banned_at, ban_reason, is_shadow_banned')
+      .select(
+        'id, email, display_name, role, avatar_url, created_at, updated_at, is_banned, banned_at, ban_reason, is_shadow_banned',
+      )
       .eq('id', userId)
       .single();
 
@@ -430,13 +459,19 @@ export class AdminService {
   // ========== Radios (stations) – used for fallback multi-select, state-scoped ==========
 
   /** Radios/stations (id, state, label). Match web/src/data/station-map.ts TOWERS for consistency. */
-  getRadios(stateCode?: string): { id: string; state: string; label: string }[] {
+  getRadios(
+    stateCode?: string,
+  ): { id: string; state: string; label: string }[] {
     const radios = [
       { id: 'ga-nw-rap', state: 'GA', label: 'Rap (Rome)' },
       { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
       { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
       { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },
-      { id: 'ga-central-spoken-word', state: 'GA', label: 'Spoken Word (Macon)' },
+      {
+        id: 'ga-central-spoken-word',
+        state: 'GA',
+        label: 'Spoken Word (Macon)',
+      },
       { id: 'ga-coast-comedian', state: 'GA', label: 'Comedian (Brunswick)' },
       { id: 'default', state: 'GA', label: 'Default' },
     ];
@@ -465,18 +500,35 @@ export class AdminService {
     const supabase = getSupabaseClient();
     const { data: rows, error } = await supabase
       .from('admin_fallback_songs')
-      .select('id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active, created_at, radio_id')
+      .select(
+        'id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active, created_at, radio_id',
+      )
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch fallback songs: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch fallback songs: ${error.message}`,
+      );
     }
 
-    const key = (r: { title: string; artist_name: string; audio_url: string }) =>
-      `${r.title}|${r.artist_name}|${r.audio_url}`;
+    const key = (r: {
+      title: string;
+      artist_name: string;
+      audio_url: string;
+    }) => `${r.title}|${r.artist_name}|${r.audio_url}`;
     const groups = new Map<
       string,
-      { id: string; title: string; artist_name: string; audio_url: string; artwork_url: string | null; duration_seconds: number; is_active: boolean; created_at: string; radio_ids: string[] }
+      {
+        id: string;
+        title: string;
+        artist_name: string;
+        audio_url: string;
+        artwork_url: string | null;
+        duration_seconds: number;
+        is_active: boolean;
+        created_at: string;
+        radio_ids: string[];
+      }
     >();
     for (const r of rows || []) {
       const k = key(r);
@@ -506,7 +558,9 @@ export class AdminService {
     const supabase = getSupabaseClient();
     const { data: row, error: fetchError } = await supabase
       .from('admin_fallback_songs')
-      .select('id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active')
+      .select(
+        'id, title, artist_name, audio_url, artwork_url, duration_seconds, is_active',
+      )
       .eq('id', representativeRowId)
       .single();
 
@@ -529,7 +583,9 @@ export class AdminService {
         .delete()
         .in('id', idsToDelete);
       if (delError) {
-        throw new BadRequestException(`Failed to update radios: ${delError.message}`);
+        throw new BadRequestException(
+          `Failed to update radios: ${delError.message}`,
+        );
       }
     }
 
@@ -547,15 +603,22 @@ export class AdminService {
       duration_seconds: row.duration_seconds ?? 180,
       is_active: row.is_active ?? true,
     }));
-    const { error: insertError } = await supabase.from('admin_fallback_songs').insert(inserts);
+    const { error: insertError } = await supabase
+      .from('admin_fallback_songs')
+      .insert(inserts);
     if (insertError) {
-      throw new BadRequestException(`Failed to set radios: ${insertError.message}`);
+      throw new BadRequestException(
+        `Failed to set radios: ${insertError.message}`,
+      );
     }
     return { updated: true, radio_ids: distinctRadios };
   }
 
   /** Update is_active for all rows that share the same content as the given row (all radios). */
-  async updateFallbackSongGroup(representativeRowId: string, dto: { isActive?: boolean }) {
+  async updateFallbackSongGroup(
+    representativeRowId: string,
+    dto: { isActive?: boolean },
+  ) {
     const supabase = getSupabaseClient();
     const { data: row, error: fetchError } = await supabase
       .from('admin_fallback_songs')
@@ -565,7 +628,9 @@ export class AdminService {
     if (fetchError || !row) {
       throw new NotFoundException('Fallback song not found');
     }
-    const updatePayload: { is_active?: boolean; updated_at: string } = { updated_at: new Date().toISOString() };
+    const updatePayload: { is_active?: boolean; updated_at: string } = {
+      updated_at: new Date().toISOString(),
+    };
     if (dto.isActive !== undefined) updatePayload.is_active = dto.isActive;
     const { error: updateError } = await supabase
       .from('admin_fallback_songs')
@@ -574,7 +639,9 @@ export class AdminService {
       .eq('artist_name', row.artist_name)
       .eq('audio_url', row.audio_url);
     if (updateError) {
-      throw new BadRequestException(`Failed to update fallback song: ${updateError.message}`);
+      throw new BadRequestException(
+        `Failed to update fallback song: ${updateError.message}`,
+      );
     }
     return { updated: true };
   }
@@ -597,7 +664,9 @@ export class AdminService {
       .eq('artist_name', row.artist_name)
       .eq('audio_url', row.audio_url);
     if (delError) {
-      throw new BadRequestException(`Failed to delete fallback song: ${delError.message}`);
+      throw new BadRequestException(
+        `Failed to delete fallback song: ${delError.message}`,
+      );
     }
     return { deleted: true };
   }
@@ -612,7 +681,9 @@ export class AdminService {
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch fallback songs: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch fallback songs: ${error.message}`,
+      );
     }
 
     return data;
@@ -645,7 +716,9 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to add fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to add fallback song: ${error.message}`,
+      );
     }
 
     return data;
@@ -695,7 +768,9 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to add fallback song from upload: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to add fallback song from upload: ${error.message}`,
+      );
     }
 
     return data;
@@ -709,7 +784,9 @@ export class AdminService {
 
     const { data: song, error: fetchError } = await supabase
       .from('songs')
-      .select('id, title, audio_url, artwork_url, duration_seconds, artist_id, users:artist_id(display_name)')
+      .select(
+        'id, title, audio_url, artwork_url, duration_seconds, artist_id, users:artist_id(display_name)',
+      )
       .eq('id', songId)
       .eq('status', 'approved')
       .single();
@@ -735,13 +812,19 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to add fallback song from song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to add fallback song from song: ${error.message}`,
+      );
     }
 
     return data;
   }
 
-  async updateFallbackSong(songId: string, dto: { isActive?: boolean }, radioId: string = 'default') {
+  async updateFallbackSong(
+    songId: string,
+    dto: { isActive?: boolean },
+    radioId: string = 'default',
+  ) {
     const supabase = getSupabaseClient();
 
     const updateData: any = { updated_at: new Date().toISOString() };
@@ -758,7 +841,9 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update fallback song: ${error.message}`,
+      );
     }
 
     return data;
@@ -774,7 +859,9 @@ export class AdminService {
       .eq('radio_id', radioId);
 
     if (error) {
-      throw new BadRequestException(`Failed to delete fallback song: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to delete fallback song: ${error.message}`,
+      );
     }
 
     return { deleted: true };
@@ -789,12 +876,16 @@ export class AdminService {
       .select('role');
 
     if (userError) {
-      throw new BadRequestException(`Failed to fetch user analytics: ${userError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch user analytics: ${userError.message}`,
+      );
     }
 
     const totalUsers = userCounts?.length || 0;
-    const totalArtists = userCounts?.filter(u => u.role === 'artist').length || 0;
-    const totalListeners = userCounts?.filter(u => u.role === 'listener').length || 0;
+    const totalArtists =
+      userCounts?.filter((u) => u.role === 'artist').length || 0;
+    const totalListeners =
+      userCounts?.filter((u) => u.role === 'listener').length || 0;
 
     // Get song counts by status
     const { data: songCounts, error: songError } = await supabase
@@ -802,12 +893,16 @@ export class AdminService {
       .select('status');
 
     if (songError) {
-      throw new BadRequestException(`Failed to fetch song analytics: ${songError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch song analytics: ${songError.message}`,
+      );
     }
 
     const totalSongs = songCounts?.length || 0;
-    const pendingSongs = songCounts?.filter(s => s.status === 'pending').length || 0;
-    const approvedSongs = songCounts?.filter(s => s.status === 'approved').length || 0;
+    const pendingSongs =
+      songCounts?.filter((s) => s.status === 'pending').length || 0;
+    const approvedSongs =
+      songCounts?.filter((s) => s.status === 'approved').length || 0;
 
     // Get total plays
     const { count: totalPlays, error: playsError } = await supabase
@@ -815,7 +910,9 @@ export class AdminService {
       .select('*', { count: 'exact', head: true });
 
     if (playsError) {
-      throw new BadRequestException(`Failed to fetch play analytics: ${playsError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch play analytics: ${playsError.message}`,
+      );
     }
 
     // Get total likes
@@ -824,7 +921,9 @@ export class AdminService {
       .select('*', { count: 'exact', head: true });
 
     if (likesError) {
-      throw new BadRequestException(`Failed to fetch likes analytics: ${likesError.message}`);
+      throw new BadRequestException(
+        `Failed to fetch likes analytics: ${likesError.message}`,
+      );
     }
 
     return {
@@ -859,14 +958,16 @@ export class AdminService {
 
     // Search by display name or email
     if (filters.search && filters.search.trim()) {
-      query = query.or(`display_name.ilike.%${filters.search.trim()}%,email.ilike.%${filters.search.trim()}%`);
+      query = query.or(
+        `display_name.ilike.%${filters.search.trim()}%,email.ilike.%${filters.search.trim()}%`,
+      );
     }
 
     // Sorting
     const sortBy = filters.sortBy || 'created_at';
     const sortOrder = filters.sortOrder || 'desc';
     const ascending = sortOrder === 'asc';
-    
+
     // Map frontend sort keys to database columns
     const sortColumnMap: Record<string, string> = {
       name: 'display_name',
@@ -875,7 +976,7 @@ export class AdminService {
       created_at: 'created_at',
     };
     const sortColumn = sortColumnMap[sortBy] || 'created_at';
-    
+
     query = query.order(sortColumn, { ascending });
 
     if (filters.limit) {
@@ -883,7 +984,10 @@ export class AdminService {
     }
 
     if (filters.offset) {
-      query = query.range(filters.offset, filters.offset + (filters.limit || 50) - 1);
+      query = query.range(
+        filters.offset,
+        filters.offset + (filters.limit || 50) - 1,
+      );
     }
 
     const { data, error } = await query;
@@ -906,7 +1010,9 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to update user role: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to update user role: ${error.message}`,
+      );
     }
 
     return data;
@@ -960,17 +1066,18 @@ export class AdminService {
         const auth = getFirebaseAuth();
         await auth.revokeRefreshTokens(user.firebase_uid);
         tokenRevoked = true;
-        this.logger.log(`Revoked refresh tokens for user ${userId} (Firebase: ${user.firebase_uid})`);
+        this.logger.log(
+          `Revoked refresh tokens for user ${userId} (Firebase: ${user.firebase_uid})`,
+        );
       } catch (firebaseError) {
-        this.logger.error(`Failed to revoke Firebase tokens: ${firebaseError.message}`);
+        this.logger.error(
+          `Failed to revoke Firebase tokens: ${firebaseError.message}`,
+        );
       }
     }
 
     // 4. Delete FCM push tokens (stop notifications)
-    await supabase
-      .from('push_tokens')
-      .delete()
-      .eq('user_id', userId);
+    await supabase.from('push_tokens').delete().eq('user_id', userId);
 
     // 5. Optionally delete user data (songs, likes, etc.) while preserving credentials
     if (deleteUserData) {
@@ -1003,7 +1110,11 @@ export class AdminService {
    * Shadow ban a user: user thinks they're active but no one sees their messages.
    * Use for chat trolls - reduces Alt Account creation.
    */
-  async shadowBanUser(userId: string, adminId: string, reason: string): Promise<BanResult> {
+  async shadowBanUser(
+    userId: string,
+    adminId: string,
+    reason: string,
+  ): Promise<BanResult> {
     const supabase = getSupabaseClient();
 
     const { error } = await supabase
@@ -1018,7 +1129,9 @@ export class AdminService {
       .eq('id', userId);
 
     if (error) {
-      throw new BadRequestException(`Failed to shadow ban user: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to shadow ban user: ${error.message}`,
+      );
     }
 
     this.logger.log(`Shadow banned user ${userId}. Reason: ${reason}`);
@@ -1034,7 +1147,9 @@ export class AdminService {
   /**
    * Restore a banned user's access.
    */
-  async restoreUser(userId: string): Promise<{ success: boolean; userId: string }> {
+  async restoreUser(
+    userId: string,
+  ): Promise<{ success: boolean; userId: string }> {
     const supabase = getSupabaseClient();
 
     const { error } = await supabase
@@ -1080,11 +1195,16 @@ export class AdminService {
     }
 
     // Delete user's songs (and storage)
-    const { data: songs } = await supabase.from('songs').select('id, audio_url, artwork_url').eq('artist_id', userId);
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('id, audio_url, artwork_url')
+      .eq('artist_id', userId);
     if (songs?.length) {
       for (const song of songs) {
-        if (song.audio_url) await this.deleteFromStorage('songs', song.audio_url);
-        if (song.artwork_url) await this.deleteFromStorage('artwork', song.artwork_url);
+        if (song.audio_url)
+          await this.deleteFromStorage('songs', song.audio_url);
+        if (song.artwork_url)
+          await this.deleteFromStorage('artwork', song.artwork_url);
       }
     }
     await supabase.from('songs').delete().eq('artist_id', userId);
@@ -1100,15 +1220,24 @@ export class AdminService {
     if (user.firebase_uid) {
       try {
         await auth.deleteUser(user.firebase_uid);
-        this.logger.log(`Deleted Firebase user ${user.firebase_uid} for account ${userId}`);
+        this.logger.log(
+          `Deleted Firebase user ${user.firebase_uid} for account ${userId}`,
+        );
       } catch (firebaseError) {
-        this.logger.warn(`Firebase deleteUser failed: ${firebaseError.message}`);
+        this.logger.warn(
+          `Firebase deleteUser failed: ${firebaseError.message}`,
+        );
       }
     }
 
-    const { error: deleteError } = await supabase.from('users').delete().eq('id', userId);
+    const { error: deleteError } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', userId);
     if (deleteError) {
-      throw new BadRequestException(`Failed to delete user: ${deleteError.message}`);
+      throw new BadRequestException(
+        `Failed to delete user: ${deleteError.message}`,
+      );
     }
 
     this.logger.log(`Deleted user account ${userId}`);
@@ -1117,7 +1246,11 @@ export class AdminService {
   /**
    * Lifetime ban: delete all artist songs and storage, revoke tokens, keep user record so they cannot re-register.
    */
-  async lifetimeBanUser(userId: string, adminId: string, reason: string): Promise<BanResult> {
+  async lifetimeBanUser(
+    userId: string,
+    adminId: string,
+    reason: string,
+  ): Promise<BanResult> {
     const supabase = getSupabaseClient();
     const auth = getFirebaseAuth();
 
@@ -1132,11 +1265,16 @@ export class AdminService {
     }
 
     // Delete all artist songs and storage
-    const { data: songs } = await supabase.from('songs').select('id, audio_url, artwork_url').eq('artist_id', userId);
+    const { data: songs } = await supabase
+      .from('songs')
+      .select('id, audio_url, artwork_url')
+      .eq('artist_id', userId);
     if (songs?.length) {
       for (const song of songs) {
-        if (song.audio_url) await this.deleteFromStorage('songs', song.audio_url);
-        if (song.artwork_url) await this.deleteFromStorage('artwork', song.artwork_url);
+        if (song.audio_url)
+          await this.deleteFromStorage('songs', song.audio_url);
+        if (song.artwork_url)
+          await this.deleteFromStorage('artwork', song.artwork_url);
       }
     }
     await supabase.from('songs').delete().eq('artist_id', userId);
@@ -1157,7 +1295,9 @@ export class AdminService {
       .eq('id', userId);
 
     if (banError) {
-      throw new BadRequestException(`Failed to lifetime ban user: ${banError.message}`);
+      throw new BadRequestException(
+        `Failed to lifetime ban user: ${banError.message}`,
+      );
     }
 
     let tokenRevoked = false;
@@ -1187,14 +1327,17 @@ export class AdminService {
     const supabase = getSupabaseClient();
     try {
       const urlObj = new URL(url);
-      const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)/);
+      const pathMatch = urlObj.pathname.match(
+        /\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
+      );
       if (!pathMatch) {
         this.logger.warn(`Could not extract path from URL: ${url}`);
         return;
       }
       const filePath = pathMatch[1];
       const { error } = await supabase.storage.from(bucket).remove([filePath]);
-      if (error) this.logger.warn(`Failed to delete from ${bucket}: ${error.message}`);
+      if (error)
+        this.logger.warn(`Failed to delete from ${bucket}: ${error.message}`);
     } catch {
       this.logger.warn(`Could not parse storage URL: ${url}`);
     }
@@ -1208,12 +1351,16 @@ export class AdminService {
 
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, display_name, is_banned, banned_at, ban_reason, is_shadow_banned, shadow_banned_at, shadow_ban_reason')
+      .select(
+        'id, email, display_name, is_banned, banned_at, ban_reason, is_shadow_banned, shadow_banned_at, shadow_ban_reason',
+      )
       .or('is_banned.eq.true,is_shadow_banned.eq.true')
       .order('banned_at', { ascending: false, nullsFirst: false });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch banned users: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch banned users: ${error.message}`,
+      );
     }
 
     return data || [];
@@ -1232,13 +1379,15 @@ export class AdminService {
 
     const { data, error } = await supabase
       .from('songs')
-      .select(`
+      .select(
+        `
         id, title, status, duration_seconds,
         opt_in_free_play, admin_free_rotation, paid_play_count,
         credits_remaining, play_count, like_count,
         artist_id, created_at,
         users!songs_artist_id_fkey(id, display_name, email)
-      `)
+      `,
+      )
       .ilike('title', `%${query}%`)
       .eq('status', 'approved')
       .order('title', { ascending: true })
@@ -1250,10 +1399,9 @@ export class AdminService {
 
     // Add eligibility status to each song.
     // Free rotation is admin-controlled only (no artist opt-in requirement).
-    return (data || []).map(song => ({
+    return (data || []).map((song) => ({
       ...song,
-      isEligibleForFreeRotation: 
-        song.admin_free_rotation === true,
+      isEligibleForFreeRotation: song.admin_free_rotation === true,
       eligibilityChecks: {
         hasPaidPlay: true, // currently not required
         artistOptedIn: true, // no longer required
@@ -1290,26 +1438,29 @@ export class AdminService {
 
     const { data, error } = await supabase
       .from('songs')
-      .select(`
+      .select(
+        `
         id, title, status, duration_seconds,
         opt_in_free_play, admin_free_rotation, paid_play_count,
         credits_remaining, play_count, like_count,
         created_at
-      `)
+      `,
+      )
       .eq('artist_id', userId)
       .eq('status', 'approved')
       .order('created_at', { ascending: false });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch user songs: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch user songs: ${error.message}`,
+      );
     }
 
     // Add eligibility status to each song.
     // Free rotation is admin-controlled only (no artist opt-in requirement).
-    return (data || []).map(song => ({
+    return (data || []).map((song) => ({
       ...song,
-      isEligibleForFreeRotation: 
-        song.admin_free_rotation === true,
+      isEligibleForFreeRotation: song.admin_free_rotation === true,
       eligibilityChecks: {
         hasPaidPlay: true, // currently not required
         artistOptedIn: true, // no longer required
@@ -1345,10 +1496,14 @@ export class AdminService {
       .single();
 
     if (error) {
-      throw new BadRequestException(`Failed to toggle free rotation: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to toggle free rotation: ${error.message}`,
+      );
     }
 
-    this.logger.log(`Free rotation ${enabled ? 'enabled' : 'disabled'} for song ${songId}`);
+    this.logger.log(
+      `Free rotation ${enabled ? 'enabled' : 'disabled'} for song ${songId}`,
+    );
     return data;
   }
 
@@ -1361,20 +1516,24 @@ export class AdminService {
 
     const { data, error } = await supabase
       .from('songs')
-      .select(`
+      .select(
+        `
         id, title, status, duration_seconds,
         opt_in_free_play, admin_free_rotation, paid_play_count,
         play_count, like_count, last_played_at,
         artist_id, created_at,
         users!songs_artist_id_fkey(id, display_name, email)
-      `)
+      `,
+      )
       .eq('status', 'approved')
       .eq('station_id', stationId)
       .eq('admin_free_rotation', true)
       .order('last_played_at', { ascending: true, nullsFirst: true });
 
     if (error) {
-      throw new BadRequestException(`Failed to fetch free rotation songs: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to fetch free rotation songs: ${error.message}`,
+      );
     }
 
     return data || [];
@@ -1382,7 +1541,9 @@ export class AdminService {
 
   // ========== Live Broadcast ==========
 
-  async startLiveBroadcast(adminUserId: string): Promise<{ id: string; startedAt: string }> {
+  async startLiveBroadcast(
+    adminUserId: string,
+  ): Promise<{ id: string; startedAt: string }> {
     const supabase = getSupabaseClient();
     const { data: existing } = await supabase
       .from('live_broadcast')
@@ -1390,7 +1551,9 @@ export class AdminService {
       .eq('status', 'active')
       .maybeSingle();
     if (existing) {
-      throw new BadRequestException('A live broadcast is already active. Stop it first.');
+      throw new BadRequestException(
+        'A live broadcast is already active. Stop it first.',
+      );
     }
     const { data, error } = await supabase
       .from('live_broadcast')
@@ -1400,7 +1563,10 @@ export class AdminService {
       })
       .select('id, started_at')
       .single();
-    if (error) throw new BadRequestException(`Failed to start live broadcast: ${error.message}`);
+    if (error)
+      throw new BadRequestException(
+        `Failed to start live broadcast: ${error.message}`,
+      );
     this.logger.log(`Live broadcast started by admin ${adminUserId}`);
     return { id: data.id, startedAt: data.started_at };
   }
@@ -1420,19 +1586,27 @@ export class AdminService {
       .from('live_broadcast')
       .update({ status: 'ended', ended_at: endedAt })
       .eq('id', row.id);
-    if (error) throw new BadRequestException(`Failed to stop live broadcast: ${error.message}`);
+    if (error)
+      throw new BadRequestException(
+        `Failed to stop live broadcast: ${error.message}`,
+      );
     this.logger.log('Live broadcast ended');
     return { endedAt };
   }
 
-  async getLiveBroadcastStatus(): Promise<{ active: boolean; startedAt?: string }> {
+  async getLiveBroadcastStatus(): Promise<{
+    active: boolean;
+    startedAt?: string;
+  }> {
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('live_broadcast')
       .select('started_at')
       .eq('status', 'active')
       .maybeSingle();
-    return data ? { active: true, startedAt: data.started_at } : { active: false };
+    return data
+      ? { active: true, startedAt: data.started_at }
+      : { active: false };
   }
 
   // ========== Browse Feed Management ==========
@@ -1454,7 +1628,7 @@ export class AdminService {
     }>;
   }> {
     const supabase = getSupabaseClient();
-    let query = supabase
+    const query = supabase
       .from('provider_portfolio_items')
       .select(
         `
@@ -1475,7 +1649,9 @@ export class AdminService {
       )
       .eq('opt_in_feed', true);
 
-    const { data: rows, error } = await query.order('created_at', { ascending: false });
+    const { data: rows, error } = await query.order('created_at', {
+      ascending: false,
+    });
     if (error) throw new Error(`Failed to fetch feed media: ${error.message}`);
     const items = (rows || []) as any[];
 
@@ -1498,10 +1674,17 @@ export class AdminService {
       .select('content_id, reason, created_at, user_id')
       .in('content_id', contentIds)
       .order('created_at', { ascending: false });
-    const reportsByContent = new Map<string, Array<{ reason: string; createdAt: string; userId: string }>>();
+    const reportsByContent = new Map<
+      string,
+      Array<{ reason: string; createdAt: string; userId: string }>
+    >();
     for (const r of reportRows || []) {
       const list = reportsByContent.get(r.content_id) ?? [];
-      list.push({ reason: r.reason, createdAt: r.created_at, userId: r.user_id });
+      list.push({
+        reason: r.reason,
+        createdAt: r.created_at,
+        userId: r.user_id,
+      });
       reportsByContent.set(r.content_id, list);
     }
 
@@ -1550,7 +1733,13 @@ export class AdminService {
   }
 
   async listStreamerApplications(): Promise<
-    Array<{ userId: string; displayName: string | null; email: string | null; role: string | null; appliedAt: string }>
+    Array<{
+      userId: string;
+      displayName: string | null;
+      email: string | null;
+      role: string | null;
+      appliedAt: string;
+    }>
   > {
     const supabase = getSupabaseClient();
     const { data: profiles, error } = await supabase
@@ -1567,16 +1756,18 @@ export class AdminService {
       .select('id, display_name, email, role')
       .in('id', userIds);
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-    return profiles.map((p: { user_id: string; streaming_applied_at: string }) => {
-      const u = userMap.get(p.user_id);
-      return {
-        userId: p.user_id,
-        displayName: u?.display_name ?? null,
-        email: u?.email ?? null,
-        role: u?.role ?? null,
-        appliedAt: p.streaming_applied_at,
-      };
-    });
+    return profiles.map(
+      (p: { user_id: string; streaming_applied_at: string }) => {
+        const u = userMap.get(p.user_id);
+        return {
+          userId: p.user_id,
+          displayName: u?.display_name ?? null,
+          email: u?.email ?? null,
+          role: u?.role ?? null,
+          appliedAt: p.streaming_applied_at,
+        };
+      },
+    );
   }
 
   async setStreamerApproval(
@@ -1593,7 +1784,8 @@ export class AdminService {
       .from('artist_live_profiles')
       .update(updates)
       .eq('user_id', userId);
-    if (error) throw new BadRequestException(`Failed to ${action}: ${error.message}`);
+    if (error)
+      throw new BadRequestException(`Failed to ${action}: ${error.message}`);
     return action === 'approve'
       ? { approved: true, approvedAt: now }
       : { approved: false, rejectedAt: now };

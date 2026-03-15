@@ -110,7 +110,18 @@ export const songsApi = {
   getMine: () => api.get('/songs/mine'),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
-  create: (data: { title: string; artistName: string; stationId: string; audioPath: string; artworkPath?: string; durationSeconds?: number }) => 
+  create: (data: {
+    title: string;
+    artistName: string;
+    stationId: string;
+    audioPath: string;
+    artworkPath?: string;
+    durationSeconds?: number;
+    discoverClipPath?: string;
+    discoverBackgroundPath?: string;
+    discoverClipStartSeconds?: number;
+    discoverClipEndSeconds?: number;
+  }) => 
     api.post('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),
@@ -124,10 +135,70 @@ export const songsApi = {
       artworkUrl?: string;
       stationId?: string;
       optInFreePlay?: boolean;
+      discoverEnabled?: boolean;
+      discoverClipUrl?: string;
+      discoverBackgroundUrl?: string;
+      discoverClipStartSeconds?: number;
+      discoverClipEndSeconds?: number;
     },
   ) => api.patch(`/songs/${id}`, data),
   updateOptIn: (id: string, optInFreePlay: boolean) => 
     api.patch(`/songs/${id}`, { optInFreePlay }),
+};
+
+export interface DiscoverAudioSongCard {
+  songId: string;
+  artistId: string;
+  artistName: string;
+  artistDisplayName: string | null;
+  artistAvatarUrl: string | null;
+  artistHeadline: string | null;
+  title: string;
+  clipUrl: string;
+  backgroundUrl: string | null;
+  clipDurationSeconds: number;
+  likeCount: number;
+  likedByMe: boolean;
+}
+
+export interface DiscoverSwipeAnalytics {
+  days: number;
+  rightSwipes: number;
+  leftSwipes: number;
+  totalSwipes: number;
+  avgDecisionMs: number | null;
+  bySong: Array<{
+    songId: string;
+    title: string;
+    rightSwipes: number;
+    leftSwipes: number;
+    avgDecisionMs: number | null;
+  }>;
+}
+
+export const discoverAudioApi = {
+  getFeed: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverAudioSongCard[]; nextCursor: string | null }>(
+      '/songs/discover/feed',
+      { params },
+    ),
+  swipe: (data: {
+    songId: string;
+    direction: 'left_skip' | 'right_like';
+    decisionMs?: number;
+  }) => api.post<{ direction: 'left_skip' | 'right_like'; liked: boolean }>(
+    '/songs/discover/swipe',
+    data,
+  ),
+  getLikedList: (params?: { limit?: number; offset?: number }) =>
+    api.get<{
+      items: Array<DiscoverAudioSongCard & { likedAt: string }>;
+      total: number;
+    }>('/songs/discover/list', { params }),
+  getMySwipeAnalytics: (days?: number) =>
+    api.get<DiscoverSwipeAnalytics>('/analytics/me/discover-swipes', {
+      params: { days },
+    }),
 };
 
 export const usersApi = {
@@ -145,6 +216,16 @@ export const usersApi = {
   unfollow: (id: string) => api.delete(`/users/${id}/follow`),
   isFollowing: (id: string) => api.get<{ following: boolean }>(`/users/${id}/follow`),
   getFollowCounts: (id: string) => api.get<{ followers: number; following: number }>(`/users/${id}/follow-counts`),
+  getFollowers: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: Array<{ id: string; displayName: string | null; avatarUrl: string | null; headline: string | null; role: 'listener' | 'artist' | 'admin' | 'service_provider' | null }>; total: number }>(
+      `/users/${id}/followers`,
+      { params: params ?? {} },
+    ),
+  getFollowing: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: Array<{ id: string; displayName: string | null; avatarUrl: string | null; headline: string | null; role: 'listener' | 'artist' | 'admin' | 'service_provider' | null }>; total: number }>(
+      `/users/${id}/following`,
+      { params: params ?? {} },
+    ),
   getArtistProfile: (id: string) => api.get(`/users/${id}/artist-profile`),
   create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),

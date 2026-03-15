@@ -54,7 +54,8 @@ export class UploadsService {
     if (now - this.lastSongBucketEnsureAt < tenMinutesMs) return;
 
     const supabase = getSupabaseClient();
-    const { data: bucket, error: getError } = await supabase.storage.getBucket('songs');
+    const { data: bucket, error: getError } =
+      await supabase.storage.getBucket('songs');
     if (getError || !bucket) {
       // Do not block uploads if metadata lookup fails.
       return;
@@ -72,7 +73,9 @@ export class UploadsService {
       return;
     }
 
-    const maybeAllowedMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
+    const maybeAllowedMimeTypes = Array.isArray(
+      (bucket as any).allowed_mime_types,
+    )
       ? (bucket as any).allowed_mime_types
       : Array.isArray((bucket as any).allowedMimeTypes)
         ? (bucket as any).allowedMimeTypes
@@ -89,7 +92,7 @@ export class UploadsService {
   /**
    * Internal method to handle file uploads to Supabase Storage.
    * Consolidates validation and upload logic for all file types.
-   * 
+   *
    * WARNING: Files are buffered in RAM via Multer. With maxSize of 100MB,
    * concurrent uploads could cause OOM on low-memory servers.
    * Consider streaming uploads for production at scale.
@@ -107,7 +110,7 @@ export class UploadsService {
     // Validate file type
     if (!options.allowedMimeTypes.includes(file.mimetype)) {
       const allowedTypes = options.allowedMimeTypes
-        .map(t => t.split('/')[1].toUpperCase())
+        .map((t) => t.split('/')[1].toUpperCase())
         .join(', ');
       throw new BadRequestException(
         `Invalid ${options.errorPrefix.toLowerCase()} type. Allowed: ${allowedTypes}`,
@@ -137,7 +140,9 @@ export class UploadsService {
       });
 
     if (error) {
-      throw new Error(`Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`);
+      throw new Error(
+        `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
+      );
     }
 
     // Get public URL
@@ -159,9 +164,16 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'songs',
       allowedMimeTypes: [
-        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
-        'audio/mp4', 'audio/x-m4a', 'audio/aac',
-        'audio/ogg', 'audio/flac', 'audio/webm',
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/aac',
+        'audio/ogg',
+        'audio/flac',
+        'audio/webm',
       ],
       maxSizeBytes: 100 * 1024 * 1024, // 100MB
       errorPrefix: 'Audio file',
@@ -239,7 +251,7 @@ export class UploadsService {
   /**
    * Generate a signed upload URL for direct client-to-Supabase uploads.
    * This bypasses the server, reducing bandwidth and memory usage.
-   * 
+   *
    * @param userId - The user's database ID
    * @param bucket - Target storage bucket ('songs' or 'artwork')
    * @param filename - Original filename (used for extension)
@@ -255,9 +267,16 @@ export class UploadsService {
     // Validate content type based on bucket
     const allowedTypes: Record<string, string[]> = {
       songs: [
-        'audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/x-wav',
-        'audio/mp4', 'audio/x-m4a', 'audio/aac',
-        'audio/ogg', 'audio/flac', 'audio/webm',
+        'audio/mpeg',
+        'audio/mp3',
+        'audio/wav',
+        'audio/x-wav',
+        'audio/mp4',
+        'audio/x-m4a',
+        'audio/aac',
+        'audio/ogg',
+        'audio/flac',
+        'audio/webm',
       ],
       artwork: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
       portfolio: [
@@ -298,10 +317,14 @@ export class UploadsService {
       .createSignedUploadUrl(path);
 
     if (error) {
-      throw new BadRequestException(`Failed to generate upload URL: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to generate upload URL: ${error.message}`,
+      );
     }
 
-    const supabaseUrl = (this.configService.get<string>('SUPABASE_URL') || '').trim();
+    const supabaseUrl = (
+      this.configService.get<string>('SUPABASE_URL') || ''
+    ).trim();
     const normalizedBase = supabaseUrl.endsWith('/')
       ? supabaseUrl.slice(0, -1)
       : supabaseUrl;
