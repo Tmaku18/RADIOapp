@@ -90,6 +90,8 @@ export default function AdminUserProfilePage() {
   }
 
   const { user, songs, totalLikes, totalPlays } = profile;
+  const userDisplayName = user.display_name || user.email || 'Unknown user';
+  const userInitial = userDisplayName.charAt(0).toUpperCase();
 
   return (
     <div className="space-y-6">
@@ -103,16 +105,16 @@ export default function AdminUserProfilePage() {
         <CardHeader>
           <div className="flex items-center gap-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage src={user.avatar_url ?? undefined} alt={user.display_name || user.email} />
+              <AvatarImage src={user.avatar_url ?? undefined} alt={userDisplayName} />
               <AvatarFallback className="text-lg">
-                {(user.display_name || user.email)[0].toUpperCase()}
+                {userInitial}
               </AvatarFallback>
             </Avatar>
             <div>
               <h1 className="text-2xl font-semibold text-foreground">
                 {user.display_name || 'No name'}
               </h1>
-              <p className="text-muted-foreground">{user.email}</p>
+              <p className="text-muted-foreground">{user.email || 'No email on file'}</p>
               <div className="flex items-center gap-2 mt-1">
                 <Badge variant="secondary" className="capitalize">
                   {user.role}

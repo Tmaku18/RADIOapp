@@ -453,7 +453,36 @@ export class AdminService {
       throw new NotFoundException('User not found');
     }
 
-    return data;
+    const { data: songs, error: songsError } = await supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, status, play_count, like_count, artwork_url, created_at',
+      )
+      .eq('artist_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (songsError) {
+      throw new BadRequestException(
+        `Failed to load user songs: ${songsError.message}`,
+      );
+    }
+
+    const songList = songs || [];
+    const totalLikes = songList.reduce(
+      (sum, song) => sum + (song.like_count || 0),
+      0,
+    );
+    const totalPlays = songList.reduce(
+      (sum, song) => sum + (song.play_count || 0),
+      0,
+    );
+
+    return {
+      user: data,
+      songs: songList,
+      totalLikes,
+      totalPlays,
+    };
   }
 
   // ========== Radios (stations) – used for fallback multi-select, state-scoped ==========
