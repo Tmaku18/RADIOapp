@@ -143,15 +143,13 @@ export default function AdminQueuePage() {
       }));
       setSongCandidates(songs);
       setFallbackCandidates(fallback);
-      if (!selectedAddStackId && songs.length > 0) {
-        setSelectedAddStackId(songs[0].stackId);
-      }
+      setSelectedAddStackId((prev) => prev || songs[0]?.stackId || '');
     } catch {
       // Non-blocking; queue view is still useful without candidate lists.
       setSongCandidates([]);
       setFallbackCandidates([]);
     }
-  }, [selectedAddStackId]);
+  }, []);
 
   useEffect(() => {
     loadRadios();
@@ -162,17 +160,22 @@ export default function AdminQueuePage() {
     const cachedQueue = queueCache[selectedRadioId];
     if (cachedQueue) {
       setQueueState(cachedQueue);
-      setDraftStackIds(draftCache[selectedRadioId] || cachedQueue.upcoming.map((row) => row.stackId));
+      setDraftStackIds(
+        draftCache[selectedRadioId] ||
+          cachedQueue.upcoming.map((row) => row.stackId),
+      );
       setOriginalStackIds(
-        originalCache[selectedRadioId] || cachedQueue.upcoming.map((row) => row.stackId),
+        originalCache[selectedRadioId] ||
+          cachedQueue.upcoming.map((row) => row.stackId),
       );
       setLoading(false);
+      // Background refresh once per station switch; do not couple effect to cache updates.
       void loadQueue(selectedRadioId, false);
     } else {
-      loadQueue(selectedRadioId, true);
+      void loadQueue(selectedRadioId, true);
     }
-    loadCandidates(selectedRadioId);
-  }, [selectedRadioId, loadQueue, loadCandidates, queueCache, draftCache, originalCache]);
+    void loadCandidates(selectedRadioId);
+  }, [selectedRadioId, loadQueue, loadCandidates]);
 
   useEffect(() => {
     if (!selectedRadioId) return;
