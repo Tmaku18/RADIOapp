@@ -21,7 +21,7 @@ export function VenueAdSlot({ stationId = 'global', className = '' }: { stationI
 
   const content = (
     <div className="rounded-lg overflow-hidden border border-border bg-muted/50">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
+      { }
       <img src={ad.imageUrl} alt="Venue partner" className="w-full h-full object-contain max-h-24" />
     </div>
   );

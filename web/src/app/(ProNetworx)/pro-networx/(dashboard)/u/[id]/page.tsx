@@ -304,7 +304,7 @@ export default function ProNetworxProfilePage() {
                         <Card key={p.id} className="overflow-hidden border border-border bg-card">
                           <CardContent className="p-0">
                             {p.type === 'image' && (
-                              // eslint-disable-next-line @next/next/no-img-element
+                               
                               <img src={p.fileUrl} alt={p.title ?? 'Portfolio'} className="w-full h-36 object-cover" />
                             )}
                             {p.type === 'video' && (

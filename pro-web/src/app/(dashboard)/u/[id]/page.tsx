@@ -75,7 +75,7 @@ export default function ProProfilePage() {
 
   useEffect(() => {
     let alive = true;
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+     
     setLoading(true);
     proNetworxApi.getProfileByUserId(id).then((res) => {
       if (!alive) return;
@@ -246,7 +246,7 @@ export default function ProProfilePage() {
                         <Card key={p.id} className="overflow-hidden border border-primary/15 bg-card/50">
                           <CardContent className="pt-5 space-y-2">
                             {p.type === 'image' && (
-                              // eslint-disable-next-line @next/next/no-img-element
+                               
                               <img src={p.fileUrl} alt={p.title ?? 'Portfolio'} className="w-full h-40 object-cover rounded-md border" />
                             )}
                             {p.type === 'video' && (

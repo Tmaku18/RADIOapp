@@ -484,7 +484,7 @@ export function MessagesClient() {
                                 {msg.messageType !== 'text' && msg.mediaUrl && (
                                   <>
                                     {msg.messageType === 'image' && (
-                                      // eslint-disable-next-line @next/next/no-img-element
+                                       
                                       <img src={msg.mediaUrl} alt="" className="mt-2 max-h-52 rounded-md object-cover" />
                                     )}
                                     {msg.messageType === 'video' && (

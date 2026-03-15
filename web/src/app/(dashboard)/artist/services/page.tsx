@@ -519,7 +519,7 @@ export default function ArtistServicesPage() {
                               <Button variant="ghost" size="sm" onClick={() => deletePortfolioItem(p.id)}>Remove</Button>
                             </div>
                             {p.type === 'image' && (
-                              // eslint-disable-next-line @next/next/no-img-element
+                               
                               <img src={p.fileUrl} alt={p.title ?? 'Portfolio'} className="w-full h-40 object-cover rounded-md border" />
                             )}
                             {p.type === 'video' && (

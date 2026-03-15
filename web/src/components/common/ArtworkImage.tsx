@@ -52,7 +52,7 @@ export function ArtworkImage({
   const finalSrc = isBrokenCurrentSrc || !normalizedSrc ? selectedFallbackSrc : normalizedSrc;
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+     
     <img
       src={finalSrc}
       alt={alt}

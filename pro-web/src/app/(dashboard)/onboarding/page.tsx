@@ -82,7 +82,7 @@ export default function OnboardingPage() {
 
   useEffect(() => {
     if (!loading && user) loadMe();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [loading, user?.uid]);
 
   const toggleSkill = (name: string) => {
