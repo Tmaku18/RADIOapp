@@ -97,6 +97,20 @@ export class AdminController {
     return { song };
   }
 
+  @Patch('songs/:id/metadata')
+  async updateSongMetadata(
+    @Param('id') songId: string,
+    @Body()
+    body: {
+      title?: string;
+      stationId?: string;
+      artworkUrl?: string | null;
+    },
+  ) {
+    const song = await this.adminService.updateSongMetadata(songId, body);
+    return { song };
+  }
+
   @Post('songs/:id/trim')
   async trimSong(
     @Param('id') songId: string,

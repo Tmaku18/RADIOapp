@@ -8,7 +8,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
-import { normalizeSongStationId } from '../radio/station.constants';
+import { normalizeSongStationId, STATION_IDS } from '../radio/station.constants';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -258,6 +258,75 @@ export class AdminService {
     }
 
     return data;
+  }
+
+  /**
+   * Update song metadata (admin-only): title, station, and artwork URL.
+   */
+  async updateSongMetadata(
+    songId: string,
+    dto: { title?: string; stationId?: string; artworkUrl?: string | null },
+  ) {
+    const supabase = getSupabaseClient();
+
+    const { data: existingSong, error: fetchError } = await supabase
+      .from('songs')
+      .select('id')
+      .eq('id', songId)
+      .single();
+
+    if (fetchError || !existingSong) {
+      throw new NotFoundException('Song not found');
+    }
+
+    const updateData: Record<string, unknown> = {
+      updated_at: new Date().toISOString(),
+    };
+
+    if (dto.title !== undefined) {
+      const title = dto.title.trim();
+      if (!title) {
+        throw new BadRequestException('Title cannot be empty');
+      }
+      updateData.title = title;
+    }
+
+    if (dto.stationId !== undefined) {
+      if (!STATION_IDS.includes(dto.stationId as (typeof STATION_IDS)[number])) {
+        throw new BadRequestException('Invalid stationId');
+      }
+      updateData.station_id = dto.stationId;
+    }
+
+    if (dto.artworkUrl !== undefined) {
+      const artwork =
+        typeof dto.artworkUrl === 'string' ? dto.artworkUrl.trim() : '';
+      updateData.artwork_url = artwork.length > 0 ? artwork : null;
+    }
+
+    if (Object.keys(updateData).length === 1) {
+      throw new BadRequestException('No editable fields provided');
+    }
+
+    const { data: updated, error: updateError } = await supabase
+      .from('songs')
+      .update(updateData)
+      .eq('id', songId)
+      .select('id, title, station_id, artwork_url')
+      .single();
+
+    if (updateError || !updated) {
+      throw new BadRequestException(
+        `Failed to update song metadata: ${updateError?.message || 'unknown error'}`,
+      );
+    }
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      stationId: updated.station_id ?? null,
+      artworkUrl: updated.artwork_url ?? null,
+    };
   }
 
   /**

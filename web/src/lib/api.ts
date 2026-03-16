@@ -567,6 +567,10 @@ export const adminApi = {
   }) => api.get('/admin/songs', { params }),
   updateSongStatus: (id: string, status: 'approved' | 'rejected' | 'pending', reason?: string) =>
     api.patch(`/admin/songs/${id}`, { status, reason }),
+  updateSongMetadata: (
+    id: string,
+    data: { title?: string; stationId?: string; artworkUrl?: string | null },
+  ) => api.patch(`/admin/songs/${id}/metadata`, data),
   deleteSong: (id: string) => api.delete(`/admin/songs/${id}`),
   trimSong: (id: string, data: { startSeconds: number; endSeconds: number }) =>
     api.post(`/admin/songs/${id}/trim`, data),

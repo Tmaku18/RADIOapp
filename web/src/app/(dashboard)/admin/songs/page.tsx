@@ -344,12 +344,12 @@ export default function AdminSongsPage() {
       if (editArtworkFile) {
         finalArtworkUrl = await uploadArtwork(editArtworkFile);
       }
-      const response = await songsApi.update(editingSong.id, {
+      const response = await adminApi.updateSongMetadata(editingSong.id, {
         title,
         stationId: editStationId,
         artworkUrl: finalArtworkUrl,
       });
-      const updated = response.data as {
+      const updated = response.data?.song as {
         id: string;
         title: string;
         stationId?: string;
