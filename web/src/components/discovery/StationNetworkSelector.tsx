@@ -8,20 +8,6 @@ import { Input } from '@/components/ui/input';
 
 type ViewMode = 'grid' | 'list';
 
-const NODE_LAYOUT: Array<{ top: string; left: string }> = [
-  { top: '12%', left: '48%' },
-  { top: '24%', left: '18%' },
-  { top: '24%', left: '78%' },
-  { top: '38%', left: '8%' },
-  { top: '38%', left: '88%' },
-  { top: '52%', left: '22%' },
-  { top: '52%', left: '74%' },
-  { top: '66%', left: '10%' },
-  { top: '66%', left: '86%' },
-  { top: '80%', left: '30%' },
-  { top: '80%', left: '68%' },
-];
-
 export function StationNetworkSelector({
   stationId,
   onSelectStation,
@@ -45,6 +31,7 @@ export function StationNetworkSelector({
 
   return (
     <div className="space-y-4">
+      {/* Network tower temporarily hidden per request.
       <div className="rounded-xl border border-border bg-card/40 p-4">
         <p className="text-sm text-muted-foreground mb-3">
           Choose a station from the network tower.
@@ -76,6 +63,7 @@ export function StationNetworkSelector({
           })}
         </div>
       </div>
+      */}
 
       <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
         <div className="flex flex-wrap gap-2 justify-between items-center">
