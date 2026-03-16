@@ -494,6 +494,9 @@ export class AdminService {
     const radios = [
       { id: 'ga-nw-rap', state: 'GA', label: 'Rap (Rome)' },
       { id: 'ga-atl-hip-hop', state: 'GA', label: 'Hip Hop (Atlanta)' },
+      { id: 'ga-north-country', state: 'GA', label: 'Country (Dalton)' },
+      { id: 'ga-west-rock', state: 'GA', label: 'Rock (Columbus)' },
+      { id: 'ga-east-pop', state: 'GA', label: 'Pop (Athens)' },
       { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
       { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
       { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },

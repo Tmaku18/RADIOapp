@@ -21,6 +21,9 @@ import 'leaflet/dist/leaflet.css';
 const GENRE_SYMBOLS: Record<string, string> = {
   rap: '🎤',
   'hip-hop': '🎧',
+  country: '🤠',
+  rock: '🎸',
+  pop: '🌟',
   edm: '⚡',
   rnb: '♪',
   podcasts: '🎙',

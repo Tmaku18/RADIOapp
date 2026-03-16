@@ -6,6 +6,9 @@
 export type GenreId =
   | 'rap'
   | 'hip-hop'
+  | 'country'
+  | 'rock'
+  | 'pop'
   | 'edm'
   | 'rnb'
   | 'podcasts'
@@ -83,6 +86,33 @@ export const TOWERS: Tower[] = [
     genreId: 'hip-hop',
     lat: latAt(0.5),
     lng: lngAt(0.25),
+  },
+  {
+    id: 'ga-north-country',
+    state: 'GA',
+    city: 'Dalton',
+    genre: 'Country',
+    genreId: 'country',
+    lat: latAt(0.85),
+    lng: lngAt(0.75),
+  },
+  {
+    id: 'ga-west-rock',
+    state: 'GA',
+    city: 'Columbus',
+    genre: 'Rock',
+    genreId: 'rock',
+    lat: latAt(0.35),
+    lng: lngAt(0.15),
+  },
+  {
+    id: 'ga-east-pop',
+    state: 'GA',
+    city: 'Athens',
+    genre: 'Pop',
+    genreId: 'pop',
+    lat: latAt(0.55),
+    lng: lngAt(0.85),
   },
   {
     id: 'ga-ne-edm',
