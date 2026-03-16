@@ -504,6 +504,7 @@ export class AdminService {
     await this.safeDeleteBySongId('spotlight_listens', songId);
     await this.safeDeleteBySongId('daily_diamonds', songId);
     await this.safeDeleteBySongId('song_catalyst_credits', songId);
+    await this.safeDeleteBySongId('credit_allocations', songId);
     await this.safeDeleteBySongId('discover_swipes', songId);
     await this.safeDeleteBySongId('discover_song_likes', songId);
     await this.safeDeleteBySongId('refinery_comments', songId);
