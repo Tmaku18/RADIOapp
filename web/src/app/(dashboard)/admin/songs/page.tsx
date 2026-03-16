@@ -626,7 +626,7 @@ export default function AdminSongsPage() {
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
               rows={3}
             />
             <div className="flex justify-end gap-3 mt-4">
@@ -707,7 +707,7 @@ export default function AdminSongsPage() {
                   step={1}
                   value={trimStartSeconds}
                   onChange={(e) => handleTrimStartDrag(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                 />
               </div>
               <div>
@@ -718,7 +718,7 @@ export default function AdminSongsPage() {
                   step={1}
                   value={trimEndSeconds}
                   onChange={(e) => handleTrimEndDrag(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                 />
               </div>
             </div>
@@ -755,7 +755,7 @@ export default function AdminSongsPage() {
                   type="text"
                   value={editTitle}
                   onChange={(e) => setEditTitle(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                 />
               </div>
               <div>
@@ -763,7 +763,7 @@ export default function AdminSongsPage() {
                 <select
                   value={editStationId}
                   onChange={(e) => setEditStationId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
                 >
                   <option value="">Select station</option>
                   {TOWERS.map((tower) => (
@@ -780,7 +780,7 @@ export default function AdminSongsPage() {
                   value={editArtworkUrl}
                   onChange={(e) => setEditArtworkUrl(e.target.value)}
                   placeholder="https://..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
                 />
               </div>
               <div>
