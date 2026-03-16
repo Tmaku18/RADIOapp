@@ -10,6 +10,8 @@ const api: AxiosInstance = axios.create({
   },
 });
 
+let loginRedirectInProgress = false;
+
 // Request interceptor: Always send fresh ID token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -21,20 +23,29 @@ api.interceptors.request.use(
     
     if (!isPublicEndpoint) {
       try {
-        // forceRefresh ensures token is valid even if cached one expired
-        const token = await getIdToken(true);
+        // Do not force refresh on every request; queue/admin pages can burst many calls.
+        // Firebase SDK auto-refreshes when needed.
+        const token = await getIdToken(false);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         } else if (typeof window !== 'undefined') {
-          const path = window.location.pathname || '/';
-          const search = window.location.search || '';
-          const redirect = encodeURIComponent(`${path}${search}`);
-          window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+          if (!loginRedirectInProgress && !window.location.pathname.startsWith('/login')) {
+            loginRedirectInProgress = true;
+            const path = window.location.pathname || '/';
+            const search = window.location.search || '';
+            const redirect = encodeURIComponent(`${path}${search}`);
+            window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+          }
           throw new Error('Authentication required');
         }
       } catch (error) {
         console.error('Failed to get ID token:', error);
-        if (typeof window !== 'undefined') {
+        if (
+          typeof window !== 'undefined' &&
+          !loginRedirectInProgress &&
+          !window.location.pathname.startsWith('/login')
+        ) {
+          loginRedirectInProgress = true;
           const path = window.location.pathname || '/';
           const search = window.location.search || '';
           const redirect = encodeURIComponent(`${path}${search}`);
@@ -67,10 +78,13 @@ api.interceptors.response.use(
         if (window.location.pathname.startsWith('/listen')) {
           return Promise.reject(error);
         }
-        const path = window.location.pathname || '/';
-        const search = window.location.search || '';
-        const redirect = encodeURIComponent(`${path}${search}`);
-        window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+        if (!loginRedirectInProgress && !window.location.pathname.startsWith('/login')) {
+          loginRedirectInProgress = true;
+          const path = window.location.pathname || '/';
+          const search = window.location.search || '';
+          const redirect = encodeURIComponent(`${path}${search}`);
+          window.location.href = `/login?session_expired=true&redirect=${redirect}`;
+        }
       }
     }
     return Promise.reject(error);
