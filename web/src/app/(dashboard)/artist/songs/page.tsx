@@ -479,7 +479,7 @@ export default function MySongsPage() {
                 <option value="">Select a station</option>
                 {TOWERS.map((tower) => (
                   <option key={tower.id} value={tower.id}>
-                    {tower.genre} ({tower.city})
+                    {tower.genre} (National)
                   </option>
                 ))}
               </select>

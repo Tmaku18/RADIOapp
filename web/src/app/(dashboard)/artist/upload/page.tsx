@@ -40,6 +40,8 @@ export default function UploadPage() {
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
+  const [artistOriginCity, setArtistOriginCity] = useState('');
+  const [artistOriginState, setArtistOriginState] = useState('');
   const [stationId, setStationId] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -205,7 +207,13 @@ export default function UploadPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!audioFile || !title || !artistName) {
+    if (
+      !audioFile ||
+      !title ||
+      !artistName ||
+      !artistOriginCity.trim() ||
+      !artistOriginState.trim()
+    ) {
       setError('Please fill in all required fields');
       return;
     }
@@ -298,6 +306,8 @@ export default function UploadPage() {
         await songsApi.create({
           title,
           artistName,
+          artistOriginCity: artistOriginCity.trim(),
+          artistOriginState: artistOriginState.trim(),
           stationId,
           audioPath,
           artworkPath,
@@ -341,6 +351,9 @@ export default function UploadPage() {
             )}
             <p className="mt-4 font-medium text-foreground">{title}</p>
             <p className="text-sm text-muted-foreground">{artistName}</p>
+            <p className="text-sm text-muted-foreground">
+              {artistOriginCity.trim()}, {artistOriginState.trim()}
+            </p>
             <Button className="mt-6" onClick={() => router.push('/dashboard')}>
               Back to Studio
             </Button>
@@ -535,6 +548,29 @@ export default function UploadPage() {
               <Input id="artistName" required value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Enter artist name" />
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="artistOriginCity">City <span className="text-destructive">*</span></Label>
+                <Input
+                  id="artistOriginCity"
+                  required
+                  value={artistOriginCity}
+                  onChange={(e) => setArtistOriginCity(e.target.value)}
+                  placeholder="e.g. Atlanta"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="artistOriginState">State <span className="text-destructive">*</span></Label>
+                <Input
+                  id="artistOriginState"
+                  required
+                  value={artistOriginState}
+                  onChange={(e) => setArtistOriginState(e.target.value)}
+                  placeholder="e.g. GA"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="stationId">Station / Category <span className="text-destructive">*</span></Label>
               <select
@@ -547,7 +583,7 @@ export default function UploadPage() {
                 <option value="">Select a station</option>
                 {TOWERS.map((tower) => (
                   <option key={tower.id} value={tower.id}>
-                    {tower.genre} ({tower.city})
+                    {tower.genre} (National)
                   </option>
                 ))}
               </select>

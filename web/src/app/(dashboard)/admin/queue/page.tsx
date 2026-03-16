@@ -58,7 +58,7 @@ export default function AdminQueuePage() {
   const searchParams = useSearchParams();
   const stationParam = searchParams.get('station')?.trim() || '';
   const [radios, setRadios] = useState<RadioOption[]>([]);
-  const [selectedRadioId, setSelectedRadioId] = useState<string>(stationParam || 'ga-nw-rap');
+  const [selectedRadioId, setSelectedRadioId] = useState<string>(stationParam || 'us-rap');
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [draftStackIds, setDraftStackIds] = useState<string[]>([]);
   const [originalStackIds, setOriginalStackIds] = useState<string[]>([]);

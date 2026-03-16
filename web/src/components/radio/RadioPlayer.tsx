@@ -39,8 +39,20 @@ function roleToLabel(role: string): string {
   }
 }
 
+function formatArtistOrigin(
+  city?: string | null,
+  state?: string | null,
+): string | null {
+  const c = city?.trim() ?? '';
+  const s = state?.trim() ?? '';
+  if (c && s) return `${c}, ${s}`;
+  if (c) return c;
+  if (s) return s;
+  return null;
+}
+
 interface RadioPlayerProps {
-  /** Station/radio id (e.g. ga-nw-rap). When set, track and heartbeat use this radio. */
+  /** Station/radio id (e.g. us-rap). When set, track and heartbeat use this radio. */
   radioId?: string;
 }
 
@@ -174,6 +186,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
+          artistOriginCity: trackData.artist_origin_city ?? null,
+          artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
           radioId: effectiveRadioId,
           artworkUrl: trackData.artwork_url,
@@ -366,6 +380,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           id: trackData.id,
           title: trackData.title,
           artistName: trackData.artist_name,
+          artistOriginCity: trackData.artist_origin_city ?? null,
+          artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
           radioId: effectiveRadioId,
           artworkUrl: trackData.artwork_url,
@@ -666,6 +682,18 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span className="text-muted-foreground truncate text-left">
               {state.track?.artistName || 'Unknown artist'}
             </span>
+          )}
+          {formatArtistOrigin(
+            state.track?.artistOriginCity ?? null,
+            state.track?.artistOriginState ?? null,
+          ) && (
+            <p className="text-xs text-muted-foreground/90 truncate">
+              From{' '}
+              {formatArtistOrigin(
+                state.track?.artistOriginCity ?? null,
+                state.track?.artistOriginState ?? null,
+              )}
+            </p>
           )}
           {artistLiveNow && state.track?.artistId && (
             <div className="mt-2">

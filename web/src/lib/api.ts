@@ -128,6 +128,8 @@ export const songsApi = {
   create: (data: {
     title: string;
     artistName: string;
+    artistOriginCity: string;
+    artistOriginState: string;
     stationId: string;
     audioPath: string;
     artworkPath?: string;

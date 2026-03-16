@@ -13,7 +13,8 @@ export type GenreId =
   | 'rnb'
   | 'podcasts'
   | 'spoken-word'
-  | 'comedian';
+  | 'comedian'
+  | 'christian';
 
 export interface Tower {
   id: string;
@@ -42,7 +43,7 @@ export const US_BOUNDS: StateBounds = {
   zoom: 4,
 };
 
-/** State code -> bounds and zoom (only GA implemented for MVP) */
+/** State code -> bounds and zoom (GA kept for backward compatibility) */
 export const STATE_BOUNDS: Record<string, StateBounds> = {
   GA: {
     southWest: [30.36, -85.6],
@@ -55,109 +56,106 @@ export const STATE_BOUNDS: Record<string, StateBounds> = {
 /** States that have towers (zoom in to see them) */
 export const STATES_WITH_TOWERS: string[] = ['GA'];
 
-/** GA bounds for even spacing: southWest [30.36, -85.6], northEast [35.0, -80.84] */
-const GA_SW: [number, number] = [30.36, -85.6];
-const GA_NE: [number, number] = [35.0, -80.84];
-const GA_LAT_SPAN = GA_NE[0] - GA_SW[0];
-const GA_LNG_SPAN = GA_NE[1] - GA_SW[1];
-/** Offset from edges so markers sit evenly in the state */
-const PAD = 0.15;
-const latAt = (fraction: number) =>
-  GA_SW[0] + PAD * GA_LAT_SPAN + fraction * (1 - 2 * PAD) * GA_LAT_SPAN;
-const lngAt = (fraction: number) =>
-  GA_SW[1] + PAD * GA_LNG_SPAN + fraction * (1 - 2 * PAD) * GA_LNG_SPAN;
-
-/** Towers evenly spaced across Georgia. */
+/** National stations distributed on the US map for easier picking. */
 export const TOWERS: Tower[] = [
   {
-    id: 'ga-nw-rap',
-    state: 'GA',
-    city: 'Rome',
+    id: 'us-rap',
+    state: 'US',
+    city: 'New York',
     genre: 'Rap',
     genreId: 'rap',
-    lat: latAt(1),
-    lng: lngAt(0),
+    lat: 40.7128,
+    lng: -74.006,
   },
   {
-    id: 'ga-atl-hip-hop',
-    state: 'GA',
+    id: 'us-hip-hop',
+    state: 'US',
     city: 'Atlanta',
     genre: 'Hip Hop',
     genreId: 'hip-hop',
-    lat: latAt(0.5),
-    lng: lngAt(0.25),
+    lat: 33.749,
+    lng: -84.388,
   },
   {
-    id: 'ga-north-country',
-    state: 'GA',
-    city: 'Dalton',
+    id: 'us-country',
+    state: 'US',
+    city: 'Nashville',
     genre: 'Country',
     genreId: 'country',
-    lat: latAt(0.85),
-    lng: lngAt(0.75),
+    lat: 36.1627,
+    lng: -86.7816,
   },
   {
-    id: 'ga-west-rock',
-    state: 'GA',
-    city: 'Columbus',
+    id: 'us-rock',
+    state: 'US',
+    city: 'Chicago',
     genre: 'Rock',
     genreId: 'rock',
-    lat: latAt(0.35),
-    lng: lngAt(0.15),
+    lat: 41.8781,
+    lng: -87.6298,
   },
   {
-    id: 'ga-east-pop',
-    state: 'GA',
-    city: 'Athens',
+    id: 'us-pop',
+    state: 'US',
+    city: 'Los Angeles',
     genre: 'Pop',
     genreId: 'pop',
-    lat: latAt(0.55),
-    lng: lngAt(0.85),
+    lat: 34.0522,
+    lng: -118.2437,
   },
   {
-    id: 'ga-ne-edm',
-    state: 'GA',
-    city: 'Augusta',
+    id: 'us-edm',
+    state: 'US',
+    city: 'Las Vegas',
     genre: 'EDM',
     genreId: 'edm',
-    lat: latAt(1),
-    lng: lngAt(0.5),
+    lat: 36.1699,
+    lng: -115.1398,
   },
   {
-    id: 'ga-sw-rnb',
-    state: 'GA',
-    city: 'Albany',
+    id: 'us-rnb',
+    state: 'US',
+    city: 'New Orleans',
     genre: 'R&B',
     genreId: 'rnb',
-    lat: latAt(0),
-    lng: lngAt(0),
+    lat: 29.9511,
+    lng: -90.0715,
   },
   {
-    id: 'ga-se-podcasts',
-    state: 'GA',
-    city: 'Savannah',
+    id: 'us-podcasts',
+    state: 'US',
+    city: 'Seattle',
     genre: 'Podcasts',
     genreId: 'podcasts',
-    lat: latAt(0),
-    lng: lngAt(0.5),
+    lat: 47.6062,
+    lng: -122.3321,
   },
   {
-    id: 'ga-central-spoken-word',
-    state: 'GA',
-    city: 'Macon',
+    id: 'us-spoken-word',
+    state: 'US',
+    city: 'Washington',
     genre: 'Spoken Word',
     genreId: 'spoken-word',
-    lat: latAt(0.66),
-    lng: lngAt(1),
+    lat: 38.9072,
+    lng: -77.0369,
   },
   {
-    id: 'ga-coast-comedian',
-    state: 'GA',
-    city: 'Brunswick',
+    id: 'us-comedian',
+    state: 'US',
+    city: 'Austin',
     genre: 'Comedian',
     genreId: 'comedian',
-    lat: latAt(0.2),
-    lng: lngAt(1),
+    lat: 30.2672,
+    lng: -97.7431,
+  },
+  {
+    id: 'us-christian',
+    state: 'US',
+    city: 'Dallas',
+    genre: 'Christian',
+    genreId: 'christian',
+    lat: 32.7767,
+    lng: -96.797,
   },
 ];
 

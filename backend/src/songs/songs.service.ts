@@ -214,6 +214,8 @@ export class SongsService {
       artist_id: userId,
       title: createSongDto.title,
       artist_name: createSongDto.artistName,
+      artist_origin_city: createSongDto.artistOriginCity,
+      artist_origin_state: createSongDto.artistOriginState,
       audio_url: createSongDto.audioUrl,
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided

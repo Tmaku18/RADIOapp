@@ -19,6 +19,14 @@ export class CreateSongFromPathDto {
 
   @IsString()
   @IsNotEmpty()
+  artistOriginCity: string;
+
+  @IsString()
+  @IsNotEmpty()
+  artistOriginState: string;
+
+  @IsString()
+  @IsNotEmpty()
   audioPath: string;
 
   @IsString()

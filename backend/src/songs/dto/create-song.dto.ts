@@ -18,6 +18,14 @@ export class CreateSongDto {
   @IsNotEmpty()
   artistName: string;
 
+  @IsString()
+  @IsNotEmpty()
+  artistOriginCity: string;
+
+  @IsString()
+  @IsNotEmpty()
+  artistOriginState: string;
+
   @IsUrl()
   @IsNotEmpty()
   audioUrl: string;

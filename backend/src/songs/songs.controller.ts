@@ -52,7 +52,14 @@ export class SongsController {
   async uploadSong(
     @CurrentUser() user: FirebaseUser,
     @UploadedFiles() files: Express.Multer.File[],
-    @Body() body: { title: string; artistName: string; stationId: string },
+    @Body()
+    body: {
+      title: string;
+      artistName: string;
+      artistOriginCity: string;
+      artistOriginState: string;
+      stationId: string;
+    },
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -80,6 +87,9 @@ export class SongsController {
     if (!body.stationId || !STATION_IDS.includes(body.stationId as any)) {
       throw new Error('Valid stationId is required');
     }
+    if (!body.artistOriginCity?.trim() || !body.artistOriginState?.trim()) {
+      throw new Error('Artist city and state are required');
+    }
 
     // SECURITY: Extract real duration server-side to prevent spoofing
     // Artists could otherwise claim shorter durations to pay fewer credits
@@ -99,6 +109,8 @@ export class SongsController {
     const createSongDto: CreateSongDto = {
       title: body.title,
       artistName: body.artistName,
+      artistOriginCity: body.artistOriginCity.trim(),
+      artistOriginState: body.artistOriginState.trim(),
       audioUrl,
       artworkUrl,
       durationSeconds, // Server-validated duration
@@ -244,6 +256,8 @@ export class SongsController {
     const createSongDto: CreateSongDto = {
       title: dto.title,
       artistName: dto.artistName,
+      artistOriginCity: dto.artistOriginCity.trim(),
+      artistOriginState: dto.artistOriginState.trim(),
       audioUrl: audioUrlData.publicUrl,
       artworkUrl,
       durationSeconds,

@@ -35,7 +35,7 @@ interface FallbackSongGrouped {
   radio_ids: string[];
 }
 
-const DEFAULT_STATE = 'GA';
+const DEFAULT_STATE = 'US';
 
 export default function AdminFallbackPage() {
   const searchParams = useSearchParams();
@@ -156,18 +156,18 @@ export default function AdminFallbackPage() {
           <h1 className="text-2xl font-bold text-gray-900">Fallback Playlist</h1>
           <p className="text-gray-600 mt-1">
             These songs play when no credited or opt-in songs are available. Assign each song to one
-            or more radios (limited to state so it stays local).
+            or more national genre radios.
             {activeCount > 0 && ` ${activeCount} active songs.`}
           </p>
         </div>
         <div className="flex gap-2 items-center">
-          <span className="text-sm text-muted-foreground">State:</span>
+          <span className="text-sm text-muted-foreground">Scope:</span>
           <select
             className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
             value={stateFilter}
             onChange={(e) => setStateFilter(e.target.value)}
           >
-            <option value="GA">GA</option>
+            <option value="US">US</option>
           </select>
           <Button asChild>
             <Link href="/admin/fallback/upload">Upload Song</Link>

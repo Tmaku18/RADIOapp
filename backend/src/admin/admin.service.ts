@@ -632,21 +632,18 @@ export class AdminService {
     stateCode?: string,
   ): { id: string; state: string; label: string }[] {
     const radios = [
-      { id: 'ga-nw-rap', state: 'GA', label: 'Rap (Rome)' },
-      { id: 'ga-atl-hip-hop', state: 'GA', label: 'Hip Hop (Atlanta)' },
-      { id: 'ga-north-country', state: 'GA', label: 'Country (Dalton)' },
-      { id: 'ga-west-rock', state: 'GA', label: 'Rock (Columbus)' },
-      { id: 'ga-east-pop', state: 'GA', label: 'Pop (Athens)' },
-      { id: 'ga-ne-edm', state: 'GA', label: 'EDM (Augusta)' },
-      { id: 'ga-sw-rnb', state: 'GA', label: 'R&B (Albany)' },
-      { id: 'ga-se-podcasts', state: 'GA', label: 'Podcasts (Savannah)' },
-      {
-        id: 'ga-central-spoken-word',
-        state: 'GA',
-        label: 'Spoken Word (Macon)',
-      },
-      { id: 'ga-coast-comedian', state: 'GA', label: 'Comedian (Brunswick)' },
-      { id: 'default', state: 'GA', label: 'Default' },
+      { id: 'us-rap', state: 'US', label: 'Rap (National)' },
+      { id: 'us-hip-hop', state: 'US', label: 'Hip Hop (National)' },
+      { id: 'us-country', state: 'US', label: 'Country (National)' },
+      { id: 'us-rock', state: 'US', label: 'Rock (National)' },
+      { id: 'us-pop', state: 'US', label: 'Pop (National)' },
+      { id: 'us-edm', state: 'US', label: 'EDM (National)' },
+      { id: 'us-rnb', state: 'US', label: 'R&B (National)' },
+      { id: 'us-podcasts', state: 'US', label: 'Podcasts (National)' },
+      { id: 'us-spoken-word', state: 'US', label: 'Spoken Word (National)' },
+      { id: 'us-comedian', state: 'US', label: 'Comedian (National)' },
+      { id: 'us-christian', state: 'US', label: 'Christian (National)' },
+      { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {
       return radios.filter((r) => r.state === stateCode.trim());

@@ -9,6 +9,8 @@ export interface PlaybackTrack {
   id: string;
   title: string;
   artistName: string;
+  artistOriginCity?: string | null;
+  artistOriginState?: string | null;
   artistId?: string | null;
   /** Radio: station id this track belongs to */
   radioId?: string | null;

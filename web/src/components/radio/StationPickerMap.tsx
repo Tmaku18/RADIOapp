@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import {
   MapContainer,
   TileLayer,
-  Rectangle,
   Marker,
   useMap,
 } from 'react-leaflet';
@@ -13,7 +12,7 @@ import type { LatLngBoundsExpression } from 'leaflet';
 import {
   STATE_BOUNDS,
   US_BOUNDS,
-  getTowersForState,
+  TOWERS,
   type Tower,
 } from '@/data/station-map';
 import 'leaflet/dist/leaflet.css';
@@ -29,6 +28,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   podcasts: '🎙',
   'spoken-word': '📜',
   comedian: '🎭',
+  christian: '✝️',
 };
 
 function MapController({
@@ -75,12 +75,8 @@ export function StationPickerMap({
 }: {
   onSelectStation: (stationId: string) => void;
 }) {
-  const [selectedState, setSelectedState] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
-
-  const towers = selectedState ? getTowersForState(selectedState) : [];
-  const gaBounds = STATE_BOUNDS.GA;
-  const hasTowers = towers.length > 0;
+  const towers = TOWERS;
 
   return (
     <div className="relative w-full h-full min-h-[400px] rounded-lg overflow-hidden border border-border">
@@ -97,22 +93,8 @@ export function StationPickerMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         />
         {mapReady && (
-          <MapController selectedState={selectedState} hasTowers={hasTowers} />
+          <MapController selectedState={null} hasTowers={towers.length > 0} />
         )}
-
-        {/* Georgia clickable rectangle - zoom in when clicked */}
-        <Rectangle
-          bounds={[gaBounds.southWest, gaBounds.northEast]}
-          eventHandlers={{
-            click: () => setSelectedState('GA'),
-          }}
-          pathOptions={{
-            color: '#00F5FF',
-            fillColor: '#00F5FF',
-            fillOpacity: 0.2,
-            weight: 2,
-          }}
-        />
 
         {towers.map((tower) => (
           <Marker
@@ -127,25 +109,10 @@ export function StationPickerMap({
         ))}
       </MapContainer>
 
-      {/* Back to US view when zoomed to state */}
-      {selectedState && (
-        <div className="absolute top-2 left-2 z-[1000]">
-          <button
-            type="button"
-            onClick={() => setSelectedState(null)}
-            className="px-3 py-1.5 text-sm font-medium rounded-md bg-background/95 border border-border text-foreground hover:bg-muted shadow"
-          >
-            Back to map
-          </button>
-        </div>
-      )}
-
       {/* Hint when no state selected */}
-      {!selectedState && (
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] px-3 py-2 rounded-md bg-background/90 border border-border text-sm text-muted-foreground">
-          Click Georgia to see stations
-        </div>
-      )}
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[1000] px-3 py-2 rounded-md bg-background/90 border border-border text-sm text-muted-foreground">
+        Click any station marker to tune in
+      </div>
     </div>
   );
 }

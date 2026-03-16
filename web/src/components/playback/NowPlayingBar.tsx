@@ -35,6 +35,14 @@ export function NowPlayingBar() {
   const isListenPage = pathname === '/listen';
   const canExpandInlinePlayer = !isListenPage;
   const showExpandedPlayer = expanded && canExpandInlinePlayer;
+  const artistOriginLabel = (() => {
+    const city = track?.artistOriginCity?.trim() ?? '';
+    const stateLabel = track?.artistOriginState?.trim() ?? '';
+    if (city && stateLabel) return `${city}, ${stateLabel}`;
+    if (city) return city;
+    if (stateLabel) return stateLabel;
+    return null;
+  })();
 
   useEffect(() => {
     if (streamTokenRef.current) return;
@@ -145,7 +153,9 @@ export function NowPlayingBar() {
               {track?.title ?? 'Radio'}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {track?.artistName ?? 'Tap to open player'}
+              {artistOriginLabel
+                ? `${track?.artistName ?? 'Unknown artist'} • ${artistOriginLabel}`
+                : track?.artistName ?? 'Tap to open player'}
             </p>
           </div>
           </button>
