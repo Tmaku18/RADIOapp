@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { discoveryApi, type DiscoverFeedPost, usersApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,6 +30,15 @@ import {
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { artistProfilePath } from '@/lib/artist-links';
+import { StationNetworkSelector } from '@/components/discovery/StationNetworkSelector';
+
+const DiscoveryHeatMap = dynamic(
+  () =>
+    import('@/components/discovery/DiscoveryHeatMap').then(
+      (m) => m.DiscoveryHeatMap,
+    ),
+  { ssr: false },
+);
 
 interface DiscoveryProfile {
   id: string;
@@ -51,15 +61,21 @@ const FEED_PAGE_SIZE = 16;
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
 
 export default function DiscoverPage() {
+  const pathname = usePathname();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuth();
   const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
   const initialTabParam = searchParams.get('tab');
+  const initialStationParam = searchParams.get('station')?.trim() || 'us-rap';
   const initialSearchParam = searchParams.get('q')?.trim() ?? '';
-  const initialTab: 'feed' | 'artist' | 'service_provider' =
-    initialTabParam === 'artist' || initialTabParam === 'service_provider'
+  const initialTab: 'station' | 'map' | 'feed' | 'artist' | 'service_provider' =
+    initialTabParam === 'station' ||
+    initialTabParam === 'map' ||
+    initialTabParam === 'artist' ||
+    initialTabParam === 'service_provider'
       ? initialTabParam
-      : 'feed';
+      : 'station';
 
   // People tab state
   const [items, setItems] = useState<DiscoveryProfile[]>([]);
@@ -69,7 +85,10 @@ export default function DiscoverPage() {
   const [location, setLocation] = useState('');
   const [serviceType, setServiceType] = useState<string>('all');
   const [role, setRole] = useState<'artist' | 'service_provider'>('artist');
-  const [activeTab, setActiveTab] = useState<'feed' | 'artist' | 'service_provider'>(initialTab);
+  const [activeTab, setActiveTab] = useState<
+    'station' | 'map' | 'feed' | 'artist' | 'service_provider'
+  >(initialTab);
+  const [selectedStationId, setSelectedStationId] = useState(initialStationParam);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -93,6 +112,17 @@ export default function DiscoverPage() {
   const [uploadCaption, setUploadCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(
+      typeof window !== 'undefined' ? window.location.search : '',
+    );
+    params.set('tab', activeTab);
+    params.set('station', selectedStationId);
+    if (search.trim()) params.set('q', search.trim());
+    else params.delete('q');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [activeTab, pathname, router, search, selectedStationId]);
 
   const loadFeed = useCallback(async (append: boolean, cursor?: string | null) => {
     if (append) setFeedLoadingMore(true);
@@ -236,8 +266,18 @@ export default function DiscoverPage() {
       <div className="space-y-4">
         <h1 className="text-xl font-semibold text-foreground tracking-tight">Discover</h1>
         <p className="text-sm text-muted-foreground">Find artists and Catalysts (service providers). Search and filter below.</p>
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="w-full">
+          <Tabs
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+            className="w-full"
+          >
           <TabsList variant="line" className="w-full justify-start rounded-none border-b border-border bg-transparent p-0">
+            <TabsTrigger value="station" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
+              Stations
+            </TabsTrigger>
+            <TabsTrigger value="map" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
+              Map
+            </TabsTrigger>
             <TabsTrigger value="feed" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-primary">
               Feed
             </TabsTrigger>
@@ -248,6 +288,33 @@ export default function DiscoverPage() {
               Catalysts
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="station" className="mt-0 pt-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Pick a station here, then open the player.
+            </p>
+            <StationNetworkSelector
+              stationId={selectedStationId}
+              onSelectStation={setSelectedStationId}
+            />
+            <div className="flex gap-2">
+              <Button asChild>
+                <Link href={`/listen?station=${encodeURIComponent(selectedStationId)}`}>
+                  Listen to selected station
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => setActiveTab('map')}>
+                Open artist map
+              </Button>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="map" className="mt-0 pt-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Heatmap shows total likes of artists based in each area.
+            </p>
+            <DiscoveryHeatMap stationId={selectedStationId} role={role} />
+          </TabsContent>
 
           {/* Feed tab: endless scroll of catalyst posts */}
           <TabsContent value="feed" className="mt-0 pt-6">

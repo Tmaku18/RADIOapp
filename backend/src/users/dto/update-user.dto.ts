@@ -5,6 +5,9 @@ import {
   IsBoolean,
   ValidateIf,
   IsIn,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -77,4 +80,18 @@ export class UpdateUserDto {
   @IsUrl()
   @IsOptional()
   websiteUrl?: string;
+
+  /** Artist map latitude for discovery map. */
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  @IsOptional()
+  artistLat?: number;
+
+  /** Artist map longitude for discovery map. */
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  @IsOptional()
+  artistLng?: number;
 }

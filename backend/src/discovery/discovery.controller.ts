@@ -91,6 +91,117 @@ export class DiscoveryController {
     return this.discovery.listFeedPosts({ limit, cursor: cursor || undefined });
   }
 
+  @Get('map/heat')
+  async getMapHeat(
+    @Query('station') station?: string,
+    @Query('role') role?: 'artist' | 'service_provider' | 'all',
+    @Query('zoom') zoomStr?: string,
+    @Query('minLat') minLatStr?: string,
+    @Query('maxLat') maxLatStr?: string,
+    @Query('minLng') minLngStr?: string,
+    @Query('maxLng') maxLngStr?: string,
+  ) {
+    const zoom = zoomStr != null ? Number.parseInt(zoomStr, 10) : undefined;
+    const minLat =
+      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat =
+      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng =
+      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng =
+      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    return this.discovery.getMapHeat({
+      stationId: station?.trim() || undefined,
+      role: role ?? 'all',
+      zoom: Number.isFinite(zoom) ? zoom : undefined,
+      minLat: Number.isFinite(minLat) ? minLat : undefined,
+      maxLat: Number.isFinite(maxLat) ? maxLat : undefined,
+      minLng: Number.isFinite(minLng) ? minLng : undefined,
+      maxLng: Number.isFinite(maxLng) ? maxLng : undefined,
+    });
+  }
+
+  @Get('map/clusters')
+  async getMapClusters(
+    @Query('station') station?: string,
+    @Query('role') role?: 'artist' | 'service_provider' | 'all',
+    @Query('zoom') zoomStr?: string,
+    @Query('minLat') minLatStr?: string,
+    @Query('maxLat') maxLatStr?: string,
+    @Query('minLng') minLngStr?: string,
+    @Query('maxLng') maxLngStr?: string,
+  ) {
+    const zoom = zoomStr != null ? Number.parseInt(zoomStr, 10) : undefined;
+    const minLat =
+      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat =
+      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng =
+      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng =
+      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    return this.discovery.getMapClusters({
+      stationId: station?.trim() || undefined,
+      role: role ?? 'all',
+      zoom: Number.isFinite(zoom) ? zoom : undefined,
+      minLat: Number.isFinite(minLat) ? minLat : undefined,
+      maxLat: Number.isFinite(maxLat) ? maxLat : undefined,
+      minLng: Number.isFinite(minLng) ? minLng : undefined,
+      maxLng: Number.isFinite(maxLng) ? maxLng : undefined,
+    });
+  }
+
+  @Get('map/artists')
+  async getMapArtists(
+    @Query('station') station?: string,
+    @Query('role') role?: 'artist' | 'service_provider' | 'all',
+    @Query('minLat') minLatStr?: string,
+    @Query('maxLat') maxLatStr?: string,
+    @Query('minLng') minLngStr?: string,
+    @Query('maxLng') maxLngStr?: string,
+    @Query('clusterLat') clusterLatStr?: string,
+    @Query('clusterLng') clusterLngStr?: string,
+    @Query('clusterRadiusKm') clusterRadiusKmStr?: string,
+    @Query('limit') limitStr?: string,
+    @Query('offset') offsetStr?: string,
+  ) {
+    const minLat =
+      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat =
+      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng =
+      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng =
+      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    const clusterLat =
+      clusterLatStr != null ? Number.parseFloat(clusterLatStr) : undefined;
+    const clusterLng =
+      clusterLngStr != null ? Number.parseFloat(clusterLngStr) : undefined;
+    const clusterRadiusKm =
+      clusterRadiusKmStr != null
+        ? Number.parseFloat(clusterRadiusKmStr)
+        : undefined;
+    const limit =
+      limitStr != null ? Number.parseInt(limitStr, 10) : undefined;
+    const offset =
+      offsetStr != null ? Number.parseInt(offsetStr, 10) : undefined;
+    return this.discovery.getMapArtists({
+      stationId: station?.trim() || undefined,
+      role: role ?? 'all',
+      minLat: Number.isFinite(minLat) ? minLat : undefined,
+      maxLat: Number.isFinite(maxLat) ? maxLat : undefined,
+      minLng: Number.isFinite(minLng) ? minLng : undefined,
+      maxLng: Number.isFinite(maxLng) ? maxLng : undefined,
+      clusterLat: Number.isFinite(clusterLat) ? clusterLat : undefined,
+      clusterLng: Number.isFinite(clusterLng) ? clusterLng : undefined,
+      clusterRadiusKm: Number.isFinite(clusterRadiusKm)
+        ? clusterRadiusKm
+        : undefined,
+      limit: Number.isFinite(limit) ? limit : undefined,
+      offset: Number.isFinite(offset) ? offset : undefined,
+    });
+  }
+
   /** Create a discover feed post (Catalysts only). Send image as "file" and optional "caption" in body. */
   @Post('feed')
   @UseGuards(RolesGuard)

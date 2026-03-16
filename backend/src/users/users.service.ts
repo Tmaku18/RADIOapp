@@ -31,6 +31,8 @@ export interface UserResponse {
   youtubeUrl?: string | null;
   tiktokUrl?: string | null;
   websiteUrl?: string | null;
+  artistLat?: number | null;
+  artistLng?: number | null;
 }
 
 export interface FollowListItem {
@@ -61,6 +63,8 @@ function transformUser(data: any): UserResponse {
     youtubeUrl: data.youtube_url ?? null,
     tiktokUrl: data.tiktok_url ?? null,
     websiteUrl: data.website_url ?? null,
+    artistLat: data.artist_lat ?? null,
+    artistLng: data.artist_lng ?? null,
   };
 }
 
@@ -284,6 +288,10 @@ export class UsersService {
       updatePayload.tiktok_url = updateUserDto.tiktokUrl || null;
     if (updateUserDto.websiteUrl !== undefined)
       updatePayload.website_url = updateUserDto.websiteUrl || null;
+    if (updateUserDto.artistLat !== undefined)
+      updatePayload.artist_lat = updateUserDto.artistLat;
+    if (updateUserDto.artistLng !== undefined)
+      updatePayload.artist_lng = updateUserDto.artistLng;
     if (updateUserDto.role !== undefined) {
       if (user.role === 'admin') {
         throw new BadRequestException(

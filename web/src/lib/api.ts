@@ -335,6 +335,37 @@ export const discoveryApi = {
     if (caption != null && caption.trim()) form.set('caption', caption.trim());
     return api.post<DiscoverFeedPost>('/discovery/feed', form);
   },
+  getMapHeat: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }) => api.get<{ buckets: DiscoveryMapHeatBucket[]; maxIntensity: number }>('/discovery/map/heat', { params }),
+  getMapClusters: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }) => api.get<{ clusters: DiscoveryMapCluster[] }>('/discovery/map/clusters', { params }),
+  getMapArtists: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+    clusterLat?: number;
+    clusterLng?: number;
+    clusterRadiusKm?: number;
+    limit?: number;
+    offset?: number;
+  }) => api.get<{ items: DiscoveryMapArtistMarker[]; total: number }>('/discovery/map/artists', { params }),
 };
 
 export interface DiscoverFeedPost {
@@ -346,6 +377,33 @@ export interface DiscoverFeedPost {
   imageUrl: string;
   caption: string | null;
   createdAt: string;
+}
+
+export interface DiscoveryMapHeatBucket {
+  lat: number;
+  lng: number;
+  intensity: number;
+  totalLikes: number;
+  artistCount: number;
+}
+
+export interface DiscoveryMapCluster {
+  id: string;
+  lat: number;
+  lng: number;
+  artistCount: number;
+  totalLikes: number;
+  radiusKm: number;
+}
+
+export interface DiscoveryMapArtistMarker {
+  artistId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  locationRegion: string | null;
+  lat: number;
+  lng: number;
+  likeCount: number;
 }
 
 export const creatorNetworkApi = {

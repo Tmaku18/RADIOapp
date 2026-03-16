@@ -28,8 +28,406 @@ export interface DiscoverFeedPost {
   createdAt: string;
 }
 
+export interface DiscoveryMapHeatBucket {
+  lat: number;
+  lng: number;
+  intensity: number;
+  totalLikes: number;
+  artistCount: number;
+}
+
+export interface DiscoveryMapCluster {
+  id: string;
+  lat: number;
+  lng: number;
+  artistCount: number;
+  totalLikes: number;
+  radiusKm: number;
+}
+
+export interface DiscoveryMapArtistMarker {
+  artistId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  locationRegion: string | null;
+  lat: number;
+  lng: number;
+  likeCount: number;
+}
+
+type MapRoleFilter = 'artist' | 'service_provider' | 'all';
+
 @Injectable()
 export class DiscoveryService {
+  private clampZoom(zoom?: number): number {
+    if (zoom == null || !Number.isFinite(zoom)) return 4;
+    return Math.max(1, Math.min(16, Math.round(zoom)));
+  }
+
+  private gridSizeForHeat(zoom?: number): number {
+    const z = this.clampZoom(zoom);
+    if (z <= 3) return 6.0;
+    if (z <= 5) return 3.0;
+    if (z <= 7) return 1.5;
+    if (z <= 9) return 0.75;
+    if (z <= 11) return 0.35;
+    return 0.2;
+  }
+
+  private gridSizeForCluster(zoom?: number): number {
+    const z = this.clampZoom(zoom);
+    if (z <= 3) return 8.0;
+    if (z <= 5) return 4.0;
+    if (z <= 7) return 2.0;
+    if (z <= 9) return 1.0;
+    if (z <= 11) return 0.5;
+    return 0.25;
+  }
+
+  private inBounds(
+    lat: number,
+    lng: number,
+    bounds?: { minLat?: number; maxLat?: number; minLng?: number; maxLng?: number },
+  ): boolean {
+    if (
+      bounds?.minLat != null &&
+      Number.isFinite(bounds.minLat) &&
+      lat < bounds.minLat
+    )
+      return false;
+    if (
+      bounds?.maxLat != null &&
+      Number.isFinite(bounds.maxLat) &&
+      lat > bounds.maxLat
+    )
+      return false;
+    if (
+      bounds?.minLng != null &&
+      Number.isFinite(bounds.minLng) &&
+      lng < bounds.minLng
+    )
+      return false;
+    if (
+      bounds?.maxLng != null &&
+      Number.isFinite(bounds.maxLng) &&
+      lng > bounds.maxLng
+    )
+      return false;
+    return true;
+  }
+
+  private toRadians(value: number): number {
+    return (value * Math.PI) / 180;
+  }
+
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
+    const r = 6371;
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLng = this.toRadians(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+    return 2 * r * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  private async loadMapArtistRows(params: {
+    stationId?: string;
+    role?: MapRoleFilter;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }): Promise<
+    Array<{
+      id: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      location_region: string | null;
+      role: string | null;
+      artist_lat: number;
+      artist_lng: number;
+      like_count: number;
+    }>
+  > {
+    const supabase = getSupabaseClient();
+
+    let userQuery = supabase
+      .from('users')
+      .select(
+        'id, display_name, avatar_url, location_region, role, artist_lat, artist_lng',
+      )
+      .eq('discoverable', true)
+      .eq('is_banned', false)
+      .not('artist_lat', 'is', null)
+      .not('artist_lng', 'is', null);
+
+    if (params.role === 'artist') {
+      userQuery = userQuery.eq('role', 'artist');
+    } else if (params.role === 'service_provider') {
+      userQuery = userQuery.eq('role', 'service_provider');
+    } else {
+      userQuery = userQuery.in('role', ['artist', 'service_provider']);
+    }
+
+    if (params.minLat != null) userQuery = userQuery.gte('artist_lat', params.minLat);
+    if (params.maxLat != null) userQuery = userQuery.lte('artist_lat', params.maxLat);
+    if (params.minLng != null) userQuery = userQuery.gte('artist_lng', params.minLng);
+    if (params.maxLng != null) userQuery = userQuery.lte('artist_lng', params.maxLng);
+
+    const { data: users, error: usersError } = await userQuery.limit(3000);
+    if (usersError) {
+      throw new Error(`Failed to load artist map users: ${usersError.message}`);
+    }
+    const userRows = (users ?? []) as Array<{
+      id: string;
+      display_name: string | null;
+      avatar_url: string | null;
+      location_region: string | null;
+      role: string | null;
+      artist_lat: number | null;
+      artist_lng: number | null;
+    }>;
+    if (!userRows.length) return [];
+
+    const artistIds = userRows.map((u) => u.id);
+    let songsQuery = supabase
+      .from('songs')
+      .select('artist_id, like_count, station_id')
+      .eq('status', 'approved')
+      .in('artist_id', artistIds);
+    if (params.stationId?.trim()) {
+      songsQuery = songsQuery.eq('station_id', params.stationId.trim());
+    }
+    const { data: songs, error: songsError } = await songsQuery.limit(10000);
+    if (songsError) {
+      throw new Error(`Failed to load map like totals: ${songsError.message}`);
+    }
+
+    const likeMap = new Map<string, number>();
+    for (const row of songs ?? []) {
+      const artistId = (row as any).artist_id as string | undefined;
+      if (!artistId) continue;
+      const likes = Number((row as any).like_count ?? 0);
+      likeMap.set(artistId, (likeMap.get(artistId) ?? 0) + (Number.isFinite(likes) ? likes : 0));
+    }
+
+    return userRows
+      .filter(
+        (u) =>
+          u.artist_lat != null &&
+          u.artist_lng != null &&
+          Number.isFinite(u.artist_lat) &&
+          Number.isFinite(u.artist_lng),
+      )
+      .map((u) => ({
+        id: u.id,
+        display_name: u.display_name ?? null,
+        avatar_url: u.avatar_url ?? null,
+        location_region: u.location_region ?? null,
+        role: u.role ?? null,
+        artist_lat: u.artist_lat as number,
+        artist_lng: u.artist_lng as number,
+        like_count: likeMap.get(u.id) ?? 0,
+      }));
+  }
+
+  async getMapHeat(params: {
+    stationId?: string;
+    role?: MapRoleFilter;
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }): Promise<{ buckets: DiscoveryMapHeatBucket[]; maxIntensity: number }> {
+    const rows = await this.loadMapArtistRows(params);
+    const grid = this.gridSizeForHeat(params.zoom);
+    const buckets = new Map<
+      string,
+      { latSum: number; lngSum: number; totalLikes: number; artistCount: number }
+    >();
+
+    for (const row of rows) {
+      if (
+        !this.inBounds(row.artist_lat, row.artist_lng, {
+          minLat: params.minLat,
+          maxLat: params.maxLat,
+          minLng: params.minLng,
+          maxLng: params.maxLng,
+        })
+      ) {
+        continue;
+      }
+      const keyLat = Math.floor(row.artist_lat / grid);
+      const keyLng = Math.floor(row.artist_lng / grid);
+      const key = `${keyLat}:${keyLng}`;
+      const existing = buckets.get(key) ?? {
+        latSum: 0,
+        lngSum: 0,
+        totalLikes: 0,
+        artistCount: 0,
+      };
+      existing.latSum += row.artist_lat;
+      existing.lngSum += row.artist_lng;
+      existing.artistCount += 1;
+      existing.totalLikes += Math.max(0, row.like_count);
+      buckets.set(key, existing);
+    }
+
+    let maxIntensity = 0;
+    const out: DiscoveryMapHeatBucket[] = [];
+    for (const value of buckets.values()) {
+      const intensity = value.totalLikes;
+      if (intensity > maxIntensity) maxIntensity = intensity;
+      out.push({
+        lat: value.latSum / value.artistCount,
+        lng: value.lngSum / value.artistCount,
+        intensity,
+        totalLikes: value.totalLikes,
+        artistCount: value.artistCount,
+      });
+    }
+
+    return {
+      buckets: out.sort((a, b) => b.intensity - a.intensity).slice(0, 600),
+      maxIntensity,
+    };
+  }
+
+  async getMapClusters(params: {
+    stationId?: string;
+    role?: MapRoleFilter;
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }): Promise<{ clusters: DiscoveryMapCluster[] }> {
+    const rows = await this.loadMapArtistRows(params);
+    const grid = this.gridSizeForCluster(params.zoom);
+    const clusters = new Map<
+      string,
+      { latSum: number; lngSum: number; totalLikes: number; artistCount: number }
+    >();
+
+    for (const row of rows) {
+      if (
+        !this.inBounds(row.artist_lat, row.artist_lng, {
+          minLat: params.minLat,
+          maxLat: params.maxLat,
+          minLng: params.minLng,
+          maxLng: params.maxLng,
+        })
+      ) {
+        continue;
+      }
+      const keyLat = Math.floor(row.artist_lat / grid);
+      const keyLng = Math.floor(row.artist_lng / grid);
+      const key = `${keyLat}:${keyLng}`;
+      const existing = clusters.get(key) ?? {
+        latSum: 0,
+        lngSum: 0,
+        totalLikes: 0,
+        artistCount: 0,
+      };
+      existing.latSum += row.artist_lat;
+      existing.lngSum += row.artist_lng;
+      existing.artistCount += 1;
+      existing.totalLikes += Math.max(0, row.like_count);
+      clusters.set(key, existing);
+    }
+
+    const out: DiscoveryMapCluster[] = [];
+    for (const [key, value] of clusters.entries()) {
+      const lat = value.latSum / value.artistCount;
+      const lng = value.lngSum / value.artistCount;
+      out.push({
+        id: key,
+        lat,
+        lng,
+        artistCount: value.artistCount,
+        totalLikes: value.totalLikes,
+        radiusKm: Math.max(8, Math.round(grid * 55)),
+      });
+    }
+    return {
+      clusters: out
+        .sort((a, b) => b.artistCount - a.artistCount || b.totalLikes - a.totalLikes)
+        .slice(0, 300),
+    };
+  }
+
+  async getMapArtists(params: {
+    stationId?: string;
+    role?: MapRoleFilter;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+    clusterLat?: number;
+    clusterLng?: number;
+    clusterRadiusKm?: number;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ items: DiscoveryMapArtistMarker[]; total: number }> {
+    const rows = await this.loadMapArtistRows(params);
+    const filtered = rows.filter((row) => {
+      if (
+        !this.inBounds(row.artist_lat, row.artist_lng, {
+          minLat: params.minLat,
+          maxLat: params.maxLat,
+          minLng: params.minLng,
+          maxLng: params.maxLng,
+        })
+      ) {
+        return false;
+      }
+      if (
+        params.clusterLat != null &&
+        params.clusterLng != null &&
+        params.clusterRadiusKm != null &&
+        Number.isFinite(params.clusterRadiusKm)
+      ) {
+        const distance = this.haversineKm(
+          row.artist_lat,
+          row.artist_lng,
+          params.clusterLat,
+          params.clusterLng,
+        );
+        if (distance > params.clusterRadiusKm) return false;
+      }
+      return true;
+    });
+
+    const sorted = filtered.sort(
+      (a, b) => b.like_count - a.like_count || a.display_name?.localeCompare(b.display_name ?? '') || 0,
+    );
+    const offset = Math.max(0, params.offset ?? 0);
+    const limit = Math.min(200, Math.max(1, params.limit ?? 100));
+    const paged = sorted.slice(offset, offset + limit);
+
+    return {
+      total: sorted.length,
+      items: paged.map((row) => ({
+        artistId: row.id,
+        displayName: row.display_name ?? null,
+        avatarUrl: row.avatar_url ?? null,
+        locationRegion: row.location_region ?? null,
+        lat: row.artist_lat,
+        lng: row.artist_lng,
+        likeCount: row.like_count,
+      })),
+    };
+  }
+
   private deterministicSeededRank(id: string, seed: string): number {
     const input = `${seed}:${id}`;
     let hash = 0;

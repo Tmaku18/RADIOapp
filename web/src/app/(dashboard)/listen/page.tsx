@@ -1,20 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
 import { getStationById } from '@/data/station-map';
-
-const StationPickerMap = dynamic(
-  () => import('@/components/radio/StationPickerMap').then((m) => m.StationPickerMap),
-  { ssr: false, loading: () => <div className="flex-1 min-h-[400px] flex items-center justify-center text-muted-foreground">Loading map…</div> },
-);
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -29,7 +23,6 @@ type RisingStarStationEvent = {
 
 export default function ListenPage() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const stationId = searchParams.get('station');
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
@@ -77,14 +70,19 @@ export default function ListenPage() {
   if (!stationId) {
     return (
       <div className="flex min-h-0 flex-1 flex-col p-4 md:p-6">
-        <div className="mb-4">
+        <div className="mb-4 space-y-3">
           <h1 className="text-xl font-bold text-foreground">Pick a station</h1>
-          <p className="text-sm text-muted-foreground">Choose your city and genre to start listening</p>
-        </div>
-        <div className="flex-1 min-h-[400px] w-full">
-          <StationPickerMap
-            onSelectStation={(id) => router.push(`/listen?station=${encodeURIComponent(id)}`)}
-          />
+          <p className="text-sm text-muted-foreground">
+            Station selection now lives in Discovery with the node network and list/grid controls.
+          </p>
+          <div className="flex gap-2">
+            <Button asChild>
+              <Link href="/discover?tab=station">Choose station in Discovery</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/discover?tab=map">Explore artist map</Link>
+            </Button>
+          </div>
         </div>
       </div>
     );

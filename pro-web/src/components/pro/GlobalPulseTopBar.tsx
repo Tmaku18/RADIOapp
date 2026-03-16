@@ -18,7 +18,12 @@ function initials(name: string | null | undefined): string {
 export function GlobalPulseTopBar() {
   const pathname = usePathname();
   const { profile } = useAuth();
-  const proActive = pathname.startsWith('/directory') || pathname.startsWith('/u/') || pathname.startsWith('/messages') || pathname.startsWith('/onboarding');
+  const proActive =
+    pathname.startsWith('/directory') ||
+    pathname.startsWith('/discover') ||
+    pathname.startsWith('/u/') ||
+    pathname.startsWith('/messages') ||
+    pathname.startsWith('/onboarding');
 
   return (
     <header className="sticky top-0 z-50 border-b border-border/60 bg-background/60 backdrop-blur">
@@ -51,6 +56,12 @@ export function GlobalPulseTopBar() {
             }`}
           >
             💼 PRO
+          </Link>
+          <Link
+            href="/discover"
+            className="px-3 py-1.5 rounded-full text-sm transition-colors text-muted-foreground hover:text-foreground"
+          >
+            🗺️ DISCOVER
           </Link>
         </div>
 

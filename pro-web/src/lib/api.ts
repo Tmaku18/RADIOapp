@@ -201,7 +201,65 @@ export const discoveryApi = {
     mode?: 'default' | 'random';
     seed?: string;
   }) => api.get('/discovery/people', { params }),
+  getMapHeat: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }) => api.get<{ buckets: DiscoveryMapHeatBucket[]; maxIntensity: number }>('/discovery/map/heat', { params }),
+  getMapClusters: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    zoom?: number;
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+  }) => api.get<{ clusters: DiscoveryMapCluster[] }>('/discovery/map/clusters', { params }),
+  getMapArtists: (params?: {
+    station?: string;
+    role?: 'artist' | 'service_provider' | 'all';
+    minLat?: number;
+    maxLat?: number;
+    minLng?: number;
+    maxLng?: number;
+    clusterLat?: number;
+    clusterLng?: number;
+    clusterRadiusKm?: number;
+    limit?: number;
+    offset?: number;
+  }) => api.get<{ items: DiscoveryMapArtistMarker[]; total: number }>('/discovery/map/artists', { params }),
 };
+
+export interface DiscoveryMapHeatBucket {
+  lat: number;
+  lng: number;
+  intensity: number;
+  totalLikes: number;
+  artistCount: number;
+}
+
+export interface DiscoveryMapCluster {
+  id: string;
+  lat: number;
+  lng: number;
+  artistCount: number;
+  totalLikes: number;
+  radiusKm: number;
+}
+
+export interface DiscoveryMapArtistMarker {
+  artistId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  locationRegion: string | null;
+  lat: number;
+  lng: number;
+  likeCount: number;
+}
 
 export const creatorNetworkApi = {
   getAccess: () => api.get<{ hasAccess: boolean }>('/creator-network/access'),
