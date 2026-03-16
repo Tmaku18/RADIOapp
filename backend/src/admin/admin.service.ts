@@ -642,7 +642,7 @@ export class AdminService {
       { id: 'us-podcasts', state: 'US', label: 'Podcasts (National)' },
       { id: 'us-spoken-word', state: 'US', label: 'Spoken Word (National)' },
       { id: 'us-comedian', state: 'US', label: 'Comedian (National)' },
-      { id: 'us-christian', state: 'US', label: 'Christian (National)' },
+      { id: 'us-gospel', state: 'US', label: 'Gospel (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

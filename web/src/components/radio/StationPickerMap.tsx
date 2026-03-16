@@ -28,7 +28,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   podcasts: '🎙',
   'spoken-word': '📜',
   comedian: '🎭',
-  christian: '✝️',
+  gospel: '✝️',
 };
 
 function MapController({

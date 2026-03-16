@@ -14,7 +14,7 @@ export type GenreId =
   | 'podcasts'
   | 'spoken-word'
   | 'comedian'
-  | 'christian';
+  | 'gospel';
 
 export interface Tower {
   id: string;
@@ -149,11 +149,11 @@ export const TOWERS: Tower[] = [
     lng: -97.7431,
   },
   {
-    id: 'us-christian',
+    id: 'us-gospel',
     state: 'US',
     city: 'Dallas',
-    genre: 'Christian',
-    genreId: 'christian',
+    genre: 'Gospel',
+    genreId: 'gospel',
     lat: 32.7767,
     lng: -96.797,
   },
