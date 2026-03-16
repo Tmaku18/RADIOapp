@@ -27,6 +27,22 @@ interface Song {
   };
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  type MaybeApiError = { response?: { data?: { message?: unknown } } };
+  const maybeApiError = error as MaybeApiError;
+  if (
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    maybeApiError.response?.data?.message
+  ) {
+    const msg = maybeApiError.response?.data?.message;
+    return typeof msg === 'string' ? msg : fallback;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 type SortField = 'title' | 'created_at' | 'status';
 type SortOrder = 'asc' | 'desc';
 
@@ -283,7 +299,7 @@ export default function AdminSongsPage() {
       setSongs((prev) => prev.filter((entry) => entry.id !== song.id));
     } catch (err) {
       console.error('Failed to delete song:', err);
-      alert('Failed to delete song');
+      alert(getErrorMessage(err, 'Failed to delete song'));
     } finally {
       setActionLoading(null);
     }

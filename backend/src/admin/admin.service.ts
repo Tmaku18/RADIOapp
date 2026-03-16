@@ -490,6 +490,35 @@ export class AdminService {
       await this.deleteFromStorage('artwork', song.artwork_url);
     }
 
+    // Best-effort cleanup for environments where FK cascades may be missing.
+    // Keep this resilient to missing tables/columns across different deployments.
+    await this.safeDeleteBySongId('likes', songId);
+    await this.safeDeleteBySongId('plays', songId);
+    await this.safeDeleteBySongId('leaderboard_likes', songId);
+    await this.safeDeleteBySongId('song_profile_listens', songId);
+    await this.safeDeleteBySongId('prospector_sessions', songId);
+    await this.safeDeleteBySongId('prospector_refinements', songId);
+    await this.safeDeleteBySongId('prospector_surveys', songId);
+    await this.safeDeleteBySongId('radio_listener_presence', songId);
+    await this.safeDeleteBySongId('weekly_votes', songId);
+    await this.safeDeleteBySongId('spotlight_listens', songId);
+    await this.safeDeleteBySongId('daily_diamonds', songId);
+    await this.safeDeleteBySongId('song_catalyst_credits', songId);
+    await this.safeDeleteBySongId('discover_swipes', songId);
+    await this.safeDeleteBySongId('discover_song_likes', songId);
+    await this.safeDeleteBySongId('refinery_comments', songId);
+
+    // Some tables store prefixed stack song IDs as text.
+    await this.safeDeleteBySongVariants('rotation_queue', 'song_id', songId);
+
+    // For SET NULL style relations, null out references where present.
+    await this.safeNullSongId('chat_messages', songId);
+    await this.safeNullSongId('play_decision_log', songId);
+    await this.safeNullSongId('station_events', songId);
+    await this.safeNullSongId('transactions', songId);
+    await this.safeNullSongId('artist_spotlight', songId);
+    await this.safeNullSongId('weekly_winners', songId);
+
     const { error: deleteError } = await supabase
       .from('songs')
       .delete()
@@ -502,6 +531,47 @@ export class AdminService {
     }
 
     this.logger.log(`Deleted song ${songId}`);
+  }
+
+  private isMissingRelationError(error: unknown): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const msg = (maybe?.message ?? '').toLowerCase();
+    if (maybe?.code === '42P01') return true;
+    if (maybe?.code === '42703') return true;
+    if (maybe?.code === 'PGRST204') return true;
+    return msg.includes('does not exist') || msg.includes('schema cache');
+  }
+
+  private async safeDeleteBySongId(table: string, songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from(table).delete().eq('song_id', songId);
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Cleanup delete failed for ${table}: ${error.message}`);
+    }
+  }
+
+  private async safeDeleteBySongVariants(
+    table: string,
+    column: string,
+    songId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const variants = [songId, `song:${songId}`, `admin:${songId}`];
+    const { error } = await supabase.from(table).delete().in(column, variants);
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Cleanup delete failed for ${table}: ${error.message}`);
+    }
+  }
+
+  private async safeNullSongId(table: string, songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from(table)
+      .update({ song_id: null })
+      .eq('song_id', songId);
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Cleanup nullify failed for ${table}: ${error.message}`);
+    }
   }
 
   /**
