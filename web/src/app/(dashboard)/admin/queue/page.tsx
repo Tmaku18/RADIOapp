@@ -162,9 +162,8 @@ export default function AdminQueuePage() {
     if (!stationParam || !radios.length) return;
     const exists = radios.some((r) => r.id === stationParam);
     if (!exists) return;
-    if (stationParam === selectedRadioId) return;
-    setSelectedRadioId(stationParam);
-  }, [stationParam, radios, selectedRadioId]);
+    setSelectedRadioId((prev) => (prev === stationParam ? prev : stationParam));
+  }, [stationParam, radios]);
 
   useEffect(() => {
     if (!selectedRadioId) return;
