@@ -222,9 +222,32 @@ export class SongsService {
       station_id: createSongDto.stationId,
       status: 'pending',
     };
+    const legacyBaseInsertPayload = {
+      artist_id: userId,
+      title: createSongDto.title,
+      artist_name: createSongDto.artistName,
+      audio_url: createSongDto.audioUrl,
+      artwork_url: createSongDto.artworkUrl,
+      duration_seconds: createSongDto.durationSeconds || 180,
+      station_id: createSongDto.stationId,
+      status: 'pending',
+    };
 
     const discoverInsertPayload = {
       ...baseInsertPayload,
+      discover_enabled: !!createSongDto.discoverClipUrl,
+      discover_clip_url: createSongDto.discoverClipUrl ?? null,
+      discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
+      discover_clip_start_seconds:
+        createSongDto.discoverClipStartSeconds ?? null,
+      discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
+      discover_clip_duration_seconds: this.getDiscoverClipDuration(
+        createSongDto.discoverClipStartSeconds,
+        createSongDto.discoverClipEndSeconds,
+      ),
+    };
+    const legacyDiscoverInsertPayload = {
+      ...legacyBaseInsertPayload,
       discover_enabled: !!createSongDto.discoverClipUrl,
       discover_clip_url: createSongDto.discoverClipUrl ?? null,
       discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
@@ -258,6 +281,31 @@ export class SongsService {
       insertRes = await supabase
         .from('songs')
         .insert(baseInsertPayload)
+        .select()
+        .single();
+    }
+
+    // Backward-compatible fallback when production DB has not applied artist origin migration.
+    if (
+      insertRes.error &&
+      this.isMissingAnyColumnError(insertRes.error, [
+        'artist_origin_city',
+        'artist_origin_state',
+      ])
+    ) {
+      const payloadWithoutOrigin = this.isMissingAnyColumnError(insertRes.error, [
+        'discover_enabled',
+        'discover_clip_url',
+        'discover_background_url',
+        'discover_clip_start_seconds',
+        'discover_clip_end_seconds',
+        'discover_clip_duration_seconds',
+      ])
+        ? legacyBaseInsertPayload
+        : legacyDiscoverInsertPayload;
+      insertRes = await supabase
+        .from('songs')
+        .insert(payloadWithoutOrigin)
         .select()
         .single();
     }
