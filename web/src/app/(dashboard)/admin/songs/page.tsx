@@ -270,6 +270,25 @@ export default function AdminSongsPage() {
     }
   };
 
+  const handleDeleteSong = async (song: Song) => {
+    const confirmed = window.confirm(
+      `Delete "${song.title}" by ${song.artist_name}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    const actionKey = `delete:${song.id}`;
+    setActionLoading(actionKey);
+    try {
+      await adminApi.deleteSong(song.id);
+      setSongs((prev) => prev.filter((entry) => entry.id !== song.id));
+    } catch (err) {
+      console.error('Failed to delete song:', err);
+      alert('Failed to delete song');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const getArtworkPublicUrl = (path: string): string => {
     const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
     if (!base) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
@@ -560,6 +579,13 @@ export default function AdminSongsPage() {
                         className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
                       >
                         Edit
+                      </button>
+                      <button
+                        onClick={() => void handleDeleteSong(song)}
+                        disabled={actionLoading === `delete:${song.id}`}
+                        className="px-3 py-1 bg-rose-700 text-white text-sm rounded hover:bg-rose-800 disabled:opacity-50"
+                      >
+                        {actionLoading === `delete:${song.id}` ? 'Deleting...' : 'Delete'}
                       </button>
                       {song.status === 'pending' && (
                         <>
