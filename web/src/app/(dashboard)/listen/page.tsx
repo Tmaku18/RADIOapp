@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import { Button } from '@/components/ui/button';
@@ -22,26 +22,20 @@ type RisingStarStationEvent = {
 };
 
 export default function ListenPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
+  const resolvedStationId = stationId || 'us-rap';
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
 
-  const currentStation = stationId ? getStationById(stationId) : null;
+  const currentStation = getStationById(resolvedStationId) ?? null;
 
   const handleAmplifyClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     setRipple({ x: e.clientX - rect.left - 24, y: e.clientY - rect.top - 24 });
     setTimeout(() => setRipple(null), 600);
   }, [setRipple]);
-
-  useEffect(() => {
-    if (!stationId) {
-      router.replace('/discover?tab=station');
-    }
-  }, [router, stationId]);
 
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
@@ -74,8 +68,6 @@ export default function ListenPage() {
     };
   }, []);
 
-  if (!stationId) return null;
-
   return (
     <div className="flex min-h-0 flex-1">
       <ButterflyPulseOverlay active={pulseActive} />
@@ -88,7 +80,7 @@ export default function ListenPage() {
                 {currentStation.city} – {currentStation.genre}
               </p>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/listen">Change station</Link>
+                <Link href="/discover?tab=station">Change station</Link>
               </Button>
             </div>
           )}
@@ -108,7 +100,7 @@ export default function ListenPage() {
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
             <Card className="relative now-playing-deck">
               <CardContent className="pt-6">
-                <RadioPlayer radioId={stationId ?? undefined} />
+                <RadioPlayer radioId={resolvedStationId} />
               </CardContent>
             </Card>
           </div>
