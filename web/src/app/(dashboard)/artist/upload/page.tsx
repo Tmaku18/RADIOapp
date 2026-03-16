@@ -12,6 +12,15 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 type ApiError = { response?: { data?: { message?: string } } };
 
+const US_STATE_OPTIONS = [
+  'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+  'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+  'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+  'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+  'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+  'DC',
+] as const;
+
 function errorMessage(err: unknown, fallback: string): string {
   const msg =
     err && typeof err === 'object'
@@ -561,13 +570,20 @@ export default function UploadPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="artistOriginState">State <span className="text-destructive">*</span></Label>
-                <Input
+                <select
                   id="artistOriginState"
                   required
                   value={artistOriginState}
                   onChange={(e) => setArtistOriginState(e.target.value)}
-                  placeholder="e.g. GA"
-                />
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  <option value="">Select state</option>
+                  {US_STATE_OPTIONS.map((stateCode) => (
+                    <option key={stateCode} value={stateCode}>
+                      {stateCode}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
