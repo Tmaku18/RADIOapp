@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ type RisingStarStationEvent = {
 };
 
 export default function ListenPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
@@ -35,6 +36,12 @@ export default function ListenPage() {
     setRipple({ x: e.clientX - rect.left - 24, y: e.clientY - rect.top - 24 });
     setTimeout(() => setRipple(null), 600);
   }, [setRipple]);
+
+  useEffect(() => {
+    if (!stationId) {
+      router.replace('/discover?tab=station');
+    }
+  }, [router, stationId]);
 
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
@@ -67,26 +74,7 @@ export default function ListenPage() {
     };
   }, []);
 
-  if (!stationId) {
-    return (
-      <div className="flex min-h-0 flex-1 flex-col p-4 md:p-6">
-        <div className="mb-4 space-y-3">
-          <h1 className="text-xl font-bold text-foreground">Pick a station</h1>
-          <p className="text-sm text-muted-foreground">
-            Station selection now lives in Discovery with the node network and list/grid controls.
-          </p>
-          <div className="flex gap-2">
-            <Button asChild>
-              <Link href="/discover?tab=station">Choose station in Discovery</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/discover?tab=map">Explore artist map</Link>
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!stationId) return null;
 
   return (
     <div className="flex min-h-0 flex-1">
