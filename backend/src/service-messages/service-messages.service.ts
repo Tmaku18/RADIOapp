@@ -116,6 +116,23 @@ export class ServiceMessagesService {
     return columnNames.some((column) => this.isMissingColumnError(error, column));
   }
 
+  private isMissingTableError(error: unknown, tableName: string): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    const table = tableName.toLowerCase();
+    if (maybeError?.code === '42P01') {
+      return message.includes(table) || message.includes(`public.${table}`);
+    }
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes(`'${table}'`) ||
+        message.includes(`'public.${table}'`) ||
+        message.includes(table)
+      );
+    }
+    return false;
+  }
+
   async listConversations(
     userId: string,
     search?: string,
@@ -206,10 +223,10 @@ export class ServiceMessagesService {
       .from('message_reads')
       .select('other_user_id, last_read_at')
       .eq('user_id', userId);
-    if (readError)
+    if (readError && !this.isMissingTableError(readError, 'message_reads'))
       throw new Error(`Failed to load read rows: ${readError.message}`);
     const readAtByOther = new Map<string, string | null>(
-      (readRows || []).map((r: any) => [
+      ((readRows || []) as any[]).map((r: any) => [
         r.other_user_id,
         r.last_read_at ?? null,
       ]),
@@ -331,7 +348,10 @@ export class ServiceMessagesService {
           .select('message_id, user_id, emoji, created_at')
           .in('message_id', messageIds)
       : { data: [], error: null as any };
-    if (reactionsError) {
+    if (
+      reactionsError &&
+      !this.isMissingTableError(reactionsError, 'message_reactions')
+    ) {
       throw new Error(
         `Failed to load message reactions: ${reactionsError.message}`,
       );
@@ -340,7 +360,7 @@ export class ServiceMessagesService {
       string,
       Array<{ emoji: string; userId: string; createdAt: string }>
     >();
-    for (const r of reactionRows || []) {
+    for (const r of (reactionRows || []) as any[]) {
       const key = (r as any).message_id as string;
       const list = reactionsByMessage.get(key) ?? [];
       list.push({
@@ -648,7 +668,9 @@ export class ServiceMessagesService {
       },
       { onConflict: 'user_id,other_user_id' },
     );
-    if (error) throw new Error(`Failed to mark thread read: ${error.message}`);
+    if (error && !this.isMissingTableError(error, 'message_reads')) {
+      throw new Error(`Failed to mark thread read: ${error.message}`);
+    }
     return {
       ok: true,
       lastReadAt,
@@ -742,12 +764,15 @@ export class ServiceMessagesService {
     otherUserId: string,
   ): Promise<string | null> {
     const supabase = getSupabaseClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('message_reads')
       .select('last_read_at')
       .eq('user_id', userId)
       .eq('other_user_id', otherUserId)
       .maybeSingle();
+    if (error && !this.isMissingTableError(error, 'message_reads')) {
+      throw new Error(`Failed to load read marker: ${error.message}`);
+    }
     return data?.last_read_at ?? null;
   }
 
