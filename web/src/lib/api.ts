@@ -272,7 +272,7 @@ export const usersApi = {
       { params: params ?? {} },
     ),
   getArtistProfile: (id: string) => api.get(`/users/${id}/artist-profile`),
-  create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  create: (data: { email: string; displayName: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
   upgradeToCatalyst: () => api.post('/users/upgrade-to-catalyst'),

@@ -43,6 +43,23 @@ export class SongsController {
     private readonly durationService: DurationService,
   ) {}
 
+  private assertArtistProfileComplete(userData: {
+    display_name?: string | null;
+    avatar_url?: string | null;
+  }) {
+    const artistName = (userData.display_name ?? '').trim();
+    if (!artistName) {
+      throw new BadRequestException(
+        'Artist name is required. Please set your profile display name before uploading songs.',
+      );
+    }
+    if (!userData.avatar_url) {
+      throw new BadRequestException(
+        'Profile picture is required. Please upload a profile photo before uploading songs.',
+      );
+    }
+  }
+
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 2, {
@@ -64,13 +81,14 @@ export class SongsController {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
-      .select('id')
+      .select('id, display_name, avatar_url')
       .eq('firebase_uid', user.uid)
       .single();
 
     if (!userData) {
       throw new Error('User not found');
     }
+    this.assertArtistProfileComplete(userData);
 
     if (!files || files.length === 0) {
       throw new Error('No files uploaded');
@@ -108,7 +126,7 @@ export class SongsController {
 
     const createSongDto: CreateSongDto = {
       title: body.title,
-      artistName: body.artistName,
+      artistName: (userData.display_name ?? '').trim(),
       artistOriginCity: body.artistOriginCity.trim(),
       artistOriginState: body.artistOriginState.trim(),
       audioUrl,
@@ -165,13 +183,14 @@ export class SongsController {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
-      .select('id')
+      .select('id, display_name, avatar_url')
       .eq('firebase_uid', user.uid)
       .single();
 
     if (!userData) {
       throw new Error('User not found');
     }
+    this.assertArtistProfileComplete(userData);
 
     // Convert storage paths to public URLs
     const { data: audioUrlData } = supabase.storage
@@ -255,7 +274,7 @@ export class SongsController {
 
     const createSongDto: CreateSongDto = {
       title: dto.title,
-      artistName: dto.artistName,
+      artistName: (userData.display_name ?? '').trim(),
       artistOriginCity: dto.artistOriginCity.trim(),
       artistOriginState: dto.artistOriginState.trim(),
       audioUrl: audioUrlData.publicUrl,

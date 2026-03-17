@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -120,7 +121,9 @@ class AuthService extends ChangeNotifier {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
     }
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAccount? googleUser = await _googleSignIn
+          .signIn()
+          .timeout(const Duration(seconds: 20));
       if (googleUser == null) return null;
 
       final GoogleSignInAuthentication googleAuth =
@@ -135,35 +138,38 @@ class AuthService extends ChangeNotifier {
       if (userCredential.user != null) {
         final token = await userCredential.user!.getIdToken();
         _apiService.setAuthToken(token);
+        final firebaseUser = userCredential.user!;
 
         // Check if user exists in backend, create if not
         try {
-          return await _getUserProfile();
+          return await _getUserProfile().timeout(const Duration(seconds: 6));
+        } on TimeoutException {
+          debugPrint('Backend profile lookup timed out after Google sign-in.');
+          return _buildFallbackUser(firebaseUser);
         } catch (e) {
           try {
             await _apiService.post('users', {
-              'email': userCredential.user!.email ?? '',
-              'displayName': userCredential.user!.displayName ?? userCredential.user!.email,
+              'email': firebaseUser.email ?? '',
+              'displayName': _deriveDisplayName(
+                firebaseUser.displayName,
+                firebaseUser.email,
+              ),
               'role': 'listener',
             });
-            return await _getUserProfile();
+            return await _getUserProfile().timeout(const Duration(seconds: 6));
+          } on TimeoutException {
+            debugPrint('Backend user sync timed out after Google sign-in.');
+            return _buildFallbackUser(firebaseUser);
           } catch (e2) {
             // Backend unreachable; still return profile from Firebase so UI can navigate
             debugPrint('Backend user sync failed: $e2');
-            final now = DateTime.now();
-            return app_user.User(
-              id: userCredential.user!.uid,
-              firebaseUid: userCredential.user!.uid,
-              email: userCredential.user!.email ?? '',
-              displayName: userCredential.user!.displayName ?? userCredential.user!.email ?? 'User',
-              role: 'listener',
-              createdAt: now,
-              updatedAt: now,
-            );
+            return _buildFallbackUser(firebaseUser);
           }
         }
       }
       return null;
+    } on TimeoutException {
+      throw Exception('Google sign in timed out. Please try again.');
     } catch (e) {
       throw Exception('Google sign in failed: $e');
     }
@@ -196,7 +202,10 @@ class AuthService extends ChangeNotifier {
         } catch (e) {
           await _apiService.post('users', {
             'email': credential.email ?? userCredential.user!.email!,
-            'displayName': credential.givenName,
+            'displayName': _deriveDisplayName(
+              credential.givenName,
+              credential.email ?? userCredential.user!.email,
+            ),
             'role': 'listener',
           });
         }
@@ -234,6 +243,15 @@ class AuthService extends ChangeNotifier {
     return app_user.User.fromJson(response);
   }
 
+  String _deriveDisplayName(String? preferred, String? email) {
+    final name = preferred?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    final emailValue = (email ?? '').trim();
+    if (emailValue.isEmpty) return 'User';
+    final local = emailValue.split('@').first.trim();
+    return local.isNotEmpty ? local : emailValue;
+  }
+
   Future<app_user.User?> getUserProfile() async {
     if (_auth == null || _auth!.currentUser == null) return null;
     try {
@@ -264,5 +282,18 @@ class AuthService extends ChangeNotifier {
     final token = await _auth!.currentUser!.getIdToken();
     _apiService.setAuthToken(token);
     await _apiService.post('users/upgrade-to-artist', null);
+  }
+
+  app_user.User _buildFallbackUser(User firebaseUser) {
+    final now = DateTime.now();
+    return app_user.User(
+      id: firebaseUser.uid,
+      firebaseUid: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName: firebaseUser.displayName ?? firebaseUser.email ?? 'User',
+      role: 'listener',
+      createdAt: now,
+      updatedAt: now,
+    );
   }
 }

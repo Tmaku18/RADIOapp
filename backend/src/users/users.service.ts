@@ -153,7 +153,10 @@ export class UsersService {
     const adminEmails = this.getAdminEmails();
     // Default all non-admin users to listener. They can switch roles later in profile settings.
     const role = adminEmails.includes(emailLower) ? 'admin' : 'listener';
-    const displayName = createUserDto.displayName?.trim() || null;
+    const displayName = createUserDto.displayName?.trim();
+    if (!displayName) {
+      throw new BadRequestException('Display name is required');
+    }
     const { data, error } = await supabase
       .from('users')
       .insert({
@@ -394,8 +397,13 @@ export class UsersService {
     const updatePayload: Record<string, unknown> = {
       updated_at: new Date().toISOString(),
     };
-    if (updateUserDto.displayName !== undefined)
-      updatePayload.display_name = updateUserDto.displayName;
+    if (updateUserDto.displayName !== undefined) {
+      const trimmedDisplayName = updateUserDto.displayName.trim();
+      if (!trimmedDisplayName) {
+        throw new BadRequestException('Display name cannot be empty');
+      }
+      updatePayload.display_name = trimmedDisplayName;
+    }
     if (updateUserDto.avatarUrl !== undefined)
       updatePayload.avatar_url = updateUserDto.avatarUrl;
     if (updateUserDto.region !== undefined)

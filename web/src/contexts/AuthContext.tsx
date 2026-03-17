@@ -53,6 +53,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const deriveDisplayName = useCallback((firebaseUser: User) => {
+    const fromProfile = firebaseUser.displayName?.trim();
+    if (fromProfile) return fromProfile;
+    const email = firebaseUser.email?.trim() ?? '';
+    if (!email) return 'User';
+    const local = email.split('@')[0]?.trim();
+    return local || email;
+  }, []);
+
   // Fetch user profile from backend
   const fetchProfile = useCallback(async () => {
     try {
@@ -75,10 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const createDefaultProfile = useCallback(async (firebaseUser: User) => {
     await usersApi.create({
       email: firebaseUser.email!,
-      displayName: firebaseUser.displayName?.trim() || undefined,
+      displayName: deriveDisplayName(firebaseUser),
     });
     await fetchProfile();
-  }, [fetchProfile]);
+  }, [deriveDisplayName, fetchProfile]);
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
@@ -192,7 +201,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Create profile; backend defaults non-admin users to listener
       await usersApi.create({
         email: firebaseUser.email!,
-        displayName: (displayName?.trim() || firebaseUser.displayName) || undefined,
+        displayName:
+          displayName?.trim() ||
+          deriveDisplayName(firebaseUser),
       });
 
       await fetchProfile();
