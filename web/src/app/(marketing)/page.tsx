@@ -82,7 +82,7 @@ export default async function HomePage() {
             <Button size="lg" variant="secondary" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
               <Link href="/signup">Get Started Free</Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 !text-black hover:bg-primary-foreground/15" asChild>
+            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
               <Link href="/pro-networx">
                 Explore ProNetworx
               </Link>
@@ -123,7 +123,7 @@ export default async function HomePage() {
             </p>
           </div>
           <div className="mt-8 text-center">
-            <Button variant="secondary" size="lg" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
+            <Button variant="secondary" size="lg" className="border-2 border-primary-foreground/90 shadow-md" asChild>
               <Link href="/about">Read full story</Link>
             </Button>
           </div>
@@ -261,7 +261,7 @@ export default async function HomePage() {
             <Button size="lg" className="!text-black" asChild>
               <Link href="/signup">Get Started Free</Link>
             </Button>
-            <Button size="lg" variant="outline" className="!text-black" asChild>
+            <Button size="lg" variant="outline" asChild>
               <Link href="/pro-networx">
                 Explore ProNetworx
               </Link>

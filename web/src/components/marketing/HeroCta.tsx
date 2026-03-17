@@ -10,13 +10,13 @@ export function HeroCta() {
   if (user && profile?.role === 'artist') {
     return (
       <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-        <Button size="lg" className="!text-black" asChild>
+        <Button size="lg" asChild>
           <Link href="/artist/upload">Upload</Link>
         </Button>
-        <Button size="lg" variant="outline" className="!text-black" asChild>
+        <Button size="lg" variant="outline" asChild>
           <Link href="/artist/stats">Analytics</Link>
         </Button>
-        <Button size="lg" variant="secondary" className="!text-black" asChild>
+        <Button size="lg" variant="secondary" asChild>
           <Link href="/pro-networx">Explore ProNetworx</Link>
         </Button>
       </div>
@@ -26,13 +26,13 @@ export function HeroCta() {
   if (user && profile?.role === 'service_provider') {
     return (
       <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-        <Button size="lg" className="!text-black" asChild>
+        <Button size="lg" asChild>
           <Link href="/artist/services">My Services</Link>
         </Button>
-        <Button size="lg" variant="outline" className="!text-black" asChild>
+        <Button size="lg" variant="outline" asChild>
           <Link href="/discover">Pro-Directory</Link>
         </Button>
-        <Button size="lg" variant="secondary" className="!text-black" asChild>
+        <Button size="lg" variant="secondary" asChild>
           <Link href="/pro-networx">Open ProNetworx</Link>
         </Button>
       </div>
@@ -42,13 +42,13 @@ export function HeroCta() {
   if (user && profile?.role === 'listener') {
     return (
       <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-        <Button size="lg" className="!text-black" asChild>
+        <Button size="lg" asChild>
           <Link href="/listen">Listen now</Link>
         </Button>
-        <Button size="lg" variant="outline" className="!text-black" asChild>
+        <Button size="lg" variant="outline" asChild>
           <Link href="/competition">Vote</Link>
         </Button>
-        <Button size="lg" variant="secondary" className="!text-black" asChild>
+        <Button size="lg" variant="secondary" asChild>
           <Link href="/pro-networx">Meet ProNetworx Mentors</Link>
         </Button>
       </div>
@@ -60,10 +60,10 @@ export function HeroCta() {
       <Button size="lg" className="!text-black" asChild>
         <Link href="/signup">Get Started Free</Link>
       </Button>
-      <Button size="lg" variant="outline" className="!text-black" asChild>
+      <Button size="lg" variant="outline" asChild>
         <Link href="/login">Log in</Link>
       </Button>
-      <Button size="lg" variant="secondary" className="!text-black" asChild>
+      <Button size="lg" variant="secondary" asChild>
         <Link href="/pro-networx">Explore ProNetworx</Link>
       </Button>
     </div>
