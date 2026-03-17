@@ -10,6 +10,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -43,6 +44,12 @@ export interface FollowListItem {
   role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
 }
 
+export interface ArtistLikeNotificationSettingsResponse {
+  muted: boolean;
+  minLikesTrigger: number;
+  cooldownMinutes: number;
+}
+
 function transformUser(data: any): UserResponse {
   return {
     id: data.id,
@@ -74,6 +81,42 @@ export class UsersService {
     private readonly uploadsService: UploadsService,
     private readonly configService: ConfigService,
   ) {}
+
+  /** Admin emails from env (comma-separated); login with one of these gets role admin. */
+  private readonly defaultArtistLikeNotificationSettings: ArtistLikeNotificationSettingsResponse =
+    {
+      muted: false,
+      minLikesTrigger: 1,
+      cooldownMinutes: 0,
+    };
+
+  private isMissingArtistLikeSettingsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    if (maybeError?.code === '42P01') {
+      return (
+        message.includes('artist_like_notification_settings') ||
+        message.includes('public.artist_like_notification_settings')
+      );
+    }
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes('artist_like_notification_settings') ||
+        message.includes("'public.artist_like_notification_settings'")
+      );
+    }
+    return false;
+  }
+
+  private mapArtistLikeNotificationSettingsRow(
+    row: any,
+  ): ArtistLikeNotificationSettingsResponse {
+    return {
+      muted: row?.muted === true,
+      minLikesTrigger: Math.max(1, Number(row?.min_likes_trigger ?? 1)),
+      cooldownMinutes: Math.max(0, Number(row?.cooldown_minutes ?? 0)),
+    };
+  }
 
   /** Admin emails from env (comma-separated); login with one of these gets role admin. */
   private getAdminEmails(): string[] {
@@ -171,6 +214,83 @@ export class UsersService {
     }
 
     return transformUser(data);
+  }
+
+  async getArtistLikeNotificationSettings(
+    firebaseUid: string,
+  ): Promise<ArtistLikeNotificationSettingsResponse> {
+    const supabase = getSupabaseClient();
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (userError || !user?.id) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { data, error } = await supabase
+      .from('artist_like_notification_settings')
+      .select('muted, min_likes_trigger, cooldown_minutes')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (error && !this.isMissingArtistLikeSettingsTable(error)) {
+      throw new BadRequestException(
+        `Failed to load artist like notification settings: ${error.message}`,
+      );
+    }
+    if (!data || this.isMissingArtistLikeSettingsTable(error)) {
+      return this.defaultArtistLikeNotificationSettings;
+    }
+    return this.mapArtistLikeNotificationSettingsRow(data);
+  }
+
+  async updateArtistLikeNotificationSettings(
+    firebaseUid: string,
+    dto: UpdateArtistLikeNotificationSettingsDto,
+  ): Promise<ArtistLikeNotificationSettingsResponse> {
+    const supabase = getSupabaseClient();
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (userError || !user?.id) {
+      throw new NotFoundException('User not found');
+    }
+
+    const current = await this.getArtistLikeNotificationSettings(firebaseUid);
+    const next: ArtistLikeNotificationSettingsResponse = {
+      muted: dto.muted ?? current.muted,
+      minLikesTrigger: dto.minLikesTrigger ?? current.minLikesTrigger,
+      cooldownMinutes: dto.cooldownMinutes ?? current.cooldownMinutes,
+    };
+
+    const { data, error } = await supabase
+      .from('artist_like_notification_settings')
+      .upsert(
+        {
+          user_id: user.id,
+          muted: next.muted,
+          min_likes_trigger: next.minLikesTrigger,
+          cooldown_minutes: next.cooldownMinutes,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      )
+      .select('muted, min_likes_trigger, cooldown_minutes')
+      .single();
+
+    if (error) {
+      if (this.isMissingArtistLikeSettingsTable(error)) {
+        return next;
+      }
+      throw new BadRequestException(
+        `Failed to save artist like notification settings: ${error.message}`,
+      );
+    }
+    return this.mapArtistLikeNotificationSettingsRow(data);
   }
 
   async getDbUserIdByFirebaseUid(firebaseUid: string): Promise<string> {

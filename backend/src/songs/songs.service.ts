@@ -35,9 +35,23 @@ export interface DiscoverLikedListItem extends DiscoverSongCard {
   likedAt: string;
 }
 
+interface ArtistLikeNotificationSettings {
+  muted: boolean;
+  minLikesTrigger: number;
+  cooldownMinutes: number;
+  lastNotifiedAt: string | null;
+}
+
 @Injectable()
 export class SongsService {
   private readonly discoverMaxClipSeconds = 15;
+  private readonly defaultArtistLikeNotificationSettings: ArtistLikeNotificationSettings =
+    {
+      muted: false,
+      minLikesTrigger: 1,
+      cooldownMinutes: 0,
+      lastNotifiedAt: null,
+    };
 
   private async createTrimmedDiscoverClip(params: {
     sourceUrl: string;
@@ -59,8 +73,14 @@ export class SongsService {
     }
 
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const inputPath = join(tmpdir(), `discover-input-${params.songKey}-${runId}.bin`);
-    const outputPath = join(tmpdir(), `discover-output-${params.songKey}-${runId}.mp3`);
+    const inputPath = join(
+      tmpdir(),
+      `discover-input-${params.songKey}-${runId}.bin`,
+    );
+    const outputPath = join(
+      tmpdir(),
+      `discover-output-${params.songKey}-${runId}.mp3`,
+    );
     const duration = params.endSeconds - params.startSeconds;
 
     try {
@@ -125,7 +145,10 @@ export class SongsService {
       .from('likes')
       .upsert(withArtist, { onConflict: 'user_id,song_id' });
 
-    if (likeRes.error && this.isMissingColumnError(likeRes.error, 'artist_id')) {
+    if (
+      likeRes.error &&
+      this.isMissingColumnError(likeRes.error, 'artist_id')
+    ) {
       const withoutArtist = {
         user_id: userId,
         song_id: songId,
@@ -183,6 +206,141 @@ export class SongsService {
     return columnNames.some((columnName) =>
       this.isMissingColumnError(error, columnName),
     );
+  }
+
+  private isMissingArtistLikeNotificationSettingsTable(
+    error: unknown,
+  ): boolean {
+    return this.isMissingTableError(error, 'artist_like_notification_settings');
+  }
+
+  private mapArtistLikeNotificationSettings(
+    row: any,
+  ): ArtistLikeNotificationSettings {
+    return {
+      muted: row?.muted === true,
+      minLikesTrigger: Math.max(1, Number(row?.min_likes_trigger ?? 1)),
+      cooldownMinutes: Math.max(0, Number(row?.cooldown_minutes ?? 0)),
+      lastNotifiedAt:
+        typeof row?.last_notified_at === 'string' ? row.last_notified_at : null,
+    };
+  }
+
+  private async getArtistLikeNotificationSettings(
+    artistId: string,
+  ): Promise<ArtistLikeNotificationSettings> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('artist_like_notification_settings')
+      .select('muted, min_likes_trigger, cooldown_minutes, last_notified_at')
+      .eq('user_id', artistId)
+      .maybeSingle();
+
+    if (error) {
+      if (this.isMissingArtistLikeNotificationSettingsTable(error)) {
+        return this.defaultArtistLikeNotificationSettings;
+      }
+      throw new Error(
+        `Failed to load artist like notification settings: ${error.message}`,
+      );
+    }
+
+    if (!data) {
+      return this.defaultArtistLikeNotificationSettings;
+    }
+
+    return this.mapArtistLikeNotificationSettings(data);
+  }
+
+  private async updateArtistLikeLastNotified(artistId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('artist_like_notification_settings')
+      .upsert(
+        {
+          user_id: artistId,
+          last_notified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' },
+      );
+    if (error && !this.isMissingArtistLikeNotificationSettingsTable(error)) {
+      throw new Error(
+        `Failed to update like notification timestamp: ${error.message}`,
+      );
+    }
+  }
+
+  private async maybeNotifyArtistLike(
+    likerId: string,
+    songId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+
+    try {
+      const { data: song } = await supabase
+        .from('songs')
+        .select('id, title, artist_id')
+        .eq('id', songId)
+        .single();
+      if (!song?.artist_id) return;
+      if (song.artist_id === likerId) return;
+
+      const settings = await this.getArtistLikeNotificationSettings(
+        song.artist_id,
+      );
+      if (settings.muted) return;
+
+      const { count } = await supabase
+        .from('likes')
+        .select('*', { count: 'exact', head: true })
+        .eq('song_id', songId);
+      const likeCount = count ?? 0;
+
+      if (settings.minLikesTrigger > 1) {
+        if (likeCount < settings.minLikesTrigger) return;
+        if (likeCount % settings.minLikesTrigger !== 0) return;
+      }
+
+      if (settings.cooldownMinutes > 0 && settings.lastNotifiedAt) {
+        const elapsedMs =
+          Date.now() - new Date(settings.lastNotifiedAt).getTime();
+        const cooldownMs = settings.cooldownMinutes * 60 * 1000;
+        if (Number.isFinite(elapsedMs) && elapsedMs < cooldownMs) return;
+      }
+
+      const { data: liker } = await supabase
+        .from('users')
+        .select('display_name, email')
+        .eq('id', likerId)
+        .maybeSingle();
+      const likerLabel = liker?.display_name || liker?.email || 'Someone';
+
+      const title = 'New like on your song';
+      const message =
+        settings.minLikesTrigger > 1
+          ? `"${song.title}" reached ${likeCount} likes.`
+          : `${likerLabel} liked "${song.title}".`;
+
+      await supabase.from('notifications').insert({
+        user_id: song.artist_id,
+        type: 'song_liked',
+        title,
+        message,
+        metadata: {
+          songId: song.id,
+          likerId,
+          likeCount,
+          minLikesTrigger: settings.minLikesTrigger,
+        },
+        read: false,
+      });
+
+      await this.updateArtistLikeLastNotified(song.artist_id);
+    } catch {
+      // Best-effort only; like action should not fail if notification fails.
+      return;
+    }
   }
 
   private getDiscoverClipDuration(
@@ -335,9 +493,9 @@ export class SongsService {
     const discoverEndRaw = createSongDto.discoverClipEndSeconds;
     let discoverClipUrl = createSongDto.discoverClipUrl ?? null;
     let discoverEnabled = !!discoverClipUrl;
-    let discoverClipStartSeconds =
+    const discoverClipStartSeconds =
       discoverStartRaw != null ? Number(discoverStartRaw) : null;
-    let discoverClipEndSeconds =
+    const discoverClipEndSeconds =
       discoverEndRaw != null ? Number(discoverEndRaw) : null;
 
     const hasTrimRange =
@@ -347,13 +505,16 @@ export class SongsService {
       Number.isFinite(discoverClipEndSeconds);
 
     if (hasTrimRange) {
-      if (discoverClipStartSeconds! < 0 || discoverClipEndSeconds! <= discoverClipStartSeconds!) {
+      if (
+        discoverClipStartSeconds < 0 ||
+        discoverClipEndSeconds <= discoverClipStartSeconds
+      ) {
         throw new BadRequestException(
           'Discover clip trim range must be valid and end must be greater than start',
         );
       }
       if (
-        discoverClipEndSeconds! - discoverClipStartSeconds! >
+        discoverClipEndSeconds - discoverClipStartSeconds >
         this.discoverMaxClipSeconds
       ) {
         throw new BadRequestException(
@@ -367,14 +528,11 @@ export class SongsService {
         sourceUrl: trimSourceUrl,
         artistId: userId,
         songKey: createSongDto.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
-        startSeconds: discoverClipStartSeconds!,
-        endSeconds: discoverClipEndSeconds!,
+        startSeconds: discoverClipStartSeconds,
+        endSeconds: discoverClipEndSeconds,
       });
       discoverEnabled = true;
-    } else if (
-      discoverStartRaw != null ||
-      discoverEndRaw != null
-    ) {
+    } else if (discoverStartRaw != null || discoverEndRaw != null) {
       throw new BadRequestException(
         'Provide both discover clip start and end seconds to trim',
       );
@@ -461,14 +619,17 @@ export class SongsService {
         'artist_origin_state',
       ])
     ) {
-      const payloadWithoutOrigin = this.isMissingAnyColumnError(insertRes.error, [
-        'discover_enabled',
-        'discover_clip_url',
-        'discover_background_url',
-        'discover_clip_start_seconds',
-        'discover_clip_end_seconds',
-        'discover_clip_duration_seconds',
-      ])
+      const payloadWithoutOrigin = this.isMissingAnyColumnError(
+        insertRes.error,
+        [
+          'discover_enabled',
+          'discover_clip_url',
+          'discover_background_url',
+          'discover_clip_start_seconds',
+          'discover_clip_end_seconds',
+          'discover_clip_duration_seconds',
+        ],
+      )
         ? legacyBaseInsertPayload
         : legacyDiscoverInsertPayload;
       insertRes = await supabase
@@ -568,7 +729,8 @@ export class SongsService {
       discoverBackgroundUrl: updated.discover_background_url ?? null,
       discoverClipStartSeconds: updated.discover_clip_start_seconds ?? null,
       discoverClipEndSeconds: updated.discover_clip_end_seconds ?? null,
-      discoverClipDurationSeconds: updated.discover_clip_duration_seconds ?? null,
+      discoverClipDurationSeconds:
+        updated.discover_clip_duration_seconds ?? null,
     };
   }
 
@@ -645,12 +807,12 @@ export class SongsService {
       swipesRes.error &&
       !this.isMissingTableError(swipesRes.error, 'discover_swipes')
     ) {
-      throw new Error(`Failed to load discover swipes: ${swipesRes.error.message}`);
+      throw new Error(
+        `Failed to load discover swipes: ${swipesRes.error.message}`,
+      );
     }
     const swipes = (swipesRes.data || []) as Array<{ song_id: string }>;
-    const swipedSongIds = new Set<string>(
-      (swipes || []).map((r) => r.song_id as string),
-    );
+    const swipedSongIds = new Set<string>((swipes || []).map((r) => r.song_id));
 
     let rows: any[] = [];
     const songsDiscoverRes = await supabase
@@ -675,12 +837,16 @@ export class SongsService {
       ) {
         const songsLegacyRes = await supabase
           .from('songs')
-          .select('id, artist_id, artist_name, title, artwork_url, audio_url, status, created_at')
+          .select(
+            'id, artist_id, artist_name, title, artwork_url, audio_url, status, created_at',
+          )
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
           .range(offset, offset + fetchCount - 1);
         if (songsLegacyRes.error) {
-          throw new Error(`Failed to load discover feed: ${songsLegacyRes.error.message}`);
+          throw new Error(
+            `Failed to load discover feed: ${songsLegacyRes.error.message}`,
+          );
         }
         rows = (songsLegacyRes.data || []).map((song: any) => ({
           ...song,
@@ -691,7 +857,9 @@ export class SongsService {
           discover_clip_end_seconds: null,
         }));
       } else {
-        throw new Error(`Failed to load discover feed: ${songsDiscoverRes.error.message}`);
+        throw new Error(
+          `Failed to load discover feed: ${songsDiscoverRes.error.message}`,
+        );
       }
     } else {
       rows = songsDiscoverRes.data || [];
@@ -794,13 +962,11 @@ export class SongsService {
       likesData = (likesFallbackRes.data || []) as any[];
       myLikesData = (myLikesFallbackRes.data || []) as any[];
     } else {
-      likesData = (likesRawRes.data || []) as any[];
-      myLikesData = (myLikesRawRes.data || []) as any[];
+      likesData = likesRawRes.data || [];
+      myLikesData = myLikesRawRes.data || [];
     }
 
-    const artistById = new Map(
-      artistsData.map((u: any) => [u.id, u]),
-    );
+    const artistById = new Map(artistsData.map((u: any) => [u.id, u]));
     const likeCountBySongId = new Map<string, number>();
     for (const row of likesData) {
       const songId = row.song_id as string;
@@ -819,7 +985,8 @@ export class SongsService {
       ),
     );
 
-    const nextCursor = rows.length >= fetchCount ? String(offset + fetchCount) : null;
+    const nextCursor =
+      rows.length >= fetchCount ? String(offset + fetchCount) : null;
     return { items, nextCursor };
   }
 
@@ -865,9 +1032,9 @@ export class SongsService {
 
     if (songError || !song) throw new NotFoundException('Song not found');
     if (
-      (song as any).status !== 'approved' ||
-      !(song as any).discover_enabled ||
-      !(song as any).discover_clip_url
+      song.status !== 'approved' ||
+      !song.discover_enabled ||
+      !song.discover_clip_url
     ) {
       throw new ForbiddenException('Song is not available for Discover');
     }
@@ -881,14 +1048,17 @@ export class SongsService {
       {
         user_id: userId,
         song_id: params.songId,
-        artist_id: (song as any).artist_id,
+        artist_id: song.artist_id,
         direction: params.direction,
         decision_ms: decisionMs,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,song_id' },
     );
-    if (swipeError && !this.isMissingTableError(swipeError, 'discover_swipes')) {
+    if (
+      swipeError &&
+      !this.isMissingTableError(swipeError, 'discover_swipes')
+    ) {
       throw new Error(`Failed to record swipe: ${swipeError.message}`);
     }
 
@@ -899,7 +1069,7 @@ export class SongsService {
           {
             user_id: userId,
             song_id: params.songId,
-            artist_id: (song as any).artist_id,
+            artist_id: song.artist_id,
           },
           { onConflict: 'user_id,song_id' },
         );
@@ -910,7 +1080,7 @@ export class SongsService {
         await this.upsertCoreLikeWithFallback(
           userId,
           params.songId,
-          (song as any).artist_id,
+          song.artist_id,
         );
       } else if (likeError) {
         throw new Error(`Failed to save discover like: ${likeError.message}`);
@@ -986,9 +1156,9 @@ export class SongsService {
           created_at?: string | null;
         }>;
         count = likesFallbackRes.count ?? null;
-      } else
-
-      if (this.isMissingColumnError(likesCreatedAtRes.error, 'created_at')) {
+      } else if (
+        this.isMissingColumnError(likesCreatedAtRes.error, 'created_at')
+      ) {
         const likesLegacyRes = await supabase
           .from('discover_song_likes')
           .select('song_id, liked_at', { count: 'exact' })
@@ -1172,6 +1342,7 @@ export class SongsService {
       user_id: userId,
       song_id: songId,
     });
+    await this.maybeNotifyArtistLike(userId, songId);
     return { liked: true };
   }
 
@@ -1222,6 +1393,7 @@ export class SongsService {
         user_id: userId,
         song_id: songId,
       });
+      await this.maybeNotifyArtistLike(userId, songId);
       return { liked: true };
     }
   }

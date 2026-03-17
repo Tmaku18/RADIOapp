@@ -15,6 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -62,6 +63,22 @@ export class UsersController {
         err instanceof Error ? err.message : 'Failed to update profile';
       throw new BadRequestException(message);
     }
+  }
+
+  @Get('me/artist-like-notifications')
+  async getArtistLikeNotificationSettings(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.getArtistLikeNotificationSettings(user.uid);
+  }
+
+  @Put('me/artist-like-notifications')
+  async updateArtistLikeNotificationSettings(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: UpdateArtistLikeNotificationSettingsDto,
+  ) {
+    return this.usersService.updateArtistLikeNotificationSettings(
+      user.uid,
+      dto,
+    );
   }
 
   /**

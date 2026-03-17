@@ -215,6 +215,12 @@ export interface DiscoverSwipeAnalytics {
   }>;
 }
 
+export interface ArtistLikeNotificationSettings {
+  muted: boolean;
+  minLikesTrigger: number;
+  cooldownMinutes: number;
+}
+
 export const discoverAudioApi = {
   getFeed: (params?: { limit?: number; cursor?: string }) =>
     api.get<{ items: DiscoverAudioSongCard[]; nextCursor: string | null }>(
@@ -270,6 +276,15 @@ export const usersApi = {
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
   upgradeToCatalyst: () => api.post('/users/upgrade-to-catalyst'),
+  getArtistLikeNotificationSettings: () =>
+    api.get<ArtistLikeNotificationSettings>('/users/me/artist-like-notifications'),
+  updateArtistLikeNotificationSettings: (
+    data: Partial<ArtistLikeNotificationSettings>,
+  ) =>
+    api.put<ArtistLikeNotificationSettings>(
+      '/users/me/artist-like-notifications',
+      data,
+    ),
 };
 
 export const suggestionsApi = {
