@@ -30,6 +30,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _discoverable = true;
   bool _savingDiscoverable = false;
   app_user.User? _me;
+  String? _role;
 
   bool _notificationsEnabled = true;
   bool _upNextAlerts = true;
@@ -37,6 +38,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _songApprovalAlerts = true;
   bool _soundEnabled = true;
   bool _vibrationEnabled = true;
+  bool _artistLikeMuted = false;
+  int _artistLikeMinLikesTrigger = 1;
+  int _artistLikeCooldownMinutes = 0;
+  bool _savingArtistLikeSettings = false;
 
   @override
   void initState() {
@@ -52,7 +57,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final systemEnabled = await _pushService.areNotificationsEnabled();
     await auth.refreshIdToken();
     final me = await _usersService.getMe();
+    final role = me['role'] as String?;
     final discoverable = (me['discoverable'] ?? true) == true;
+    Map<String, dynamic>? artistLikeSettings;
+    if (role == 'artist' || role == 'admin') {
+      try {
+        artistLikeSettings =
+            await _usersService.getArtistLikeNotificationSettings();
+      } catch (_) {
+        artistLikeSettings = null;
+      }
+    }
     app_user.User? user;
     try {
       user = await auth.getUserProfile();
@@ -61,6 +76,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) {
       setState(() {
         _me = user;
+        _role = role ?? user?.role;
         _systemNotificationsEnabled = systemEnabled;
         _notificationsEnabled = settings['notificationsEnabled'] ?? true;
         _upNextAlerts = settings['upNextAlerts'] ?? true;
@@ -68,10 +84,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _songApprovalAlerts = settings['songApprovalAlerts'] ?? true;
         _soundEnabled = settings['soundEnabled'] ?? true;
         _vibrationEnabled = settings['vibrationEnabled'] ?? true;
+        _artistLikeMuted = (artistLikeSettings?['muted'] ?? false) == true;
+        _artistLikeMinLikesTrigger =
+            ((artistLikeSettings?['minLikesTrigger'] ?? 1) as num).toInt();
+        _artistLikeCooldownMinutes =
+            ((artistLikeSettings?['cooldownMinutes'] ?? 0) as num).toInt();
         _discoverable = discoverable;
         _isLoading = false;
       });
     }
+  }
+
+  Future<void> _saveArtistLikeSettings({
+    bool? muted,
+    int? minLikesTrigger,
+    int? cooldownMinutes,
+  }) async {
+    if (_savingArtistLikeSettings) return;
+    setState(() => _savingArtistLikeSettings = true);
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      final updated = await _usersService.updateArtistLikeNotificationSettings(
+        muted: muted,
+        minLikesTrigger: minLikesTrigger,
+        cooldownMinutes: cooldownMinutes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _artistLikeMuted = (updated['muted'] ?? _artistLikeMuted) == true;
+        _artistLikeMinLikesTrigger =
+            ((updated['minLikesTrigger'] ?? _artistLikeMinLikesTrigger) as num)
+                .toInt();
+        _artistLikeCooldownMinutes =
+            ((updated['cooldownMinutes'] ?? _artistLikeCooldownMinutes) as num)
+                .toInt();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save artist like notification settings'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingArtistLikeSettings = false);
+      }
+    }
+  }
+
+  Future<int?> _promptForInt({
+    required String title,
+    required String hint,
+    required int initialValue,
+    required int min,
+    required int max,
+  }) async {
+    final controller = TextEditingController(text: initialValue.toString());
+    return showDialog<int>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(title),
+          content: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(hintText: hint),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final parsed = int.tryParse(controller.text.trim());
+                if (parsed == null || parsed < min || parsed > max) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text('Enter a value between $min and $max'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, parsed);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _toggleDiscoverable(bool value) async {
@@ -125,8 +229,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
-    final isArtist = _me?.role == 'artist' || _me?.role == 'admin';
-    final isAdmin = _me?.role == 'admin';
+    final role = _role ?? _me?.role;
+    final isArtist = role == 'artist' || role == 'admin';
+    final isAdmin = role == 'admin';
 
     return Scaffold(
       appBar: AppBar(
@@ -220,7 +325,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _notificationsEnabled,
                     onChanged: _toggleMasterNotifications,
                     secondary: const Icon(Icons.notifications_outlined),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                   SwitchListTile(
                     title: const Text('Up Next Alerts'),
@@ -233,7 +338,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.queue_music_outlined),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                   SwitchListTile(
                     title: const Text('Live Now Alerts'),
@@ -246,7 +351,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.play_circle_outline),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                   SwitchListTile(
                     title: const Text('Song Approval Alerts'),
@@ -259,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.check_circle_outline),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                   SwitchListTile(
                     title: const Text('Sound'),
@@ -272,7 +377,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.volume_up_outlined),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                   SwitchListTile(
                     title: const Text('Vibration'),
@@ -285,8 +390,82 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.vibration_outlined),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
+                  if (isArtist) ...[
+                    const Divider(height: 1),
+                    SwitchListTile(
+                      title: const Text('Mute song-like notifications'),
+                      subtitle: const Text(
+                        'Stop notifications when listeners like your songs',
+                      ),
+                      value: _artistLikeMuted,
+                      onChanged: _savingArtistLikeSettings
+                          ? null
+                          : (v) async {
+                              setState(() => _artistLikeMuted = v);
+                              await _saveArtistLikeSettings(muted: v);
+                            },
+                      secondary: const Icon(Icons.favorite_border),
+                      activeThumbColor: primary,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.flag_outlined),
+                      title: const Text('Minimum likes to notify'),
+                      subtitle: Text(
+                        _artistLikeMinLikesTrigger <= 1
+                            ? 'Notify on every like'
+                            : 'Notify on $_artistLikeMinLikesTrigger, ${_artistLikeMinLikesTrigger * 2}, ... likes',
+                      ),
+                      trailing: Text('$_artistLikeMinLikesTrigger'),
+                      onTap: _savingArtistLikeSettings
+                          ? null
+                          : () async {
+                              final value = await _promptForInt(
+                                title: 'Minimum likes trigger',
+                                hint: 'Enter 1 to 1000',
+                                initialValue: _artistLikeMinLikesTrigger,
+                                min: 1,
+                                max: 1000,
+                              );
+                              if (value == null) return;
+                              setState(() => _artistLikeMinLikesTrigger = value);
+                              await _saveArtistLikeSettings(
+                                minLikesTrigger: value,
+                              );
+                            },
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.schedule_outlined),
+                      title: const Text('Like notification cooldown'),
+                      subtitle: Text(
+                        _artistLikeCooldownMinutes <= 0
+                            ? 'No cooldown'
+                            : 'At most one every $_artistLikeCooldownMinutes minute(s)',
+                      ),
+                      trailing: Text(
+                        _artistLikeCooldownMinutes <= 0
+                            ? 'Off'
+                            : '${_artistLikeCooldownMinutes}m',
+                      ),
+                      onTap: _savingArtistLikeSettings
+                          ? null
+                          : () async {
+                              final value = await _promptForInt(
+                                title: 'Cooldown minutes',
+                                hint: 'Enter 0 to 10080',
+                                initialValue: _artistLikeCooldownMinutes,
+                                min: 0,
+                                max: 10080,
+                              );
+                              if (value == null) return;
+                              setState(() => _artistLikeCooldownMinutes = value);
+                              await _saveArtistLikeSettings(
+                                cooldownMinutes: value,
+                              );
+                            },
+                    ),
+                  ],
                 ]),
 
                 _section('Security & Privacy', [
@@ -296,7 +475,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     value: _discoverable,
                     onChanged: _savingDiscoverable ? null : _toggleDiscoverable,
                     secondary: const Icon(Icons.visibility_outlined),
-                    activeColor: primary,
+                    activeThumbColor: primary,
                   ),
                 ]),
 
