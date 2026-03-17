@@ -200,7 +200,7 @@ export default async function HomePage() {
             {[
               { icon: '📤', title: 'Upload + Release', desc: 'Submit tracks for moderation and get played in rotation once approved.' },
               { icon: '🚀', title: 'Promote with Credits', desc: 'Use play credits to increase visibility while still earning organic discovery.' },
-              { icon: '📊', title: 'The Wake Analytics', desc: 'Track listens, discoveries, engagement, and audience growth over time.' },
+              { icon: '📊', title: 'Analytics', desc: 'Track listens, discoveries, engagement, and audience growth over time.' },
             ].map((item) => (
               <Card key={item.title} className="text-center">
                 <CardHeader>

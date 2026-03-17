@@ -641,7 +641,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           <Alert className="mb-4">
             <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <span>
-                Tap the Ripple check-in to keep earning <span className="font-semibold">The Yield</span>.
+                Tap the Ripple check-in to keep earning <span className="font-semibold">rewards</span>.
               </span>
               <Button onClick={handleCheckIn} disabled={isCheckingIn} className="rounded-full">
                 {isCheckingIn ? 'Checking in…' : 'Check in'}

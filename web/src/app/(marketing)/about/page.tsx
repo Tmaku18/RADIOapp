@@ -40,7 +40,7 @@ export default function AboutPage() {
           Networx is a &quot;By Artists, For Artists&quot; ecosystem that brings artist growth into one place: democratic radio rotation, artist livestreaming, live listener chat, discovery votes and ripples, and transparent analytics.
         </p>
         <p className="text-muted-foreground mb-4">
-          We do not believe in the &quot;mysterious artist&quot; enigma. We believe in the Human Artist. Creators can upload, promote with credits, review The Wake analytics dashboard, and meet listeners in real time through chat and livestream sessions.
+          We do not believe in the &quot;mysterious artist&quot; enigma. We believe in the Human Artist. Creators can upload, promote with credits, review the analytics dashboard, and meet listeners in real time through chat and livestream sessions.
         </p>
         <p className="text-muted-foreground mb-6">
           ProNetworx extends that bridge by connecting hidden gems with experienced photographers, engineers, promoters, producers, and mentors. We are not just playing music; we are helping artists build durable careers.

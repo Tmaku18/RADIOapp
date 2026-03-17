@@ -49,7 +49,7 @@ export default function YieldPage() {
       const res = await prospectorApi.getYield();
       setStatus(res.data as YieldStatus);
     } catch {
-      setError('Failed to load The Yield.');
+      setError('Failed to load rewards.');
     } finally {
       setLoading(false);
     }
@@ -81,7 +81,7 @@ export default function YieldPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">The Yield</h1>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Rewards</h1>
         <p className="text-muted-foreground mt-1">Micro-accrual rewards for verified prospecting.</p>
       </div>
 

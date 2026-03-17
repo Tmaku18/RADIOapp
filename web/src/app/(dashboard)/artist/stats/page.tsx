@@ -134,8 +134,8 @@ export default function StatsPage() {
   return (
     <div className="space-y-8">
       <div className="mb-2">
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">The Wake</h1>
-        <p className="text-muted-foreground mt-1">The path left behind by a thousand Ripples.</p>
+        <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
+        <p className="text-muted-foreground mt-1">Track plays, engagement, and audience growth.</p>
       </div>
       {playDetail && (
         <Card className="border-primary/30 bg-primary/5">
@@ -349,7 +349,7 @@ export default function StatsPage() {
       <Card>
         <CardContent className="pt-8 pb-8 text-center">
           <div className="text-4xl mb-4">📊</div>
-          <h3 className="text-lg font-semibold text-foreground mb-2">More of The Wake Coming Soon</h3>
+          <h3 className="text-lg font-semibold text-foreground mb-2">More analytics coming soon</h3>
           <p className="text-muted-foreground max-w-md mx-auto">
             We&apos;re working on detailed analytics including Prospector demographics, peak listening times, and engagement metrics.
           </p>

@@ -55,16 +55,16 @@ const listenerNavigation: MainNavItem[] = [
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Vote', href: '/competition', icon: '📢' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
-  { name: 'The Yield', href: '/yield', icon: '⛏️' },
+  { name: 'Rewards', href: '/yield', icon: '⛏️' },
 ];
 
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
-  { name: 'The Wake', href: '/artist/stats', icon: '📈' },
+  { name: 'Analytics', href: '/artist/stats', icon: '📈' },
   { name: 'Pro-Networx', href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', external: true },
-  { name: 'The Yield', href: '/yield', icon: '⛏️' },
+  { name: 'Rewards', href: '/yield', icon: '⛏️' },
 ];
 
 const moreNav = [
@@ -135,7 +135,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
-  if (pathname.startsWith('/yield')) return 'The Yield';
+  if (pathname.startsWith('/yield')) return 'Rewards';
   if (pathname.startsWith('/refinery')) return 'The Refinery';
   if (pathname.startsWith('/profile')) return 'Profile';
   if (pathname.startsWith('/live')) return 'Live';
@@ -144,7 +144,7 @@ function getPageTitle(pathname: string): string {
   if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/credits')) return 'Credits';
-  if (pathname.startsWith('/artist/stats')) return 'The Wake';
+  if (pathname.startsWith('/artist/stats')) return 'Analytics';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Pro-Networx';
   if (pathname.startsWith('/browse/saved')) return 'Saved';

@@ -148,7 +148,7 @@ export default function RefineryPage() {
       <div>
         <h1 className="text-2xl font-bold text-foreground tracking-tight">The Refinery</h1>
         <p className="text-muted-foreground mt-1">
-          Listen to songs under review unlimited times. Rank, answer surveys, and leave comments to earn Yield rewards.
+          Listen to songs under review unlimited times. Rank, answer surveys, and leave comments to earn rewards.
         </p>
       </div>
 
