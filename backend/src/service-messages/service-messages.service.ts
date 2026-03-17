@@ -81,11 +81,39 @@ export class ServiceMessagesService {
   private isMissingUserFollowsTable(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
-    return (
-      maybeError?.code === '42P01' &&
-      (message.includes('user_follows') ||
-        message.includes('public.user_follows'))
-    );
+    if (maybeError?.code === '42P01') {
+      return (
+        message.includes('user_follows') ||
+        message.includes('public.user_follows')
+      );
+    }
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes("'public.user_follows'") ||
+        message.includes("'user_follows'") ||
+        message.includes('user_follows')
+      );
+    }
+    return false;
+  }
+
+  private isMissingColumnError(error: unknown, columnName: string): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    if (maybeError?.code === '42703') {
+      return message.includes(columnName.toLowerCase());
+    }
+    if (maybeError?.code === 'PGRST204') {
+      return (
+        message.includes(`'${columnName.toLowerCase()}'`) ||
+        message.includes(columnName.toLowerCase())
+      );
+    }
+    return false;
+  }
+
+  private isMissingAnyColumnError(error: unknown, columnNames: string[]): boolean {
+    return columnNames.some((column) => this.isMissingColumnError(error, column));
   }
 
   async listConversations(
@@ -94,15 +122,31 @@ export class ServiceMessagesService {
   ): Promise<ConversationSummary[]> {
     const supabase = getSupabaseClient();
 
-    const { data: messages, error } = await supabase
+    let messagesRes: any = await supabase
       .from('service_messages')
       .select(
         'id, sender_id, recipient_id, body, created_at, message_type, media_url, unsent_at',
       )
       .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
       .order('created_at', { ascending: false });
-    if (error)
-      throw new Error(`Failed to load conversations: ${error.message}`);
+    if (
+      messagesRes.error &&
+      this.isMissingAnyColumnError(messagesRes.error, [
+        'message_type',
+        'media_url',
+        'unsent_at',
+      ])
+    ) {
+      messagesRes = await supabase
+        .from('service_messages')
+        .select('id, sender_id, recipient_id, body, created_at')
+        .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+        .order('created_at', { ascending: false });
+    }
+    if (messagesRes.error) {
+      throw new Error(`Failed to load conversations: ${messagesRes.error.message}`);
+    }
+    const messages = messagesRes.data;
 
     if (!messages?.length) return [];
 
@@ -253,8 +297,32 @@ export class ServiceMessagesService {
       .order('created_at', { ascending: false })
       .limit(limit);
     if (before) q = q.lt('created_at', before);
-    const { data, error } = await q;
-    if (error) throw new Error(`Failed to load thread: ${error.message}`);
+    let threadRes: any = await q;
+    if (
+      threadRes.error &&
+      this.isMissingAnyColumnError(threadRes.error, [
+        'message_type',
+        'media_url',
+        'media_mime',
+        'media_duration_ms',
+        'reply_to_message_id',
+        'edited_at',
+        'unsent_at',
+      ])
+    ) {
+      let legacyQ = supabase
+        .from('service_messages')
+        .select('id, sender_id, recipient_id, request_id, body, created_at')
+        .or(
+          `and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`,
+        )
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      if (before) legacyQ = legacyQ.lt('created_at', before);
+      threadRes = await legacyQ;
+    }
+    if (threadRes.error) throw new Error(`Failed to load thread: ${threadRes.error.message}`);
+    const data = threadRes.data;
 
     const messageIds = (data || []).map((m: any) => m.id);
     const { data: reactionRows, error: reactionsError } = messageIds.length
@@ -333,7 +401,7 @@ export class ServiceMessagesService {
     }
 
     const supabase = getSupabaseClient();
-    const { data: inserted, error } = await supabase
+    let insertRes = await supabase
       .from('service_messages')
       .insert({
         sender_id: input.senderId,
@@ -350,8 +418,32 @@ export class ServiceMessagesService {
         'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at',
       )
       .single();
+    if (
+      insertRes.error &&
+      this.isMissingAnyColumnError(insertRes.error, [
+        'message_type',
+        'media_url',
+        'media_mime',
+        'media_duration_ms',
+        'reply_to_message_id',
+      ])
+    ) {
+      insertRes = await supabase
+        .from('service_messages')
+        .insert({
+          sender_id: input.senderId,
+          recipient_id: input.recipientId,
+          request_id: input.requestId ?? null,
+          body: trimmedBody,
+        })
+        .select('id, sender_id, recipient_id, request_id, body, created_at')
+        .single();
+    }
 
-    if (error) throw new Error(`Failed to send message: ${error.message}`);
+    if (insertRes.error) {
+      throw new Error(`Failed to send message: ${insertRes.error.message}`);
+    }
+    const inserted = insertRes.data as any;
 
     const msg = {
       id: inserted.id,
@@ -360,11 +452,15 @@ export class ServiceMessagesService {
       requestId: inserted.request_id,
       body: inserted.body,
       createdAt: inserted.created_at,
-      messageType: inserted.message_type,
-      mediaUrl: inserted.media_url,
-      mediaMime: inserted.media_mime,
-      mediaDurationMs: inserted.media_duration_ms,
-      replyToMessageId: inserted.reply_to_message_id,
+      messageType: (inserted.message_type ?? 'text') as
+        | 'text'
+        | 'image'
+        | 'video'
+        | 'voice',
+      mediaUrl: inserted.media_url ?? null,
+      mediaMime: inserted.media_mime ?? null,
+      mediaDurationMs: inserted.media_duration_ms ?? null,
+      replyToMessageId: inserted.reply_to_message_id ?? null,
       editedAt: inserted.edited_at ?? null,
       unsentAt: inserted.unsent_at ?? null,
       status: 'delivered' as const,
