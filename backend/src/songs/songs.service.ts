@@ -382,15 +382,23 @@ export class SongsService {
     const offset = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
     const fetchCount = limit + 30;
 
-    const { data: swipes } = await supabase
+    const swipesRes = await supabase
       .from('discover_swipes')
       .select('song_id')
       .eq('user_id', userId);
+    if (
+      swipesRes.error &&
+      !this.isMissingTableError(swipesRes.error, 'discover_swipes')
+    ) {
+      throw new Error(`Failed to load discover swipes: ${swipesRes.error.message}`);
+    }
+    const swipes = (swipesRes.data || []) as Array<{ song_id: string }>;
     const swipedSongIds = new Set<string>(
       (swipes || []).map((r) => r.song_id as string),
     );
 
-    const { data: rows, error } = await supabase
+    let rows: any[] = [];
+    const songsDiscoverRes = await supabase
       .from('songs')
       .select(
         'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status, created_at',
@@ -400,9 +408,38 @@ export class SongsService {
       .not('discover_clip_url', 'is', null)
       .order('created_at', { ascending: false })
       .range(offset, offset + fetchCount - 1);
-
-    if (error) {
-      throw new Error(`Failed to load discover feed: ${error.message}`);
+    if (songsDiscoverRes.error) {
+      if (
+        this.isMissingAnyColumnError(songsDiscoverRes.error, [
+          'discover_enabled',
+          'discover_clip_url',
+          'discover_background_url',
+          'discover_clip_start_seconds',
+          'discover_clip_end_seconds',
+        ])
+      ) {
+        const songsLegacyRes = await supabase
+          .from('songs')
+          .select('id, artist_id, artist_name, title, artwork_url, audio_url, status, created_at')
+          .eq('status', 'approved')
+          .order('created_at', { ascending: false })
+          .range(offset, offset + fetchCount - 1);
+        if (songsLegacyRes.error) {
+          throw new Error(`Failed to load discover feed: ${songsLegacyRes.error.message}`);
+        }
+        rows = (songsLegacyRes.data || []).map((song: any) => ({
+          ...song,
+          discover_enabled: true,
+          discover_clip_url: song.audio_url ?? null,
+          discover_background_url: song.artwork_url ?? null,
+          discover_clip_start_seconds: null,
+          discover_clip_end_seconds: null,
+        }));
+      } else {
+        throw new Error(`Failed to load discover feed: ${songsDiscoverRes.error.message}`);
+      }
+    } else {
+      rows = songsDiscoverRes.data || [];
     }
 
     const filtered = (rows || []).filter(
@@ -413,7 +450,7 @@ export class SongsService {
     const songIds = pageRows.map((r: any) => r.id);
     const artistIds = [...new Set(pageRows.map((r: any) => r.artist_id))];
 
-    const [artistsRes, likesRes, myLikesRes] = await Promise.all([
+    const [artistsRawRes, likesRawRes, myLikesRawRes] = await Promise.all([
       artistIds.length > 0
         ? supabase
             .from('users')
@@ -435,16 +472,65 @@ export class SongsService {
         : Promise.resolve({ data: [] as any[] }),
     ]);
 
+    let artistsData = artistsRawRes.data || [];
+    if ((artistsRawRes as any).error) {
+      if (
+        this.isMissingAnyColumnError((artistsRawRes as any).error, [
+          'headline',
+          'avatar_url',
+          'display_name',
+        ])
+      ) {
+        const artistsLegacyRes = artistIds.length
+          ? await supabase
+              .from('users')
+              .select('id, display_name')
+              .in('id', artistIds)
+          : ({ data: [] as any[], error: null } as any);
+        if (artistsLegacyRes.error) {
+          throw new Error(
+            `Failed to load discover artists: ${artistsLegacyRes.error.message}`,
+          );
+        }
+        artistsData = artistsLegacyRes.data || [];
+      } else {
+        throw new Error(
+          `Failed to load discover artists: ${(artistsRawRes as any).error.message}`,
+        );
+      }
+    }
+
+    const likesError = (likesRawRes as any).error;
+    const myLikesError = (myLikesRawRes as any).error;
+    if (
+      (likesError &&
+        !this.isMissingTableError(likesError, 'discover_song_likes')) ||
+      (myLikesError &&
+        !this.isMissingTableError(myLikesError, 'discover_song_likes'))
+    ) {
+      const errMessage = likesError?.message || myLikesError?.message;
+      throw new Error(`Failed to load discover likes: ${errMessage}`);
+    }
+    const likesData = this.isMissingTableError(likesError, 'discover_song_likes')
+      ? []
+      : ((likesRawRes.data || []) as any[]);
+    const myLikesData = this.isMissingTableError(
+      myLikesError,
+      'discover_song_likes',
+    )
+      ? []
+      : ((myLikesRawRes.data || []) as any[]);
+
     const artistById = new Map(
-      (artistsRes.data || []).map((u: any) => [u.id, u]),
+      artistsData.map((u: any) => [u.id, u]),
     );
     const likeCountBySongId = new Map<string, number>();
-    for (const row of likesRes.data || []) {
+    for (const row of likesData) {
       const songId = row.song_id as string;
       likeCountBySongId.set(songId, (likeCountBySongId.get(songId) ?? 0) + 1);
     }
     const likedSongIds = new Set<string>(
-      (myLikesRes.data || []).map((row: any) => row.song_id as string),
+      myLikesData.map((row: any) => row.song_id as string),
     );
 
     const items = pageRows.map((song: any) =>
@@ -456,8 +542,7 @@ export class SongsService {
       ),
     );
 
-    const nextCursor =
-      (rows || []).length >= fetchCount ? String(offset + fetchCount) : null;
+    const nextCursor = rows.length >= fetchCount ? String(offset + fetchCount) : null;
     return { items, nextCursor };
   }
 
