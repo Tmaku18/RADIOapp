@@ -13,11 +13,12 @@ class NearbyPeopleScreen extends StatefulWidget {
 
 class _NearbyPeopleScreenState extends State<NearbyPeopleScreen> {
   final NearbyService _service = NearbyService();
+  static const double _kmPerMile = 1.609344;
 
   bool _loading = false;
   String? _error;
 
-  double _radiusKm = 10;
+  double _radiusMiles = 10;
   Position? _pos;
   List<Map<String, dynamic>> _items = const [];
 
@@ -58,7 +59,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen> {
       final res = await _service.listPeople(
         lat: pos.latitude,
         lng: pos.longitude,
-        radiusKm: _radiusKm,
+        radiusKm: _radiusMiles * _kmPerMile,
       );
 
       final rawItems = res['items'];
@@ -106,19 +107,19 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Radius: ${_radiusKm.toStringAsFixed(0)} km',
+                'Radius: ${_radiusMiles.toStringAsFixed(0)} mi',
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
               ),
               Slider(
-                value: _radiusKm,
+                value: _radiusMiles,
                 min: 1,
-                max: 50,
-                divisions: 49,
-                label: '${_radiusKm.toStringAsFixed(0)} km',
+                max: 30,
+                divisions: 29,
+                label: '${_radiusMiles.toStringAsFixed(0)} mi',
                 onChanged: _loading
                     ? null
                     : (v) {
-                        setState(() => _radiusKm = v);
+                        setState(() => _radiusMiles = v);
                       },
                 onChangeEnd: _loading ? null : (_) => _locateAndLoad(),
               ),
@@ -160,8 +161,13 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen> {
                           final name = (item['displayName'] ?? item['display_name'] ?? 'Unknown').toString();
                           final headline = (item['headline'] ?? '').toString();
                           final location = (item['locationRegion'] ?? item['location_region'] ?? '').toString();
-                          final dist = item['distanceKm'] ?? item['distance_km'];
-                          final distText = dist is num ? '${dist.toDouble().toStringAsFixed(1)} km' : null;
+                          final distMiles = item['distanceMiles'] ?? item['distance_miles'];
+                          final distKm = item['distanceKm'] ?? item['distance_km'];
+                          final distText = distMiles is num
+                              ? '${distMiles.toDouble().toStringAsFixed(1)} mi'
+                              : distKm is num
+                                  ? '${(distKm.toDouble() / _kmPerMile).toStringAsFixed(1)} mi'
+                                  : null;
 
                           return Container(
                             padding: const EdgeInsets.all(14),

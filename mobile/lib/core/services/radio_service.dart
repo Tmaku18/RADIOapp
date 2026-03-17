@@ -4,10 +4,17 @@ import 'api_service.dart';
 
 class RadioService {
   final ApiService _apiService = ApiService();
+  static const String defaultRadioId = 'global';
 
-  Future<TrackFetchResult> getCurrentTrack() async {
+  String _withRadio(String endpoint, String radioId) {
+    final separator = endpoint.contains('?') ? '&' : '?';
+    final encoded = Uri.encodeQueryComponent(radioId.trim());
+    return '$endpoint${separator}radio=$encoded';
+  }
+
+  Future<TrackFetchResult> getCurrentTrack({String radioId = defaultRadioId}) async {
     try {
-      final response = await _apiService.get('radio/current');
+      final response = await _apiService.get(_withRadio('radio/current', radioId));
       if (response == null) return const TrackFetchResult(track: null);
       if (response is Map<String, dynamic>) {
         if (response['no_content'] == true) {
@@ -23,9 +30,9 @@ class RadioService {
     }
   }
 
-  Future<TrackFetchResult> getNextTrack() async {
+  Future<TrackFetchResult> getNextTrack({String radioId = defaultRadioId}) async {
     try {
-      final response = await _apiService.get('radio/next');
+      final response = await _apiService.get(_withRadio('radio/next', radioId));
       if (response == null) return const TrackFetchResult(track: null);
       if (response is Map<String, dynamic>) {
         if (response['no_content'] == true) {
@@ -41,9 +48,13 @@ class RadioService {
     }
   }
 
-  Future<void> reportPlay(String songId, {bool skipped = false}) async {
+  Future<void> reportPlay(
+    String songId, {
+    bool skipped = false,
+    String radioId = defaultRadioId,
+  }) async {
     try {
-      await _apiService.post('radio/play', {
+      await _apiService.post(_withRadio('radio/play', radioId), {
         'songId': songId,
         'skipped': skipped,
       });
@@ -56,9 +67,10 @@ class RadioService {
     required String streamToken,
     required String songId,
     required String timestamp,
+    String radioId = defaultRadioId,
   }) async {
     try {
-      await _apiService.post('radio/heartbeat', {
+      await _apiService.post(_withRadio('radio/heartbeat', radioId), {
         'streamToken': streamToken,
         'songId': songId,
         'timestamp': timestamp,

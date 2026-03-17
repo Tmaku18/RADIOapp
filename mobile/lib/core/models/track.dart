@@ -26,6 +26,9 @@ class Track {
   /// Live listener count reported by the radio backend.
   final int listenerCount;
 
+  /// Remaining server-side track time in milliseconds.
+  final int timeRemainingMs;
+
   /// Catalyst deep-link credits pinned during this song's airtime.
   final List<PinnedCatalystCredit> pinnedCatalysts;
 
@@ -42,6 +45,7 @@ class Track {
     this.trialByFireActive = false,
     this.positionSeconds = 0,
     this.listenerCount = 0,
+    this.timeRemainingMs = 0,
     this.pinnedCatalysts = const [],
   });
 
@@ -92,6 +96,17 @@ class Track {
                       .toString(),
                 ) ??
               0,
+      timeRemainingMs:
+          (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? 0) is int
+              ? (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? 0)
+                  as int
+              : int.tryParse(
+                    (json['time_remaining_ms'] ??
+                            json['timeRemainingMs'] ??
+                            '0')
+                        .toString(),
+                  ) ??
+                  0,
       pinnedCatalysts: pinned,
     );
   }
@@ -109,6 +124,7 @@ class Track {
     bool? trialByFireActive,
     int? positionSeconds,
     int? listenerCount,
+    int? timeRemainingMs,
     List<PinnedCatalystCredit>? pinnedCatalysts,
   }) {
     return Track(
@@ -124,6 +140,7 @@ class Track {
       trialByFireActive: trialByFireActive ?? this.trialByFireActive,
       positionSeconds: positionSeconds ?? this.positionSeconds,
       listenerCount: listenerCount ?? this.listenerCount,
+      timeRemainingMs: timeRemainingMs ?? this.timeRemainingMs,
       pinnedCatalysts: pinnedCatalysts ?? this.pinnedCatalysts,
     );
   }

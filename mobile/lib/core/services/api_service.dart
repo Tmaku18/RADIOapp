@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../env.dart';
@@ -21,6 +22,8 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
   ApiService._internal();
+  static const Duration _requestTimeout = Duration(seconds: 15);
+  String? _resolvedBaseUrl;
 
   String get baseUrl => env('API_BASE_URL') ?? 'http://localhost:3000';
   String? _authToken;
@@ -61,30 +64,90 @@ class ApiService {
     }
   }
 
+  List<String> _baseUrlCandidates() {
+    final urls = <String>[];
+
+    void add(String? raw) {
+      if (raw == null) return;
+      final trimmed = raw.trim();
+      if (trimmed.isEmpty) return;
+      if (!urls.contains(trimmed)) {
+        urls.add(trimmed);
+      }
+    }
+
+    add(_resolvedBaseUrl);
+    add(baseUrl);
+    add('http://10.0.2.2:3000');
+    add('http://10.0.2.2:3005');
+    add('http://localhost:3000');
+    add('http://localhost:3005');
+    return urls;
+  }
+
+  bool _shouldTryNextBaseUrl(Object error) {
+    if (error is TimeoutException) return true;
+    if (error is http.ClientException) return true;
+    return false;
+  }
+
+  Future<dynamic> _withFallback(
+    Future<http.Response> Function(String base, Map<String, String> headers)
+        request,
+    String endpoint,
+    String method,
+  ) async {
+    final headers = await _headers();
+    final candidates = _baseUrlCandidates();
+    Object? lastError;
+
+    for (final base in candidates) {
+      try {
+        final response =
+            await request(base, headers).timeout(_requestTimeout);
+        if (response.statusCode >= 200 && response.statusCode < 300) {
+          _resolvedBaseUrl = base;
+          final body = response.body.trim();
+          if (body.isEmpty) {
+            return null;
+          }
+          return json.decode(body);
+        }
+        if (response.statusCode == 401) {
+          await _handleUnauthorized();
+        }
+        throw ApiException(
+          statusCode: response.statusCode,
+          message: '$method $endpoint failed',
+          responseBody: response.body,
+        );
+      } catch (error) {
+        if (!_shouldTryNextBaseUrl(error)) {
+          rethrow;
+        }
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+    throw ApiException(
+      statusCode: 0,
+      message: '$method $endpoint failed: no API base URL candidates',
+    );
+  }
+
   /// GET request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> get(String endpoint) async {
-    final headers = await _headers();
-    final response = await http.get(
-      Uri.parse('$baseUrl/api/$endpoint'),
-      headers: headers,
+    return _withFallback(
+      (base, headers) => http.get(
+        Uri.parse('$base/api/$endpoint'),
+        headers: headers,
+      ),
+      endpoint,
+      'GET',
     );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final body = response.body.trim();
-      if (body.isEmpty) {
-        return null;
-      }
-      return json.decode(body);
-    } else {
-      if (response.statusCode == 401) {
-        await _handleUnauthorized();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'GET $endpoint failed',
-        responseBody: response.body,
-      );
-    }
   }
 
   /// POST request - returns dynamic (can be Map or List depending on endpoint)
@@ -92,29 +155,15 @@ class ApiService {
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
-    final headers = await _headers();
-    final response = await http.post(
-      Uri.parse('$baseUrl/api/$endpoint'),
-      headers: headers,
-      body: body != null ? json.encode(body) : null,
+    return _withFallback(
+      (base, headers) => http.post(
+        Uri.parse('$base/api/$endpoint'),
+        headers: headers,
+        body: body != null ? json.encode(body) : null,
+      ),
+      endpoint,
+      'POST',
     );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.trim();
-      if (responseBody.isEmpty) {
-        return null;
-      }
-      return json.decode(responseBody);
-    } else {
-      if (response.statusCode == 401) {
-        await _handleUnauthorized();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'POST $endpoint failed',
-        responseBody: response.body,
-      );
-    }
   }
 
   /// PUT request - returns dynamic (can be Map or List depending on endpoint)
@@ -122,55 +171,27 @@ class ApiService {
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
-    final headers = await _headers();
-    final response = await http.put(
-      Uri.parse('$baseUrl/api/$endpoint'),
-      headers: headers,
-      body: body != null ? json.encode(body) : null,
+    return _withFallback(
+      (base, headers) => http.put(
+        Uri.parse('$base/api/$endpoint'),
+        headers: headers,
+        body: body != null ? json.encode(body) : null,
+      ),
+      endpoint,
+      'PUT',
     );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.trim();
-      if (responseBody.isEmpty) {
-        return null;
-      }
-      return json.decode(responseBody);
-    } else {
-      if (response.statusCode == 401) {
-        await _handleUnauthorized();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'PUT $endpoint failed',
-        responseBody: response.body,
-      );
-    }
   }
 
   /// DELETE request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> delete(String endpoint) async {
-    final headers = await _headers();
-    final response = await http.delete(
-      Uri.parse('$baseUrl/api/$endpoint'),
-      headers: headers,
+    return _withFallback(
+      (base, headers) => http.delete(
+        Uri.parse('$base/api/$endpoint'),
+        headers: headers,
+      ),
+      endpoint,
+      'DELETE',
     );
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.trim();
-      if (responseBody.isEmpty) {
-        return null;
-      }
-      return json.decode(responseBody);
-    } else {
-      if (response.statusCode == 401) {
-        await _handleUnauthorized();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'DELETE $endpoint failed',
-        responseBody: response.body,
-      );
-    }
   }
 
   /// Multipart POST request for file uploads - returns dynamic
@@ -179,38 +200,19 @@ class ApiService {
     Map<String, String> fields,
     List<http.MultipartFile> files,
   ) async {
-    final headers = await _headers();
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/$endpoint'),
-    );
-
-    request.headers.addAll({
-      if (headers['Authorization'] != null)
-        'Authorization': headers['Authorization']!,
-    });
-
-    request.fields.addAll(fields);
-    request.files.addAll(files);
-
-    final streamedResponse = await request.send();
-    final response = await http.Response.fromStream(streamedResponse);
-
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      final responseBody = response.body.trim();
-      if (responseBody.isEmpty) {
-        return null;
-      }
-      return json.decode(responseBody);
-    } else {
-      if (response.statusCode == 401) {
-        await _handleUnauthorized();
-      }
-      throw ApiException(
-        statusCode: response.statusCode,
-        message: 'UPLOAD $endpoint failed',
-        responseBody: response.body,
+    return _withFallback((base, headers) async {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$base/api/$endpoint'),
       );
-    }
+      request.headers.addAll({
+        if (headers['Authorization'] != null)
+          'Authorization': headers['Authorization']!,
+      });
+      request.fields.addAll(fields);
+      request.files.addAll(files);
+      final streamedResponse = await request.send();
+      return http.Response.fromStream(streamedResponse);
+    }, endpoint, 'UPLOAD');
   }
 }

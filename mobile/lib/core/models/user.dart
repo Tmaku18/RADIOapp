@@ -29,7 +29,22 @@ class User {
 
   factory User.fromJson(Map<String, dynamic> json) {
     String s(dynamic v) => (v ?? '').toString();
-    DateTime dt(dynamic v) => v is DateTime ? v : DateTime.parse(s(v));
+    DateTime dt(dynamic v) {
+      if (v is DateTime) return v;
+      if (v == null) return DateTime.now();
+      if (v is int) {
+        // Accept unix timestamps in either seconds or milliseconds.
+        final ms = v < 1000000000000 ? v * 1000 : v;
+        return DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toLocal();
+      }
+      if (v is String) {
+        final raw = v.trim();
+        if (raw.isEmpty) return DateTime.now();
+        final parsed = DateTime.tryParse(raw);
+        if (parsed != null) return parsed;
+      }
+      return DateTime.now();
+    }
     return User(
       // Support both snake_case (older/mobile) and camelCase (current backend).
       id: s(json['id']),

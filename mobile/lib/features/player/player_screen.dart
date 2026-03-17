@@ -20,9 +20,22 @@ import '../../core/services/venue_ads_service.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
+import '../../core/env.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
+
+const List<String> _radioBrandFallbackLogos = <String>[
+  'assets/images/branding/logo_0.png',
+  'assets/images/branding/logo_1.png',
+  'assets/images/branding/nx_0.png',
+];
+
+String _brandLogoForSeed(String seed) {
+  final safeSeed = seed.isEmpty ? 'networx' : seed;
+  final index = safeSeed.hashCode.abs() % _radioBrandFallbackLogos.length;
+  return _radioBrandFallbackLogos[index];
+}
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -51,7 +64,11 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   StreamSubscription? _risingStarSub;
   bool _rippleActive = false;
   Timer? _presenceTimer;
+  Timer? _trackSyncTimer;
+  Timer? _trackBoundaryTimer;
   bool _presenceTickInFlight = false;
+  bool _trackSyncInFlight = false;
+  final String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
   final String _streamToken =
       'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
@@ -82,10 +99,11 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     });
     _audioPlayer.playerStateStream.listen((state) {
       if (state.processingState == ProcessingState.completed) {
-        _loadNextTrack();
+        _syncCurrentTrack(forceReload: true);
       }
     });
     _startPresenceTimer();
+    _startTrackSyncTimer();
   }
 
   Future<void> _loadMe() async {
@@ -116,7 +134,7 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       _noContentMessage = null;
     });
 
-    final res = await _radioService.getCurrentTrack();
+    final res = await _radioService.getCurrentTrack(radioId: _radioId);
     if (!mounted) return;
     if (res.noContent) {
       setState(() {
@@ -136,47 +154,11 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     await _loadAndPlay(track, res);
   }
 
-  Future<void> _loadNextTrack() async {
-    setState(() {
-      _isLoading = true;
-      _hasVoted = false;
-      _isVoting = false;
-      _noContent = false;
-      _noContentMessage = null;
-    });
-
-    try {
-      final result = await _radioService.getNextTrack();
-      if (!mounted) return;
-      if (result.noContent) {
-        setState(() {
-          _isLoading = false;
-          _noContent = true;
-          _noContentMessage = result.message;
-        });
-        return;
-      }
-
-      final track = result.track;
-      if (track == null || track.audioUrl.trim().isEmpty) {
-        setState(() => _isLoading = false);
-        return;
-      }
-
-      await _loadAndPlay(track, result);
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading track: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _loadAndPlay(Track track, TrackFetchResult result) async {
+  Future<void> _loadAndPlay(
+    Track track,
+    TrackFetchResult result, {
+    bool reportPlay = true,
+  }) async {
     await _audioPlayer.setAudioSource(
       AudioSource.uri(
         Uri.parse(track.audioUrl),
@@ -193,7 +175,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
     }
     await _audioPlayer.play();
-    await _radioService.reportPlay(track.id);
+    if (reportPlay) {
+      await _radioService.reportPlay(track.id, radioId: _radioId);
+    }
     if (!mounted) return;
 
     final playId = track.playId;
@@ -206,7 +190,82 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       _isLoading = false;
       _hasVoted = alreadyVoted;
     });
+    _scheduleTrackBoundarySync(track);
     _presenceTick();
+  }
+
+  void _scheduleTrackBoundarySync(Track track) {
+    _trackBoundaryTimer?.cancel();
+    var remainingMs = track.timeRemainingMs;
+    if (remainingMs <= 0 && track.durationSeconds > 0) {
+      final estimated =
+          (track.durationSeconds - track.positionSeconds).clamp(0, 1 << 30);
+      remainingMs = estimated * 1000;
+    }
+    if (remainingMs <= 0) return;
+    final safeMs = (remainingMs + 250).clamp(500, 15 * 60 * 1000).toInt();
+    _trackBoundaryTimer = Timer(Duration(milliseconds: safeMs), () {
+      _syncCurrentTrack(forceReload: true);
+    });
+  }
+
+  void _startTrackSyncTimer() {
+    _trackSyncTimer?.cancel();
+    _trackSyncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      _syncCurrentTrack();
+    });
+  }
+
+  Future<void> _syncCurrentTrack({bool forceReload = false}) async {
+    if (!mounted || _trackSyncInFlight) return;
+    _trackSyncInFlight = true;
+    try {
+      final res = await _radioService.getCurrentTrack(radioId: _radioId);
+      if (!mounted) return;
+
+      if (res.noContent) {
+        setState(() {
+          _isLoading = false;
+          _isPlaying = false;
+          _currentTrack = null;
+          _noContent = true;
+          _noContentMessage = res.message;
+        });
+        return;
+      }
+
+      final serverTrack = res.track;
+      if (serverTrack == null || serverTrack.audioUrl.trim().isEmpty) return;
+
+      final localTrack = _currentTrack;
+      if (forceReload || localTrack == null || localTrack.id != serverTrack.id) {
+        setState(() {
+          _isLoading = true;
+          _noContent = false;
+          _noContentMessage = null;
+          _hasVoted = false;
+          _isVoting = false;
+        });
+        await _loadAndPlay(serverTrack, res, reportPlay: localTrack?.id != serverTrack.id);
+        return;
+      }
+
+      final localSeconds = _audioPlayer.position.inSeconds;
+      final serverSeconds = serverTrack.positionSeconds;
+      if ((localSeconds - serverSeconds).abs() >= 3) {
+        await _audioPlayer.seek(Duration(seconds: serverSeconds));
+      }
+      setState(() {
+        _currentTrack = localTrack.copyWith(listenerCount: serverTrack.listenerCount);
+        _isLoading = false;
+        _noContent = false;
+      });
+      _scheduleTrackBoundarySync(serverTrack);
+    } catch (_) {
+      // Keep current playback state on transient sync failures.
+    } finally {
+      _trackSyncInFlight = false;
+    }
   }
 
   void _startPresenceTimer() {
@@ -227,9 +286,10 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         streamToken: _streamToken,
         songId: track.id,
         timestamp: DateTime.now().toUtc().toIso8601String(),
+        radioId: _radioId,
       );
 
-      final latest = await _radioService.getCurrentTrack();
+      final latest = await _radioService.getCurrentTrack(radioId: _radioId);
       final latestTrack = latest.track;
       if (!mounted || latestTrack == null || latestTrack.id != track.id) return;
 
@@ -374,6 +434,8 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   void dispose() {
     _risingStarSub?.cancel();
     _presenceTimer?.cancel();
+    _trackSyncTimer?.cancel();
+    _trackBoundaryTimer?.cancel();
     StationEventsService().stop();
     _rippleController.dispose();
     super.dispose();
@@ -718,10 +780,16 @@ class _PlayerBody extends StatelessWidget {
                   placeholder: (context, url) =>
                       const Center(child: CircularProgressIndicator()),
                   errorWidget: (context, url, error) =>
-                      const Icon(Icons.music_note, size: 64),
+                      Image.asset(
+                        _brandLogoForSeed(track.id),
+                        fit: BoxFit.cover,
+                      ),
                 )
               else
-                const Center(child: Icon(Icons.music_note, size: 72)),
+                Image.asset(
+                  _brandLogoForSeed(track.id),
+                  fit: BoxFit.cover,
+                ),
               if (track.isLiveBroadcast)
                 Positioned(
                   top: 12,

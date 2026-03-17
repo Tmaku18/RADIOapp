@@ -4,10 +4,11 @@ import '../core/navigation/app_routes.dart';
 import '../features/player/player_screen.dart';
 import '../features/discovery/discovery_screen.dart';
 import '../features/competition/competition_screen.dart';
-import '../features/room/room_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/analytics/analytics_screen.dart';
 import '../features/pro_networx/pro_directory_screen.dart';
+import '../features/refinery/refinery_screen.dart';
+import '../features/yield/yield_screen.dart';
 import '../core/auth/auth_service.dart';
 import 'mini_player_bar.dart';
 import '../core/models/user.dart' as app_user;
@@ -59,6 +60,14 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<NavigationDestination> destinations = isArtist
         ? const [
             NavigationDestination(
+              icon: Icon(Icons.radio),
+              label: 'Radio',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.people_alt_outlined),
+              label: 'Social',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.mic),
               label: 'Studio',
             ),
@@ -68,11 +77,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.work_outline),
-              label: 'Pro-Network',
+              label: 'Pro-Networx',
             ),
             NavigationDestination(
-              icon: Icon(Icons.forum_outlined),
-              label: 'Room',
+              icon: Icon(Icons.redeem_outlined),
+              label: 'Rewards',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz),
@@ -85,16 +94,20 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Radio',
             ),
             NavigationDestination(
-              icon: Icon(Icons.explore_outlined),
-              label: 'Discovery',
+              icon: Icon(Icons.people_alt_outlined),
+              label: 'Social',
             ),
             NavigationDestination(
               icon: Icon(Icons.how_to_vote_outlined),
               label: 'Vote',
             ),
             NavigationDestination(
-              icon: Icon(Icons.forum_outlined),
-              label: 'Room',
+              icon: Icon(Icons.science_outlined),
+              label: 'The Refinery',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.redeem_outlined),
+              label: 'Rewards',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz),
@@ -105,12 +118,16 @@ class _HomeScreenState extends State<HomeScreen> {
     void openMoreSheet() {
       showModalBottomSheet<void>(
         context: context,
+        isScrollControlled: true,
         showDragHandle: true,
         builder: (context) {
+          final maxHeight = MediaQuery.of(context).size.height * 0.85;
           return SafeArea(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: maxHeight),
+              child: ListView(
+                shrinkWrap: true,
+                children: [
                 ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: const Text('Profile'),
@@ -145,6 +162,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.messages);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.forum_outlined),
+                  title: const Text('Room'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.room);
                   },
                 ),
                 ListTile(
@@ -223,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
               ],
+              ),
             ),
           );
         },
@@ -234,15 +260,19 @@ class _HomeScreenState extends State<HomeScreen> {
       if (isArtist) {
         switch (_currentIndex) {
           case 0:
-            return const StudioScreen();
+            return const PlayerScreen();
           case 1:
-            return const AnalyticsScreen();
+            return const DiscoveryScreen();
           case 2:
-            return const ProNetworxDirectoryScreen();
-          case 3:
-            return const RoomScreen();
-          default:
             return const StudioScreen();
+          case 3:
+            return const AnalyticsScreen();
+          case 4:
+            return const ProNetworxDirectoryScreen();
+          case 5:
+            return const YieldScreen();
+          default:
+            return const PlayerScreen();
         }
       } else {
         switch (_currentIndex) {
@@ -253,7 +283,9 @@ class _HomeScreenState extends State<HomeScreen> {
           case 2:
             return const CompetitionScreen();
           case 3:
-            return const RoomScreen();
+            return const RefineryScreen();
+          case 4:
+            return const YieldScreen();
           default:
             return const PlayerScreen();
         }
@@ -278,8 +310,9 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIndex: _currentIndex,
             destinations: destinations,
             onDestinationSelected: (index) {
+              final moreTabIndex = destinations.length - 1;
               // More sheet (do not change the selected tab)
-              if (index == 4) {
+              if (index == moreTabIndex) {
                 openMoreSheet();
                 setState(() => _currentIndex = _lastRealIndex);
                 return;

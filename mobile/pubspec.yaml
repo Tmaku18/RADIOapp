@@ -119,6 +119,7 @@ flutter:
   # Assets (include .env so flutter_dotenv can load it at runtime on device/emulator)
   assets:
     - .env
+    - assets/images/branding/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth/auth_service.dart';
+import '../core/navigation/app_routes.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -15,6 +16,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _displayNameController = TextEditingController();
   bool _isSignUp = false;
+  bool _isSubmitting = false;
   String _selectedRole = 'listener';
 
   @override
@@ -26,50 +28,79 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleEmailSignIn() async {
+    if (_isSubmitting) return;
     if (!_formKey.currentState!.validate()) return;
 
     final authService = Provider.of<AuthService>(context, listen: false);
+    setState(() => _isSubmitting = true);
 
     try {
-      if (_isSignUp) {
-        await authService.signUpWithEmailAndPassword(
-          _emailController.text,
-          _passwordController.text,
-          _displayNameController.text,
-          _selectedRole,
+      final user = _isSignUp
+          ? await authService.signUpWithEmailAndPassword(
+              _emailController.text.trim(),
+              _passwordController.text,
+              _displayNameController.text.trim(),
+              _selectedRole,
+            )
+          : await authService.signInWithEmailAndPassword(
+              _emailController.text.trim(),
+              _passwordController.text,
+            );
+
+      if (!mounted) return;
+      if (user != null || authService.currentUser != null) {
+        Navigator.of(context).pushNamedAndRemoveUntil(
+          AppRoutes.home,
+          (route) => false,
         );
-      } else {
-        await authService.signInWithEmailAndPassword(
-          _emailController.text,
-          _passwordController.text,
-        );
+        return;
       }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in did not complete. Please try again.')),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: $e')),
         );
       }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (_isSubmitting) return;
     final authService = Provider.of<AuthService>(context, listen: false);
+    setState(() => _isSubmitting = true);
     try {
       final user = await authService.signInWithGoogle();
-      if (mounted && user != null) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      if (mounted && (user != null || authService.currentUser != null)) {
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Google sign-in was canceled or did not complete.'),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         // Firebase may still have signed in (e.g. backend /users/me failed)
         if (authService.currentUser != null) {
-          Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Google sign in failed: $e')),
           );
         }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
       }
     }
   }
@@ -162,13 +193,22 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _handleEmailSignIn,
+                      onPressed: _isSubmitting ? null : _handleEmailSignIn,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.deepPurple,
                         foregroundColor: Colors.white,
                         padding: const EdgeInsets.all(16),
                       ),
-                      child: Text(_isSignUp ? 'Sign Up' : 'Sign In'),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text(_isSignUp ? 'Sign Up' : 'Sign In'),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -186,14 +226,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
-                      onPressed: _handleGoogleSignIn,
+                      onPressed: _isSubmitting ? null : _handleGoogleSignIn,
                       icon: const Icon(Icons.g_mobiledata),
                       label: const Text('Sign in with Google'),
                     ),
                   ),
                   const SizedBox(height: 16),
                   TextButton(
-                    onPressed: () {
+                    onPressed: _isSubmitting
+                        ? null
+                        : () {
                       setState(() {
                         _isSignUp = !_isSignUp;
                       });

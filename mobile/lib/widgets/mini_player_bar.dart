@@ -7,6 +7,18 @@ import '../core/services/audio_player_service.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
 
+const List<String> _radioBrandFallbackLogos = <String>[
+  'assets/images/branding/logo_0.png',
+  'assets/images/branding/logo_1.png',
+  'assets/images/branding/nx_0.png',
+];
+
+String _brandLogoForSeed(String seed) {
+  final safeSeed = seed.isEmpty ? 'networx' : seed;
+  final index = safeSeed.hashCode.abs() % _radioBrandFallbackLogos.length;
+  return _radioBrandFallbackLogos[index];
+}
+
 /// Spotify-style persistent mini-player bar. Shown when there is a current
 /// track/source. Tap opens full [PlayerScreen].
 class MiniPlayerBar extends StatelessWidget {
@@ -127,30 +139,35 @@ class _Artwork extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        placeholder: (context, url) => _Placeholder(size: size),
-        errorWidget: (context, url, error) => _Placeholder(size: size),
+        placeholder: (context, url) => _Placeholder(
+          size: size,
+          seed: mediaItem.id,
+        ),
+        errorWidget: (context, url, error) => _Placeholder(
+          size: size,
+          seed: mediaItem.id,
+        ),
       );
     }
 
-    return _Placeholder(size: size);
+    return _Placeholder(size: size, seed: mediaItem.id);
   }
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.size});
+  const _Placeholder({required this.size, required this.seed});
 
   final double size;
+  final String seed;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      color: NetworxTokens.deepMidnight,
-      child: const Icon(
-        Icons.music_note_rounded,
-        color: NetworxTokens.electricCyan,
-        size: 28,
+      child: Image.asset(
+        _brandLogoForSeed(seed),
+        fit: BoxFit.cover,
       ),
     );
   }
