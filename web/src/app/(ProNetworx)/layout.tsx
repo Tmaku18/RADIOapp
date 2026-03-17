@@ -7,14 +7,6 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
-const NETWORXRADIO_CROSS_LOGIN = 'https://www.networxradio.com/cross-domain-login';
-const NETWORXRADIO_LISTEN_URL = 'https://www.networxradio.com/listen';
-
-function isDiscoverMeHost() {
-  if (typeof window === 'undefined') return false;
-  const h = window.location.hostname;
-  return h === 'discovermeradio.com' || h === 'www.discovermeradio.com';
-}
 
 export default function ProNetworxLayout({
   children,
@@ -23,9 +15,7 @@ export default function ProNetworxLayout({
 }) {
   const pathname = usePathname();
   const { user, profile, loading } = useAuth();
-  const radioHref = isDiscoverMeHost()
-    ? `/auth-handoff?return_url=${encodeURIComponent(NETWORXRADIO_LISTEN_URL)}`
-    : NETWORXRADIO_LISTEN_URL;
+  const radioHref = '/listen';
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -57,11 +47,7 @@ export default function ProNetworxLayout({
                 <Link href="/pro-networx/directory">Directory</Link>
               </Button>
               <Button variant="ghost" size="sm" asChild>
-                {radioHref.startsWith('http') ? (
-                  <a href={radioHref}>Radio</a>
-                ) : (
-                  <Link href={radioHref}>Radio</Link>
-                )}
+                <Link href={radioHref}>Radio</Link>
               </Button>
               {!loading && (
                 user ? (
@@ -92,16 +78,7 @@ export default function ProNetworxLayout({
       </main>
       <footer className="border-t border-border py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          {isDiscoverMeHost() ? (
-            <Link
-              href={`/auth-handoff?return_url=${encodeURIComponent(NETWORXRADIO_CROSS_LOGIN)}`}
-              className="hover:text-foreground transition-colors"
-            >
-              Networx Radio
-            </Link>
-          ) : (
-            <Link href="/" className="hover:text-foreground transition-colors">Networx Radio</Link>
-          )}
+          <Link href="/" className="hover:text-foreground transition-colors">Networx Radio</Link>
           {' · '}
           <Link href="/pro-directory" className="hover:text-foreground transition-colors">Pro-Directory</Link>
           {' · '}
