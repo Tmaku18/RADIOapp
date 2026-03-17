@@ -323,8 +323,8 @@ export default function UploadPage() {
           durationSeconds: durationSeconds ?? undefined,
           discoverClipPath,
           discoverBackgroundPath,
-          discoverClipStartSeconds: discoverClipPath ? Number(discoverClipStartSeconds) : undefined,
-          discoverClipEndSeconds: discoverClipPath ? Number(discoverClipEndSeconds) : undefined,
+          discoverClipStartSeconds: Number(discoverClipStartSeconds),
+          discoverClipEndSeconds: Number(discoverClipEndSeconds),
         });
       } catch (dbErr) {
         throw new Error(
@@ -507,7 +507,9 @@ export default function UploadPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Artists can trim discover playback to 15 seconds max.
+                Artists can trim discover playback to 15 seconds max. If no
+                discover clip is uploaded, trim is generated from your main
+                audio.
               </p>
             </div>
 

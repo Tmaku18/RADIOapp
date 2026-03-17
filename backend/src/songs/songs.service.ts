@@ -2,9 +2,14 @@ import {
   Injectable,
   NotFoundException,
   ForbiddenException,
+  BadRequestException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
+import ffmpeg from 'fluent-ffmpeg';
+import { promises as fs } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 export interface DiscoverSongCard {
   songId: string;
@@ -32,6 +37,79 @@ export interface DiscoverLikedListItem extends DiscoverSongCard {
 
 @Injectable()
 export class SongsService {
+  private readonly discoverMaxClipSeconds = 15;
+
+  private async createTrimmedDiscoverClip(params: {
+    sourceUrl: string;
+    artistId: string;
+    songKey: string;
+    startSeconds: number;
+    endSeconds: number;
+  }): Promise<string> {
+    const supabase = getSupabaseClient();
+    const sourceResponse = await fetch(params.sourceUrl);
+    if (!sourceResponse.ok) {
+      throw new BadRequestException(
+        `Failed to fetch source discover audio: ${sourceResponse.status} ${sourceResponse.statusText}`,
+      );
+    }
+    const sourceBuffer = Buffer.from(await sourceResponse.arrayBuffer());
+    if (!sourceBuffer.length) {
+      throw new BadRequestException('Discover clip source audio is empty');
+    }
+
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const inputPath = join(tmpdir(), `discover-input-${params.songKey}-${runId}.bin`);
+    const outputPath = join(tmpdir(), `discover-output-${params.songKey}-${runId}.mp3`);
+    const duration = params.endSeconds - params.startSeconds;
+
+    try {
+      await fs.writeFile(inputPath, sourceBuffer);
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(inputPath)
+          .seekInput(params.startSeconds)
+          .duration(duration)
+          .audioCodec('libmp3lame')
+          .audioBitrate('192k')
+          .format('mp3')
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .save(outputPath);
+      });
+
+      const trimmedBuffer = await fs.readFile(outputPath);
+      if (!trimmedBuffer.length) {
+        throw new BadRequestException('Trimmed discover clip is empty');
+      }
+
+      const storagePath = `${params.artistId}/discover-clips/${params.songKey}-${Date.now()}.mp3`;
+      const { error: uploadError } = await supabase.storage
+        .from('songs')
+        .upload(storagePath, trimmedBuffer, {
+          contentType: 'audio/mpeg',
+          upsert: false,
+        });
+      if (uploadError) {
+        throw new BadRequestException(
+          `Failed to upload trimmed discover clip: ${uploadError.message}`,
+        );
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from('songs')
+        .getPublicUrl(storagePath);
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        `Failed to trim discover clip. Ensure ffmpeg is available on the server. ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      await Promise.allSettled([fs.unlink(inputPath), fs.unlink(outputPath)]);
+    }
+  }
+
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -221,6 +299,55 @@ export class SongsService {
       throw new ForbiddenException('Your account role cannot upload songs');
     }
 
+    const discoverStartRaw = createSongDto.discoverClipStartSeconds;
+    const discoverEndRaw = createSongDto.discoverClipEndSeconds;
+    let discoverClipUrl = createSongDto.discoverClipUrl ?? null;
+    let discoverEnabled = !!discoverClipUrl;
+    let discoverClipStartSeconds =
+      discoverStartRaw != null ? Number(discoverStartRaw) : null;
+    let discoverClipEndSeconds =
+      discoverEndRaw != null ? Number(discoverEndRaw) : null;
+
+    const hasTrimRange =
+      discoverClipStartSeconds != null &&
+      discoverClipEndSeconds != null &&
+      Number.isFinite(discoverClipStartSeconds) &&
+      Number.isFinite(discoverClipEndSeconds);
+
+    if (hasTrimRange) {
+      if (discoverClipStartSeconds! < 0 || discoverClipEndSeconds! <= discoverClipStartSeconds!) {
+        throw new BadRequestException(
+          'Discover clip trim range must be valid and end must be greater than start',
+        );
+      }
+      if (
+        discoverClipEndSeconds! - discoverClipStartSeconds! >
+        this.discoverMaxClipSeconds
+      ) {
+        throw new BadRequestException(
+          `Discover clip trim range must be ${this.discoverMaxClipSeconds} seconds or less`,
+        );
+      }
+
+      // Admin-style server trim: render a separate discover clip file.
+      const trimSourceUrl = discoverClipUrl ?? createSongDto.audioUrl;
+      discoverClipUrl = await this.createTrimmedDiscoverClip({
+        sourceUrl: trimSourceUrl,
+        artistId: userId,
+        songKey: createSongDto.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
+        startSeconds: discoverClipStartSeconds!,
+        endSeconds: discoverClipEndSeconds!,
+      });
+      discoverEnabled = true;
+    } else if (
+      discoverStartRaw != null ||
+      discoverEndRaw != null
+    ) {
+      throw new BadRequestException(
+        'Provide both discover clip start and end seconds to trim',
+      );
+    }
+
     const baseInsertPayload = {
       artist_id: userId,
       title: createSongDto.title,
@@ -246,28 +373,26 @@ export class SongsService {
 
     const discoverInsertPayload = {
       ...baseInsertPayload,
-      discover_enabled: !!createSongDto.discoverClipUrl,
-      discover_clip_url: createSongDto.discoverClipUrl ?? null,
+      discover_enabled: discoverEnabled,
+      discover_clip_url: discoverClipUrl,
       discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
-      discover_clip_start_seconds:
-        createSongDto.discoverClipStartSeconds ?? null,
-      discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
+      discover_clip_start_seconds: discoverClipStartSeconds,
+      discover_clip_end_seconds: discoverClipEndSeconds,
       discover_clip_duration_seconds: this.getDiscoverClipDuration(
-        createSongDto.discoverClipStartSeconds,
-        createSongDto.discoverClipEndSeconds,
+        discoverClipStartSeconds,
+        discoverClipEndSeconds,
       ),
     };
     const legacyDiscoverInsertPayload = {
       ...legacyBaseInsertPayload,
-      discover_enabled: !!createSongDto.discoverClipUrl,
-      discover_clip_url: createSongDto.discoverClipUrl ?? null,
+      discover_enabled: discoverEnabled,
+      discover_clip_url: discoverClipUrl,
       discover_background_url: createSongDto.discoverBackgroundUrl ?? null,
-      discover_clip_start_seconds:
-        createSongDto.discoverClipStartSeconds ?? null,
-      discover_clip_end_seconds: createSongDto.discoverClipEndSeconds ?? null,
+      discover_clip_start_seconds: discoverClipStartSeconds,
+      discover_clip_end_seconds: discoverClipEndSeconds,
       discover_clip_duration_seconds: this.getDiscoverClipDuration(
-        createSongDto.discoverClipStartSeconds,
-        createSongDto.discoverClipEndSeconds,
+        discoverClipStartSeconds,
+        discoverClipEndSeconds,
       ),
     };
 
@@ -566,11 +691,37 @@ export class SongsService {
     },
   ): Promise<{ direction: 'left_skip' | 'right_like'; liked: boolean }> {
     const supabase = getSupabaseClient();
-    const { data: song, error: songError } = await supabase
+    const songDiscoverRes = await supabase
       .from('songs')
       .select('id, artist_id, status, discover_enabled, discover_clip_url')
       .eq('id', params.songId)
       .single();
+    let song: any = songDiscoverRes.data;
+    let songError: any = songDiscoverRes.error;
+
+    // Backward-compatible fallback if discover columns are not yet deployed.
+    if (
+      songError &&
+      this.isMissingAnyColumnError(songError, [
+        'discover_enabled',
+        'discover_clip_url',
+      ])
+    ) {
+      const songLegacyRes = await supabase
+        .from('songs')
+        .select('id, artist_id, status, audio_url')
+        .eq('id', params.songId)
+        .single();
+      song = songLegacyRes.data
+        ? {
+            ...songLegacyRes.data,
+            discover_enabled: true,
+            discover_clip_url: (songLegacyRes.data as any).audio_url ?? null,
+          }
+        : null;
+      songError = songLegacyRes.error;
+    }
+
     if (songError || !song) throw new NotFoundException('Song not found');
     if (
       (song as any).status !== 'approved' ||
@@ -596,7 +747,7 @@ export class SongsService {
       },
       { onConflict: 'user_id,song_id' },
     );
-    if (swipeError) {
+    if (swipeError && !this.isMissingTableError(swipeError, 'discover_swipes')) {
       throw new Error(`Failed to record swipe: ${swipeError.message}`);
     }
 
@@ -611,7 +762,10 @@ export class SongsService {
           },
           { onConflict: 'user_id,song_id' },
         );
-      if (likeError)
+      if (
+        likeError &&
+        !this.isMissingTableError(likeError, 'discover_song_likes')
+      )
         throw new Error(`Failed to save discover like: ${likeError.message}`);
       return { direction: params.direction, liked: true };
     }
@@ -621,7 +775,10 @@ export class SongsService {
       .delete()
       .eq('user_id', userId)
       .eq('song_id', params.songId);
-    if (unlikeError)
+    if (
+      unlikeError &&
+      !this.isMissingTableError(unlikeError, 'discover_song_likes')
+    )
       throw new Error(`Failed to remove discover like: ${unlikeError.message}`);
     return { direction: params.direction, liked: false };
   }
