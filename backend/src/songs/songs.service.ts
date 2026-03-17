@@ -110,6 +110,38 @@ export class SongsService {
     }
   }
 
+  private async upsertCoreLikeWithFallback(
+    userId: string,
+    songId: string,
+    artistId: string | null | undefined,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const withArtist = {
+      user_id: userId,
+      song_id: songId,
+      artist_id: artistId ?? null,
+    };
+    let likeRes = await supabase
+      .from('likes')
+      .upsert(withArtist, { onConflict: 'user_id,song_id' });
+
+    if (likeRes.error && this.isMissingColumnError(likeRes.error, 'artist_id')) {
+      const withoutArtist = {
+        user_id: userId,
+        song_id: songId,
+      };
+      likeRes = await supabase
+        .from('likes')
+        .upsert(withoutArtist, { onConflict: 'user_id,song_id' });
+    }
+
+    if (likeRes.error) {
+      throw new Error(
+        `Failed to save discover like fallback: ${likeRes.error.message}`,
+      );
+    }
+  }
+
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -788,19 +820,11 @@ export class SongsService {
         likeError &&
         this.isMissingTableError(likeError, 'discover_song_likes')
       ) {
-        const { error: fallbackLikeError } = await supabase.from('likes').upsert(
-          {
-            user_id: userId,
-            song_id: params.songId,
-            artist_id: (song as any).artist_id,
-          },
-          { onConflict: 'user_id,song_id' },
+        await this.upsertCoreLikeWithFallback(
+          userId,
+          params.songId,
+          (song as any).artist_id,
         );
-        if (fallbackLikeError) {
-          throw new Error(
-            `Failed to save discover like fallback: ${fallbackLikeError.message}`,
-          );
-        }
       } else if (likeError) {
         throw new Error(`Failed to save discover like: ${likeError.message}`);
       }
