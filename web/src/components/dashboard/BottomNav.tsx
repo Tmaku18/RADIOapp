@@ -34,7 +34,7 @@ export function BottomNav() {
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            <span className="text-xl leading-none" aria-hidden>
+            <span className="chrome-icon text-sm leading-none" aria-hidden>
               {item.icon}
             </span>
             <span className="text-xs">{item.label}</span>

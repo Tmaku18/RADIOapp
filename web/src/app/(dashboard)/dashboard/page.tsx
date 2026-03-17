@@ -143,7 +143,7 @@ export default function DashboardPage() {
               {action.external ? (
                 <a href={action.href} target="_blank" rel="noopener noreferrer">
                   <CardContent className="pt-6">
-                    <div className="text-4xl mb-4">{action.icon}</div>
+                    <div className="chrome-icon text-base mb-4">{action.icon}</div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
                     <p className="text-muted-foreground">{action.desc}</p>
                   </CardContent>
@@ -151,7 +151,7 @@ export default function DashboardPage() {
               ) : (
                 <Link href={action.href}>
                   <CardContent className="pt-6">
-                    <div className="text-4xl mb-4">{action.icon}</div>
+                    <div className="chrome-icon text-base mb-4">{action.icon}</div>
                     <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
                     <p className="text-muted-foreground">{action.desc}</p>
                   </CardContent>

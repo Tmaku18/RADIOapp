@@ -603,6 +603,53 @@
   background: var(--gradient-artist-pro);
 }
 
+/* Clickable icons: semi-transparent chrome gloss */
+.chrome-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 245, 245, 0.28);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.10) 48%, rgba(255, 255, 255, 0.03) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 5px 14px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  color: rgba(245, 245, 245, 0.96);
+}
+
+.chrome-icon-button {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  border-color: rgba(245, 245, 245, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 6px 16px rgba(0, 0, 0, 0.30);
+}
+
+.light .chrome-icon {
+  border-color: rgba(10, 10, 10, 0.14);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 246, 250, 0.78) 46%, rgba(234, 239, 247, 0.65) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.90),
+    inset 0 -1px 0 rgba(10, 10, 10, 0.05),
+    0 5px 14px rgba(10, 10, 10, 0.12);
+  color: rgba(10, 10, 10, 0.86);
+}
+
+.light .chrome-icon-button {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(240, 244, 250, 0.84));
+  border-color: rgba(10, 10, 10, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 5px 12px rgba(10, 10, 10, 0.12);
+}
+
 /* Listener/Artist signal effects (respect prefers-reduced-motion) */
 .signal-glow {
   box-shadow: var(--brand-glow);

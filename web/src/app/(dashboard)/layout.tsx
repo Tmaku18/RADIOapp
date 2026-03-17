@@ -265,14 +265,14 @@ export default function DashboardLayout({
                           rel="noopener noreferrer"
                           className="flex items-center"
                         >
-                          <span className="mr-3 text-lg">{item.icon}</span>
+                          <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
                           <span>{item.name}</span>
                         </a>
                       </SidebarMenuButton>
                     ) : (
                       <SidebarMenuButton asChild isActive={isActive}>
                         <Link href={item.href} className="flex items-center">
-                          <span className="mr-3 text-lg">{item.icon}</span>
+                          <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
                           <span>{item.name}</span>
                         </Link>
                       </SidebarMenuButton>
@@ -285,7 +285,7 @@ export default function DashboardLayout({
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton>
-                      <span className="mr-3 text-lg">⋯</span>
+                      <span className="chrome-icon mr-3 text-sm">⋯</span>
                       <span>More</span>
                       <HugeiconsIcon
                         icon={ArrowUp01Icon}
@@ -344,7 +344,7 @@ export default function DashboardLayout({
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton>
-                        <span className="mr-3 text-lg">⚙️</span>
+                        <span className="chrome-icon mr-3 text-sm">⚙️</span>
                         <span>Admin</span>
                         <HugeiconsIcon
                           icon={ArrowUp01Icon}
@@ -384,7 +384,7 @@ export default function DashboardLayout({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton onClick={handleSignOut} disabled={isSigningOut}>
-                <span className="mr-3">{isSigningOut ? '⏳' : '🚪'}</span>
+                <span className="chrome-icon mr-3 text-xs">{isSigningOut ? '⏳' : '🚪'}</span>
                 <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
@@ -409,7 +409,7 @@ export default function DashboardLayout({
 
             <Button variant="outline" size="icon" asChild>
               <Link href="/notifications" className="relative">
-                <span className="text-xl">🔔</span>
+                <span className="chrome-icon text-sm">🔔</span>
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
                     {unreadCount > 9 ? '9+' : unreadCount}
@@ -420,7 +420,7 @@ export default function DashboardLayout({
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="icon">
+                <Button variant="outline" size="icon" className="chrome-icon-button">
                   <HugeiconsIcon icon={ComputerSettingsIcon} strokeWidth={2} />
                 </Button>
               </DropdownMenuTrigger>
@@ -443,7 +443,7 @@ export default function DashboardLayout({
                 </DropdownMenuRadioGroup>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
-                  <span className="mr-2">{isSigningOut ? '⏳' : '🚪'}</span>
+                  <span className="chrome-icon mr-2 text-xs">{isSigningOut ? '⏳' : '🚪'}</span>
                   {isSigningOut ? 'Signing out...' : 'Sign Out'}
                 </DropdownMenuItem>
               </DropdownMenuContent>
