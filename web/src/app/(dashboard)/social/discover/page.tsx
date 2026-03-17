@@ -2,16 +2,33 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { discoverAudioApi, type DiscoverAudioSongCard } from '@/lib/api';
+import {
+  discoverAudioApi,
+  discoveryApi,
+  songsApi,
+  type DiscoverAudioSongCard,
+  type DiscoverFeedPost,
+} from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 
 const PAGE_SIZE = 12;
 const SWIPE_THRESHOLD_PX = 90;
 
 export default function SocialDiscoverSwipePage() {
+  const router = useRouter();
   const [cards, setCards] = useState<DiscoverAudioSongCard[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +38,26 @@ export default function SocialDiscoverSwipePage() {
   const [dragging, setDragging] = useState(false);
   const [shownAt, setShownAt] = useState<number>(Date.now());
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [feedPosts, setFeedPosts] = useState<DiscoverFeedPost[]>([]);
+  const [feedLoading, setFeedLoading] = useState(true);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [librarySongs, setLibrarySongs] = useState<
+    Array<{
+      id: string;
+      title: string;
+      artistName: string;
+      audioUrl: string;
+      artworkUrl: string | null;
+      status: string;
+    }>
+  >([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [publishBusy, setPublishBusy] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [selectedSongId, setSelectedSongId] = useState('');
+  const [clipStartSeconds, setClipStartSeconds] = useState('0');
+  const [clipEndSeconds, setClipEndSeconds] = useState('15');
 
   const pointerStartX = useRef<number | null>(null);
   const pointerIdRef = useRef<number | null>(null);
@@ -59,6 +96,27 @@ export default function SocialDiscoverSwipePage() {
   useEffect(() => {
     void loadFeed(false);
   }, [loadFeed]);
+
+  useEffect(() => {
+    let alive = true;
+    const loadSocialFeed = async () => {
+      setFeedLoading(true);
+      try {
+        const res = await discoveryApi.listFeed({ limit: 6 });
+        if (!alive) return;
+        setFeedPosts(res.data.items ?? []);
+      } catch {
+        if (!alive) return;
+        setFeedPosts([]);
+      } finally {
+        if (alive) setFeedLoading(false);
+      }
+    };
+    void loadSocialFeed();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     setShownAt(Date.now());
@@ -121,6 +179,39 @@ export default function SocialDiscoverSwipePage() {
     },
     [busySwipe, currentCard, maybePrefetch, shownAt],
   );
+
+  const loadLibrarySongs = useCallback(async () => {
+    setLibraryLoading(true);
+    setPublishError(null);
+    try {
+      const res = await songsApi.getMine();
+      const rows = (res.data as any[]) ?? [];
+      const songs = rows
+        .filter((row) => typeof row?.audioUrl === 'string' && row.audioUrl.trim().length > 0)
+        .map((row) => ({
+          id: row.id as string,
+          title: (row.title as string) ?? 'Untitled',
+          artistName: (row.artistName as string) ?? 'Unknown artist',
+          audioUrl: row.audioUrl as string,
+          artworkUrl: (row.artworkUrl as string | null) ?? null,
+          status: (row.status as string) ?? 'pending',
+        }));
+      setLibrarySongs(songs);
+      if (!selectedSongId && songs[0]?.id) {
+        setSelectedSongId(songs[0].id);
+      }
+    } catch (e) {
+      setPublishError(e instanceof Error ? e.message : 'Failed to load your library');
+      setLibrarySongs([]);
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, [selectedSongId]);
+
+  useEffect(() => {
+    if (!libraryOpen) return;
+    void loadLibrarySongs();
+  }, [libraryOpen, loadLibrarySongs]);
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -187,6 +278,116 @@ export default function SocialDiscoverSwipePage() {
           <Button variant="outline" asChild>
             <Link href="/social">Back to Social</Link>
           </Button>
+          <Dialog
+            open={libraryOpen}
+            onOpenChange={(open) => {
+              setLibraryOpen(open);
+              if (!open) setPublishError(null);
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="outline">Upload from library</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Publish Discover Clip</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <p className="text-sm text-muted-foreground">
+                  Choose a song from your saved library and trim a 15-second Discover clip.
+                </p>
+                {libraryLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading your library...</p>
+                ) : librarySongs.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No songs in your library yet. Upload a song first, then come back.
+                  </p>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <Label htmlFor="library-song">Song</Label>
+                      <select
+                        id="library-song"
+                        value={selectedSongId}
+                        onChange={(e) => setSelectedSongId(e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        {librarySongs.map((song) => (
+                          <option key={song.id} value={song.id}>
+                            {song.title} - {song.artistName} ({song.status})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="clip-start">Clip start (seconds)</Label>
+                        <Input
+                          id="clip-start"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={clipStartSeconds}
+                          onChange={(e) => setClipStartSeconds(e.target.value)}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label htmlFor="clip-end">Clip end (seconds)</Label>
+                        <Input
+                          id="clip-end"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={clipEndSeconds}
+                          onChange={(e) => setClipEndSeconds(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    {publishError && (
+                      <p className="text-sm text-destructive">{publishError}</p>
+                    )}
+                    <Button
+                      disabled={publishBusy || !selectedSongId}
+                      onClick={async () => {
+                        const start = Number(clipStartSeconds);
+                        const end = Number(clipEndSeconds);
+                        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+                          setPublishError('Clip start/end must be valid and end > start.');
+                          return;
+                        }
+                        if (end - start > 15) {
+                          setPublishError('Clip range must be 15 seconds or less.');
+                          return;
+                        }
+                        setPublishBusy(true);
+                        setPublishError(null);
+                        try {
+                          await songsApi.publishDiscoverFromLibrary(selectedSongId, {
+                            clipStartSeconds: start,
+                            clipEndSeconds: end,
+                          });
+                          setLibraryOpen(false);
+                          setClipStartSeconds('0');
+                          setClipEndSeconds('15');
+                          await loadFeed(false);
+                        } catch (e) {
+                          setPublishError(
+                            e instanceof Error
+                              ? e.message
+                              : 'Failed to publish discover clip',
+                          );
+                        } finally {
+                          setPublishBusy(false);
+                        }
+                      }}
+                    >
+                      {publishBusy ? 'Publishing...' : 'Publish to Discover'}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button asChild>
             <Link href="/social/discover/list">Discover list</Link>
           </Button>
@@ -260,6 +461,14 @@ export default function SocialDiscoverSwipePage() {
                         <div className="absolute inset-0 bg-black/45" />
                         <div className="absolute inset-0 p-5 flex flex-col justify-between">
                           <div className="flex justify-between items-start gap-3">
+                            <button
+                              type="button"
+                              className="rounded-full bg-black/55 px-3 py-1 text-xs text-white hover:bg-black/70"
+                              onClick={() => void applySwipe('right_like')}
+                              disabled={busySwipe || !isTop}
+                            >
+                              Save
+                            </button>
                             <div className="rounded-full bg-black/55 px-3 py-1 text-xs text-white">
                               {card.clipDurationSeconds}s clip
                             </div>
@@ -334,6 +543,69 @@ export default function SocialDiscoverSwipePage() {
           )}
         </div>
       )}
+      <Card className="border-border/80">
+        <CardContent className="pt-4 space-y-3">
+          <h2 className="text-lg font-semibold text-foreground">Search</h2>
+          <form
+            className="flex flex-col gap-2 sm:flex-row"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const q = searchQuery.trim();
+              if (!q) {
+                router.push('/discover?tab=artist');
+                return;
+              }
+              router.push(`/discover?tab=artist&q=${encodeURIComponent(q)}`);
+            }}
+          >
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search artists or catalysts..."
+            />
+            <Button type="submit">Search</Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-border/80">
+        <CardContent className="pt-4 space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-foreground">Scroll Feed</h2>
+            <Button asChild variant="outline">
+              <Link href="/discover?tab=feed">Open full feed</Link>
+            </Button>
+          </div>
+          {feedLoading ? (
+            <p className="text-sm text-muted-foreground">Loading feed...</p>
+          ) : feedPosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No feed posts yet. Upload from the Discover feed to start posting.
+            </p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {feedPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="rounded-lg border border-border/70 bg-card/50 p-3"
+                >
+                  <p className="text-sm font-medium text-foreground truncate">
+                    {post.authorDisplayName ?? 'Creator'}
+                  </p>
+                  {post.caption ? (
+                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+                      {post.caption}
+                    </p>
+                  ) : null}
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {new Date(post.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

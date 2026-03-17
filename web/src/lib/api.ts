@@ -173,6 +173,14 @@ export const songsApi = {
       discoverClipEndSeconds?: number;
     },
   ) => api.patch(`/songs/${id}`, data),
+  publishDiscoverFromLibrary: (
+    id: string,
+    data: {
+      clipStartSeconds: number;
+      clipEndSeconds: number;
+      discoverBackgroundUrl?: string;
+    },
+  ) => api.post(`/songs/${id}/discover/publish`, data),
   updateOptIn: (id: string, optInFreePlay: boolean) => 
     api.patch(`/songs/${id}`, { optInFreePlay }),
 };

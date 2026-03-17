@@ -378,13 +378,53 @@ export class SongsController {
     );
   }
 
+  @Post(':id/discover/publish')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async publishToDiscoverFromLibrary(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body()
+    body: {
+      clipStartSeconds: number;
+      clipEndSeconds: number;
+      discoverBackgroundUrl?: string;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    if (
+      !Number.isFinite(body?.clipStartSeconds) ||
+      !Number.isFinite(body?.clipEndSeconds)
+    ) {
+      throw new BadRequestException(
+        'clipStartSeconds and clipEndSeconds are required numbers',
+      );
+    }
+    return this.songsService.publishSongToDiscover(
+      userData.id,
+      userData.role,
+      songId,
+      {
+        clipStartSeconds: body.clipStartSeconds,
+        clipEndSeconds: body.clipEndSeconds,
+        discoverBackgroundUrl: body.discoverBackgroundUrl,
+      },
+    );
+  }
+
   /**
    * Get all songs uploaded by the current artist.
    * Includes status, duration, credits allocated, and play count.
    */
   @Get('mine')
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin')
   async getMySongs(@CurrentUser() user: FirebaseUser) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase

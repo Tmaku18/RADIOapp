@@ -485,6 +485,93 @@ export class SongsService {
     return insertRes.data;
   }
 
+  async publishSongToDiscover(
+    requesterUserId: string,
+    requesterRole: string | null | undefined,
+    songId: string,
+    params: {
+      clipStartSeconds: number;
+      clipEndSeconds: number;
+      discoverBackgroundUrl?: string;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: song, error: songError } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, audio_url, artwork_url')
+      .eq('id', songId)
+      .single();
+    if (songError || !song) {
+      throw new NotFoundException('Song not found');
+    }
+    const isAdmin = requesterRole === 'admin';
+    if (!isAdmin && song.artist_id !== requesterUserId) {
+      throw new ForbiddenException(
+        'You can only publish songs from your own library',
+      );
+    }
+    if (!song.audio_url) {
+      throw new BadRequestException('Song has no audio source');
+    }
+
+    const start = Number(params.clipStartSeconds);
+    const end = Number(params.clipEndSeconds);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      throw new BadRequestException(
+        'clipStartSeconds and clipEndSeconds must be valid and end must be greater than start',
+      );
+    }
+    if (start < 0 || end - start > this.discoverMaxClipSeconds) {
+      throw new BadRequestException(
+        `Discover clip range must be between 0 and ${this.discoverMaxClipSeconds} seconds`,
+      );
+    }
+
+    const discoverClipUrl = await this.createTrimmedDiscoverClip({
+      sourceUrl: song.audio_url,
+      artistId: song.artist_id,
+      songKey: song.id,
+      startSeconds: start,
+      endSeconds: end,
+    });
+    const discoverBackgroundUrl =
+      params.discoverBackgroundUrl?.trim() || song.artwork_url || null;
+    const clipDuration = Math.round((end - start) * 100) / 100;
+
+    const { data: updated, error: updateError } = await supabase
+      .from('songs')
+      .update({
+        discover_enabled: true,
+        discover_clip_url: discoverClipUrl,
+        discover_background_url: discoverBackgroundUrl,
+        discover_clip_start_seconds: start,
+        discover_clip_end_seconds: end,
+        discover_clip_duration_seconds: clipDuration,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', songId)
+      .select(
+        'id, title, discover_enabled, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_clip_duration_seconds',
+      )
+      .single();
+    if (updateError) {
+      throw new BadRequestException(
+        `Failed to publish discover clip: ${updateError.message}`,
+      );
+    }
+
+    return {
+      id: updated.id,
+      title: updated.title,
+      discoverEnabled: updated.discover_enabled ?? false,
+      discoverClipUrl: updated.discover_clip_url ?? null,
+      discoverBackgroundUrl: updated.discover_background_url ?? null,
+      discoverClipStartSeconds: updated.discover_clip_start_seconds ?? null,
+      discoverClipEndSeconds: updated.discover_clip_end_seconds ?? null,
+      discoverClipDurationSeconds: updated.discover_clip_duration_seconds ?? null,
+    };
+  }
+
   async getSongById(songId: string) {
     const supabase = getSupabaseClient();
 
