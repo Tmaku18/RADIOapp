@@ -35,7 +35,18 @@ export class SongsService {
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
-    return maybe?.code === '42P01' && message.includes(tableName.toLowerCase());
+    if (maybe?.code === '42P01') {
+      return message.includes(tableName.toLowerCase());
+    }
+    // PostgREST schema cache error format for missing table:
+    // "Could not find the table 'table_name' in the schema cache"
+    if (maybe?.code === 'PGRST205') {
+      return (
+        message.includes(`'${tableName.toLowerCase()}'`) ||
+        message.includes(tableName.toLowerCase())
+      );
+    }
+    return false;
   }
 
   private isMissingColumnError(error: unknown, columnName: string): boolean {
