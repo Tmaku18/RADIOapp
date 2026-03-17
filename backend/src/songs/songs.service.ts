@@ -638,24 +638,46 @@ export class SongsService {
 
     const likesError = (likesRawRes as any).error;
     const myLikesError = (myLikesRawRes as any).error;
+    const discoverLikesTableMissing =
+      this.isMissingTableError(likesError, 'discover_song_likes') ||
+      this.isMissingTableError(myLikesError, 'discover_song_likes');
+
     if (
-      (likesError &&
-        !this.isMissingTableError(likesError, 'discover_song_likes')) ||
-      (myLikesError &&
-        !this.isMissingTableError(myLikesError, 'discover_song_likes'))
+      (likesError && !discoverLikesTableMissing) ||
+      (myLikesError && !discoverLikesTableMissing)
     ) {
       const errMessage = likesError?.message || myLikesError?.message;
       throw new Error(`Failed to load discover likes: ${errMessage}`);
     }
-    const likesData = this.isMissingTableError(likesError, 'discover_song_likes')
-      ? []
-      : ((likesRawRes.data || []) as any[]);
-    const myLikesData = this.isMissingTableError(
-      myLikesError,
-      'discover_song_likes',
-    )
-      ? []
-      : ((myLikesRawRes.data || []) as any[]);
+
+    let likesData: any[] = [];
+    let myLikesData: any[] = [];
+    if (discoverLikesTableMissing) {
+      const [likesFallbackRes, myLikesFallbackRes] = await Promise.all([
+        songIds.length > 0
+          ? supabase.from('likes').select('song_id').in('song_id', songIds)
+          : Promise.resolve({ data: [] as any[], error: null } as any),
+        songIds.length > 0
+          ? supabase
+              .from('likes')
+              .select('song_id')
+              .eq('user_id', userId)
+              .in('song_id', songIds)
+          : Promise.resolve({ data: [] as any[], error: null } as any),
+      ]);
+      if (likesFallbackRes.error || myLikesFallbackRes.error) {
+        throw new Error(
+          `Failed to load discover likes fallback: ${
+            likesFallbackRes.error?.message || myLikesFallbackRes.error?.message
+          }`,
+        );
+      }
+      likesData = (likesFallbackRes.data || []) as any[];
+      myLikesData = (myLikesFallbackRes.data || []) as any[];
+    } else {
+      likesData = (likesRawRes.data || []) as any[];
+      myLikesData = (myLikesRawRes.data || []) as any[];
+    }
 
     const artistById = new Map(
       artistsData.map((u: any) => [u.id, u]),
@@ -764,9 +786,24 @@ export class SongsService {
         );
       if (
         likeError &&
-        !this.isMissingTableError(likeError, 'discover_song_likes')
-      )
+        this.isMissingTableError(likeError, 'discover_song_likes')
+      ) {
+        const { error: fallbackLikeError } = await supabase.from('likes').upsert(
+          {
+            user_id: userId,
+            song_id: params.songId,
+            artist_id: (song as any).artist_id,
+          },
+          { onConflict: 'user_id,song_id' },
+        );
+        if (fallbackLikeError) {
+          throw new Error(
+            `Failed to save discover like fallback: ${fallbackLikeError.message}`,
+          );
+        }
+      } else if (likeError) {
         throw new Error(`Failed to save discover like: ${likeError.message}`);
+      }
       return { direction: params.direction, liked: true };
     }
 
@@ -777,9 +814,21 @@ export class SongsService {
       .eq('song_id', params.songId);
     if (
       unlikeError &&
-      !this.isMissingTableError(unlikeError, 'discover_song_likes')
-    )
+      this.isMissingTableError(unlikeError, 'discover_song_likes')
+    ) {
+      const { error: fallbackUnlikeError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', userId)
+        .eq('song_id', params.songId);
+      if (fallbackUnlikeError) {
+        throw new Error(
+          `Failed to remove discover like fallback: ${fallbackUnlikeError.message}`,
+        );
+      }
+    } else if (unlikeError) {
       throw new Error(`Failed to remove discover like: ${unlikeError.message}`);
+    }
     return { direction: params.direction, liked: false };
   }
 
@@ -810,9 +859,23 @@ export class SongsService {
       if (
         this.isMissingTableError(likesCreatedAtRes.error, 'discover_song_likes')
       ) {
-        // If migration is not present yet, prefer empty state over a 500.
-        return { items: [], total: 0 };
-      }
+        const likesFallbackRes = await supabase
+          .from('likes')
+          .select('song_id, created_at', { count: 'exact' })
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
+        if (likesFallbackRes.error) {
+          throw new Error(
+            `Failed to load discover likes fallback: ${likesFallbackRes.error.message}`,
+          );
+        }
+        likes = (likesFallbackRes.data || []) as Array<{
+          song_id: string;
+          created_at?: string | null;
+        }>;
+        count = likesFallbackRes.count ?? null;
+      } else
 
       if (this.isMissingColumnError(likesCreatedAtRes.error, 'created_at')) {
         const likesLegacyRes = await supabase
