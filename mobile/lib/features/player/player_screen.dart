@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/track.dart';
@@ -36,6 +37,34 @@ String _brandLogoForSeed(String seed) {
   final index = safeSeed.hashCode.abs() % _radioBrandFallbackLogos.length;
   return _radioBrandFallbackLogos[index];
 }
+
+class _StationOption {
+  const _StationOption({
+    required this.id,
+    required this.genre,
+    required this.city,
+  });
+
+  final String id;
+  final String genre;
+  final String city;
+}
+
+const List<_StationOption> _stationOptions = <_StationOption>[
+  _StationOption(id: 'us-rap', genre: 'Rap', city: 'New York'),
+  _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
+  _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
+  _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
+  _StationOption(id: 'us-pop', genre: 'Pop', city: 'Los Angeles'),
+  _StationOption(id: 'us-edm', genre: 'EDM', city: 'Las Vegas'),
+  _StationOption(id: 'us-rnb', genre: 'R&B', city: 'New Orleans'),
+  _StationOption(id: 'us-podcasts', genre: 'Podcasts', city: 'Seattle'),
+  _StationOption(id: 'us-spoken-word', genre: 'Spoken Word', city: 'Washington'),
+  _StationOption(id: 'us-comedian', genre: 'Comedian', city: 'Austin'),
+  _StationOption(id: 'us-gospel', genre: 'Gospel', city: 'Dallas'),
+];
+
+const String _selectedStationPrefKey = 'selected_radio_station_id';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -68,10 +97,17 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   Timer? _trackBoundaryTimer;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
-  final String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
+  String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
   final String _streamToken =
       'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
+
+  _StationOption get _activeStation {
+    for (final station in _stationOptions) {
+      if (station.id == _radioId) return station;
+    }
+    return const _StationOption(id: 'us-rap', genre: 'Rap', city: 'New York');
+  }
 
   @override
   void initState() {
@@ -81,9 +117,7 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       duration: const Duration(milliseconds: 950),
     );
     _loadMe();
-    _loadInitialTrack();
-    _loadVenueAd();
-    StationEventsService().start();
+    _initializeStationAndPlayback();
     _risingStarSub = StationEventsService().risingStarStream.listen((event) {
       if (!mounted) return;
       final percent = event.conversion != null ? (event.conversion! * 100).toStringAsFixed(1) : '5';
@@ -106,6 +140,34 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     _startTrackSyncTimer();
   }
 
+  Future<void> _initializeStationAndPlayback() async {
+    await _restoreStationSelection();
+    await _loadInitialTrack();
+    await _loadVenueAd();
+    await StationEventsService().start(stationId: _radioId);
+  }
+
+  Future<void> _restoreStationSelection() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) {
+        _radioId = stored;
+      }
+    } catch (_) {
+      // Ignore storage failures and keep env/default station.
+    }
+  }
+
+  Future<void> _persistStationSelection(String stationId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_selectedStationPrefKey, stationId);
+    } catch (_) {
+      // Ignore storage failures.
+    }
+  }
+
   Future<void> _loadMe() async {
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
@@ -119,11 +181,68 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
 
   Future<void> _loadVenueAd() async {
     try {
-      final ad = await _venueAds.getCurrent();
+      final ad = await _venueAds.getCurrent(stationId: _radioId);
       if (!mounted) return;
       setState(() => _ad = ad);
     } catch (_) {
       // ignore
+    }
+  }
+
+  Future<void> _changeStation(_StationOption station) async {
+    if (station.id == _radioId) return;
+    setState(() {
+      _radioId = station.id;
+      _isLoading = true;
+      _isPlaying = false;
+      _currentTrack = null;
+      _noContent = false;
+      _noContentMessage = null;
+    });
+    await _persistStationSelection(station.id);
+    await _audioPlayer.stop();
+    StationEventsService().stop();
+    await StationEventsService().start(stationId: station.id);
+    await _loadVenueAd();
+    await _loadInitialTrack();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Tuned to ${station.genre} (${station.city})')),
+    );
+  }
+
+  Future<void> _openStationPicker() async {
+    final selected = await showModalBottomSheet<_StationOption>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) {
+        return SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              const ListTile(
+                title: Text('Change station'),
+                subtitle: Text('Pick a station like web radio'),
+              ),
+              ..._stationOptions.map((station) {
+                final active = station.id == _radioId;
+                return ListTile(
+                  leading: Icon(
+                    active ? Icons.radio_button_checked : Icons.radio_button_off,
+                  ),
+                  title: Text(station.genre),
+                  subtitle: Text('${station.city} (National)'),
+                  trailing: active ? const Icon(Icons.check) : null,
+                  onTap: () => Navigator.pop(context, station),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
+    if (selected != null) {
+      await _changeStation(selected);
     }
   }
 
@@ -478,8 +597,13 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       create: (_) => ChatService()..initialize(),
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Radio'),
+          title: Text('Radio · ${_activeStation.genre}'),
           actions: [
+            IconButton(
+              onPressed: _openStationPicker,
+              tooltip: 'Change station',
+              icon: const Icon(Icons.swap_horiz),
+            ),
             IconButton(
               onPressed: _openRoom,
               tooltip: 'Enter the Room',
