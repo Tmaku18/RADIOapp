@@ -54,6 +54,39 @@ export interface ArtistAnalytics {
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
 
+  private isMissingTableError(error: unknown, tableName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    const table = tableName.toLowerCase();
+    if (maybe?.code === '42P01') {
+      return message.includes(table) || message.includes(`public.${table}`);
+    }
+    if (maybe?.code === 'PGRST205') {
+      return (
+        message.includes(`'${table}'`) ||
+        message.includes(`'public.${table}'`) ||
+        message.includes(table)
+      );
+    }
+    return false;
+  }
+
+  private isMissingColumnError(error: unknown, columnName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    const column = columnName.toLowerCase();
+    if (maybe?.code === '42703') {
+      return message.includes(column);
+    }
+    if (maybe?.code === 'PGRST204') {
+      return (
+        message.includes(`'${column}'`) ||
+        message.includes(column)
+      );
+    }
+    return false;
+  }
+
   async getRoiForArtist(
     artistId: string,
     days: number = 30,
@@ -134,20 +167,57 @@ export class AnalyticsService {
     startDate.setDate(startDate.getDate() - days);
     const startIso = startDate.toISOString();
 
-    const { data: rows, error } = await supabase
+    const empty: DiscoverSwipeAnalytics = {
+      days,
+      rightSwipes: 0,
+      leftSwipes: 0,
+      totalSwipes: 0,
+      avgDecisionMs: null,
+      bySong: [],
+    };
+
+    let swipeRes = await supabase
       .from('discover_swipes')
       .select('song_id, direction, decision_ms, created_at')
       .eq('artist_id', artistId)
       .gte('created_at', startIso)
       .limit(10000);
 
-    if (error) {
+    if (swipeRes.error && this.isMissingTableError(swipeRes.error, 'discover_swipes')) {
+      return empty;
+    }
+
+    // Older schemas may not have artist_id on discover_swipes.
+    if (swipeRes.error && this.isMissingColumnError(swipeRes.error, 'artist_id')) {
+      const { data: songs, error: songsError } = await supabase
+        .from('songs')
+        .select('id')
+        .eq('artist_id', artistId);
+      if (songsError || !songs?.length) {
+        return empty;
+      }
+      const songIds = songs.map((s: any) => s.id as string);
+      swipeRes = await supabase
+        .from('discover_swipes')
+        .select('song_id, direction, decision_ms, created_at')
+        .in('song_id', songIds)
+        .gte('created_at', startIso)
+        .limit(10000);
+      if (swipeRes.error && this.isMissingTableError(swipeRes.error, 'discover_swipes')) {
+        return empty;
+      }
+      if (swipeRes.error) {
+        throw new Error(
+          `Failed to load discover swipe analytics: ${swipeRes.error.message}`,
+        );
+      }
+    } else if (swipeRes.error) {
       throw new Error(
-        `Failed to load discover swipe analytics: ${error.message}`,
+        `Failed to load discover swipe analytics: ${swipeRes.error.message}`,
       );
     }
 
-    const swipeRows = (rows || []) as Array<{
+    const swipeRows = (swipeRes.data || []) as Array<{
       song_id: string;
       direction: 'left_skip' | 'right_like';
       decision_ms: number | null;
