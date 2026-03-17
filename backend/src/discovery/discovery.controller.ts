@@ -102,14 +102,10 @@ export class DiscoveryController {
     @Query('maxLng') maxLngStr?: string,
   ) {
     const zoom = zoomStr != null ? Number.parseInt(zoomStr, 10) : undefined;
-    const minLat =
-      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
-    const maxLat =
-      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
-    const minLng =
-      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
-    const maxLng =
-      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    const minLat = minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat = maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng = minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng = maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
     return this.discovery.getMapHeat({
       stationId: station?.trim() || undefined,
       role: role ?? 'all',
@@ -132,14 +128,10 @@ export class DiscoveryController {
     @Query('maxLng') maxLngStr?: string,
   ) {
     const zoom = zoomStr != null ? Number.parseInt(zoomStr, 10) : undefined;
-    const minLat =
-      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
-    const maxLat =
-      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
-    const minLng =
-      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
-    const maxLng =
-      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    const minLat = minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat = maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng = minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng = maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
     return this.discovery.getMapClusters({
       stationId: station?.trim() || undefined,
       role: role ?? 'all',
@@ -165,14 +157,10 @@ export class DiscoveryController {
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string,
   ) {
-    const minLat =
-      minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
-    const maxLat =
-      maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
-    const minLng =
-      minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
-    const maxLng =
-      maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
+    const minLat = minLatStr != null ? Number.parseFloat(minLatStr) : undefined;
+    const maxLat = maxLatStr != null ? Number.parseFloat(maxLatStr) : undefined;
+    const minLng = minLngStr != null ? Number.parseFloat(minLngStr) : undefined;
+    const maxLng = maxLngStr != null ? Number.parseFloat(maxLngStr) : undefined;
     const clusterLat =
       clusterLatStr != null ? Number.parseFloat(clusterLatStr) : undefined;
     const clusterLng =
@@ -181,8 +169,7 @@ export class DiscoveryController {
       clusterRadiusKmStr != null
         ? Number.parseFloat(clusterRadiusKmStr)
         : undefined;
-    const limit =
-      limitStr != null ? Number.parseInt(limitStr, 10) : undefined;
+    const limit = limitStr != null ? Number.parseInt(limitStr, 10) : undefined;
     const offset =
       offsetStr != null ? Number.parseInt(offsetStr, 10) : undefined;
     return this.discovery.getMapArtists({

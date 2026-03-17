@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_router.dart';
 import '../../core/models/job_board_models.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/services/job_board_service.dart';
@@ -245,11 +246,9 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => RequestDetailScreen(
-                            request: req,
-                            myUserId: _me?.id,
-                          ),
+                        AppRouter.routeToRequestDetail(
+                          request: req,
+                          myUserId: _me?.id,
                         ),
                       ).then((_) => _load());
                     },

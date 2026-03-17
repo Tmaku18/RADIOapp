@@ -7,15 +7,20 @@ class DiscoveryMapService {
   Future<List<DiscoveryMapHeatBucket>> getHeat({
     String? station,
     String role = 'artist',
+    int zoom = 4,
+    double minLat = 24.5,
+    double maxLat = 49.5,
+    double minLng = -125,
+    double maxLng = -66,
   }) async {
     final q = <String>[
       if (station != null && station.trim().isNotEmpty) 'station=$station',
       'role=$role',
-      'zoom=4',
-      'minLat=24.5',
-      'maxLat=49.5',
-      'minLng=-125',
-      'maxLng=-66',
+      'zoom=$zoom',
+      'minLat=$minLat',
+      'maxLat=$maxLat',
+      'minLng=$minLng',
+      'maxLng=$maxLng',
     ].join('&');
     final res = await _api.get('discovery/map/heat?$q');
     if (res is Map<String, dynamic>) {
@@ -33,15 +38,20 @@ class DiscoveryMapService {
   Future<List<DiscoveryMapCluster>> getClusters({
     String? station,
     String role = 'artist',
+    int zoom = 4,
+    double minLat = 24.5,
+    double maxLat = 49.5,
+    double minLng = -125,
+    double maxLng = -66,
   }) async {
     final q = <String>[
       if (station != null && station.trim().isNotEmpty) 'station=$station',
       'role=$role',
-      'zoom=4',
-      'minLat=24.5',
-      'maxLat=49.5',
-      'minLng=-125',
-      'maxLng=-66',
+      'zoom=$zoom',
+      'minLat=$minLat',
+      'maxLat=$maxLat',
+      'minLng=$minLng',
+      'maxLng=$maxLng',
     ].join('&');
     final res = await _api.get('discovery/map/clusters?$q');
     if (res is Map<String, dynamic>) {

@@ -79,10 +79,7 @@ export class AnalyticsService {
       return message.includes(column);
     }
     if (maybe?.code === 'PGRST204') {
-      return (
-        message.includes(`'${column}'`) ||
-        message.includes(column)
-      );
+      return message.includes(`'${column}'`) || message.includes(column);
     }
     return false;
   }
@@ -183,12 +180,18 @@ export class AnalyticsService {
       .gte('created_at', startIso)
       .limit(10000);
 
-    if (swipeRes.error && this.isMissingTableError(swipeRes.error, 'discover_swipes')) {
+    if (
+      swipeRes.error &&
+      this.isMissingTableError(swipeRes.error, 'discover_swipes')
+    ) {
       return empty;
     }
 
     // Older schemas may not have artist_id on discover_swipes.
-    if (swipeRes.error && this.isMissingColumnError(swipeRes.error, 'artist_id')) {
+    if (
+      swipeRes.error &&
+      this.isMissingColumnError(swipeRes.error, 'artist_id')
+    ) {
       const { data: songs, error: songsError } = await supabase
         .from('songs')
         .select('id')
@@ -203,7 +206,10 @@ export class AnalyticsService {
         .in('song_id', songIds)
         .gte('created_at', startIso)
         .limit(10000);
-      if (swipeRes.error && this.isMissingTableError(swipeRes.error, 'discover_swipes')) {
+      if (
+        swipeRes.error &&
+        this.isMissingTableError(swipeRes.error, 'discover_swipes')
+      ) {
         return empty;
       }
       if (swipeRes.error) {

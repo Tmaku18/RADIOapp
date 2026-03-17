@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/song.dart';
-import '../../core/services/api_service.dart';
+import '../../core/services/payments_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/networx_tokens.dart';
 
@@ -68,7 +69,7 @@ class BuyPlaysScreen extends StatefulWidget {
 }
 
 class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
-  final ApiService _api = ApiService();
+  final PaymentsService _payments = PaymentsService();
 
   bool _loading = true;
   bool _submitting = false;
@@ -88,14 +89,10 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
       _error = null;
     });
     try {
-      final data = await _api.get(
-        'payments/song-play-price?songId=${Uri.encodeComponent(widget.song.id)}',
-      );
+      final data = await _payments.getSongPlayPrice(widget.song.id);
       if (!mounted) return;
       setState(() {
-        _price = data is Map<String, dynamic>
-            ? SongPlayPrice.fromJson(data)
-            : null;
+        _price = SongPlayPrice.fromJson(data);
         _loading = false;
         _selectedPlays = null;
       });
@@ -127,10 +124,10 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
     setState(() => _submitting = true);
     try {
-      final response = await _api.post('payments/create-intent-song-plays', {
-        'songId': widget.song.id,
-        'plays': _selectedPlays,
-      });
+      final response = await _payments.createIntentSongPlays(
+        songId: widget.song.id,
+        plays: _selectedPlays!,
+      );
       final clientSecret = response['clientSecret'] as String?;
       if (clientSecret == null || clientSecret.isEmpty) {
         throw Exception('No payment client secret');
@@ -172,6 +169,31 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
           content: Text('Payment failed: $e'),
           backgroundColor: Colors.red,
         ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _checkoutFallback() async {
+    if (_selectedPlays == null || _submitting) return;
+    setState(() => _submitting = true);
+    try {
+      final res = await _payments.createCheckoutSessionSongPlays(
+        songId: widget.song.id,
+        plays: _selectedPlays!,
+      );
+      final url = res['url']?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception('No checkout URL returned by backend.');
+      }
+      final uri = Uri.tryParse(url);
+      if (uri == null) throw Exception('Invalid checkout URL.');
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open checkout: $e')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -326,6 +348,14 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                         ),
                                       )
                                     : const Text('Continue to payment'),
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton(
+                                onPressed: _submitting ? null : _checkoutFallback,
+                                child: const Text('Open web checkout instead'),
                               ),
                             ),
                           ],

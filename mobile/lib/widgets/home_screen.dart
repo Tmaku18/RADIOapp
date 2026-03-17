@@ -1,21 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/navigation/app_routes.dart';
 import '../features/player/player_screen.dart';
 import '../features/discovery/discovery_screen.dart';
 import '../features/competition/competition_screen.dart';
 import '../features/room/room_screen.dart';
 import '../features/studio/studio_screen.dart';
-import '../features/about/about_screen.dart';
 import '../features/analytics/analytics_screen.dart';
-import '../features/messages/messages_screen.dart';
-import '../features/profile/profile_screen.dart';
-import '../features/credits/credits_screen.dart';
 import '../features/pro_networx/pro_directory_screen.dart';
-import '../features/pro_networx/pro_me_profile_screen.dart';
-import '../features/refinery/refinery_screen.dart';
-import '../features/yield/yield_screen.dart';
-import '../features/nearby/nearby_people_screen.dart';
-import '../features/livestream/stream_settings_screen.dart';
 import '../core/auth/auth_service.dart';
 import 'mini_player_bar.dart';
 import '../core/models/user.dart' as app_user;
@@ -124,10 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: const Text('Profile'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.profile);
                   },
                 ),
                 if (isArtist) ...[
@@ -136,10 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: const Text('Credits'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreditsScreen()),
-                      );
+                      Navigator.pushNamed(context, AppRoutes.credits);
                     },
                   ),
                 ],
@@ -150,10 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: const Text('Request access, go live, manage stream'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const StreamSettingsScreen()),
-                      );
+                      Navigator.pushNamed(context, AppRoutes.streamSettings);
                     },
                   ),
                 ListTile(
@@ -161,10 +144,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: const Text('Messages'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MessagesScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.messages);
                   },
                 ),
                 ListTile(
@@ -173,12 +153,19 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: const Text('Directory, profiles, and inbox'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProNetworxDirectoryScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.proDirectory);
                   },
                 ),
+                if (isArtist)
+                  ListTile(
+                    leading: const Icon(Icons.work_history_outlined),
+                    title: const Text('Job Board'),
+                    subtitle: const Text('Browse and apply to service requests'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.jobBoard);
+                    },
+                  ),
                 if (!isArtist)
                   ListTile(
                     leading: const Icon(Icons.place_outlined),
@@ -186,10 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: const Text('Discover Catalysts (service providers) near you'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const NearbyPeopleScreen()),
-                      );
+                      Navigator.pushNamed(context, AppRoutes.nearbyPeople);
                     },
                   ),
                 ListTile(
@@ -198,10 +182,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   subtitle: const Text('Skills, availability, headline'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProNetworxMeProfileScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.proMeProfile);
                   },
                 ),
                 if (!isArtist)
@@ -211,10 +192,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: const Text('Review songs, rank, survey, comment for rewards'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const RefineryScreen()),
-                      );
+                      Navigator.pushNamed(context, AppRoutes.refinery);
                     },
                   ),
                 if (!isArtist)
@@ -224,10 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     subtitle: const Text(r'Rewards Command Center ($5 / $10 Virtual Visa)'),
                     onTap: () {
                       Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const YieldScreen()),
-                      );
+                      Navigator.pushNamed(context, AppRoutes.yield);
                     },
                   ),
                 ListTile(
@@ -235,7 +210,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: const Text('Settings'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/settings');
+                    Navigator.pushNamed(context, AppRoutes.settings);
                   },
                 ),
                 ListTile(
@@ -243,10 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   title: const Text('About Networx'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AboutScreen()),
-                    );
+                    Navigator.pushNamed(context, AppRoutes.about);
                   },
                 ),
                 const SizedBox(height: 8),

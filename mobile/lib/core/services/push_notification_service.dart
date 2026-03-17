@@ -219,6 +219,13 @@ class PushNotificationService {
         'songId': message.data['songId'],
         'songTitle': message.data['songTitle'],
       });
+      return;
+    }
+    if (type == 'artist_live_now' && message.data['artistId'] != null) {
+      onNotificationTap?.call({
+        'type': 'artist_live_now',
+        'artistId': message.data['artistId'],
+      });
     }
   }
 

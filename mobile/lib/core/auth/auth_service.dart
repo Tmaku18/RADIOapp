@@ -17,6 +17,16 @@ class AuthService extends ChangeNotifier {
     if (firebaseInitialized) {
       try {
         _auth = FirebaseAuth.instance;
+        _apiService.setAuthTokenProvider(() async {
+          final user = _auth?.currentUser;
+          if (user == null) return null;
+          return user.getIdToken();
+        });
+        _apiService.setUnauthorizedHandler(() async {
+          if (_auth?.currentUser != null) {
+            await signOut();
+          }
+        });
       } catch (e) {
         debugPrint('Warning: Could not access FirebaseAuth: $e');
         _auth = null;
@@ -30,7 +40,7 @@ class AuthService extends ChangeNotifier {
       return Stream.value(null);
     }
     try {
-      return _auth!.authStateChanges();
+      return _auth!.idTokenChanges();
     } catch (e) {
       debugPrint('Error getting auth state changes: $e');
       return Stream.value(null);

@@ -112,8 +112,13 @@ export class ServiceMessagesService {
     return false;
   }
 
-  private isMissingAnyColumnError(error: unknown, columnNames: string[]): boolean {
-    return columnNames.some((column) => this.isMissingColumnError(error, column));
+  private isMissingAnyColumnError(
+    error: unknown,
+    columnNames: string[],
+  ): boolean {
+    return columnNames.some((column) =>
+      this.isMissingColumnError(error, column),
+    );
   }
 
   private isMissingTableError(error: unknown, tableName: string): boolean {
@@ -161,7 +166,9 @@ export class ServiceMessagesService {
         .order('created_at', { ascending: false });
     }
     if (messagesRes.error) {
-      throw new Error(`Failed to load conversations: ${messagesRes.error.message}`);
+      throw new Error(
+        `Failed to load conversations: ${messagesRes.error.message}`,
+      );
     }
     const messages = messagesRes.data;
 
@@ -338,7 +345,8 @@ export class ServiceMessagesService {
       if (before) legacyQ = legacyQ.lt('created_at', before);
       threadRes = await legacyQ;
     }
-    if (threadRes.error) throw new Error(`Failed to load thread: ${threadRes.error.message}`);
+    if (threadRes.error)
+      throw new Error(`Failed to load thread: ${threadRes.error.message}`);
     const data = threadRes.data;
 
     const messageIds = (data || []).map((m: any) => m.id);
@@ -361,12 +369,12 @@ export class ServiceMessagesService {
       Array<{ emoji: string; userId: string; createdAt: string }>
     >();
     for (const r of (reactionRows || []) as any[]) {
-      const key = (r as any).message_id as string;
+      const key = r.message_id as string;
       const list = reactionsByMessage.get(key) ?? [];
       list.push({
-        emoji: (r as any).emoji,
-        userId: (r as any).user_id,
-        createdAt: (r as any).created_at,
+        emoji: r.emoji,
+        userId: r.user_id,
+        createdAt: r.created_at,
       });
       reactionsByMessage.set(key, list);
     }

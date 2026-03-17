@@ -9,18 +9,12 @@ import 'package:just_audio_background/just_audio_background.dart';
 import 'core/env.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/navigation/app_router.dart';
+import 'core/navigation/app_routes.dart';
 import 'core/theme/networx_theme.dart';
 import 'core/theme/theme_controller.dart';
-import 'features/analytics/analytics_screen.dart';
-import 'features/player/player_screen.dart';
-import 'features/upload/upload_screen.dart';
-import 'features/profile/profile_screen.dart';
-import 'features/payment/payment_screen.dart';
-import 'features/settings/settings_screen.dart';
-import 'features/livestream/watch_live_screen.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
-import 'widgets/require_artist.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -128,13 +122,11 @@ class _MyAppState extends State<MyApp> {
         final nav = widget.navigatorKey.currentState;
         if (nav == null) return;
         if (data['type'] == 'song_played' && data['playId'] != null) {
-          nav.pushNamed('/analytics', arguments: {'playId': data['playId']});
+          nav.pushNamed(AppRoutes.analytics, arguments: {'playId': data['playId']});
         } else if (data['type'] == 'up_next' || data['type'] == 'live_now') {
-          nav.pushNamed('/player');
+          nav.pushNamed(AppRoutes.player);
         } else if (data['type'] == 'artist_live_now' && data['artistId'] != null) {
-          nav.push(MaterialPageRoute(
-            builder: (_) => WatchLiveScreen(artistId: data['artistId'].toString()),
-          ));
+          nav.pushNamed(AppRoutes.watchLive, arguments: data['artistId'].toString());
         }
       };
     });
@@ -161,20 +153,13 @@ class _MyAppState extends State<MyApp> {
             darkTheme:
                 buildNetworxTheme(brightness: Brightness.dark, brand: brand),
             themeMode: theme.themeMode,
-            initialRoute: '/',
+            initialRoute: AppRoutes.root,
             routes: {
-              '/': (context) => const AuthWrapper(),
-              '/login': (context) => const LoginScreen(),
-              '/home': (context) => const HomeScreen(),
-              '/player': (context) => const PlayerScreen(),
-              '/analytics': (context) => const AnalyticsScreen(),
-              '/upload': (context) =>
-                  const RequireArtist(child: UploadScreen()),
-              '/profile': (context) => const ProfileScreen(),
-              '/payment': (context) =>
-                  const RequireArtist(child: PaymentScreen()),
-              '/settings': (context) => const SettingsScreen(),
+              AppRoutes.root: (context) => const AuthWrapper(),
+              AppRoutes.login: (context) => const LoginScreen(),
+              AppRoutes.home: (context) => const HomeScreen(),
             },
+            onGenerateRoute: AppRouter.onGenerateRoute,
           );
         },
       ),
@@ -227,7 +212,7 @@ class AuthWrapper extends StatelessWidget {
                       ElevatedButton(
                         onPressed: () => Navigator.of(
                           context,
-                        ).pushReplacementNamed('/login'),
+                        ).pushReplacementNamed(AppRoutes.login),
                         child: const Text('Go to Login'),
                       ),
                     ],

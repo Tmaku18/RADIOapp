@@ -8,7 +8,10 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
-import { normalizeSongStationId, STATION_IDS } from '../radio/station.constants';
+import {
+  normalizeSongStationId,
+  STATION_IDS,
+} from '../radio/station.constants';
 import ffmpeg from 'fluent-ffmpeg';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
@@ -292,7 +295,9 @@ export class AdminService {
     }
 
     if (dto.stationId !== undefined) {
-      if (!STATION_IDS.includes(dto.stationId as (typeof STATION_IDS)[number])) {
+      if (
+        !STATION_IDS.includes(dto.stationId as (typeof STATION_IDS)[number])
+      ) {
         throw new BadRequestException('Invalid stationId');
       }
       updateData.station_id = dto.stationId;
@@ -543,7 +548,10 @@ export class AdminService {
     return msg.includes('does not exist') || msg.includes('schema cache');
   }
 
-  private async safeDeleteBySongId(table: string, songId: string): Promise<void> {
+  private async safeDeleteBySongId(
+    table: string,
+    songId: string,
+  ): Promise<void> {
     const supabase = getSupabaseClient();
     const { error } = await supabase.from(table).delete().eq('song_id', songId);
     if (error && !this.isMissingRelationError(error)) {

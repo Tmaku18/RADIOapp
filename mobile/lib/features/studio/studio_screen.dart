@@ -1,12 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/song.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/networx_extensions.dart';
-import '../credits/credits_screen.dart';
-import '../upload/upload_screen.dart';
-import 'buy_plays_screen.dart';
 
 class StudioScreen extends StatefulWidget {
   const StudioScreen({super.key});
@@ -75,11 +73,7 @@ class _StudioScreenState extends State<StudioScreen> {
                         ),
                         FilledButton.icon(
                           onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                  builder: (_) => const UploadScreen()),
-                            ).then((_) => _load());
+                            Navigator.pushNamed(context, AppRoutes.upload).then((_) => _load());
                           },
                           icon: const Icon(Icons.upload),
                           label: const Text('Upload'),
@@ -102,11 +96,7 @@ class _StudioScreenState extends State<StudioScreen> {
                     ),
                     TextButton(
                       onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const CreditsScreen()),
-                        ).then((_) => _load());
+                        Navigator.pushNamed(context, AppRoutes.credits).then((_) => _load());
                       },
                       child: const Text('History'),
                     ),
@@ -163,12 +153,10 @@ class _StudioScreenState extends State<StudioScreen> {
                                   const SizedBox(width: 8),
                                   FilledButton(
                                     onPressed: () {
-                                      Navigator.push(
+                                      Navigator.pushNamed(
                                         context,
-                                        MaterialPageRoute(
-                                          builder: (_) =>
-                                              BuyPlaysScreen(song: s),
-                                        ),
+                                        AppRoutes.buyPlays,
+                                        arguments: s,
                                       ).then((result) {
                                         if (result == true) _load();
                                       });

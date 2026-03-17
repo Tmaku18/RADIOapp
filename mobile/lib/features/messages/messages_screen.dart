@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/messages_models.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/services/api_service.dart';
@@ -93,15 +94,14 @@ class _MessagesScreenState extends State<MessagesScreen> {
                         onTap: _me == null
                             ? null
                             : () {
-                                Navigator.push(
+                                Navigator.pushNamed(
                                   context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ThreadScreen(
-                                      myUserId: _me!.id,
-                                      otherUserId: c.otherUserId,
-                                      otherDisplayName: c.otherDisplayName,
-                                    ),
-                                  ),
+                                  AppRoutes.thread,
+                                  arguments: {
+                                    'myUserId': _me!.id,
+                                    'otherUserId': c.otherUserId,
+                                    'otherDisplayName': c.otherDisplayName,
+                                  },
                                 ).then((_) => _load());
                               },
                       ),

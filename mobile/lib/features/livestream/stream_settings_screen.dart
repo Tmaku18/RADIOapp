@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/livestream_service.dart';
-import 'go_live_screen.dart';
 
 /// Stream settings: request streaming access, show pending, or open Go Live.
 /// Streaming requires admin approval; artists and Catalysts can apply here.
@@ -27,15 +27,19 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     setState(() => _loading = true);
     try {
       final s = await _live.getStreamerStatus();
-      if (mounted) setState(() {
-        _status = s;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _status = s;
+          _loading = false;
+        });
+      }
     } catch (_) {
-      if (mounted) setState(() {
-        _status = null;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _status = null;
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -195,10 +199,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             const SizedBox(height: 24),
             FilledButton(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const GoLiveScreen()),
-                );
+                Navigator.pushNamed(context, AppRoutes.goLive);
               },
               child: const Text('Open Stream Manager (Go Live)'),
             ),

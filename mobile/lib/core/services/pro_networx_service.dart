@@ -67,5 +67,35 @@ class ProNetworxService {
     if (res is Map<String, dynamic>) return res;
     throw Exception('Failed to load Pro profile');
   }
+
+  Future<Map<String, dynamic>> getAccess() async {
+    final res = await _api.get('creator-network/access');
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<List<Map<String, dynamic>>> getFeed({
+    int limit = 20,
+    String? cursor,
+  }) async {
+    final q = <String>[
+      'limit=$limit',
+      if (cursor != null && cursor.isNotEmpty) 'cursor=${Uri.encodeComponent(cursor)}',
+    ].join('&');
+    final res = await _api.get('pro-networx/feed?$q');
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    if (res is Map<String, dynamic> && res['items'] is List) {
+      final raw = res['items'] as List;
+      return raw
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
+  }
 }
 

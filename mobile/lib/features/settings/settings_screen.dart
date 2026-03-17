@@ -3,12 +3,10 @@ import 'package:provider/provider.dart';
 import '../../core/services/notification_settings_service.dart';
 import '../../core/services/push_notification_service.dart';
 import '../../core/services/users_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
-import '../profile/profile_screen.dart';
-import '../credits/credits_screen.dart';
-import '../about/about_screen.dart';
 
 /// Settings screen with Instagram/Twitch-style sectioned list:
 /// Account, Preferences, Notifications, Security & Privacy, Payments,
@@ -265,10 +263,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.person_outline,
                     title: 'Profile',
                     subtitle: 'Display name, photo, bio, headline',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    ),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
                   ),
                 ]),
 
@@ -485,10 +480,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.credit_card_outlined,
                     title: 'Payments',
                     subtitle: 'Payment methods, billing',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ProfileScreen()),
-                    ),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.payment),
                   ),
                 ]),
 
@@ -499,10 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.library_music_outlined,
                       title: 'Studio & Songs',
                       subtitle: 'Upload, credits, rotation',
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreditsScreen()),
-                      ),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.studio),
                     ),
                   ]),
 
@@ -528,20 +517,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.help_outline,
                     title: 'FAQ',
                     subtitle: 'Frequently asked questions',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AboutScreen()),
-                    ),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.about),
                   ),
                   _navTile(
                     context,
                     icon: Icons.privacy_tip_outlined,
                     title: 'Privacy & Terms',
                     subtitle: 'Privacy policy and terms of service',
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AboutScreen()),
-                    ),
+                    onTap: () => Navigator.pushNamed(context, AppRoutes.about),
                   ),
                 ]),
 

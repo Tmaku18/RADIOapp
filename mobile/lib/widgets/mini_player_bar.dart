@@ -4,8 +4,8 @@ import 'package:just_audio/just_audio.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/services/audio_player_service.dart';
+import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
-import '../features/player/player_screen.dart';
 
 /// Spotify-style persistent mini-player bar. Shown when there is a current
 /// track/source. Tap opens full [PlayerScreen].
@@ -42,11 +42,7 @@ class MiniPlayerBar extends StatelessWidget {
               child: InkWell(
                 onTap: () {
                   HapticFeedback.lightImpact();
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const PlayerScreen(),
-                    ),
-                  );
+                  Navigator.of(context).pushNamed(AppRoutes.player);
                 },
                 child: SafeArea(
                   top: false,
@@ -131,8 +127,8 @@ class _Artwork extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.cover,
-        placeholder: (_, __) => _Placeholder(size: size),
-        errorWidget: (_, __, ___) => _Placeholder(size: size),
+        placeholder: (context, url) => _Placeholder(size: size),
+        errorWidget: (context, url, error) => _Placeholder(size: size),
       );
     }
 

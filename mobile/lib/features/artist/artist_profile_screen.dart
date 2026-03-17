@@ -7,6 +7,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
@@ -14,8 +15,6 @@ import '../../core/services/songs_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
-import '../livestream/go_live_screen.dart';
-import '../livestream/watch_live_screen.dart';
 
 class ArtistProfileScreen extends StatefulWidget {
   final String artistId;
@@ -114,10 +113,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   Future<void> _startLive() async {
     setState(() => _liveActionLoading = true);
     try {
-      await Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const GoLiveScreen()),
-      );
+      await Navigator.pushNamed(context, AppRoutes.goLive);
       await _loadLiveStatus();
     } finally {
       if (mounted) setState(() => _liveActionLoading = false);
@@ -361,9 +357,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                   if (_isLiveNow)
                     FilledButton.icon(
                       onPressed: () {
-                        Navigator.push(
+                        Navigator.pushNamed(
                           context,
-                          MaterialPageRoute(builder: (_) => WatchLiveScreen(artistId: widget.artistId)),
+                          AppRoutes.watchLive,
+                          arguments: widget.artistId,
                         );
                       },
                       icon: const Icon(Icons.live_tv),

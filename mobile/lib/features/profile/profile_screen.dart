@@ -2,11 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
-import '../credits/credits_screen.dart';
-import '../studio/studio_screen.dart';
-import '../upload/upload_screen.dart';
-import '../livestream/stream_settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -102,10 +99,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
                         child: InkWell(
                           onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => const StreamSettingsScreen()),
-                            );
+                            Navigator.pushNamed(context, AppRoutes.streamSettings);
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
@@ -146,10 +140,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: const Text('Your songs and rotation signals'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const StudioScreen()),
-                          );
+                          Navigator.pushNamed(context, AppRoutes.studio);
                         },
                       ),
                       ListTile(
@@ -158,10 +149,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: const Text('Balance and history'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const CreditsScreen()),
-                          );
+                          Navigator.pushNamed(context, AppRoutes.credits);
                         },
                       ),
                       ListTile(
@@ -170,10 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         subtitle: const Text('Add a track to the rotation'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const UploadScreen()),
-                          );
+                          Navigator.pushNamed(context, AppRoutes.upload);
                         },
                       ),
                     ],
@@ -182,7 +167,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       title: const Text('Settings'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
-                        Navigator.pushNamed(context, '/settings');
+                        Navigator.pushNamed(context, AppRoutes.settings);
                       },
                     ),
                     const Divider(),

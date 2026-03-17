@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/models/browse_models.dart';
 import '../../core/models/competition_models.dart';
 import '../../core/models/discovery_map_models.dart';
+import '../../core/services/browse_like_events_service.dart';
 import '../../core/services/browse_service.dart';
 import '../../core/services/competition_service.dart';
 import '../../core/services/discovery_map_service.dart';
@@ -18,8 +20,10 @@ class DiscoveryScreen extends StatefulWidget {
 class _DiscoveryScreenState extends State<DiscoveryScreen> {
   static const int _pageSize = 12;
   final BrowseService _service = BrowseService();
+  final BrowseLikeEventsService _likeEvents = BrowseLikeEventsService();
   final ScrollController _scroll = ScrollController();
   final String _seed = DateTime.now().millisecondsSinceEpoch.toString();
+  StreamSubscription<BrowseLikeEvent>? _likeEventsSub;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -33,6 +37,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   void initState() {
     super.initState();
     _loadPage(append: false);
+    _likeEvents.start();
+    _likeEventsSub = _likeEvents.stream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _items = _items
+            .map((item) => item.id == event.contentId
+                ? item.copyWith(likeCount: item.likeCount + 1)
+                : item)
+            .toList();
+      });
+    });
     _scroll.addListener(() {
       if (_nextCursor == null || _loadingMore) return;
       if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
@@ -43,6 +58,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
 
   @override
   void dispose() {
+    _likeEventsSub?.cancel();
+    _likeEvents.stop();
     _scroll.dispose();
     super.dispose();
   }

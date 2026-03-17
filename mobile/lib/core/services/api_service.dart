@@ -24,21 +24,49 @@ class ApiService {
 
   String get baseUrl => env('API_BASE_URL') ?? 'http://localhost:3000';
   String? _authToken;
+  Future<String?> Function()? _tokenProvider;
+  Future<void> Function()? _onUnauthorized;
 
   void setAuthToken(String? token) {
     _authToken = token;
   }
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (_authToken != null) 'Authorization': 'Bearer $_authToken',
-      };
+  void setAuthTokenProvider(Future<String?> Function()? provider) {
+    _tokenProvider = provider;
+  }
+
+  void setUnauthorizedHandler(Future<void> Function()? handler) {
+    _onUnauthorized = handler;
+  }
+
+  Future<Map<String, String>> _headers() async {
+    String? token = _authToken;
+    if ((token == null || token.isEmpty) && _tokenProvider != null) {
+      try {
+        token = await _tokenProvider!.call();
+        _authToken = token;
+      } catch (_) {}
+    }
+    return {
+      'Content-Type': 'application/json',
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
+  }
+
+  Future<void> _handleUnauthorized() async {
+    if (_onUnauthorized != null) {
+      try {
+        await _onUnauthorized!.call();
+      } catch (_) {}
+    }
+  }
 
   /// GET request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> get(String endpoint) async {
+    final headers = await _headers();
     final response = await http.get(
       Uri.parse('$baseUrl/api/$endpoint'),
-      headers: _headers,
+      headers: headers,
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -48,6 +76,9 @@ class ApiService {
       }
       return json.decode(body);
     } else {
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       throw ApiException(
         statusCode: response.statusCode,
         message: 'GET $endpoint failed',
@@ -61,9 +92,10 @@ class ApiService {
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
+    final headers = await _headers();
     final response = await http.post(
       Uri.parse('$baseUrl/api/$endpoint'),
-      headers: _headers,
+      headers: headers,
       body: body != null ? json.encode(body) : null,
     );
 
@@ -74,6 +106,9 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       throw ApiException(
         statusCode: response.statusCode,
         message: 'POST $endpoint failed',
@@ -87,9 +122,10 @@ class ApiService {
     String endpoint,
     Map<String, dynamic>? body,
   ) async {
+    final headers = await _headers();
     final response = await http.put(
       Uri.parse('$baseUrl/api/$endpoint'),
-      headers: _headers,
+      headers: headers,
       body: body != null ? json.encode(body) : null,
     );
 
@@ -100,6 +136,9 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       throw ApiException(
         statusCode: response.statusCode,
         message: 'PUT $endpoint failed',
@@ -110,9 +149,10 @@ class ApiService {
 
   /// DELETE request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> delete(String endpoint) async {
+    final headers = await _headers();
     final response = await http.delete(
       Uri.parse('$baseUrl/api/$endpoint'),
-      headers: _headers,
+      headers: headers,
     );
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -122,6 +162,9 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       throw ApiException(
         statusCode: response.statusCode,
         message: 'DELETE $endpoint failed',
@@ -136,13 +179,15 @@ class ApiService {
     Map<String, String> fields,
     List<http.MultipartFile> files,
   ) async {
+    final headers = await _headers();
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('$baseUrl/api/$endpoint'),
     );
 
     request.headers.addAll({
-      if (_authToken != null) 'Authorization': 'Bearer $_authToken',
+      if (headers['Authorization'] != null)
+        'Authorization': headers['Authorization']!,
     });
 
     request.fields.addAll(fields);
@@ -158,6 +203,9 @@ class ApiService {
       }
       return json.decode(responseBody);
     } else {
+      if (response.statusCode == 401) {
+        await _handleUnauthorized();
+      }
       throw ApiException(
         statusCode: response.statusCode,
         message: 'UPLOAD $endpoint failed',

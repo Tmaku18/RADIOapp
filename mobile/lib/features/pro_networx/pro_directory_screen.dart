@@ -1,11 +1,10 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
-import 'pro_profile_screen.dart';
-import 'pro_me_profile_screen.dart';
 
 class ProNetworxDirectoryScreen extends StatefulWidget {
   const ProNetworxDirectoryScreen({super.key});
@@ -91,9 +90,9 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
           IconButton(
             tooltip: 'Build my profile',
             onPressed: () async {
-              final changed = await Navigator.push<bool>(
+              final changed = await Navigator.pushNamed<bool>(
                 context,
-                MaterialPageRoute(builder: (_) => const ProNetworxMeProfileScreen()),
+                AppRoutes.proMeProfile,
               );
               if (changed == true && mounted) {
                 _load();
@@ -181,11 +180,10 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
                               return InkWell(
                                 borderRadius: BorderRadius.circular(18),
                                 onTap: () {
-                                  Navigator.push(
+                                  Navigator.pushNamed(
                                     context,
-                                    MaterialPageRoute(
-                                      builder: (_) => ProNetworxProfileScreen(userId: p.userId),
-                                    ),
+                                    AppRoutes.proProfile,
+                                    arguments: p.userId,
                                   );
                                 },
                                 child: glass(

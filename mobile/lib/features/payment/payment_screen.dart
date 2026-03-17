@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
-import '../../core/services/api_service.dart';
+import '../../core/services/payments_service.dart';
 import '../../core/theme/networx_tokens.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -11,7 +11,7 @@ class PaymentScreen extends StatefulWidget {
 }
 
 class _PaymentScreenState extends State<PaymentScreen> {
-  final ApiService _apiService = ApiService();
+  final PaymentsService _payments = PaymentsService();
   bool _isProcessing = false;
   int? _selectedPackageIndex;
 
@@ -54,10 +54,10 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     try {
       // Step 1: Create payment intent on backend
-      final response = await _apiService.post('payments/create-intent', {
-        'amount': price,
-        'credits': credits,
-      });
+      final response = await _payments.createIntent(
+        amountCents: price,
+        credits: credits,
+      );
 
       final clientSecret = response['clientSecret'] as String?;
       if (clientSecret == null || clientSecret.isEmpty) {

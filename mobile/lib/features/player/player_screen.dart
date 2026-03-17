@@ -18,11 +18,11 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/station_events_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
-import '../artist/artist_profile_screen.dart';
 
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
@@ -840,11 +840,10 @@ class _PlayerBody extends StatelessWidget {
                   ApiService().post('analytics/profile-click', {'songId': track.id});
                   final artistId = track.artistId;
                   if (artistId != null && artistId.isNotEmpty && context.mounted) {
-                    Navigator.push(
+                    Navigator.pushNamed(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => ArtistProfileScreen(artistId: artistId),
-                      ),
+                      AppRoutes.artistProfile,
+                      arguments: artistId,
                     );
                   }
                 },

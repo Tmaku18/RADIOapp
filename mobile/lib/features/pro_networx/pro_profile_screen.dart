@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
-import '../messages/messages_screen.dart';
 
 class ProNetworxProfileScreen extends StatefulWidget {
   final String userId;
@@ -219,15 +219,14 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: _myUserId == null ? null : () {
-                            Navigator.push(
+                            Navigator.pushNamed(
                               context,
-                              MaterialPageRoute(
-                                builder: (_) => ThreadScreen(
-                                  myUserId: _myUserId!,
-                                  otherUserId: (p['userId'] ?? p['user_id'] ?? widget.userId).toString(),
-                                  otherDisplayName: displayName,
-                                ),
-                              ),
+                              AppRoutes.thread,
+                              arguments: {
+                                'myUserId': _myUserId!,
+                                'otherUserId': (p['userId'] ?? p['user_id'] ?? widget.userId).toString(),
+                                'otherDisplayName': displayName,
+                              },
                             );
                           },
                           icon: const Icon(Icons.mail_outline),

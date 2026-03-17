@@ -49,6 +49,48 @@ class MessagesService {
     });
   }
 
+  Future<void> markThreadRead(String otherUserId) async {
+    await _api.post('messages/conversations/$otherUserId/read', {});
+  }
+
+  Future<void> setTyping({
+    required String otherUserId,
+    required bool isTyping,
+  }) async {
+    await _api.post('messages/conversations/$otherUserId/typing', {
+      'isTyping': isTyping,
+    });
+  }
+
+  Future<void> addReaction({
+    required String messageId,
+    required String reaction,
+  }) async {
+    await _api.post('messages/$messageId/reactions', {
+      'reaction': reaction,
+    });
+  }
+
+  Future<void> removeReaction({
+    required String messageId,
+    required String reaction,
+  }) async {
+    await _api.delete(
+      'messages/$messageId/reactions/${Uri.encodeComponent(reaction)}',
+    );
+  }
+
+  Future<Map<String, dynamic>> getMessageUploadUrl({
+    required String contentType,
+    required String fileName,
+  }) async {
+    final res = await _api.post('messages/upload-url', {
+      'contentType': contentType,
+      'fileName': fileName,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
   Future<bool> hasCreatorNetworkAccess() async {
     final res = await _api.get('creator-network/access');
     if (res is Map<String, dynamic>) {

@@ -87,7 +87,12 @@ export class DiscoveryService {
   private inBounds(
     lat: number,
     lng: number,
-    bounds?: { minLat?: number; maxLat?: number; minLng?: number; maxLng?: number },
+    bounds?: {
+      minLat?: number;
+      maxLat?: number;
+      minLng?: number;
+      maxLng?: number;
+    },
   ): boolean {
     if (
       bounds?.minLat != null &&
@@ -177,10 +182,14 @@ export class DiscoveryService {
       userQuery = userQuery.in('role', ['artist', 'service_provider']);
     }
 
-    if (params.minLat != null) userQuery = userQuery.gte('artist_lat', params.minLat);
-    if (params.maxLat != null) userQuery = userQuery.lte('artist_lat', params.maxLat);
-    if (params.minLng != null) userQuery = userQuery.gte('artist_lng', params.minLng);
-    if (params.maxLng != null) userQuery = userQuery.lte('artist_lng', params.maxLng);
+    if (params.minLat != null)
+      userQuery = userQuery.gte('artist_lat', params.minLat);
+    if (params.maxLat != null)
+      userQuery = userQuery.lte('artist_lat', params.maxLat);
+    if (params.minLng != null)
+      userQuery = userQuery.gte('artist_lng', params.minLng);
+    if (params.maxLng != null)
+      userQuery = userQuery.lte('artist_lng', params.maxLng);
 
     const { data: users, error: usersError } = await userQuery.limit(3000);
     if (usersError) {
@@ -216,7 +225,10 @@ export class DiscoveryService {
       const artistId = (row as any).artist_id as string | undefined;
       if (!artistId) continue;
       const likes = Number((row as any).like_count ?? 0);
-      likeMap.set(artistId, (likeMap.get(artistId) ?? 0) + (Number.isFinite(likes) ? likes : 0));
+      likeMap.set(
+        artistId,
+        (likeMap.get(artistId) ?? 0) + (Number.isFinite(likes) ? likes : 0),
+      );
     }
 
     return userRows
@@ -252,7 +264,12 @@ export class DiscoveryService {
     const grid = this.gridSizeForHeat(params.zoom);
     const buckets = new Map<
       string,
-      { latSum: number; lngSum: number; totalLikes: number; artistCount: number }
+      {
+        latSum: number;
+        lngSum: number;
+        totalLikes: number;
+        artistCount: number;
+      }
     >();
 
     for (const row of rows) {
@@ -315,7 +332,12 @@ export class DiscoveryService {
     const grid = this.gridSizeForCluster(params.zoom);
     const clusters = new Map<
       string,
-      { latSum: number; lngSum: number; totalLikes: number; artistCount: number }
+      {
+        latSum: number;
+        lngSum: number;
+        totalLikes: number;
+        artistCount: number;
+      }
     >();
 
     for (const row of rows) {
@@ -360,7 +382,10 @@ export class DiscoveryService {
     }
     return {
       clusters: out
-        .sort((a, b) => b.artistCount - a.artistCount || b.totalLikes - a.totalLikes)
+        .sort(
+          (a, b) =>
+            b.artistCount - a.artistCount || b.totalLikes - a.totalLikes,
+        )
         .slice(0, 300),
     };
   }
@@ -408,7 +433,10 @@ export class DiscoveryService {
     });
 
     const sorted = filtered.sort(
-      (a, b) => b.like_count - a.like_count || a.display_name?.localeCompare(b.display_name ?? '') || 0,
+      (a, b) =>
+        b.like_count - a.like_count ||
+        a.display_name?.localeCompare(b.display_name ?? '') ||
+        0,
     );
     const offset = Math.max(0, params.offset ?? 0);
     const limit = Math.min(200, Math.max(1, params.limit ?? 100));

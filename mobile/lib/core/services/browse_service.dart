@@ -48,4 +48,22 @@ class BrowseService {
     }
     return const [];
   }
+
+  Future<List<BrowseFeedItem>> getSaved({int limit = 100}) async {
+    return getBookmarks(limit: limit);
+  }
+
+  Future<List<Map<String, dynamic>>> getLeaderboard({
+    int days = 30,
+    int limit = 50,
+  }) async {
+    final res = await _api.get('browse/leaderboard?days=$days&limit=$limit');
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+    }
+    return const [];
+  }
 }

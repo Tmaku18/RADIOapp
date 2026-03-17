@@ -1,0 +1,32 @@
+class AppRoutes {
+  static const root = '/';
+  static const login = '/login';
+  static const home = '/home';
+  static const player = '/player';
+  static const analytics = '/analytics';
+  static const upload = '/upload';
+  static const profile = '/profile';
+  static const payment = '/payment';
+  static const settings = '/settings';
+  static const credits = '/credits';
+  static const messages = '/messages';
+  static const thread = '/messages/thread';
+  static const streamSettings = '/stream-settings';
+  static const goLive = '/go-live';
+  static const watchLive = '/watch-live';
+  static const proDirectory = '/pro-directory';
+  static const proMeProfile = '/pro-me-profile';
+  static const proProfile = '/pro-profile';
+  static const nearbyPeople = '/nearby-people';
+  static const refinery = '/refinery';
+  static const yield = '/yield';
+  static const about = '/about';
+  static const studio = '/studio';
+  static const competition = '/competition';
+  static const room = '/room';
+  static const discovery = '/discovery';
+  static const jobBoard = '/job-board';
+  static const apply = '/apply';
+  static const artistProfile = '/artist-profile';
+  static const buyPlays = '/buy-plays';
+}
