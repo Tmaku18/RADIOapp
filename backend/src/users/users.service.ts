@@ -220,11 +220,22 @@ export class UsersService {
   private isMissingUserFollowsTable(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
-    return (
-      maybeError?.code === '42P01' &&
-      (message.includes('user_follows') ||
-        message.includes('public.user_follows'))
-    );
+    if (maybeError?.code === '42P01') {
+      return (
+        message.includes('user_follows') ||
+        message.includes('public.user_follows')
+      );
+    }
+    // PostgREST schema cache miss format:
+    // "Could not find the table 'public.user_follows' in the schema cache"
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes("'public.user_follows'") ||
+        message.includes("'user_follows'") ||
+        message.includes('user_follows')
+      );
+    }
+    return false;
   }
 
   async getUserById(userId: string): Promise<UserResponse> {
@@ -651,12 +662,13 @@ export class UsersService {
       },
       { onConflict: 'follower_user_id,followed_user_id' },
     );
-    if (error && !this.isMissingUserFollowsTable(error)) {
+    const userFollowsMissing = this.isMissingUserFollowsTable(error);
+    if (error && !userFollowsMissing) {
       throw new BadRequestException(`Failed to follow user: ${error.message}`);
     }
 
     // Backward compatibility for existing artist follow endpoints/features.
-    await supabase.from('artist_follows').upsert(
+    const { error: legacyError } = await supabase.from('artist_follows').upsert(
       {
         user_id: followerUserId,
         artist_id: resolvedFollowedUserId,
@@ -664,6 +676,12 @@ export class UsersService {
       },
       { onConflict: 'user_id,artist_id' },
     );
+    // If primary table is unavailable, legacy insert must succeed.
+    if (userFollowsMissing && legacyError) {
+      throw new BadRequestException(
+        `Failed to follow user: ${legacyError.message}`,
+      );
+    }
 
     return { followed: true };
   }
