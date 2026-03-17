@@ -37,6 +37,11 @@ function SignupForm() {
     e.preventDefault();
     setLocalError(null);
 
+    if (!displayName.trim()) {
+      setLocalError('Display name is required');
+      return;
+    }
+
     if (password !== confirmPassword) {
       setLocalError('Passwords do not match');
       return;
@@ -50,7 +55,7 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      await signUpWithEmail(email, password, displayName.trim() || undefined);
+      await signUpWithEmail(email, password, displayName.trim());
       router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
@@ -141,10 +146,11 @@ function SignupForm() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="displayName">Display name (optional)</Label>
+          <Label htmlFor="displayName">Display name</Label>
           <Input
             id="displayName"
             type="text"
+            required
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="How you want to be shown"
