@@ -75,9 +75,6 @@ export default function MySongsPage() {
   const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
   const [editArtworkPreview, setEditArtworkPreview] = useState<string | null>(null);
   const [editDiscoverEnabled, setEditDiscoverEnabled] = useState(false);
-  const [editDiscoverClipUrl, setEditDiscoverClipUrl] = useState('');
-  const [editDiscoverClipFile, setEditDiscoverClipFile] = useState<File | null>(null);
-  const [editDiscoverBackgroundUrl, setEditDiscoverBackgroundUrl] = useState('');
   const [editDiscoverBackgroundFile, setEditDiscoverBackgroundFile] = useState<File | null>(null);
   const [editDiscoverBackgroundPreview, setEditDiscoverBackgroundPreview] = useState<string | null>(null);
   const [editDiscoverClipStartSeconds, setEditDiscoverClipStartSeconds] = useState('0');
@@ -153,28 +150,6 @@ export default function MySongsPage() {
     return getArtworkPublicUrl(path);
   };
 
-  const uploadSongAsset = async (file: File): Promise<string> => {
-    const response = await songsApi.getUploadUrl({
-      filename: file.name,
-      contentType: file.type || 'audio/mpeg',
-      bucket: 'songs',
-    });
-    const { signedUrl, path } = response.data as { signedUrl: string; path: string };
-    const uploadResponse = await fetch(signedUrl, {
-      method: 'PUT',
-      body: file,
-      headers: {
-        'Content-Type': file.type || 'audio/mpeg',
-      },
-    });
-    if (!uploadResponse.ok) {
-      throw new Error(`Discover clip upload failed (${uploadResponse.status})`);
-    }
-    const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
-    if (!base) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
-    return `${base}/storage/v1/object/public/songs/${path}`;
-  };
-
   const openEditModal = (song: Song) => {
     setEditingSong(song);
     setEditTitle(song.title);
@@ -183,11 +158,8 @@ export default function MySongsPage() {
     setEditArtworkFile(null);
     setEditArtworkPreview(song.artworkUrl || null);
     setEditDiscoverEnabled(song.discoverEnabled === true);
-    setEditDiscoverClipUrl(song.discoverClipUrl || '');
-    setEditDiscoverClipFile(null);
-    setEditDiscoverBackgroundUrl(song.discoverBackgroundUrl || '');
     setEditDiscoverBackgroundFile(null);
-    setEditDiscoverBackgroundPreview(song.discoverBackgroundUrl || null);
+    setEditDiscoverBackgroundPreview(song.discoverBackgroundUrl || song.artworkUrl || null);
     setEditDiscoverClipStartSeconds((song.discoverClipStartSeconds ?? 0).toString());
     setEditDiscoverClipEndSeconds((song.discoverClipEndSeconds ?? 15).toString());
   };
@@ -196,7 +168,6 @@ export default function MySongsPage() {
     setEditingSong(null);
     setEditArtworkFile(null);
     setEditArtworkPreview(null);
-    setEditDiscoverClipFile(null);
     setEditDiscoverBackgroundFile(null);
     setEditDiscoverBackgroundPreview(null);
     setEditSaving(false);
@@ -224,10 +195,6 @@ export default function MySongsPage() {
         setError('Discover clip duration must be 15 seconds or less');
         return;
       }
-      if (!editDiscoverClipUrl.trim() && !editDiscoverClipFile) {
-        setError('Enable Discover only when a discover clip URL/file is provided');
-        return;
-      }
     }
     setEditSaving(true);
     try {
@@ -235,29 +202,49 @@ export default function MySongsPage() {
       if (editArtworkFile) {
         finalArtworkUrl = await uploadArtwork(editArtworkFile);
       }
-      let finalDiscoverClipUrl = editDiscoverClipUrl.trim();
-      if (editDiscoverClipFile) {
-        finalDiscoverClipUrl = await uploadSongAsset(editDiscoverClipFile);
-      }
-      let finalDiscoverBackgroundUrl = editDiscoverBackgroundUrl.trim();
+      let finalDiscoverBackgroundUrl =
+        editDiscoverBackgroundPreview || editingSong.discoverBackgroundUrl || finalArtworkUrl;
       if (editDiscoverBackgroundFile) {
         finalDiscoverBackgroundUrl = await uploadArtwork(editDiscoverBackgroundFile);
       }
-      const response = await songsApi.update(editingSong.id, {
+      const updateResponse = await songsApi.update(editingSong.id, {
         title: nextTitle,
         stationId: editStationId,
         artworkUrl: finalArtworkUrl,
         discoverEnabled: editDiscoverEnabled,
-        discoverClipUrl: finalDiscoverClipUrl,
-        discoverBackgroundUrl: finalDiscoverBackgroundUrl,
-        discoverClipStartSeconds: editDiscoverEnabled
-          ? Number(editDiscoverClipStartSeconds)
-          : undefined,
-        discoverClipEndSeconds: editDiscoverEnabled
-          ? Number(editDiscoverClipEndSeconds)
-          : undefined,
       });
-      const updated = response.data as {
+
+      let discoverUpdated:
+        | {
+            discoverEnabled?: boolean;
+            discoverClipUrl?: string | null;
+            discoverBackgroundUrl?: string | null;
+            discoverClipStartSeconds?: number | null;
+            discoverClipEndSeconds?: number | null;
+            discoverClipDurationSeconds?: number | null;
+          }
+        | null = null;
+
+      if (editDiscoverEnabled) {
+        const publishResponse = await songsApi.publishDiscoverFromLibrary(
+          editingSong.id,
+          {
+            clipStartSeconds: Number(editDiscoverClipStartSeconds),
+            clipEndSeconds: Number(editDiscoverClipEndSeconds),
+            discoverBackgroundUrl: finalDiscoverBackgroundUrl || undefined,
+          },
+        );
+        discoverUpdated = publishResponse.data as {
+          discoverEnabled?: boolean;
+          discoverClipUrl?: string | null;
+          discoverBackgroundUrl?: string | null;
+          discoverClipStartSeconds?: number | null;
+          discoverClipEndSeconds?: number | null;
+          discoverClipDurationSeconds?: number | null;
+        };
+      }
+
+      const updated = updateResponse.data as {
         id: string;
         title: string;
         stationId?: string;
@@ -278,20 +265,28 @@ export default function MySongsPage() {
                 stationId: updated.stationId ?? editStationId,
                 artworkUrl:
                   updated.artworkUrl !== undefined ? updated.artworkUrl || undefined : finalArtworkUrl || undefined,
-                discoverEnabled: updated.discoverEnabled ?? editDiscoverEnabled,
+                discoverEnabled:
+                  discoverUpdated?.discoverEnabled ??
+                  updated.discoverEnabled ??
+                  editDiscoverEnabled,
                 discoverClipUrl:
-                  updated.discoverClipUrl !== undefined
-                    ? updated.discoverClipUrl || undefined
-                    : finalDiscoverClipUrl || undefined,
+                  discoverUpdated?.discoverClipUrl !== undefined
+                    ? discoverUpdated.discoverClipUrl || undefined
+                    : song.discoverClipUrl,
                 discoverBackgroundUrl:
-                  updated.discoverBackgroundUrl !== undefined
-                    ? updated.discoverBackgroundUrl || undefined
+                  discoverUpdated?.discoverBackgroundUrl !== undefined
+                    ? discoverUpdated.discoverBackgroundUrl || undefined
                     : finalDiscoverBackgroundUrl || undefined,
                 discoverClipStartSeconds:
-                  updated.discoverClipStartSeconds ?? Number(editDiscoverClipStartSeconds),
+                  discoverUpdated?.discoverClipStartSeconds ??
+                  updated.discoverClipStartSeconds ??
+                  Number(editDiscoverClipStartSeconds),
                 discoverClipEndSeconds:
-                  updated.discoverClipEndSeconds ?? Number(editDiscoverClipEndSeconds),
+                  discoverUpdated?.discoverClipEndSeconds ??
+                  updated.discoverClipEndSeconds ??
+                  Number(editDiscoverClipEndSeconds),
                 discoverClipDurationSeconds:
+                  discoverUpdated?.discoverClipDurationSeconds ??
                   updated.discoverClipDurationSeconds ??
                   Number(editDiscoverClipEndSeconds) - Number(editDiscoverClipStartSeconds),
               }
@@ -527,26 +522,9 @@ export default function MySongsPage() {
                   onChange={(e) => setEditDiscoverEnabled(e.target.checked)}
                 />
               </div>
-              <label className="text-sm font-medium">Discover Clip URL</label>
-              <input
-                value={editDiscoverClipUrl}
-                onChange={(e) => setEditDiscoverClipUrl(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="https://... discover clip"
-              />
-              <div className="flex items-center gap-2">
-                <input
-                  type="file"
-                  accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setEditDiscoverClipFile(file);
-                  }}
-                  className="text-sm"
-                />
-                {editDiscoverClipFile && (
-                  <span className="text-xs text-muted-foreground">{editDiscoverClipFile.name}</span>
-                )}
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Discover clip source: this song&apos;s uploaded audio.
+                Set start/end below to trim the clip (up to 15s), same flow as admin trim.
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
@@ -572,13 +550,7 @@ export default function MySongsPage() {
                   />
                 </div>
               </div>
-              <label className="text-sm font-medium">Discover Background URL</label>
-              <input
-                value={editDiscoverBackgroundUrl}
-                onChange={(e) => setEditDiscoverBackgroundUrl(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                placeholder="https://... background"
-              />
+              <label className="text-sm font-medium">Discover Background Image (optional)</label>
               <div className="flex items-center gap-2">
                 <input
                   type="file"
@@ -590,7 +562,11 @@ export default function MySongsPage() {
                       const preview = URL.createObjectURL(file);
                       setEditDiscoverBackgroundPreview(preview);
                     } else {
-                      setEditDiscoverBackgroundPreview(editDiscoverBackgroundUrl || null);
+                      setEditDiscoverBackgroundPreview(
+                        editingSong.discoverBackgroundUrl ||
+                          editingSong.artworkUrl ||
+                          null,
+                      );
                     }
                   }}
                   className="text-sm"
