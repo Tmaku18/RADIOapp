@@ -580,7 +580,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         return SafeArea(
           child: SizedBox(
             height: MediaQuery.of(context).size.height * 0.78,
-            child: const ChatPanel(
+            child: ChatPanel(
+              currentSongId: _currentTrack?.id,
+              currentSongTitle: _currentTrack?.title,
               isExpanded: true,
               fillHeightWhenExpanded: true,
               expandedHeight: 9999,

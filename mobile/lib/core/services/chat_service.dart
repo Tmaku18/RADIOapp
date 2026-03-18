@@ -19,9 +19,7 @@ enum ChatConnectionState {
 /// - Lifecycle management: Pause/resume subscriptions with app state
 /// - Smart scroll: Track if user is at bottom for auto-scroll decisions
 class ChatService extends ChangeNotifier with WidgetsBindingObserver {
-  static final ChatService _instance = ChatService._internal();
-  factory ChatService() => _instance;
-  ChatService._internal();
+  ChatService();
 
   final ApiService _apiService = ApiService();
   
