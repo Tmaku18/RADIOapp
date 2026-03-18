@@ -165,6 +165,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.notifications);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.forum_outlined),
                   title: const Text('Room'),
                   onTap: () {

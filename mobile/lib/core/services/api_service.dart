@@ -182,6 +182,22 @@ class ApiService {
     );
   }
 
+  /// PATCH request - returns dynamic (can be Map or List depending on endpoint)
+  Future<dynamic> patch(
+    String endpoint,
+    Map<String, dynamic>? body,
+  ) async {
+    return _withFallback(
+      (base, headers) => http.patch(
+        Uri.parse('$base/api/$endpoint'),
+        headers: headers,
+        body: body != null ? json.encode(body) : null,
+      ),
+      endpoint,
+      'PATCH',
+    );
+  }
+
   /// DELETE request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> delete(String endpoint) async {
     return _withFallback(

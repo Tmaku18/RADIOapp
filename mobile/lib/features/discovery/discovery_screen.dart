@@ -9,6 +9,7 @@ import '../../core/services/browse_service.dart';
 import '../../core/services/competition_service.dart';
 import '../../core/services/discovery_map_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import 'discover_audio_tab.dart';
 
 class DiscoveryScreen extends StatefulWidget {
   const DiscoveryScreen({super.key});
@@ -244,13 +245,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Social'),
           bottom: const TabBar(
             tabs: [
               Tab(text: 'Discover'),
+              Tab(text: 'Browse'),
               Tab(text: 'Map'),
               Tab(text: 'Feed'),
               Tab(text: 'Saved'),
@@ -266,6 +268,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         ),
         body: TabBarView(
           children: [
+            const DiscoverAudioTab(),
             _loading && _items.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _items.isEmpty

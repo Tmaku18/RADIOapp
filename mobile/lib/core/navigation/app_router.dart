@@ -12,6 +12,7 @@ import '../../features/livestream/stream_settings_screen.dart';
 import '../../features/livestream/watch_live_screen.dart';
 import '../../features/messages/messages_screen.dart';
 import '../../features/nearby/nearby_people_screen.dart';
+import '../../features/notifications/notifications_screen.dart';
 import '../../features/payment/payment_screen.dart';
 import '../../features/player/player_screen.dart';
 import '../../features/pro_networx/pro_directory_screen.dart';
@@ -52,6 +53,8 @@ class AppRouter {
         return _route(const RequireArtist(child: PaymentScreen()), settings);
       case AppRoutes.settings:
         return _route(const SettingsScreen(), settings);
+      case AppRoutes.notifications:
+        return _route(const NotificationsScreen(), settings);
       case AppRoutes.credits:
         return _route(const CreditsScreen(), settings);
       case AppRoutes.messages:

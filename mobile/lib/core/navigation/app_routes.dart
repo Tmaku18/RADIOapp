@@ -8,6 +8,7 @@ class AppRoutes {
   static const profile = '/profile';
   static const payment = '/payment';
   static const settings = '/settings';
+  static const notifications = '/notifications';
   static const credits = '/credits';
   static const messages = '/messages';
   static const thread = '/messages/thread';
