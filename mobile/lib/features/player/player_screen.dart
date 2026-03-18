@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1014,8 +1015,14 @@ class _PlayerBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
+        final compactTargetHeight =
+            constraints.maxHeight * (ad != null ? 0.30 : 0.38);
+        final compactArtSize = math.min(
+          constraints.maxWidth,
+          compactTargetHeight.clamp(180.0, 340.0).toDouble(),
+        );
         final art = SizedBox(
-          width: isWide ? 320 : double.infinity,
+          width: isWide ? 320 : compactArtSize,
           child: albumArt(),
         );
         final details = glassPanel(
