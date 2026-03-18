@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth/auth_service.dart';
 import '../core/navigation/app_routes.dart';
+import '../core/theme/networx_tokens.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -107,144 +108,258 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final borderColor = NetworxTokens.cloudDancer.withValues(alpha: 0.12);
+
+    InputDecoration themedDecoration({
+      required String label,
+      String? hint,
+    }) {
+      return InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(color: NetworxTokens.cloudDancer),
+        hintStyle: TextStyle(
+          color: NetworxTokens.cloudDancer.withValues(alpha: 0.62),
+        ),
+        filled: true,
+        fillColor: NetworxTokens.charcoalMatte.withValues(alpha: 0.86),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: borderColor),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: NetworxTokens.electricCyan, width: 1.4),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: NetworxTokens.error),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: NetworxTokens.error, width: 1.4),
+        ),
+      );
+    }
+
     return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.radio, size: 80, color: Colors.deepPurple),
-                  const SizedBox(height: 32),
-                  Text(
-                    _isSignUp ? 'Sign Up' : 'Sign In',
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 32),
-                  if (_isSignUp) ...[
-                    TextFormField(
-                      controller: _displayNameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Display Name',
-                        border: OutlineInputBorder(),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              NetworxTokens.deepMidnight,
+              NetworxTokens.charcoalMatte,
+              NetworxTokens.deepCobalt,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 460),
+                child: Form(
+                  key: _formKey,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: NetworxTokens.deepMidnight.withValues(alpha: 0.76),
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: NetworxTokens.cloudDancer.withValues(alpha: 0.14),
                       ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Please enter your name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedRole,
-                      decoration: const InputDecoration(
-                        labelText: 'Role',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(value: 'listener', child: Text('Listener')),
-                        DropdownMenuItem(value: 'artist', child: Text('Artist')),
+                      boxShadow: [
+                        BoxShadow(
+                          color: NetworxTokens.deepMidnight.withValues(alpha: 0.55),
+                          blurRadius: 28,
+                          offset: const Offset(0, 14),
+                        ),
                       ],
-                      onChanged: (value) {
-                        setState(() {
-                          _selectedRole = value!;
-                        });
-                      },
                     ),
-                    const SizedBox(height: 16),
-                  ],
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your email';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
-                    obscureText: true,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter your password';
-                      }
-                      if (_isSignUp && value.length < 6) {
-                        return 'Password must be at least 6 characters';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isSubmitting ? null : _handleEmailSignIn,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.deepPurple,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.all(16),
-                      ),
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Image.asset(
+                            'assets/images/branding/logo_0.png',
+                            width: 78,
+                            height: 78,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Networx',
+                          style: textTheme.headlineSmall?.copyWith(
+                            color: NetworxTokens.cloudDancer,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _isSignUp
+                              ? 'Create your account to join the network'
+                              : 'Welcome back. Sign in to continue.',
+                          textAlign: TextAlign.center,
+                          style: textTheme.bodyMedium?.copyWith(
+                            color: NetworxTokens.cloudDancer.withValues(alpha: 0.74),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        if (_isSignUp) ...[
+                          TextFormField(
+                            controller: _displayNameController,
+                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            decoration: themedDecoration(
+                              label: 'Display name',
+                              hint: 'Your public name',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please enter your name';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<String>(
+                            initialValue: _selectedRole,
+                            decoration: themedDecoration(label: 'Role'),
+                            dropdownColor: NetworxTokens.charcoalMatte,
+                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            items: const [
+                              DropdownMenuItem(value: 'listener', child: Text('Listener')),
+                              DropdownMenuItem(value: 'artist', child: Text('Artist')),
+                            ],
+                            onChanged: (value) {
+                              setState(() {
+                                _selectedRole = value!;
+                              });
+                            },
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        TextFormField(
+                          controller: _emailController,
+                          style: const TextStyle(color: NetworxTokens.cloudDancer),
+                          decoration: themedDecoration(
+                            label: 'Email',
+                            hint: 'you@example.com',
+                          ),
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your email';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _passwordController,
+                          style: const TextStyle(color: NetworxTokens.cloudDancer),
+                          decoration: themedDecoration(
+                            label: 'Password',
+                            hint: 'Enter your password',
+                          ),
+                          obscureText: true,
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please enter your password';
+                            }
+                            if (_isSignUp && value.length < 6) {
+                              return 'Password must be at least 6 characters';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 18),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _isSubmitting ? null : _handleEmailSignIn,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: NetworxTokens.electricCyan,
+                              foregroundColor: NetworxTokens.deepMidnight,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                            child: _isSubmitting
+                                ? SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: scheme.onPrimary,
+                                    ),
+                                  )
+                                : Text(_isSignUp ? 'Create account' : 'Sign in'),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Divider(
+                                color: NetworxTokens.cloudDancer.withValues(alpha: 0.22),
                               ),
-                            )
-                          : Text(_isSignUp ? 'Sign Up' : 'Sign In'),
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'OR',
+                                style: textTheme.labelSmall?.copyWith(
+                                  color: NetworxTokens.cloudDancer.withValues(alpha: 0.72),
+                                  letterSpacing: 0.8,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Divider(
+                                color: NetworxTokens.cloudDancer.withValues(alpha: 0.22),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isSubmitting ? null : _handleGoogleSignIn,
+                            icon: const Icon(Icons.g_mobiledata, size: 28),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: NetworxTokens.cloudDancer,
+                              side: BorderSide(color: borderColor),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            label: const Text('Continue with Google'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _isSignUp = !_isSignUp;
+                                  });
+                                },
+                          child: Text(
+                            _isSignUp
+                                ? 'Already have an account? Sign in'
+                                : 'Don\'t have an account? Sign up',
+                            style: const TextStyle(color: NetworxTokens.electricCyan),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('OR'),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isSubmitting ? null : _handleGoogleSignIn,
-                      icon: const Icon(Icons.g_mobiledata),
-                      label: const Text('Sign in with Google'),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: _isSubmitting
-                        ? null
-                        : () {
-                      setState(() {
-                        _isSignUp = !_isSignUp;
-                      });
-                    },
-                    child: Text(_isSignUp
-                        ? 'Already have an account? Sign in'
-                        : 'Don\'t have an account? Sign up'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
