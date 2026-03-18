@@ -360,6 +360,11 @@ export class UploadsService {
           `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
         );
       }
+      if (!data) {
+        throw new BadRequestException(
+          `Failed to upload ${options.errorPrefix.toLowerCase()}: Empty storage response`,
+        );
+      }
 
       const { data: urlData } = supabase.storage
         .from(bucketName)
@@ -548,6 +553,11 @@ export class UploadsService {
     if (error) {
       throw new BadRequestException(
         `Failed to generate upload URL: ${error.message}`,
+      );
+    }
+    if (!data) {
+      throw new BadRequestException(
+        'Failed to generate upload URL: Empty storage response',
       );
     }
 
