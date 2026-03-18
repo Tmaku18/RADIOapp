@@ -288,17 +288,6 @@ export class UploadsService {
     userId: string,
     options: UploadOptions,
   ): Promise<string> {
-    if (options.bucket === 'songs') {
-      await this.ensureSongBucketLimit();
-    }
-    if (
-      options.bucket === 'avatars' ||
-      options.bucket === 'artwork' ||
-      options.bucket === 'feed'
-    ) {
-      await this.ensureImageBucketLimit(options.bucket);
-    }
-
     // Validate file exists
     if (!file) {
       throw new BadRequestException(`${options.errorPrefix} is required`);
@@ -327,33 +316,60 @@ export class UploadsService {
     const pathPrefix = options.pathPrefix ? `${options.pathPrefix}/` : '';
     const fileName = `${userId}/${pathPrefix}${crypto.randomUUID()}.${extension}`;
 
-    // Upload to Supabase Storage
+    // Upload to Supabase Storage. If avatars bucket is unavailable in a given
+    // environment, fall back to artwork so profile uploads keep working.
+    const bucketCandidates =
+      options.bucket === 'avatars' ? ['avatars', 'artwork'] : [options.bucket];
     const supabase = getSupabaseClient();
-    const attemptUpload = async () =>
-      supabase.storage.from(options.bucket).upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        upsert: false,
-      });
+    let lastError: { message?: string } | null = null;
 
-    let { data, error } = await attemptUpload();
+    for (const bucketName of bucketCandidates) {
+      if (bucketName === 'songs') {
+        await this.ensureSongBucketLimit();
+      }
+      if (
+        bucketName === 'avatars' ||
+        bucketName === 'artwork' ||
+        bucketName === 'feed'
+      ) {
+        await this.ensureImageBucketLimit(bucketName);
+      }
 
-    if (error && this.isBucketNotFoundError(error, options.bucket)) {
-      await this.ensureBucketExists(options.bucket);
-      ({ data, error } = await attemptUpload());
+      const attemptUpload = async () =>
+        supabase.storage.from(bucketName).upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+          upsert: false,
+        });
+
+      let { data, error } = await attemptUpload();
+
+      if (error && this.isBucketNotFoundError(error, bucketName)) {
+        await this.ensureBucketExists(bucketName);
+        ({ data, error } = await attemptUpload());
+      }
+
+      if (error) {
+        lastError = error;
+        if (
+          this.isBucketNotFoundError(error, bucketName) &&
+          bucketName !== bucketCandidates[bucketCandidates.length - 1]
+        ) {
+          continue;
+        }
+        throw new BadRequestException(
+          `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
+        );
+      }
+
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(data.path);
+      return urlData.publicUrl;
     }
 
-    if (error) {
-      throw new BadRequestException(
-        `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
-      );
-    }
-
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(options.bucket)
-      .getPublicUrl(data.path);
-
-    return urlData.publicUrl;
+    throw new BadRequestException(
+      `Failed to upload ${options.errorPrefix.toLowerCase()}: ${lastError?.message ?? 'Unknown storage error'}`,
+    );
   }
 
   /**
