@@ -103,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.science_outlined),
-              label: 'The Refinery',
+              label: 'Refinery',
             ),
             NavigationDestination(
               icon: Icon(Icons.redeem_outlined),
@@ -213,7 +213,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!isArtist)
                   ListTile(
                     leading: const Icon(Icons.science_outlined),
-                    title: const Text('The Refinery'),
+                    title: const Text('Refinery'),
                     subtitle: const Text('Review songs, rank, survey, comment for rewards'),
                     onTap: () {
                       Navigator.pop(context);
