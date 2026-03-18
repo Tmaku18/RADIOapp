@@ -20,6 +20,8 @@ export class GetPortfolioUploadUrlDto {
     'image/jpg',
     'image/png',
     'image/webp',
+    'video/mp4',
+    'video/webm',
   ])
   contentType: string;
 }

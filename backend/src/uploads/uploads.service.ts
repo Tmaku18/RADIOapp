@@ -32,6 +32,25 @@ interface UploadOptions {
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
+  private readonly portfolioBucketTargetBytes = 25 * 1024 * 1024;
+  private readonly portfolioAllowedMimeTypes = [
+    'audio/mpeg',
+    'audio/mp3',
+    'audio/wav',
+    'audio/x-wav',
+    'audio/mp4',
+    'audio/x-m4a',
+    'audio/aac',
+    'audio/ogg',
+    'audio/flac',
+    'audio/webm',
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+  ];
   private readonly songBucketAllowedMimeTypes = [
     'audio/mpeg',
     'audio/mp3',
@@ -143,6 +162,44 @@ export class UploadsService {
     this.lastImageBucketEnsureAt.set(bucketName, now);
   }
 
+  private async ensurePortfolioBucketLimit(): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: bucket, error: getError } =
+      await supabase.storage.getBucket('portfolio');
+    if (getError || !bucket) return;
+
+    const currentLimit =
+      typeof (bucket as any).file_size_limit === 'number'
+        ? (bucket as any).file_size_limit
+        : typeof (bucket as any).fileSizeLimit === 'number'
+          ? (bucket as any).fileSizeLimit
+          : null;
+    const currentMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
+      ? (bucket as any).allowed_mime_types
+      : Array.isArray((bucket as any).allowedMimeTypes)
+        ? (bucket as any).allowedMimeTypes
+        : [];
+    const missingMime = this.portfolioAllowedMimeTypes.some(
+      (mime) => !currentMimeTypes.includes(mime),
+    );
+
+    if (
+      currentLimit !== null &&
+      currentLimit >= this.portfolioBucketTargetBytes &&
+      !missingMime
+    ) {
+      return;
+    }
+
+    await supabase.storage.updateBucket('portfolio', {
+      public: Boolean((bucket as any).public),
+      fileSizeLimit: this.portfolioBucketTargetBytes,
+      allowedMimeTypes: [
+        ...new Set([...currentMimeTypes, ...this.portfolioAllowedMimeTypes]),
+      ],
+    });
+  }
+
   /**
    * Internal method to handle file uploads to Supabase Storage.
    * Consolidates validation and upload logic for all file types.
@@ -159,7 +216,11 @@ export class UploadsService {
     if (options.bucket === 'songs') {
       await this.ensureSongBucketLimit();
     }
-    if (options.bucket === 'avatars' || options.bucket === 'artwork') {
+    if (
+      options.bucket === 'avatars' ||
+      options.bucket === 'artwork' ||
+      options.bucket === 'feed'
+    ) {
       await this.ensureImageBucketLimit(options.bucket);
     }
 
@@ -355,6 +416,8 @@ export class UploadsService {
         'image/jpg',
         'image/png',
         'image/webp',
+        'video/mp4',
+        'video/webm',
       ],
     };
 
@@ -372,6 +435,9 @@ export class UploadsService {
     const supabase = getSupabaseClient();
     if (bucket === 'songs') {
       await this.ensureSongBucketLimit();
+    }
+    if (bucket === 'portfolio') {
+      await this.ensurePortfolioBucketLimit();
     }
     const { data, error } = await supabase.storage
       .from(bucket)

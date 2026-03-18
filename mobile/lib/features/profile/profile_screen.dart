@@ -1,9 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
+import '../../core/services/users_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,6 +19,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   app_user.User? _user;
   bool _isLoading = true;
   bool _isSigningOut = false;
+  bool _isUploadingAvatar = false;
+  final UsersService _usersService = UsersService();
 
   @override
   void didChangeDependencies() {
@@ -44,6 +49,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Navigation is handled by AuthWrapper - no manual navigation needed
   }
 
+  Future<void> _pickAndUploadAvatar() async {
+    if (_isUploadingAvatar) return;
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final file = File(picked.path);
+    final sizeBytes = await file.length();
+    if (sizeBytes > 15 * 1024 * 1024) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Image must be 15MB or smaller.')),
+      );
+      return;
+    }
+
+    setState(() => _isUploadingAvatar = true);
+    try {
+      await _usersService.uploadAvatar(file);
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo updated.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to upload photo: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
+    }
+  }
+
+  Future<void> _removeAvatar() async {
+    if (_isUploadingAvatar) return;
+    setState(() => _isUploadingAvatar = true);
+    try {
+      await _usersService.updateMe(avatarUrl: '');
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo removed.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to remove photo: $e')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAvatar = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -66,6 +129,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         child: _user!.avatarUrl == null
                             ? const Icon(Icons.person, size: 60)
                             : null,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Center(
+                      child: Wrap(
+                        spacing: 12,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: _isUploadingAvatar ? null : _pickAndUploadAvatar,
+                            icon: _isUploadingAvatar
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2),
+                                  )
+                                : const Icon(Icons.camera_alt_outlined),
+                            label: const Text('Change photo'),
+                          ),
+                          if (_user!.avatarUrl != null)
+                            TextButton(
+                              onPressed: _isUploadingAvatar ? null : _removeAvatar,
+                              child: const Text('Remove photo'),
+                            ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 16),
