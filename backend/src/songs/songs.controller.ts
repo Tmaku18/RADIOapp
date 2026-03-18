@@ -45,17 +45,11 @@ export class SongsController {
 
   private assertArtistProfileComplete(userData: {
     display_name?: string | null;
-    avatar_url?: string | null;
   }) {
     const artistName = (userData.display_name ?? '').trim();
     if (!artistName) {
       throw new BadRequestException(
         'Artist name is required. Please set your profile display name before uploading songs.',
-      );
-    }
-    if (!userData.avatar_url) {
-      throw new BadRequestException(
-        'Profile picture is required. Please upload a profile photo before uploading songs.',
       );
     }
   }
