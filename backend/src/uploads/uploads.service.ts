@@ -45,6 +45,7 @@ export class UploadsService {
     'audio/webm',
   ];
   private lastSongBucketEnsureAt = 0;
+  private readonly lastImageBucketEnsureAt = new Map<string, number>();
 
   constructor(private configService: ConfigService) {}
 
@@ -90,6 +91,58 @@ export class UploadsService {
     this.lastSongBucketEnsureAt = now;
   }
 
+  private async ensureImageBucketLimit(bucketName: string): Promise<void> {
+    const now = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+    const lastEnsureAt = this.lastImageBucketEnsureAt.get(bucketName) ?? 0;
+    if (now - lastEnsureAt < tenMinutesMs) return;
+
+    const supabase = getSupabaseClient();
+    const { data: bucket, error: getError } =
+      await supabase.storage.getBucket(bucketName);
+    if (getError || !bucket) {
+      // Do not block uploads if metadata lookup fails.
+      return;
+    }
+
+    const currentLimit =
+      typeof (bucket as any).file_size_limit === 'number'
+        ? (bucket as any).file_size_limit
+        : typeof (bucket as any).fileSizeLimit === 'number'
+          ? (bucket as any).fileSizeLimit
+          : null;
+
+    const requiredMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const currentMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
+      ? (bucket as any).allowed_mime_types
+      : Array.isArray((bucket as any).allowedMimeTypes)
+        ? (bucket as any).allowedMimeTypes
+        : [];
+    const missingRequiredMimeType = requiredMimeTypes.some(
+      (mime) => !currentMimeTypes.includes(mime),
+    );
+
+    if (
+      currentLimit !== null &&
+      currentLimit >= this.imageUploadMaxBytes &&
+      !missingRequiredMimeType
+    ) {
+      this.lastImageBucketEnsureAt.set(bucketName, now);
+      return;
+    }
+
+    const nextMimeTypes = missingRequiredMimeType
+      ? [...new Set([...currentMimeTypes, ...requiredMimeTypes])]
+      : currentMimeTypes;
+
+    await supabase.storage.updateBucket(bucketName, {
+      public: Boolean((bucket as any).public),
+      fileSizeLimit: this.imageUploadMaxBytes,
+      allowedMimeTypes: nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
+    });
+    this.lastImageBucketEnsureAt.set(bucketName, now);
+  }
+
   /**
    * Internal method to handle file uploads to Supabase Storage.
    * Consolidates validation and upload logic for all file types.
@@ -103,6 +156,13 @@ export class UploadsService {
     userId: string,
     options: UploadOptions,
   ): Promise<string> {
+    if (options.bucket === 'songs') {
+      await this.ensureSongBucketLimit();
+    }
+    if (options.bucket === 'avatars' || options.bucket === 'artwork') {
+      await this.ensureImageBucketLimit(options.bucket);
+    }
+
     // Validate file exists
     if (!file) {
       throw new BadRequestException(`${options.errorPrefix} is required`);

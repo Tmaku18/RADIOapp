@@ -15,6 +15,7 @@ import { StripeService } from './stripe.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { BuySongPlaysDto } from './dto/buy-song-plays.dto';
+import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
@@ -46,6 +47,25 @@ export class PaymentsController {
     }
 
     return this.paymentsService.createPaymentIntent(userData.id, dto);
+  }
+
+  @Post('google-play/complete')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async completeGooglePlayPurchase(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CompleteGooglePlayPurchaseDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) {
+      throw new Error('User not found');
+    }
+    return this.paymentsService.completeGooglePlayPurchase(userData.id, dto);
   }
 
   /**

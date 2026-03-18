@@ -16,6 +16,8 @@ import {
   File01Icon,
 } from '@hugeicons/core-free-icons';
 
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
+
 const settingsSections = [
   {
     title: 'Account',
@@ -156,6 +158,23 @@ export default function SettingsPage() {
                 </div>
                 <span className="text-muted-foreground" aria-hidden>›</span>
               </Link>
+            </li>
+            <li>
+              <a
+                href={SUPPORT_DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                  <HugeiconsIcon icon={HelpCircleIcon} className="size-5 text-muted-foreground" strokeWidth={2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">Discord Support</p>
+                  <p className="text-sm text-muted-foreground">Chat with support and community</p>
+                </div>
+                <span className="text-muted-foreground" aria-hidden>↗</span>
+              </a>
             </li>
             <li>
               <Link href="/privacy" className="flex items-center gap-4 px-4 py-3 hover:bg-muted/50 transition-colors">

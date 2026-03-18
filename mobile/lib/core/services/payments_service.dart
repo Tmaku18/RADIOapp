@@ -38,7 +38,7 @@ class PaymentsService {
     String? successUrl,
     String? cancelUrl,
   }) async {
-    final res = await _api.post('payments/checkout/song-plays', {
+    final res = await _api.post('payments/checkout-session-song-plays', {
       'songId': songId,
       'plays': plays,
       if (successUrl != null) 'successUrl': successUrl,
@@ -66,9 +66,22 @@ class PaymentsService {
     String? successUrl,
     String? cancelUrl,
   }) async {
-    final res = await _api.post('payments/checkout/creator-network', {
+    final res = await _api.post('payments/create-creator-network-checkout-session', {
       if (successUrl != null) 'successUrl': successUrl,
       if (cancelUrl != null) 'cancelUrl': cancelUrl,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> completeGooglePlayPurchase({
+    required String productId,
+    required String purchaseToken,
+    String? songId,
+  }) async {
+    final res = await _api.post('payments/google-play/complete', {
+      'productId': productId,
+      'purchaseToken': purchaseToken,
+      if (songId != null) 'songId': songId,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }

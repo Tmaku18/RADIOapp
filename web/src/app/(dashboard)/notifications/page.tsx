@@ -24,6 +24,7 @@ interface Notification {
   read: boolean;
   createdAt: string;
 }
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
 function getNotificationIcon(type: string): string {
   switch (type) {
@@ -168,7 +169,14 @@ export default function NotificationsPage() {
                     )}
                     {notification.type === 'song_rejected' && (
                       <div className="mt-2 text-sm">
-                        <a href="mailto:support@radioapp.com" className="text-primary hover:underline">Contact Support</a>
+                        <a
+                          href={SUPPORT_DISCORD_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Contact Support (Discord)
+                        </a>
                         <span className="text-muted-foreground mx-2">•</span>
                         <span className="text-muted-foreground">48 hours to appeal</span>
                       </div>

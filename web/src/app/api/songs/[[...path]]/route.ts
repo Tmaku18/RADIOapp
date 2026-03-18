@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBackendBaseUrl } from '@/lib/backend-url';
-
-const base = getBackendBaseUrl();
-const apiBase = base.endsWith('/api') ? base : `${base}/api`;
+import { getBackendBaseUrls } from '@/lib/backend-url';
 
 /**
  * Proxy all /api/songs/* requests to the backend so upload and song endpoints
@@ -11,7 +8,6 @@ const apiBase = base.endsWith('/api') ? base : `${base}/api`;
 async function proxy(request: NextRequest, pathSegments: string[]) {
   const path = pathSegments.length ? pathSegments.join('/') : '';
   const search = request.nextUrl.search || '';
-  const url = `${apiBase}/songs${path ? `/${path}` : ''}${search}`;
   const auth = request.headers.get('authorization');
   const contentType = request.headers.get('content-type');
   const headers: Record<string, string> = {};
@@ -29,27 +25,64 @@ async function proxy(request: NextRequest, pathSegments: string[]) {
     if (body && !contentType && typeof body === 'string') headers['Content-Type'] = 'application/json';
   }
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: request.method,
-      headers,
-      body: body ?? undefined,
-    });
-  } catch {
+  const apiBases = getBackendBaseUrls().map((base) =>
+    base.endsWith('/api') ? base : `${base}/api`,
+  );
+
+  let res: Response | null = null;
+  let lastError: unknown = null;
+  for (const apiBase of apiBases) {
+    const url = `${apiBase}/songs${path ? `/${path}` : ''}${search}`;
+    try {
+      res = await fetch(url, {
+        method: request.method,
+        headers,
+        body: body ?? undefined,
+      });
+      break;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  if (!res) {
+    const details =
+      lastError instanceof Error ? ` (${lastError.message})` : '';
     return NextResponse.json(
-      { message: 'Backend unreachable. Check BACKEND_URL and that the API server is running.' },
-      { status: 502 }
+      {
+        message:
+          `Backend unreachable across configured URLs. Check BACKEND_URL/NEXT_PUBLIC_API_URL and backend health.${details}`.trim(),
+      },
+      { status: 502 },
     );
   }
 
-  const data = await res.json().catch(() => ({}));
+  const rawBody = await res.text();
+  let data: unknown = {};
+  if (rawBody.trim().length > 0) {
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      data = { message: rawBody };
+    }
+  }
   if (res.status === 404) {
     return NextResponse.json(
       { message: (data as { message?: string }).message ?? 'Endpoint not found. Ensure the backend is deployed and BACKEND_URL is set.' },
       { status: 404 }
     );
   }
+
+  if (
+    res.status >= 500 &&
+    !(data as { message?: string }).message
+  ) {
+    return NextResponse.json(
+      { message: 'Backend returned a server error. Please try again shortly.' },
+      { status: res.status },
+    );
+  }
+
   return NextResponse.json(data, { status: res.status });
 }
 

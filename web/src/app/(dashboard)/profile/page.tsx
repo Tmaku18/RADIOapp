@@ -203,7 +203,16 @@ export default function ProfilePage() {
       await usersApi.uploadProfilePhoto(file);
       await refreshProfile();
     } catch (err) {
-      setAvatarError(err instanceof Error ? err.message : 'Failed to upload profile picture');
+      const apiMessage = (
+        err as { response?: { data?: { message?: string | string[] } }; message?: string }
+      )?.response?.data?.message;
+      const normalizedMessage = Array.isArray(apiMessage)
+        ? apiMessage.join(', ')
+        : apiMessage;
+      setAvatarError(
+        normalizedMessage ||
+          (err instanceof Error ? err.message : 'Failed to upload profile picture'),
+      );
     } finally {
       setIsUploadingAvatar(false);
     }

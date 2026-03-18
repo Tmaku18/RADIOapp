@@ -2,10 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
+import { GooglePlayBillingService } from './google-play-billing.service';
 import { CreatorNetworkService } from '../creator-network/creator-network.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ALLOWED_PLAYS_LIST, BuySongPlaysDto } from './dto/buy-song-plays.dto';
+import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
+
+type GooglePlayCatalogEntry = {
+  type: 'credits' | 'song_plays';
+  amountCents: number;
+  credits?: number;
+  plays?: number;
+};
 
 /** $1 per minute per play, rounded up to nearest cent. Returns cents. */
 export function pricePerPlayCents(durationSeconds: number): number {
@@ -19,7 +28,166 @@ export class PaymentsService {
     private stripeService: StripeService,
     private configService: ConfigService,
     private creatorNetwork: CreatorNetworkService,
+    private googlePlayBillingService: GooglePlayBillingService,
   ) {}
+
+  private getGooglePlayCatalog(): Record<string, GooglePlayCatalogEntry> {
+    const raw = this.configService.get<string>(
+      'GOOGLE_PLAY_PRODUCT_CATALOG_JSON',
+    );
+    if (!raw) {
+      throw new Error(
+        'GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map Play products to credits/plays',
+      );
+    }
+    const parsed = JSON.parse(raw) as Record<string, GooglePlayCatalogEntry>;
+    return parsed;
+  }
+
+  private resolveGooglePlayProduct(productId: string): GooglePlayCatalogEntry {
+    const catalog = this.getGooglePlayCatalog();
+    const product = catalog[productId];
+    if (!product) {
+      throw new Error(`Unknown Google Play product: ${productId}`);
+    }
+    if (!product.amountCents || product.amountCents <= 0) {
+      throw new Error(
+        `Invalid catalog amountCents for Google Play product: ${productId}`,
+      );
+    }
+    if (
+      product.type === 'credits' &&
+      (!product.credits || product.credits <= 0)
+    ) {
+      throw new Error(
+        `Invalid credits mapping for Google Play product: ${productId}`,
+      );
+    }
+    if (
+      product.type === 'song_plays' &&
+      (!product.plays ||
+        !ALLOWED_PLAYS_LIST.includes(
+          product.plays as (typeof ALLOWED_PLAYS_LIST)[number],
+        ))
+    ) {
+      throw new Error(
+        `Invalid plays mapping for Google Play product: ${productId}`,
+      );
+    }
+    return product;
+  }
+
+  private async grantCreditsToArtist(
+    supabase: any,
+    userId: string,
+    creditsPurchased: number,
+  ): Promise<void> {
+    const { error: rpcError } = await supabase.rpc('increment_credits', {
+      p_artist_id: userId,
+      p_amount: creditsPurchased,
+    });
+
+    if (rpcError) {
+      console.error('Failed to increment credits via RPC:', rpcError.message);
+      const { data: credits } = await supabase
+        .from('credits')
+        .select('*')
+        .eq('artist_id', userId)
+        .single();
+      if (credits) {
+        await supabase
+          .from('credits')
+          .update({
+            balance: credits.balance + creditsPurchased,
+            total_purchased: credits.total_purchased + creditsPurchased,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', credits.id);
+      } else {
+        await supabase.from('credits').insert({
+          artist_id: userId,
+          balance: creditsPurchased,
+          total_purchased: creditsPurchased,
+        });
+      }
+    }
+  }
+
+  async completeGooglePlayPurchase(
+    userId: string,
+    dto: CompleteGooglePlayPurchaseDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const product = this.resolveGooglePlayProduct(dto.productId);
+    const verification =
+      await this.googlePlayBillingService.verifyManagedProductPurchase({
+        productId: dto.productId,
+        purchaseToken: dto.purchaseToken,
+      });
+    const orderId = verification.orderId ?? dto.purchaseToken;
+
+    const { data: existingTransaction } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('stripe_charge_id', orderId)
+      .single();
+
+    if (existingTransaction && existingTransaction.status === 'succeeded') {
+      return {
+        transactionId: existingTransaction.id,
+        alreadyProcessed: true,
+      };
+    }
+
+    const creditsPurchased =
+      product.type === 'credits' ? (product.credits ?? 0) : 0;
+    const playsPurchased =
+      product.type === 'song_plays' ? (product.plays ?? 0) : null;
+    const songId = product.type === 'song_plays' ? dto.songId : null;
+    if (product.type === 'song_plays' && !songId) {
+      throw new Error(
+        'songId is required when completing a Google Play song_plays purchase',
+      );
+    }
+
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        amount_cents: product.amountCents,
+        credits_purchased: creditsPurchased,
+        status: 'succeeded',
+        payment_method: 'google_play',
+        stripe_charge_id: orderId,
+        stripe_payment_intent_id: dto.purchaseToken,
+        song_id: songId,
+        plays_purchased: playsPurchased,
+      })
+      .select()
+      .single();
+
+    if (txError) {
+      throw new Error(
+        `Failed to record Google Play transaction: ${txError.message}`,
+      );
+    }
+
+    if (songId && playsPurchased != null) {
+      await this.addPlaysToSong(supabase, songId, playsPurchased);
+    } else if (creditsPurchased > 0) {
+      await this.grantCreditsToArtist(supabase, userId, creditsPurchased);
+    }
+
+    return {
+      transactionId: transaction.id,
+      orderId,
+      purchaseState: verification.purchaseState,
+      acknowledgementState: verification.acknowledgementState,
+      consumptionState: verification.consumptionState,
+      creditsPurchased,
+      playsPurchased,
+    };
+  }
 
   async createPaymentIntent(userId: string, dto: CreatePaymentIntentDto) {
     const supabase = getSupabaseClient();

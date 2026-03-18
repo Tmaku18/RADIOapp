@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 
 const LOGO_SRC = '/networx-logo.png';
 const EXTERNAL_PRO_NETWORX_URL = 'https://discovermeradio.com/pro-networx';
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
 export default function MarketingLayout({
   children,
@@ -146,10 +147,21 @@ export default function MarketingLayout({
               <h3 className="font-semibold text-foreground mb-4">Company</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link href="/contact" className="text-muted-foreground hover:text-foreground transition-colors">Contact</Link></li>
+                <li>
+                  <a
+                    href={SUPPORT_DISCORD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Support (Discord)
+                  </a>
+                </li>
                 <li><a href="mailto:tmakuvaza1@networxradio.com" className="text-muted-foreground hover:text-foreground transition-colors">Tanaka (CEO)</a></li>
                 <li><a href="mailto:mjones@networxradio.com" className="text-muted-foreground hover:text-foreground transition-colors">Merquise (COO)</a></li>
                 <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
+                <li><Link href="/legal" className="text-muted-foreground hover:text-foreground transition-colors">Legal Center</Link></li>
               </ul>
             </div>
 
@@ -159,7 +171,14 @@ export default function MarketingLayout({
               <div className="flex space-x-4">
                 <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Twitter</a>
                 <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Instagram</a>
-                <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Discord</a>
+                <a
+                  href={SUPPORT_DISCORD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Discord
+                </a>
               </div>
             </div>
           </div>

@@ -16,6 +16,8 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
+
 export default function ContactPage() {
   const [formData, setFormData] = useState({
     name: '',
@@ -78,6 +80,24 @@ export default function ContactPage() {
           </p>
           <Button variant="outline" asChild>
             <Link href="/pro-networx">Open ProNetworx</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mb-8 border-primary/30">
+        <CardContent className="pt-6">
+          <h2 className="text-lg font-semibold text-foreground mb-2">Need support right now?</h2>
+          <p className="text-muted-foreground mb-4">
+            Join our Discord support channel for faster help with account, upload, and billing questions.
+          </p>
+          <Button variant="outline" asChild>
+            <a
+              href={SUPPORT_DISCORD_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open Support Discord
+            </a>
           </Button>
         </CardContent>
       </Card>

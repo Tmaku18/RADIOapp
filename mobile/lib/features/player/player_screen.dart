@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -19,6 +20,7 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/station_events_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
 import '../../core/env.dart';
@@ -489,6 +491,29 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     if (track == null || _quickBuying) return;
     setState(() => _quickBuying = true);
     try {
+      if (Platform.isAndroid) {
+        final productId = PlayBillingService.instance.songPlaysProductIdFor(5);
+        if (productId == null || productId.isEmpty) {
+          throw Exception('No Google Play product mapping found for 5 plays.');
+        }
+        final purchase =
+            await PlayBillingService.instance.buyConsumable(productId);
+        await _api.post('payments/google-play/complete', {
+          'productId': purchase.productId,
+          'purchaseToken': purchase.purchaseToken,
+          'songId': track.id,
+        });
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Added 5 minutes.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
       final response = await _api.post('payments/create-intent-song-plays', {
         'songId': track.id,
         'plays': 5,

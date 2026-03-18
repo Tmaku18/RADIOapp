@@ -1,8 +1,11 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/song.dart';
 import '../../core/services/payments_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/networx_tokens.dart';
 
@@ -124,6 +127,32 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
     setState(() => _submitting = true);
     try {
+      if (Platform.isAndroid) {
+        final productId =
+            PlayBillingService.instance.songPlaysProductIdFor(_selectedPlays!);
+        if (productId == null || productId.isEmpty) {
+          throw Exception(
+            'No Google Play product mapping found for $_selectedPlays plays.',
+          );
+        }
+        final purchase =
+            await PlayBillingService.instance.buyConsumable(productId);
+        await _payments.completeGooglePlayPurchase(
+          productId: purchase.productId,
+          purchaseToken: purchase.purchaseToken,
+          songId: widget.song.id,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully purchased $_selectedPlays plays!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        Navigator.pop(context, true);
+        return;
+      }
+
       final response = await _payments.createIntentSongPlays(
         songId: widget.song.id,
         plays: _selectedPlays!,

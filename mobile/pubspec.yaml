@@ -64,6 +64,7 @@ dependencies:
 
   # Payments
   flutter_stripe: ^11.1.0
+  in_app_purchase: ^3.2.3
 
   # State management
   provider: ^6.1.2

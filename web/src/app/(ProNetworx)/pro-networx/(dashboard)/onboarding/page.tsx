@@ -203,7 +203,13 @@ export default function ProNetworxOnboardingPage() {
       await refreshProfile();
       await loadMe();
     } catch (err) {
-      setError((err as Error)?.message ?? 'Failed to upload profile photo');
+      const apiMessage =
+        (err as { response?: { data?: { message?: string | string[] } } })?.response
+          ?.data?.message;
+      const normalizedMessage = Array.isArray(apiMessage)
+        ? apiMessage.join(', ')
+        : apiMessage;
+      setError(normalizedMessage ?? (err as Error)?.message ?? 'Failed to upload profile photo');
     } finally {
       setUploadingAvatar(false);
     }

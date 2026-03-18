@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 };
 
 export const revalidate = 3600;
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
 const faqs = [
   {
@@ -151,6 +152,15 @@ export default function FAQPage() {
           <div className="flex flex-wrap justify-center gap-3">
             <Button asChild>
               <Link href="/contact">Contact Us</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <a
+                href={SUPPORT_DISCORD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Join Support Discord
+              </a>
             </Button>
             <Button variant="outline" asChild>
               <Link href="/pro-networx">

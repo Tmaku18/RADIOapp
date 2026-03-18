@@ -136,6 +136,7 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 - **POST** `/payments/create-intent`
 - Body: `{ amount: number, credits: number }`
 - Returns: `{ clientSecret: string }`
+- Note: used by non-Android mobile/web Stripe flows.
 
 ### Song Plays Pricing (per-song)
 - **GET** `/payments/song-play-price?songId=uuid`
@@ -145,6 +146,13 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 - **POST** `/payments/create-intent-song-plays`
 - Body: `{ songId: uuid, plays: number }`
 - Returns: `{ clientSecret: string }`
+- Note: used by non-Android mobile Stripe flow.
+
+### Complete Google Play purchase (Android)
+- **POST** `/payments/google-play/complete`
+- Body: `{ productId: string, purchaseToken: string, songId?: uuid }`
+- Verifies purchase token with Android Publisher API, records transaction, and grants credits/plays.
+- `songId` is required when `productId` maps to `song_plays` in backend catalog.
 
 ### Quick Buy (Add 5 Minutes)
 - **POST** `/payments/quick-add-minutes`

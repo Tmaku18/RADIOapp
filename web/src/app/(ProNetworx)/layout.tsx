@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
 export default function ProNetworxLayout({
   children,
@@ -83,6 +84,15 @@ export default function ProNetworxLayout({
           <Link href="/pro-directory" className="hover:text-foreground transition-colors">Pro-Directory</Link>
           {' · '}
           <Link href="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+          {' · '}
+          <a
+            href={SUPPORT_DISCORD_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-foreground transition-colors"
+          >
+            Support
+          </a>
           <p className="mt-2">&copy; {new Date().getFullYear()} Networx. By Artists, For Artists.</p>
           <p className="mt-3 text-xs text-muted-foreground max-w-xl mx-auto">
             LinkedIn is a registered trademark of LinkedIn Corporation. PRO-NETWORX is not affiliated with, sponsored by, or endorsed by LinkedIn Corporation.

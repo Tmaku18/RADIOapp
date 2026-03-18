@@ -153,6 +153,23 @@ flutter build apk --release
    ```
 6. In Google Play Console first upload, enable **Play App Signing** and keep your upload key credentials secure.
 
+#### Android Google Play Billing product IDs
+
+Android purchases now use Google Play Billing. Configure these optional `.env` keys
+if your Play product IDs differ from defaults:
+
+- `ANDROID_PLAY_CREDITS_10_PRODUCT_ID` (default: `nwx_credits_10`)
+- `ANDROID_PLAY_CREDITS_25_PRODUCT_ID` (default: `nwx_credits_25`)
+- `ANDROID_PLAY_CREDITS_50_PRODUCT_ID` (default: `nwx_credits_50`)
+- `ANDROID_PLAY_CREDITS_100_PRODUCT_ID` (default: `nwx_credits_100`)
+- `ANDROID_PLAY_SONG_PLAYS_1_PRODUCT_ID` (default: `nwx_song_plays_1`)
+- `ANDROID_PLAY_SONG_PLAYS_3_PRODUCT_ID` (default: `nwx_song_plays_3`)
+- `ANDROID_PLAY_SONG_PLAYS_5_PRODUCT_ID` (default: `nwx_song_plays_5`)
+- `ANDROID_PLAY_SONG_PLAYS_10_PRODUCT_ID` (default: `nwx_song_plays_10`)
+- `ANDROID_PLAY_SONG_PLAYS_25_PRODUCT_ID` (default: `nwx_song_plays_25`)
+- `ANDROID_PLAY_SONG_PLAYS_50_PRODUCT_ID` (default: `nwx_song_plays_50`)
+- `ANDROID_PLAY_SONG_PLAYS_100_PRODUCT_ID` (default: `nwx_song_plays_100`)
+
 ### iOS
 ```bash
 flutter build ios --release

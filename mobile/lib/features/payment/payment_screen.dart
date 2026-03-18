@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../../core/services/payments_service.dart';
+import '../../core/services/play_billing_service.dart';
 import '../../core/theme/networx_tokens.dart';
 
 class PaymentScreen extends StatefulWidget {
@@ -53,6 +56,30 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
+      if (Platform.isAndroid) {
+        final productId = PlayBillingService.instance.creditProductIdFor(credits);
+        if (productId == null || productId.isEmpty) {
+          throw Exception(
+            'No Google Play product mapping found for $credits credits.',
+          );
+        }
+        final purchase =
+            await PlayBillingService.instance.buyConsumable(productId);
+        await _payments.completeGooglePlayPurchase(
+          productId: purchase.productId,
+          purchaseToken: purchase.purchaseToken,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Successfully purchased $credits credits!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        return;
+      }
+
       // Step 1: Create payment intent on backend
       final response = await _payments.createIntent(
         amountCents: price,
