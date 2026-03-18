@@ -48,6 +48,7 @@ import {
 } from '@hugeicons/core-free-icons';
 
 const PRO_NETWORX_EXTERNAL_URL = 'https://www.discovermeradio.com/pro-networx/directory';
+const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
 
 const listenerNavigation: MainNavItem[] = [
@@ -383,6 +384,18 @@ export default function DashboardLayout({
           </div>
           <SidebarMenu>
             <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <a
+                  href={SUPPORT_DISCORD_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <span className="chrome-icon mr-3 text-xs">🛟</span>
+                  <span>Support</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
               <SidebarMenuButton onClick={handleSignOut} disabled={isSigningOut}>
                 <span className="chrome-icon mr-3 text-xs">{isSigningOut ? '⏳' : '🚪'}</span>
                 <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
@@ -441,6 +454,17 @@ export default function DashboardLayout({
                     System
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <a
+                    href={SUPPORT_DISCORD_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <span className="chrome-icon mr-2 text-xs">🛟</span>
+                    Support
+                  </a>
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} disabled={isSigningOut}>
                   <span className="chrome-icon mr-2 text-xs">{isSigningOut ? '⏳' : '🚪'}</span>

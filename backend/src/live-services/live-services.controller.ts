@@ -15,6 +15,7 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { SubmitLiveSupportDto } from './dto/submit-live-support.dto';
 
 @Controller('live-services')
 export class LiveServicesController {
@@ -29,6 +30,27 @@ export class LiveServicesController {
       .single();
     if (!data) throw new Error('User not found');
     return data.id;
+  }
+
+  private async getUserProfile(uid: string): Promise<{
+    id: string;
+    email: string | null;
+    displayName: string | null;
+    role: string | null;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('id, email, display_name, role')
+      .eq('firebase_uid', uid)
+      .single();
+    if (!data) throw new Error('User not found');
+    return {
+      id: data.id,
+      email: (data.email ?? null) as string | null,
+      displayName: (data.display_name ?? null) as string | null,
+      role: (data.role ?? null) as string | null,
+    };
   }
 
   @Get('artist/:artistId')
@@ -75,6 +97,24 @@ export class LiveServicesController {
       type: body.type as any,
       scheduledAt: body.scheduledAt,
       linkOrPlace: body.linkOrPlace,
+    });
+  }
+
+  @Post('support')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'service_provider', 'admin')
+  async submitSupport(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: SubmitLiveSupportDto,
+  ) {
+    const profile = await this.getUserProfile(user.uid);
+    return this.liveServices.submitSupportRequest({
+      userId: profile.id,
+      userEmail: profile.email,
+      userDisplayName: profile.displayName,
+      userRole: profile.role,
+      message: body.message,
+      discordLink: body.discordLink,
     });
   }
 

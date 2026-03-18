@@ -128,6 +128,9 @@ export default function MySongsPage() {
   >([]);
   const [featuredSearchLoading, setFeaturedSearchLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  const [discoverActionSongId, setDiscoverActionSongId] = useState<string | null>(
+    null,
+  );
 
   useEffect(() => {
     loadSongs();
@@ -260,6 +263,80 @@ export default function MySongsPage() {
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
     setEditSaving(false);
+  };
+
+  const unpublishDiscoverForSong = async (song: Song) => {
+    setDiscoverActionSongId(song.id);
+    setError(null);
+    try {
+      await songsApi.unpublishDiscoverFromLibrary(song.id);
+      setSongs((prev) =>
+        prev.map((row) =>
+          row.id === song.id
+            ? {
+                ...row,
+                discoverEnabled: false,
+                discoverClipUrl: null,
+                discoverBackgroundUrl: null,
+                discoverClipStartSeconds: null,
+                discoverClipEndSeconds: null,
+                discoverClipDurationSeconds: null,
+              }
+            : row,
+        ),
+      );
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to delete Discover swipe clip'));
+    } finally {
+      setDiscoverActionSongId(null);
+    }
+  };
+
+  const repostDiscoverForSong = async (song: Song) => {
+    setDiscoverActionSongId(song.id);
+    setError(null);
+    try {
+      const clipStartSeconds = song.discoverClipStartSeconds ?? 0;
+      const clipEndSeconds = song.discoverClipEndSeconds ?? 15;
+      const publishResponse = await songsApi.publishDiscoverFromLibrary(song.id, {
+        clipStartSeconds,
+        clipEndSeconds,
+        discoverBackgroundUrl:
+          song.discoverBackgroundUrl || song.artworkUrl || undefined,
+      });
+      const updated = publishResponse.data as {
+        discoverEnabled?: boolean;
+        discoverClipUrl?: string | null;
+        discoverBackgroundUrl?: string | null;
+        discoverClipStartSeconds?: number | null;
+        discoverClipEndSeconds?: number | null;
+        discoverClipDurationSeconds?: number | null;
+      };
+      setSongs((prev) =>
+        prev.map((row) =>
+          row.id === song.id
+            ? {
+                ...row,
+                discoverEnabled: updated.discoverEnabled ?? true,
+                discoverClipUrl: updated.discoverClipUrl ?? row.discoverClipUrl,
+                discoverBackgroundUrl:
+                  updated.discoverBackgroundUrl ?? row.discoverBackgroundUrl,
+                discoverClipStartSeconds:
+                  updated.discoverClipStartSeconds ?? clipStartSeconds,
+                discoverClipEndSeconds:
+                  updated.discoverClipEndSeconds ?? clipEndSeconds,
+                discoverClipDurationSeconds:
+                  updated.discoverClipDurationSeconds ??
+                  clipEndSeconds - clipStartSeconds,
+              }
+            : row,
+        ),
+      );
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to repost Discover swipe clip'));
+    } finally {
+      setDiscoverActionSongId(null);
+    }
   };
 
   const handleSaveEdit = async () => {
@@ -506,14 +583,36 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell>
                     {song.discoverEnabled ? (
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-muted-foreground space-y-2">
                         <p className="font-medium text-foreground">Enabled</p>
                         <p>
                           {(song.discoverClipDurationSeconds ?? 15).toString()}s clip
                         </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={discoverActionSongId === song.id}
+                          onClick={() => void unpublishDiscoverForSong(song)}
+                        >
+                          {discoverActionSongId === song.id
+                            ? 'Deleting...'
+                            : 'Delete Swipe'}
+                        </Button>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Off</span>
+                      <div className="space-y-2">
+                        <span className="text-xs text-muted-foreground block">Off</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={discoverActionSongId === song.id}
+                          onClick={() => void repostDiscoverForSong(song)}
+                        >
+                          {discoverActionSongId === song.id
+                            ? 'Reposting...'
+                            : 'Repost Swipe'}
+                        </Button>
+                      </div>
                     )}
                   </TableCell>
                   <TableCell>

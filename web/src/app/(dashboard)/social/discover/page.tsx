@@ -76,6 +76,10 @@ export default function SocialDiscoverSwipePage() {
       audioUrl: string;
       artworkUrl: string | null;
       status: string;
+      discoverEnabled: boolean;
+      discoverClipStartSeconds?: number | null;
+      discoverClipEndSeconds?: number | null;
+      discoverBackgroundUrl?: string | null;
     }>
   >([]);
   const [libraryLoading, setLibraryLoading] = useState(false);
@@ -303,6 +307,19 @@ export default function SocialDiscoverSwipePage() {
           artworkUrl:
             typeof row.artworkUrl === 'string' ? row.artworkUrl : null,
           status: typeof row.status === 'string' ? row.status : 'pending',
+          discoverEnabled: row.discoverEnabled === true,
+          discoverClipStartSeconds:
+            typeof row.discoverClipStartSeconds === 'number'
+              ? row.discoverClipStartSeconds
+              : null,
+          discoverClipEndSeconds:
+            typeof row.discoverClipEndSeconds === 'number'
+              ? row.discoverClipEndSeconds
+              : null,
+          discoverBackgroundUrl:
+            typeof row.discoverBackgroundUrl === 'string'
+              ? row.discoverBackgroundUrl
+              : null,
         }))
         .filter((song) => song.id.length > 0);
       setLibrarySongs(songs);
@@ -413,6 +430,13 @@ export default function SocialDiscoverSwipePage() {
                   </p>
                 ) : (
                   <>
+                    <div className="rounded-md border border-border p-2 text-xs text-muted-foreground">
+                      Selected song discover status:{' '}
+                      {librarySongs.find((song) => song.id === selectedSongId)
+                        ?.discoverEnabled
+                        ? 'Published'
+                        : 'Not published'}
+                    </div>
                     <div className="space-y-1">
                       <Label htmlFor="library-song">Song</Label>
                       <select
@@ -504,6 +528,41 @@ export default function SocialDiscoverSwipePage() {
                       }}
                     >
                       {publishBusy ? 'Publishing...' : 'Publish to Discover'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      disabled={publishBusy || !selectedSongId}
+                      onClick={async () => {
+                        setPublishBusy(true);
+                        setPublishError(null);
+                        try {
+                          await songsApi.unpublishDiscoverFromLibrary(selectedSongId);
+                          setLibrarySongs((prev) =>
+                            prev.map((song) =>
+                              song.id === selectedSongId
+                                ? { ...song, discoverEnabled: false }
+                                : song,
+                            ),
+                          );
+                        } catch (e) {
+                          const apiMessage =
+                            (e as { response?: { data?: { message?: string | string[] } } })
+                              ?.response?.data?.message;
+                          const normalizedApiMessage = Array.isArray(apiMessage)
+                            ? apiMessage.join(', ')
+                            : apiMessage;
+                          setPublishError(
+                            normalizedApiMessage ||
+                              (e instanceof Error
+                                ? e.message
+                                : 'Failed to delete discover swipe clip'),
+                          );
+                        } finally {
+                          setPublishBusy(false);
+                        }
+                      }}
+                    >
+                      {publishBusy ? 'Working...' : 'Delete Discover Swipe'}
                     </Button>
                   </>
                 )}

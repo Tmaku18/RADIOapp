@@ -4,11 +4,18 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { ConfigService } from '@nestjs/config';
+import { EmailService } from '../email/email.service';
 
 export type LiveServiceType = 'performance' | 'session' | 'meetup';
 
 @Injectable()
 export class LiveServicesService {
+  constructor(
+    private readonly emailService: EmailService,
+    private readonly configService: ConfigService,
+  ) {}
+
   private isMissingUserFollowsTable(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
@@ -227,6 +234,49 @@ export class LiveServicesService {
       throw new Error(`Failed to check follow status: ${genericError.message}`);
     }
     return Boolean(generic || legacy);
+  }
+
+  async submitSupportRequest(params: {
+    userId: string;
+    userEmail: string | null;
+    userDisplayName: string | null;
+    userRole: string | null;
+    message: string;
+    discordLink: string;
+  }): Promise<{ submitted: true }> {
+    const toEmail =
+      this.configService.get<string>('SUPPORT_EMAIL') ||
+      'support@networxradio.com';
+    const safeMessage = params.message.trim();
+    const safeDiscordLink = params.discordLink.trim();
+    const safeName = params.userDisplayName || 'Unknown user';
+    const safeRole = params.userRole || 'unknown';
+    const safeEmail = params.userEmail || 'unknown';
+
+    await this.emailService.send({
+      to: toEmail,
+      subject: `Live Services Support Request (${safeRole})`,
+      text:
+        `Live services support request\n\n` +
+        `User ID: ${params.userId}\n` +
+        `Name: ${safeName}\n` +
+        `Email: ${safeEmail}\n` +
+        `Role: ${safeRole}\n\n` +
+        `Discord link:\n${safeDiscordLink}\n\n` +
+        `What happened:\n${safeMessage}\n`,
+      html: `
+        <h2>Live Services Support Request</h2>
+        <p><strong>User ID:</strong> ${params.userId}</p>
+        <p><strong>Name:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${safeEmail}</p>
+        <p><strong>Role:</strong> ${safeRole}</p>
+        <p><strong>Discord link:</strong><br /><a href="${safeDiscordLink}" target="_blank" rel="noopener noreferrer">${safeDiscordLink}</a></p>
+        <p><strong>What happened:</strong></p>
+        <pre style="white-space: pre-wrap; font-family: inherit;">${safeMessage}</pre>
+      `,
+    });
+
+    return { submitted: true };
   }
 
   private mapRow(row: any) {

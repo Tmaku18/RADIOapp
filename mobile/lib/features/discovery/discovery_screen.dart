@@ -2,12 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/models/browse_models.dart';
-import '../../core/models/competition_models.dart';
 import '../../core/models/discovery_map_models.dart';
 import '../../core/services/browse_like_events_service.dart';
 import '../../core/services/browse_service.dart';
-import '../../core/services/competition_service.dart';
 import '../../core/services/discovery_map_service.dart';
+import '../../core/services/api_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'discover_audio_tab.dart';
 
@@ -464,7 +463,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                         ),
                       ),
             const _MapTab(),
-            const _TopTab(),
+            const _FeedTab(),
             _SavedTab(service: _service),
           ],
         ),
@@ -473,17 +472,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   }
 }
 
-class _TopTab extends StatefulWidget {
-  const _TopTab();
+class _FeedTab extends StatefulWidget {
+  const _FeedTab();
 
   @override
-  State<_TopTab> createState() => _TopTabState();
+  State<_FeedTab> createState() => _FeedTabState();
 }
 
-class _TopTabState extends State<_TopTab> {
-  final CompetitionService _service = CompetitionService();
+class _FeedTabState extends State<_FeedTab> {
+  final ApiService _api = ApiService();
   bool _loading = true;
-  List<BrowseLeaderboardCategory> _cats = const [];
+  List<Map<String, dynamic>> _posts = const [];
 
   @override
   void initState() {
@@ -494,9 +493,17 @@ class _TopTabState extends State<_TopTab> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final cats = await _service.getBrowseLeaderboard(limitPerCategory: 5);
+      final res = await _api.get('discovery/feed?limit=20');
+      List<Map<String, dynamic>> posts = const [];
+      if (res is Map<String, dynamic>) {
+        final raw = (res['items'] as List?) ?? const [];
+        posts = raw
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
+      }
       if (!mounted) return;
-      setState(() => _cats = cats);
+      setState(() => _posts = posts);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -506,10 +513,10 @@ class _TopTabState extends State<_TopTab> {
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_cats.isEmpty) {
+    if (_posts.isEmpty) {
       return Center(
         child: Text(
-          'No category leaders yet.',
+          'No feed posts yet.',
           style: TextStyle(color: surfaces.textSecondary),
         ),
       );
@@ -518,9 +525,13 @@ class _TopTabState extends State<_TopTab> {
       onRefresh: _load,
       child: ListView.builder(
         padding: const EdgeInsets.all(12),
-        itemCount: _cats.length,
+        itemCount: _posts.length,
         itemBuilder: (context, idx) {
-          final cat = _cats[idx];
+          final post = _posts[idx];
+          final imageUrl = post['imageUrl']?.toString() ?? '';
+          final caption = post['caption']?.toString();
+          final author = post['authorDisplayName']?.toString() ?? 'Creator';
+          final createdAt = post['createdAt']?.toString();
           return Padding(
             padding: const EdgeInsets.only(bottom: 12),
             child: Card(
@@ -530,53 +541,49 @@ class _TopTabState extends State<_TopTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      cat.serviceType.replaceAll('_', ' '),
+                      author,
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
                           ?.copyWith(fontFamily: 'Lora'),
                     ),
-                    const SizedBox(height: 8),
-                    ...cat.items.take(5).toList().asMap().entries.map((e) {
-                      final i = e.key;
-                      final item = e.value;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 6),
-                        child: Row(
-                          children: [
-                            SizedBox(
-                              width: 22,
-                              child: Text(
-                                '${i + 1}',
-                                style: TextStyle(color: surfaces.textMuted),
-                              ),
-                            ),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.title ?? 'Untitled',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis),
-                                  Text(
-                                    item.providerDisplayName ?? 'Creator',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                        color: surfaces.textSecondary,
-                                        fontSize: 12),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '${item.likeCount} likes',
-                              style: TextStyle(color: surfaces.textMuted),
-                            ),
-                          ],
+                    if (imageUrl.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.network(
+                          imageUrl,
+                          height: 180,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            height: 180,
+                            alignment: Alignment.center,
+                            color: Theme.of(context).colorScheme.surfaceContainer,
+                            child: const Icon(Icons.broken_image_outlined),
+                          ),
                         ),
-                      );
-                    }),
+                      ),
+                    ],
+                    if ((caption ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        caption!,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    if ((createdAt ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        DateTime.tryParse(createdAt!)?.toLocal().toString().split('.').first ??
+                            createdAt,
+                        style: TextStyle(
+                          color: surfaces.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -182,6 +182,12 @@ export const songsApi = {
       discoverBackgroundUrl?: string;
     },
   ) => api.post(`/songs/${id}/discover/publish`, data),
+  unpublishDiscoverFromLibrary: (id: string) =>
+    api.patch(`/songs/${id}`, {
+      discoverEnabled: false,
+      discoverClipUrl: '',
+      discoverBackgroundUrl: '',
+    }),
   updateOptIn: (id: string, optInFreePlay: boolean) => 
     api.patch(`/songs/${id}`, { optInFreePlay }),
   searchArtists: (q: string, limit?: number) =>
@@ -335,6 +341,8 @@ export const liveServicesApi = {
   upcoming: (limit?: number) => api.get('/live-services/upcoming', { params: { limit } }),
   create: (data: { title: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string }) =>
     api.post('/live-services', data),
+  submitSupport: (data: { message: string; discordLink: string }) =>
+    api.post('/live-services/support', data),
   getById: (id: string) => api.get(`/live-services/${id}`),
   update: (id: string, data: { title?: string; description?: string; type?: string; scheduledAt?: string; linkOrPlace?: string }) =>
     api.patch(`/live-services/${id}`, data),

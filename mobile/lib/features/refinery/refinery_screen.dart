@@ -111,7 +111,7 @@ class _RefineryScreenState extends State<RefineryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('The Refinery'),
+        title: const Text('Refinery'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -138,7 +138,7 @@ class _RefineryScreenState extends State<RefineryScreen> {
               : _songs.isEmpty
                   ? Center(
                       child: Text(
-                        'No songs in The Refinery right now.',
+                        'No songs in Refinery right now.',
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
                       ),
                     )
