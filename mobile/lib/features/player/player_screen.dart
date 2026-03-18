@@ -571,9 +571,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     });
   }
 
-  void _openRoom() {
+  void _openRoom(BuildContext providerContext) {
     showModalBottomSheet<void>(
-      context: context,
+      context: providerContext,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
@@ -595,61 +595,65 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
       create: (_) => ChatService()..initialize(),
-      child: Scaffold(
-        appBar: AppBar(
-          title: Text('Radio · ${_activeStation.genre}'),
-          actions: [
-            IconButton(
-              onPressed: _openStationPicker,
-              tooltip: 'Change station',
-              icon: const Icon(Icons.swap_horiz),
-            ),
-            IconButton(
-              onPressed: _openRoom,
-              tooltip: 'Enter the Room',
-              icon: const Icon(Icons.forum_outlined),
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _noContent
-                    ? _NoContent(
-                        message: _noContentMessage,
-                        onRetry: _loadInitialTrack,
-                      )
-                    : _currentTrack == null
-                        ? const Center(child: Text('No track playing'))
-                        : _PlayerBody(
-                            track: _currentTrack!,
-                            stationLabel: _activeStation.genre,
-                            onChangeStation: _openStationPicker,
-                            risingStarText: _risingStarText,
-                            ad: _ad,
-                            canQuickBuy: _canQuickBuy,
-                            quickBuying: _quickBuying,
-                            onQuickBuy: _quickBuyFivePlays,
-                            isPlaying: _isPlaying,
-                            hasVoted: _hasVoted,
-                            isVoting: _isVoting,
-                            canVote: (_currentTrack?.playId ?? '').isNotEmpty,
-                            onVote: _vote,
-                            onPlayPause: _togglePlayPause,
-                            onEnterRoom: _openRoom,
-                            audioPlayer: _audioPlayer,
-                          ),
-            if (_rippleActive)
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: _ButterflyRippleOverlay(
-                    progress: _rippleController,
-                  ),
+      child: Builder(
+        builder: (providerContext) {
+          return Scaffold(
+            appBar: AppBar(
+              title: Text('Radio · ${_activeStation.genre}'),
+              actions: [
+                IconButton(
+                  onPressed: _openStationPicker,
+                  tooltip: 'Change station',
+                  icon: const Icon(Icons.swap_horiz),
                 ),
-              ),
-          ],
-        ),
+                IconButton(
+                  onPressed: () => _openRoom(providerContext),
+                  tooltip: 'Enter the Room',
+                  icon: const Icon(Icons.forum_outlined),
+                ),
+              ],
+            ),
+            body: Stack(
+              children: [
+                _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _noContent
+                        ? _NoContent(
+                            message: _noContentMessage,
+                            onRetry: _loadInitialTrack,
+                          )
+                        : _currentTrack == null
+                            ? const Center(child: Text('No track playing'))
+                            : _PlayerBody(
+                                track: _currentTrack!,
+                                stationLabel: _activeStation.genre,
+                                onChangeStation: _openStationPicker,
+                                risingStarText: _risingStarText,
+                                ad: _ad,
+                                canQuickBuy: _canQuickBuy,
+                                quickBuying: _quickBuying,
+                                onQuickBuy: _quickBuyFivePlays,
+                                isPlaying: _isPlaying,
+                                hasVoted: _hasVoted,
+                                isVoting: _isVoting,
+                                canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                                onVote: _vote,
+                                onPlayPause: _togglePlayPause,
+                                onEnterRoom: () => _openRoom(providerContext),
+                                audioPlayer: _audioPlayer,
+                              ),
+                if (_rippleActive)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: _ButterflyRippleOverlay(
+                        progress: _rippleController,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
