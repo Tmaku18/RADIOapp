@@ -174,7 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.handshake_outlined),
-                  title: const Text('PRO‑NETWORX'),
+                  title: const Text('Pro-Networx'),
                   subtitle: const Text('Directory, profiles, and inbox'),
                   onTap: () {
                     Navigator.pop(context);
@@ -203,7 +203,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ListTile(
                   leading: const Icon(Icons.badge_outlined),
-                  title: const Text('Build my PRO‑NETWORX profile'),
+                  title: const Text('Build my Pro-Networx profile'),
                   subtitle: const Text('Skills, availability, headline'),
                   onTap: () {
                     Navigator.pop(context);
@@ -223,7 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 if (!isArtist)
                   ListTile(
                     leading: const Icon(Icons.redeem_outlined),
-                    title: const Text('The Yield'),
+                    title: const Text('Rewards'),
                     subtitle: const Text(r'Rewards Command Center ($5 / $10 Virtual Visa)'),
                     onTap: () {
                       Navigator.pop(context);
