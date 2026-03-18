@@ -987,7 +987,7 @@ class _PlayerBody extends StatelessWidget {
       );
     }
 
-    Widget glassPanel({required Widget child}) {
+    Widget glassPanel({required Widget child, double padding = 16}) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
@@ -996,7 +996,7 @@ class _PlayerBody extends StatelessWidget {
             sigmaY: surfaces.glassBlur,
           ),
           child: Container(
-            padding: const EdgeInsets.all(16),
+            padding: EdgeInsets.all(padding),
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
               border: Border.all(
@@ -1015,6 +1015,15 @@ class _PlayerBody extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 720;
+        final isShortScreen = !isWide && constraints.maxHeight < 760;
+        final panelPadding = isShortScreen ? 12.0 : 16.0;
+        final sectionGap = isShortScreen ? 8.0 : 12.0;
+        final titleGap = isShortScreen ? 4.0 : 6.0;
+        final metaGap = isShortScreen ? 6.0 : 8.0;
+        final beforeProgressGap = isShortScreen ? 10.0 : 14.0;
+        final afterProgressGap = isShortScreen ? 8.0 : 10.0;
+        final outerPadding = isShortScreen ? 12.0 : 16.0;
+        final controlsIconSize = isShortScreen ? 48.0 : 52.0;
         final compactTargetHeight =
             constraints.maxHeight * (ad != null ? 0.30 : 0.38);
         final compactArtSize = math.min(
@@ -1026,6 +1035,7 @@ class _PlayerBody extends StatelessWidget {
           child: albumArt(),
         );
         final details = glassPanel(
+          padding: panelPadding,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1044,10 +1054,19 @@ class _PlayerBody extends StatelessWidget {
                     onPressed: onChangeStation,
                     icon: const Icon(Icons.swap_horiz),
                     label: const Text('Change station'),
+                    style: isShortScreen
+                        ? OutlinedButton.styleFrom(
+                            visualDensity: VisualDensity.compact,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                          )
+                        : null,
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              SizedBox(height: sectionGap),
               if (risingStarText != null) ...[
                 Container(
                   width: double.infinity,
@@ -1078,7 +1097,7 @@ class _PlayerBody extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: sectionGap),
               ],
               Text(
                 track.title,
@@ -1089,7 +1108,7 @@ class _PlayerBody extends StatelessWidget {
                     .headlineSmall
                     ?.copyWith(fontFamily: 'Lora'),
               ),
-              const SizedBox(height: 6),
+              SizedBox(height: titleGap),
               GestureDetector(
                 onTap: () {
                   ApiService().post('analytics/profile-click', {'songId': track.id});
@@ -1112,7 +1131,7 @@ class _PlayerBody extends StatelessWidget {
                       ?.copyWith(color: surfaces.textSecondary),
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: metaGap),
               Row(
                 children: [
                   Icon(
@@ -1159,7 +1178,7 @@ class _PlayerBody extends StatelessWidget {
                   );
                 }),
               ],
-              const SizedBox(height: 14),
+              SizedBox(height: beforeProgressGap),
               StreamBuilder<Duration>(
                 stream: audioPlayer.positionStream,
                 builder: (context, snap) {
@@ -1204,7 +1223,7 @@ class _PlayerBody extends StatelessWidget {
                   );
                 },
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: afterProgressGap),
               if (canQuickBuy) ...[
                 SizedBox(
                   width: double.infinity,
@@ -1213,13 +1232,13 @@ class _PlayerBody extends StatelessWidget {
                     child: Text(quickBuying ? 'Opening…' : 'Add 5 Minutes'),
                   ),
                 ),
-                const SizedBox(height: 10),
+                SizedBox(height: afterProgressGap),
               ],
               Row(
                 children: [
                   IconButton(
                     onPressed: onPlayPause,
-                    iconSize: 52,
+                    iconSize: controlsIconSize,
                     icon: Icon(
                       isPlaying ? Icons.pause_circle : Icons.play_circle,
                     ),
@@ -1254,13 +1273,13 @@ class _PlayerBody extends StatelessWidget {
         );
 
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(outerPadding),
           child: isWide
               ? Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     art,
-                    const SizedBox(width: 16),
+                    SizedBox(width: outerPadding),
                     Expanded(child: details),
                   ],
                 )
@@ -1268,10 +1287,10 @@ class _PlayerBody extends StatelessWidget {
                   children: [
                     if (ad != null) ...[
                       _VenueAdCard(ad: ad!),
-                      const SizedBox(height: 12),
+                      SizedBox(height: sectionGap),
                     ],
                     art,
-                    const SizedBox(height: 16),
+                    SizedBox(height: outerPadding),
                     details,
                   ],
                 ),
