@@ -624,6 +624,8 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
                         ? const Center(child: Text('No track playing'))
                         : _PlayerBody(
                             track: _currentTrack!,
+                            stationLabel: _activeStation.genre,
+                            onChangeStation: _openStationPicker,
                             risingStarText: _risingStarText,
                             ad: _ad,
                             canQuickBuy: _canQuickBuy,
@@ -850,6 +852,8 @@ class _VenueAdCard extends StatelessWidget {
 
 class _PlayerBody extends StatelessWidget {
   final Track track;
+  final String stationLabel;
+  final VoidCallback onChangeStation;
   final String? risingStarText;
   final VenueAd? ad;
   final bool canQuickBuy;
@@ -866,6 +870,8 @@ class _PlayerBody extends StatelessWidget {
 
   const _PlayerBody({
     required this.track,
+    required this.stationLabel,
+    required this.onChangeStation,
     required this.risingStarText,
     required this.ad,
     required this.canQuickBuy,
@@ -985,6 +991,25 @@ class _PlayerBody extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Station: $stationLabel',
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: surfaces.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: onChangeStation,
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('Change station'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
               if (risingStarText != null) ...[
                 Container(
                   width: double.infinity,
