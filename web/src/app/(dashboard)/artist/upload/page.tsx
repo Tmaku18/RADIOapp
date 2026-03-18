@@ -120,8 +120,8 @@ export default function UploadPage() {
         setError('Please select a valid image file');
         return;
       }
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Artwork must be less than 5MB');
+      if (file.size > 15 * 1024 * 1024) {
+        setError('Artwork must be less than 15MB');
         return;
       }
       setArtworkFile(file);
@@ -152,8 +152,8 @@ export default function UploadPage() {
       setError('Please select a valid discover background image');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Discover background image must be less than 5MB');
+    if (file.size > 15 * 1024 * 1024) {
+      setError('Discover background image must be less than 15MB');
       return;
     }
     setDiscoverBackgroundFile(file);

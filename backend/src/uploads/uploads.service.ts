@@ -31,6 +31,7 @@ interface UploadOptions {
 @Injectable()
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
+  private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
   private readonly songBucketAllowedMimeTypes = [
     'audio/mpeg',
     'audio/mp3',
@@ -140,7 +141,7 @@ export class UploadsService {
       });
 
     if (error) {
-      throw new Error(
+      throw new BadRequestException(
         `Failed to upload ${options.errorPrefix.toLowerCase()}: ${error.message}`,
       );
     }
@@ -182,7 +183,7 @@ export class UploadsService {
 
   /**
    * Upload artwork/cover image to storage.
-   * Accepts JPEG, PNG, and WebP files up to 5MB.
+   * Accepts JPEG, PNG, and WebP files up to 15MB.
    */
   async uploadArtworkFile(
     file: Express.Multer.File,
@@ -191,7 +192,7 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'artwork',
       allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-      maxSizeBytes: 5 * 1024 * 1024, // 5MB
+      maxSizeBytes: this.imageUploadMaxBytes, // 15MB
       errorPrefix: 'Artwork file',
       pathPrefix: 'artwork',
     });
@@ -199,7 +200,7 @@ export class UploadsService {
 
   /**
    * Upload a profile/avatar image to storage.
-   * Accepts JPEG, PNG, and WebP files up to 2MB.
+   * Accepts JPEG, PNG, and WebP files up to 15MB.
    */
   async uploadProfileImage(
     file: Express.Multer.File,
@@ -208,7 +209,7 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'avatars',
       allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-      maxSizeBytes: 2 * 1024 * 1024, // 2MB
+      maxSizeBytes: this.imageUploadMaxBytes, // 15MB
       errorPrefix: 'Profile image',
       pathPrefix: 'profiles',
     });
@@ -216,7 +217,7 @@ export class UploadsService {
 
   /**
    * Upload a discover feed post image (catalyst posts in Discover tab).
-   * Accepts JPEG, PNG, and WebP files up to 5MB.
+   * Accepts JPEG, PNG, and WebP files up to 15MB.
    */
   async uploadFeedPostImage(
     file: Express.Multer.File,
@@ -225,7 +226,7 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'feed',
       allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-      maxSizeBytes: 5 * 1024 * 1024, // 5MB
+      maxSizeBytes: this.imageUploadMaxBytes, // 15MB
       errorPrefix: 'Feed image',
       pathPrefix: 'posts',
     });
@@ -233,7 +234,7 @@ export class UploadsService {
 
   /**
    * Upload a cover/background (hero) image for ProNetworx profiles.
-   * Accepts JPEG, PNG, and WebP files up to 5MB.
+   * Accepts JPEG, PNG, and WebP files up to 15MB.
    */
   async uploadHeroImage(
     file: Express.Multer.File,
@@ -242,7 +243,7 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'avatars',
       allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
-      maxSizeBytes: 5 * 1024 * 1024, // 5MB
+      maxSizeBytes: this.imageUploadMaxBytes, // 15MB
       errorPrefix: 'Cover image',
       pathPrefix: 'hero',
     });

@@ -133,10 +133,25 @@ The app uses bottom navigation:
 
 ### Android
 ```bash
-flutter build appbundle
+flutter build appbundle --release --build-number <incremented_number>
 # or for APK
 flutter build apk --release
 ```
+
+#### Android release signing (required for Play Console)
+
+1. Generate an upload keystore (example):
+   ```bash
+   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+   ```
+2. Place the keystore at `mobile/upload-keystore.jks` (or another local path).
+3. Copy `mobile/android/key.properties.example` to `mobile/android/key.properties`.
+4. Fill in `storeFile`, `storePassword`, `keyAlias`, `keyPassword` in `key.properties`.
+5. Build with:
+   ```bash
+   flutter build appbundle --release --build-number <incremented_number>
+   ```
+6. In Google Play Console first upload, enable **Play App Signing** and keep your upload key credentials secure.
 
 ### iOS
 ```bash

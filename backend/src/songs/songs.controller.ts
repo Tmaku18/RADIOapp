@@ -89,6 +89,184 @@ export class SongsController {
     );
   }
 
+  private isMissingTableError(error: unknown, tableName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    if (maybe?.code === '42P01') {
+      return message.includes(tableName.toLowerCase());
+    }
+    if (maybe?.code === 'PGRST205') {
+      return (
+        message.includes(`'${tableName.toLowerCase()}'`) ||
+        message.includes(tableName.toLowerCase())
+      );
+    }
+    return false;
+  }
+
+  private async getFeaturedArtistsBySongIds(songIds: string[]): Promise<
+    Map<
+      string,
+      Array<{
+        id: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+      }>
+    >
+  > {
+    const result = new Map<
+      string,
+      Array<{
+        id: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+      }>
+    >();
+    if (!songIds.length) return result;
+
+    const supabase = getSupabaseClient();
+    const { data: rows, error: rowsError } = await supabase
+      .from('song_featured_artists')
+      .select('song_id, featured_user_id')
+      .in('song_id', songIds);
+
+    if (rowsError) {
+      if (this.isMissingTableError(rowsError, 'song_featured_artists')) {
+        return result;
+      }
+      throw new BadRequestException(
+        `Failed to load featured artists: ${rowsError.message}`,
+      );
+    }
+
+    const pairs = (rows || []) as Array<{
+      song_id: string;
+      featured_user_id: string;
+    }>;
+    const userIds = [...new Set(pairs.map((r) => r.featured_user_id))];
+    if (!userIds.length) return result;
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url')
+      .in('id', userIds);
+
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to load featured artist profiles: ${usersError.message}`,
+      );
+    }
+
+    const userById = new Map(
+      (users || []).map((u: any) => [
+        u.id as string,
+        {
+          id: u.id as string,
+          displayName: (u.display_name as string | null) ?? null,
+          avatarUrl: (u.avatar_url as string | null) ?? null,
+        },
+      ]),
+    );
+
+    for (const pair of pairs) {
+      const artist = userById.get(pair.featured_user_id);
+      if (!artist) continue;
+      const list = result.get(pair.song_id) ?? [];
+      list.push(artist);
+      result.set(pair.song_id, list);
+    }
+
+    return result;
+  }
+
+  private async syncFeaturedArtistsForSong(
+    songId: string,
+    ownerArtistId: string,
+    requesterUserId: string,
+    featuredArtistIds: string[],
+  ): Promise<
+    Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
+  > {
+    const supabase = getSupabaseClient();
+    const normalizedIds = [...new Set(featuredArtistIds.map((id) => id.trim()))]
+      .filter(Boolean)
+      .filter((id) => id !== ownerArtistId);
+
+    const { error: cleanupError } = await supabase
+      .from('song_featured_artists')
+      .delete()
+      .eq('song_id', songId);
+
+    if (
+      cleanupError &&
+      !this.isMissingTableError(cleanupError, 'song_featured_artists')
+    ) {
+      throw new BadRequestException(
+        `Failed to update featured artists: ${cleanupError.message}`,
+      );
+    }
+    if (
+      cleanupError &&
+      this.isMissingTableError(cleanupError, 'song_featured_artists')
+    ) {
+      throw new BadRequestException(
+        'Featured artist credits are not available in this environment yet. Please run the latest database migrations.',
+      );
+    }
+
+    if (!normalizedIds.length) {
+      return [];
+    }
+
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, role')
+      .in('id', normalizedIds);
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to validate featured artists: ${usersError.message}`,
+      );
+    }
+
+    const validUsers = (users || []).filter(
+      (u: any) => u.role === 'artist' || u.role === 'admin',
+    );
+    const validIds = new Set(validUsers.map((u: any) => u.id as string));
+
+    const invalidIds = normalizedIds.filter((id) => !validIds.has(id));
+    if (invalidIds.length > 0) {
+      throw new BadRequestException(
+        'All featured artist tags must be valid artist accounts on this platform.',
+      );
+    }
+
+    const insertRows = normalizedIds.map((featuredUserId) => ({
+      song_id: songId,
+      featured_user_id: featuredUserId,
+      added_by_user_id: requesterUserId,
+    }));
+    const { error: upsertError } = await supabase
+      .from('song_featured_artists')
+      .upsert(insertRows, { onConflict: 'song_id,featured_user_id' });
+
+    if (upsertError) {
+      if (this.isMissingTableError(upsertError, 'song_featured_artists')) {
+        throw new BadRequestException(
+          'Featured artist credits are not available in this environment yet. Please run the latest database migrations.',
+        );
+      }
+      throw new BadRequestException(
+        `Failed to save featured artists: ${upsertError.message}`,
+      );
+    }
+
+    return validUsers.map((u: any) => ({
+      id: u.id as string,
+      displayName: (u.display_name as string | null) ?? null,
+      avatarUrl: (u.avatar_url as string | null) ?? null,
+    }));
+  }
+
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 2, {
@@ -400,6 +578,43 @@ export class SongsController {
     });
   }
 
+  @Get('artists/search')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async searchArtists(@Query('q') q?: string, @Query('limit') limit?: string) {
+    const query = (q ?? '').trim();
+    if (query.length < 2) {
+      return { items: [] };
+    }
+    const limitNum = limit
+      ? Math.min(Math.max(parseInt(limit, 10) || 15, 1), 30)
+      : 15;
+    const supabase = getSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, role, email')
+      .in('role', ['artist', 'admin'])
+      .or(`display_name.ilike.%${query}%,email.ilike.%${query}%`)
+      .order('display_name', { ascending: true })
+      .limit(limitNum);
+
+    if (error) {
+      throw new BadRequestException(
+        `Failed to search artists: ${error.message}`,
+      );
+    }
+
+    return {
+      items: (data || []).map((u: any) => ({
+        id: u.id as string,
+        displayName: (u.display_name as string | null) ?? null,
+        avatarUrl: (u.avatar_url as string | null) ?? null,
+        role: (u.role as string | null) ?? null,
+      })),
+    };
+  }
+
   @Get('discover/list')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')
@@ -495,7 +710,12 @@ export class SongsController {
       throw new Error(`Failed to fetch songs: ${error.message}`);
     }
 
-    return songs.map((song) => ({
+    const songRows = songs || [];
+    const featuredBySongId = await this.getFeaturedArtistsBySongIds(
+      songRows.map((song) => song.id as string),
+    );
+
+    return songRows.map((song) => ({
       id: song.id,
       title: song.title,
       artistName: song.artist_name,
@@ -519,6 +739,7 @@ export class SongsController {
       rejectedAt: song.rejected_at,
       createdAt: song.created_at,
       updatedAt: song.updated_at,
+      featuredArtists: featuredBySongId.get(song.id) ?? [],
     }));
   }
 
@@ -621,7 +842,8 @@ export class SongsController {
       }
       updateData.discover_clip_duration_seconds = duration;
     }
-    if (Object.keys(updateData).length === 1) {
+    const featuredArtistIdsProvided = Array.isArray(body.featuredArtistIds);
+    if (Object.keys(updateData).length === 1 && !featuredArtistIdsProvided) {
       throw new BadRequestException('No editable fields provided');
     }
 
@@ -663,6 +885,23 @@ export class SongsController {
     }
     const updated = updateResult.data;
 
+    let featuredArtists: Array<{
+      id: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+    }> = [];
+    if (featuredArtistIdsProvided) {
+      featuredArtists = await this.syncFeaturedArtistsForSong(
+        songId,
+        song.artist_id,
+        userData.id,
+        body.featuredArtistIds || [],
+      );
+    } else {
+      const featuredMap = await this.getFeaturedArtistsBySongIds([songId]);
+      featuredArtists = featuredMap.get(songId) ?? [];
+    }
+
     return {
       id: updated.id,
       title: updated.title,
@@ -675,6 +914,7 @@ export class SongsController {
       discoverClipStartSeconds: updated.discover_clip_start_seconds,
       discoverClipEndSeconds: updated.discover_clip_end_seconds,
       discoverClipDurationSeconds: updated.discover_clip_duration_seconds,
+      featuredArtists,
     };
   }
 

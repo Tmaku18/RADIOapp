@@ -54,8 +54,8 @@ const emptyFeatured = (): FeaturedItem => ({
 });
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
-const MAX_COVER_SIZE = 5 * 1024 * 1024;   // 5MB
+const MAX_AVATAR_SIZE = 15 * 1024 * 1024; // 15MB
+const MAX_COVER_SIZE = 15 * 1024 * 1024;   // 15MB
 
 export default function ProNetworxOnboardingPage() {
   const router = useRouter();
@@ -193,7 +193,7 @@ export default function ProNetworxOnboardingPage() {
       return;
     }
     if (file.size > MAX_AVATAR_SIZE) {
-      setError('Profile photo must be 2MB or smaller.');
+      setError('Profile photo must be 15MB or smaller.');
       return;
     }
     setError(null);
@@ -218,7 +218,7 @@ export default function ProNetworxOnboardingPage() {
       return;
     }
     if (file.size > MAX_COVER_SIZE) {
-      setError('Cover image must be 5MB or smaller.');
+      setError('Cover image must be 15MB or smaller.');
       return;
     }
     setError(null);
@@ -355,7 +355,7 @@ export default function ProNetworxOnboardingPage() {
                         >
                           {uploadingAvatar ? 'Uploading…' : 'Upload photo'}
                         </Button>
-                        <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 2MB</p>
+                        <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 15MB</p>
                       </div>
                     </div>
                   </div>
@@ -389,7 +389,7 @@ export default function ProNetworxOnboardingPage() {
                     >
                       {uploadingCover ? 'Uploading…' : 'Upload cover'}
                     </Button>
-                    <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 5MB</p>
+                    <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 15MB</p>
                   </div>
                 </div>
               </div>

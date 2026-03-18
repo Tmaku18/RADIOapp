@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
@@ -45,6 +46,11 @@ interface Song {
   rejectionReason?: string;
   rejectedAt?: string;
   createdAt: string;
+  featuredArtists?: Array<{
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  }>;
 }
 
 function formatDuration(seconds?: number): string {
@@ -79,11 +85,50 @@ export default function MySongsPage() {
   const [editDiscoverBackgroundPreview, setEditDiscoverBackgroundPreview] = useState<string | null>(null);
   const [editDiscoverClipStartSeconds, setEditDiscoverClipStartSeconds] = useState('0');
   const [editDiscoverClipEndSeconds, setEditDiscoverClipEndSeconds] = useState('15');
+  const [editFeaturedArtists, setEditFeaturedArtists] = useState<
+    Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
+  >([]);
+  const [featuredSearchQuery, setFeaturedSearchQuery] = useState('');
+  const [featuredSearchResults, setFeaturedSearchResults] = useState<
+    Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
+  >([]);
+  const [featuredSearchLoading, setFeaturedSearchLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
 
   useEffect(() => {
     loadSongs();
   }, []);
+
+  useEffect(() => {
+    const query = featuredSearchQuery.trim();
+    if (!editingSong || query.length < 2) {
+      setFeaturedSearchResults([]);
+      setFeaturedSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setFeaturedSearchLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await songsApi.searchArtists(query, 12);
+        if (cancelled) return;
+        const selectedIds = new Set(editFeaturedArtists.map((a) => a.id));
+        const items = (res.data?.items ?? []).filter(
+          (a) => !selectedIds.has(a.id),
+        );
+        setFeaturedSearchResults(items);
+      } catch {
+        if (!cancelled) setFeaturedSearchResults([]);
+      } finally {
+        if (!cancelled) setFeaturedSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [featuredSearchQuery, editingSong, editFeaturedArtists]);
 
   const toggleRefinery = async (songId: string, currentlyInRefinery: boolean) => {
     setRefineryToggling(songId);
@@ -162,6 +207,9 @@ export default function MySongsPage() {
     setEditDiscoverBackgroundPreview(song.discoverBackgroundUrl || song.artworkUrl || null);
     setEditDiscoverClipStartSeconds((song.discoverClipStartSeconds ?? 0).toString());
     setEditDiscoverClipEndSeconds((song.discoverClipEndSeconds ?? 15).toString());
+    setEditFeaturedArtists(song.featuredArtists || []);
+    setFeaturedSearchQuery('');
+    setFeaturedSearchResults([]);
   };
 
   const closeEditModal = () => {
@@ -170,6 +218,9 @@ export default function MySongsPage() {
     setEditArtworkPreview(null);
     setEditDiscoverBackgroundFile(null);
     setEditDiscoverBackgroundPreview(null);
+    setEditFeaturedArtists([]);
+    setFeaturedSearchQuery('');
+    setFeaturedSearchResults([]);
     setEditSaving(false);
   };
 
@@ -212,6 +263,7 @@ export default function MySongsPage() {
         stationId: editStationId,
         artworkUrl: finalArtworkUrl,
         discoverEnabled: editDiscoverEnabled,
+        featuredArtistIds: editFeaturedArtists.map((a) => a.id),
       });
 
       let discoverUpdated:
@@ -255,6 +307,11 @@ export default function MySongsPage() {
         discoverClipStartSeconds?: number | null;
         discoverClipEndSeconds?: number | null;
         discoverClipDurationSeconds?: number | null;
+        featuredArtists?: Array<{
+          id: string;
+          displayName: string | null;
+          avatarUrl: string | null;
+        }>;
       };
       setSongs((prev) =>
         prev.map((song) =>
@@ -289,6 +346,7 @@ export default function MySongsPage() {
                   discoverUpdated?.discoverClipDurationSeconds ??
                   updated.discoverClipDurationSeconds ??
                   Number(editDiscoverClipEndSeconds) - Number(editDiscoverClipStartSeconds),
+                featuredArtists: updated.featuredArtists ?? editFeaturedArtists,
               }
             : song,
         ),
@@ -371,6 +429,22 @@ export default function MySongsPage() {
                       <div className="ml-4">
                         <div className="text-sm font-medium text-foreground">{song.title}</div>
                         <div className="text-sm text-muted-foreground">{song.artistName}</div>
+                        {(song.featuredArtists?.length ?? 0) > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            Feat:{' '}
+                            {song.featuredArtists?.map((artist, index) => (
+                              <React.Fragment key={artist.id}>
+                                {index > 0 ? ', ' : null}
+                                <Link
+                                  href={`/artist/${artist.id}`}
+                                  className="text-primary hover:underline"
+                                >
+                                  {artist.displayName || 'Artist'}
+                                </Link>
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TableCell>
@@ -581,6 +655,86 @@ export default function MySongsPage() {
                   alt="Discover background preview"
                   className="h-16 w-16 rounded object-cover border border-border"
                 />
+              )}
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="text-sm font-medium">
+                Featured Artist Credits
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Tag other artists on Networx who are featured on this song.
+              </p>
+              <input
+                value={featuredSearchQuery}
+                onChange={(e) => setFeaturedSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Search artists by name"
+              />
+              {featuredSearchLoading && (
+                <p className="text-xs text-muted-foreground">Searching...</p>
+              )}
+              {!featuredSearchLoading &&
+                featuredSearchQuery.trim().length >= 2 &&
+                featuredSearchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No matching artists found.
+                  </p>
+                )}
+              {featuredSearchResults.length > 0 && (
+                <div className="max-h-36 overflow-auto rounded border border-border divide-y divide-border">
+                  {featuredSearchResults.map((artist) => (
+                    <button
+                      key={artist.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm"
+                      onClick={() => {
+                        setEditFeaturedArtists((prev) => [
+                          ...prev,
+                          {
+                            id: artist.id,
+                            displayName: artist.displayName,
+                            avatarUrl: artist.avatarUrl,
+                          },
+                        ]);
+                        setFeaturedSearchQuery('');
+                        setFeaturedSearchResults([]);
+                      }}
+                    >
+                      {artist.displayName || 'Artist'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(editFeaturedArtists.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {editFeaturedArtists.map((artist) => (
+                    <span
+                      key={artist.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs"
+                    >
+                      <Link
+                        href={`/artist/${artist.id}`}
+                        className="text-primary hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {artist.displayName || 'Artist'}
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() =>
+                          setEditFeaturedArtists((prev) =>
+                            prev.filter((a) => a.id !== artist.id),
+                          )
+                        }
+                        aria-label={`Remove ${artist.displayName || 'artist'}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
               )}
             </div>
             <div className="flex justify-end gap-2">

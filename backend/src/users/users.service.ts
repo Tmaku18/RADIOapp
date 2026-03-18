@@ -361,6 +361,25 @@ export class UsersService {
     return false;
   }
 
+  private isMissingSongFeaturedArtistsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    if (maybeError?.code === '42P01') {
+      return (
+        message.includes('song_featured_artists') ||
+        message.includes('public.song_featured_artists')
+      );
+    }
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes("'public.song_featured_artists'") ||
+        message.includes("'song_featured_artists'") ||
+        message.includes('song_featured_artists')
+      );
+    }
+    return false;
+  }
+
   async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     const resolvedUserId = await this.resolveUserId(userId);
@@ -494,7 +513,7 @@ export class UsersService {
 
   /**
    * Upload a profile picture and set it as the user's avatar.
-   * Accepts JPEG, PNG, WebP up to 2MB.
+   * Accepts JPEG, PNG, WebP up to 15MB.
    */
   async updateAvatar(
     firebaseUid: string,
@@ -690,6 +709,68 @@ export class UsersService {
     }
 
     const songRows = (songs ?? []) as any[];
+    const songIds = songRows.map((song) => song.id as string);
+    const featuredBySongId = new Map<
+      string,
+      Array<{
+        id: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+      }>
+    >();
+    if (songIds.length > 0) {
+      const { data: featuredRows, error: featuredRowsError } = await supabase
+        .from('song_featured_artists')
+        .select('song_id, featured_user_id')
+        .in('song_id', songIds);
+      if (
+        featuredRowsError &&
+        !this.isMissingSongFeaturedArtistsTable(featuredRowsError)
+      ) {
+        throw new BadRequestException(
+          `Failed to load featured artists: ${featuredRowsError.message}`,
+        );
+      }
+      if (
+        !featuredRowsError &&
+        Array.isArray(featuredRows) &&
+        featuredRows.length > 0
+      ) {
+        const featuredUserIds = [
+          ...new Set(
+            featuredRows.map((row: any) => row.featured_user_id as string),
+          ),
+        ];
+        const { data: featuredUsers, error: featuredUsersError } =
+          await supabase
+            .from('users')
+            .select('id, display_name, avatar_url')
+            .in('id', featuredUserIds);
+        if (featuredUsersError) {
+          throw new BadRequestException(
+            `Failed to load featured artist profiles: ${featuredUsersError.message}`,
+          );
+        }
+        const featuredUserById = new Map(
+          (featuredUsers || []).map((u: any) => [
+            u.id as string,
+            {
+              id: u.id as string,
+              displayName: (u.display_name as string | null) ?? null,
+              avatarUrl: (u.avatar_url as string | null) ?? null,
+            },
+          ]),
+        );
+        for (const row of featuredRows as any[]) {
+          const user = featuredUserById.get(row.featured_user_id);
+          if (!user) continue;
+          const list = featuredBySongId.get(row.song_id) ?? [];
+          list.push(user);
+          featuredBySongId.set(row.song_id, list);
+        }
+      }
+    }
+
     const mappedSongs = songRows.map((song) => {
       const playCount = song.play_count || 0;
       const profilePlayCount = song.profile_play_count || 0;
@@ -708,6 +789,7 @@ export class UsersService {
         likeCount,
         popularityScore,
         createdAt: song.created_at,
+        featuredArtists: featuredBySongId.get(song.id) ?? [],
       };
     });
 

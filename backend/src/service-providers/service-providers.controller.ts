@@ -78,14 +78,14 @@ export class ServiceProvidersController {
   }
 
   /**
-   * Upload cover/background image for ProNetworx profile. JPEG, PNG, WebP up to 5MB.
+   * Upload cover/background image for ProNetworx profile. JPEG, PNG, WebP up to 15MB.
    */
   @Post('me/cover')
   @UseGuards(RolesGuard)
   @Roles('service_provider', 'admin')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
     }),
   )
   async uploadCover(

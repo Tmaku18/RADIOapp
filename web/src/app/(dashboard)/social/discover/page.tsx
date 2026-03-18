@@ -58,6 +58,8 @@ export default function SocialDiscoverSwipePage() {
   const [selectedSongId, setSelectedSongId] = useState('');
   const [clipStartSeconds, setClipStartSeconds] = useState('0');
   const [clipEndSeconds, setClipEndSeconds] = useState('15');
+  const [audioPositionSeconds, setAudioPositionSeconds] = useState(0);
+  const [audioIsPlaying, setAudioIsPlaying] = useState(false);
 
   const pointerStartX = useRef<number | null>(null);
   const pointerIdRef = useRef<number | null>(null);
@@ -66,6 +68,10 @@ export default function SocialDiscoverSwipePage() {
   const audioCapSecondsRef = useRef<number>(15);
 
   const currentCard = cards[0] ?? null;
+  const currentCardClipCapSeconds = Math.max(
+    1,
+    Math.min(15, currentCard?.clipDurationSeconds || 15),
+  );
 
   const loadFeed = useCallback(
     async (append: boolean) => {
@@ -123,13 +129,17 @@ export default function SocialDiscoverSwipePage() {
     setShownAt(Date.now());
     setDragX(0);
     setDragging(false);
+    setAudioPositionSeconds(0);
+    setAudioIsPlaying(false);
   }, [currentCard?.songId]);
 
   useEffect(() => {
     const audio = audioRef.current;
     const card = currentCard;
     if (!audio || !card) return;
-    audioCapSecondsRef.current = Math.max(1, Math.min(15, card.clipDurationSeconds || 15));
+    const clipCap = Math.max(1, Math.min(15, card.clipDurationSeconds || 15));
+    audioCapSecondsRef.current = clipCap;
+    setAudioPositionSeconds(0);
     audio.currentTime = 0;
     void audio.play().catch(() => {
       // Browser autoplay policy may block without user gesture.
@@ -137,7 +147,8 @@ export default function SocialDiscoverSwipePage() {
     const stopTimer = window.setTimeout(() => {
       audio.pause();
       audio.currentTime = 0;
-    }, Math.max(1000, card.clipDurationSeconds * 1000));
+      setAudioPositionSeconds(0);
+    }, Math.max(1000, clipCap * 1000));
     return () => window.clearTimeout(stopTimer);
   }, [currentCard, currentCard?.songId, currentCard?.clipDurationSeconds]);
 
@@ -150,23 +161,59 @@ export default function SocialDiscoverSwipePage() {
       if (audio.currentTime > cap) {
         audio.currentTime = cap;
       }
+      setAudioPositionSeconds(Math.min(audio.currentTime, cap));
     };
 
     const stopAtClipEnd = () => {
       const cap = audioCapSecondsRef.current;
+      setAudioPositionSeconds(Math.min(audio.currentTime, cap));
       if (audio.currentTime >= cap) {
         audio.pause();
         audio.currentTime = 0;
+        setAudioPositionSeconds(0);
       }
     };
 
+    const onPlay = () => setAudioIsPlaying(true);
+    const onPause = () => setAudioIsPlaying(false);
+
     audio.addEventListener('seeking', capPlaybackToClip);
     audio.addEventListener('timeupdate', stopAtClipEnd);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
     return () => {
       audio.removeEventListener('seeking', capPlaybackToClip);
       audio.removeEventListener('timeupdate', stopAtClipEnd);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
     };
   }, [currentCard?.songId]);
+
+  const formatPlaybackClock = useCallback((seconds: number) => {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const minutes = Math.floor(safeSeconds / 60);
+    const rem = safeSeconds % 60;
+    return `${minutes}:${rem.toString().padStart(2, '0')}`;
+  }, []);
+
+  const toggleTopCardPlayback = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      void audio.play();
+      return;
+    }
+    audio.pause();
+  }, []);
+
+  const seekTopCardPlayback = useCallback((nextSeconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const cap = audioCapSecondsRef.current;
+    const bounded = Math.max(0, Math.min(cap, nextSeconds));
+    audio.currentTime = bounded;
+    setAudioPositionSeconds(bounded);
+  }, []);
 
   const maybePrefetch = useCallback(async () => {
     if (prefetchingRef.current) return;
@@ -551,14 +598,46 @@ export default function SocialDiscoverSwipePage() {
                               <p className="text-sm text-white/80">{card.artistName}</p>
                             </div>
 
-                            <audio
-                              ref={isTop ? audioRef : undefined}
-                              key={card.songId}
-                              src={card.clipUrl}
-                              controls
-                              preload="metadata"
-                              className="w-full"
-                            />
+                            {isTop ? (
+                              <div className="rounded-lg bg-black/55 p-3 space-y-2">
+                                <audio
+                                  ref={audioRef}
+                                  key={card.songId}
+                                  src={card.clipUrl}
+                                  preload="metadata"
+                                  className="hidden"
+                                />
+                                <div className="flex items-center gap-3">
+                                  <button
+                                    type="button"
+                                    onClick={toggleTopCardPlayback}
+                                    className="rounded-full bg-cyan-400 px-3 py-1 text-xs font-medium text-black hover:bg-cyan-300"
+                                  >
+                                    {audioIsPlaying ? 'Pause' : 'Play'}
+                                  </button>
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={currentCardClipCapSeconds}
+                                    step={0.1}
+                                    value={Math.min(
+                                      audioPositionSeconds,
+                                      currentCardClipCapSeconds,
+                                    )}
+                                    onChange={(event) =>
+                                      seekTopCardPlayback(Number(event.target.value))
+                                    }
+                                    className="w-full accent-cyan-400"
+                                  />
+                                </div>
+                                <div className="flex justify-between text-xs text-white/80">
+                                  <span>{formatPlaybackClock(audioPositionSeconds)}</span>
+                                  <span>
+                                    {formatPlaybackClock(currentCardClipCapSeconds)}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       </div>

@@ -171,6 +171,7 @@ export const songsApi = {
       discoverBackgroundUrl?: string;
       discoverClipStartSeconds?: number;
       discoverClipEndSeconds?: number;
+      featuredArtistIds?: string[];
     },
   ) => api.patch(`/songs/${id}`, data),
   publishDiscoverFromLibrary: (
@@ -183,6 +184,17 @@ export const songsApi = {
   ) => api.post(`/songs/${id}/discover/publish`, data),
   updateOptIn: (id: string, optInFreePlay: boolean) => 
     api.patch(`/songs/${id}`, { optInFreePlay }),
+  searchArtists: (q: string, limit?: number) =>
+    api.get<{
+      items: Array<{
+        id: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        role: string | null;
+      }>;
+    }>('/songs/artists/search', {
+      params: { q, limit },
+    }),
 };
 
 export interface DiscoverAudioSongCard {

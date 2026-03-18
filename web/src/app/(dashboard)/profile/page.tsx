@@ -183,7 +183,7 @@ export default function ProfilePage() {
   };
 
   const ALLOWED_AVATAR_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-  const MAX_AVATAR_SIZE = 2 * 1024 * 1024; // 2MB
+  const MAX_AVATAR_SIZE = 15 * 1024 * 1024; // 15MB
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -195,7 +195,7 @@ export default function ProfilePage() {
       return;
     }
     if (file.size > MAX_AVATAR_SIZE) {
-      setAvatarError('Image must be 2MB or smaller.');
+      setAvatarError('Image must be 15MB or smaller.');
       return;
     }
     setIsUploadingAvatar(true);

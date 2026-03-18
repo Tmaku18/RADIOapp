@@ -427,7 +427,7 @@ export default function ArtistServicesPage() {
                       <Button type="button" variant="outline" size="sm" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()}>
                         {uploadingCover ? 'Uploading…' : 'Upload image'}
                       </Button>
-                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 5MB</p>
+                      <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 15MB</p>
                     </div>
                   </div>
                 </div>

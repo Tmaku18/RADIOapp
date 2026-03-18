@@ -82,12 +82,12 @@ export class UsersController {
   }
 
   /**
-   * Upload and set profile picture. Accepts JPEG, PNG, WebP up to 2MB.
+   * Upload and set profile picture. Accepts JPEG, PNG, WebP up to 15MB.
    */
   @Post('me/avatar')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
     }),
   )
   async uploadAvatar(

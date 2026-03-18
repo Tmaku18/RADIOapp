@@ -1,4 +1,5 @@
 import {
+  IsArray,
   IsBoolean,
   IsIn,
   IsNumber,
@@ -49,4 +50,9 @@ export class UpdateSongDto {
   @IsOptional()
   @Min(0)
   discoverClipEndSeconds?: number;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  featuredArtistIds?: string[];
 }

@@ -24,6 +24,11 @@ type ArtistSong = {
   likeCount: number;
   popularityScore: number;
   createdAt: string;
+  featuredArtists?: Array<{
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  }>;
 };
 
 type ArtistProfileResponse = {
@@ -168,6 +173,7 @@ export function ArtistPageView({
               likeCount,
               popularityScore: playCount + profilePlayCount + likeCount * 3,
               createdAt: song.created_at,
+              featuredArtists: [],
             };
           });
           const totalPlayCount = mappedSongs.reduce(
@@ -383,6 +389,22 @@ export function ArtistPageView({
                 <span className="text-sm text-muted-foreground">{idx + 1}</span>
                 <div className="min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
+                  {(song.featuredArtists?.length ?? 0) > 0 && (
+                    <p className="text-xs text-muted-foreground truncate">
+                      Feat:{' '}
+                      {song.featuredArtists?.map((artist, index) => (
+                        <span key={artist.id}>
+                          {index > 0 ? ', ' : ''}
+                          <Link
+                            href={`/artist/${artist.id}`}
+                            className="text-primary hover:underline"
+                          >
+                            {artist.displayName || 'Artist'}
+                          </Link>
+                        </span>
+                      ))}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground">{formatNumber(song.playCount + song.profilePlayCount)} plays</p>
                   <p className="text-xs text-muted-foreground">
                     {formatNumber(song.profilePlayCount)} individual listens · {formatNumber(song.likeCount)} likes

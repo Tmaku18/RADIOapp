@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -8,9 +10,20 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+val keystorePropertiesFile = rootProject.file("key.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+val hasReleaseSigning =
+    keystoreProperties.getProperty("keyAlias")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("keyPassword")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("storeFile")?.isNotBlank() == true &&
+        keystoreProperties.getProperty("storePassword")?.isNotBlank() == true
+
 android {
     namespace = "com.radioapp.radio_app"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = maxOf(flutter.compileSdkVersion, 35)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -29,16 +42,33 @@ android {
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Google Play policy currently requires API 35+ for new submissions.
+        targetSdk = maxOf(flutter.targetSdkVersion, 35)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (hasReleaseSigning) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null && hasReleaseSigning) {
+                signingConfig = releaseSigning
+            } else {
+                // Keep project introspection and debug workflows working; release tasks are
+                // blocked below unless proper signing is configured.
+                signingConfig = signingConfigs.getByName("debug")
+            }
             // Enable minification with ProGuard rules
             isMinifyEnabled = true
             isShrinkResources = true
@@ -76,6 +106,22 @@ android.applicationVariants.all {
         tasks.matching { it.name == taskName }.configureEach {
             finalizedBy(tasks.named("syncFlutterApks"))
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val isReleaseBuildRequested = allTasks.any { task ->
+        val n = task.name
+        (n.contains("Release", ignoreCase = true) &&
+            (n.startsWith("bundle", ignoreCase = true) ||
+                n.startsWith("assemble", ignoreCase = true) ||
+                n.startsWith("package", ignoreCase = true)))
+    }
+    if (isReleaseBuildRequested && !hasReleaseSigning) {
+        throw GradleException(
+            "Missing Android release signing config. Create android/key.properties " +
+                "and provide storeFile, storePassword, keyAlias, keyPassword.",
+        )
     }
 }
 
