@@ -97,10 +97,9 @@ class MiniPlayerBar extends StatelessWidget {
                           ),
                         ),
                         IconButton(
+                          iconSize: 52,
                           icon: Icon(
                             isPlaying ? Icons.pause_circle : Icons.play_circle,
-                            size: 40,
-                            color: NetworxTokens.electricCyan,
                           ),
                           onPressed: () {
                             if (isPlaying) {
