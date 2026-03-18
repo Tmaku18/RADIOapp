@@ -97,7 +97,7 @@ export function RadioPlayer() {
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || "No ore's are currently available.");
+        setNoContentMessage(trackData.message || "No songs are currently available.");
         setPinnedCatalysts([]);
         setListenerCount(0);
         return;
@@ -204,7 +204,7 @@ export function RadioPlayer() {
     playRef.current = play;
   }, [loadTrack, syncToPosition, play]);
 
-  // Open refinery prompt when a new ore starts (rate + survey the previous ore).
+  // Open refinery prompt when a new song starts (rate + survey the previous song).
   useEffect(() => {
     const currentId = state.currentTrack?.id ?? null;
     if (!isProspector) {
@@ -267,7 +267,7 @@ export function RadioPlayer() {
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || "No ore's are currently available.");
+        setNoContentMessage(trackData.message || "No songs are currently available.");
         setPinnedCatalysts([]);
         setListenerCount(0);
         return;
@@ -332,7 +332,7 @@ export function RadioPlayer() {
     } catch (error: unknown) {
       const msg = (error as { response?: { data?: { message?: string }; status?: number } })?.response?.data?.message;
       if (msg) setNoContentMessage(msg);
-      else setNoContentMessage("No ore's are currently available. Please try again later.");
+      else setNoContentMessage("No songs are currently available. Please try again later.");
       setNoContent(true);
       setPinnedCatalysts([]);
       setListenerCount(0);
@@ -467,7 +467,7 @@ export function RadioPlayer() {
             <div className="text-center">
               <h3 className="text-white text-xl font-bold">No Content Available</h3>
               <p className="text-gray-200 text-sm mt-2">
-                {noContentMessage || "Sorry for the inconvenience. No ore's are currently available."}
+                {noContentMessage || "Sorry for the inconvenience. No songs are currently available."}
               </p>
             </div>
           </div>
@@ -719,7 +719,7 @@ export function RadioPlayer() {
       <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
         <DialogContent className="sm:max-w-[520px]">
           <DialogHeader>
-            <DialogTitle>Refine that ore (Prospector)</DialogTitle>
+            <DialogTitle>Refine that song (Prospector)</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">

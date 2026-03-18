@@ -253,7 +253,7 @@ export default function FreeRotationPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder={searchTab === 'songs' ? 'Search by ore title...' : 'Search by name or email...'}
+            placeholder={searchTab === 'songs' ? 'Search by song title...' : 'Search by name or email...'}
             className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
           />
           <button
@@ -296,7 +296,7 @@ export default function FreeRotationPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ore</TableHead>
+                <TableHead>Song</TableHead>
                 <TableHead>Artist</TableHead>
                 <TableHead className="text-right">Plays</TableHead>
                 <TableHead className="text-right">Ripples</TableHead>

@@ -49,7 +49,7 @@ export default function ListenPage() {
         (payload) => {
           const row = payload.new as RisingStarStationEvent;
           const p = row?.payload ?? {};
-          const songTitle = p.songTitle ?? 'an ore';
+          const songTitle = p.songTitle ?? 'a song';
           const artistName = p.artistName ?? 'an artist';
           const conversion = typeof p.conversion === 'number' ? p.conversion : null;
           setRisingStar({
@@ -128,7 +128,7 @@ export default function ListenPage() {
           </div>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Everyone listening hears the same stream. Send a ripple (like) to like an ore and support the artist.</p>
+            <p>Everyone listening hears the same stream. Send a ripple (like) to like a song and support the artist.</p>
           </div>
 
           {/* Chat entry toggle temporarily disabled until chat is restored.

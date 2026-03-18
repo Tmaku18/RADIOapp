@@ -145,7 +145,7 @@ export default function AdminSongsPage() {
       setSongs(response.data.songs || []);
     } catch (err) {
       console.error('Failed to load songs:', err);
-      setError('Failed to load ore\'s');
+      setError("Failed to load songs");
     } finally {
       setLoading(false);
     }
@@ -168,7 +168,7 @@ export default function AdminSongsPage() {
   const handleToggleFreeRotation = async (song: Song) => {
     // Temporarily removed: paid-play requirement so rap radio can play nonstop (uploaded songs are rap)
     // if ((song.paid_play_count || 0) < 1) {
-    //   alert('Ore must have at least 1 paid play');
+    //   alert('Song must have at least 1 paid play');
     //   return;
     // }
 
@@ -195,7 +195,7 @@ export default function AdminSongsPage() {
       ));
     } catch (err) {
       console.error('Failed to approve song:', err);
-      alert('Failed to approve ore');
+      alert('Failed to approve song');
     } finally {
       setActionLoading(null);
     }
@@ -219,7 +219,7 @@ export default function AdminSongsPage() {
       setRejectionReason('');
     } catch (err) {
       console.error('Failed to reject song:', err);
-      alert('Failed to reject ore');
+      alert('Failed to reject song');
     } finally {
       setActionLoading(null);
     }
@@ -423,7 +423,7 @@ export default function AdminSongsPage() {
           <div className="relative w-full sm:w-64">
             <input
               type="text"
-              placeholder="Search ore's..."
+              placeholder="Search songs..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full"
@@ -475,7 +475,7 @@ export default function AdminSongsPage() {
                   className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
                   onClick={() => handleSort('title')}
                 >
-                  Ore <SortIcon field="title" />
+                  Song <SortIcon field="title" />
                 </th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
@@ -634,9 +634,9 @@ export default function AdminSongsPage() {
       {rejectingId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Ore</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
             <p className="text-gray-600 mb-4">
-              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the ore is deleted.
+              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
             </p>
             <textarea
               value={rejectionReason}
@@ -660,7 +660,7 @@ export default function AdminSongsPage() {
                 disabled={actionLoading === rejectingId}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
-                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Ore'}
+                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
               </button>
             </div>
           </div>
@@ -670,7 +670,7 @@ export default function AdminSongsPage() {
       {trimmingSong && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Ore</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Song</h3>
             <p className="text-gray-600 mb-4">
               Drag the handles to cut the section you want to keep. A new trimmed audio file will be generated and saved.
             </p>

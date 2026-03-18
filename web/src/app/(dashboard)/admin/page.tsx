@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
                   <Badge variant="secondary">{analytics.pendingSongs} pending</Badge>
                 )}
               </div>
-              <h3 className="text-lg font-semibold text-foreground">Ore Moderation</h3>
+              <h3 className="text-lg font-semibold text-foreground">Song Moderation</h3>
               <p className="text-muted-foreground text-sm mt-1">Review and approve submitted tracks</p>
             </CardContent>
           </Link>

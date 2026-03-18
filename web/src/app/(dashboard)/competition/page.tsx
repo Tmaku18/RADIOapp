@@ -107,7 +107,7 @@ export default function CompetitionPage() {
 
   const handleVote = async () => {
     if (voteSongIds.length !== 7) {
-      setVoteError('Select exactly 7 ore\'s (rank 1–7).');
+      setVoteError('Select exactly 7 songs (rank 1–7).');
       return;
     }
     setVoteError(null);
@@ -377,7 +377,7 @@ export default function CompetitionPage() {
             <input
               type="text"
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="ore-id-1, ore-id-2, ..."
+              placeholder="song-id-1, song-id-2, ..."
               value={voteSongIds.join(', ')}
               onChange={(e) => setVoteSongIds(e.target.value.split(/[\s,]+/).filter(Boolean))}
             />

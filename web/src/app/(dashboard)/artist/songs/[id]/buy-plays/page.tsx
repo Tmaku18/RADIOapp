@@ -133,7 +133,7 @@ export default function BuyPlaysPage() {
 
       {success && (
         <Alert>
-          <AlertDescription>Payment successful. Plays have been added to this ore.</AlertDescription>
+          <AlertDescription>Payment successful. Plays have been added to this song.</AlertDescription>
         </Alert>
       )}
       {canceled && (

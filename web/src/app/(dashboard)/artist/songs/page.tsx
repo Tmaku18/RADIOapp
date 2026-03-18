@@ -326,7 +326,7 @@ export default function MySongsPage() {
               Retry
             </Button>
             <Button size="sm" onClick={() => router.push('/artist/upload')}>
-              Upload Ore
+              Upload Song
             </Button>
           </div>
         </Alert>
@@ -338,7 +338,7 @@ export default function MySongsPage() {
             <div className="text-6xl mb-4">🎵</div>
             <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
             <p className="text-muted-foreground mb-6">Upload your first song to get on the radio and buy plays for approved tracks.</p>
-            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Ore</Button>
+            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Song</Button>
           </CardContent>
         </Card>
       ) : !error ? (
@@ -346,7 +346,7 @@ export default function MySongsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Ore</TableHead>
+                <TableHead>Song</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Discover</TableHead>
                 <TableHead>Refinery</TableHead>

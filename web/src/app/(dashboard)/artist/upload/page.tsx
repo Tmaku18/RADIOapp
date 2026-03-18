@@ -376,7 +376,7 @@ export default function UploadPage() {
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardContent className="pt-6">
-          <h2 className="heading-serif text-xl font-semibold text-foreground">Add to the Rotation</h2>
+          <h2 className="heading-serif text-xl font-semibold text-foreground">Upload Song</h2>
           <p className="text-muted-foreground mt-1">Submit your track for review and radio rotation</p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-6">
@@ -550,8 +550,8 @@ export default function UploadPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="title">Ore Title <span className="text-destructive">*</span></Label>
-              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter ore title" />
+              <Label htmlFor="title">Song Title <span className="text-destructive">*</span></Label>
+              <Input id="title" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Enter song title" />
             </div>
 
             <div className="space-y-2">

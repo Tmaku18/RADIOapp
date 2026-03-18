@@ -119,7 +119,7 @@ export default function YieldPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Songs refined</div>
             <div className="text-3xl font-bold text-foreground mt-1">{loading ? '—' : (status?.songsRefinedCount ?? 0).toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-2">1 refinement (1–10) = 1 ore refined.</div>
+            <div className="text-xs text-muted-foreground mt-2">1 refinement (1–10) = 1 song refined.</div>
           </CardContent>
         </Card>
       </div>

@@ -63,6 +63,7 @@ export default function SocialDiscoverSwipePage() {
   const pointerIdRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prefetchingRef = useRef(false);
+  const audioCapSecondsRef = useRef<number>(15);
 
   const currentCard = cards[0] ?? null;
 
@@ -128,6 +129,7 @@ export default function SocialDiscoverSwipePage() {
     const audio = audioRef.current;
     const card = currentCard;
     if (!audio || !card) return;
+    audioCapSecondsRef.current = Math.max(1, Math.min(15, card.clipDurationSeconds || 15));
     audio.currentTime = 0;
     void audio.play().catch(() => {
       // Browser autoplay policy may block without user gesture.
@@ -138,6 +140,33 @@ export default function SocialDiscoverSwipePage() {
     }, Math.max(1000, card.clipDurationSeconds * 1000));
     return () => window.clearTimeout(stopTimer);
   }, [currentCard, currentCard?.songId, currentCard?.clipDurationSeconds]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    const capPlaybackToClip = () => {
+      const cap = audioCapSecondsRef.current;
+      if (audio.currentTime > cap) {
+        audio.currentTime = cap;
+      }
+    };
+
+    const stopAtClipEnd = () => {
+      const cap = audioCapSecondsRef.current;
+      if (audio.currentTime >= cap) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+    };
+
+    audio.addEventListener('seeking', capPlaybackToClip);
+    audio.addEventListener('timeupdate', stopAtClipEnd);
+    return () => {
+      audio.removeEventListener('seeking', capPlaybackToClip);
+      audio.removeEventListener('timeupdate', stopAtClipEnd);
+    };
+  }, [currentCard?.songId]);
 
   const maybePrefetch = useCallback(async () => {
     if (prefetchingRef.current) return;
@@ -185,17 +214,24 @@ export default function SocialDiscoverSwipePage() {
     setPublishError(null);
     try {
       const res = await songsApi.getMine();
-      const rows = (res.data as any[]) ?? [];
+      const rows = (res.data as unknown[]) ?? [];
       const songs = rows
-        .filter((row) => typeof row?.audioUrl === 'string' && row.audioUrl.trim().length > 0)
+        .map((row) => (row && typeof row === 'object' ? (row as Record<string, unknown>) : null))
+        .filter((row): row is Record<string, unknown> => {
+          const audioUrl = row?.audioUrl;
+          return typeof audioUrl === 'string' && audioUrl.trim().length > 0;
+        })
         .map((row) => ({
-          id: row.id as string,
-          title: (row.title as string) ?? 'Untitled',
-          artistName: (row.artistName as string) ?? 'Unknown artist',
+          id: typeof row.id === 'string' ? row.id : '',
+          title: typeof row.title === 'string' ? row.title : 'Untitled',
+          artistName:
+            typeof row.artistName === 'string' ? row.artistName : 'Unknown artist',
           audioUrl: row.audioUrl as string,
-          artworkUrl: (row.artworkUrl as string | null) ?? null,
-          status: (row.status as string) ?? 'pending',
-        }));
+          artworkUrl:
+            typeof row.artworkUrl === 'string' ? row.artworkUrl : null,
+          status: typeof row.status === 'string' ? row.status : 'pending',
+        }))
+        .filter((song) => song.id.length > 0);
       setLibrarySongs(songs);
       if (!selectedSongId && songs[0]?.id) {
         setSelectedSongId(songs[0].id);
@@ -371,10 +407,17 @@ export default function SocialDiscoverSwipePage() {
                           setClipEndSeconds('15');
                           await loadFeed(false);
                         } catch (e) {
+                          const apiMessage =
+                            (e as { response?: { data?: { message?: string | string[] } } })
+                              ?.response?.data?.message;
+                          const normalizedApiMessage = Array.isArray(apiMessage)
+                            ? apiMessage.join(', ')
+                            : apiMessage;
                           setPublishError(
-                            e instanceof Error
-                              ? e.message
-                              : 'Failed to publish discover clip',
+                            normalizedApiMessage ||
+                              (e instanceof Error
+                                ? e.message
+                                : 'Failed to publish discover clip'),
                           );
                         } finally {
                           setPublishBusy(false);

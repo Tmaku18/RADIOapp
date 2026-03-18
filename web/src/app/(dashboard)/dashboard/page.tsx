@@ -27,7 +27,7 @@ const ROLE_HOME: Record<
 > = {
   listener: {
     title: "Prospector Home",
-    subtitle: "Discover gems, tune in to the radio, and refine ore's into signal.",
+    subtitle: 'Discover gems, tune in to the radio, and refine songs into signal.',
     actions: [
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and Catalysts (service providers).' },
@@ -42,7 +42,7 @@ const ROLE_HOME: Record<
     subtitle: "Upload music, buy credits, and grow your discoveries.",
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
-      { href: '/artist/songs', icon: '🎵', title: "My Ore's", desc: "Manage your ore's and credits." },
+      { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your songs and credits.' },
       { href: '/artist/credits', icon: '💰', title: 'Buy Credits', desc: 'Boost your tracks with play credits.' },
       { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track plays, engagement, and growth.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
@@ -54,10 +54,10 @@ const ROLE_HOME: Record<
   },
   admin: {
     title: "Admin Home",
-    subtitle: "Manage ore's, users, feed, and platform settings.",
+    subtitle: 'Manage songs, users, feed, and platform settings.',
     actions: [
       { href: '/admin', icon: '⚙️', title: 'Admin Overview', desc: 'Platform stats and quick actions.' },
-      { href: '/admin/songs', icon: '🎶', title: "Ore's", desc: 'Review and moderate submissions.' },
+      { href: '/admin/songs', icon: '🎶', title: 'Songs', desc: 'Review and moderate submissions.' },
       { href: '/admin/users', icon: '👥', title: 'Users', desc: 'Manage gems and prospectors.' },
       { href: '/admin/queue', icon: '🧵', title: 'Queue', desc: 'Inspect and control upcoming station queue.' },
       { href: '/admin/feed', icon: '📱', title: 'Feed', desc: 'News and promotions.' },

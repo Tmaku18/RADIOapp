@@ -688,13 +688,25 @@ export class SongsService {
       );
     }
 
-    const discoverClipUrl = await this.createTrimmedDiscoverClip({
-      sourceUrl: song.audio_url,
-      artistId: song.artist_id,
-      songKey: song.id,
-      startSeconds: start,
-      endSeconds: end,
-    });
+    let discoverClipUrl: string;
+    try {
+      discoverClipUrl = await this.createTrimmedDiscoverClip({
+        sourceUrl: song.audio_url,
+        artistId: song.artist_id,
+        songKey: song.id,
+        startSeconds: start,
+        endSeconds: end,
+      });
+    } catch (error) {
+      // Graceful fallback for environments without ffmpeg:
+      // if the requested clip starts at 0, we can safely reuse the source URL
+      // and still cap playback to the selected duration in clients.
+      if (start === 0 && end <= this.discoverMaxClipSeconds) {
+        discoverClipUrl = song.audio_url;
+      } else {
+        throw error;
+      }
+    }
     const discoverBackgroundUrl =
       params.discoverBackgroundUrl?.trim() || song.artwork_url || null;
     const clipDuration = Math.round((end - start) * 100) / 100;

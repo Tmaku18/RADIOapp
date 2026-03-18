@@ -66,15 +66,15 @@ const faqs = [
         a: 'You can listen without an account, but creating a free account lets you send ripples to tracks, follow gems, and access the mobile app.',
       },
       {
-        q: "Can I skip ore's?",
-        a: "Yes, you can skip to the next track at any time. However, since this is a radio-style experience, you cannot go back to previous ore's.",
+        q: 'Can I skip songs?',
+        a: 'Yes, you can skip to the next track at any time. However, since this is a radio-style experience, you cannot go back to previous songs.',
       },
       {
         q: 'Is there a mobile app?',
         a: 'Yes. Networx supports mobile listening and engagement on iOS and Android so you can discover, vote, and follow artists on the go.',
       },
       {
-        q: 'Why do I hear the same ore as everyone else?',
+        q: 'Why do I hear the same song as everyone else?',
         a: "That's the magic of radio! Unlike personal playlists, everyone hears the same stream. It creates shared moments of discovery and community.",
       },
     ],

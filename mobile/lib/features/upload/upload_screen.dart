@@ -291,7 +291,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text(
-                    'Add to the Rotation',
+                    'Upload Song',
                     style: Theme.of(context)
                         .textTheme
                         .titleLarge
