@@ -15,6 +15,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
   final _displayNameController = TextEditingController();
   bool _isSignUp = false;
   bool _isSubmitting = false;
@@ -24,6 +25,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     _displayNameController.dispose();
     super.dispose();
   }
@@ -279,6 +281,28 @@ class _LoginScreenState extends State<LoginScreen> {
                             return null;
                           },
                         ),
+                        if (_isSignUp) ...[
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            decoration: themedDecoration(
+                              label: 'Confirm password',
+                              hint: 'Re-enter your password',
+                            ),
+                            obscureText: true,
+                            validator: (value) {
+                              if (!_isSignUp) return null;
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm your password';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Passwords do not match';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 18),
                         SizedBox(
                           width: double.infinity,
