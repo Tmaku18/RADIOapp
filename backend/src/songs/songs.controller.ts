@@ -60,6 +60,35 @@ export class SongsController {
     }
   }
 
+  private isMissingColumnError(error: unknown, columnName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    if (maybe?.code === '42703') {
+      return message.includes(columnName.toLowerCase());
+    }
+    if (maybe?.code === 'PGRST204') {
+      return (
+        message.includes(`'${columnName.toLowerCase()}'`) ||
+        message.includes(columnName.toLowerCase())
+      );
+    }
+    return false;
+  }
+
+  private isMissingAnyDiscoverColumnError(error: unknown): boolean {
+    const discoverColumns = [
+      'discover_enabled',
+      'discover_clip_url',
+      'discover_background_url',
+      'discover_clip_start_seconds',
+      'discover_clip_end_seconds',
+      'discover_clip_duration_seconds',
+    ];
+    return discoverColumns.some((column) =>
+      this.isMissingColumnError(error, column),
+    );
+  }
+
   @Post('upload')
   @UseInterceptors(
     FilesInterceptor('files', 2, {
@@ -596,16 +625,43 @@ export class SongsController {
       throw new BadRequestException('No editable fields provided');
     }
 
-    const { data: updated, error } = await supabase
+    let updateResult = await supabase
       .from('songs')
       .update(updateData)
       .eq('id', songId)
       .select()
       .single();
 
-    if (error) {
-      throw new Error(`Failed to update song: ${error.message}`);
+    if (
+      updateResult.error &&
+      this.isMissingAnyDiscoverColumnError(updateResult.error)
+    ) {
+      const fallbackUpdateData = { ...updateData };
+      delete fallbackUpdateData.discover_enabled;
+      delete fallbackUpdateData.discover_clip_url;
+      delete fallbackUpdateData.discover_background_url;
+      delete fallbackUpdateData.discover_clip_start_seconds;
+      delete fallbackUpdateData.discover_clip_end_seconds;
+      delete fallbackUpdateData.discover_clip_duration_seconds;
+
+      if (Object.keys(fallbackUpdateData).length <= 1) {
+        throw new BadRequestException(
+          'Discover settings are not available in this environment yet. Please run the latest database migrations.',
+        );
+      }
+
+      updateResult = await supabase
+        .from('songs')
+        .update(fallbackUpdateData)
+        .eq('id', songId)
+        .select()
+        .single();
     }
+
+    if (updateResult.error) {
+      throw new Error(`Failed to update song: ${updateResult.error.message}`);
+    }
+    const updated = updateResult.data;
 
     return {
       id: updated.id,
