@@ -68,6 +68,75 @@ export class UploadsService {
 
   constructor(private configService: ConfigService) {}
 
+  private isBucketNotFoundError(error: unknown, bucket: string): boolean {
+    const maybe = error as { message?: string; code?: string } | null;
+    const msg = (maybe?.message ?? '').toLowerCase();
+    return (
+      msg.includes('bucket not found') ||
+      msg.includes(`bucket ${bucket.toLowerCase()} not found`) ||
+      msg.includes(`'${bucket.toLowerCase()}' not found`)
+    );
+  }
+
+  private getBucketDefaults(bucket: string): {
+    public: boolean;
+    fileSizeLimit: number;
+    allowedMimeTypes: string[];
+  } | null {
+    if (bucket === 'songs') {
+      return {
+        public: true,
+        fileSizeLimit: this.songBucketTargetBytes,
+        allowedMimeTypes: this.songBucketAllowedMimeTypes,
+      };
+    }
+    if (bucket === 'artwork' || bucket === 'avatars' || bucket === 'feed') {
+      return {
+        public: true,
+        fileSizeLimit: this.imageUploadMaxBytes,
+        allowedMimeTypes: [
+          'image/jpeg',
+          'image/jpg',
+          'image/png',
+          'image/webp',
+        ],
+      };
+    }
+    if (bucket === 'portfolio') {
+      return {
+        public: true,
+        fileSizeLimit: this.portfolioBucketTargetBytes,
+        allowedMimeTypes: this.portfolioAllowedMimeTypes,
+      };
+    }
+    return null;
+  }
+
+  private async ensureBucketExists(bucket: string): Promise<void> {
+    const defaults = this.getBucketDefaults(bucket);
+    if (!defaults) return;
+    const supabase = getSupabaseClient();
+    const { data: existing, error: getError } =
+      await supabase.storage.getBucket(bucket);
+    if (!getError && existing) return;
+
+    const { error: createError } = await supabase.storage.createBucket(bucket, {
+      public: defaults.public,
+      fileSizeLimit: defaults.fileSizeLimit,
+      allowedMimeTypes: defaults.allowedMimeTypes,
+    });
+    if (createError) {
+      const conflict = (createError.message || '')
+        .toLowerCase()
+        .includes('already exists');
+      if (!conflict) {
+        throw new BadRequestException(
+          `Storage bucket "${bucket}" is missing and could not be created automatically: ${createError.message}`,
+        );
+      }
+    }
+  }
+
   private async ensureSongBucketLimit(): Promise<void> {
     // Avoid calling storage metadata APIs on every single upload request.
     const now = Date.now();
@@ -131,7 +200,12 @@ export class UploadsService {
           ? (bucket as any).fileSizeLimit
           : null;
 
-    const requiredMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const requiredMimeTypes = [
+      'image/jpeg',
+      'image/jpg',
+      'image/png',
+      'image/webp',
+    ];
     const currentMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
       ? (bucket as any).allowed_mime_types
       : Array.isArray((bucket as any).allowedMimeTypes)
@@ -157,7 +231,8 @@ export class UploadsService {
     await supabase.storage.updateBucket(bucketName, {
       public: Boolean((bucket as any).public),
       fileSizeLimit: this.imageUploadMaxBytes,
-      allowedMimeTypes: nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
+      allowedMimeTypes:
+        nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
     });
     this.lastImageBucketEnsureAt.set(bucketName, now);
   }
@@ -254,12 +329,18 @@ export class UploadsService {
 
     // Upload to Supabase Storage
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.storage
-      .from(options.bucket)
-      .upload(fileName, file.buffer, {
+    const attemptUpload = async () =>
+      supabase.storage.from(options.bucket).upload(fileName, file.buffer, {
         contentType: file.mimetype,
         upsert: false,
       });
+
+    let { data, error } = await attemptUpload();
+
+    if (error && this.isBucketNotFoundError(error, options.bucket)) {
+      await this.ensureBucketExists(options.bucket);
+      ({ data, error } = await attemptUpload());
+    }
 
     if (error) {
       throw new BadRequestException(
@@ -439,9 +520,14 @@ export class UploadsService {
     if (bucket === 'portfolio') {
       await this.ensurePortfolioBucketLimit();
     }
-    const { data, error } = await supabase.storage
-      .from(bucket)
-      .createSignedUploadUrl(path);
+    const attemptSignedUrl = async () =>
+      supabase.storage.from(bucket).createSignedUploadUrl(path);
+    let { data, error } = await attemptSignedUrl();
+
+    if (error && this.isBucketNotFoundError(error, bucket)) {
+      await this.ensureBucketExists(bucket);
+      ({ data, error } = await attemptSignedUrl());
+    }
 
     if (error) {
       throw new BadRequestException(
