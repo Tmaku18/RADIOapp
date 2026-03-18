@@ -641,6 +641,41 @@ export class SongsController {
     );
   }
 
+  @Delete('discover/list/:songId')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async removeDiscoverLikedSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('songId') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    if (!songId?.trim()) {
+      throw new BadRequestException('songId is required');
+    }
+    await this.songsService.removeDiscoverLike(userData.id, songId.trim());
+    return { removed: true };
+  }
+
+  @Delete('discover/list')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async clearDiscoverLikedList(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    return this.songsService.clearDiscoverLikedList(userData.id);
+  }
+
   @Post(':id/discover/publish')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')

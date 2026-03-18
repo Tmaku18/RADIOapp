@@ -1119,11 +1119,17 @@ export class SongsService {
       return { direction: params.direction, liked: true };
     }
 
+    await this.removeDiscoverLike(userId, params.songId);
+    return { direction: params.direction, liked: false };
+  }
+
+  async removeDiscoverLike(userId: string, songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
     const { error: unlikeError } = await supabase
       .from('discover_song_likes')
       .delete()
       .eq('user_id', userId)
-      .eq('song_id', params.songId);
+      .eq('song_id', songId);
     if (
       unlikeError &&
       this.isMissingTableError(unlikeError, 'discover_song_likes')
@@ -1132,7 +1138,7 @@ export class SongsService {
         .from('likes')
         .delete()
         .eq('user_id', userId)
-        .eq('song_id', params.songId);
+        .eq('song_id', songId);
       if (fallbackUnlikeError) {
         throw new Error(
           `Failed to remove discover like fallback: ${fallbackUnlikeError.message}`,
@@ -1141,7 +1147,55 @@ export class SongsService {
     } else if (unlikeError) {
       throw new Error(`Failed to remove discover like: ${unlikeError.message}`);
     }
-    return { direction: params.direction, liked: false };
+  }
+
+  async clearDiscoverLikedList(userId: string): Promise<{ removed: number }> {
+    const supabase = getSupabaseClient();
+    const { data: rows, error: likesError } = await supabase
+      .from('discover_song_likes')
+      .select('song_id')
+      .eq('user_id', userId);
+
+    if (
+      likesError &&
+      !this.isMissingTableError(likesError, 'discover_song_likes')
+    ) {
+      throw new Error(
+        `Failed to load discover likes for clear: ${likesError.message}`,
+      );
+    }
+
+    if (this.isMissingTableError(likesError, 'discover_song_likes')) {
+      const { data: fallbackRows, error: fallbackLoadError } = await supabase
+        .from('likes')
+        .select('song_id')
+        .eq('user_id', userId);
+      if (fallbackLoadError) {
+        throw new Error(
+          `Failed to load discover likes fallback for clear: ${fallbackLoadError.message}`,
+        );
+      }
+
+      const { error: fallbackDeleteError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('user_id', userId);
+      if (fallbackDeleteError) {
+        throw new Error(
+          `Failed to clear discover likes fallback: ${fallbackDeleteError.message}`,
+        );
+      }
+      return { removed: (fallbackRows || []).length };
+    }
+
+    const { error: deleteError } = await supabase
+      .from('discover_song_likes')
+      .delete()
+      .eq('user_id', userId);
+    if (deleteError) {
+      throw new Error(`Failed to clear discover likes: ${deleteError.message}`);
+    }
+    return { removed: (rows || []).length };
   }
 
   async getDiscoverLikedList(

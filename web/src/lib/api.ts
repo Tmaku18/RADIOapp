@@ -252,6 +252,10 @@ export const discoverAudioApi = {
       items: Array<DiscoverAudioSongCard & { likedAt: string }>;
       total: number;
     }>('/songs/discover/list', { params }),
+  removeLikedSong: (songId: string) =>
+    api.delete<{ removed: true }>(`/songs/discover/list/${songId}`),
+  clearLikedList: () =>
+    api.delete<{ removed: number }>('/songs/discover/list'),
   getMySwipeAnalytics: (days?: number) =>
     api.get<DiscoverSwipeAnalytics>('/analytics/me/discover-swipes', {
       params: { days },

@@ -14,6 +14,8 @@ export default function DiscoverListPage() {
   const [items, setItems] = useState<DiscoverLikedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  const [removingSongId, setRemovingSongId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -32,6 +34,37 @@ export default function DiscoverListPage() {
     void load();
   }, [load]);
 
+  const handleRemove = useCallback(async (songId: string) => {
+    setError(null);
+    setRemovingSongId(songId);
+    try {
+      await discoverAudioApi.removeLikedSong(songId);
+      setItems((prev) => prev.filter((item) => item.songId !== songId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to remove song');
+    } finally {
+      setRemovingSongId((current) => (current === songId ? null : current));
+    }
+  }, []);
+
+  const handleClearAll = useCallback(async () => {
+    if (!items.length) return;
+    const confirmed = window.confirm(
+      `Clear all ${items.length} song${items.length === 1 ? '' : 's'} from your Discover list?`,
+    );
+    if (!confirmed) return;
+    setError(null);
+    setClearing(true);
+    try {
+      await discoverAudioApi.clearLikedList();
+      setItems([]);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to clear Discover list');
+    } finally {
+      setClearing(false);
+    }
+  }, [items.length]);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
@@ -42,6 +75,13 @@ export default function DiscoverListPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleClearAll()}
+            disabled={clearing || loading || items.length === 0}
+          >
+            {clearing ? 'Clearing...' : 'Clear list'}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/social">Back to Social</Link>
           </Button>
@@ -82,6 +122,7 @@ export default function DiscoverListPage() {
                 <TableHead>Artist</TableHead>
                 <TableHead>Liked on</TableHead>
                 <TableHead>Clip</TableHead>
+                <TableHead className="text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,6 +159,16 @@ export default function DiscoverListPage() {
                   </TableCell>
                   <TableCell className="min-w-[260px]">
                     <audio controls preload="metadata" src={item.clipUrl} className="w-full" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => void handleRemove(item.songId)}
+                      disabled={removingSongId === item.songId || clearing}
+                    >
+                      {removingSongId === item.songId ? 'Removing...' : 'Remove'}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
