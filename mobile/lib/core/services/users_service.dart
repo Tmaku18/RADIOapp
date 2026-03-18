@@ -2,6 +2,7 @@ import 'dart:io';
 import 'api_service.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import '../models/follow_models.dart';
 
 class UsersService {
   final ApiService _api = ApiService();
@@ -15,10 +16,34 @@ class UsersService {
   Future<Map<String, dynamic>> updateMe({
     bool? discoverable,
     String? avatarUrl,
+    String? displayName,
+    String? region,
+    bool? suggestLocalArtists,
+    String? bio,
+    String? headline,
+    String? locationRegion,
+    String? instagramUrl,
+    String? twitterUrl,
+    String? youtubeUrl,
+    String? tiktokUrl,
+    String? websiteUrl,
+    String? role,
   }) async {
     final res = await _api.put('users/me', {
       if (discoverable != null) 'discoverable': discoverable,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
+      if (displayName != null) 'displayName': displayName,
+      if (region != null) 'region': region,
+      if (suggestLocalArtists != null) 'suggestLocalArtists': suggestLocalArtists,
+      if (bio != null) 'bio': bio,
+      if (headline != null) 'headline': headline,
+      if (locationRegion != null) 'locationRegion': locationRegion,
+      if (instagramUrl != null) 'instagramUrl': instagramUrl,
+      if (twitterUrl != null) 'twitterUrl': twitterUrl,
+      if (youtubeUrl != null) 'youtubeUrl': youtubeUrl,
+      if (tiktokUrl != null) 'tiktokUrl': tiktokUrl,
+      if (websiteUrl != null) 'websiteUrl': websiteUrl,
+      if (role != null) 'role': role,
     });
     if (res is Map<String, dynamic>) return res;
     throw Exception('Failed to update user profile');
@@ -70,6 +95,74 @@ class UsersService {
     });
     if (res is Map<String, dynamic>) return res;
     throw Exception('Failed to update artist like notification settings');
+  }
+
+  Future<Map<String, int>> getFollowCounts(String userId) async {
+    final res = await _api.get('users/$userId/follow-counts');
+    if (res is! Map<String, dynamic>) {
+      return {'followers': 0, 'following': 0};
+    }
+    int asInt(dynamic value) => value is int
+        ? value
+        : int.tryParse(value?.toString() ?? '') ?? 0;
+    return {
+      'followers': asInt(res['followers']),
+      'following': asInt(res['following']),
+    };
+  }
+
+  Future<List<FollowListItem>> getFollowers(
+    String userId, {
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final res = await _api.get(
+      'users/$userId/followers?limit=$limit&offset=$offset',
+    );
+    if (res is! Map<String, dynamic>) return const [];
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => FollowListItem.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
+  Future<List<FollowListItem>> getFollowing(
+    String userId, {
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final res = await _api.get(
+      'users/$userId/following?limit=$limit&offset=$offset',
+    );
+    if (res is! Map<String, dynamic>) return const [];
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => FollowListItem.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
+  Future<bool> isFollowing(String userId) async {
+    final res = await _api.get('users/$userId/follow');
+    if (res is! Map<String, dynamic>) return false;
+    return res['following'] == true;
+  }
+
+  Future<void> follow(String userId) async {
+    await _api.post('users/$userId/follow', {});
+  }
+
+  Future<void> unfollow(String userId) async {
+    await _api.delete('users/$userId/follow');
   }
 }
 

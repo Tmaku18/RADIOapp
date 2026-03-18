@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
+import '../../core/models/follow_models.dart';
 import '../../core/services/users_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -20,6 +21,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoading = true;
   bool _isSigningOut = false;
   bool _isUploadingAvatar = false;
+  bool _isUpdatingProfile = false;
+  bool _isLoadingFollowStats = false;
+  int _followersCount = 0;
+  int _followingCount = 0;
   final UsersService _usersService = UsersService();
 
   @override
@@ -39,6 +44,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _user = user;
         _isLoading = false;
       });
+    }
+    if (user != null) {
+      await _loadFollowCounts(user.id);
+    }
+  }
+
+  Future<void> _loadFollowCounts(String userId) async {
+    setState(() => _isLoadingFollowStats = true);
+    try {
+      final counts = await _usersService.getFollowCounts(userId);
+      if (!mounted) return;
+      setState(() {
+        _followersCount = counts['followers'] ?? 0;
+        _followingCount = counts['following'] ?? 0;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _followersCount = 0;
+        _followingCount = 0;
+      });
+    } finally {
+      if (mounted) setState(() => _isLoadingFollowStats = false);
     }
   }
 
@@ -107,6 +135,276 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _openEditProfileSheet() async {
+    final user = _user;
+    if (user == null) return;
+    final nameCtrl = TextEditingController(text: user.displayName ?? '');
+    final headlineCtrl = TextEditingController(text: user.headline ?? '');
+    final bioCtrl = TextEditingController(text: user.bio ?? '');
+    final locationCtrl = TextEditingController(text: user.locationRegion ?? '');
+    bool saving = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> submit() async {
+              if (saving) return;
+              setModalState(() => saving = true);
+              setState(() => _isUpdatingProfile = true);
+              try {
+                await _usersService.updateMe(
+                  displayName: nameCtrl.text.trim(),
+                  headline: headlineCtrl.text.trim(),
+                  bio: bioCtrl.text.trim(),
+                  locationRegion: locationCtrl.text.trim(),
+                );
+                if (!mounted || !context.mounted) return;
+                Navigator.pop(context);
+                await _loadProfile();
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(content: Text('Profile updated.')),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  SnackBar(content: Text('Failed to update profile: $e')),
+                );
+              } finally {
+                if (mounted) {
+                  setState(() => _isUpdatingProfile = false);
+                }
+                setModalState(() => saving = false);
+              }
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Edit profile',
+                          style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: nameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Display name',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: headlineCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Headline',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: locationCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Location region',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: bioCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Bio',
+                        ),
+                        minLines: 3,
+                        maxLines: 5,
+                      ),
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed:
+                                  saving ? null : () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: saving ? null : submit,
+                              child: saving
+                                  ? const SizedBox(
+                                      height: 16,
+                                      width: 16,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2),
+                                    )
+                                  : const Text('Save'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _openFollowList({required bool followers}) async {
+    final user = _user;
+    if (user == null) return;
+    final title = followers ? 'Followers' : 'Following';
+    List<FollowListItem> items = const [];
+    bool loading = true;
+    String? error;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            Future<void> load() async {
+              setModalState(() {
+                loading = true;
+                error = null;
+              });
+              try {
+                final next = followers
+                    ? await _usersService.getFollowers(user.id)
+                    : await _usersService.getFollowing(user.id);
+                setModalState(() => items = next);
+              } catch (e) {
+                setModalState(() => error = e.toString());
+              } finally {
+                setModalState(() => loading = false);
+              }
+            }
+
+            if (loading && items.isEmpty && error == null) {
+              // Trigger initial load once after build.
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (loading) {
+                  load();
+                }
+              });
+            }
+
+            return SafeArea(
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.72,
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        children: [
+                          Text(title,
+                              style: Theme.of(context).textTheme.titleLarge),
+                          const Spacer(),
+                          IconButton(
+                            onPressed: load,
+                            icon: const Icon(Icons.refresh),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: loading && items.isEmpty
+                          ? const Center(child: CircularProgressIndicator())
+                          : error != null
+                              ? Center(child: Text(error!))
+                              : items.isEmpty
+                                  ? const Center(
+                                      child: Text('No users yet.'),
+                                    )
+                                  : ListView.separated(
+                                      itemCount: items.length,
+                                      separatorBuilder: (context, index) =>
+                                          const Divider(height: 1),
+                                      itemBuilder: (context, index) {
+                                        final item = items[index];
+                                        return ListTile(
+                                          leading: CircleAvatar(
+                                            backgroundImage:
+                                                item.avatarUrl != null
+                                                    ? CachedNetworkImageProvider(
+                                                        item.avatarUrl!,
+                                                      )
+                                                    : null,
+                                            child: item.avatarUrl == null
+                                                ? Text(
+                                                    (item.displayName ?? '?')
+                                                        .characters
+                                                        .first
+                                                        .toUpperCase(),
+                                                  )
+                                                : null,
+                                          ),
+                                          title:
+                                              Text(item.displayName ?? 'User'),
+                                          subtitle: Text(
+                                            item.headline ??
+                                                (item.role ?? '').toUpperCase(),
+                                          ),
+                                          trailing: followers
+                                              ? null
+                                              : IconButton(
+                                                  onPressed: () async {
+                                                    try {
+                                                      await _usersService
+                                                          .unfollow(item.id);
+                                                      setModalState(() {
+                                                        items = items
+                                                            .where((e) =>
+                                                                e.id != item.id)
+                                                            .toList();
+                                                      });
+                                                      await _loadFollowCounts(
+                                                          user.id);
+                                                    } catch (e) {
+                                                      if (!mounted) return;
+                                                      ScaffoldMessenger.of(
+                                                              this.context)
+                                                          .showSnackBar(
+                                                        SnackBar(
+                                                            content: Text(
+                                                                'Failed to unfollow: $e')),
+                                                      );
+                                                    }
+                                                  },
+                                                  icon: const Icon(
+                                                      Icons.person_remove_outlined),
+                                                ),
+                                        );
+                                      },
+                                    ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -164,9 +462,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     const SizedBox(height: 8),
                     Center(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _isUpdatingProfile ? null : _openEditProfileSheet,
+                        icon: _isUpdatingProfile
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.edit_outlined),
+                        label: const Text('Edit profile'),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Center(
                       child: Text(
                         _user!.email,
                         style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                    if ((_user!.headline ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Text(
+                          _user!.headline!,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ],
+                    if ((_user!.bio ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _user!.bio!,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: InkWell(
+                                onTap: _isLoadingFollowStats
+                                    ? null
+                                    : () => _openFollowList(followers: true),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      _isLoadingFollowStats
+                                          ? '...'
+                                          : '$_followersCount',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text('Followers'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 34,
+                              child: VerticalDivider(width: 1),
+                            ),
+                            Expanded(
+                              child: InkWell(
+                                onTap: _isLoadingFollowStats
+                                    ? null
+                                    : () => _openFollowList(followers: false),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      _isLoadingFollowStats
+                                          ? '...'
+                                          : '$_followingCount',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text('Following'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
