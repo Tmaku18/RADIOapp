@@ -95,7 +95,7 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PRO‑NETWORX profile saved.')),
+        const SnackBar(content: Text('Pro-Networx profile saved.')),
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -132,7 +132,7 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Build my PRO‑NETWORX profile'),
+        title: const Text('Build my Pro-Networx profile'),
         actions: [
           IconButton(
             onPressed: _loading ? null : _load,
@@ -147,7 +147,7 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(16),
                     child: Text(
-                      'Log in to build your PRO‑NETWORX profile.',
+                      'Log in to build your Pro-Networx profile.',
                       style: TextStyle(color: surfaces.textSecondary),
                       textAlign: TextAlign.center,
                     ),

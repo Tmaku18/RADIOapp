@@ -85,7 +85,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PRO‑NETWORX Directory'),
+        title: const Text('Pro-Networx Directory'),
         actions: [
           IconButton(
             tooltip: 'Build my profile',

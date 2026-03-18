@@ -44,7 +44,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Pro-Network')),
+      appBar: AppBar(title: const Text('Pro-Networx')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -56,7 +56,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              'The Pro-Network is reserved for verified NETWORX artists. Join the rotation, get discovered, and unlock services + collabs.',
+              'The Pro-Networx is reserved for verified NETWORX artists. Join the rotation, get discovered, and unlock services + collabs.',
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),

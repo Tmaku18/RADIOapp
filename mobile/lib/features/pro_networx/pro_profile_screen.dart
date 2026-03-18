@@ -79,7 +79,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     }
     if (_error != null || _profile == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('PRO‑NETWORX')),
+        appBar: AppBar(title: const Text('Pro-Networx')),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -104,7 +104,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sync‑Profile'),
+        title: const Text('Pro-Networx Profile'),
         actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh))],
       ),
       body: ListView(

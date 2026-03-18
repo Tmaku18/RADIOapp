@@ -67,7 +67,7 @@ class _YieldScreenState extends State<YieldScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Failed to load The Yield.';
+        _error = 'Failed to load rewards.';
       });
     } finally {
       if (mounted) {
@@ -136,7 +136,7 @@ class _YieldScreenState extends State<YieldScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('The Yield'),
+        title: const Text('Rewards'),
         actions: [
           IconButton(
             tooltip: 'Refresh',

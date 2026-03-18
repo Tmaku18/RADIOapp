@@ -77,7 +77,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Pro-Network'),
+        title: const Text('Pro-Networx'),
         actions: [
           IconButton(
             onPressed: _loading ? null : _load,
@@ -102,7 +102,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Pro-Network',
+                        'Pro-Networx',
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall

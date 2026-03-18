@@ -52,7 +52,7 @@ class AboutScreen extends StatelessWidget {
             title: 'The Bridge from Invisible to Inevitable',
             body:
                 'Networx is a "By Artists, For Artists" ecosystem. We are the first platform to combine high-fidelity democratic radio '
-                'with a professional "Pro-Network" hub.\n\n'
+                'with a professional "Pro-Networx" hub.\n\n'
                 'We don\'t believe in the "mysterious artist" enigma. We believe in the Human Artist. Our platform is built on real-time '
                 'engagement through our Live Sync Chat, allowing creators to stand shoulder-to-shoulder with their listeners.\n\n'
                 'More importantly, we are a bridge. We connect the inexperienced "hidden gem" with the seasoned veteran. Through our '

@@ -247,12 +247,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       length: 4,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Discovery'),
+          title: const Text('Social'),
           bottom: const TabBar(
             tabs: [
-              Tab(text: 'Browse'),
+              Tab(text: 'Discover'),
               Tab(text: 'Map'),
-              Tab(text: 'Top'),
+              Tab(text: 'Feed'),
               Tab(text: 'Saved'),
             ],
           ),
