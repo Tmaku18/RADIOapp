@@ -13,6 +13,7 @@ in-app Stripe to Google Play Billing.
 5. Backend grants entitlements:
    - credit products -> increment artist credits
    - song plays products -> increment `songs.credits_remaining` for `songId`
+     only when product amount matches backend dynamic pricing ($1/minute per play).
 
 ## Required backend environment
 
@@ -33,5 +34,7 @@ in-app Stripe to Google Play Billing.
   - `google_play` for Android in-app purchases
   - `checkout_session` or Stripe intent/session IDs for web/non-Android flows
 - Keep product IDs and `GOOGLE_PLAY_PRODUCT_CATALOG_JSON` aligned with Play Console.
+- Song-play product IDs must also align with dynamic song pricing output from
+  `GET /payments/song-play-price?songId=...` (plays + total cents).
 - If catalog values change (price or quantity), update env and redeploy backend before
   publishing the app version that references the new IDs.

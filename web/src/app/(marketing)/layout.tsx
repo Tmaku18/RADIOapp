@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 const LOGO_SRC = '/networx-logo.png';
 const EXTERNAL_PRO_NETWORX_URL = 'https://discovermeradio.com/pro-networx';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
+const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 
 export default function MarketingLayout({
   children,
@@ -170,7 +171,14 @@ export default function MarketingLayout({
               <h3 className="font-semibold text-foreground mb-4">Follow Us</h3>
               <div className="flex space-x-4">
                 <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Twitter</a>
-                <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Instagram</a>
+                <a
+                  href={INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Instagram
+                </a>
                 <a
                   href={SUPPORT_DISCORD_URL}
                   target="_blank"

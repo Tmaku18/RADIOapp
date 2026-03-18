@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -83,6 +84,32 @@ class PlayBillingService {
       default:
         return null;
     }
+  }
+
+  /// Dynamic song-play product mapping by `(plays, totalCents)` key.
+  ///
+  /// Expected env format:
+  /// ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON='{"5:1500":"nwx_song_plays_5_1500"}'
+  ///
+  /// Key format: `plays:totalCents` (example: `5:1500`)
+  String? songPlaysProductIdForPricing({
+    required int plays,
+    required int totalCents,
+  }) {
+    final raw = env('ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON');
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is Map<String, dynamic>) {
+          final dynamic id = decoded['$plays:$totalCents'];
+          if (id is String && id.isNotEmpty) return id;
+        }
+      } catch (e) {
+        debugPrint('Invalid ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON: $e');
+      }
+    }
+    // Fallback to static plays mapping if no dynamic map exists.
+    return songPlaysProductIdFor(plays);
   }
 
   Future<bool> isAvailable() async {

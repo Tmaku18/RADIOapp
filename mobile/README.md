@@ -170,6 +170,22 @@ if your Play product IDs differ from defaults:
 - `ANDROID_PLAY_SONG_PLAYS_50_PRODUCT_ID` (default: `nwx_song_plays_50`)
 - `ANDROID_PLAY_SONG_PLAYS_100_PRODUCT_ID` (default: `nwx_song_plays_100`)
 
+For exact per-song pricing (`$1/minute per play`) use dynamic song-play mapping:
+
+- `ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON`
+
+Example:
+
+```json
+{
+  "5:1500": "nwx_song_plays_5_1500",
+  "10:3000": "nwx_song_plays_10_3000"
+}
+```
+
+Each key is `<plays>:<totalCents>`, where `totalCents` comes from backend song pricing
+(`GET /payments/song-play-price?songId=...`).
+
 ### iOS
 ```bash
 flutter build ios --release

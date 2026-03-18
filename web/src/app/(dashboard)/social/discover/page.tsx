@@ -27,6 +27,32 @@ import {
 const PAGE_SIZE = 12;
 const SWIPE_THRESHOLD_PX = 90;
 
+function parseTimeToSeconds(value: string): number | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.includes(':')) {
+    const parts = raw.split(':').map((part) => part.trim());
+    if (
+      parts.length < 2 ||
+      parts.length > 3 ||
+      parts.some((part) => part.length === 0)
+    ) {
+      return null;
+    }
+    let total = 0;
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const parsed =
+        i === parts.length - 1 ? Number(part) : Number.parseInt(part, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return null;
+      total = total * 60 + parsed;
+    }
+    return total;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 export default function SocialDiscoverSwipePage() {
   const router = useRouter();
   const [cards, setCards] = useState<DiscoverAudioSongCard[]>([]);
@@ -56,8 +82,8 @@ export default function SocialDiscoverSwipePage() {
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [selectedSongId, setSelectedSongId] = useState('');
-  const [clipStartSeconds, setClipStartSeconds] = useState('0');
-  const [clipEndSeconds, setClipEndSeconds] = useState('15');
+  const [clipStartSeconds, setClipStartSeconds] = useState('0:00');
+  const [clipEndSeconds, setClipEndSeconds] = useState('0:15');
   const [audioPositionSeconds, setAudioPositionSeconds] = useState(0);
   const [audioIsPlaying, setAudioIsPlaying] = useState(false);
 
@@ -404,38 +430,44 @@ export default function SocialDiscoverSwipePage() {
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-1">
-                        <Label htmlFor="clip-start">Clip start (seconds)</Label>
+                        <Label htmlFor="clip-start">Clip start (mm:ss or seconds)</Label>
                         <Input
                           id="clip-start"
-                          type="number"
-                          min="0"
-                          step="0.1"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0:00"
                           value={clipStartSeconds}
                           onChange={(e) => setClipStartSeconds(e.target.value)}
                         />
                       </div>
                       <div className="space-y-1">
-                        <Label htmlFor="clip-end">Clip end (seconds)</Label>
+                        <Label htmlFor="clip-end">Clip end (mm:ss or seconds)</Label>
                         <Input
                           id="clip-end"
-                          type="number"
-                          min="0"
-                          step="0.1"
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0:15"
                           value={clipEndSeconds}
                           onChange={(e) => setClipEndSeconds(e.target.value)}
                         />
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use `mm:ss` (recommended) or plain seconds. Example: `0:30` for
+                      30 seconds.
+                    </p>
                     {publishError && (
                       <p className="text-sm text-destructive">{publishError}</p>
                     )}
                     <Button
                       disabled={publishBusy || !selectedSongId}
                       onClick={async () => {
-                        const start = Number(clipStartSeconds);
-                        const end = Number(clipEndSeconds);
-                        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-                          setPublishError('Clip start/end must be valid and end > start.');
+                        const start = parseTimeToSeconds(clipStartSeconds);
+                        const end = parseTimeToSeconds(clipEndSeconds);
+                        if (start == null || end == null || end <= start) {
+                          setPublishError(
+                            'Clip start/end must be valid (mm:ss or seconds) and end > start.',
+                          );
                           return;
                         }
                         if (end - start > 15) {
@@ -450,8 +482,8 @@ export default function SocialDiscoverSwipePage() {
                             clipEndSeconds: end,
                           });
                           setLibraryOpen(false);
-                          setClipStartSeconds('0');
-                          setClipEndSeconds('15');
+                          setClipStartSeconds('0:00');
+                          setClipEndSeconds('0:15');
                           await loadFeed(false);
                         } catch (e) {
                           const apiMessage =

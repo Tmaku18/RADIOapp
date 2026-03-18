@@ -493,9 +493,29 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     setState(() => _quickBuying = true);
     try {
       if (Platform.isAndroid) {
-        final productId = PlayBillingService.instance.songPlaysProductIdFor(5);
+        final pricing = await _api.get(
+          'payments/song-play-price?songId=${Uri.encodeComponent(track.id)}',
+        );
+        final options = pricing['options'] as List<dynamic>? ?? const [];
+        final option = options.cast<Map<String, dynamic>?>().firstWhere(
+              (o) => (o?['plays'] as num?)?.toInt() == 5,
+              orElse: () => null,
+            );
+        if (option == null) {
+          throw Exception('No pricing option found for 5 plays.');
+        }
+        final totalCents = (option['totalCents'] as num?)?.toInt();
+        if (totalCents == null || totalCents <= 0) {
+          throw Exception('Invalid price for 5 plays.');
+        }
+        final productId = PlayBillingService.instance.songPlaysProductIdForPricing(
+          plays: 5,
+          totalCents: totalCents,
+        );
         if (productId == null || productId.isEmpty) {
-          throw Exception('No Google Play product mapping found for 5 plays.');
+          throw Exception(
+            'No Google Play product mapping found for 5 plays at $totalCents cents.',
+          );
         }
         final purchase =
             await PlayBillingService.instance.buyConsumable(productId);

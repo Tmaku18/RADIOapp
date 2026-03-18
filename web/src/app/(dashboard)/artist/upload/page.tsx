@@ -21,6 +21,31 @@ const US_STATE_OPTIONS = [
   'DC',
 ] as const;
 
+function parseTimeToSeconds(value: string): number | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.includes(':')) {
+    const parts = raw.split(':').map((part) => part.trim());
+    if (
+      parts.length < 2 ||
+      parts.length > 3 ||
+      parts.some((part) => part.length === 0)
+    ) {
+      return null;
+    }
+    let total = 0;
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const parsed = i === parts.length - 1 ? Number(part) : Number.parseInt(part, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return null;
+      total = total * 60 + parsed;
+    }
+    return total;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
 function errorMessage(err: unknown, fallback: string): string {
   const msg =
     err && typeof err === 'object'
@@ -44,8 +69,8 @@ export default function UploadPage() {
   const [discoverClipFile, setDiscoverClipFile] = useState<File | null>(null);
   const [discoverBackgroundFile, setDiscoverBackgroundFile] = useState<File | null>(null);
   const [discoverBackgroundPreview, setDiscoverBackgroundPreview] = useState<string | null>(null);
-  const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0');
-  const [discoverClipEndSeconds, setDiscoverClipEndSeconds] = useState('15');
+  const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0:00');
+  const [discoverClipEndSeconds, setDiscoverClipEndSeconds] = useState('0:15');
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
@@ -231,10 +256,12 @@ export default function UploadPage() {
       return;
     }
     if (discoverClipFile) {
-      const start = Number(discoverClipStartSeconds);
-      const end = Number(discoverClipEndSeconds);
-      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-        setError('Discover clip trim values must be valid and end must be greater than start');
+      const start = parseTimeToSeconds(discoverClipStartSeconds);
+      const end = parseTimeToSeconds(discoverClipEndSeconds);
+      if (start == null || end == null || end <= start) {
+        setError(
+          'Discover clip trim must be valid (mm:ss or seconds) and end must be greater than start',
+        );
         return;
       }
       if (end - start > 15) {
@@ -311,6 +338,8 @@ export default function UploadPage() {
 
       // Create song record
       setUploadProgress(90);
+      const parsedStartSeconds = parseTimeToSeconds(discoverClipStartSeconds);
+      const parsedEndSeconds = parseTimeToSeconds(discoverClipEndSeconds);
       try {
         await songsApi.create({
           title,
@@ -323,8 +352,8 @@ export default function UploadPage() {
           durationSeconds: durationSeconds ?? undefined,
           discoverClipPath,
           discoverBackgroundPath,
-          discoverClipStartSeconds: Number(discoverClipStartSeconds),
-          discoverClipEndSeconds: Number(discoverClipEndSeconds),
+          discoverClipStartSeconds: parsedStartSeconds ?? undefined,
+          discoverClipEndSeconds: parsedEndSeconds ?? undefined,
         });
       } catch (dbErr) {
         throw new Error(
@@ -484,23 +513,23 @@ export default function UploadPage() {
               </Button>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label htmlFor="discover-start">Clip Start (seconds)</Label>
+                  <Label htmlFor="discover-start">Clip Start (mm:ss or seconds)</Label>
                   <Input
                     id="discover-start"
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0:00"
                     value={discoverClipStartSeconds}
                     onChange={(e) => setDiscoverClipStartSeconds(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="discover-end">Clip End (seconds)</Label>
+                  <Label htmlFor="discover-end">Clip End (mm:ss or seconds)</Label>
                   <Input
                     id="discover-end"
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0:15"
                     value={discoverClipEndSeconds}
                     onChange={(e) => setDiscoverClipEndSeconds(e.target.value)}
                   />
@@ -509,7 +538,7 @@ export default function UploadPage() {
               <p className="text-xs text-muted-foreground">
                 Artists can trim discover playback to 15 seconds max. If no
                 discover clip is uploaded, trim is generated from your main
-                audio.
+                audio. Examples: `0:12`, `1:05`, or `12.5`.
               </p>
             </div>
 

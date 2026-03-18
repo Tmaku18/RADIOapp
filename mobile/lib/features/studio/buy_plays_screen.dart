@@ -128,11 +128,15 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
     setState(() => _submitting = true);
     try {
       if (Platform.isAndroid) {
-        final productId =
-            PlayBillingService.instance.songPlaysProductIdFor(_selectedPlays!);
+        final totalCents = option.totalCents;
+        final productId = PlayBillingService.instance.songPlaysProductIdForPricing(
+          plays: _selectedPlays!,
+          totalCents: totalCents,
+        );
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No Google Play product mapping found for $_selectedPlays plays.',
+            'No Google Play product mapping found for $_selectedPlays plays at '
+            '\$${option.totalDollars} (key: ${_selectedPlays!}:$totalCents).',
           );
         }
         final purchase =

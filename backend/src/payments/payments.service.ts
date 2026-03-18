@@ -149,6 +149,23 @@ export class PaymentsService {
         'songId is required when completing a Google Play song_plays purchase',
       );
     }
+    if (product.type === 'song_plays' && songId && playsPurchased != null) {
+      const songPricing = await this.getSongPlayPrice(userId, songId);
+      const selectedOption = songPricing.options.find(
+        (option) => option.plays === playsPurchased,
+      );
+      if (!selectedOption) {
+        throw new Error(
+          `No pricing option found for plays=${playsPurchased} on song ${songId}`,
+        );
+      }
+      if (selectedOption.totalCents !== product.amountCents) {
+        throw new Error(
+          `Google Play product amount mismatch. Expected ${selectedOption.totalCents} cents ` +
+            `for song duration pricing, got ${product.amountCents}.`,
+        );
+      }
+    }
 
     const { data: transaction, error: txError } = await supabase
       .from('transactions')

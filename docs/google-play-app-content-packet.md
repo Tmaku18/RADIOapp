@@ -51,6 +51,8 @@ Confirm final answers with legal and product owners before submission.
 ## Payments declaration
 
 - Android in-app purchases use Google Play Billing.
+- Song-play purchases follow dynamic pricing: **$1/minute per play**, so total price
+  changes by song duration and selected play count.
 - Backend verification endpoint: `POST /api/payments/google-play/complete`.
 - Web/non-Android payment flows remain Stripe where allowed.
 

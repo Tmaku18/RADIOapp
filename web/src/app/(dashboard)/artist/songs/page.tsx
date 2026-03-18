@@ -53,6 +53,40 @@ interface Song {
   }>;
 }
 
+function parseTimeToSeconds(value: string): number | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.includes(':')) {
+    const parts = raw.split(':').map((part) => part.trim());
+    if (
+      parts.length < 2 ||
+      parts.length > 3 ||
+      parts.some((part) => part.length === 0)
+    ) {
+      return null;
+    }
+    let total = 0;
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const parsed =
+        i === parts.length - 1 ? Number(part) : Number.parseInt(part, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return null;
+      total = total * 60 + parsed;
+    }
+    return total;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function formatSecondsForTrimInput(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
+  if (!Number.isInteger(seconds)) return seconds.toString();
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function formatDuration(seconds?: number): string {
   if (!seconds) return '--:--';
   const mins = Math.floor(seconds / 60);
@@ -205,8 +239,12 @@ export default function MySongsPage() {
     setEditDiscoverEnabled(song.discoverEnabled === true);
     setEditDiscoverBackgroundFile(null);
     setEditDiscoverBackgroundPreview(song.discoverBackgroundUrl || song.artworkUrl || null);
-    setEditDiscoverClipStartSeconds((song.discoverClipStartSeconds ?? 0).toString());
-    setEditDiscoverClipEndSeconds((song.discoverClipEndSeconds ?? 15).toString());
+    setEditDiscoverClipStartSeconds(
+      formatSecondsForTrimInput(song.discoverClipStartSeconds ?? 0),
+    );
+    setEditDiscoverClipEndSeconds(
+      formatSecondsForTrimInput(song.discoverClipEndSeconds ?? 15),
+    );
     setEditFeaturedArtists(song.featuredArtists || []);
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
@@ -236,10 +274,12 @@ export default function MySongsPage() {
       return;
     }
     if (editDiscoverEnabled) {
-      const start = Number(editDiscoverClipStartSeconds);
-      const end = Number(editDiscoverClipEndSeconds);
-      if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
-        setError('Discover clip start/end must be valid and end must be greater than start');
+      const start = parseTimeToSeconds(editDiscoverClipStartSeconds);
+      const end = parseTimeToSeconds(editDiscoverClipEndSeconds);
+      if (start == null || end == null || end <= start) {
+        setError(
+          'Discover clip start/end must be valid (mm:ss or seconds) and end must be greater than start',
+        );
         return;
       }
       if (end - start > 15) {
@@ -278,11 +318,16 @@ export default function MySongsPage() {
         | null = null;
 
       if (editDiscoverEnabled) {
+        const start = parseTimeToSeconds(editDiscoverClipStartSeconds);
+        const end = parseTimeToSeconds(editDiscoverClipEndSeconds);
+        if (start == null || end == null) {
+          throw new Error('Invalid discover clip trim values.');
+        }
         const publishResponse = await songsApi.publishDiscoverFromLibrary(
           editingSong.id,
           {
-            clipStartSeconds: Number(editDiscoverClipStartSeconds),
-            clipEndSeconds: Number(editDiscoverClipEndSeconds),
+            clipStartSeconds: start,
+            clipEndSeconds: end,
             discoverBackgroundUrl: finalDiscoverBackgroundUrl || undefined,
           },
         );
@@ -337,15 +382,16 @@ export default function MySongsPage() {
                 discoverClipStartSeconds:
                   discoverUpdated?.discoverClipStartSeconds ??
                   updated.discoverClipStartSeconds ??
-                  Number(editDiscoverClipStartSeconds),
+                  (parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0),
                 discoverClipEndSeconds:
                   discoverUpdated?.discoverClipEndSeconds ??
                   updated.discoverClipEndSeconds ??
-                  Number(editDiscoverClipEndSeconds),
+                  (parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15),
                 discoverClipDurationSeconds:
                   discoverUpdated?.discoverClipDurationSeconds ??
                   updated.discoverClipDurationSeconds ??
-                  Number(editDiscoverClipEndSeconds) - Number(editDiscoverClipStartSeconds),
+                  (parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15) -
+                    (parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0),
                 featuredArtists: updated.featuredArtists ?? editFeaturedArtists,
               }
             : song,
@@ -602,22 +648,26 @@ export default function MySongsPage() {
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Clip start (s)</label>
+                  <label className="text-xs text-muted-foreground">
+                    Clip start (mm:ss or seconds)
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0:00"
                     value={editDiscoverClipStartSeconds}
                     onChange={(e) => setEditDiscoverClipStartSeconds(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">Clip end (s)</label>
+                  <label className="text-xs text-muted-foreground">
+                    Clip end (mm:ss or seconds)
+                  </label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.1"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0:15"
                     value={editDiscoverClipEndSeconds}
                     onChange={(e) => setEditDiscoverClipEndSeconds(e.target.value)}
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
