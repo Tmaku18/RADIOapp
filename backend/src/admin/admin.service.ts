@@ -13,6 +13,7 @@ import {
   STATION_IDS,
 } from '../radio/station.constants';
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
@@ -27,11 +28,22 @@ export interface BanResult {
 @Injectable()
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
+  private readonly ffmpegConfigured: boolean;
 
   constructor(
     private readonly emailService: EmailService,
     private readonly radioService: RadioService,
-  ) {}
+  ) {
+    const configuredPath = (process.env.FFMPEG_PATH || '').trim();
+    const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
+    const ffmpegPath = configuredPath || bundledPath;
+    if (ffmpegPath) {
+      ffmpeg.setFfmpegPath(ffmpegPath);
+      this.ffmpegConfigured = true;
+    } else {
+      this.ffmpegConfigured = false;
+    }
+  }
 
   async getRadioQueueDebug(radioId: string, limit: number) {
     return this.radioService.getQueueDebug(limit, radioId);
@@ -391,6 +403,11 @@ export class AdminService {
     const outputPath = join(tmpdir(), `trim-output-${songId}-${runId}.mp3`);
     const duration = endSeconds - startSeconds;
     try {
+      if (!this.ffmpegConfigured) {
+        throw new BadRequestException(
+          'FFmpeg is not configured on the server. Set FFMPEG_PATH or install ffmpeg.',
+        );
+      }
       await fs.writeFile(inputPath, sourceBuffer);
 
       try {
@@ -407,7 +424,7 @@ export class AdminService {
         });
       } catch (error) {
         throw new BadRequestException(
-          `Failed to trim audio. Ensure ffmpeg is available on the server. ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to trim audio. Ensure ffmpeg is available on the server or set FFMPEG_PATH. ${error instanceof Error ? error.message : String(error)}`,
         );
       }
 

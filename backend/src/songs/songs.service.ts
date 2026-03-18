@@ -7,6 +7,7 @@ import {
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
 import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -45,6 +46,7 @@ interface ArtistLikeNotificationSettings {
 @Injectable()
 export class SongsService {
   private readonly discoverMaxClipSeconds = 15;
+  private readonly ffmpegConfigured: boolean;
   private readonly defaultArtistLikeNotificationSettings: ArtistLikeNotificationSettings =
     {
       muted: false,
@@ -52,6 +54,18 @@ export class SongsService {
       cooldownMinutes: 0,
       lastNotifiedAt: null,
     };
+
+  constructor() {
+    const configuredPath = (process.env.FFMPEG_PATH || '').trim();
+    const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
+    const ffmpegPath = configuredPath || bundledPath;
+    if (ffmpegPath) {
+      ffmpeg.setFfmpegPath(ffmpegPath);
+      this.ffmpegConfigured = true;
+    } else {
+      this.ffmpegConfigured = false;
+    }
+  }
 
   private async createTrimmedDiscoverClip(params: {
     sourceUrl: string;
@@ -84,6 +98,11 @@ export class SongsService {
     const duration = params.endSeconds - params.startSeconds;
 
     try {
+      if (!this.ffmpegConfigured) {
+        throw new BadRequestException(
+          'FFmpeg is not configured on the server. Set FFMPEG_PATH or install ffmpeg.',
+        );
+      }
       await fs.writeFile(inputPath, sourceBuffer);
       await new Promise<void>((resolve, reject) => {
         ffmpeg(inputPath)
@@ -121,7 +140,7 @@ export class SongsService {
     } catch (error) {
       if (error instanceof BadRequestException) throw error;
       throw new BadRequestException(
-        `Failed to trim discover clip. Ensure ffmpeg is available on the server. ${
+        `Failed to trim discover clip. Ensure ffmpeg is available on the server or set FFMPEG_PATH. ${
           error instanceof Error ? error.message : String(error)
         }`,
       );
