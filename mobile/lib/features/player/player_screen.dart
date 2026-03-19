@@ -66,6 +66,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(id: 'us-spoken-word', genre: 'Spoken Word', city: 'Washington'),
   _StationOption(id: 'us-comedian', genre: 'Comedian', city: 'Austin'),
   _StationOption(id: 'us-gospel', genre: 'Gospel', city: 'Dallas'),
+  _StationOption(id: 'us-classical', genre: 'Classical Radio', city: 'Boston'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';

@@ -669,6 +669,7 @@ export class AdminService {
       { id: 'us-spoken-word', state: 'US', label: 'Spoken Word (National)' },
       { id: 'us-comedian', state: 'US', label: 'Comedian (National)' },
       { id: 'us-gospel', state: 'US', label: 'Gospel (National)' },
+      { id: 'us-classical', state: 'US', label: 'Classical Radio (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

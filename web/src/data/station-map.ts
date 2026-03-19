@@ -14,7 +14,8 @@ export type GenreId =
   | 'podcasts'
   | 'spoken-word'
   | 'comedian'
-  | 'gospel';
+  | 'gospel'
+  | 'classical';
 
 export interface Tower {
   id: string;
@@ -165,6 +166,15 @@ export const TOWERS: Tower[] = [
     genreId: 'gospel',
     lat: 32.7767,
     lng: -96.797,
+  },
+  {
+    id: 'us-classical',
+    state: 'US',
+    city: 'Boston',
+    genre: 'Classical Radio',
+    genreId: 'classical',
+    lat: 42.3601,
+    lng: -71.0589,
   },
 ];
 
