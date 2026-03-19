@@ -657,7 +657,7 @@ export class AdminService {
     stateCode?: string,
   ): { id: string; state: string; label: string }[] {
     const radios = [
-      { id: 'us-rap', state: 'US', label: 'Up & Coming Radio (National)' },
+      { id: 'us-rap', state: 'US', label: 'Up & Coming Rap Radio (National)' },
       { id: 'us-ready-now-rap', state: 'US', label: 'Ready Now Rap Radio (National)' },
       { id: 'us-hip-hop', state: 'US', label: 'Hip Hop (National)' },
       { id: 'us-country', state: 'US', label: 'Country (National)' },

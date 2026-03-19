@@ -7,7 +7,7 @@ export interface Tower {
 }
 
 export const TOWERS: Tower[] = [
-  { id: 'us-rap', city: 'New York', genre: 'Up & Coming Radio', lat: 40.7128, lng: -74.006 },
+  { id: 'us-rap', city: 'New York', genre: 'Up & Coming Rap Radio', lat: 40.7128, lng: -74.006 },
   {
     id: 'us-ready-now-rap',
     city: 'Houston',

@@ -63,7 +63,7 @@ export const TOWERS: Tower[] = [
     id: 'us-rap',
     state: 'US',
     city: 'New York',
-    genre: 'Up & Coming Radio',
+    genre: 'Up & Coming Rap Radio',
     genreId: 'rap',
     lat: 40.7128,
     lng: -74.006,
