@@ -1,4 +1,5 @@
 export const RAP_STATION_ID = 'us-rap' as const;
+export const READY_NOW_RAP_STATION_ID = 'us-ready-now-rap' as const;
 export const HIP_HOP_STATION_ID = 'us-hip-hop' as const;
 export const COUNTRY_STATION_ID = 'us-country' as const;
 export const ROCK_STATION_ID = 'us-rock' as const;
@@ -12,6 +13,7 @@ export const GOSPEL_STATION_ID = 'us-gospel' as const;
 
 export const STATION_IDS = [
   RAP_STATION_ID,
+  READY_NOW_RAP_STATION_ID,
   HIP_HOP_STATION_ID,
   COUNTRY_STATION_ID,
   ROCK_STATION_ID,

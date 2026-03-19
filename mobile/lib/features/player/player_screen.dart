@@ -54,7 +54,8 @@ class _StationOption {
 }
 
 const List<_StationOption> _stationOptions = <_StationOption>[
-  _StationOption(id: 'us-rap', genre: 'Rap', city: 'New York'),
+  _StationOption(id: 'us-rap', genre: 'Up & Coming Radio', city: 'New York'),
+  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Rap Radio', city: 'Houston'),
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
   _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
   _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
@@ -109,7 +110,11 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     for (final station in _stationOptions) {
       if (station.id == _radioId) return station;
     }
-    return const _StationOption(id: 'us-rap', genre: 'Rap', city: 'New York');
+    return const _StationOption(
+      id: 'us-rap',
+      genre: 'Up & Coming Radio',
+      city: 'New York',
+    );
   }
 
   @override
