@@ -9,6 +9,7 @@ import {
   discoverAudioApi,
   discoveryApi,
   songsApi,
+  usersApi,
   type DiscoverAudioSongCard,
   type DiscoverFeedPost,
 } from '@/lib/api';
@@ -85,6 +86,7 @@ export default function SocialDiscoverSwipePage() {
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [libraryScopeLabel, setLibraryScopeLabel] = useState('your saved library');
   const [selectedSongId, setSelectedSongId] = useState('');
   const [clipStartSeconds, setClipStartSeconds] = useState('0:00');
   const [clipEndSeconds, setClipEndSeconds] = useState('0:15');
@@ -290,22 +292,37 @@ export default function SocialDiscoverSwipePage() {
     setLibraryLoading(true);
     setPublishError(null);
     try {
-      const res = await songsApi.getMine();
+      const meRes = await usersApi.getMe();
+      const myRole = (meRes.data as { role?: string } | null)?.role ?? null;
+      const isAdmin = myRole === 'admin';
+      setLibraryScopeLabel(isAdmin ? 'all songs' : 'your saved library');
+
+      const res = isAdmin
+        ? await songsApi.getAll({ limit: 500 })
+        : await songsApi.getMine();
       const rows = (res.data as unknown[]) ?? [];
       const songs = rows
         .map((row) => (row && typeof row === 'object' ? (row as Record<string, unknown>) : null))
         .filter((row): row is Record<string, unknown> => {
-          const audioUrl = row?.audioUrl;
+          const audioUrl = row?.audioUrl ?? row?.audio_url;
           return typeof audioUrl === 'string' && audioUrl.trim().length > 0;
         })
         .map((row) => ({
           id: typeof row.id === 'string' ? row.id : '',
           title: typeof row.title === 'string' ? row.title : 'Untitled',
           artistName:
-            typeof row.artistName === 'string' ? row.artistName : 'Unknown artist',
-          audioUrl: row.audioUrl as string,
+            typeof row.artistName === 'string'
+              ? row.artistName
+              : typeof row.artist_name === 'string'
+                ? row.artist_name
+                : 'Unknown artist',
+          audioUrl: (row.audioUrl ?? row.audio_url) as string,
           artworkUrl:
-            typeof row.artworkUrl === 'string' ? row.artworkUrl : null,
+            typeof row.artworkUrl === 'string'
+              ? row.artworkUrl
+              : typeof row.artwork_url === 'string'
+                ? row.artwork_url
+                : null,
           status: typeof row.status === 'string' ? row.status : 'pending',
           discoverEnabled: row.discoverEnabled === true,
           discoverClipStartSeconds:
@@ -420,7 +437,7 @@ export default function SocialDiscoverSwipePage() {
               </DialogHeader>
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  Choose a song from your saved library and trim a 15-second Discover clip.
+                  Choose a song from {libraryScopeLabel} and trim a 15-second Discover clip.
                 </p>
                 {libraryLoading ? (
                   <p className="text-sm text-muted-foreground">Loading your library...</p>
