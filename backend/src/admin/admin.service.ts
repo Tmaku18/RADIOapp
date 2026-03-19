@@ -670,6 +670,7 @@ export class AdminService {
       { id: 'us-comedian', state: 'US', label: 'Comedian (National)' },
       { id: 'us-gospel', state: 'US', label: 'Gospel (National)' },
       { id: 'us-classical', state: 'US', label: 'Classical Radio (National)' },
+      { id: 'us-emo', state: 'US', label: 'Emo Radio (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

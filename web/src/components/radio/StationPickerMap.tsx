@@ -29,6 +29,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   'spoken-word': '📜',
   comedian: '🎭',
   gospel: '✝️',
+  emo: '🖤',
 };
 
 function MapController({

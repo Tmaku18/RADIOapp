@@ -26,4 +26,5 @@ export const TOWERS: Tower[] = [
   { id: 'us-comedian', city: 'Austin', genre: 'Comedian', lat: 30.2672, lng: -97.7431 },
   { id: 'us-gospel', city: 'Dallas', genre: 'Gospel', lat: 32.7767, lng: -96.797 },
   { id: 'us-classical', city: 'Boston', genre: 'Classical Radio', lat: 42.3601, lng: -71.0589 },
+  { id: 'us-emo', city: 'Denver', genre: 'Emo Radio', lat: 39.7392, lng: -104.9903 },
 ];
