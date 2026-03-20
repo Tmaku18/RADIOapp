@@ -161,14 +161,33 @@ export default function DiscoverListPage() {
                     <audio controls preload="metadata" src={item.clipUrl} className="w-full" />
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => void handleRemove(item.songId)}
-                      disabled={removingSongId === item.songId || clearing}
-                    >
-                      {removingSongId === item.songId ? 'Removing...' : 'Remove'}
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      {item.clipUrl ? (
+                        <Button variant="outline" size="sm" asChild>
+                          <Link
+                            href={{
+                              pathname: '/discover/create-video',
+                              query: {
+                                songId: item.songId,
+                                clipUrl: item.clipUrl,
+                                title: item.title,
+                                artist: item.artistDisplayName ?? item.artistName ?? '',
+                              },
+                            }}
+                          >
+                            Make video
+                          </Link>
+                        </Button>
+                      ) : null}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => void handleRemove(item.songId)}
+                        disabled={removingSongId === item.songId || clearing}
+                      >
+                        {removingSongId === item.songId ? 'Removing...' : 'Remove'}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
