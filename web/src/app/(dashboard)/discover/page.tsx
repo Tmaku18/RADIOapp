@@ -58,7 +58,54 @@ interface DiscoveryProfile {
 
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
+const FEED_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
+const FEED_VIDEO_MAX_SECONDS = 15;
+const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/webp',
+  'video/mp4',
+  'video/webm',
+  'video/quicktime',
+];
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'photo', 'video', 'design', 'other'];
+
+async function getVideoDurationSeconds(file: File): Promise<number> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const duration = await new Promise<number>((resolve, reject) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.src = objectUrl;
+      video.onloadedmetadata = () => resolve(video.duration);
+      video.onerror = () => reject(new Error('Unable to read video metadata.'));
+    });
+    return duration;
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
+async function validateFeedUploadFile(file: File): Promise<string | null> {
+  if (!FEED_ALLOWED_UPLOAD_MIME_TYPES.includes(file.type)) {
+    return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.';
+  }
+  if (file.size > FEED_UPLOAD_MAX_BYTES) {
+    return 'File size exceeds 15MB.';
+  }
+  if (file.type.startsWith('video/')) {
+    try {
+      const durationSeconds = await getVideoDurationSeconds(file);
+      if (!Number.isFinite(durationSeconds) || durationSeconds > FEED_VIDEO_MAX_SECONDS) {
+        return 'Video length must be 15 seconds or less.';
+      }
+    } catch {
+      return 'Unable to read video duration. Please upload MP4, WEBM, or MOV up to 15 seconds.';
+    }
+  }
+  return null;
+}
 
 export default function DiscoverPage() {
   const pathname = usePathname();
@@ -168,12 +215,17 @@ export default function DiscoverPage() {
 
   const handleCreatePost = async () => {
     if (!uploadFile) {
-      setUploadError('Choose an image.');
+      setUploadError('Choose an image or video.');
       return;
     }
     setUploading(true);
     setUploadError(null);
     try {
+      const validationError = await validateFeedUploadFile(uploadFile);
+      if (validationError) {
+        setUploadError(validationError);
+        return;
+      }
       const res = await discoveryApi.createFeedPost(uploadFile, uploadCaption || undefined);
       const created = res.data as DiscoverFeedPost;
       setFeedPosts((prev) => [created, ...prev]);
@@ -331,13 +383,16 @@ export default function DiscoverPage() {
                       </DialogHeader>
                       <div className="grid gap-4 py-2">
                         <div>
-                          <Label>Image</Label>
+                          <Label>Image or video</Label>
                           <Input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/jpg"
+                            accept="image/jpeg,image/png,image/webp,image/jpg,video/mp4,video/webm,video/quicktime"
                             className="mt-1"
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Max size: 15MB. Videos must be 15 seconds or less.
+                          </p>
                         </div>
                         <div>
                           <Label>Caption (optional)</Label>
@@ -364,7 +419,7 @@ export default function DiscoverPage() {
                 </div>
               ) : feedPosts.length === 0 ? (
                 <p className="text-center text-muted-foreground py-12">
-                  No posts yet. Catalysts can share photos here—check back soon.
+                  No posts yet. Catalysts can share photos and short videos here—check back soon.
                 </p>
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2">
@@ -391,14 +446,24 @@ export default function DiscoverPage() {
                           </div>
                         </Link>
                         <div className="relative aspect-square w-full bg-muted">
-                          <Image
-                            src={post.imageUrl}
-                            alt={post.caption || 'Post'}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 100vw, 50vw"
-                            unoptimized={post.imageUrl.includes('supabase')}
-                          />
+                          {post.mediaType === 'video' ? (
+                            <video
+                              src={post.imageUrl}
+                              controls
+                              playsInline
+                              preload="metadata"
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <Image
+                              src={post.imageUrl}
+                              alt={post.caption || 'Post'}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 100vw, 50vw"
+                              unoptimized={post.imageUrl.includes('supabase')}
+                            />
+                          )}
                         </div>
                         {post.caption && (
                           <p className="p-3 text-sm text-foreground/90 whitespace-pre-wrap">{post.caption}</p>

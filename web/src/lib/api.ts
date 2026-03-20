@@ -436,6 +436,7 @@ export interface DiscoverFeedPost {
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
+  mediaType: 'image' | 'video';
   caption: string | null;
   createdAt: string;
 }

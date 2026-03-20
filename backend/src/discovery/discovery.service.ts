@@ -24,6 +24,7 @@ export interface DiscoverFeedPost {
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
+  mediaType: 'image' | 'video';
   caption: string | null;
   createdAt: string;
 }
@@ -59,6 +60,18 @@ type MapRoleFilter = 'artist' | 'service_provider' | 'all';
 
 @Injectable()
 export class DiscoveryService {
+  private inferFeedMediaType(url: string): 'image' | 'video' {
+    const normalized = url.toLowerCase();
+    if (
+      normalized.includes('.mp4') ||
+      normalized.includes('.webm') ||
+      normalized.includes('.mov')
+    ) {
+      return 'video';
+    }
+    return 'image';
+  }
+
   private clampZoom(zoom?: number): number {
     if (zoom == null || !Number.isFinite(zoom)) return 4;
     return Math.max(1, Math.min(16, Math.round(zoom)));
@@ -746,13 +759,15 @@ export class DiscoveryService {
 
     const items: DiscoverFeedPost[] = slice.map((r) => {
       const u = r.users;
+      const imageUrl = r.image_url;
       return {
         id: r.id,
         authorUserId: r.author_user_id,
         authorDisplayName: u?.display_name ?? null,
         authorAvatarUrl: u?.avatar_url ?? null,
         authorHeadline: u?.headline ?? null,
-        imageUrl: r.image_url,
+        imageUrl,
+        mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
         caption: r.caption ?? null,
         createdAt: r.created_at,
       };
@@ -767,6 +782,7 @@ export class DiscoveryService {
   async createFeedPost(params: {
     authorUserId: string;
     imageUrl: string;
+    mediaType: 'image' | 'video';
     caption?: string | null;
   }): Promise<DiscoverFeedPost> {
     const supabase = getSupabaseClient();
@@ -799,6 +815,7 @@ export class DiscoveryService {
       authorAvatarUrl: u?.avatar_url ?? null,
       authorHeadline: u?.headline ?? null,
       imageUrl: r.image_url,
+      mediaType: params.mediaType,
       caption: r.caption ?? null,
       createdAt: r.created_at,
     };

@@ -19,13 +19,26 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UploadsService } from '../uploads/uploads.service';
+import { DurationService } from '../uploads/duration.service';
 
 @Controller('discovery')
 @UseGuards(FirebaseAuthGuard)
 export class DiscoveryController {
+  private readonly allowedFeedMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  ];
+  private readonly maxFeedVideoDurationSeconds = 15;
+
   constructor(
     private readonly discovery: DiscoveryService,
     private readonly uploads: UploadsService,
+    private readonly durationService: DurationService,
   ) {}
 
   @Get('people')
@@ -189,7 +202,7 @@ export class DiscoveryController {
     });
   }
 
-  /** Create a discover feed post (Catalysts only). Send image as "file" and optional "caption" in body. */
+  /** Create a discover feed post (Catalysts only). Send image/video as "file" and optional "caption" in body. */
   @Post('feed')
   @UseGuards(RolesGuard)
   @Roles('service_provider', 'admin')
@@ -205,14 +218,37 @@ export class DiscoveryController {
   ) {
     if (!file) {
       throw new BadRequestException(
-        'No file uploaded. Send an image in the "file" field.',
+        'No file uploaded. Send an image or video in the "file" field.',
       );
     }
+    if (!this.allowedFeedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.',
+      );
+    }
+
+    const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
+    if (mediaType === 'video') {
+      const durationSeconds = await this.durationService.extractDuration(
+        file.buffer,
+        file.mimetype,
+      );
+      if (
+        !Number.isFinite(durationSeconds) ||
+        durationSeconds > this.maxFeedVideoDurationSeconds
+      ) {
+        throw new BadRequestException(
+          `Video length must be ${this.maxFeedVideoDurationSeconds} seconds or less.`,
+        );
+      }
+    }
+
     const userId = await this.getUserId(user.uid);
-    const imageUrl = await this.uploads.uploadFeedPostImage(file, userId);
+    const imageUrl = await this.uploads.uploadFeedPostMedia(file, userId);
     return this.discovery.createFeedPost({
       authorUserId: userId,
       imageUrl,
+      mediaType,
       caption: body?.caption?.trim() || null,
     });
   }

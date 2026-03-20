@@ -32,6 +32,15 @@ interface UploadOptions {
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
+  private readonly feedUploadAllowedMimeTypes = [
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'video/mp4',
+    'video/webm',
+    'video/quicktime',
+  ];
   private readonly portfolioBucketTargetBytes = 25 * 1024 * 1024;
   private readonly portfolioAllowedMimeTypes = [
     'audio/mpeg',
@@ -91,15 +100,14 @@ export class UploadsService {
       };
     }
     if (bucket === 'artwork' || bucket === 'avatars' || bucket === 'feed') {
+      const requiredMimeTypes =
+        bucket === 'feed'
+          ? this.feedUploadAllowedMimeTypes
+          : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
       return {
         public: true,
         fileSizeLimit: this.imageUploadMaxBytes,
-        allowedMimeTypes: [
-          'image/jpeg',
-          'image/jpg',
-          'image/png',
-          'image/webp',
-        ],
+        allowedMimeTypes: requiredMimeTypes,
       };
     }
     if (bucket === 'portfolio') {
@@ -200,12 +208,10 @@ export class UploadsService {
           ? (bucket as any).fileSizeLimit
           : null;
 
-    const requiredMimeTypes = [
-      'image/jpeg',
-      'image/jpg',
-      'image/png',
-      'image/webp',
-    ];
+    const requiredMimeTypes =
+      bucketName === 'feed'
+        ? this.feedUploadAllowedMimeTypes
+        : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const currentMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
       ? (bucket as any).allowed_mime_types
       : Array.isArray((bucket as any).allowedMimeTypes)
@@ -439,18 +445,18 @@ export class UploadsService {
   }
 
   /**
-   * Upload a discover feed post image (catalyst posts in Discover tab).
-   * Accepts JPEG, PNG, and WebP files up to 15MB.
+   * Upload a discover feed post media file (catalyst posts in Discover tab).
+   * Accepts images (JPEG/PNG/WebP) and short videos (MP4/WEBM/MOV) up to 15MB.
    */
-  async uploadFeedPostImage(
+  async uploadFeedPostMedia(
     file: Express.Multer.File,
     userId: string,
   ): Promise<string> {
     return this._uploadFile(file, userId, {
       bucket: 'feed',
-      allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
+      allowedMimeTypes: this.feedUploadAllowedMimeTypes,
       maxSizeBytes: this.imageUploadMaxBytes, // 15MB
-      errorPrefix: 'Feed image',
+      errorPrefix: 'Feed media',
       pathPrefix: 'posts',
     });
   }
