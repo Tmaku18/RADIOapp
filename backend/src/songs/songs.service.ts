@@ -1240,6 +1240,50 @@ export class SongsService {
     return { removed: (rows || []).length };
   }
 
+  async removeDiscoverSwipe(userId: string, songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_swipes')
+      .delete()
+      .eq('user_id', userId)
+      .eq('song_id', songId);
+    if (error && !this.isMissingTableError(error, 'discover_swipes')) {
+      throw new Error(`Failed to remove discover swipe: ${error.message}`);
+    }
+  }
+
+  async clearDiscoverSwipes(userId: string): Promise<{ removed: number }> {
+    const supabase = getSupabaseClient();
+    const { data: rows, error: listError } = await supabase
+      .from('discover_swipes')
+      .select('song_id')
+      .eq('user_id', userId);
+
+    if (listError) {
+      if (this.isMissingTableError(listError, 'discover_swipes')) {
+        return { removed: 0 };
+      }
+      throw new Error(
+        `Failed to load discover swipes for clear: ${listError.message}`,
+      );
+    }
+
+    const { error: deleteError } = await supabase
+      .from('discover_swipes')
+      .delete()
+      .eq('user_id', userId);
+    if (
+      deleteError &&
+      !this.isMissingTableError(deleteError, 'discover_swipes')
+    ) {
+      throw new Error(
+        `Failed to clear discover swipes: ${deleteError.message}`,
+      );
+    }
+
+    return { removed: (rows || []).length };
+  }
+
   async getDiscoverLikedList(
     userId: string,
     limitInput = 50,

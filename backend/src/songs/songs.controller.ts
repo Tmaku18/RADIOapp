@@ -676,6 +676,39 @@ export class SongsController {
     return this.songsService.clearDiscoverLikedList(userData.id);
   }
 
+  @Delete('discover/swipes/:songId')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async removeDiscoverSwipe(
+    @CurrentUser() user: FirebaseUser,
+    @Param('songId') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    if (!songId?.trim()) throw new BadRequestException('songId is required');
+    await this.songsService.removeDiscoverSwipe(userData.id, songId.trim());
+    return { removed: true };
+  }
+
+  @Delete('discover/swipes')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async clearDiscoverSwipes(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    return this.songsService.clearDiscoverSwipes(userData.id);
+  }
+
   @Post(':id/discover/publish')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')

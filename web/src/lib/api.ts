@@ -262,6 +262,10 @@ export const discoverAudioApi = {
     api.delete<{ removed: true }>(`/songs/discover/list/${songId}`),
   clearLikedList: () =>
     api.delete<{ removed: number }>('/songs/discover/list'),
+  removeSwipe: (songId: string) =>
+    api.delete<{ removed: true }>(`/songs/discover/swipes/${songId}`),
+  clearSwipes: () =>
+    api.delete<{ removed: number }>('/songs/discover/swipes'),
   getMySwipeAnalytics: (days?: number) =>
     api.get<DiscoverSwipeAnalytics>('/analytics/me/discover-swipes', {
       params: { days },

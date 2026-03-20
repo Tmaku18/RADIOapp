@@ -90,6 +90,7 @@ export default function SocialDiscoverSwipePage() {
   const [libraryLoading, setLibraryLoading] = useState(false);
   const [publishBusy, setPublishBusy] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [forgiveBusy, setForgiveBusy] = useState(false);
   const [libraryScopeLabel, setLibraryScopeLabel] = useState('your saved library');
   const [selectedSongId, setSelectedSongId] = useState('');
   const [clipStartSeconds, setClipStartSeconds] = useState('0:00');
@@ -275,6 +276,23 @@ export default function SocialDiscoverSwipePage() {
     }
   }, [cards.length, nextCursor]);
 
+  const handleForgiveSwipes = useCallback(async () => {
+    const confirmed = window.confirm(
+      'Reset your Discover swipe history so old cards can appear again?',
+    );
+    if (!confirmed) return;
+    setError(null);
+    setForgiveBusy(true);
+    try {
+      await discoverAudioApi.clearSwipes();
+      await loadFeed(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reset Discover swipes');
+    } finally {
+      setForgiveBusy(false);
+    }
+  }, [loadFeed]);
+
   const applySwipe = useCallback(
     async (direction: 'left_skip' | 'right_like') => {
       if (!currentCard || busySwipe) return;
@@ -429,6 +447,13 @@ export default function SocialDiscoverSwipePage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => void handleForgiveSwipes()}
+            disabled={loading || busySwipe || forgiveBusy}
+          >
+            {forgiveBusy ? 'Resetting...' : 'Forgive my swipes'}
+          </Button>
           <Button variant="outline" asChild>
             <Link href="/social">Back to Social</Link>
           </Button>
@@ -590,7 +615,7 @@ export default function SocialDiscoverSwipePage() {
                         }
                       }}
                     >
-                      {publishBusy ? 'Working...' : 'Delete Discover Swipe'}
+                      {publishBusy ? 'Working...' : 'Unpublish Discover Clip'}
                     </Button>
                   </>
                 )}
