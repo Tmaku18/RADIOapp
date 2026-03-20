@@ -1972,6 +1972,52 @@ export class AdminService {
     if (error) throw new Error(`Failed to remove from feed: ${error.message}`);
   }
 
+  private async safeDeleteByContentId(
+    table: string,
+    contentId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .eq('content_id', contentId);
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Cleanup delete failed for ${table}: ${error.message}`);
+    }
+  }
+
+  async deleteFeedMedia(contentId: string, adminId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: item } = await supabase
+      .from('provider_portfolio_items')
+      .select('id, file_url')
+      .eq('id', contentId)
+      .single();
+    if (!item) throw new NotFoundException('Content not found');
+
+    // Best-effort cleanup for related browse interactions.
+    await this.safeDeleteByContentId('browse_likes', contentId);
+    await this.safeDeleteByContentId('browse_bookmarks', contentId);
+    await this.safeDeleteByContentId('browse_reports', contentId);
+
+    // Best-effort storage cleanup for portfolio media file.
+    if ((item as { file_url?: string | null }).file_url) {
+      await this.deleteFromStorage(
+        'portfolio',
+        (item as { file_url: string }).file_url,
+      );
+    }
+
+    const { error } = await supabase
+      .from('provider_portfolio_items')
+      .delete()
+      .eq('id', contentId);
+    if (error)
+      throw new Error(`Failed to delete social card: ${error.message}`);
+
+    this.logger.log(`Deleted social card ${contentId} by admin ${adminId}`);
+  }
+
   async listStreamerApplications(): Promise<
     Array<{
       userId: string;

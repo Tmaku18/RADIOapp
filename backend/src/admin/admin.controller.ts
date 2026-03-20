@@ -596,4 +596,15 @@ export class AdminController {
     await this.adminService.removeFromFeed(contentId, adminId);
     return { removed: true };
   }
+
+  @Delete('feed-media/:contentId')
+  async deleteFeedMedia(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('contentId') contentId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    await this.adminService.deleteFeedMedia(contentId, adminId);
+    return { deleted: true };
+  }
 }

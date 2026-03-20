@@ -52,7 +52,11 @@ export default function AdminFeedPage() {
   const [loading, setLoading] = useState(true);
   const [reportedOnly, setReportedOnly] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{
+    type: 'remove' | 'delete';
+    id: string;
+  } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const load = async () => {
@@ -74,7 +78,7 @@ export default function AdminFeedPage() {
 
   const handleRemove = async (contentId: string) => {
     setRemovingId(contentId);
-    setConfirmRemoveId(null);
+    setConfirmAction(null);
     try {
       await adminApi.removeFromFeed(contentId);
       setItems((prev) => prev.filter((i) => i.id !== contentId));
@@ -82,6 +86,19 @@ export default function AdminFeedPage() {
       console.error('Remove failed:', e);
     } finally {
       setRemovingId(null);
+    }
+  };
+
+  const handleDelete = async (contentId: string) => {
+    setDeletingId(contentId);
+    setConfirmAction(null);
+    try {
+      await adminApi.deleteFeedMedia(contentId);
+      setItems((prev) => prev.filter((i) => i.id !== contentId));
+    } catch (e) {
+      console.error('Delete failed:', e);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -120,7 +137,7 @@ export default function AdminFeedPage() {
                     <TableHead>Title / Creator</TableHead>
                     <TableHead className="text-center">Likes</TableHead>
                     <TableHead className="text-center">Reports</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
+                    <TableHead className="w-[210px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -178,11 +195,24 @@ export default function AdminFeedPage() {
                               variant="destructive"
                               size="sm"
                               disabled={removingId === row.id}
-                              onClick={() => setConfirmRemoveId(row.id)}
+                              onClick={() =>
+                                setConfirmAction({ type: 'remove', id: row.id })
+                              }
                             >
                               {removingId === row.id ? '…' : 'Remove from feed'}
                             </Button>
                           )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-2 border-destructive/50 text-destructive hover:bg-destructive/10"
+                            disabled={deletingId === row.id}
+                            onClick={() =>
+                              setConfirmAction({ type: 'delete', id: row.id })
+                            }
+                          >
+                            {deletingId === row.id ? '…' : 'Delete card'}
+                          </Button>
                         </TableCell>
                       </TableRow>
                       <CollapsibleContent asChild>
@@ -213,21 +243,34 @@ export default function AdminFeedPage() {
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!confirmRemoveId} onOpenChange={() => setConfirmRemoveId(null)}>
+      <AlertDialog open={!!confirmAction} onOpenChange={() => setConfirmAction(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove from feed?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmAction?.type === 'delete'
+                ? 'Delete social card?'
+                : 'Remove from feed?'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              This will hide the item from the Browse feed. It can be re-approved later if you add an option to restore.
+              {confirmAction?.type === 'delete'
+                ? 'This permanently deletes the social card from the platform.'
+                : 'This hides the item from the Browse feed.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => confirmRemoveId && handleRemove(confirmRemoveId)}
+              onClick={() => {
+                if (!confirmAction) return;
+                if (confirmAction.type === 'delete') {
+                  void handleDelete(confirmAction.id);
+                  return;
+                }
+                void handleRemove(confirmAction.id);
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Remove
+              {confirmAction?.type === 'delete' ? 'Delete' : 'Remove'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
