@@ -409,7 +409,8 @@ export class ProNetworxService {
         'id, display_name, avatar_url, headline, bio, location_region, role, is_banned',
       )
       .in('id', userIds)
-      .eq('is_banned', false);
+      // Keep users visible unless explicitly banned; legacy rows may have null.
+      .or('is_banned.eq.false,is_banned.is.null');
 
     if (params.location?.trim()) {
       usersQ = usersQ.ilike('location_region', `%${params.location.trim()}%`);
