@@ -243,6 +243,13 @@ export default function ProfilePage() {
 
   const isCatalyst = profile?.role === 'service_provider';
   const isAdmin = profile?.role === 'admin';
+  const socialLinks = [
+    { label: 'Instagram', url: instagramUrl.trim() },
+    { label: 'X', url: twitterUrl.trim() },
+    { label: 'YouTube', url: youtubeUrl.trim() },
+    { label: 'TikTok', url: tiktokUrl.trim() },
+    { label: 'Website', url: websiteUrl.trim() },
+  ].filter((link) => link.url.length > 0);
   const roleLabel =
     profile?.role === 'admin'
       ? 'Admin'
@@ -454,6 +461,21 @@ export default function ProfilePage() {
                   <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" disabled={!isEditing} className="md:col-span-2" />
                 </div>
                 <p className="text-xs text-muted-foreground">These links appear on your Spotify-style artist page.</p>
+                {socialLinks.length > 0 && (
+                  <div className="flex flex-wrap gap-3 pt-1">
+                    {socialLinks.map((link) => (
+                      <a
+                        key={link.label}
+                        href={link.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm underline text-primary"
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
