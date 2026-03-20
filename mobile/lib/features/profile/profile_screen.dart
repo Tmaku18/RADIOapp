@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
@@ -142,6 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final headlineCtrl = TextEditingController(text: user.headline ?? '');
     final bioCtrl = TextEditingController(text: user.bio ?? '');
     final locationCtrl = TextEditingController(text: user.locationRegion ?? '');
+    final instagramCtrl = TextEditingController(text: user.instagramUrl ?? '');
     bool saving = false;
 
     await showModalBottomSheet<void>(
@@ -226,6 +228,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         minLines: 3,
                         maxLines: 5,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: instagramCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Instagram',
+                          hintText: 'https://instagram.com/you, @you, or handle',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
                       ),
                       const SizedBox(height: 14),
                       Row(
@@ -496,6 +508,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         _user!.bio!,
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                    if ((_user!.instagramUrl ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Center(
+                        child: TextButton.icon(
+                          onPressed: () async {
+                            final raw = _user!.instagramUrl!.trim();
+                            final uri = Uri.tryParse(
+                              raw.startsWith('http') ? raw : 'https://$raw',
+                            );
+                            if (uri != null && await canLaunchUrl(uri)) {
+                              await launchUrl(
+                                uri,
+                                mode: LaunchMode.externalApplication,
+                              );
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Could not open Instagram link.'),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                          label: const Text('Instagram'),
+                        ),
                       ),
                     ],
                     const SizedBox(height: 10),

@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import {
   IsString,
   IsOptional,
@@ -9,6 +10,13 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import {
+  normalizeInstagramUrl,
+  normalizeTwitterUrl,
+  normalizeTiktokUrl,
+  normalizeWebsiteUrl,
+  normalizeYoutubeUrl,
+} from '../utils/normalize-social-url';
 
 export class UpdateUserDto {
   @IsString()
@@ -56,28 +64,33 @@ export class UpdateUserDto {
   discoverable?: boolean;
 
   /** Artist social links */
+  @Transform(({ value }) => normalizeInstagramUrl(value))
   @ValidateIf((o) => o.instagramUrl != null && o.instagramUrl !== '')
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   instagramUrl?: string;
 
+  @Transform(({ value }) => normalizeTwitterUrl(value))
   @ValidateIf((o) => o.twitterUrl != null && o.twitterUrl !== '')
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   twitterUrl?: string;
 
+  @Transform(({ value }) => normalizeYoutubeUrl(value))
   @ValidateIf((o) => o.youtubeUrl != null && o.youtubeUrl !== '')
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   youtubeUrl?: string;
 
+  @Transform(({ value }) => normalizeTiktokUrl(value))
   @ValidateIf((o) => o.tiktokUrl != null && o.tiktokUrl !== '')
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   tiktokUrl?: string;
 
+  @Transform(({ value }) => normalizeWebsiteUrl(value))
   @ValidateIf((o) => o.websiteUrl != null && o.websiteUrl !== '')
-  @IsUrl()
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   websiteUrl?: string;
 

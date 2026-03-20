@@ -442,7 +442,12 @@ export default function ProfilePage() {
               <div className="space-y-3 rounded-lg border border-border p-4">
                 <Label>Social links</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" disabled={!isEditing} />
+                  <Input
+                    value={instagramUrl}
+                    onChange={(e) => setInstagramUrl(e.target.value)}
+                    placeholder="https://instagram.com/you, @you, or instagram.com/you"
+                    disabled={!isEditing}
+                  />
                   <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="X / Twitter URL" disabled={!isEditing} />
                   <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="YouTube URL" disabled={!isEditing} />
                   <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" disabled={!isEditing} />

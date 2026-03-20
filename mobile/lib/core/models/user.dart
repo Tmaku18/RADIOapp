@@ -8,6 +8,11 @@ class User {
   final String? headline;
   final String? locationRegion;
   final String? bio;
+  final String? instagramUrl;
+  final String? twitterUrl;
+  final String? youtubeUrl;
+  final String? tiktokUrl;
+  final String? websiteUrl;
   final bool discoverable;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -22,6 +27,11 @@ class User {
     this.headline,
     this.locationRegion,
     this.bio,
+    this.instagramUrl,
+    this.twitterUrl,
+    this.youtubeUrl,
+    this.tiktokUrl,
+    this.websiteUrl,
     this.discoverable = true,
     required this.createdAt,
     required this.updatedAt,
@@ -56,6 +66,12 @@ class User {
       headline: (json['headline'])?.toString(),
       locationRegion: (json['location_region'] ?? json['locationRegion'])?.toString(),
       bio: (json['bio'])?.toString(),
+      instagramUrl:
+          (json['instagram_url'] ?? json['instagramUrl'])?.toString(),
+      twitterUrl: (json['twitter_url'] ?? json['twitterUrl'])?.toString(),
+      youtubeUrl: (json['youtube_url'] ?? json['youtubeUrl'])?.toString(),
+      tiktokUrl: (json['tiktok_url'] ?? json['tiktokUrl'])?.toString(),
+      websiteUrl: (json['website_url'] ?? json['websiteUrl'])?.toString(),
       discoverable: (json['discoverable'] ?? true) == true,
       createdAt: dt(json['created_at'] ?? json['createdAt']),
       updatedAt: dt(json['updated_at'] ?? json['updatedAt']),
@@ -73,6 +89,11 @@ class User {
       'headline': headline,
       'locationRegion': locationRegion,
       'bio': bio,
+      'instagramUrl': instagramUrl,
+      'twitterUrl': twitterUrl,
+      'youtubeUrl': youtubeUrl,
+      'tiktokUrl': tiktokUrl,
+      'websiteUrl': websiteUrl,
       'discoverable': discoverable,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),

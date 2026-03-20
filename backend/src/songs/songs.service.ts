@@ -707,8 +707,7 @@ export class SongsService {
       );
     }
 
-    let discoverClipUrl: string;
-    discoverClipUrl = await this.createTrimmedDiscoverClip({
+    const discoverClipUrl = await this.createTrimmedDiscoverClip({
       sourceUrl: song.audio_url,
       artistId: song.artist_id,
       songKey: song.id,
