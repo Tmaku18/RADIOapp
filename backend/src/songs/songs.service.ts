@@ -379,6 +379,30 @@ export class SongsService {
     return 15;
   }
 
+  private stableHash(input: string): number {
+    let hash = 0;
+    for (let i = 0; i < input.length; i += 1) {
+      hash = (hash << 5) - hash + input.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  }
+
+  /**
+   * Deterministic pseudo-random order per user.
+   * Keeps pagination stable while still randomizing card order across users.
+   */
+  private sortDiscoverRowsForUser(rows: any[], userId: string): any[] {
+    return [...rows].sort((a, b) => {
+      const aScore = this.stableHash(`${userId}:${String(a?.id ?? '')}`);
+      const bScore = this.stableHash(`${userId}:${String(b?.id ?? '')}`);
+      if (aScore !== bScore) return aScore - bScore;
+      return String(b?.created_at ?? '').localeCompare(
+        String(a?.created_at ?? ''),
+      );
+    });
+  }
+
   private toDiscoverCard(
     song: any,
     artist: any,
@@ -816,7 +840,7 @@ export class SongsService {
     const supabase = getSupabaseClient();
     const limit = Math.min(Math.max(1, limitInput), 30);
     const offset = cursor ? Math.max(0, Number.parseInt(cursor, 10) || 0) : 0;
-    const fetchCount = limit + 30;
+    const maxPool = 3000;
 
     const swipesRes = await supabase
       .from('discover_swipes')
@@ -843,7 +867,7 @@ export class SongsService {
       .eq('discover_enabled', true)
       .not('discover_clip_url', 'is', null)
       .order('created_at', { ascending: false })
-      .range(offset, offset + fetchCount - 1);
+      .range(0, maxPool - 1);
     if (songsDiscoverRes.error) {
       if (
         this.isMissingAnyColumnError(songsDiscoverRes.error, [
@@ -861,7 +885,7 @@ export class SongsService {
           )
           .eq('status', 'approved')
           .order('created_at', { ascending: false })
-          .range(offset, offset + fetchCount - 1);
+          .range(0, maxPool - 1);
         if (songsLegacyRes.error) {
           throw new Error(
             `Failed to load discover feed: ${songsLegacyRes.error.message}`,
@@ -887,7 +911,8 @@ export class SongsService {
     const filtered = (rows || []).filter(
       (row: any) => !swipedSongIds.has(row.id) && row.artist_id !== userId,
     );
-    const pageRows = filtered.slice(0, limit);
+    const randomizedRows = this.sortDiscoverRowsForUser(filtered, userId);
+    const pageRows = randomizedRows.slice(offset, offset + limit);
 
     const songIds = pageRows.map((r: any) => r.id);
     const artistIds = [...new Set(pageRows.map((r: any) => r.artist_id))];
@@ -1005,7 +1030,7 @@ export class SongsService {
     );
 
     const nextCursor =
-      rows.length >= fetchCount ? String(offset + fetchCount) : null;
+      randomizedRows.length > offset + limit ? String(offset + limit) : null;
     return { items, nextCursor };
   }
 
