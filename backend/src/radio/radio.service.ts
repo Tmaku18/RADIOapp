@@ -213,6 +213,22 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private applySongStationScope(query: any, stationId: string) {
+    return query.or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`);
+  }
+
+  private songMatchesStationScope(song: any, stationId: string): boolean {
+    if (!song || typeof song !== 'object') return false;
+    if ((song as { station_id?: string | null }).station_id === stationId) {
+      return true;
+    }
+    const stationIds = (song as { station_ids?: unknown }).station_ids;
+    return (
+      Array.isArray(stationIds) &&
+      stationIds.some((id) => typeof id === 'string' && id === stationId)
+    );
+  }
+
   constructor(
     @Inject(forwardRef(() => PushNotificationService))
     private readonly pushNotificationService: PushNotificationService,
@@ -908,7 +924,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .from('songs')
       .select('*')
       .eq('status', 'approved')
-      .eq('station_id', stationId)
+      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
       .gt('credits_remaining', 0);
 
     if (!songs || songs.length === 0) return null;
@@ -952,7 +968,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .from('songs')
       .select('*')
       .eq('status', 'approved')
-      .eq('station_id', stationId)
+      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
       .gt('trial_plays_remaining', 0)
       .lte('credits_remaining', 0);
 
@@ -987,7 +1003,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .from('songs')
       .select('*')
       .eq('status', 'approved')
-      .eq('station_id', stationId)
+      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
       .eq('admin_free_rotation', true)
       .lte('trial_plays_remaining', 0)
       .lte('credits_remaining', 0);
@@ -1039,12 +1055,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const songsQuery = supabase
-      .from('songs')
-      .select('id, artist_id, audio_url')
-      .eq('status', 'approved')
-      .eq('station_id', stationId)
-      .eq('admin_free_rotation', true);
+    const songsQuery = this.applySongStationScope(
+      supabase
+        .from('songs')
+        .select('id, artist_id, audio_url')
+        .eq('status', 'approved')
+        .eq('admin_free_rotation', true),
+      stationId,
+    );
     const { data: songsData, error: songsError } = await songsQuery;
 
     if (songsError) {
@@ -1176,9 +1194,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .from('songs')
         .select('*')
         .eq('id', actualId)
-        .eq('station_id', stationId)
-        .single();
-      if (error || !data) {
+        .maybeSingle();
+      if (error || !data || !this.songMatchesStationScope(data, stationId)) {
         this.logger.warn(`Free rotation song ${actualId} not found`);
         return null;
       }
@@ -1199,10 +1216,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .select('*')
       .eq('id', stackId)
       .eq('status', 'approved')
-      .eq('station_id', stationId)
       .eq('admin_free_rotation', true);
     const { data: songData } = await songQuery.single();
-    if (songData) return { ...songData, _source: 'songs' as const };
+    if (songData && this.songMatchesStationScope(songData, stationId)) {
+      return { ...songData, _source: 'songs' as const };
+    }
 
     return null;
   }

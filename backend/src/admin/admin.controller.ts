@@ -104,6 +104,7 @@ export class AdminController {
     body: {
       title?: string;
       stationId?: string;
+      stationIds?: string[];
       artworkUrl?: string | null;
     },
   ) {

@@ -10,6 +10,7 @@ interface Song {
   title: string;
   artist_name: string;
   station_id?: string | null;
+  station_ids?: string[] | null;
   artwork_url: string | null;
   audio_url: string;
   duration_seconds?: number;
@@ -58,7 +59,7 @@ export default function AdminSongsPage() {
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editStationId, setEditStationId] = useState('');
+  const [editStationIds, setEditStationIds] = useState<string[]>([]);
   const [editArtworkUrl, setEditArtworkUrl] = useState('');
   const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
   const [editSaving, setEditSaving] = useState(false);
@@ -332,7 +333,12 @@ export default function AdminSongsPage() {
   const openEditModal = (song: Song) => {
     setEditingSong(song);
     setEditTitle(song.title || '');
-    setEditStationId(song.station_id || '');
+    const currentStations = Array.isArray(song.station_ids) && song.station_ids.length > 0
+      ? song.station_ids
+      : song.station_id
+        ? [song.station_id]
+        : [];
+    setEditStationIds(currentStations);
     setEditArtworkUrl(song.artwork_url || '');
     setEditArtworkFile(null);
   };
@@ -350,8 +356,8 @@ export default function AdminSongsPage() {
       alert('Title cannot be empty');
       return;
     }
-    if (!editStationId) {
-      alert('Please select a station');
+    if (editStationIds.length === 0) {
+      alert('Please select at least one station');
       return;
     }
     setEditSaving(true);
@@ -362,13 +368,15 @@ export default function AdminSongsPage() {
       }
       const response = await adminApi.updateSongMetadata(editingSong.id, {
         title,
-        stationId: editStationId,
+        stationId: editStationIds[0],
+        stationIds: editStationIds,
         artworkUrl: finalArtworkUrl,
       });
       const updated = response.data?.song as {
         id: string;
         title: string;
         stationId?: string;
+        stationIds?: string[];
         artworkUrl?: string | null;
       };
       setSongs((prev) =>
@@ -377,7 +385,8 @@ export default function AdminSongsPage() {
             ? {
                 ...song,
                 title: updated.title ?? title,
-                station_id: updated.stationId ?? editStationId,
+                station_id: updated.stationId ?? editStationIds[0],
+                station_ids: updated.stationIds ?? editStationIds,
                 artwork_url: updated.artworkUrl !== undefined ? updated.artworkUrl : finalArtworkUrl,
               }
             : song,
@@ -775,19 +784,26 @@ export default function AdminSongsPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm text-gray-600 mb-1">Station / Genre</label>
+                <label className="block text-sm text-gray-600 mb-1">Stations / Genres</label>
                 <select
-                  value={editStationId}
-                  onChange={(e) => setEditStationId(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  multiple
+                  value={editStationIds}
+                  onChange={(e) =>
+                    setEditStationIds(
+                      Array.from(e.target.selectedOptions).map((opt) => opt.value),
+                    )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 min-h-[150px]"
                 >
-                  <option value="">Select station</option>
                   {TOWERS.map((tower) => (
                     <option key={tower.id} value={tower.id}>
                       {tower.genre} (National)
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Hold Ctrl/Cmd to select multiple stations.
+                </p>
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Album Cover URL</label>

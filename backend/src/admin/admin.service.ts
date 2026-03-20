@@ -280,7 +280,12 @@ export class AdminService {
    */
   async updateSongMetadata(
     songId: string,
-    dto: { title?: string; stationId?: string; artworkUrl?: string | null },
+    dto: {
+      title?: string;
+      stationId?: string;
+      stationIds?: string[];
+      artworkUrl?: string | null;
+    },
   ) {
     const supabase = getSupabaseClient();
 
@@ -306,13 +311,39 @@ export class AdminService {
       updateData.title = title;
     }
 
-    if (dto.stationId !== undefined) {
+    const normalizedStationIds = Array.isArray(dto.stationIds)
+      ? [
+          ...new Set(
+            dto.stationIds.map((id) => (id ?? '').trim()).filter(Boolean),
+          ),
+        ]
+      : undefined;
+
+    if (normalizedStationIds !== undefined) {
+      if (normalizedStationIds.length === 0) {
+        throw new BadRequestException(
+          'stationIds must include at least one station',
+        );
+      }
+      const invalid = normalizedStationIds.filter(
+        (id) => !STATION_IDS.includes(id as (typeof STATION_IDS)[number]),
+      );
+      if (invalid.length > 0) {
+        throw new BadRequestException(
+          `Invalid stationIds: ${invalid.join(', ')}`,
+        );
+      }
+      // Keep primary station for legacy paths; station_ids drives multi-station scope.
+      updateData.station_id = normalizedStationIds[0];
+      updateData.station_ids = normalizedStationIds;
+    } else if (dto.stationId !== undefined) {
       if (
         !STATION_IDS.includes(dto.stationId as (typeof STATION_IDS)[number])
       ) {
         throw new BadRequestException('Invalid stationId');
       }
       updateData.station_id = dto.stationId;
+      updateData.station_ids = [dto.stationId];
     }
 
     if (dto.artworkUrl !== undefined) {
@@ -329,7 +360,7 @@ export class AdminService {
       .from('songs')
       .update(updateData)
       .eq('id', songId)
-      .select('id, title, station_id, artwork_url')
+      .select('id, title, station_id, station_ids, artwork_url')
       .single();
 
     if (updateError || !updated) {
@@ -342,6 +373,13 @@ export class AdminService {
       id: updated.id,
       title: updated.title,
       stationId: updated.station_id ?? null,
+      stationIds:
+        Array.isArray((updated as { station_ids?: unknown }).station_ids) &&
+        ((updated as { station_ids?: unknown[] }).station_ids?.length ?? 0) > 0
+          ? ((updated as { station_ids: string[] }).station_ids ?? [])
+          : updated.station_id
+            ? [updated.station_id]
+            : [],
       artworkUrl: updated.artwork_url ?? null,
     };
   }
@@ -658,7 +696,11 @@ export class AdminService {
   ): { id: string; state: string; label: string }[] {
     const radios = [
       { id: 'us-rap', state: 'US', label: 'Up & Coming Rap Radio (National)' },
-      { id: 'us-ready-now-rap', state: 'US', label: 'Ready Now Rap Radio (National)' },
+      {
+        id: 'us-ready-now-rap',
+        state: 'US',
+        label: 'Ready Now Rap Radio (National)',
+      },
       { id: 'us-hip-hop', state: 'US', label: 'Hip Hop (National)' },
       { id: 'us-country', state: 'US', label: 'Country (National)' },
       { id: 'us-rock', state: 'US', label: 'Rock (National)' },
@@ -1724,7 +1766,7 @@ export class AdminService {
       `,
       )
       .eq('status', 'approved')
-      .eq('station_id', stationId)
+      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
       .eq('admin_free_rotation', true)
       .order('last_played_at', { ascending: true, nullsFirst: true });
 

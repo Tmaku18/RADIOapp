@@ -213,7 +213,10 @@ export class DiscoveryService {
       .eq('status', 'approved')
       .in('artist_id', artistIds);
     if (params.stationId?.trim()) {
-      songsQuery = songsQuery.eq('station_id', params.stationId.trim());
+      const stationId = params.stationId.trim();
+      songsQuery = songsQuery.or(
+        `station_id.eq.${stationId},station_ids.cs.{${stationId}}`,
+      );
     }
     const { data: songs, error: songsError } = await songsQuery.limit(10000);
     if (songsError) {
