@@ -60,6 +60,10 @@ type ProPublicProfile = {
   portfolio?: PortfolioItem[];
 };
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 function formatRate(rateCents: number | null, rateType: 'hourly' | 'fixed'): string {
   if (rateCents == null) return 'Contact for pricing';
   const dollars = (rateCents / 100).toFixed(2);
@@ -123,6 +127,7 @@ export default function ProNetworxProfilePage() {
                   alt=""
                   fill
                   className="object-cover opacity-80"
+                  unoptimized={shouldUnoptimizeImage(data.mediaPreviewUrl)}
                 />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
@@ -137,6 +142,7 @@ export default function ProNetworxProfilePage() {
                       width={128}
                       height={128}
                       className="rounded-full object-cover border-4 border-background shadow-lg size-24 sm:size-32 shrink-0"
+                      unoptimized={shouldUnoptimizeImage(data.avatarUrl)}
                     />
                   ) : (
                     <div className="size-24 sm:size-32 rounded-full bg-muted border-4 border-background flex items-center justify-center text-4xl shrink-0">

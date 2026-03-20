@@ -19,6 +19,10 @@ import { Input } from '@/components/ui/input';
 
 const FEED_PAGE_SIZE = 10;
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 export default function ProNetworxFeedPage() {
   const { profile } = useAuth();
   const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
@@ -170,7 +174,7 @@ export default function ProNetworxFeedPage() {
                       width={44}
                       height={44}
                       className="rounded-full object-cover"
-                      unoptimized={post.authorAvatarUrl.includes('supabase')}
+                      unoptimized={shouldUnoptimizeImage(post.authorAvatarUrl)}
                     />
                   ) : (
                     <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center text-xl">🛠️</div>
@@ -189,7 +193,7 @@ export default function ProNetworxFeedPage() {
                     fill
                     className="object-contain"
                     sizes="100vw"
-                    unoptimized={post.imageUrl.includes('supabase')}
+                    unoptimized={shouldUnoptimizeImage(post.imageUrl)}
                   />
                 </div>
                 <div className="p-4 shrink-0 space-y-1">

@@ -57,6 +57,18 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp
 const MAX_AVATAR_SIZE = 15 * 1024 * 1024; // 15MB
 const MAX_COVER_SIZE = 15 * 1024 * 1024;   // 15MB
 
+function normalizeMediaUrl(url?: string | null): string | null {
+  const raw = url?.trim();
+  if (!raw) return null;
+  if (raw.startsWith('//')) return `https:${raw}`;
+  return raw;
+}
+
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  const normalized = normalizeMediaUrl(url);
+  return !!normalized && /^https?:\/\//i.test(normalized);
+}
+
 export default function ProNetworxOnboardingPage() {
   const router = useRouter();
   const { user, profile, loading, refreshProfile } = useAuth();
@@ -80,6 +92,9 @@ export default function ProNetworxOnboardingPage() {
   const [experience, setExperience] = useState<ExperienceItem[]>([emptyExperience()]);
   const [education, setEducation] = useState<EducationItem[]>([emptyEducation()]);
   const [featured, setFeatured] = useState<FeaturedItem[]>([emptyFeatured()]);
+
+  const avatarPreviewUrl = normalizeMediaUrl(me?.avatarUrl ?? profile?.avatarUrl);
+  const coverPreviewUrl = normalizeMediaUrl(me?.heroImageUrl);
 
   const suggestedSkills = useMemo(() => {
     const q = skillQuery.trim().toLowerCase();
@@ -333,12 +348,13 @@ export default function ProNetworxOnboardingPage() {
                     <Label className="text-sm text-foreground">Profile photo</Label>
                     <div className="flex items-center gap-4">
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
-                        {(me?.avatarUrl ?? profile?.avatarUrl) ? (
+                        {avatarPreviewUrl ? (
                           <Image
-                            src={me?.avatarUrl ?? profile?.avatarUrl ?? ''}
+                            src={avatarPreviewUrl}
                             alt="Profile"
                             fill
                             className="object-cover"
+                            unoptimized={shouldUnoptimizeImage(avatarPreviewUrl)}
                           />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-2xl text-muted-foreground">👤</div>
@@ -368,12 +384,13 @@ export default function ProNetworxOnboardingPage() {
                   <div className="space-y-2">
                     <Label className="text-sm text-foreground">Cover / background</Label>
                     <div className="relative h-24 w-full overflow-hidden rounded-lg border border-border bg-muted">
-                      {me?.heroImageUrl ? (
+                      {coverPreviewUrl ? (
                         <Image
-                          src={me.heroImageUrl}
+                          src={coverPreviewUrl}
                           alt="Cover"
                           fill
                           className="object-cover"
+                          unoptimized={shouldUnoptimizeImage(coverPreviewUrl)}
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground text-sm">No cover yet</div>

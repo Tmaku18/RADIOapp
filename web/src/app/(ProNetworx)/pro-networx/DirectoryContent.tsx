@@ -36,6 +36,10 @@ export type DirectoryItem = {
 
 const PAGE_SIZE = 24;
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 function formatStartingAt(cents: number | null, rateType: 'hourly' | 'fixed' | null): string {
   if (cents == null) return 'Contact for pricing';
   const dollars = (cents / 100).toFixed(2);
@@ -221,6 +225,7 @@ export function ProNetworxDirectoryContent({
                         alt={p.serviceTitle ?? p.displayName ?? 'Preview'}
                         fill
                         className="object-cover"
+                        unoptimized={shouldUnoptimizeImage(p.mediaPreviewUrl)}
                       />
                     </div>
                   ) : (
@@ -253,6 +258,7 @@ export function ProNetworxDirectoryContent({
                         width={56}
                         height={56}
                         className="rounded-full object-cover border border-border"
+                        unoptimized={shouldUnoptimizeImage(p.avatarUrl)}
                       />
                     ) : (
                       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl border border-border">
