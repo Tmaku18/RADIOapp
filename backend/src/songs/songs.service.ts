@@ -380,12 +380,24 @@ export class SongsService {
   }
 
   private stableHash(input: string): number {
-    let hash = 0;
+    // FNV-1a 32-bit hash for more stable dispersion than the old bit-shift hash.
+    let hash = 0x811c9dc5;
     for (let i = 0; i < input.length; i += 1) {
-      hash = (hash << 5) - hash + input.charCodeAt(i);
-      hash |= 0;
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
     }
-    return Math.abs(hash);
+    return hash >>> 0;
+  }
+
+  private createSeededRng(seed: number): () => number {
+    // Mulberry32 PRNG: deterministic and fast for shuffle use-cases.
+    let t = seed >>> 0;
+    return () => {
+      t += 0x6d2b79f5;
+      let r = Math.imul(t ^ (t >>> 15), t | 1);
+      r ^= r + Math.imul(r ^ (r >>> 7), r | 61);
+      return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+    };
   }
 
   /**
@@ -398,18 +410,25 @@ export class SongsService {
     seed?: string | null,
   ): any[] {
     const seedKey = (seed ?? '').trim() || 'default-seed';
-    return [...rows].sort((a, b) => {
-      const aScore = this.stableHash(
-        `${userId}:${seedKey}:${String(a?.id ?? '')}`,
-      );
-      const bScore = this.stableHash(
-        `${userId}:${seedKey}:${String(b?.id ?? '')}`,
-      );
-      if (aScore !== bScore) return aScore - bScore;
-      return String(b?.created_at ?? '').localeCompare(
-        String(a?.created_at ?? ''),
-      );
-    });
+    const list = [...rows];
+    if (list.length <= 1) return list;
+
+    const baseSeed = this.stableHash(`${userId}:${seedKey}:${list.length}`);
+    const rng = this.createSeededRng(baseSeed);
+
+    // Deterministic Fisher-Yates shuffle (stable pagination for same seed).
+    for (let i = list.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(rng() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+
+    // Rotate start index so one song doesn't keep sticking to the top.
+    const rotateBy =
+      this.stableHash(`start:${userId}:${seedKey}`) % list.length;
+    if (rotateBy > 0) {
+      return list.slice(rotateBy).concat(list.slice(0, rotateBy));
+    }
+    return list;
   }
 
   private toDiscoverCard(
