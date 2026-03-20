@@ -34,6 +34,10 @@ type DirectoryItem = {
 
 const PAGE_SIZE = 24;
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 export default function DirectoryPage() {
   const [items, setItems] = useState<DirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -213,6 +217,7 @@ export default function DirectoryPage() {
                           alt={p.serviceTitle ?? p.displayName ?? 'Preview'}
                           fill
                           className="object-cover"
+                          unoptimized={shouldUnoptimizeImage(p.mediaPreviewUrl)}
                         />
                       )}
                     </div>
@@ -247,6 +252,7 @@ export default function DirectoryPage() {
                         width={56}
                         height={56}
                         className="rounded-full object-cover"
+                        unoptimized={shouldUnoptimizeImage(p.avatarUrl)}
                       />
                     ) : (
                       <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center text-xl border border-border/60">

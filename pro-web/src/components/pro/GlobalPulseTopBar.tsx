@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 
-const RADIO_URL = process.env.NEXT_PUBLIC_RADIO_URL || 'http://localhost:3001';
+const RADIO_URL =
+  process.env.NEXT_PUBLIC_RADIO_URL || 'https://networxradio.com';
 
 function initials(name: string | null | undefined): string {
   const n = (name ?? '').trim();
@@ -19,10 +20,12 @@ export function GlobalPulseTopBar() {
   const pathname = usePathname();
   const { profile } = useAuth();
   const proActive =
+    pathname === '/' ||
     pathname.startsWith('/directory') ||
     pathname.startsWith('/discover') ||
     pathname.startsWith('/u/') ||
     pathname.startsWith('/messages') ||
+    pathname.startsWith('/notifications') ||
     pathname.startsWith('/onboarding');
 
   return (
@@ -61,13 +64,16 @@ export function GlobalPulseTopBar() {
             href="/discover"
             className="px-3 py-1.5 rounded-full text-sm transition-colors text-muted-foreground hover:text-foreground"
           >
-            🗺️ DISCOVER
+            📱 FEED
           </Link>
         </div>
 
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" asChild>
             <Link href="/messages">Inbox</Link>
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/notifications">Alerts</Link>
           </Button>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/onboarding">Profile</Link>

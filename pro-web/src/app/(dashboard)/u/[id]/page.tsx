@@ -62,6 +62,10 @@ function formatRate(rateCents: number | null, rateType: 'hourly' | 'fixed'): str
   return rateType === 'hourly' ? `$${dollars}/hr` : `$${dollars}`;
 }
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 export default function ProProfilePage() {
   const params = useParams();
   const id = params.id as string;
@@ -144,6 +148,7 @@ export default function ProProfilePage() {
                   alt=""
                   fill
                   className="object-cover opacity-70"
+                  unoptimized={shouldUnoptimizeImage(data.mediaPreviewUrl)}
                 />
               )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -155,6 +160,7 @@ export default function ProProfilePage() {
                     width={84}
                     height={84}
                     className="rounded-full object-cover border border-primary/30"
+                    unoptimized={shouldUnoptimizeImage(data.avatarUrl)}
                   />
                 ) : (
                   <div className="w-[84px] h-[84px] rounded-full bg-muted border border-primary/20 flex items-center justify-center text-2xl">

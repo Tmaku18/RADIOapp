@@ -20,9 +20,10 @@ function SignupForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [role, setRole] = useState<'listener' | 'artist'>(
-    (searchParams.get('role') as 'listener' | 'artist') || 'listener'
+  const [role, setRole] = useState<'listener' | 'artist' | 'service_provider'>(
+    (searchParams.get('role') as 'listener' | 'artist' | 'service_provider') || 'service_provider'
   );
+  const redirectTo = searchParams.get('redirect') || '/directory';
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -44,7 +45,7 @@ function SignupForm() {
 
     try {
       await signUpWithEmail(email, password, role);
-      router.push('/dashboard');
+      router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {
@@ -60,7 +61,7 @@ function SignupForm() {
         sessionStorage.setItem('radioapp_signup_role', role);
       }
       await signInWithGoogle();
-      router.push('/dashboard');
+      router.push(redirectTo);
     } catch (err) {
       if (typeof window !== 'undefined') {
         sessionStorage.removeItem('radioapp_signup_role');
@@ -75,10 +76,10 @@ function SignupForm() {
   const displayError = localError || error;
 
   return (
-    <div className="bg-white rounded-2xl shadow-xl p-8">
+    <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
       <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
-        <p className="text-gray-600 mt-2">Join the underground music revolution</p>
+        <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
+        <p className="text-muted-foreground mt-2">Join Pro-Networx</p>
       </div>
 
       {displayError && (
@@ -89,22 +90,22 @@ function SignupForm() {
 
       {/* Role Selection */}
       <div className="mb-6">
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-foreground mb-3">
           I want to...
         </label>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3">
           <button
             type="button"
             onClick={() => setRole('listener')}
             className={`p-4 rounded-lg border-2 transition-all ${
               role === 'listener'
                 ? 'border-primary bg-primary/10'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-border hover:border-primary/40'
             }`}
           >
             <div className="text-2xl mb-2">🎧</div>
-            <div className="font-medium text-gray-900">Listener</div>
-            <div className="text-sm text-gray-500">Discover new music</div>
+            <div className="font-medium text-foreground">Listener</div>
+            <div className="text-sm text-muted-foreground">Discover new music</div>
           </button>
           <button
             type="button"
@@ -112,12 +113,25 @@ function SignupForm() {
             className={`p-4 rounded-lg border-2 transition-all ${
               role === 'artist'
                 ? 'border-primary bg-primary/10'
-                : 'border-gray-200 hover:border-gray-300'
+                : 'border-border hover:border-primary/40'
             }`}
           >
             <div className="text-2xl mb-2">🎤</div>
-            <div className="font-medium text-gray-900">Gem</div>
-            <div className="text-sm text-gray-500">Share my music</div>
+            <div className="font-medium text-foreground">Gem</div>
+            <div className="text-sm text-muted-foreground">Share my music</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setRole('service_provider')}
+            className={`p-4 rounded-lg border-2 transition-all ${
+              role === 'service_provider'
+                ? 'border-primary bg-primary/10'
+                : 'border-border hover:border-primary/40'
+            }`}
+          >
+            <div className="text-2xl mb-2">💼</div>
+            <div className="font-medium text-foreground">Catalyst</div>
+            <div className="text-sm text-muted-foreground">Offer creative services</div>
           </button>
         </div>
       </div>
@@ -126,7 +140,7 @@ function SignupForm() {
       <button
         onClick={handleGoogleSignup}
         disabled={isSubmitting || loading}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+        className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-6"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
@@ -146,22 +160,22 @@ function SignupForm() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <span className="text-gray-700 font-medium">Continue with Google</span>
+        <span className="text-foreground font-medium">Continue with Google</span>
       </button>
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-border"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or sign up with email</span>
+          <span className="px-2 bg-card text-muted-foreground">Or sign up with email</span>
         </div>
       </div>
 
       {/* Email Sign Up */}
       <form onSubmit={handleEmailSignup} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
             Email
           </label>
           <input
@@ -170,13 +184,13 @@ function SignupForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
             placeholder="you@example.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
             Password
           </label>
           <input
@@ -185,14 +199,14 @@ function SignupForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
             placeholder="••••••••"
             minLength={6}
           />
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-1">
             Confirm Password
           </label>
           <input
@@ -201,7 +215,7 @@ function SignupForm() {
             required
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
             placeholder="••••••••"
             minLength={6}
           />
@@ -212,18 +226,18 @@ function SignupForm() {
           disabled={isSubmitting || loading}
           className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting ? 'Creating account...' : `Create ${role === 'artist' ? 'Gem' : 'Listener'} Account`}
+          {isSubmitting ? 'Creating account...' : `Create ${role === 'artist' ? 'Gem' : role === 'service_provider' ? 'Catalyst' : 'Listener'} Account`}
         </button>
       </form>
 
-      <p className="mt-6 text-center text-gray-600">
+      <p className="mt-6 text-center text-muted-foreground">
         Already have an account?{' '}
         <Link href="/login" className="text-primary hover:text-primary/90 font-medium">
           Sign in
         </Link>
       </p>
 
-      <p className="mt-4 text-center text-xs text-gray-500">
+      <p className="mt-4 text-center text-xs text-muted-foreground">
         By signing up, you agree to our{' '}
         <Link href="/terms" className="text-primary hover:text-primary/90">
           Terms of Service

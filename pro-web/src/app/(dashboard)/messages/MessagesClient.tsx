@@ -44,6 +44,10 @@ interface MessageRow {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+function shouldUnoptimizeImage(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
 function formatTime(dateString: string): string {
   const d = new Date(dateString);
   const now = new Date();
@@ -408,7 +412,14 @@ export function MessagesClient() {
                       }`}
                     >
                       {c.otherAvatarUrl ? (
-                        <Image src={c.otherAvatarUrl} alt="" width={40} height={40} className="rounded-full object-cover shrink-0" />
+                        <Image
+                          src={c.otherAvatarUrl}
+                          alt=""
+                          width={40}
+                          height={40}
+                          className="rounded-full object-cover shrink-0"
+                          unoptimized={shouldUnoptimizeImage(c.otherAvatarUrl)}
+                        />
                       ) : (
                         <div className="w-10 h-10 rounded-full bg-muted shrink-0 flex items-center justify-center text-lg">👤</div>
                       )}
@@ -444,7 +455,14 @@ export function MessagesClient() {
                 <div className="p-3 border-b border-border/60 flex items-center gap-3">
                   <Link href={`/u/${selectedOther.userId}`} className="flex items-center gap-3 shrink-0">
                     {selectedOther.avatarUrl ? (
-                      <Image src={selectedOther.avatarUrl} alt="" width={36} height={36} className="rounded-full object-cover" />
+                      <Image
+                        src={selectedOther.avatarUrl}
+                        alt=""
+                        width={36}
+                        height={36}
+                        className="rounded-full object-cover"
+                        unoptimized={shouldUnoptimizeImage(selectedOther.avatarUrl)}
+                      />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">👤</div>
                     )}

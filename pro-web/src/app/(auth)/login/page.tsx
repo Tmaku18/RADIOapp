@@ -31,7 +31,7 @@ function LoginForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const redirectTo = searchParams.get('redirect') || '/dashboard';
+  const redirectTo = searchParams.get('redirect') || '/directory';
   const sessionExpired = searchParams.get('session_expired') === 'true';
 
   useEffect(() => {
@@ -92,10 +92,10 @@ function LoginForm() {
           error={displayError}
         />
       )}
-      <div className="bg-white rounded-2xl shadow-xl p-8">
+      <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-          <p className="text-gray-600 mt-2">Sign in to your account</p>
+          <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+          <p className="text-muted-foreground mt-2">Sign in to Pro-Networx</p>
         </div>
 
       {sessionExpired && (
@@ -114,7 +114,7 @@ function LoginForm() {
       <button
         onClick={handleGoogleLogin}
         disabled={isSubmitting || loading}
-        className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-6"
+        className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-border rounded-lg hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed mb-6"
       >
         <svg className="w-5 h-5" viewBox="0 0 24 24">
           <path
@@ -134,22 +134,22 @@ function LoginForm() {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        <span className="text-gray-700 font-medium">Continue with Google</span>
+        <span className="text-foreground font-medium">Continue with Google</span>
       </button>
 
       <div className="relative mb-6">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-border"></div>
         </div>
         <div className="relative flex justify-center text-sm">
-          <span className="px-2 bg-white text-gray-500">Or continue with email</span>
+          <span className="px-2 bg-card text-muted-foreground">Or continue with email</span>
         </div>
       </div>
 
       {/* Email Sign In */}
       <form onSubmit={handleEmailLogin} className="space-y-4">
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
             Email
           </label>
           <input
@@ -158,13 +158,13 @@ function LoginForm() {
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
             placeholder="you@example.com"
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
             Password
           </label>
           <input
@@ -173,7 +173,7 @@ function LoginForm() {
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary bg-background"
             placeholder="••••••••"
           />
         </div>
@@ -187,7 +187,7 @@ function LoginForm() {
         </button>
       </form>
 
-      <p className="mt-6 text-center text-gray-600">
+      <p className="mt-6 text-center text-muted-foreground">
         Don&apos;t have an account?{' '}
         <Link href="/signup" className="text-primary hover:text-primary/90 font-medium">
           Sign up

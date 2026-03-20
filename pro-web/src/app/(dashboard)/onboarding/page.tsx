@@ -139,13 +139,17 @@ export default function OnboardingPage() {
                 </p>
               )}
 
-              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-background/30 p-4">
+              <button
+                type="button"
+                className="w-full flex items-center justify-between rounded-lg border border-border/60 bg-background/30 p-4 text-left"
+                onClick={() => setAvailableForWork((prev) => !prev)}
+              >
                 <div>
-                  <Label className="text-base">Available for work</Label>
+                  <Label htmlFor="pnx-available-for-work" className="text-base cursor-pointer">Available for work</Label>
                   <p className="text-sm text-muted-foreground">Artists can filter by who is currently open.</p>
                 </div>
-                <Switch checked={availableForWork} onCheckedChange={setAvailableForWork} />
-              </div>
+                <Switch id="pnx-available-for-work" checked={availableForWork} onCheckedChange={setAvailableForWork} />
+              </button>
 
               <div className="space-y-2">
                 <Label>Skills headline (optional)</Label>

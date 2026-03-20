@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { discoveryApi } from '@/lib/api';
+import { discoverAudioApi, discoveryApi, type DiscoverAudioSongCard } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,12 +35,32 @@ export default function CreateDiscoverFeedVideoPage() {
   const searchParams = useSearchParams();
   const { profile } = useAuth();
 
-  const clipUrl = searchParams.get('clipUrl') ?? '';
-  const songTitle = searchParams.get('title') ?? 'Discover clip';
-  const artistName = searchParams.get('artist') ?? '';
+  const initialClipUrl = searchParams.get('clipUrl') ?? '';
+  const initialSongTitle = searchParams.get('title') ?? 'Discover clip';
+  const initialArtistName = searchParams.get('artist') ?? '';
+  const [selectedClip, setSelectedClip] = useState<{
+    clipUrl: string;
+    songTitle: string;
+    artistName: string;
+  } | null>(
+    initialClipUrl
+      ? {
+          clipUrl: initialClipUrl,
+          songTitle: initialSongTitle,
+          artistName: initialArtistName,
+        }
+      : null,
+  );
+  const [likedClips, setLikedClips] = useState<
+    Array<DiscoverAudioSongCard & { likedAt: string }>
+  >([]);
+  const [loadingLikedClips, setLoadingLikedClips] = useState(false);
   const initialCaption = useMemo(
-    () => `${songTitle}${artistName ? ` - ${artistName}` : ''}`,
-    [artistName, songTitle],
+    () =>
+      `${selectedClip?.songTitle ?? 'Discover clip'}${
+        selectedClip?.artistName ? ` - ${selectedClip.artistName}` : ''
+      }`,
+    [selectedClip],
   );
 
   const [state, setState] = useState<RecorderState>('idle');
@@ -66,6 +86,19 @@ export default function CreateDiscoverFeedVideoPage() {
 
   const canPostToFeed =
     profile?.role === 'service_provider' || profile?.role === 'admin';
+
+  useEffect(() => {
+    if (selectedClip) return;
+    setLoadingLikedClips(true);
+    discoverAudioApi
+      .getLikedList({ limit: 100, offset: 0 })
+      .then((res) => setLikedClips(res.data.items ?? []))
+      .catch((err) => {
+        console.error(err);
+        setError('Failed to load Discover clips. Please try again.');
+      })
+      .finally(() => setLoadingLikedClips(false));
+  }, [selectedClip]);
 
   useEffect(() => {
     setCaption(initialCaption);
@@ -113,7 +146,7 @@ export default function CreateDiscoverFeedVideoPage() {
   };
 
   const startRecording = async () => {
-    if (!clipUrl) {
+    if (!selectedClip?.clipUrl) {
       setError('Missing clip URL. Go back and choose a Discover clip first.');
       return;
     }
@@ -137,7 +170,7 @@ export default function CreateDiscoverFeedVideoPage() {
         micSource.connect(destination);
       }
 
-      const clipAudio = new Audio(clipUrl);
+      const clipAudio = new Audio(selectedClip.clipUrl);
       clipAudio.crossOrigin = 'anonymous';
       clipAudio.preload = 'auto';
       clipAudio.currentTime = 0;
@@ -263,18 +296,70 @@ export default function CreateDiscoverFeedVideoPage() {
         </Card>
       )}
 
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Source clip</p>
-            <p className="font-medium text-foreground">
-              {songTitle}
-              {artistName ? ` - ${artistName}` : ''}
-            </p>
-          </div>
-          <audio controls src={clipUrl} preload="metadata" className="w-full" />
-        </CardContent>
-      </Card>
+      {selectedClip ? (
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div className="space-y-1">
+              <p className="text-sm text-muted-foreground">Source clip</p>
+              <p className="font-medium text-foreground">
+                {selectedClip.songTitle}
+                {selectedClip.artistName ? ` - ${selectedClip.artistName}` : ''}
+              </p>
+            </div>
+            <audio controls src={selectedClip.clipUrl} preload="metadata" className="w-full" />
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            <div>
+              <p className="font-medium text-foreground">Choose a Discover clip</p>
+              <p className="text-sm text-muted-foreground">
+                Pick one of your liked clips to sync against while recording.
+              </p>
+            </div>
+            {loadingLikedClips ? (
+              <div className="flex justify-center py-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
+              </div>
+            ) : likedClips.length === 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  No liked Discover clips found yet.
+                </p>
+                <Button variant="outline" asChild>
+                  <Link href="/social/discover">Open Discover swipe</Link>
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {likedClips.map((clip) => (
+                  <button
+                    key={clip.songId}
+                    type="button"
+                    onClick={() =>
+                      setSelectedClip({
+                        clipUrl: clip.clipUrl,
+                        songTitle: clip.title,
+                        artistName: clip.artistDisplayName ?? clip.artistName,
+                      })
+                    }
+                    className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-muted/40"
+                  >
+                    <div>
+                      <p className="font-medium text-foreground">{clip.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {clip.artistDisplayName ?? clip.artistName}
+                      </p>
+                    </div>
+                    <span className="text-xs text-primary">Use clip</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="pt-6 space-y-4">
@@ -288,7 +373,10 @@ export default function CreateDiscoverFeedVideoPage() {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void startRecording()} disabled={starting || state === 'recording' || !canPostToFeed}>
+            <Button
+              onClick={() => void startRecording()}
+              disabled={starting || state === 'recording' || !canPostToFeed || !selectedClip?.clipUrl}
+            >
               {starting ? 'Preparing...' : state === 'recording' ? 'Recording...' : 'Start recording with clip'}
             </Button>
             <Button

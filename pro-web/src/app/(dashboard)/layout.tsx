@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { GlobalPulseTopBar } from '@/components/pro/GlobalPulseTopBar';
@@ -13,10 +14,13 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, loading } = useAuth();
 
-  if (!loading && !user) {
-    router.push('/login?redirect=' + encodeURIComponent(pathname));
-    return null;
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login?redirect=' + encodeURIComponent(pathname));
+    }
+  }, [loading, pathname, router, user]);
+
+  if (!user) return null;
 
   return (
     <div className="min-h-screen">

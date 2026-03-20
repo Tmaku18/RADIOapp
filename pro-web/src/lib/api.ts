@@ -219,6 +219,17 @@ export const discoveryApi = {
     mode?: 'default' | 'random';
     seed?: string;
   }) => api.get('/discovery/people', { params }),
+  listFeed: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed',
+      { params },
+    ),
+  createFeedPost: (file: File, caption?: string) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (caption != null && caption.trim()) form.set('caption', caption.trim());
+    return api.post<DiscoverFeedPost>('/discovery/feed', form);
+  },
   getMapHeat: (params?: {
     station?: string;
     role?: 'artist' | 'service_provider' | 'all';
@@ -251,6 +262,18 @@ export const discoveryApi = {
     offset?: number;
   }) => api.get<{ items: DiscoveryMapArtistMarker[]; total: number }>('/discovery/map/artists', { params }),
 };
+
+export interface DiscoverFeedPost {
+  id: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorAvatarUrl: string | null;
+  authorHeadline: string | null;
+  imageUrl: string;
+  mediaType: 'image' | 'video';
+  caption: string | null;
+  createdAt: string;
+}
 
 export interface DiscoveryMapHeatBucket {
   lat: number;
@@ -331,6 +354,11 @@ export const serviceProvidersApi = {
     portfolioUrl?: string;
     mentorOptIn?: boolean;
   }) => api.put('/service-providers/me/profile', data),
+  uploadCover: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post<{ heroImageUrl?: string }>('/service-providers/me/cover', formData);
+  },
   createListing: (data: {
     serviceType: string;
     title: string;
@@ -360,12 +388,63 @@ export const serviceProvidersApi = {
 };
 
 export const proNetworxApi = {
-  getMeProfile: () => api.get('/pro-networx/me/profile'),
-  updateMeProfile: (data: { availableForWork?: boolean; skillsHeadline?: string; skillNames?: string[] }) =>
-    api.put('/pro-networx/me/profile', data),
+  getMeProfile: () => api.get<ProNetworxMeProfile>('/pro-networx/me/profile'),
+  updateMeProfile: (data: {
+    availableForWork?: boolean;
+    skillsHeadline?: string;
+    currentTitle?: string;
+    about?: string;
+    websiteUrl?: string;
+    experience?: ExperienceItem[];
+    education?: EducationItem[];
+    featured?: FeaturedItem[];
+    skillNames?: string[];
+  }) => api.put('/pro-networx/me/profile', data),
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
     api.get('/pro-networx/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
+};
+
+export type ExperienceItem = {
+  title: string;
+  company: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  current?: boolean;
+  description?: string;
+};
+
+export type EducationItem = {
+  school: string;
+  degree?: string;
+  field?: string;
+  startYear?: string;
+  endYear?: string;
+  description?: string;
+};
+
+export type FeaturedItem = {
+  type: 'link' | 'portfolio';
+  url?: string;
+  title?: string;
+  description?: string;
+  portfolioItemId?: string;
+};
+
+export type ProNetworxMeProfile = {
+  userId: string;
+  avatarUrl: string | null;
+  heroImageUrl: string | null;
+  availableForWork: boolean;
+  skillsHeadline: string | null;
+  currentTitle: string | null;
+  about: string | null;
+  websiteUrl: string | null;
+  experience: ExperienceItem[];
+  education: EducationItem[];
+  featured: FeaturedItem[];
+  skills: Array<{ name: string; category: string }>;
 };
 
 export const jobBoardApi = {

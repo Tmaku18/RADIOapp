@@ -134,9 +134,16 @@ export default function ProNetworxFeedPage() {
                   />
                 </div>
                 {uploadError && <p className="text-sm text-destructive">{uploadError}</p>}
-                <Button onClick={handleCreatePost} disabled={uploading}>
-                  {uploading ? 'Posting...' : 'Post'}
-                </Button>
+                <div className="grid gap-2">
+                  <Button onClick={handleCreatePost} disabled={uploading}>
+                    {uploading ? 'Posting...' : 'Post'}
+                  </Button>
+                  <Button variant="outline" asChild>
+                    <Link href="/discover/create-video">
+                      Record synced Discover video
+                    </Link>
+                  </Button>
+                </div>
               </div>
             </DialogContent>
           </Dialog>
