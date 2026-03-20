@@ -2,6 +2,16 @@
 -- - Ensure payments/core tables exist (transactions, credits) and expected columns/RPC are present
 -- - Ensure creator network subscriptions table exists
 -- - Ensure storage buckets used by backend exist with expected limits and MIME types
+-- - Ensure songs discover columns exist (discover_background_url etc.) for Publish Discover Clip
+
+-- 0) Songs discover columns (required for Publish Discover Clip; schema cache may miss these)
+ALTER TABLE songs
+  ADD COLUMN IF NOT EXISTS discover_enabled BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS discover_clip_url TEXT,
+  ADD COLUMN IF NOT EXISTS discover_clip_duration_seconds INTEGER,
+  ADD COLUMN IF NOT EXISTS discover_clip_start_seconds INTEGER,
+  ADD COLUMN IF NOT EXISTS discover_clip_end_seconds INTEGER,
+  ADD COLUMN IF NOT EXISTS discover_background_url TEXT;
 
 -- 1) Core payments tables
 CREATE TABLE IF NOT EXISTS transactions (
