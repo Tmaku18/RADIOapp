@@ -714,6 +714,27 @@ export const adminApi = {
     limit?: number; 
     offset?: number;
   }) => api.get('/admin/users', { params }),
+  getSwipeCards: (params?: { search?: string; limit?: number; offset?: number }) =>
+    api.get<{
+      items: Array<{
+        songId: string;
+        title: string;
+        artistId: string;
+        artistName: string | null;
+        artistDisplayName: string | null;
+        status: string | null;
+        discoverEnabled: boolean;
+        clipUrl: string | null;
+        backgroundUrl: string | null;
+        clipStartSeconds: number | null;
+        clipEndSeconds: number | null;
+        clipDurationSeconds: number | null;
+        createdAt: string | null;
+        updatedAt: string | null;
+      }>;
+      total: number;
+    }>('/admin/swipe', { params }),
+  deleteSwipeClip: (songId: string) => api.delete(`/admin/swipe/${songId}/clip`),
   updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') =>
     api.patch(`/admin/users/${id}/role`, { role }),
   lifetimeBanUser: (id: string, reason?: string) =>

@@ -174,7 +174,7 @@ export default function AdminDashboardPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <Link href="/admin/songs">
             <CardContent className="pt-6 hover:bg-muted/50 transition-colors">
@@ -196,6 +196,16 @@ export default function AdminDashboardPage() {
               <div className="mb-4"><span className="text-3xl">👥</span></div>
               <h3 className="text-lg font-semibold text-foreground">User Management</h3>
               <p className="text-muted-foreground text-sm mt-1">Manage users and their roles</p>
+            </CardContent>
+          </Link>
+        </Card>
+
+        <Card>
+          <Link href="/admin/swipe">
+            <CardContent className="pt-6 hover:bg-muted/50 transition-colors">
+              <div className="mb-4"><span className="text-3xl">🃏</span></div>
+              <h3 className="text-lg font-semibold text-foreground">Swipe</h3>
+              <p className="text-muted-foreground text-sm mt-1">Manage discover cards and delete clips</p>
             </CardContent>
           </Link>
         </Card>

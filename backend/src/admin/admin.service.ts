@@ -594,6 +594,137 @@ export class AdminService {
     this.logger.log(`Deleted song ${songId}`);
   }
 
+  async getSwipeCards(filters?: {
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(filters?.limit ?? 200, 1), 500);
+    const offset = Math.max(filters?.offset ?? 0, 0);
+    const search = (filters?.search ?? '').trim();
+
+    let query = supabase
+      .from('songs')
+      .select(
+        'id, title, artist_id, artist_name, status, discover_enabled, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_clip_duration_seconds, created_at, updated_at',
+        { count: 'exact' },
+      )
+      .not('discover_clip_url', 'is', null)
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (search) {
+      query = query.or(`title.ilike.%${search}%,artist_name.ilike.%${search}%`);
+    }
+
+    const { data, error, count } = await query;
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load discover swipe cards: ${error.message}`,
+      );
+    }
+
+    const rows = (data || []) as Array<{
+      id: string;
+      title: string;
+      artist_id: string;
+      artist_name: string;
+      status: string | null;
+      discover_enabled: boolean | null;
+      discover_clip_url: string | null;
+      discover_background_url: string | null;
+      discover_clip_start_seconds: number | null;
+      discover_clip_end_seconds: number | null;
+      discover_clip_duration_seconds: number | null;
+      created_at: string | null;
+      updated_at: string | null;
+    }>;
+    const artistIds = [...new Set(rows.map((row) => row.artist_id))];
+    let users: Array<{ id: string; display_name: string | null }> = [];
+    if (artistIds.length) {
+      const { data: fetchedUsers } = await supabase
+        .from('users')
+        .select('id, display_name')
+        .in('id', artistIds);
+      users = (fetchedUsers || []) as Array<{
+        id: string;
+        display_name: string | null;
+      }>;
+    }
+    const artistNameById = new Map(users.map((u) => [u.id, u.display_name]));
+
+    return {
+      items: rows.map((row) => ({
+        songId: row.id,
+        title: row.title,
+        artistId: row.artist_id,
+        artistName: row.artist_name,
+        artistDisplayName: artistNameById.get(row.artist_id) ?? null,
+        status: row.status ?? null,
+        discoverEnabled: row.discover_enabled === true,
+        clipUrl: row.discover_clip_url,
+        backgroundUrl: row.discover_background_url,
+        clipStartSeconds: row.discover_clip_start_seconds,
+        clipEndSeconds: row.discover_clip_end_seconds,
+        clipDurationSeconds: row.discover_clip_duration_seconds,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+      total: count ?? rows.length,
+    };
+  }
+
+  async deleteSwipeClip(songId: string) {
+    const supabase = getSupabaseClient();
+    const { data: song, error: songError } = await supabase
+      .from('songs')
+      .select(
+        'id, audio_url, discover_clip_url, discover_enabled, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_clip_duration_seconds',
+      )
+      .eq('id', songId)
+      .single();
+
+    if (songError || !song) {
+      throw new NotFoundException('Song not found');
+    }
+
+    const clipUrl = (song as { discover_clip_url?: string | null })
+      .discover_clip_url;
+    if (!clipUrl) {
+      throw new BadRequestException('Song has no discover clip to delete');
+    }
+
+    const sourceAudioUrl = (song as { audio_url?: string | null }).audio_url;
+    if (clipUrl && (!sourceAudioUrl || clipUrl !== sourceAudioUrl)) {
+      await this.deleteFromStorage('songs', clipUrl);
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      discover_enabled: false,
+      discover_clip_url: null,
+      discover_background_url: null,
+      discover_clip_start_seconds: null,
+      discover_clip_end_seconds: null,
+      discover_clip_duration_seconds: null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { error: updateError } = await supabase
+      .from('songs')
+      .update(updatePayload)
+      .eq('id', songId);
+
+    if (updateError) {
+      throw new BadRequestException(
+        `Failed to delete discover clip: ${updateError.message}`,
+      );
+    }
+
+    this.logger.log(`Deleted discover clip for song ${songId}`);
+    return { deleted: true };
+  }
+
   private isMissingRelationError(error: unknown): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const msg = (maybe?.message ?? '').toLowerCase();

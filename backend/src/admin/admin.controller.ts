@@ -130,6 +130,27 @@ export class AdminController {
     return { deleted: true };
   }
 
+  @Get('swipe')
+  async getSwipeCards(
+    @Query('search') search?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.adminService.getSwipeCards({
+      search,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
+  @Delete('swipe/:songId/clip')
+  async deleteSwipeClip(@Param('songId') songId: string) {
+    if (!songId?.trim()) {
+      throw new BadRequestException('songId is required');
+    }
+    return this.adminService.deleteSwipeClip(songId.trim());
+  }
+
   @Get('analytics')
   async getAnalytics() {
     return this.adminService.getAnalytics();
