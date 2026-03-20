@@ -240,7 +240,7 @@ export interface ArtistLikeNotificationSettings {
 }
 
 export const discoverAudioApi = {
-  getFeed: (params?: { limit?: number; cursor?: string }) =>
+  getFeed: (params?: { limit?: number; cursor?: string; seed?: string }) =>
     api.get<{ items: DiscoverAudioSongCard[]; nextCursor: string | null }>(
       '/songs/discover/feed',
       { params },

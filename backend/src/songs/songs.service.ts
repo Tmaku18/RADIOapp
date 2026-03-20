@@ -392,10 +392,19 @@ export class SongsService {
    * Deterministic pseudo-random order per user.
    * Keeps pagination stable while still randomizing card order across users.
    */
-  private sortDiscoverRowsForUser(rows: any[], userId: string): any[] {
+  private sortDiscoverRowsForUser(
+    rows: any[],
+    userId: string,
+    seed?: string | null,
+  ): any[] {
+    const seedKey = (seed ?? '').trim() || 'default-seed';
     return [...rows].sort((a, b) => {
-      const aScore = this.stableHash(`${userId}:${String(a?.id ?? '')}`);
-      const bScore = this.stableHash(`${userId}:${String(b?.id ?? '')}`);
+      const aScore = this.stableHash(
+        `${userId}:${seedKey}:${String(a?.id ?? '')}`,
+      );
+      const bScore = this.stableHash(
+        `${userId}:${seedKey}:${String(b?.id ?? '')}`,
+      );
       if (aScore !== bScore) return aScore - bScore;
       return String(b?.created_at ?? '').localeCompare(
         String(a?.created_at ?? ''),
@@ -836,6 +845,7 @@ export class SongsService {
     userId: string,
     limitInput = 12,
     cursor?: string,
+    seed?: string,
   ): Promise<DiscoverFeedResponse> {
     const supabase = getSupabaseClient();
     const limit = Math.min(Math.max(1, limitInput), 30);
@@ -911,7 +921,7 @@ export class SongsService {
     const filtered = (rows || []).filter(
       (row: any) => !swipedSongIds.has(row.id) && row.artist_id !== userId,
     );
-    const randomizedRows = this.sortDiscoverRowsForUser(filtered, userId);
+    const randomizedRows = this.sortDiscoverRowsForUser(filtered, userId, seed);
     const pageRows = randomizedRows.slice(offset, offset + limit);
 
     const songIds = pageRows.map((r: any) => r.id);

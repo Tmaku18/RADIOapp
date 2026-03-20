@@ -28,6 +28,10 @@ import {
 const PAGE_SIZE = 12;
 const SWIPE_THRESHOLD_PX = 90;
 
+function generateDiscoverSeed(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function parseTimeToSeconds(value: string): number | null {
   const raw = value.trim();
   if (!raw) return null;
@@ -98,6 +102,7 @@ export default function SocialDiscoverSwipePage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const prefetchingRef = useRef(false);
   const audioCapSecondsRef = useRef<number>(15);
+  const discoverSeedRef = useRef<string>(generateDiscoverSeed());
 
   const currentCard = cards[0] ?? null;
   const currentCardClipCapSeconds = Math.max(
@@ -107,6 +112,10 @@ export default function SocialDiscoverSwipePage() {
 
   const loadFeed = useCallback(
     async (append: boolean) => {
+      if (!append) {
+        // New seed on refresh = new random order while keeping pagination stable.
+        discoverSeedRef.current = generateDiscoverSeed();
+      }
       if (append) setLoadingMore(true);
       else setLoading(true);
       setError(null);
@@ -114,6 +123,7 @@ export default function SocialDiscoverSwipePage() {
         const res = await discoverAudioApi.getFeed({
           limit: PAGE_SIZE,
           cursor: append ? nextCursor ?? undefined : undefined,
+          seed: discoverSeedRef.current,
         });
         const data = res.data;
         if (append) {
@@ -256,6 +266,7 @@ export default function SocialDiscoverSwipePage() {
       const res = await discoverAudioApi.getFeed({
         limit: PAGE_SIZE,
         cursor: nextCursor,
+        seed: discoverSeedRef.current,
       });
       setCards((prev) => [...prev, ...res.data.items]);
       setNextCursor(res.data.nextCursor);

@@ -7,10 +7,12 @@ class DiscoverAudioService {
   Future<DiscoverAudioFeedPage> getFeed({
     int limit = 12,
     String? cursor,
+    String? seed,
   }) async {
     final q = <String>[
       'limit=$limit',
       if (cursor != null && cursor.isNotEmpty) 'cursor=$cursor',
+      if (seed != null && seed.isNotEmpty) 'seed=$seed',
     ].join('&');
     final res = await _api.get('songs/discover/feed?$q');
     if (res is Map<String, dynamic>) {

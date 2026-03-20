@@ -526,6 +526,7 @@ export class SongsController {
     @CurrentUser() user: FirebaseUser,
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
+    @Query('seed') seed?: string,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -537,7 +538,12 @@ export class SongsController {
     const limitNum = limit
       ? Math.min(Math.max(parseInt(limit, 10) || 12, 1), 30)
       : 12;
-    return this.songsService.getDiscoverFeed(userData.id, limitNum, cursor);
+    return this.songsService.getDiscoverFeed(
+      userData.id,
+      limitNum,
+      cursor,
+      seed,
+    );
   }
 
   @Post('discover/swipe')

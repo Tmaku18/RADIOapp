@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/models/discover_audio_models.dart';
@@ -25,6 +26,8 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   List<DiscoverAudioSongCard> _cards = const [];
   int _shownAtMs = DateTime.now().millisecondsSinceEpoch;
   Timer? _clipStopTimer;
+  String _seed =
+      '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
 
   DiscoverAudioSongCard? get _currentCard =>
       _cards.isEmpty ? null : _cards.first;
@@ -43,6 +46,11 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   }
 
   Future<void> _loadPage({required bool append}) async {
+    if (!append) {
+      // New seed on refresh gives a new random order.
+      _seed =
+          '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
+    }
     if (append) {
       setState(() => _loadingMore = true);
     } else {
@@ -56,6 +64,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
       final page = await _service.getFeed(
         limit: _pageSize,
         cursor: append ? _nextCursor : null,
+        seed: _seed,
       );
       if (!mounted) return;
       setState(() {
