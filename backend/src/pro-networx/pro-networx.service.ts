@@ -556,10 +556,6 @@ export class ProNetworxService {
         )
       : items;
 
-    if (params.viewerUserId) {
-      filtered = filtered.filter((item) => item.userId !== params.viewerUserId);
-    }
-
     if (params.viewerUserId && filtered.length > 0) {
       const targetIds = filtered.map((i) => i.userId);
       const { data: followRows } = await supabase
