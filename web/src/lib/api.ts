@@ -423,10 +423,10 @@ export const discoveryApi = {
     // This bypasses web-host request-size limits that can trigger 413 before proxy code runs.
     return (async () => {
       const token = await getIdToken(false);
-      const authHeader =
+      const authHeader: HeadersInit | undefined =
         token && token.trim().length > 0
           ? { Authorization: `Bearer ${token}` }
-          : {};
+          : undefined;
 
       for (const apiBase of getClientBackendApiBases()) {
         try {
