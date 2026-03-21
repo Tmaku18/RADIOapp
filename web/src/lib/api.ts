@@ -12,6 +12,27 @@ const api: AxiosInstance = axios.create({
 
 let loginRedirectInProgress = false;
 
+function normalizeBaseUrl(raw: string): string {
+  const trimmed = raw.trim().replace(/\/$/, '');
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
+function getClientBackendApiBases(): string[] {
+  const candidates = [process.env.NEXT_PUBLIC_API_URL].filter(
+    (value): value is string => !!value && value.trim().length > 0,
+  );
+  const unique: string[] = [];
+  for (const candidate of candidates) {
+    const base = normalizeBaseUrl(candidate);
+    const apiBase = base.endsWith('/api') ? base : `${base}/api`;
+    if (!unique.includes(apiBase)) unique.push(apiBase);
+  }
+  return unique;
+}
+
 // Request interceptor: Always send fresh ID token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -398,7 +419,44 @@ export const discoveryApi = {
     const form = new FormData();
     form.append('file', file);
     if (caption != null && caption.trim()) form.set('caption', caption.trim());
-    return api.post<DiscoverFeedPost>('/discovery/feed', form);
+    // Upload feed media directly to backend when possible.
+    // This bypasses web-host request-size limits that can trigger 413 before proxy code runs.
+    return (async () => {
+      const token = await getIdToken(false);
+      const authHeader =
+        token && token.trim().length > 0
+          ? { Authorization: `Bearer ${token}` }
+          : {};
+
+      for (const apiBase of getClientBackendApiBases()) {
+        try {
+          const response = await fetch(`${apiBase}/discovery/feed`, {
+            method: 'POST',
+            headers: authHeader,
+            body: form,
+          });
+
+          const text = await response.text();
+          const parsed = text.trim()
+            ? (() => {
+                try {
+                  return JSON.parse(text);
+                } catch {
+                  return { message: text };
+                }
+              })()
+            : {};
+
+          if (response.ok) {
+            return { data: parsed as DiscoverFeedPost };
+          }
+        } catch {
+          // Try next configured backend URL.
+        }
+      }
+
+      return api.post<DiscoverFeedPost>('/discovery/feed', form);
+    })();
   },
   getMapHeat: (params?: {
     station?: string;
