@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
-import { getBackendBaseUrl } from '@/lib/backend-url';
+import { getBackendBaseUrls } from '@/lib/backend-url';
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
@@ -22,23 +22,32 @@ function formatListens(n: number): string {
 
 // Fetch platform stats from the API
 async function getHomepageData() {
+  const featuredArtists = [
+    { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
+    { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
+    { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
+  ];
+
   try {
-    const baseUrl = getBackendBaseUrl();
-    const response = await fetch(`${baseUrl}/api/analytics/platform`, {
-      next: { revalidate: 60 }, // Cache for 60 seconds
-    });
-    
-    if (response.ok) {
-      const stats = await response.json();
+    for (const baseUrl of getBackendBaseUrls()) {
+      const response = await fetch(`${baseUrl}/api/analytics/platform`, {
+        next: { revalidate: 60 }, // Cache for 60 seconds
+      });
+
+      if (!response.ok) continue;
+
+      const stats = (await response.json()) as {
+        totalArtists?: number;
+        totalSongs?: number;
+        totalProfileClicks?: number;
+        totalPlays?: number;
+      };
+
       return {
-        featuredArtists: [
-          { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
-          { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
-          { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
-        ],
+        featuredArtists,
         stats: {
-          totalArtists: stats.totalArtists || 0,
-          totalSongs: stats.totalSongs || 0,
+          totalArtists: stats.totalArtists ?? 0,
+          totalSongs: stats.totalSongs ?? 0,
           totalProfileClicks: stats.totalProfileClicks ?? 0,
           totalPlays: stats.totalPlays ?? 0,
         },
@@ -50,11 +59,7 @@ async function getHomepageData() {
   
   // Fallback to default data
   return {
-    featuredArtists: [
-      { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
-      { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
-      { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
-    ],
+    featuredArtists,
     stats: {
       totalArtists: 0,
       totalSongs: 0,
@@ -135,8 +140,8 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
-              { value: `${data.stats.totalArtists.toLocaleString()}+`, label: 'Gems', sub: '(artists)' },
-              { value: `${data.stats.totalSongs.toLocaleString()}+`, label: 'Tracks', sub: '(songs)' },
+              { value: data.stats.totalArtists.toLocaleString(), label: 'Gems', sub: '(artists)' },
+              { value: data.stats.totalSongs.toLocaleString(), label: 'Tracks', sub: '(songs)' },
               { value: formatDiscoveries(data.stats.totalProfileClicks), label: 'Discoveries', sub: '(profile clicks)' },
               { value: formatListens(data.stats.totalPlays), label: 'Total listens', sub: '(songs heard)' },
             ].map((stat) => (

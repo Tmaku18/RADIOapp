@@ -538,32 +538,49 @@ export class AnalyticsService {
   async getPlatformStats() {
     const supabase = getSupabaseClient();
 
-    // Total users by role
-    const { data: users } = await supabase.from('users').select('role');
+    // Total users in DB
+    const { count: totalUsers } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true });
 
-    const totalUsers = users?.length || 0;
-    const totalArtists = users?.filter((u) => u.role === 'artist').length || 0;
+    // Artist accounts in DB
+    const { count: totalArtists } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'artist');
 
-    // Total songs
+    // Catalyst accounts in DB
+    const { count: totalCatalysts } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'service_provider');
+
+    // Songs in DB (all statuses)
     const { count: totalSongs } = await supabase
+      .from('songs')
+      .select('*', { count: 'exact', head: true });
+
+    // Approved songs (kept for dashboard/reference)
+    const { count: totalApprovedSongs } = await supabase
       .from('songs')
       .select('*', { count: 'exact', head: true })
       .eq('status', 'approved');
 
-    // Total plays (kept for backward compatibility; not used for Discoveries on homepage)
+    // Total plays
     const { count: totalPlays } = await supabase
       .from('plays')
       .select('*', { count: 'exact', head: true });
-
     // Discoveries = profile clicks from radio/leaderboards (artist profile clicks)
     const { count: totalProfileClicks } = await supabase
       .from('profile_clicks')
       .select('*', { count: 'exact', head: true });
 
     return {
-      totalUsers,
-      totalArtists,
+      totalUsers: totalUsers || 0,
+      totalArtists: totalArtists || 0,
+      totalCatalysts: totalCatalysts || 0,
       totalSongs: totalSongs || 0,
+      totalApprovedSongs: totalApprovedSongs || 0,
       totalPlays: totalPlays || 0,
       totalProfileClicks: totalProfileClicks || 0,
     };
