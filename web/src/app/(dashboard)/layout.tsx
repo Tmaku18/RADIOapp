@@ -337,6 +337,28 @@ export default function DashboardLayout({
                               <Link href="/artist/live-services">Live services</Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
+                          {profile?.id && (
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={
+                                  profile.role === 'service_provider'
+                                    ? pathname.startsWith(`/pro-networx/u/${profile.id}`)
+                                    : pathname.startsWith(`/artist/${profile.id}`)
+                                }
+                              >
+                                <Link
+                                  href={
+                                    profile.role === 'service_provider'
+                                      ? `/pro-networx/u/${profile.id}`
+                                      : `/artist/${profile.id}`
+                                  }
+                                >
+                                  View public profile
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          )}
                         </>
                       )}
                     </SidebarMenuSub>

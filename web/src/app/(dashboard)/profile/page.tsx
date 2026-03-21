@@ -258,6 +258,12 @@ export default function ProfilePage() {
         : profile?.role === 'artist'
           ? 'Artist'
           : 'Listener';
+  const ownPublicProfileHref =
+    profile?.id && hasArtistCapability(profile?.role)
+      ? profile.role === 'service_provider'
+        ? `/pro-networx/u/${profile.id}`
+        : `/artist/${profile.id}`
+      : null;
   const getPublicProfileHref = (userId: string, role: FollowListItem['role']) =>
     role === 'service_provider' ? `/pro-networx/u/${userId}` : `/artist/${userId}`;
 
@@ -356,6 +362,11 @@ export default function ProfilePage() {
                     className="text-muted-foreground"
                   >
                     Remove photo
+                  </Button>
+                )}
+                {ownPublicProfileHref && (
+                  <Button type="button" variant="secondary" size="sm" asChild>
+                    <Link href={ownPublicProfileHref}>View my public profile</Link>
                   </Button>
                 )}
               </div>
