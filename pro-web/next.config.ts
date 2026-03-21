@@ -23,11 +23,19 @@ const nextConfig: NextConfig = {
       trimmed.startsWith("http://") || trimmed.startsWith("https://")
         ? trimmed
         : `https://${trimmed}`;
+    const normalized = backendUrl;
+    const apiHost = normalized.endsWith('/api')
+      ? normalized.slice(0, -4)
+      : normalized;
     return {
       afterFiles: [
+        // Let /api/discovery be handled by App Route handler
+        // (uses runtime BACKEND_URL and multipart upload streaming).
+        { source: "/api/discovery", destination: "/api/discovery" },
+        { source: "/api/discovery/:path*", destination: "/api/discovery/:path*" },
         {
           source: "/api/:path*",
-          destination: `${backendUrl}/api/:path*`,
+          destination: `${apiHost}/api/:path*`,
         },
       ],
     };
