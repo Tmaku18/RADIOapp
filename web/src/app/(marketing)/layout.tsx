@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 
 const LOGO_SRC = '/networx-logo.png';
 const EXTERNAL_PRO_NETWORX_URL =
-  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://pro.discovermeradio.com';
+  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
+  'https://www.discovermeradio.com/pro-networx/directory';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 

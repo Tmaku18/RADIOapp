@@ -49,7 +49,7 @@ import {
 
 const PRO_NETWORX_EXTERNAL_URL =
   process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
-  'https://pro.discovermeradio.com/directory';
+  'https://www.discovermeradio.com/pro-networx/directory';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
 
