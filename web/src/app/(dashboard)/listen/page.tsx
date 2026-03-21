@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
+import ChatSidebar from '@/components/chat/ChatSidebar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
@@ -28,6 +29,7 @@ export default function ListenPage() {
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   const currentStation = getStationById(resolvedStationId) ?? null;
 
@@ -131,28 +133,25 @@ export default function ListenPage() {
             <p>Everyone listening hears the same stream. Send a ripple (like) to like a song and support the artist.</p>
           </div>
 
-          {/* Chat entry toggle temporarily disabled until chat is restored.
           <div className="mt-4 text-center lg:hidden">
-            <Button onClick={() => setShowChat(!showChat)}>
+            <Button variant="outline" className="bg-card/70 backdrop-blur" onClick={() => setShowChat(!showChat)}>
               <span className="mr-2">💬</span>
               {showChat ? 'Leave the Room' : 'Enter the Room'}
             </Button>
           </div>
-          */}
         </div>
         </div>
       </div>
 
-      {/* Chat sidebar temporarily hidden. Keep code for quick restore later.
-      <div className={`${showChat ? 'flex flex-col' : 'hidden'} lg:flex flex-col min-w-0`}>
-        <div className="p-2 border-b border-border shrink-0">
-          <VenueAdSlot className="w-full" />
-        </div>
+      <div
+        className={`${
+          showChat ? 'flex' : 'hidden'
+        } lg:flex min-w-0 shrink-0 lg:w-[340px] border-l border-border/40 bg-black/25 backdrop-blur-sm`}
+      >
         <div className="flex-1 min-h-0">
           <ChatSidebar />
         </div>
       </div>
-      */}
     </div>
   );
 }

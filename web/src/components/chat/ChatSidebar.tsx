@@ -25,6 +25,25 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
+const TWITCH_LIKE_NAME_COLORS = [
+  '#00F5FF',
+  '#CCFF00',
+  '#F472B6',
+  '#60A5FA',
+  '#F59E0B',
+  '#A78BFA',
+  '#34D399',
+  '#FB7185',
+];
+
+function usernameColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i += 1) {
+    hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+  }
+  return TWITCH_LIKE_NAME_COLORS[Math.abs(hash) % TWITCH_LIKE_NAME_COLORS.length];
+}
+
 function mergeMessages(
   current: ChatMessage[],
   incoming: ChatMessage[],
@@ -50,6 +69,7 @@ export default function ChatSidebar() {
   const [chatEnabled, setChatEnabled] = useState(true);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
+  const [transparentMode, setTransparentMode] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
@@ -57,6 +77,20 @@ export default function ChatSidebar() {
   const setupChannelRef = useRef<(() => void) | null>(null);
   const connectionStatusRef = useRef<ConnectionStatus>(connectionStatus);
   connectionStatusRef.current = connectionStatus;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = window.localStorage.getItem('networx_chat_transparent');
+    if (saved === '0') setTransparentMode(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'networx_chat_transparent',
+      transparentMode ? '1' : '0',
+    );
+  }, [transparentMode]);
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
@@ -340,14 +374,24 @@ export default function ChatSidebar() {
   }
 
   return (
-    <div className="w-80 bg-card/80 border-l border-border backdrop-blur flex flex-col h-full">
+    <div
+      className={`w-full border-l border-white/10 flex flex-col h-full ${
+        transparentMode
+          ? 'bg-black/25 backdrop-blur-sm'
+          : 'bg-card/90 backdrop-blur-md'
+      }`}
+    >
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
+      <div
+        className={`px-3 py-2 border-b border-white/10 flex items-center justify-between ${
+          transparentMode ? 'bg-black/15' : 'bg-card/70'
+        }`}
+      >
         <div className="flex items-center gap-2">
-          <span className="text-lg">💬</span>
+          <span className="text-base">💬</span>
           <div>
-            <h2 className="font-semibold text-foreground">The Room</h2>
-            <p className="text-xs text-muted-foreground">Live chat with the collective</p>
+            <h2 className="font-semibold text-foreground text-sm">Live Chat</h2>
+            <p className="text-[11px] text-muted-foreground">Collective channel</p>
           </div>
           {/* Connection status indicator */}
           {connectionStatus === 'connected' && (
@@ -373,16 +417,26 @@ export default function ChatSidebar() {
             </>
           )}
         </div>
-        <button
-          onClick={() => setIsCollapsed(true)}
-          className="text-muted-foreground hover:text-foreground transition-colors"
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setTransparentMode((prev) => !prev)}
+            className="rounded-full border border-white/20 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-foreground/80 hover:text-foreground hover:border-white/40 transition-colors"
+            title="Toggle transparent mode"
+          >
+            {transparentMode ? 'Solid' : 'Glass'}
+          </button>
+          <button
+            onClick={() => setIsCollapsed(true)}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-3">
+      <ScrollArea className="flex-1 p-3">
+        <div className="space-y-1.5">
         {isLoading ? (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -396,35 +450,43 @@ export default function ChatSidebar() {
           messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex gap-2 ${
-                msg.userId === profile?.id ? 'flex-row-reverse' : ''
+              className={`rounded-md px-2 py-1 transition-colors ${
+                transparentMode
+                  ? 'bg-black/15 hover:bg-black/25'
+                  : 'bg-black/10 hover:bg-black/20'
               }`}
             >
-              <Avatar className="h-8 w-8 flex-shrink-0">
-                <AvatarImage src={msg.avatarUrl ?? undefined} />
-                <AvatarFallback className="text-xs">{msg.displayName.charAt(0).toUpperCase()}</AvatarFallback>
-              </Avatar>
-
-              {/* Message: dark grey bubble, thin left border (Cyan for prospector); Signal dot for active */}
-              <div
-                className={`chat-bubble max-w-[200px] rounded-lg px-3 py-2 transition-colors ${
-                  msg.userId === profile?.id
-                    ? 'border-primary/50 text-foreground signal-glow'
-                    : 'text-foreground'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  {connectionStatus === 'connected' && (
-                    <span className="chat-signal-dot active" title="Active prospector" aria-hidden />
-                  )}
-                  <span className="text-xs font-medium opacity-75">
-                    {msg.displayName}
-                  </span>
-                  <span className="text-xs opacity-50">
+              <div className="flex items-start gap-2">
+                <Avatar className="h-6 w-6 flex-shrink-0 mt-0.5">
+                  <AvatarImage src={msg.avatarUrl ?? undefined} />
+                  <AvatarFallback className="text-[10px]">
+                    {msg.displayName.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <p className="text-[13px] leading-[1.2rem] break-words text-foreground/95">
+                  <span className="text-[11px] opacity-55 mr-1">
                     {formatTime(msg.createdAt)}
                   </span>
-                </div>
-                <p className="text-sm break-words">{msg.message}</p>
+                  <span
+                    className="font-semibold mr-1"
+                    style={{ color: usernameColor(msg.displayName) }}
+                  >
+                    {msg.displayName}
+                  </span>
+                  {msg.userId === profile?.id && (
+                    <span className="inline-flex items-center rounded-sm border border-primary/50 bg-primary/15 text-[9px] uppercase tracking-wide font-semibold px-1 mr-1 text-primary">
+                      You
+                    </span>
+                  )}
+                  {connectionStatus === 'connected' && msg.userId !== profile?.id && (
+                    <span className="inline-flex items-center rounded-sm border border-white/25 bg-white/10 text-[9px] uppercase tracking-wide font-semibold px-1 mr-1 text-foreground/80">
+                      Live
+                    </span>
+                  )}
+                  <span className={msg.userId === profile?.id ? 'text-white' : 'text-foreground/90'}>
+                    {msg.message}
+                  </span>
+                </p>
               </div>
             </div>
           ))
@@ -446,7 +508,12 @@ export default function ChatSidebar() {
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
+      <form
+        onSubmit={handleSendMessage}
+        className={`p-3 border-t border-white/10 ${
+          transparentMode ? 'bg-black/20' : 'bg-card/70'
+        }`}
+      >
         {!chatEnabled ? (
           <div className="text-center text-muted-foreground text-sm py-2">
             Chat is currently disabled
@@ -458,10 +525,12 @@ export default function ChatSidebar() {
               type="text"
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              placeholder="Type a message..."
+              placeholder="Send a message..."
               maxLength={280}
               disabled={isSending}
-              className="flex-1"
+              className={`flex-1 border-white/15 text-foreground placeholder:text-foreground/50 ${
+                transparentMode ? 'bg-black/40' : 'bg-background/80'
+              }`}
             />
             <Button type="submit" size="icon" disabled={!newMessage.trim() || isSending}>
               {isSending ? '...' : '→'}

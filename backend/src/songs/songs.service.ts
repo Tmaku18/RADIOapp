@@ -938,7 +938,7 @@ export class SongsService {
     }
 
     const filtered = (rows || []).filter(
-      (row: any) => !swipedSongIds.has(row.id) && row.artist_id !== userId,
+      (row: any) => !swipedSongIds.has(row.id),
     );
     const randomizedRows = this.sortDiscoverRowsForUser(filtered, userId, seed);
     const pageRows = randomizedRows.slice(offset, offset + limit);
