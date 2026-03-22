@@ -21,9 +21,22 @@ function normalizeBaseUrl(raw: string): string {
 }
 
 function getClientBackendApiBases(): string[] {
-  const candidates = [process.env.NEXT_PUBLIC_API_URL].filter(
+  const candidates = [
+    process.env.NEXT_PUBLIC_API_URL,
+    // Production fallback: Railway backend public domain.
+    // Keeps direct media uploads working even if NEXT_PUBLIC_API_URL is unset.
+    'https://networxradio.com',
+  ].filter(
     (value): value is string => !!value && value.trim().length > 0,
   );
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname.toLowerCase();
+    if (host.endsWith('discovermeradio.com') || host.endsWith('networxradio.com')) {
+      candidates.push('https://networxradio.com');
+    }
+  }
+
   const unique: string[] = [];
   for (const candidate of candidates) {
     const base = normalizeBaseUrl(candidate);
