@@ -844,6 +844,13 @@ export class AdminService {
       { id: 'us-gospel', state: 'US', label: 'Gospel (National)' },
       { id: 'us-classical', state: 'US', label: 'Classical Radio (National)' },
       { id: 'us-emo', state: 'US', label: 'Emo Radio (National)' },
+      {
+        id: 'us-ai-created',
+        state: 'US',
+        label: 'AI Created Radio (National)',
+      },
+      { id: 'us-beats', state: 'US', label: 'Beats Radio (National)' },
+      { id: 'us-freestyle', state: 'US', label: 'Freestyle Radio (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

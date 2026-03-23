@@ -12,6 +12,9 @@ export const COMEDIAN_STATION_ID = 'us-comedian' as const;
 export const GOSPEL_STATION_ID = 'us-gospel' as const;
 export const CLASSICAL_STATION_ID = 'us-classical' as const;
 export const EMO_STATION_ID = 'us-emo' as const;
+export const AI_CREATED_STATION_ID = 'us-ai-created' as const;
+export const BEATS_STATION_ID = 'us-beats' as const;
+export const FREESTYLE_STATION_ID = 'us-freestyle' as const;
 
 export const STATION_IDS = [
   RAP_STATION_ID,
@@ -28,6 +31,9 @@ export const STATION_IDS = [
   GOSPEL_STATION_ID,
   CLASSICAL_STATION_ID,
   EMO_STATION_ID,
+  AI_CREATED_STATION_ID,
+  BEATS_STATION_ID,
+  FREESTYLE_STATION_ID,
 ] as const;
 
 export type StationId = (typeof STATION_IDS)[number];

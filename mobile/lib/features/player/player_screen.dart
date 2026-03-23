@@ -54,8 +54,16 @@ class _StationOption {
 }
 
 const List<_StationOption> _stationOptions = <_StationOption>[
-  _StationOption(id: 'us-rap', genre: 'Up & Coming Rap Radio', city: 'New York'),
-  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Rap Radio', city: 'Houston'),
+  _StationOption(
+    id: 'us-rap',
+    genre: 'Up & Coming Rap Radio',
+    city: 'New York',
+  ),
+  _StationOption(
+    id: 'us-ready-now-rap',
+    genre: 'Ready Now Rap Radio',
+    city: 'Houston',
+  ),
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
   _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
   _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
@@ -63,11 +71,22 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(id: 'us-edm', genre: 'EDM', city: 'Las Vegas'),
   _StationOption(id: 'us-rnb', genre: 'R&B', city: 'New Orleans'),
   _StationOption(id: 'us-podcasts', genre: 'Podcasts', city: 'Seattle'),
-  _StationOption(id: 'us-spoken-word', genre: 'Spoken Word', city: 'Washington'),
+  _StationOption(
+    id: 'us-spoken-word',
+    genre: 'Spoken Word',
+    city: 'Washington',
+  ),
   _StationOption(id: 'us-comedian', genre: 'Comedian', city: 'Austin'),
   _StationOption(id: 'us-gospel', genre: 'Gospel', city: 'Dallas'),
   _StationOption(id: 'us-classical', genre: 'Classical Radio', city: 'Boston'),
   _StationOption(id: 'us-emo', genre: 'Emo Radio', city: 'Denver'),
+  _StationOption(
+    id: 'us-ai-created',
+    genre: 'AI Created Radio',
+    city: 'San Francisco',
+  ),
+  _StationOption(id: 'us-beats', genre: 'Beats Radio', city: 'Miami'),
+  _StationOption(id: 'us-freestyle', genre: 'Freestyle Radio', city: 'Phoenix'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
@@ -79,7 +98,8 @@ class PlayerScreen extends StatefulWidget {
   State<PlayerScreen> createState() => _PlayerScreenState();
 }
 
-class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderStateMixin {
+class _PlayerScreenState extends State<PlayerScreen>
+    with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
@@ -104,8 +124,7 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
-  final String _streamToken =
-      'mobile-${DateTime.now().millisecondsSinceEpoch}';
+  final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
 
   _StationOption get _activeStation {
@@ -130,9 +149,12 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     _initializeStationAndPlayback();
     _risingStarSub = StationEventsService().risingStarStream.listen((event) {
       if (!mounted) return;
-      final percent = event.conversion != null ? (event.conversion! * 100).toStringAsFixed(1) : '5';
+      final percent = event.conversion != null
+          ? (event.conversion! * 100).toStringAsFixed(1)
+          : '5';
       setState(() {
-        _risingStarText = '${event.artistName} just hit $percent% conversion on “${event.songTitle}”.';
+        _risingStarText =
+            '${event.artistName} just hit $percent% conversion on “${event.songTitle}”.';
       });
       HapticFeedback.heavyImpact();
       _triggerButterflyRipple();
@@ -238,7 +260,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
                 final active = station.id == _radioId;
                 return ListTile(
                   leading: Icon(
-                    active ? Icons.radio_button_checked : Icons.radio_button_off,
+                    active
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
                   ),
                   title: Text(station.genre),
                   subtitle: Text('${station.city} (National)'),
@@ -295,7 +319,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
           id: track.id,
           title: track.title,
           artist: track.artistName,
-          artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty ? Uri.tryParse(track.artworkUrl!) : null,
+          artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty
+              ? Uri.tryParse(track.artworkUrl!)
+              : null,
         ),
       ),
     );
@@ -327,8 +353,10 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     _trackBoundaryTimer?.cancel();
     var remainingMs = track.timeRemainingMs;
     if (remainingMs <= 0 && track.durationSeconds > 0) {
-      final estimated =
-          (track.durationSeconds - track.positionSeconds).clamp(0, 1 << 30);
+      final estimated = (track.durationSeconds - track.positionSeconds).clamp(
+        0,
+        1 << 30,
+      );
       remainingMs = estimated * 1000;
     }
     if (remainingMs <= 0) return;
@@ -367,7 +395,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       if (serverTrack == null || serverTrack.audioUrl.trim().isEmpty) return;
 
       final localTrack = _currentTrack;
-      if (forceReload || localTrack == null || localTrack.id != serverTrack.id) {
+      if (forceReload ||
+          localTrack == null ||
+          localTrack.id != serverTrack.id) {
         setState(() {
           _isLoading = true;
           _noContent = false;
@@ -375,7 +405,11 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
           _hasVoted = false;
           _isVoting = false;
         });
-        await _loadAndPlay(serverTrack, res, reportPlay: localTrack?.id != serverTrack.id);
+        await _loadAndPlay(
+          serverTrack,
+          res,
+          reportPlay: localTrack?.id != serverTrack.id,
+        );
         return;
       }
 
@@ -385,7 +419,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         await _audioPlayer.seek(Duration(seconds: serverSeconds));
       }
       setState(() {
-        _currentTrack = localTrack.copyWith(listenerCount: serverTrack.listenerCount);
+        _currentTrack = localTrack.copyWith(
+          listenerCount: serverTrack.listenerCount,
+        );
         _isLoading = false;
         _noContent = false;
       });
@@ -423,7 +459,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
       if (!mounted || latestTrack == null || latestTrack.id != track.id) return;
 
       setState(() {
-        _currentTrack = track.copyWith(listenerCount: latestTrack.listenerCount);
+        _currentTrack = track.copyWith(
+          listenerCount: latestTrack.listenerCount,
+        );
       });
     } catch (_) {
       // Best effort only; do not block playback on presence errors.
@@ -437,9 +475,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     if (track == null || _isVoting) return;
     if (_me == null) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log in to vote.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Log in to vote.')));
       return;
     }
 
@@ -467,10 +505,13 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         _lastVotedPlayId = playId;
         _isVoting = false;
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vote locked in.'), duration: Duration(seconds: 1)),
+          const SnackBar(
+            content: Text('Vote locked in.'),
+            duration: Duration(seconds: 1),
+          ),
         );
       }
     } catch (e) {
@@ -478,9 +519,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         _isVoting = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -505,9 +546,9 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         );
         final options = pricing['options'] as List<dynamic>? ?? const [];
         final option = options.cast<Map<String, dynamic>?>().firstWhere(
-              (o) => (o?['plays'] as num?)?.toInt() == 5,
-              orElse: () => null,
-            );
+          (o) => (o?['plays'] as num?)?.toInt() == 5,
+          orElse: () => null,
+        );
         if (option == null) {
           throw Exception('No pricing option found for 5 plays.');
         }
@@ -515,17 +556,16 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
         if (totalCents == null || totalCents <= 0) {
           throw Exception('Invalid price for 5 plays.');
         }
-        final productId = PlayBillingService.instance.songPlaysProductIdForPricing(
-          plays: 5,
-          totalCents: totalCents,
-        );
+        final productId = PlayBillingService.instance
+            .songPlaysProductIdForPricing(plays: 5, totalCents: totalCents);
         if (productId == null || productId.isEmpty) {
           throw Exception(
             'No Google Play product mapping found for 5 plays at $totalCents cents.',
           );
         }
-        final purchase =
-            await PlayBillingService.instance.buyConsumable(productId);
+        final purchase = await PlayBillingService.instance.buyConsumable(
+          productId,
+        );
         await _api.post('payments/google-play/complete', {
           'productId': purchase.productId,
           'purchaseToken': purchase.purchaseToken,
@@ -581,7 +621,10 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Quick-buy failed: $e'), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text('Quick-buy failed: $e'),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _quickBuying = false);
@@ -673,30 +716,30 @@ class _PlayerScreenState extends State<PlayerScreen> with SingleTickerProviderSt
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _noContent
-                        ? _NoContent(
-                            message: _noContentMessage,
-                            onRetry: _loadInitialTrack,
-                          )
-                        : _currentTrack == null
-                            ? const Center(child: Text('No track playing'))
-                            : _PlayerBody(
-                                track: _currentTrack!,
-                                stationLabel: _activeStation.genre,
-                                onChangeStation: _openStationPicker,
-                                risingStarText: _risingStarText,
-                                ad: _ad,
-                                canQuickBuy: _canQuickBuy,
-                                quickBuying: _quickBuying,
-                                onQuickBuy: _quickBuyFivePlays,
-                                isPlaying: _isPlaying,
-                                hasVoted: _hasVoted,
-                                isVoting: _isVoting,
-                                canVote: (_currentTrack?.playId ?? '').isNotEmpty,
-                                onVote: _vote,
-                                onPlayPause: _togglePlayPause,
-                                onEnterRoom: () => _openRoom(providerContext),
-                                audioPlayer: _audioPlayer,
-                              ),
+                    ? _NoContent(
+                        message: _noContentMessage,
+                        onRetry: _loadInitialTrack,
+                      )
+                    : _currentTrack == null
+                    ? const Center(child: Text('No track playing'))
+                    : _PlayerBody(
+                        track: _currentTrack!,
+                        stationLabel: _activeStation.genre,
+                        onChangeStation: _openStationPicker,
+                        risingStarText: _risingStarText,
+                        ad: _ad,
+                        canQuickBuy: _canQuickBuy,
+                        quickBuying: _quickBuying,
+                        onQuickBuy: _quickBuyFivePlays,
+                        isPlaying: _isPlaying,
+                        hasVoted: _hasVoted,
+                        isVoting: _isVoting,
+                        canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                        onVote: _vote,
+                        onPlayPause: _togglePlayPause,
+                        onEnterRoom: () => _openRoom(providerContext),
+                        audioPlayer: _audioPlayer,
+                      ),
                 if (_rippleActive)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -763,7 +806,9 @@ class _ButterflyRippleOverlay extends StatelessWidget {
                     height: 360,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      border: Border.all(color: cyan.withValues(alpha: (1.0 - t) * 0.22)),
+                      border: Border.all(
+                        color: cyan.withValues(alpha: (1.0 - t) * 0.22),
+                      ),
                       boxShadow: [
                         BoxShadow(
                           color: cyan.withValues(alpha: (1.0 - t) * 0.28),
@@ -808,19 +853,17 @@ class _NoContent extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Station Offline',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontFamily: 'Lora'),
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineSmall?.copyWith(fontFamily: 'Lora'),
               ),
               const SizedBox(height: 8),
               Text(
                 message ?? 'No songs are currently available.',
                 textAlign: TextAlign.center,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: surfaces.textSecondary),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: surfaces.textSecondary),
               ),
               const SizedBox(height: 16),
               FilledButton.icon(
@@ -881,7 +924,10 @@ class _VenueAdCard extends StatelessWidget {
                   errorWidget: (context, url, error) => Container(
                     color: surfaces.elevated,
                     alignment: Alignment.center,
-                    child: Text('Venue partner', style: TextStyle(color: surfaces.textSecondary)),
+                    child: Text(
+                      'Venue partner',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    ),
                   ),
                 ),
               ),
@@ -889,15 +935,22 @@ class _VenueAdCard extends StatelessWidget {
                 left: 12,
                 bottom: 10,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.16)),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.16),
+                    ),
                   ),
                   child: Text(
                     'Venue Partner',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Colors.white),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.labelSmall?.copyWith(color: Colors.white),
                   ),
                 ),
               ),
@@ -968,24 +1021,22 @@ class _PlayerBody extends StatelessWidget {
                   fit: BoxFit.cover,
                   placeholder: (context, url) =>
                       const Center(child: CircularProgressIndicator()),
-                  errorWidget: (context, url, error) =>
-                      Image.asset(
-                        _brandLogoForSeed(track.id),
-                        fit: BoxFit.cover,
-                      ),
+                  errorWidget: (context, url, error) => Image.asset(
+                    _brandLogoForSeed(track.id),
+                    fit: BoxFit.cover,
+                  ),
                 )
               else
-                Image.asset(
-                  _brandLogoForSeed(track.id),
-                  fit: BoxFit.cover,
-                ),
+                Image.asset(_brandLogoForSeed(track.id), fit: BoxFit.cover),
               if (track.isLiveBroadcast)
                 Positioned(
                   top: 12,
                   left: 12,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [surfaces.roseGold, scheme.primary],
@@ -1027,8 +1078,9 @@ class _PlayerBody extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
               border: Border.all(
-                color:
-                    Colors.white.withValues(alpha: surfaces.glassBorderOpacity),
+                color: Colors.white.withValues(
+                  alpha: surfaces.glassBorderOpacity,
+                ),
               ),
               boxShadow: surfaces.glassShadow,
               borderRadius: BorderRadius.circular(18),
@@ -1072,9 +1124,9 @@ class _PlayerBody extends StatelessWidget {
                     child: Text(
                       'Station: $stationLabel',
                       style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: surfaces.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        color: surfaces.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                   OutlinedButton.icon(
@@ -1097,11 +1149,16 @@ class _PlayerBody extends StatelessWidget {
               if (risingStarText != null) ...[
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   decoration: BoxDecoration(
                     color: scheme.primary.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
+                    border: Border.all(
+                      color: scheme.primary.withValues(alpha: 0.22),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1109,17 +1166,17 @@ class _PlayerBody extends StatelessWidget {
                       Text(
                         'Butterfly Ripple',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: scheme.primary,
-                              letterSpacing: 0.8,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          color: scheme.primary,
+                          letterSpacing: 0.8,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         risingStarText!,
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: surfaces.textSecondary,
-                            ),
+                          color: surfaces.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -1130,17 +1187,20 @@ class _PlayerBody extends StatelessWidget {
                 track.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontFamily: 'Lora'),
+                style: Theme.of(
+                  context,
+                ).textTheme.headlineSmall?.copyWith(fontFamily: 'Lora'),
               ),
               SizedBox(height: titleGap),
               GestureDetector(
                 onTap: () {
-                  ApiService().post('analytics/profile-click', {'songId': track.id});
+                  ApiService().post('analytics/profile-click', {
+                    'songId': track.id,
+                  });
                   final artistId = track.artistId;
-                  if (artistId != null && artistId.isNotEmpty && context.mounted) {
+                  if (artistId != null &&
+                      artistId.isNotEmpty &&
+                      context.mounted) {
                     Navigator.pushNamed(
                       context,
                       AppRoutes.artistProfile,
@@ -1152,10 +1212,9 @@ class _PlayerBody extends StatelessWidget {
                   track.artistName,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(color: surfaces.textSecondary),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: surfaces.textSecondary,
+                  ),
                 ),
               ),
               SizedBox(height: metaGap),
@@ -1170,8 +1229,8 @@ class _PlayerBody extends StatelessWidget {
                   Text(
                     'Live listeners: ${track.listenerCount}',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: surfaces.textSecondary,
-                        ),
+                      color: surfaces.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1184,7 +1243,8 @@ class _PlayerBody extends StatelessWidget {
                       children: [
                         Text(
                           '${_roleLabel(c.role)} by ',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
                                 color: surfaces.textMuted,
                                 letterSpacing: 0.3,
                               ),
@@ -1194,7 +1254,8 @@ class _PlayerBody extends StatelessWidget {
                             c.displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            style: Theme.of(context).textTheme.labelSmall
+                                ?.copyWith(
                                   color: scheme.primary,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1213,8 +1274,10 @@ class _PlayerBody extends StatelessWidget {
                   final dur = audioPlayer.duration ?? Duration.zero;
                   final value = (dur.inMilliseconds <= 0)
                       ? 0.0
-                      : (pos.inMilliseconds / dur.inMilliseconds)
-                          .clamp(0.0, 1.0);
+                      : (pos.inMilliseconds / dur.inMilliseconds).clamp(
+                          0.0,
+                          1.0,
+                        );
                   return Column(
                     children: [
                       ClipRRect(
@@ -1222,8 +1285,9 @@ class _PlayerBody extends StatelessWidget {
                         child: LinearProgressIndicator(
                           minHeight: 4,
                           value: value,
-                          backgroundColor:
-                              scheme.onSurface.withValues(alpha: 0.12),
+                          backgroundColor: scheme.onSurface.withValues(
+                            alpha: 0.12,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 6),
@@ -1232,16 +1296,12 @@ class _PlayerBody extends StatelessWidget {
                         children: [
                           Text(
                             _formatMmSs(pos),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: surfaces.textMuted),
                           ),
                           Text(
                             _formatMmSs(dur),
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: surfaces.textMuted),
                           ),
                         ],
@@ -1278,7 +1338,9 @@ class _PlayerBody extends StatelessWidget {
                     icon: const Icon(Icons.forum_outlined),
                   ),
                   IconButton(
-                    onPressed: (!canVote || isVoting || hasVoted) ? null : onVote,
+                    onPressed: (!canVote || isVoting || hasVoted)
+                        ? null
+                        : onVote,
                     tooltip: hasVoted ? 'Voted' : 'Vote',
                     icon: isVoting
                         ? const SizedBox(

@@ -16,7 +16,10 @@ export type GenreId =
   | 'comedian'
   | 'gospel'
   | 'classical'
-  | 'emo';
+  | 'emo'
+  | 'ai-created'
+  | 'beats'
+  | 'freestyle';
 
 export interface Tower {
   id: string;
@@ -185,6 +188,33 @@ export const TOWERS: Tower[] = [
     genreId: 'emo',
     lat: 39.7392,
     lng: -104.9903,
+  },
+  {
+    id: 'us-ai-created',
+    state: 'US',
+    city: 'San Francisco',
+    genre: 'AI Created Radio',
+    genreId: 'ai-created',
+    lat: 37.7749,
+    lng: -122.4194,
+  },
+  {
+    id: 'us-beats',
+    state: 'US',
+    city: 'Miami',
+    genre: 'Beats Radio',
+    genreId: 'beats',
+    lat: 25.7617,
+    lng: -80.1918,
+  },
+  {
+    id: 'us-freestyle',
+    state: 'US',
+    city: 'Phoenix',
+    genre: 'Freestyle Radio',
+    genreId: 'freestyle',
+    lat: 33.4484,
+    lng: -112.074,
   },
 ];
 
