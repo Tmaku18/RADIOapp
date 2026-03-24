@@ -666,7 +666,7 @@ export class UsersService {
    * Spotify-style artist profile aggregate used by public and dashboard artist pages.
    * Includes artist metadata, social links, summary stats, popular tracks, and full library.
    */
-  async getArtistProfile(userId: string) {
+  async getArtistProfile(userId: string, viewerUserId?: string | null) {
     const supabase = getSupabaseClient();
     const resolvedUserId = await this.resolveUserId(userId);
     // Use select('*') for backward compatibility when some envs lag migrations.
@@ -680,7 +680,9 @@ export class UsersService {
       throw new NotFoundException('Artist not found');
     }
 
-    const { data: songs, error: songsError } = await supabase
+    const requestingOwnProfile =
+      !!viewerUserId && viewerUserId === resolvedUserId;
+    let songsQuery = supabase
       .from('songs')
       .select(
         [
@@ -699,8 +701,11 @@ export class UsersService {
         ].join(','),
       )
       .eq('artist_id', resolvedUserId)
-      .eq('status', 'approved')
       .order('created_at', { ascending: false });
+    if (!requestingOwnProfile) {
+      songsQuery = songsQuery.eq('status', 'approved');
+    }
+    const { data: songs, error: songsError } = await songsQuery;
 
     if (songsError) {
       throw new BadRequestException(

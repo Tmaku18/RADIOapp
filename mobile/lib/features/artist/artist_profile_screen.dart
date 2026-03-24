@@ -40,6 +40,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   Timer? _listenTimer;
   Map<String, dynamic>? _liveSession;
   bool _liveActionLoading = false;
+  bool _isOwnerProfile = false;
 
   @override
   void initState() {
@@ -70,13 +71,19 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     });
     try {
       final api = ApiService();
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final me = await auth.getUserProfile();
+      final isOwner = me != null && me.id == widget.artistId;
       final artistRaw = await api.get('users/${widget.artistId}');
       final artist = (artistRaw is Map<String, dynamic>)
           ? app_user.User.fromJson(artistRaw)
           : null;
-      final tracks = await _songs.listApprovedByArtist(widget.artistId, limit: 100);
+      final tracks = isOwner
+          ? await _songs.getMine()
+          : await _songs.listApprovedByArtist(widget.artistId, limit: 100);
       if (!mounted) return;
       setState(() {
+        _isOwnerProfile = isOwner;
         _artist = artist;
         _tracks = tracks;
       });
@@ -162,7 +169,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
           id: s.id,
           title: s.title,
           artist: s.artistName,
-          artUri: (s.artworkUrl ?? '').isNotEmpty ? Uri.tryParse(s.artworkUrl!) : null,
+          artUri: (s.artworkUrl ?? '').isNotEmpty
+              ? Uri.tryParse(s.artworkUrl!)
+              : null,
         ),
       ),
     );
@@ -204,9 +213,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     final me = await auth.getUserProfile();
     if (!mounted) return;
     if (me == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Log in to like songs.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Log in to like songs.')));
       return;
     }
     final current = _likedBySongId[s.id] == true;
@@ -222,9 +231,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       // Revert on failure.
       if (!mounted) return;
       setState(() => _likedBySongId[s.id] = current);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Like failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Like failed: $e')));
     }
   }
 
@@ -242,14 +251,19 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Text(_error!, style: TextStyle(color: surfaces.textSecondary)),
+            child: Text(
+              _error!,
+              style: TextStyle(color: surfaces.textSecondary),
+            ),
           ),
         ),
       );
     }
 
     final a = _artist;
-    final displayName = a?.displayName?.trim().isNotEmpty == true ? a!.displayName! : 'Artist';
+    final displayName = a?.displayName?.trim().isNotEmpty == true
+        ? a!.displayName!
+        : 'Artist';
     final headerArt = (a?.avatarUrl?.isNotEmpty == true) ? a!.avatarUrl! : null;
     final auth = Provider.of<AuthService>(context, listen: false);
     final isLoggedIn = auth.currentUser != null;
@@ -258,11 +272,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: surfaces.glassBlur, sigmaY: surfaces.glassBlur),
+          filter: ImageFilter.blur(
+            sigmaX: surfaces.glassBlur,
+            sigmaY: surfaces.glassBlur,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
-              border: Border.all(color: Colors.white.withValues(alpha: surfaces.glassBorderOpacity)),
+              border: Border.all(
+                color: Colors.white.withValues(
+                  alpha: surfaces.glassBorderOpacity,
+                ),
+              ),
               boxShadow: surfaces.glassShadow,
               borderRadius: BorderRadius.circular(18),
             ),
@@ -277,10 +298,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       appBar: AppBar(
         title: Text(displayName),
         actions: [
-          IconButton(
-            onPressed: _load,
-            icon: const Icon(Icons.refresh),
-          ),
+          IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
       body: Stack(
@@ -294,8 +312,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                     CircleAvatar(
                       radius: 26,
                       backgroundColor: surfaces.elevated,
-                      backgroundImage: headerArt != null ? CachedNetworkImageProvider(headerArt) : null,
-                      child: headerArt == null ? const Icon(Icons.person_outline) : null,
+                      backgroundImage: headerArt != null
+                          ? CachedNetworkImageProvider(headerArt)
+                          : null,
+                      child: headerArt == null
+                          ? const Icon(Icons.person_outline)
+                          : null,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -306,46 +328,66 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontFamily: 'SpaceGrotesk'),
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontFamily: 'SpaceGrotesk'),
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            [a?.headline, a?.locationRegion].where((v) => (v ?? '').trim().isNotEmpty).join(' · '),
+                            [a?.headline, a?.locationRegion]
+                                .where((v) => (v ?? '').trim().isNotEmpty)
+                                .join(' · '),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: surfaces.textSecondary),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: surfaces.textSecondary),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: scheme.primary.withValues(alpha: 0.35)),
+                        border: Border.all(
+                          color: scheme.primary.withValues(alpha: 0.35),
+                        ),
                         color: scheme.primary.withValues(alpha: 0.10),
                       ),
                       child: Text(
                         'Discography',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: scheme.primary,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3,
-                            ),
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.3,
+                        ),
                       ),
                     ),
                     if (_isLiveNow)
                       Padding(
                         padding: const EdgeInsets.only(left: 8),
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(999),
                             color: Colors.red.withValues(alpha: 0.15),
-                            border: Border.all(color: Colors.red.withValues(alpha: 0.35)),
+                            border: Border.all(
+                              color: Colors.red.withValues(alpha: 0.35),
+                            ),
                           ),
-                          child: const Text('LIVE', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.red)),
+                          child: const Text(
+                            'LIVE',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.red,
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -385,11 +427,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
               const SizedBox(height: 16),
               Text(
                 'Songs',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontFamily: 'Lora'),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge?.copyWith(fontFamily: 'Lora'),
               ),
               const SizedBox(height: 8),
               if (_tracks.isEmpty)
-                Text('No approved songs yet.', style: TextStyle(color: surfaces.textSecondary))
+                Text(
+                  _isOwnerProfile ? 'No songs yet.' : 'No approved songs yet.',
+                  style: TextStyle(color: surfaces.textSecondary),
+                )
               else
                 ..._tracks.map((s) {
                   final active = _activeSongId == s.id;
@@ -409,10 +456,15 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                       imageUrl: s.artworkUrl!,
                                       fit: BoxFit.cover,
                                       errorWidget: (context, url, error) =>
-                                          Container(color: surfaces.elevated, child: const Icon(Icons.music_note)),
+                                          Container(
+                                            color: surfaces.elevated,
+                                            child: const Icon(Icons.music_note),
+                                          ),
                                     )
                                   : Container(
-                                      decoration: BoxDecoration(gradient: surfaces.signatureGradient),
+                                      decoration: BoxDecoration(
+                                        gradient: surfaces.signatureGradient,
+                                      ),
                                       child: const Icon(Icons.music_note),
                                     ),
                             ),
@@ -426,12 +478,17 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                   s.title,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
                                   '${s.likeCount} likes · ${s.playCount} plays',
-                                  style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                                  style: TextStyle(
+                                    color: surfaces.textMuted,
+                                    fontSize: 12,
+                                  ),
                                 ),
                               ],
                             ),
@@ -440,12 +497,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             onPressed: () => _toggleLike(s),
                             icon: Icon(
                               liked ? Icons.favorite : Icons.favorite_border,
-                              color: liked ? scheme.primary : surfaces.textSecondary,
+                              color: liked
+                                  ? scheme.primary
+                                  : surfaces.textSecondary,
                             ),
                           ),
                           FilledButton(
                             onPressed: () => _playSong(s),
-                            child: Icon(active && _isPlaying ? Icons.pause : Icons.play_arrow),
+                            child: Icon(
+                              active && _isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                            ),
                           ),
                         ],
                       ),
@@ -474,11 +537,17 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                         if (idx < 0) return;
                         await _playSong(_tracks[idx]);
                       },
-                      icon: Icon(_isPlaying ? Icons.pause_circle : Icons.play_circle),
+                      icon: Icon(
+                        _isPlaying ? Icons.pause_circle : Icons.play_circle,
+                      ),
                       iconSize: 40,
                     ),
                     IconButton(
-                      onPressed: (_activeIndex >= 0 && _activeIndex < _tracks.length - 1) ? _playNext : null,
+                      onPressed:
+                          (_activeIndex >= 0 &&
+                              _activeIndex < _tracks.length - 1)
+                          ? _playNext
+                          : null,
                       icon: const Icon(Icons.skip_next),
                     ),
                     const SizedBox(width: 8),
@@ -496,7 +565,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             _tracks[_activeIndex].artistName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
+                            style: TextStyle(
+                              color: surfaces.textSecondary,
+                              fontSize: 12,
+                            ),
                           ),
                         ],
                       ),
@@ -508,13 +580,20 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                         final dur = _player.duration ?? Duration.zero;
                         final value = dur.inMilliseconds <= 0
                             ? 0.0
-                            : (pos.inMilliseconds / dur.inMilliseconds).clamp(0.0, 1.0);
+                            : (pos.inMilliseconds / dur.inMilliseconds).clamp(
+                                0.0,
+                                1.0,
+                              );
                         return SizedBox(
                           width: 96,
                           child: LinearProgressIndicator(
                             value: value,
-                            backgroundColor: surfaces.border.withValues(alpha: 0.6),
-                            valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
+                            backgroundColor: surfaces.border.withValues(
+                              alpha: 0.6,
+                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              scheme.primary,
+                            ),
                           ),
                         );
                       },
@@ -528,4 +607,3 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     );
   }
 }
-

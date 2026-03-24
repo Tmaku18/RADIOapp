@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
@@ -19,6 +20,8 @@ import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-lik
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { getFirebaseAuth } from '../config/firebase.config';
+import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('users')
 export class UsersController {
@@ -121,8 +124,28 @@ export class UsersController {
 
   @Public()
   @Get(':id/artist-profile')
-  async getArtistProfile(@Param('id') id: string) {
-    return this.usersService.getArtistProfile(id);
+  async getArtistProfile(
+    @Param('id') id: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    let viewerUserId: string | null = null;
+    if (authorization && authorization.startsWith('Bearer ')) {
+      const token = authorization.substring(7);
+      try {
+        const decoded = await getFirebaseAuth().verifyIdToken(token);
+        const supabase = getSupabaseClient();
+        const { data: viewer } = await supabase
+          .from('users')
+          .select('id')
+          .eq('firebase_uid', decoded.uid)
+          .maybeSingle();
+        viewerUserId = viewer?.id ?? null;
+      } catch {
+        // Keep endpoint public even when optional auth is invalid.
+        viewerUserId = null;
+      }
+    }
+    return this.usersService.getArtistProfile(id, viewerUserId);
   }
 
   @Get(':id')
