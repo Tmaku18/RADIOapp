@@ -650,7 +650,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   return (
     <Card className="overflow-hidden glass-panel border-border/80">
       {/* Album Art — subtle signature gradient behind */}
-      <div className="aspect-square bg-signature relative overflow-hidden">
+      <div className="h-[clamp(170px,30vh,320px)] sm:h-[clamp(210px,34vh,360px)] bg-signature relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
         <ArtworkImage
           src={state.track?.artworkUrl}
@@ -667,7 +667,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       </div>
 
       {/* Track Info */}
-      <div className="p-6">
+      <div className="p-4 sm:p-5">
         {state.error && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{state.error}</AlertDescription>
@@ -687,7 +687,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </Alert>
         )}
 
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           {isLiveBroadcast && (
             <span className="badge-live inline-flex items-center gap-1.5 mb-2">
               <span className="relative flex h-2 w-2">
@@ -762,7 +762,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           )}
         </div>
 
-        <div className="mb-6">
+        <div className="mb-4">
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
@@ -882,7 +882,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {/* Volume Control */}
-        <div className="mt-6 flex items-center justify-center space-x-3">
+        <div className="mt-4 flex items-center justify-center space-x-3">
           <svg
             className="w-5 h-5 text-gray-400"
             fill="currentColor"

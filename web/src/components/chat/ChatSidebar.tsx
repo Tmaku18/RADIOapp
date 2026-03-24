@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface ChatMessage {
@@ -71,6 +70,7 @@ export default function ChatSidebar() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [transparentMode, setTransparentMode] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesViewportRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -94,7 +94,12 @@ export default function ChatSidebar() {
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+    viewport.scrollTo({
+      top: viewport.scrollHeight,
+      behavior: 'smooth',
+    });
   }, []);
 
   useEffect(() => {
@@ -435,7 +440,7 @@ export default function ChatSidebar() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-3">
+      <div ref={messagesViewportRef} className="flex-1 overflow-y-auto p-3">
         <div className="space-y-1.5">
         {isLoading ? (
           <div className="flex justify-center py-8">
@@ -493,7 +498,7 @@ export default function ChatSidebar() {
         )}
         <div ref={messagesEndRef} />
         </div>
-      </ScrollArea>
+      </div>
 
       {error && (
         <div className="mx-4 mb-2 space-y-2">
