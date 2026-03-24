@@ -33,6 +33,7 @@ export function NowPlayingBar() {
   const isPlaying = state?.isPlaying ?? false;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
   const isListenPage = pathname === '/listen';
+  const showBar = !isListenPage;
   const canExpandInlinePlayer = !isListenPage;
   const showExpandedPlayer = expanded && canExpandInlinePlayer;
   const artistOriginLabel = (() => {
@@ -112,6 +113,8 @@ export function NowPlayingBar() {
 
   return (
     <>
+      {!showBar ? null : (
+        <>
       {showExpandedPlayer && (
         <div className="fixed inset-x-0 bottom-[72px] z-40 max-h-[82vh] overflow-auto border-t border-border bg-background">
           <div className="mx-auto w-full max-w-xl p-3">
@@ -203,6 +206,8 @@ export function NowPlayingBar() {
           )}
         </div>
       </footer>
+        </>
+      )}
     </>
   );
 }
