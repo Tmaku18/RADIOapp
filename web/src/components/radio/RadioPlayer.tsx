@@ -64,6 +64,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [isHeartSaving, setIsHeartSaving] = useState(false);
+  const [likedInLibrary, setLikedInLibrary] = useState(false);
   const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [fireVotes, setFireVotes] = useState(0);
@@ -585,6 +587,51 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }
   };
 
+  useEffect(() => {
+    const trackId = state.track?.id;
+    if (!trackId) {
+      setLikedInLibrary(false);
+      return;
+    }
+    let cancelled = false;
+    const loadLikeStatus = async () => {
+      try {
+        const res = await songsApi.getLikeStatus(trackId);
+        if (!cancelled) {
+          setLikedInLibrary(!!res.data?.liked);
+        }
+      } catch {
+        if (!cancelled) {
+          setLikedInLibrary(false);
+        }
+      }
+    };
+    void loadLikeStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [state.track?.id]);
+
+  const handleToggleLibraryLike = async () => {
+    const trackId = state.track?.id;
+    if (!trackId || isHeartSaving) return;
+    const nextLiked = !likedInLibrary;
+    setIsHeartSaving(true);
+    setLikedInLibrary(nextLiked);
+    try {
+      if (nextLiked) {
+        await songsApi.like(trackId);
+      } else {
+        await songsApi.unlike(trackId);
+      }
+    } catch (error) {
+      setLikedInLibrary(!nextLiked);
+      console.error('Failed to toggle library like:', error);
+    } finally {
+      setIsHeartSaving(false);
+    }
+  };
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -825,6 +872,23 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span>🔥 {fireVotes}</span>
             <span>💩 {shitVotes}</span>
           </div>
+        </div>
+
+        {/* Library save (Spotify-style) */}
+        <div className="mb-3 flex justify-center">
+          <button
+            onClick={() => void handleToggleLibraryLike()}
+            disabled={!state.track || isHeartSaving}
+            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
+              likedInLibrary
+                ? 'border-pink-500/50 bg-pink-500/10 text-pink-300'
+                : 'border-border/70 bg-muted/30 text-muted-foreground hover:text-foreground'
+            }`}
+            title={likedInLibrary ? 'Remove from your library' : 'Save to your library'}
+          >
+            <span className="text-base leading-none">{likedInLibrary ? '♥' : '♡'}</span>
+            <span>{isHeartSaving ? 'Saving…' : likedInLibrary ? 'Saved' : 'Save'}</span>
+          </button>
         </div>
 
         {/* Controls */}
