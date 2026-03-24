@@ -275,11 +275,42 @@ export class LeaderboardService {
         .eq('play_id', playId)
         .single();
       if (existing) {
+        const existingReaction =
+          (existing as { reaction?: LeaderboardReaction | null }).reaction ??
+          'fire';
+        if (existingReaction !== safeReaction) {
+          const { error: updateError } = await supabase
+            .from('leaderboard_likes')
+            .update({ reaction: safeReaction })
+            .eq('id', (existing as { id: string }).id);
+          if (updateError) {
+            throw new Error(
+              `Failed to update leaderboard reaction: ${updateError.message}`,
+            );
+          }
+          if (safeReaction === 'fire') {
+            const { data: existingLike } = await supabase
+              .from('likes')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('song_id', songId)
+              .maybeSingle();
+            if (!existingLike) {
+              const { error: likeError } = await supabase.from('likes').insert({
+                user_id: userId,
+                song_id: songId,
+              });
+              if (likeError && likeError.code !== '23505') {
+                throw new Error(
+                  `Failed to save song to library: ${likeError.message}`,
+                );
+              }
+            }
+          }
+        }
         return {
           liked: true,
-          reaction:
-            (existing as { reaction?: LeaderboardReaction | null }).reaction ??
-            'fire',
+          reaction: safeReaction,
         };
       }
     } else {
@@ -292,11 +323,42 @@ export class LeaderboardService {
         .limit(1)
         .maybeSingle();
       if (existingSongVote) {
+        const existingReaction =
+          (existingSongVote as { reaction?: LeaderboardReaction | null })
+            .reaction ?? 'fire';
+        if (existingReaction !== safeReaction) {
+          const { error: updateError } = await supabase
+            .from('leaderboard_likes')
+            .update({ reaction: safeReaction })
+            .eq('id', (existingSongVote as { id: string }).id);
+          if (updateError) {
+            throw new Error(
+              `Failed to update leaderboard reaction: ${updateError.message}`,
+            );
+          }
+          if (safeReaction === 'fire') {
+            const { data: existingLike } = await supabase
+              .from('likes')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('song_id', songId)
+              .maybeSingle();
+            if (!existingLike) {
+              const { error: likeError } = await supabase.from('likes').insert({
+                user_id: userId,
+                song_id: songId,
+              });
+              if (likeError && likeError.code !== '23505') {
+                throw new Error(
+                  `Failed to save song to library: ${likeError.message}`,
+                );
+              }
+            }
+          }
+        }
         return {
           liked: true,
-          reaction:
-            (existingSongVote as { reaction?: LeaderboardReaction | null })
-              .reaction ?? 'fire',
+          reaction: safeReaction,
         };
       }
     }

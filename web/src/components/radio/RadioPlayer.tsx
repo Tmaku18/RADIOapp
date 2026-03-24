@@ -557,7 +557,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   const handleReaction = async (reaction: 'fire' | 'shit') => {
     if (!state.track) return;
-    if (isVoting || hasVoted) return;
+    if (isVoting) return;
 
     setIsVoting(true);
     try {
@@ -831,7 +831,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         <div className="flex items-center justify-center space-x-6">
           <button
             onClick={() => void handleReaction('fire')}
-            disabled={!state.track || isVoting || hasVoted}
+            disabled={!state.track || isVoting}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'fire'
                 ? 'bg-orange-500/20 ring-2 ring-orange-400'
@@ -869,7 +869,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
           <button
             onClick={() => void handleReaction('shit')}
-            disabled={!state.track || isVoting || hasVoted}
+            disabled={!state.track || isVoting}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'shit'
                 ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
