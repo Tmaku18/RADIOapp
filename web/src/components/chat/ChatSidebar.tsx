@@ -353,7 +353,7 @@ export default function ChatSidebar() {
 
   if (!user) {
     return (
-      <div className="w-80 bg-card border-l border-border flex items-center justify-center text-muted-foreground">
+      <div className="w-full h-full bg-card border-l border-border flex items-center justify-center text-muted-foreground">
         Log in to join the chat
       </div>
     );

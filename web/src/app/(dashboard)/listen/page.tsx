@@ -71,7 +71,7 @@ export default function ListenPage() {
   }, []);
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="relative flex min-h-0 flex-1">
       <ButterflyPulseOverlay active={pulseActive} />
       <div className="flex-1 min-h-0 overflow-y-auto p-8">
         <div className="min-h-full flex flex-col items-center justify-center">
@@ -145,8 +145,8 @@ export default function ListenPage() {
 
       <div
         className={`${
-          showChat ? 'flex' : 'hidden'
-        } lg:flex min-w-0 shrink-0 lg:w-[340px] border-l border-border/40 bg-black/25 backdrop-blur-sm`}
+          showChat ? 'fixed inset-0 z-40 flex' : 'hidden'
+        } lg:static lg:inset-auto lg:z-auto lg:flex min-w-0 shrink-0 w-full lg:w-[clamp(340px,32vw,520px)] border-l border-border/40 bg-black/25 backdrop-blur-sm`}
       >
         <div className="flex-1 min-h-0">
           <ChatSidebar />
