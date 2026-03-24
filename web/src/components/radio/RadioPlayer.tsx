@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
-import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi, songsApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
@@ -147,6 +147,13 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (Number.isFinite(parsed)) return Math.max(0, Math.floor(parsed));
     }
     return 0;
+  }, []);
+
+  const updateTemperatureFromCounts = useCallback((nextFireVotes: number, nextShitVotes: number) => {
+    const total = Math.max(0, nextFireVotes) + Math.max(0, nextShitVotes);
+    setFireVotes(Math.max(0, nextFireVotes));
+    setShitVotes(Math.max(0, nextShitVotes));
+    setTemperaturePercent(total > 0 ? Math.round((Math.max(0, nextFireVotes) / total) * 100) : 50);
   }, []);
 
   // Callback for when track ends - immediately fetch next track
@@ -479,13 +486,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       setSelectedReaction(null);
     }
   }, [state.track, getVoteKey]);
-
-  const updateTemperatureFromCounts = useCallback((nextFireVotes: number, nextShitVotes: number) => {
-    const total = Math.max(0, nextFireVotes) + Math.max(0, nextShitVotes);
-    setFireVotes(Math.max(0, nextFireVotes));
-    setShitVotes(Math.max(0, nextShitVotes));
-    setTemperaturePercent(total > 0 ? Math.round((Math.max(0, nextFireVotes) / total) * 100) : 50);
-  }, []);
 
   // Initial fetch and periodic polling
   useEffect(() => {
