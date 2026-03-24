@@ -73,11 +73,11 @@ export default function ListenPage() {
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden">
       <ButterflyPulseOverlay active={pulseActive} />
-      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-5 [overflow-anchor:none]">
-        <div className="h-full flex flex-col items-center">
-        <div className="max-w-xl w-full h-full overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none]">
+      <div className="flex-1 min-h-0 overflow-hidden p-2 sm:p-3 lg:p-4 [overflow-anchor:none]">
+        <div className="h-full flex flex-col items-center overflow-hidden">
+        <div className="max-w-xl w-full h-full min-h-0 flex flex-col overflow-hidden [overflow-anchor:none]">
           {currentStation && (
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
                 {currentStation.city} – {currentStation.genre}
               </p>
@@ -87,29 +87,28 @@ export default function ListenPage() {
             </div>
           )}
           {risingStar && (
-            <div className="mb-4 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3">
+            <div className="mb-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
               <div className="text-xs uppercase tracking-widest text-primary/90">Butterfly Ripple</div>
               <div className="text-sm font-semibold text-foreground mt-1">{risingStar.title}</div>
               <div className="text-sm text-muted-foreground mt-1">{risingStar.body}</div>
             </div>
           )}
-          <div className="text-center mb-4">
+          <div className="text-center mb-2">
             <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">Now Playing</h1>
-            <p className="text-muted-foreground">Discover underground artists on Networx</p>
           </div>
 
-          <div className="relative">
+          <div className="relative flex-1 min-h-0">
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
-            <Card className="relative now-playing-deck">
-              <CardContent className="pt-6">
+            <Card className="relative now-playing-deck h-full overflow-hidden">
+              <CardContent className="pt-3 sm:pt-4 h-full overflow-hidden">
                 <RadioPlayer radioId={resolvedStationId} />
               </CardContent>
             </Card>
           </div>
 
-          <div className="mt-4 flex justify-center">
+          <div className="mt-2 flex justify-center shrink-0">
             <div className="amplify-ripple-container relative inline-block">
-              <Button asChild size="lg" className="amplify-btn h-14 w-14 rounded-full p-0 text-2xl">
+              <Button asChild size="lg" className="amplify-btn h-12 w-12 rounded-full p-0 text-xl">
                 <Link href="/competition" onClick={handleAmplifyClick}>
                   📢
                 </Link>
@@ -129,11 +128,7 @@ export default function ListenPage() {
             <p className="sr-only">Amplify — vote for tracks</p>
           </div>
 
-          <div className="mt-4 text-center text-sm text-muted-foreground">
-            <p>Everyone listening hears the same stream. Send a ripple (like) to like a song and support the artist.</p>
-          </div>
-
-          <div className="mt-3 text-center lg:hidden">
+          <div className="mt-2 text-center lg:hidden shrink-0">
             <Button variant="outline" className="bg-card/70 backdrop-blur" onClick={() => setShowChat(!showChat)}>
               <span className="mr-2">💬</span>
               {showChat ? 'Leave the Room' : 'Enter the Room'}

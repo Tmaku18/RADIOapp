@@ -811,6 +811,24 @@ export class SongsController {
     }));
   }
 
+  @Get('library')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getLibrarySongs(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    return this.songsService.getLibrarySongs(userData.id);
+  }
+
   @Get(':id')
   async getSongById(@Param('id') id: string) {
     return this.songsService.getSongById(id);

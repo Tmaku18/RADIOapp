@@ -166,6 +166,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const isListenPage = pathname.startsWith('/listen');
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const isArtistMode = hasArtistCapability(profile?.role);
@@ -501,10 +502,16 @@ export default function DashboardLayout({
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-auto p-4 sm:p-6 md:p-8 pb-24 bg-muted/30 flex flex-col">
+        <div
+          className={`flex-1 min-h-0 bg-muted/30 flex flex-col ${
+            isListenPage
+              ? 'overflow-hidden p-0 pb-0'
+              : 'overflow-auto p-4 sm:p-6 md:p-8 pb-24'
+          }`}
+        >
           {children}
         </div>
-        <BottomNav />
+        {!isListenPage && <BottomNav />}
       </SidebarInset>
       </SidebarProvider>
     </div>

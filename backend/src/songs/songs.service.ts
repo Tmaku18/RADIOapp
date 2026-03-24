@@ -1543,6 +1543,115 @@ export class SongsService {
     return { liked: !!existingLike };
   }
 
+  async getLibrarySongs(userId: string) {
+    const supabase = getSupabaseClient();
+
+    const { data: likesRows, error: likesError } = await supabase
+      .from('likes')
+      .select(
+        `
+        song_id,
+        created_at,
+        songs:song_id (
+          id,
+          title,
+          artist_name,
+          artist_id,
+          artwork_url,
+          audio_url,
+          duration_seconds,
+          like_count,
+          play_count,
+          status
+        )
+      `,
+      )
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (likesError) {
+      throw new Error(`Failed to load library songs: ${likesError.message}`);
+    }
+
+    const rows = (likesRows ?? []) as Array<{
+      song_id: string;
+      created_at: string | null;
+      songs: {
+        id: string;
+        title: string;
+        artist_name: string;
+        artist_id: string;
+        artwork_url: string | null;
+        audio_url: string | null;
+        duration_seconds: number | null;
+        like_count: number | null;
+        play_count: number | null;
+        status: string | null;
+      } | null;
+    }>;
+
+    const librarySongs = rows
+      .filter((r) => r.songs && r.songs.status === 'approved')
+      .map((r) => ({
+        id: r.songs!.id,
+        title: r.songs!.title,
+        artistName: r.songs!.artist_name,
+        artistId: r.songs!.artist_id,
+        artworkUrl: r.songs!.artwork_url,
+        audioUrl: r.songs!.audio_url,
+        durationSeconds: r.songs!.duration_seconds ?? 180,
+        likeCount: r.songs!.like_count ?? 0,
+        playCount: r.songs!.play_count ?? 0,
+        likedAt: r.created_at ?? new Date().toISOString(),
+      }));
+
+    const songIds = [...new Set(librarySongs.map((s) => s.id))];
+    const fireVotesBySongId = new Map<string, number>();
+    const shitVotesBySongId = new Map<string, number>();
+
+    if (songIds.length > 0) {
+      const { data: reactionsRows, error: reactionsError } = await supabase
+        .from('leaderboard_likes')
+        .select('song_id, reaction')
+        .in('song_id', songIds);
+      if (reactionsError) {
+        throw new Error(
+          `Failed to load song temperatures: ${reactionsError.message}`,
+        );
+      }
+      for (const row of (reactionsRows ?? []) as Array<{
+        song_id: string;
+        reaction: string | null;
+      }>) {
+        if (row.reaction === 'shit') {
+          shitVotesBySongId.set(
+            row.song_id,
+            (shitVotesBySongId.get(row.song_id) ?? 0) + 1,
+          );
+        } else {
+          fireVotesBySongId.set(
+            row.song_id,
+            (fireVotesBySongId.get(row.song_id) ?? 0) + 1,
+          );
+        }
+      }
+    }
+
+    return librarySongs.map((song) => {
+      const fireVotes = fireVotesBySongId.get(song.id) ?? 0;
+      const shitVotes = shitVotesBySongId.get(song.id) ?? 0;
+      const totalVotes = fireVotes + shitVotes;
+      return {
+        ...song,
+        fireVotes,
+        shitVotes,
+        temperaturePercent:
+          totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 50,
+      };
+    });
+  }
+
   async toggleLike(userId: string, songId: string) {
     const supabase = getSupabaseClient();
 

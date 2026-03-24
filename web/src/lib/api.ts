@@ -171,6 +171,24 @@ export const songsApi = {
     api.get('/songs', { params }),
   getById: (id: string) => api.get(`/songs/${id}`),
   getMine: () => api.get('/songs/mine'),
+  getLibrary: () =>
+    api.get<
+      Array<{
+        id: string;
+        title: string;
+        artistName: string;
+        artistId: string;
+        artworkUrl: string | null;
+        audioUrl: string | null;
+        durationSeconds: number;
+        likeCount: number;
+        playCount: number;
+        fireVotes: number;
+        shitVotes: number;
+        temperaturePercent: number;
+        likedAt: string;
+      }>
+    >('/songs/library'),
   getUploadUrl: (data: { filename: string; contentType: string; bucket: 'songs' | 'artwork' }) => 
     api.post('/songs/upload-url', data),
   create: (data: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
@@ -22,6 +22,21 @@ type PinnedCatalyst = {
   displayName: string;
   avatarUrl: string | null;
   role: string;
+};
+
+type LibrarySong = {
+  id: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  audioUrl: string | null;
+  durationSeconds: number;
+  likeCount: number;
+  playCount: number;
+  fireVotes: number;
+  shitVotes: number;
+  temperaturePercent: number;
 };
 
 function roleToLabel(role: string): string {
@@ -66,6 +81,12 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [isVoting, setIsVoting] = useState(false);
   const [isHeartSaving, setIsHeartSaving] = useState(false);
   const [likedInLibrary, setLikedInLibrary] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
+  const [librarySortBy, setLibrarySortBy] = useState<
+    'artist' | 'title' | 'likes' | 'plays' | 'temperature'
+  >('likes');
   const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [fireVotes, setFireVotes] = useState(0);
@@ -318,6 +339,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   // Yield accrual/check-ins are gated server-side and remain listener-only.
   useEffect(() => {
     if (!canSendPresenceHeartbeat) return;
+    if (state.source !== 'radio') return;
     if (!state.track?.id) return;
     if (!state.isPlaying) return;
 
@@ -362,6 +384,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
+    if (state.source && state.source !== 'radio') return;
     const nowMs = Date.now();
     if (nowMs < nextFetchAllowedAtRef.current) return;
     if (isFetchingCurrentTrackRef.current) return;
@@ -472,7 +495,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingCurrentTrackRef.current = false;
     }
-  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
+  }, [actions, state.source, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
 
   const getVoteKey = useCallback(
     (track: PlaybackTrack | null) =>
@@ -503,6 +526,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   // Re-sync every 30 seconds to handle drift (only when live)
   useEffect(() => {
+    if (state.source !== 'radio') return;
     if (!state.isLive) return;
     
     const syncInterval = setInterval(() => {
@@ -510,7 +534,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }, 30000);
     
     return () => clearInterval(syncInterval);
-  }, [state.isLive, fetchCurrentTrack]);
+  }, [state.source, state.isLive, fetchCurrentTrack]);
 
   // Check for "Jump to Live" state when paused
   useEffect(() => {
@@ -632,6 +656,70 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }
   };
 
+  const loadLibrarySongs = useCallback(async () => {
+    setLibraryLoading(true);
+    try {
+      const res = await songsApi.getLibrary();
+      const rows = (res.data ?? []) as LibrarySong[];
+      setLibrarySongs(rows.filter((s) => !!s.audioUrl));
+    } catch (error) {
+      console.error('Failed to load library songs:', error);
+      setLibrarySongs([]);
+    } finally {
+      setLibraryLoading(false);
+    }
+  }, []);
+
+  const sortedLibrarySongs = useMemo(() => {
+    const list = [...librarySongs];
+    list.sort((a, b) => {
+      if (librarySortBy === 'artist') {
+        return a.artistName.localeCompare(b.artistName);
+      }
+      if (librarySortBy === 'title') {
+        return a.title.localeCompare(b.title);
+      }
+      if (librarySortBy === 'temperature') {
+        return b.temperaturePercent - a.temperaturePercent;
+      }
+      if (librarySortBy === 'plays') {
+        return b.playCount - a.playCount;
+      }
+      return b.likeCount - a.likeCount;
+    });
+    return list;
+  }, [librarySongs, librarySortBy]);
+
+  const handlePlayFromLibrary = useCallback(
+    async (song: LibrarySong) => {
+      if (!song.audioUrl) return;
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: song.title,
+          artistName: song.artistName,
+          artistId: song.artistId,
+          artworkUrl: song.artworkUrl,
+          audioUrl: song.audioUrl,
+          durationSeconds: song.durationSeconds || 180,
+          playId: null,
+        },
+        'discography',
+      );
+      setLibraryOpen(false);
+      try {
+        await actions.play();
+      } catch (error) {
+        console.error('Failed to play library track:', error);
+      }
+    },
+    [actions],
+  );
+
+  const handleBackToLiveRadio = useCallback(async () => {
+    await fetchCurrentTrack(false, true);
+  }, [fetchCurrentTrack]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
@@ -697,7 +785,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   return (
     <Card className="overflow-hidden glass-panel border-border/80">
       {/* Album Art — subtle signature gradient behind */}
-      <div className="h-[clamp(170px,30vh,320px)] sm:h-[clamp(210px,34vh,360px)] bg-signature relative overflow-hidden">
+      <div className="h-[clamp(130px,22vh,240px)] sm:h-[clamp(150px,24vh,280px)] bg-signature relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
         <ArtworkImage
           src={state.track?.artworkUrl}
@@ -714,7 +802,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       </div>
 
       {/* Track Info */}
-      <div className="p-4 sm:p-5">
+      <div className="p-3 sm:p-4">
         {state.error && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{state.error}</AlertDescription>
@@ -734,7 +822,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </Alert>
         )}
 
-        <div className="text-center mb-4">
+        <div className="text-center mb-2">
           {isLiveBroadcast && (
             <span className="badge-live inline-flex items-center gap-1.5 mb-2">
               <span className="relative flex h-2 w-2">
@@ -809,7 +897,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           )}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-2">
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
@@ -825,7 +913,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {canQuickBuy && (
-          <div className="mb-4 flex justify-center">
+          <div className="mb-2 flex justify-center">
             <Button onClick={handleQuickBuy} disabled={isQuickBuying || state.isLoading} className="rounded-full">
               {isQuickBuying ? 'Opening checkout…' : 'Add 5 Minutes'}
             </Button>
@@ -833,8 +921,16 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         )}
 
         {/* LIVE Indicator */}
-        <div className="flex items-center justify-center mb-4">
-          {state.isLive && state.isPlaying ? (
+        <div className="flex items-center justify-center mb-2">
+          {state.source === 'discography' ? (
+            <Button
+              onClick={() => void handleBackToLiveRadio()}
+              variant="outline"
+              className="rounded-full"
+            >
+              Return to Live Radio
+            </Button>
+          ) : state.isLive && state.isPlaying ? (
             <span className="badge-live inline-flex items-center gap-2">
               <span className="relative flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75" />
@@ -857,7 +953,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {/* Song temperature meter */}
-        <div className="mb-4 rounded-lg border border-border/70 bg-muted/30 p-3">
+        <div className="mb-2 rounded-lg border border-border/70 bg-muted/30 p-2.5">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>Song Temperature</span>
             <span>{temperaturePercent}%</span>
@@ -874,8 +970,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </div>
         </div>
 
-        {/* Library save (Spotify-style) */}
-        <div className="mb-3 flex justify-center">
+        {/* Library actions */}
+        <div className="mb-3 flex justify-center gap-2">
           <button
             onClick={() => void handleToggleLibraryLike()}
             disabled={!state.track || isHeartSaving}
@@ -889,13 +985,24 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span className="text-base leading-none">{likedInLibrary ? '♥' : '♡'}</span>
             <span>{isHeartSaving ? 'Saving…' : likedInLibrary ? 'Saved' : 'Save'}</span>
           </button>
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-full"
+            onClick={() => {
+              setLibraryOpen(true);
+              void loadLibrarySongs();
+            }}
+          >
+            Open Library
+          </Button>
         </div>
 
         {/* Controls */}
-        <div className="flex items-center justify-center space-x-6">
+        <div className="flex items-center justify-center space-x-4">
           <button
             onClick={() => void handleReaction('fire')}
-            disabled={!state.track || isVoting}
+            disabled={!state.track || isVoting || state.source !== 'radio'}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'fire'
                 ? 'bg-orange-500/20 ring-2 ring-orange-400'
@@ -933,7 +1040,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
           <button
             onClick={() => void handleReaction('shit')}
-            disabled={!state.track || isVoting}
+            disabled={!state.track || isVoting || state.source !== 'radio'}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'shit'
                 ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
@@ -946,7 +1053,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {/* Volume Control */}
-        <div className="mt-4 flex items-center justify-center space-x-3">
+        <div className="mt-2 flex items-center justify-center space-x-3">
           <svg
             className="w-5 h-5 text-gray-400"
             fill="currentColor"
@@ -997,6 +1104,75 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </p>
         )}
       </div>
+
+      <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
+        <DialogContent className="sm:max-w-[680px]">
+          <DialogHeader>
+            <DialogTitle>Your Library</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="library-sort">Sort by</Label>
+              <select
+                id="library-sort"
+                value={librarySortBy}
+                onChange={(e) =>
+                  setLibrarySortBy(
+                    e.target.value as
+                      | 'artist'
+                      | 'title'
+                      | 'likes'
+                      | 'plays'
+                      | 'temperature',
+                  )
+                }
+                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+              >
+                <option value="artist">Artist</option>
+                <option value="title">Song title</option>
+                <option value="likes">Likes</option>
+                <option value="plays">Plays</option>
+                <option value="temperature">Temperature</option>
+              </select>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1">
+              {libraryLoading ? (
+                <div className="text-sm text-muted-foreground">Loading library…</div>
+              ) : sortedLibrarySongs.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No saved songs yet. Tap Save on any track to build your library.
+                </div>
+              ) : (
+                sortedLibrarySongs.map((song) => (
+                  <button
+                    key={song.id}
+                    type="button"
+                    onClick={() => void handlePlayFromLibrary(song)}
+                    className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-left transition hover:bg-muted/40"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{song.title}</p>
+                        <p className="truncate text-xs text-muted-foreground">{song.artistName}</p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-3 text-[11px] text-muted-foreground">
+                        <span>♥ {song.likeCount}</span>
+                        <span>▶ {song.playCount}</span>
+                        <span>🌡 {song.temperaturePercent}%</span>
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLibraryOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
         <DialogContent className="sm:max-w-[520px]">
