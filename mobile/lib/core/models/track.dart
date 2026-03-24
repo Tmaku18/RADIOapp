@@ -29,6 +29,13 @@ class Track {
   /// Remaining server-side track time in milliseconds.
   final int timeRemainingMs;
 
+  /// Crowd sentiment votes for current play.
+  final int fireVotes;
+  final int shitVotes;
+
+  /// Percentage of positive votes (0..100), where higher is hotter.
+  final int temperaturePercent;
+
   /// Catalyst deep-link credits pinned during this song's airtime.
   final List<PinnedCatalystCredit> pinnedCatalysts;
 
@@ -46,6 +53,9 @@ class Track {
     this.positionSeconds = 0,
     this.listenerCount = 0,
     this.timeRemainingMs = 0,
+    this.fireVotes = 0,
+    this.shitVotes = 0,
+    this.temperaturePercent = 50,
     this.pinnedCatalysts = const [],
   });
 
@@ -55,9 +65,11 @@ class Track {
     if (pinnedRaw is List) {
       for (final item in pinnedRaw) {
         if (item is Map) {
-          pinned.add(PinnedCatalystCredit.fromJson(
-            item.map((k, v) => MapEntry(k.toString(), v)),
-          ));
+          pinned.add(
+            PinnedCatalystCredit.fromJson(
+              item.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          );
         }
       }
     }
@@ -70,43 +82,67 @@ class Track {
       artistId: (json['artist_id'] ?? json['artistId'])?.toString(),
       audioUrl: (json['audio_url'] ?? json['audioUrl'] ?? '').toString(),
       artworkUrl: (json['artwork_url'] ?? json['artworkUrl'])?.toString(),
-      durationSeconds: (json['duration_seconds'] ?? json['durationSeconds'] ?? 180)
-          is int
+      durationSeconds:
+          (json['duration_seconds'] ?? json['durationSeconds'] ?? 180) is int
           ? (json['duration_seconds'] ?? json['durationSeconds'] ?? 180) as int
           : int.tryParse(
                   (json['duration_seconds'] ?? json['durationSeconds'] ?? '180')
                       .toString(),
                 ) ??
-              180,
+                180,
       playId: (json['play_id'] ?? json['playId'])?.toString(),
       isLiveBroadcast: json['is_live'] == true || json['isLive'] == true,
-      trialByFireActive: json['trial_by_fire_active'] == true || json['trialByFireActive'] == true,
-      positionSeconds: (json['position_seconds'] ?? json['positionSeconds'] ?? 0)
-          is int
+      trialByFireActive:
+          json['trial_by_fire_active'] == true ||
+          json['trialByFireActive'] == true,
+      positionSeconds:
+          (json['position_seconds'] ?? json['positionSeconds'] ?? 0) is int
           ? (json['position_seconds'] ?? json['positionSeconds'] ?? 0) as int
           : int.tryParse(
                   (json['position_seconds'] ?? json['positionSeconds'] ?? '0')
                       .toString(),
                 ) ??
-              0,
-      listenerCount: (json['listener_count'] ?? json['listenerCount'] ?? 0) is int
+                0,
+      listenerCount:
+          (json['listener_count'] ?? json['listenerCount'] ?? 0) is int
           ? (json['listener_count'] ?? json['listenerCount'] ?? 0) as int
           : int.tryParse(
                   (json['listener_count'] ?? json['listenerCount'] ?? '0')
                       .toString(),
                 ) ??
-              0,
+                0,
       timeRemainingMs:
           (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? 0) is int
-              ? (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? 0)
-                  as int
-              : int.tryParse(
-                    (json['time_remaining_ms'] ??
-                            json['timeRemainingMs'] ??
-                            '0')
-                        .toString(),
-                  ) ??
-                  0,
+          ? (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? 0) as int
+          : int.tryParse(
+                  (json['time_remaining_ms'] ?? json['timeRemainingMs'] ?? '0')
+                      .toString(),
+                ) ??
+                0,
+      fireVotes: (json['fire_votes'] ?? json['fireVotes'] ?? 0) is int
+          ? (json['fire_votes'] ?? json['fireVotes'] ?? 0) as int
+          : int.tryParse(
+                  (json['fire_votes'] ?? json['fireVotes'] ?? '0').toString(),
+                ) ??
+                0,
+      shitVotes: (json['shit_votes'] ?? json['shitVotes'] ?? 0) is int
+          ? (json['shit_votes'] ?? json['shitVotes'] ?? 0) as int
+          : int.tryParse(
+                  (json['shit_votes'] ?? json['shitVotes'] ?? '0').toString(),
+                ) ??
+                0,
+      temperaturePercent:
+          (json['temperature_percent'] ?? json['temperaturePercent'] ?? 50)
+              is int
+          ? (json['temperature_percent'] ?? json['temperaturePercent'] ?? 50)
+                as int
+          : int.tryParse(
+                  (json['temperature_percent'] ??
+                          json['temperaturePercent'] ??
+                          '50')
+                      .toString(),
+                ) ??
+                50,
       pinnedCatalysts: pinned,
     );
   }
@@ -125,6 +161,9 @@ class Track {
     int? positionSeconds,
     int? listenerCount,
     int? timeRemainingMs,
+    int? fireVotes,
+    int? shitVotes,
+    int? temperaturePercent,
     List<PinnedCatalystCredit>? pinnedCatalysts,
   }) {
     return Track(
@@ -141,6 +180,9 @@ class Track {
       positionSeconds: positionSeconds ?? this.positionSeconds,
       listenerCount: listenerCount ?? this.listenerCount,
       timeRemainingMs: timeRemainingMs ?? this.timeRemainingMs,
+      fireVotes: fireVotes ?? this.fireVotes,
+      shitVotes: shitVotes ?? this.shitVotes,
+      temperaturePercent: temperaturePercent ?? this.temperaturePercent,
       pinnedCatalysts: pinnedCatalysts ?? this.pinnedCatalysts,
     );
   }
@@ -170,4 +212,3 @@ class PinnedCatalystCredit {
     );
   }
 }
-

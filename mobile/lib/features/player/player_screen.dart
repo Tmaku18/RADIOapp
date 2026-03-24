@@ -421,6 +421,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       setState(() {
         _currentTrack = localTrack.copyWith(
           listenerCount: serverTrack.listenerCount,
+          fireVotes: serverTrack.fireVotes,
+          shitVotes: serverTrack.shitVotes,
+          temperaturePercent: serverTrack.temperaturePercent,
         );
         _isLoading = false;
         _noContent = false;
@@ -461,6 +464,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       setState(() {
         _currentTrack = track.copyWith(
           listenerCount: latestTrack.listenerCount,
+          fireVotes: latestTrack.fireVotes,
+          shitVotes: latestTrack.shitVotes,
+          temperaturePercent: latestTrack.temperaturePercent,
         );
       });
     } catch (_) {
@@ -470,7 +476,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  Future<void> _vote() async {
+  Future<void> _react(String reaction) async {
     final track = _currentTrack;
     if (track == null || _isVoting) return;
     if (_me == null) {
@@ -498,9 +504,29 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     try {
       HapticFeedback.lightImpact();
-      await _api.post('leaderboard/songs/${track.id}/like', {'playId': playId});
+      await _radioService.submitReaction(
+        songId: track.id,
+        playId: playId,
+        reaction: reaction,
+      );
+      if (reaction == 'fire') {
+        await _radioService.ensureLiked(track.id);
+      }
+
+      final fireVotes = track.fireVotes + (reaction == 'fire' ? 1 : 0);
+      final shitVotes = track.shitVotes + (reaction == 'shit' ? 1 : 0);
+      final totalVotes = fireVotes + shitVotes;
+      final temperaturePercent = totalVotes > 0
+          ? ((fireVotes / totalVotes) * 100).round()
+          : 50;
+
       if (!mounted) return;
       setState(() {
+        _currentTrack = track.copyWith(
+          fireVotes: fireVotes,
+          shitVotes: shitVotes,
+          temperaturePercent: temperaturePercent,
+        );
         _hasVoted = true;
         _lastVotedPlayId = playId;
         _isVoting = false;
@@ -508,8 +534,12 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vote locked in.'),
+          SnackBar(
+            content: Text(
+              reaction == 'fire'
+                  ? '🔥 Vote locked in. Saved to your library.'
+                  : '💩 Vote locked in.',
+            ),
             duration: Duration(seconds: 1),
           ),
         );
@@ -735,7 +765,11 @@ class _PlayerScreenState extends State<PlayerScreen>
                         hasVoted: _hasVoted,
                         isVoting: _isVoting,
                         canVote: (_currentTrack?.playId ?? '').isNotEmpty,
-                        onVote: _vote,
+                        fireVotes: _currentTrack?.fireVotes ?? 0,
+                        shitVotes: _currentTrack?.shitVotes ?? 0,
+                        temperaturePercent:
+                            _currentTrack?.temperaturePercent ?? 50,
+                        onReact: _react,
                         onPlayPause: _togglePlayPause,
                         onEnterRoom: () => _openRoom(providerContext),
                         audioPlayer: _audioPlayer,
@@ -975,7 +1009,10 @@ class _PlayerBody extends StatelessWidget {
   final bool hasVoted;
   final bool isVoting;
   final bool canVote;
-  final VoidCallback onVote;
+  final int fireVotes;
+  final int shitVotes;
+  final int temperaturePercent;
+  final Future<void> Function(String reaction) onReact;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
   final AudioPlayer audioPlayer;
@@ -993,7 +1030,10 @@ class _PlayerBody extends StatelessWidget {
     required this.hasVoted,
     required this.isVoting,
     required this.canVote,
-    required this.onVote,
+    required this.fireVotes,
+    required this.shitVotes,
+    required this.temperaturePercent,
+    required this.onReact,
     required this.onPlayPause,
     required this.onEnterRoom,
     required this.audioPlayer,
@@ -1311,6 +1351,59 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: scheme.onSurface.withValues(alpha: 0.14),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Song temperature',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(color: surfaces.textSecondary),
+                        ),
+                        Text(
+                          '$temperaturePercent%',
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: LinearProgressIndicator(
+                        minHeight: 7,
+                        value: (temperaturePercent.clamp(0, 100)) / 100,
+                        backgroundColor: scheme.onSurface.withValues(
+                          alpha: 0.12,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [Text('🔥 $fireVotes'), Text('💩 $shitVotes')],
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: afterProgressGap),
               if (canQuickBuy) ...[
                 SizedBox(
                   width: double.infinity,
@@ -1337,23 +1430,30 @@ class _PlayerBody extends StatelessWidget {
                     tooltip: 'Enter the Room',
                     icon: const Icon(Icons.forum_outlined),
                   ),
-                  IconButton(
+                  FilledButton.tonal(
                     onPressed: (!canVote || isVoting || hasVoted)
                         ? null
-                        : onVote,
-                    tooltip: hasVoted ? 'Voted' : 'Vote',
-                    icon: isVoting
+                        : () => onReact('fire'),
+                    child: isVoting
                         ? const SizedBox(
                             width: 18,
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Icon(
-                            hasVoted ? Icons.favorite : Icons.favorite_border,
-                            color: hasVoted
-                                ? scheme.primary
-                                : surfaces.textSecondary,
-                          ),
+                        : const Text('🔥'),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton.tonal(
+                    onPressed: (!canVote || isVoting || hasVoted)
+                        ? null
+                        : () => onReact('shit'),
+                    child: isVoting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('💩'),
                   ),
                 ],
               ),

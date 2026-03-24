@@ -45,7 +45,7 @@ export class LeaderboardController {
   async addLeaderboardLike(
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
-    @Body() body: { playId?: string },
+    @Body() body: { playId?: string; reaction?: 'fire' | 'shit' },
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -58,6 +58,7 @@ export class LeaderboardController {
       userData.id,
       songId,
       body?.playId ?? null,
+      body?.reaction ?? 'fire',
     );
   }
 }

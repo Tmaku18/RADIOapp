@@ -213,6 +213,110 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private isMissingLeaderboardReactionColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      (maybeError?.code === '42703' && message.includes('reaction')) ||
+      (maybeError?.code === 'PGRST204' && message.includes('reaction'))
+    );
+  }
+
+  private async getSongTemperature(args: {
+    playId?: string | null;
+    songId: string;
+    startedAtIso?: string | null;
+  }): Promise<{
+    fireVotes: number;
+    shitVotes: number;
+    totalVotes: number;
+    temperaturePercent: number;
+  }> {
+    const supabase = getSupabaseClient();
+    const playId = args.playId?.trim();
+
+    let rows: Array<{ reaction?: 'fire' | 'shit' | null }> | null | undefined =
+      null;
+    let error: { code?: string; message?: string } | null = null;
+
+    if (playId) {
+      const result = await supabase
+        .from('leaderboard_likes')
+        .select('reaction')
+        .eq('play_id', playId);
+      rows = (result.data ?? []) as Array<{
+        reaction?: 'fire' | 'shit' | null;
+      }>;
+      error = result.error as { code?: string; message?: string } | null;
+    } else {
+      let query = supabase
+        .from('leaderboard_likes')
+        .select('reaction')
+        .eq('song_id', args.songId);
+      if (args.startedAtIso) {
+        query = query.gte('created_at', args.startedAtIso);
+      }
+      const result = await query;
+      rows = (result.data ?? []) as Array<{
+        reaction?: 'fire' | 'shit' | null;
+      }>;
+      error = result.error as { code?: string; message?: string } | null;
+    }
+
+    if (error && this.isMissingLeaderboardReactionColumn(error)) {
+      // Older schema: leaderboard votes are all positive sentiment.
+      if (playId) {
+        const fallback = await supabase
+          .from('leaderboard_likes')
+          .select('id', { count: 'exact', head: true })
+          .eq('play_id', playId);
+        const fireVotes = fallback.count ?? 0;
+        return {
+          fireVotes,
+          shitVotes: 0,
+          totalVotes: fireVotes,
+          temperaturePercent: fireVotes > 0 ? 100 : 50,
+        };
+      }
+      let fallbackQuery = supabase
+        .from('leaderboard_likes')
+        .select('id', { count: 'exact', head: true })
+        .eq('song_id', args.songId);
+      if (args.startedAtIso) {
+        fallbackQuery = fallbackQuery.gte('created_at', args.startedAtIso);
+      }
+      const fallback = await fallbackQuery;
+      const fireVotes = fallback.count ?? 0;
+      return {
+        fireVotes,
+        shitVotes: 0,
+        totalVotes: fireVotes,
+        temperaturePercent: fireVotes > 0 ? 100 : 50,
+      };
+    }
+
+    if (error) {
+      this.logger.warn(`Failed to load song temperature: ${error.message}`);
+      return {
+        fireVotes: 0,
+        shitVotes: 0,
+        totalVotes: 0,
+        temperaturePercent: 50,
+      };
+    }
+
+    const fireVotes = (rows ?? []).filter(
+      (row) => (row.reaction ?? 'fire') === 'fire',
+    ).length;
+    const shitVotes = (rows ?? []).filter(
+      (row) => row.reaction === 'shit',
+    ).length;
+    const totalVotes = fireVotes + shitVotes;
+    const temperaturePercent =
+      totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 50;
+    return { fireVotes, shitVotes, totalVotes, temperaturePercent };
+  }
+
   private applySongStationScope(query: any, stationId: string) {
     return query.or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`);
   }
@@ -732,6 +836,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       : await this.getArtistLiveNow(song.artist_id ?? null);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
     const listenerCount = await this.getActiveListenerCountForSong(song.id);
+    const temperature = await this.getSongTemperature({
+      playId,
+      songId: song.id,
+      startedAtIso: queueState.playedAt ?? null,
+    });
 
     return {
       ...song,
@@ -747,6 +856,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       play_id: playId,
       artist_live_now: artistLiveNow,
       listener_count: listenerCount,
+      fire_votes: temperature.fireVotes,
+      shit_votes: temperature.shitVotes,
+      total_votes: temperature.totalVotes,
+      temperature_percent: temperature.temperaturePercent,
     };
   }
 
@@ -1442,6 +1555,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           const listenerCount = await this.getActiveListenerCountForSong(
             currentSong.id,
           );
+          const temperature = await this.getSongTemperature({
+            playId: null,
+            songId: currentSong.id,
+            startedAtIso: currentState.playedAt ?? null,
+          });
           return {
             ...currentSong,
             audio_url: audioUrl,
@@ -1457,6 +1575,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             pinned_catalysts: pinnedCatalysts,
             artist_live_now: artistLiveNow,
             listener_count: listenerCount,
+            fire_votes: temperature.fireVotes,
+            shit_votes: temperature.shitVotes,
+            total_votes: temperature.totalVotes,
+            temperature_percent: temperature.temperaturePercent,
           };
         }
       }
@@ -1779,6 +1901,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       position_seconds: 0,
       credits_deducted: creditsToDeduct,
       pinned_catalysts: pinnedCatalysts,
+      play_id: playRow?.id ?? null,
+      fire_votes: 0,
+      shit_votes: 0,
+      total_votes: 0,
+      temperature_percent: 50,
     };
   }
 
@@ -1879,6 +2006,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       trial_plays_remaining: remaining,
       trial_plays_used: used,
       pinned_catalysts: pinnedCatalysts,
+      play_id: playRow?.id ?? null,
+      fire_votes: 0,
+      shit_votes: 0,
+      total_votes: 0,
+      temperature_percent: 50,
     };
   }
 
@@ -1973,6 +2105,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       pinned_catalysts: pinnedCatalysts,
+      play_id: playRow?.id ?? null,
+      fire_votes: 0,
+      shit_votes: 0,
+      total_votes: 0,
+      temperature_percent: 50,
     };
   }
 
@@ -2072,6 +2209,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       is_fallback: true,
       is_admin_fallback: true,
       pinned_catalysts: pinnedCatalysts,
+      play_id: null,
+      fire_votes: 0,
+      shit_votes: 0,
+      total_votes: 0,
+      temperature_percent: 50,
     };
   }
 
@@ -2099,6 +2241,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       no_content: true,
       message: 'Sorry for the inconvenience. No songs are currently available.',
       listener_count: 0,
+      fire_votes: 0,
+      shit_votes: 0,
+      total_votes: 0,
+      temperature_percent: 50,
     };
   }
 

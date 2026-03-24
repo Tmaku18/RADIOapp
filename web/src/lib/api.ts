@@ -357,7 +357,12 @@ export const leaderboardApi = {
   getUpvotesPerMinute: (params?: { windowMinutes?: number; limit?: number; offset?: number }) =>
     api.get('/leaderboard/upvotes-per-minute', { params }),
   addLeaderboardLike: (songId: string, playId?: string | null) => 
-    api.post(`/leaderboard/songs/${songId}/like`, { playId }),
+    api.post(`/leaderboard/songs/${songId}/like`, { playId, reaction: 'fire' }),
+  addLeaderboardReaction: (
+    songId: string,
+    reaction: 'fire' | 'shit',
+    playId?: string | null,
+  ) => api.post(`/leaderboard/songs/${songId}/like`, { playId, reaction }),
 };
 
 export const feedApi = {

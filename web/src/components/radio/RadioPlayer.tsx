@@ -62,9 +62,13 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
+  const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
+  const [fireVotes, setFireVotes] = useState(0);
+  const [shitVotes, setShitVotes] = useState(0);
+  const [temperaturePercent, setTemperaturePercent] = useState(50);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [noContent, setNoContent] = useState(false);
@@ -156,6 +160,13 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
+      const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
+      const nextShitVotes = coerceListenerCount(trackData?.shit_votes);
+      const nextTemperatureRaw = Number(trackData?.temperature_percent);
+      updateTemperatureFromCounts(nextFireVotes, nextShitVotes);
+      if (Number.isFinite(nextTemperatureRaw)) {
+        setTemperaturePercent(Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))));
+      }
       
       // Check for no_content flag
       if (trackData?.no_content) {
@@ -215,7 +226,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, [radioId, effectiveRadioId, coerceListenerCount]);
+  }, [radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
 
   useEffect(() => {
     setOnRadioTrackEnded(handleTrackEnded);
@@ -351,6 +362,13 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
+      const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
+      const nextShitVotes = coerceListenerCount(trackData?.shit_votes);
+      const nextTemperatureRaw = Number(trackData?.temperature_percent);
+      updateTemperatureFromCounts(nextFireVotes, nextShitVotes);
+      if (Number.isFinite(nextTemperatureRaw)) {
+        setTemperaturePercent(Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))));
+      }
       
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
@@ -445,7 +463,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingCurrentTrackRef.current = false;
     }
-  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount]);
+  }, [actions, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
 
   const getVoteKey = useCallback(
     (track: PlaybackTrack | null) =>
@@ -458,8 +476,16 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     const voteKey = getVoteKey(state.track ?? null);
     if (voteKey && voteKey !== lastVoteKeyRef.current) {
       setHasVoted(false);
+      setSelectedReaction(null);
     }
   }, [state.track, getVoteKey]);
+
+  const updateTemperatureFromCounts = useCallback((nextFireVotes: number, nextShitVotes: number) => {
+    const total = Math.max(0, nextFireVotes) + Math.max(0, nextShitVotes);
+    setFireVotes(Math.max(0, nextFireVotes));
+    setShitVotes(Math.max(0, nextShitVotes));
+    setTemperaturePercent(total > 0 ? Math.round((Math.max(0, nextFireVotes) / total) * 100) : 50);
+  }, []);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -529,20 +555,31 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     setShowJumpToLive(false);
   };
 
-  const handleVote = async () => {
+  const handleReaction = async (reaction: 'fire' | 'shit') => {
     if (!state.track) return;
     if (isVoting || hasVoted) return;
 
     setIsVoting(true);
     try {
-      await leaderboardApi.addLeaderboardLike(
+      await leaderboardApi.addLeaderboardReaction(
         state.track.id,
+        reaction,
         state.track.playId ?? undefined,
       );
+      if (reaction === 'fire') {
+        // Persist to song library using the existing like endpoint.
+        await songsApi.like(state.track.id);
+      }
       lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(true);
+      setSelectedReaction(reaction);
+      if (reaction === 'fire') {
+        updateTemperatureFromCounts(fireVotes + 1, shitVotes);
+      } else {
+        updateTemperatureFromCounts(fireVotes, shitVotes + 1);
+      }
     } catch (error) {
-      console.error('Failed to vote:', error);
+      console.error('Failed to submit reaction:', error);
     } finally {
       setIsVoting(false);
     }
@@ -772,31 +809,37 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           )}
         </div>
 
+        {/* Song temperature meter */}
+        <div className="mb-4 rounded-lg border border-border/70 bg-muted/30 p-3">
+          <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Song Temperature</span>
+            <span>{temperaturePercent}%</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-zinc-800/70">
+            <div
+              className="h-full transition-all duration-300 bg-gradient-to-r from-red-600 to-orange-400"
+              style={{ width: `${temperaturePercent}%` }}
+            />
+          </div>
+          <div className="mt-2 flex items-center justify-between text-xs">
+            <span>🔥 {fireVotes}</span>
+            <span>💩 {shitVotes}</span>
+          </div>
+        </div>
+
         {/* Controls */}
         <div className="flex items-center justify-center space-x-6">
-          {/* Vote Button (1 per play) */}
           <button
-            onClick={handleVote}
+            onClick={() => void handleReaction('fire')}
             disabled={!state.track || isVoting || hasVoted}
-            className={`p-3 rounded-full transition-all duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] ${
-              hasVoted
-                ? 'bg-primary text-primary-foreground signal-glow'
-                : 'text-muted-foreground hover:text-primary hover:bg-primary/10 hover:scale-[1.03]'
+            className={`h-12 w-12 rounded-full text-2xl transition ${
+              selectedReaction === 'fire'
+                ? 'bg-orange-500/20 ring-2 ring-orange-400'
+                : 'bg-muted/40 hover:bg-orange-500/10'
             } disabled:opacity-50`}
+            title="Fire reaction (also saves to your library)"
           >
-            <svg
-              className="w-6 h-6"
-              fill={hasVoted ? 'currentColor' : 'none'}
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-              />
-            </svg>
+            🔥
           </button>
 
           {/* Pause/Resume Button (Soft Pause) */}
@@ -824,8 +867,18 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             )}
           </button>
 
-          {/* Placeholder for symmetry (replacing skip) */}
-          <div className="w-12 h-12" />
+          <button
+            onClick={() => void handleReaction('shit')}
+            disabled={!state.track || isVoting || hasVoted}
+            className={`h-12 w-12 rounded-full text-2xl transition ${
+              selectedReaction === 'shit'
+                ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
+                : 'bg-muted/40 hover:bg-emerald-600/10'
+            } disabled:opacity-50`}
+            title="Shit reaction"
+          >
+            💩
+          </button>
         </div>
 
         {/* Volume Control */}

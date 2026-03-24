@@ -12,14 +12,19 @@ class RadioService {
     return '$endpoint${separator}radio=$encoded';
   }
 
-  Future<TrackFetchResult> getCurrentTrack({String radioId = defaultRadioId}) async {
+  Future<TrackFetchResult> getCurrentTrack({
+    String radioId = defaultRadioId,
+  }) async {
     try {
-      final response = await _apiService.get(_withRadio('radio/current', radioId));
+      final response = await _apiService.get(
+        _withRadio('radio/current', radioId),
+      );
       if (response == null) return const TrackFetchResult(track: null);
       if (response is Map<String, dynamic>) {
         if (response['no_content'] == true) {
           return TrackFetchResult.noContent(
-            (response['message'] ?? 'No songs are currently available.').toString(),
+            (response['message'] ?? 'No songs are currently available.')
+                .toString(),
           );
         }
         return TrackFetchResult(track: Track.fromJson(response));
@@ -30,14 +35,17 @@ class RadioService {
     }
   }
 
-  Future<TrackFetchResult> getNextTrack({String radioId = defaultRadioId}) async {
+  Future<TrackFetchResult> getNextTrack({
+    String radioId = defaultRadioId,
+  }) async {
     try {
       final response = await _apiService.get(_withRadio('radio/next', radioId));
       if (response == null) return const TrackFetchResult(track: null);
       if (response is Map<String, dynamic>) {
         if (response['no_content'] == true) {
           return TrackFetchResult.noContent(
-            (response['message'] ?? 'No songs are currently available.').toString(),
+            (response['message'] ?? 'No songs are currently available.')
+                .toString(),
           );
         }
         return TrackFetchResult(track: Track.fromJson(response));
@@ -173,6 +181,32 @@ class RadioService {
       return response['liked'] == true;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Ensure song is liked (saved to library) without accidentally unliking.
+  Future<void> ensureLiked(String songId) async {
+    final liked = await isLiked(songId);
+    if (liked) return;
+    await toggleLike(songId);
+  }
+
+  /// Submit a radio reaction vote for the current play.
+  Future<Map<String, dynamic>?> submitReaction({
+    required String songId,
+    String? playId,
+    required String reaction, // 'fire' | 'shit'
+  }) async {
+    try {
+      final response = await _apiService
+          .post('leaderboard/songs/$songId/like', {
+            if (playId != null && playId.isNotEmpty) 'playId': playId,
+            'reaction': reaction,
+          });
+      if (response is Map<String, dynamic>) return response;
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 }

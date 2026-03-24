@@ -19,6 +19,8 @@ export interface LeaderboardSong {
   upvotesPerMinute?: number;
 }
 
+export type LeaderboardReaction = 'fire' | 'shit';
+
 @Injectable()
 export class LeaderboardService {
   private async maybeEmitRisingStarForPlay(
@@ -259,32 +261,84 @@ export class LeaderboardService {
     userId: string,
     songId: string,
     playId: string | null,
-  ): Promise<{ liked: boolean }> {
+    reaction: LeaderboardReaction = 'fire',
+  ): Promise<{ liked: boolean; reaction: LeaderboardReaction }> {
     const supabase = getSupabaseClient();
+    const safeReaction: LeaderboardReaction =
+      reaction === 'shit' ? 'shit' : 'fire';
+
     if (playId) {
       const { data: existing } = await supabase
         .from('leaderboard_likes')
-        .select('id')
+        .select('id, reaction')
         .eq('user_id', userId)
         .eq('play_id', playId)
         .single();
-      if (existing) return { liked: true };
+      if (existing) {
+        return {
+          liked: true,
+          reaction:
+            (existing as { reaction?: LeaderboardReaction | null }).reaction ??
+            'fire',
+        };
+      }
+    } else {
+      const { data: existingSongVote } = await supabase
+        .from('leaderboard_likes')
+        .select('id, reaction')
+        .eq('user_id', userId)
+        .eq('song_id', songId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingSongVote) {
+        return {
+          liked: true,
+          reaction:
+            (existingSongVote as { reaction?: LeaderboardReaction | null })
+              .reaction ?? 'fire',
+        };
+      }
     }
 
     const { error } = await supabase.from('leaderboard_likes').insert({
       user_id: userId,
       song_id: songId,
       play_id: playId,
+      reaction: safeReaction,
     });
     if (error) {
-      if (error.code === '23505') return { liked: true };
+      if (error.code === '23505') {
+        return { liked: true, reaction: safeReaction };
+      }
       throw new Error(`Failed to record leaderboard like: ${error.message}`);
+    }
+
+    // Persist positive sentiment into the user's saved song library.
+    if (safeReaction === 'fire') {
+      const { data: existingLike } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('song_id', songId)
+        .maybeSingle();
+      if (!existingLike) {
+        const { error: likeError } = await supabase.from('likes').insert({
+          user_id: userId,
+          song_id: songId,
+        });
+        if (likeError && likeError.code !== '23505') {
+          throw new Error(
+            `Failed to save song to library: ${likeError.message}`,
+          );
+        }
+      }
     }
 
     if (playId) {
       // Best-effort Rising Star: only emits once per play due to unique index.
       void this.maybeEmitRisingStarForPlay(playId, songId);
     }
-    return { liked: true };
+    return { liked: true, reaction: safeReaction };
   }
 }
