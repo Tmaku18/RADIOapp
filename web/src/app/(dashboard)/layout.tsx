@@ -240,8 +240,11 @@ export default function DashboardLayout({
   const isAdminPath = pathname.startsWith('/admin');
 
   return (
-    <div data-brand={brandMode} className="min-h-screen">
-      <SidebarProvider>
+    <div
+      data-brand={brandMode}
+      className={isListenPage ? 'h-svh overflow-hidden' : 'min-h-screen'}
+    >
+      <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden' : undefined}>
         <Sidebar>
         <SidebarHeader>
           <SidebarMenu>
@@ -432,7 +435,7 @@ export default function DashboardLayout({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset>
+      <SidebarInset className={isListenPage ? 'h-svh overflow-hidden' : undefined}>
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4 md:px-8 bg-card">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />

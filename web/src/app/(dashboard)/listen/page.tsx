@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -26,18 +26,11 @@ export default function ListenPage() {
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
   const resolvedStationId = stationId || 'us-rap';
-  const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   const currentStation = getStationById(resolvedStationId) ?? null;
-
-  const handleAmplifyClick = useCallback((e: React.MouseEvent<HTMLAnchorElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    setRipple({ x: e.clientX - rect.left - 24, y: e.clientY - rect.top - 24 });
-    setTimeout(() => setRipple(null), 600);
-  }, [setRipple]);
 
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
@@ -104,28 +97,6 @@ export default function ListenPage() {
                 <RadioPlayer radioId={resolvedStationId} />
               </CardContent>
             </Card>
-          </div>
-
-          <div className="mt-2 flex justify-center shrink-0">
-            <div className="amplify-ripple-container relative inline-block">
-              <Button asChild size="lg" className="amplify-btn h-12 w-12 rounded-full p-0 text-xl">
-                <Link href="/competition" onClick={handleAmplifyClick}>
-                  📢
-                </Link>
-              </Button>
-              {ripple && (
-                <span
-                  className="amplify-ripple animate-ripple"
-                  style={{
-                    left: `${ripple.x}px`,
-                    top: `${ripple.y}px`,
-                    width: 48,
-                    height: 48,
-                  }}
-                />
-              )}
-            </div>
-            <p className="sr-only">Amplify — vote for tracks</p>
           </div>
 
           <div className="mt-2 text-center lg:hidden shrink-0">
