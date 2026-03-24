@@ -73,9 +73,9 @@ export default function ListenPage() {
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden">
       <ButterflyPulseOverlay active={pulseActive} />
-      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-5">
+      <div className="flex-1 min-h-0 overflow-hidden p-3 sm:p-4 lg:p-5 [overflow-anchor:none]">
         <div className="h-full flex flex-col items-center">
-        <div className="max-w-xl w-full h-full overflow-y-auto pr-1">
+        <div className="max-w-xl w-full h-full overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none]">
           {currentStation && (
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">

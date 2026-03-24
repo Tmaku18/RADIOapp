@@ -71,6 +71,7 @@ export default function ChatSidebar() {
   const [transparentMode, setTransparentMode] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
+  const shouldStickToBottomRef = useRef(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -102,8 +103,18 @@ export default function ChatSidebar() {
     });
   }, []);
 
+  const handleMessagesScroll = useCallback(() => {
+    const viewport = messagesViewportRef.current;
+    if (!viewport) return;
+    const distanceFromBottom =
+      viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight;
+    shouldStickToBottomRef.current = distanceFromBottom < 80;
+  }, []);
+
   useEffect(() => {
-    scrollToBottom();
+    if (shouldStickToBottomRef.current) {
+      scrollToBottom();
+    }
   }, [messages, scrollToBottom]);
 
   // Load chat history and status (shared for initial load and Retry)
@@ -440,7 +451,11 @@ export default function ChatSidebar() {
         </div>
       </div>
 
-      <div ref={messagesViewportRef} className="flex-1 overflow-y-auto p-3">
+      <div
+        ref={messagesViewportRef}
+        onScroll={handleMessagesScroll}
+        className="flex-1 overflow-y-auto p-3"
+      >
         <div className="space-y-1.5">
         {isLoading ? (
           <div className="flex justify-center py-8">
