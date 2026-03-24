@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -192,7 +193,12 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground truncate">{t.artistName}</p>
+                  <Link
+                    href={`/artist/${t.artistId}`}
+                    className="text-sm text-muted-foreground truncate hover:underline"
+                  >
+                    {t.artistName}
+                  </Link>
                   <p className="text-xs text-muted-foreground truncate">
                     {formatCount(t.individualListenCount)} individual listens · {formatCount(t.likeCount)} likes
                   </p>

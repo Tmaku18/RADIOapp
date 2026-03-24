@@ -728,9 +728,12 @@ export default function SocialDiscoverSwipePage() {
                                 </div>
                               )}
                               <div className="min-w-0">
-                                <p className="font-semibold truncate">
+                                <Link
+                                  href={`/artist/${card.artistId}`}
+                                  className="font-semibold truncate block hover:underline"
+                                >
                                   {card.artistDisplayName ?? card.artistName}
-                                </p>
+                                </Link>
                                 <p className="text-xs text-white/80 truncate">
                                   {card.artistHeadline ?? 'Artist'}
                                 </p>
@@ -739,7 +742,12 @@ export default function SocialDiscoverSwipePage() {
 
                             <div>
                               <p className="text-2xl font-semibold">{card.title}</p>
-                              <p className="text-sm text-white/80">{card.artistName}</p>
+                              <Link
+                                href={`/artist/${card.artistId}`}
+                                className="text-sm text-white/80 hover:underline"
+                              >
+                                {card.artistName}
+                              </Link>
                             </div>
 
                             {isTop ? (

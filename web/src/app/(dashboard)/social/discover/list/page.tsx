@@ -150,7 +150,12 @@ export default function DiscoverListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="min-w-0">
-                      <p className="truncate">{item.artistDisplayName ?? item.artistName}</p>
+                      <Link
+                        href={`/artist/${item.artistId}`}
+                        className="truncate block hover:underline"
+                      >
+                        {item.artistDisplayName ?? item.artistName}
+                      </Link>
                       <p className="text-xs text-muted-foreground truncate">{item.artistHeadline ?? 'Artist'}</p>
                     </div>
                   </TableCell>

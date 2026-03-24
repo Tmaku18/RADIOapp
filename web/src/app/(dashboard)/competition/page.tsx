@@ -199,7 +199,9 @@ export default function CompetitionPage() {
               <div className="flex items-center gap-4">
                 <div className="text-4xl">🎤</div>
                 <div>
-                  <p className="font-semibold">{todaySpotlight.artistName}</p>
+                  <Link href={`/artist/${todaySpotlight.artistId}`} className="font-semibold hover:underline">
+                    {todaySpotlight.artistName}
+                  </Link>
                   {todaySpotlight.songTitle && <p className="text-sm text-muted-foreground">{todaySpotlight.songTitle}</p>}
                   <Link href={`/artist/${todaySpotlight.artistId}`}>
                     <Button variant="outline" size="sm" className="mt-2">View gem</Button>
@@ -257,7 +259,9 @@ export default function CompetitionPage() {
                       {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{s.title}</p>
-                        <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} radio plays</span>}
@@ -280,7 +284,9 @@ export default function CompetitionPage() {
                       {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{s.title}</p>
-                        <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
                       </div>
                       <Badge variant="secondary">
                         {s.totalListenCount ?? ((s.playCount ?? 0) + (s.profilePlayCount ?? 0))} plays
@@ -302,7 +308,9 @@ export default function CompetitionPage() {
                       {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
                       <div className="flex-1 min-w-0">
                         <p className="font-medium truncate">{s.title}</p>
-                        <p className="text-sm text-muted-foreground truncate">{s.artistName}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-xs text-muted-foreground">

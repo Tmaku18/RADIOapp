@@ -200,7 +200,11 @@ export default function JobBoardPage() {
                     <div>
                       <p className="font-medium">{req.title}</p>
                       <p className="text-sm text-muted-foreground">
-                        by {req.artistDisplayName || 'Artist'} · {req.serviceType || 'General'}
+                        by{' '}
+                        <Link href={`/artist/${req.artistId}`} className="hover:underline">
+                          {req.artistDisplayName || 'Artist'}
+                        </Link>{' '}
+                        · {req.serviceType || 'General'}
                       </p>
                     </div>
                     <Badge variant={req.status === 'open' ? 'default' : 'secondary'}>{req.status}</Badge>

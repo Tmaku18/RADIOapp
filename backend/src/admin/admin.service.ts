@@ -1248,39 +1248,63 @@ export class AdminService {
   async getAnalytics() {
     const supabase = getSupabaseClient();
 
-    // Get user counts by role
-    const { data: userCounts, error: userError } = await supabase
+    const { count: totalUsers, error: totalUsersError } = await supabase
       .from('users')
-      .select('role');
-
-    if (userError) {
+      .select('*', { count: 'exact', head: true });
+    if (totalUsersError) {
       throw new BadRequestException(
-        `Failed to fetch user analytics: ${userError.message}`,
+        `Failed to fetch user analytics: ${totalUsersError.message}`,
       );
     }
 
-    const totalUsers = userCounts?.length || 0;
-    const totalArtists =
-      userCounts?.filter((u) => u.role === 'artist').length || 0;
-    const totalListeners =
-      userCounts?.filter((u) => u.role === 'listener').length || 0;
+    const { count: totalArtists, error: totalArtistsError } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'artist');
+    if (totalArtistsError) {
+      throw new BadRequestException(
+        `Failed to fetch artist analytics: ${totalArtistsError.message}`,
+      );
+    }
 
-    // Get song counts by status
-    const { data: songCounts, error: songError } = await supabase
+    const { count: totalListeners, error: totalListenersError } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('role', 'listener');
+    if (totalListenersError) {
+      throw new BadRequestException(
+        `Failed to fetch listener analytics: ${totalListenersError.message}`,
+      );
+    }
+
+    const { count: totalSongs, error: totalSongsError } = await supabase
       .from('songs')
-      .select('status');
-
-    if (songError) {
+      .select('*', { count: 'exact', head: true });
+    if (totalSongsError) {
       throw new BadRequestException(
-        `Failed to fetch song analytics: ${songError.message}`,
+        `Failed to fetch song analytics: ${totalSongsError.message}`,
       );
     }
 
-    const totalSongs = songCounts?.length || 0;
-    const pendingSongs =
-      songCounts?.filter((s) => s.status === 'pending').length || 0;
-    const approvedSongs =
-      songCounts?.filter((s) => s.status === 'approved').length || 0;
+    const { count: pendingSongs, error: pendingSongsError } = await supabase
+      .from('songs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'pending');
+    if (pendingSongsError) {
+      throw new BadRequestException(
+        `Failed to fetch pending song analytics: ${pendingSongsError.message}`,
+      );
+    }
+
+    const { count: approvedSongs, error: approvedSongsError } = await supabase
+      .from('songs')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'approved');
+    if (approvedSongsError) {
+      throw new BadRequestException(
+        `Failed to fetch approved song analytics: ${approvedSongsError.message}`,
+      );
+    }
 
     // Get total plays
     const { count: totalPlays, error: playsError } = await supabase
@@ -1305,12 +1329,12 @@ export class AdminService {
     }
 
     return {
-      totalUsers,
-      totalArtists,
-      totalListeners,
-      totalSongs,
-      pendingSongs,
-      approvedSongs,
+      totalUsers: totalUsers || 0,
+      totalArtists: totalArtists || 0,
+      totalListeners: totalListeners || 0,
+      totalSongs: totalSongs || 0,
+      pendingSongs: pendingSongs || 0,
+      approvedSongs: approvedSongs || 0,
       totalPlays: totalPlays || 0,
       totalLikes: totalLikes || 0,
     };
