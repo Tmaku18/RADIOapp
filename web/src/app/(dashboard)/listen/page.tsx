@@ -93,7 +93,7 @@ export default function ListenPage() {
           <div className="relative flex-1 min-h-0">
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
             <Card className="relative now-playing-deck h-full overflow-hidden">
-              <CardContent className="pt-3 sm:pt-4 h-full overflow-hidden">
+              <CardContent className="pt-3 sm:pt-4 h-full min-h-0 overflow-y-auto overscroll-contain">
                 <RadioPlayer radioId={resolvedStationId} />
               </CardContent>
             </Card>
