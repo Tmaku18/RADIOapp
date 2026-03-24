@@ -1574,37 +1574,43 @@ export class SongsService {
       throw new Error(`Failed to load library songs: ${likesError.message}`);
     }
 
+    type SongJoin = {
+      id: string;
+      title: string;
+      artist_name: string;
+      artist_id: string;
+      artwork_url: string | null;
+      audio_url: string | null;
+      duration_seconds: number | null;
+      like_count: number | null;
+      play_count: number | null;
+      status: string | null;
+    };
+
     const rows = (likesRows ?? []) as Array<{
       song_id: string;
       created_at: string | null;
-      songs: {
-        id: string;
-        title: string;
-        artist_name: string;
-        artist_id: string;
-        artwork_url: string | null;
-        audio_url: string | null;
-        duration_seconds: number | null;
-        like_count: number | null;
-        play_count: number | null;
-        status: string | null;
-      } | null;
+      songs: SongJoin | SongJoin[] | null;
     }>;
 
     const librarySongs = rows
-      .filter((r) => r.songs && r.songs.status === 'approved')
-      .map((r) => ({
-        id: r.songs!.id,
-        title: r.songs!.title,
-        artistName: r.songs!.artist_name,
-        artistId: r.songs!.artist_id,
-        artworkUrl: r.songs!.artwork_url,
-        audioUrl: r.songs!.audio_url,
-        durationSeconds: r.songs!.duration_seconds ?? 180,
-        likeCount: r.songs!.like_count ?? 0,
-        playCount: r.songs!.play_count ?? 0,
-        likedAt: r.created_at ?? new Date().toISOString(),
-      }));
+      .map((r) => {
+        const song = Array.isArray(r.songs) ? (r.songs[0] ?? null) : r.songs;
+        if (!song || song.status !== 'approved') return null;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          audioUrl: song.audio_url,
+          durationSeconds: song.duration_seconds ?? 180,
+          likeCount: song.like_count ?? 0,
+          playCount: song.play_count ?? 0,
+          likedAt: r.created_at ?? new Date().toISOString(),
+        };
+      })
+      .filter((song): song is NonNullable<typeof song> => song !== null);
 
     const songIds = [...new Set(librarySongs.map((s) => s.id))];
     const fireVotesBySongId = new Map<string, number>();
