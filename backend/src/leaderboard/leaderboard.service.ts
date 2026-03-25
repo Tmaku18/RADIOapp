@@ -23,6 +23,15 @@ export type LeaderboardReaction = 'fire' | 'shit';
 
 @Injectable()
 export class LeaderboardService {
+  private isMissingLeaderboardReactionColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      (maybeError?.code === '42703' && message.includes('reaction')) ||
+      (maybeError?.code === 'PGRST204' && message.includes('reaction'))
+    );
+  }
+
   private async maybeEmitRisingStarForPlay(
     playId: string,
     songId: string,
@@ -370,10 +379,28 @@ export class LeaderboardService {
       reaction: safeReaction,
     });
     if (error) {
-      if (error.code === '23505') {
+      if (this.isMissingLeaderboardReactionColumn(error)) {
+        // Backward-compatible fallback for environments missing the reaction column.
+        const { error: legacyInsertError } = await supabase
+          .from('leaderboard_likes')
+          .insert({
+            user_id: userId,
+            song_id: songId,
+            play_id: playId,
+          });
+        if (legacyInsertError) {
+          if (legacyInsertError.code === '23505') {
+            return { liked: true, reaction: safeReaction };
+          }
+          throw new Error(
+            `Failed to record leaderboard like: ${legacyInsertError.message}`,
+          );
+        }
+      } else if (error.code === '23505') {
         return { liked: true, reaction: safeReaction };
+      } else {
+        throw new Error(`Failed to record leaderboard like: ${error.message}`);
       }
-      throw new Error(`Failed to record leaderboard like: ${error.message}`);
     }
 
     // Persist positive sentiment into the user's saved song library.
