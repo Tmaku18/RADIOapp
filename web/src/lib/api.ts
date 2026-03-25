@@ -32,7 +32,11 @@ function getClientBackendApiBases(): string[] {
 
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
-    if (host.endsWith('discovermeradio.com') || host.endsWith('networxradio.com')) {
+    if (
+      host.endsWith('discovermeradio.com') ||
+      host.endsWith('networxradio.com') ||
+      host.endsWith('pro-networx.com')
+    ) {
       candidates.push('https://networxradio.com');
     }
   }

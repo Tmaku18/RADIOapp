@@ -36,6 +36,8 @@ export const ALLOWED_CROSS_DOMAIN_HOSTS = [
   'http://localhost:3001',
   'https://www.discovermeradio.com',
   'https://discovermeradio.com',
+  'https://www.pro-networx.com',
+  'https://pro-networx.com',
 ];
 
 export function isAllowedTargetHost(host: string): boolean {

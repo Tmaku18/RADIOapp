@@ -5,23 +5,55 @@ const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
 const DISCOVERME_HOSTS = ['discovermeradio.com', 'www.discovermeradio.com'];
 const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
-const PRO_NETWORX_DOMAIN = (
-  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.discovermeradio.com'
-)
-  .trim()
-  .replace(/\/$/, '');
+function getProNetworxOrigin(): string {
+  const raw = (
+    process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com'
+  )
+    .trim()
+    .replace(/\/$/, '');
+  try {
+    const url = new URL(
+      raw.startsWith('http://') || raw.startsWith('https://')
+        ? raw
+        : `https://${raw}`,
+    );
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return 'https://www.pro-networx.com';
+  }
+}
+
+const PRO_NETWORX_DOMAIN = getProNetworxOrigin();
+
+/** pro-web on www.pro-networx.com uses /directory, /discover, etc. (no /pro-networx prefix). */
+function proNetworxUsesStandalonePaths(): boolean {
+  try {
+    const host = new URL(PRO_NETWORX_DOMAIN).hostname.toLowerCase();
+    return host === 'pro-networx.com' || host === 'www.pro-networx.com';
+  } catch {
+    return false;
+  }
+}
 
 function mapProNetworxPath(pathname: string): string {
+  const standalone = proNetworxUsesStandalonePaths();
   if (pathname === '/pro-networx' || pathname === '/pro-networx/')
-    return '/pro-networx';
-  if (pathname === '/pro-networx/directory') return '/pro-networx/directory';
-  if (pathname === '/pro-networx/feed') return '/pro-networx/feed';
-  if (pathname === '/pro-networx/onboarding') return '/pro-networx/onboarding';
+    return standalone ? '/' : '/pro-networx';
+  if (pathname === '/pro-networx/directory')
+    return standalone ? '/directory' : '/pro-networx/directory';
+  if (pathname === '/pro-networx/feed')
+    return standalone ? '/discover' : '/pro-networx/feed';
+  if (pathname === '/pro-networx/onboarding')
+    return standalone ? '/onboarding' : '/pro-networx/onboarding';
   if (pathname.startsWith('/pro-networx/u/')) {
-    return pathname;
+    return standalone
+      ? pathname.replace(/^\/pro-networx\/u\//, '/u/')
+      : pathname;
   }
   if (pathname.startsWith('/pro-networx/')) {
-    return pathname;
+    return standalone
+      ? pathname.replace(/^\/pro-networx/, '') || '/'
+      : pathname;
   }
   if (pathname === '/job-board' || pathname.startsWith('/job-board/')) {
     return '/pro-networx/directory';
@@ -48,7 +80,7 @@ export function proxy(request: NextRequest) {
     pathname === '/artist/services' ||
     pathname.startsWith('/artist/services/');
 
-  // ProNetworx/Catalyst pages are served from DiscoverMe domain.
+  // ProNetworx/Catalyst pages: redirect to standalone app (e.g. www.pro-networx.com) or legacy host.
   if (isProNetworxRoute) {
     const targetPath = mapProNetworxPath(pathname) + request.nextUrl.search;
     const proUrl = new URL(targetPath, PRO_NETWORX_DOMAIN);
@@ -63,19 +95,28 @@ export function proxy(request: NextRequest) {
 
   // Discover Me Radio domain: root resolves to ProNetworx landing.
   if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
-    const proNetworxUrl = new URL('/pro-networx/directory', PRO_NETWORX_DOMAIN);
+    const proNetworxUrl = new URL(
+      mapProNetworxPath('/pro-networx/directory'),
+      PRO_NETWORX_DOMAIN,
+    );
     return NextResponse.redirect(proNetworxUrl);
   }
 
   // On discovermeradio.com, dashboard routes to ProNetworx directory.
   if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
-    const proNetworxAppUrl = new URL('/pro-networx/directory', PRO_NETWORX_DOMAIN);
+    const proNetworxAppUrl = new URL(
+      mapProNetworxPath('/pro-networx/directory'),
+      PRO_NETWORX_DOMAIN,
+    );
     return NextResponse.redirect(proNetworxAppUrl, 302);
   }
 
   // On discovermeradio.com, profile routes to ProNetworx profile.
   if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/profile' || pathname.startsWith('/profile/'))) {
-    const proNetworxProfileUrl = new URL('/pro-networx/onboarding', PRO_NETWORX_DOMAIN);
+    const proNetworxProfileUrl = new URL(
+      mapProNetworxPath('/pro-networx/onboarding'),
+      PRO_NETWORX_DOMAIN,
+    );
     return NextResponse.redirect(proNetworxProfileUrl, 302);
   }
 

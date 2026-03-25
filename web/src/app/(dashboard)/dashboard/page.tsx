@@ -21,7 +21,7 @@ interface DashboardStats {
 type Role = 'listener' | 'artist' | 'admin' | 'service_provider';
 const PRO_NETWORX_EXTERNAL_URL =
   process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
-  'https://www.discovermeradio.com/pro-networx/directory';
+  'https://www.pro-networx.com/directory';
 
 const ROLE_HOME: Record<
   Role,
