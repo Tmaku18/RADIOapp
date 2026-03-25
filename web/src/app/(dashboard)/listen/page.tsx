@@ -67,8 +67,8 @@ export default function ListenPage() {
     <div className="relative flex h-full min-h-0 overflow-hidden">
       <ButterflyPulseOverlay active={pulseActive} />
       <div className="flex-1 min-h-0 overflow-hidden p-2 sm:p-3 lg:p-4 [overflow-anchor:none]">
-        <div className="h-full flex flex-col items-center overflow-hidden">
-        <div className="max-w-xl w-full h-full min-h-0 flex flex-col overflow-hidden [overflow-anchor:none]">
+        <div className="h-full flex flex-col items-center">
+        <div className="max-w-xl w-full h-full overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none]">
           {currentStation && (
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
@@ -90,10 +90,10 @@ export default function ListenPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">Now Playing</h1>
           </div>
 
-          <div className="relative flex-1 min-h-0">
+          <div className="relative">
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
-            <Card className="relative now-playing-deck h-full overflow-hidden">
-              <CardContent className="pt-3 sm:pt-4 h-full min-h-0 overflow-y-auto overscroll-contain">
+            <Card className="relative now-playing-deck">
+              <CardContent className="pt-3 sm:pt-4">
                 <RadioPlayer radioId={resolvedStationId} />
               </CardContent>
             </Card>
