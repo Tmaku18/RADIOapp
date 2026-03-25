@@ -97,6 +97,12 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
 
+  // New station = new listener session; avoids stale heartbeats and forces stream reload when song id matches.
+  useEffect(() => {
+    streamTokenRef.current = Math.random().toString(36).slice(2);
+    lastHeartbeatSessionIdRef.current = null;
+  }, [effectiveRadioId]);
+
   const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
 
@@ -166,7 +172,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     
     try {
       // Immediately fetch and play next track
-      const response = await radioApi.getCurrentTrack(radioId);
+      const response = await radioApi.getCurrentTrack(effectiveRadioId);
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
@@ -235,7 +241,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, [radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
+  }, [effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
 
   useEffect(() => {
     setOnRadioTrackEnded(handleTrackEnded);
@@ -332,7 +338,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             songId: state.track!.id,
             timestamp: new Date().toISOString(),
           },
-          radioId,
+          effectiveRadioId,
         );
         const res = await radioApi.sendHeartbeat(
           {
@@ -340,7 +346,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             songId: state.track!.id,
             timestamp: new Date().toISOString(),
           },
-          radioId,
+          effectiveRadioId,
         );
         if (cancelled) return;
         const sessionId = res?.data?.sessionId;
@@ -359,7 +365,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [canSendPresenceHeartbeat, state.track?.id, state.isPlaying, radioId]);
+  }, [canSendPresenceHeartbeat, state.track?.id, state.isPlaying, effectiveRadioId]);
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
@@ -370,7 +376,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     isFetchingCurrentTrackRef.current = true;
 
     try {
-      const response = await radioApi.getCurrentTrack(radioId);
+      const response = await radioApi.getCurrentTrack(effectiveRadioId);
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
@@ -430,17 +436,33 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           normalizeAudioSource(state.track.audioUrl) !==
             normalizeAudioSource(track.audioUrl);
 
-        // Reload same track only when recovering from an audio error or URL refresh.
+        const stationChanged =
+          state.source === 'radio' &&
+          !!state.track &&
+          String(state.track.radioId ?? '') !== String(track.radioId ?? '');
+
+        // Reload same song when station changes (stream URL/play id differ), on error, or URL refresh.
         const shouldReloadCurrentTrack =
           !!state.track &&
           state.track.id === track.id &&
-          (!!state.error || sameTrackDifferentSourcePath);
+          (!!state.error || sameTrackDifferentSourcePath || stationChanged);
+
+        const trackIdentityChanged = !state.track || state.track.id !== track.id;
 
         // Keep normal path strict to avoid duplicate advance from poll + ended.
-        if (!state.track || state.track.id !== track.id || shouldReloadCurrentTrack) {
+        if (trackIdentityChanged || shouldReloadCurrentTrack) {
           actions.loadTrack(track, 'radio');
           actions.syncToPosition(serverPosition);
-          if ((autoPlay && hasUserInteracted) || (shouldReloadCurrentTrack && hasUserInteracted)) {
+          const resumeAfterStationOrTrackSwitch =
+            hasUserInteracted &&
+            state.source === 'radio' &&
+            state.isPlaying &&
+            (stationChanged || trackIdentityChanged);
+          if (
+            (autoPlay && hasUserInteracted) ||
+            (shouldReloadCurrentTrack && hasUserInteracted) ||
+            resumeAfterStationOrTrackSwitch
+          ) {
             requestAnimationFrame(async () => {
               try {
                 await actions.play();
@@ -474,7 +496,18 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     } finally {
       isFetchingCurrentTrackRef.current = false;
     }
-  }, [actions, state.source, state.track, state.isLive, state.error, hasUserInteracted, radioId, effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
+  }, [
+    actions,
+    state.source,
+    state.track,
+    state.isLive,
+    state.error,
+    state.isPlaying,
+    hasUserInteracted,
+    effectiveRadioId,
+    coerceListenerCount,
+    updateTemperatureFromCounts,
+  ]);
 
   const getVoteKey = useCallback(
     (track: PlaybackTrack | null) =>
@@ -591,7 +624,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         Math.max(0, nextShitVotes),
       );
 
-      const latest = await radioApi.getCurrentTrack(radioId);
+      const latest = await radioApi.getCurrentTrack(effectiveRadioId);
       const latestTrack = latest.data;
       const latestFireVotes = coerceListenerCount(latestTrack?.fire_votes);
       const latestShitVotes = coerceListenerCount(latestTrack?.shit_votes);
