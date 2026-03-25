@@ -4,6 +4,7 @@
 -- - Each fresh fire vote contributes +1, each fresh shit vote contributes -1.
 -- - Contributions naturally decay over time (half-life).
 -- - Votes remain persisted in leaderboard_likes for ranking/history.
+-- UUID-safe for environments where songs.id is uuid.
 
 ALTER TABLE public.song_temperature
   ADD COLUMN IF NOT EXISTS decayed_fire_votes numeric(14, 4) NOT NULL DEFAULT 0,
@@ -16,7 +17,7 @@ UPDATE public.song_temperature
 SET temperature_percent = 0
 WHERE total_votes = 0;
 
-CREATE OR REPLACE FUNCTION public.refresh_song_temperature(p_song_id text)
+CREATE OR REPLACE FUNCTION public.refresh_song_temperature(p_song_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 AS $$
@@ -30,7 +31,7 @@ DECLARE
   decayed_shit numeric := 0;
   temp_percent integer := 0;
 BEGIN
-  IF p_song_id IS NULL OR length(trim(p_song_id)) = 0 THEN
+  IF p_song_id IS NULL THEN
     RETURN;
   END IF;
 

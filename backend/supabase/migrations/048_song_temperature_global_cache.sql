@@ -1,8 +1,9 @@
 -- Persisted global song temperature cache.
 -- Keeps fire/shit reaction totals per song in a globally readable table.
+-- UUID-safe for environments where songs.id is uuid.
 
 CREATE TABLE IF NOT EXISTS public.song_temperature (
-  song_id text PRIMARY KEY,
+  song_id uuid PRIMARY KEY,
   fire_votes integer NOT NULL DEFAULT 0,
   shit_votes integer NOT NULL DEFAULT 0,
   total_votes integer NOT NULL DEFAULT 0,
@@ -10,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.song_temperature (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE OR REPLACE FUNCTION public.refresh_song_temperature(p_song_id text)
+CREATE OR REPLACE FUNCTION public.refresh_song_temperature(p_song_id uuid)
 RETURNS void
 LANGUAGE plpgsql
 AS $$
@@ -20,7 +21,7 @@ DECLARE
   total_count integer := 0;
   temp_percent integer := 50;
 BEGIN
-  IF p_song_id IS NULL OR length(trim(p_song_id)) = 0 THEN
+  IF p_song_id IS NULL THEN
     RETURN;
   END IF;
 
