@@ -1886,6 +1886,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
+    void this.pushNotificationService
+      .notifyFollowersArtistOnRadio({
+        artistId: song.artist_id,
+        artistName: song.artist_name ?? 'Artist',
+        songId: song.id,
+        songTitle: song.title ?? 'A song',
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+        ),
+      );
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -1990,6 +2002,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
+    void this.pushNotificationService
+      .notifyFollowersArtistOnRadio({
+        artistId: song.artist_id,
+        artistName: song.artist_name ?? 'Artist',
+        songId: song.id,
+        songTitle: song.title ?? 'A song',
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+        ),
+      );
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -2091,6 +2115,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
+    void this.pushNotificationService
+      .notifyFollowersArtistOnRadio({
+        artistId: song.artist_id,
+        artistName: song.artist_name ?? 'Artist',
+        songId: song.id,
+        songTitle: song.title ?? 'A song',
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+        ),
+      );
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -2186,6 +2222,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           last_played_at: startedAt,
         })
         .eq('id', song.id);
+      if (song.artist_id) {
+        void this.pushNotificationService
+          .notifyFollowersArtistOnRadio({
+            artistId: song.artist_id,
+            artistName: song.artist_name ?? 'Artist',
+            songId: song.id,
+            songTitle: song.title ?? 'A song',
+          })
+          .catch((e) =>
+            this.logger.warn(
+              `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+            ),
+          );
+      }
     }
 
     const durationMs = durationSeconds * 1000;

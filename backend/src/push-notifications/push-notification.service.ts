@@ -25,6 +25,13 @@ interface ArtistLiveFanoutDto {
   songId?: string;
 }
 
+interface ArtistSongOnRadioFanoutDto {
+  artistId: string;
+  artistName: string;
+  songId: string;
+  songTitle: string;
+}
+
 /**
  * Push Notification Service implementing Two-Stage Hybrid Pattern
  *
@@ -49,6 +56,20 @@ export class PushNotificationService {
   private pendingNotifications: Map<string, NodeJS.Timeout> = new Map();
 
   constructor(private readonly notificationService: NotificationService) {}
+
+  private isMissingUserFollowsTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      (maybeError?.code === '42P01' &&
+        (message.includes('user_follows') ||
+          message.includes('public.user_follows'))) ||
+      (maybeError?.code === 'PGRST205' &&
+        (message.includes("'public.user_follows'") ||
+          message.includes("'user_follows'") ||
+          message.includes('user_follows')))
+    );
+  }
 
   /**
    * Stage 1: Schedule "Up Next" notification with debounce
@@ -393,6 +414,79 @@ export class PushNotificationService {
     );
 
     return { notified: successCount };
+  }
+
+  /**
+   * Notify followers when an artist's song is currently playing on radio.
+   */
+  async notifyFollowersArtistOnRadio(
+    dto: ArtistSongOnRadioFanoutDto,
+  ): Promise<{ notified: number; followers: number }> {
+    const supabase = getSupabaseClient();
+
+    const { data: followRows, error: followError } = await supabase
+      .from('user_follows')
+      .select('follower_user_id')
+      .eq('followed_user_id', dto.artistId);
+
+    let followerIds = new Set(
+      (followRows || [])
+        .map((row: any) => row.follower_user_id as string)
+        .filter(Boolean),
+    );
+
+    if (followError && this.isMissingUserFollowsTable(followError)) {
+      const { data: legacyRows, error: legacyError } = await supabase
+        .from('artist_follows')
+        .select('user_id')
+        .eq('artist_id', dto.artistId);
+      if (legacyError) {
+        this.logger.warn(
+          `Failed to load artist followers for fanout: ${legacyError.message}`,
+        );
+        return { notified: 0, followers: 0 };
+      }
+      followerIds = new Set(
+        (legacyRows || [])
+          .map((row: any) => row.user_id as string)
+          .filter(Boolean),
+      );
+    } else if (followError) {
+      this.logger.warn(
+        `Failed to load user followers for fanout: ${followError.message}`,
+      );
+      return { notified: 0, followers: 0 };
+    }
+
+    // Never notify the artist about following themselves.
+    followerIds.delete(dto.artistId);
+    if (followerIds.size === 0) {
+      return { notified: 0, followers: 0 };
+    }
+
+    const title = `${dto.artistName} is on the radio now`;
+    const body = `"${dto.songTitle}" is playing now. Join the radio stream.`;
+
+    let notified = 0;
+    await Promise.allSettled(
+      [...followerIds].map(async (userId) => {
+        const sent = await this.sendPushNotification({
+          userId,
+          title,
+          body,
+          data: {
+            type: 'artist_song_on_radio',
+            artistId: dto.artistId,
+            songId: dto.songId,
+            action: 'open_radio',
+            route: '/listen',
+          },
+        });
+        if (sent) notified += 1;
+      }),
+    );
+
+    return { notified, followers: followerIds.size };
   }
 
   /**
