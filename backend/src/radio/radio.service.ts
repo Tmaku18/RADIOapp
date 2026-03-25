@@ -222,6 +222,26 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private isMissingSongTemperatureTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      (maybeError?.code === '42P01' && message.includes('song_temperature')) ||
+      (maybeError?.code === 'PGRST205' && message.includes('song_temperature'))
+    );
+  }
+
+  private isMissingRefreshSongTemperatureFunction(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      (maybeError?.code === '42883' &&
+        message.includes('refresh_song_temperature')) ||
+      (maybeError?.code === 'PGRST202' &&
+        message.includes('refresh_song_temperature'))
+    );
+  }
+
   private async getSongTemperature(args: {
     playId?: string | null;
     songId: string;
@@ -234,6 +254,59 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }> {
     const supabase = getSupabaseClient();
     const playId = args.playId?.trim();
+
+    // Lazily refresh persisted cache so temperature decays naturally over time.
+    const refreshRes = await supabase.rpc('refresh_song_temperature', {
+      p_song_id: args.songId,
+    });
+    if (
+      refreshRes.error &&
+      !this.isMissingSongTemperatureTable(refreshRes.error) &&
+      !this.isMissingRefreshSongTemperatureFunction(refreshRes.error)
+    ) {
+      this.logger.warn(
+        `Failed to refresh song_temperature cache: ${refreshRes.error.message}`,
+      );
+    }
+
+    // Preferred source of truth: persisted global song temperature cache.
+    const songTemperatureRes = await supabase
+      .from('song_temperature')
+      .select('fire_votes, shit_votes, total_votes, temperature_percent')
+      .eq('song_id', args.songId)
+      .maybeSingle();
+    if (!songTemperatureRes.error && songTemperatureRes.data) {
+      const row = songTemperatureRes.data as {
+        fire_votes?: number | null;
+        shit_votes?: number | null;
+        total_votes?: number | null;
+        temperature_percent?: number | null;
+      };
+      const fireVotes = Math.max(0, Number(row.fire_votes ?? 0) || 0);
+      const shitVotes = Math.max(0, Number(row.shit_votes ?? 0) || 0);
+      const totalVotes =
+        Math.max(0, Number(row.total_votes ?? fireVotes + shitVotes) || 0) ||
+        fireVotes + shitVotes;
+      const temperaturePercent = Number.isFinite(
+        row.temperature_percent as number,
+      )
+        ? Math.max(
+            0,
+            Math.min(100, Math.round(Number(row.temperature_percent))),
+          )
+        : totalVotes > 0
+          ? Math.round((fireVotes / totalVotes) * 100)
+          : 0;
+      return { fireVotes, shitVotes, totalVotes, temperaturePercent };
+    }
+    if (
+      songTemperatureRes.error &&
+      !this.isMissingSongTemperatureTable(songTemperatureRes.error)
+    ) {
+      this.logger.warn(
+        `Failed to load song_temperature cache: ${songTemperatureRes.error.message}`,
+      );
+    }
 
     let rows: Array<{ reaction?: 'fire' | 'shit' | null }> | null | undefined =
       null;
@@ -275,7 +348,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           fireVotes,
           shitVotes: 0,
           totalVotes: fireVotes,
-          temperaturePercent: fireVotes > 0 ? 100 : 50,
+          temperaturePercent: fireVotes > 0 ? 100 : 0,
         };
       }
       let fallbackQuery = supabase
@@ -291,7 +364,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         fireVotes,
         shitVotes: 0,
         totalVotes: fireVotes,
-        temperaturePercent: fireVotes > 0 ? 100 : 50,
+        temperaturePercent: fireVotes > 0 ? 100 : 0,
       };
     }
 
@@ -301,7 +374,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         fireVotes: 0,
         shitVotes: 0,
         totalVotes: 0,
-        temperaturePercent: 50,
+        temperaturePercent: 0,
       };
     }
 
@@ -313,7 +386,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     ).length;
     const totalVotes = fireVotes + shitVotes;
     const temperaturePercent =
-      totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 50;
+      totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 0;
     return { fireVotes, shitVotes, totalVotes, temperaturePercent };
   }
 
@@ -1917,7 +1990,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 50,
+      temperature_percent: 0,
     };
   }
 
@@ -2034,7 +2107,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 50,
+      temperature_percent: 0,
     };
   }
 
@@ -2145,7 +2218,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 50,
+      temperature_percent: 0,
     };
   }
 
@@ -2263,7 +2336,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 50,
+      temperature_percent: 0,
     };
   }
 
@@ -2294,7 +2367,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 50,
+      temperature_percent: 0,
     };
   }
 

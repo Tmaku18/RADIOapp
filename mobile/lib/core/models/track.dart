@@ -55,7 +55,7 @@ class Track {
     this.timeRemainingMs = 0,
     this.fireVotes = 0,
     this.shitVotes = 0,
-    this.temperaturePercent = 50,
+    this.temperaturePercent = 0,
     this.pinnedCatalysts = const [],
   });
 
@@ -132,17 +132,17 @@ class Track {
                 ) ??
                 0,
       temperaturePercent:
-          (json['temperature_percent'] ?? json['temperaturePercent'] ?? 50)
+          (json['temperature_percent'] ?? json['temperaturePercent'] ?? 0)
               is int
-          ? (json['temperature_percent'] ?? json['temperaturePercent'] ?? 50)
+          ? (json['temperature_percent'] ?? json['temperaturePercent'] ?? 0)
                 as int
           : int.tryParse(
                   (json['temperature_percent'] ??
                           json['temperaturePercent'] ??
-                          '50')
+                          '0')
                       .toString(),
                 ) ??
-                50,
+                0,
       pinnedCatalysts: pinned,
     );
   }

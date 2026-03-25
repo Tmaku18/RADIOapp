@@ -10,12 +10,22 @@ export class LeaderboardController {
 
   @Get('songs')
   async getSongs(
-    @Query('by') by: 'likes' | 'listens' = 'likes',
+    @Query('by')
+    by: 'likes' | 'listens' | 'positive_votes' | 'ratio' | 'saves' = 'likes',
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string,
   ) {
     const limit = Math.min(parseInt(limitStr || '50', 10) || 50, 100);
     const offset = Math.max(0, parseInt(offsetStr || '0', 10) || 0);
+    if (by === 'positive_votes') {
+      return this.leaderboardService.getSongsByPositiveVotes(limit, offset);
+    }
+    if (by === 'ratio') {
+      return this.leaderboardService.getSongsByLikeDislikeRatio(limit, offset);
+    }
+    if (by === 'saves') {
+      return this.leaderboardService.getSongsBySaves(limit, offset);
+    }
     if (by === 'listens') {
       return this.leaderboardService.getSongsByListens(limit, offset);
     }

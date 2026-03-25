@@ -511,7 +511,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       final totalVotes = fireVotes + shitVotes;
       final temperaturePercent = totalVotes > 0
           ? ((fireVotes / totalVotes) * 100).round()
-          : 50;
+          : 0;
 
       if (!mounted) return;
       setState(() {
@@ -653,7 +653,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                         fireVotes: _currentTrack?.fireVotes ?? 0,
                         shitVotes: _currentTrack?.shitVotes ?? 0,
                         temperaturePercent:
-                            _currentTrack?.temperaturePercent ?? 50,
+                            _currentTrack?.temperaturePercent ?? 0,
                         onReact: _react,
                         onPlayPause: _togglePlayPause,
                         onEnterRoom: () => _openRoom(providerContext),

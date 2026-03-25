@@ -17,6 +17,10 @@ export interface LeaderboardSong {
   likesInWindow?: number;
   playsInWindow?: number;
   upvotesPerMinute?: number;
+  positiveVotes?: number;
+  negativeVotes?: number;
+  positiveRatio?: number;
+  saveCount?: number;
 }
 
 export type LeaderboardReaction = 'fire' | 'shit';
@@ -33,6 +37,29 @@ export class LeaderboardService {
       (maybeError?.code === '42703' && message.includes('reaction')) ||
       (maybeError?.code === 'PGRST204' && message.includes('reaction'))
     );
+  }
+
+  private async refreshSongTemperatureCache(songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const result = await supabase.rpc('refresh_song_temperature', {
+      p_song_id: songId,
+    });
+    if (result.error) {
+      const message = (result.error.message ?? '').toLowerCase();
+      const missingFunction =
+        result.error.code === '42883' ||
+        (result.error.code === 'PGRST202' &&
+          message.includes('refresh_song_temperature'));
+      const missingTable =
+        result.error.code === '42P01' ||
+        (result.error.code === 'PGRST205' &&
+          message.includes('song_temperature'));
+      if (!missingFunction && !missingTable) {
+        throw new Error(
+          `Failed to refresh song temperature cache: ${result.error.message}`,
+        );
+      }
+    }
   }
 
   private async maybeEmitRisingStarForPlay(
@@ -266,6 +293,255 @@ export class LeaderboardService {
     });
   }
 
+  private async getApprovedSongsBase(): Promise<
+    Array<{
+      id: string;
+      title: string;
+      artist_name: string;
+      artist_id: string;
+      artwork_url: string | null;
+      play_count: number | null;
+      profile_play_count: number | null;
+      like_count: number | null;
+    }>
+  > {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count',
+      )
+      .eq('status', 'approved');
+    if (error) {
+      throw new Error(`Failed to fetch leaderboard songs: ${error.message}`);
+    }
+    return (data ?? []) as Array<{
+      id: string;
+      title: string;
+      artist_name: string;
+      artist_id: string;
+      artwork_url: string | null;
+      play_count: number | null;
+      profile_play_count: number | null;
+      like_count: number | null;
+    }>;
+  }
+
+  private async getReactionStatsBySongId(): Promise<
+    Map<string, { fireVotes: number; shitVotes: number; totalVotes: number }>
+  > {
+    const supabase = getSupabaseClient();
+    const stats = new Map<
+      string,
+      { fireVotes: number; shitVotes: number; totalVotes: number }
+    >();
+
+    const songTemperatureRes = await supabase
+      .from('song_temperature')
+      .select('song_id, fire_votes, shit_votes, total_votes');
+    if (!songTemperatureRes.error && songTemperatureRes.data) {
+      for (const row of songTemperatureRes.data as Array<{
+        song_id: string;
+        fire_votes: number | null;
+        shit_votes: number | null;
+        total_votes: number | null;
+      }>) {
+        const fireVotes = Math.max(0, Number(row.fire_votes ?? 0) || 0);
+        const shitVotes = Math.max(0, Number(row.shit_votes ?? 0) || 0);
+        const totalVotes = Math.max(
+          0,
+          Number(row.total_votes ?? fireVotes + shitVotes) || 0,
+        );
+        stats.set(row.song_id, {
+          fireVotes,
+          shitVotes,
+          totalVotes: totalVotes || fireVotes + shitVotes,
+        });
+      }
+      return stats;
+    }
+
+    const { data: rows, error } = await supabase
+      .from('leaderboard_likes')
+      .select('song_id, reaction');
+    if (error) {
+      throw new Error(`Failed to fetch reaction stats: ${error.message}`);
+    }
+    for (const row of (rows ?? []) as Array<{
+      song_id: string;
+      reaction: LeaderboardReaction | null;
+    }>) {
+      const current = stats.get(row.song_id) ?? {
+        fireVotes: 0,
+        shitVotes: 0,
+        totalVotes: 0,
+      };
+      if (row.reaction === 'shit') {
+        current.shitVotes += 1;
+      } else {
+        current.fireVotes += 1;
+      }
+      current.totalVotes += 1;
+      stats.set(row.song_id, current);
+    }
+    return stats;
+  }
+
+  private async getSaveCountsBySongId(): Promise<Map<string, number>> {
+    const supabase = getSupabaseClient();
+    const counts = new Map<string, number>();
+    const { data, error } = await supabase.from('likes').select('song_id');
+    if (error) {
+      throw new Error(`Failed to fetch save stats: ${error.message}`);
+    }
+    for (const row of (data ?? []) as Array<{ song_id: string }>) {
+      counts.set(row.song_id, (counts.get(row.song_id) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  async getSongsByPositiveVotes(
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
+    const [songs, reactionStats, saveCounts] = await Promise.all([
+      this.getApprovedSongsBase(),
+      this.getReactionStatsBySongId(),
+      this.getSaveCountsBySongId(),
+    ]);
+
+    const ranked = songs
+      .map((song) => {
+        const stats = reactionStats.get(song.id) ?? {
+          fireVotes: 0,
+          shitVotes: 0,
+          totalVotes: 0,
+        };
+        const positiveRatio =
+          stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
+        const playCount = song.play_count ?? 0;
+        const profilePlayCount = song.profile_play_count ?? 0;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          playCount,
+          profilePlayCount,
+          totalListenCount: playCount + profilePlayCount,
+          likeCount: saveCounts.get(song.id) ?? song.like_count ?? 0,
+          saveCount: saveCounts.get(song.id) ?? song.like_count ?? 0,
+          positiveVotes: stats.fireVotes,
+          negativeVotes: stats.shitVotes,
+          positiveRatio: Number(positiveRatio.toFixed(4)),
+        } satisfies LeaderboardSong;
+      })
+      .sort(
+        (a, b) =>
+          (b.positiveVotes ?? 0) - (a.positiveVotes ?? 0) ||
+          (b.positiveRatio ?? 0) - (a.positiveRatio ?? 0) ||
+          (b.saveCount ?? 0) - (a.saveCount ?? 0),
+      );
+
+    return ranked.slice(offset, offset + limit);
+  }
+
+  async getSongsByLikeDislikeRatio(
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
+    const [songs, reactionStats, saveCounts] = await Promise.all([
+      this.getApprovedSongsBase(),
+      this.getReactionStatsBySongId(),
+      this.getSaveCountsBySongId(),
+    ]);
+
+    const ranked = songs
+      .map((song) => {
+        const stats = reactionStats.get(song.id) ?? {
+          fireVotes: 0,
+          shitVotes: 0,
+          totalVotes: 0,
+        };
+        const positiveRatio =
+          stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
+        const playCount = song.play_count ?? 0;
+        const profilePlayCount = song.profile_play_count ?? 0;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          playCount,
+          profilePlayCount,
+          totalListenCount: playCount + profilePlayCount,
+          likeCount: saveCounts.get(song.id) ?? song.like_count ?? 0,
+          saveCount: saveCounts.get(song.id) ?? song.like_count ?? 0,
+          positiveVotes: stats.fireVotes,
+          negativeVotes: stats.shitVotes,
+          positiveRatio: Number(positiveRatio.toFixed(4)),
+        } satisfies LeaderboardSong;
+      })
+      .sort(
+        (a, b) =>
+          (b.positiveRatio ?? 0) - (a.positiveRatio ?? 0) ||
+          (b.positiveVotes ?? 0) - (a.positiveVotes ?? 0) ||
+          (b.saveCount ?? 0) - (a.saveCount ?? 0),
+      );
+
+    return ranked.slice(offset, offset + limit);
+  }
+
+  async getSongsBySaves(
+    limit: number,
+    offset: number,
+  ): Promise<LeaderboardSong[]> {
+    const [songs, reactionStats, saveCounts] = await Promise.all([
+      this.getApprovedSongsBase(),
+      this.getReactionStatsBySongId(),
+      this.getSaveCountsBySongId(),
+    ]);
+
+    const ranked = songs
+      .map((song) => {
+        const stats = reactionStats.get(song.id) ?? {
+          fireVotes: 0,
+          shitVotes: 0,
+          totalVotes: 0,
+        };
+        const positiveRatio =
+          stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
+        const playCount = song.play_count ?? 0;
+        const profilePlayCount = song.profile_play_count ?? 0;
+        const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          playCount,
+          profilePlayCount,
+          totalListenCount: playCount + profilePlayCount,
+          likeCount: saveCount,
+          saveCount,
+          positiveVotes: stats.fireVotes,
+          negativeVotes: stats.shitVotes,
+          positiveRatio: Number(positiveRatio.toFixed(4)),
+        } satisfies LeaderboardSong;
+      })
+      .sort(
+        (a, b) =>
+          (b.saveCount ?? 0) - (a.saveCount ?? 0) ||
+          (b.positiveVotes ?? 0) - (a.positiveVotes ?? 0) ||
+          (b.positiveRatio ?? 0) - (a.positiveRatio ?? 0),
+      );
+
+    return ranked.slice(offset, offset + limit);
+  }
+
   /**
    * Record a leaderboard like (one per user per play). Idempotent if same user + play_id.
    */
@@ -357,6 +633,7 @@ export class LeaderboardService {
             }
           }
         }
+        await this.refreshSongTemperatureCache(songId);
         return {
           liked: true,
           reaction: safeReaction,
@@ -444,6 +721,7 @@ export class LeaderboardService {
             }
           }
         }
+        await this.refreshSongTemperatureCache(songId);
         return {
           liked: true,
           reaction: safeReaction,
@@ -472,6 +750,7 @@ export class LeaderboardService {
           });
         if (legacyInsertError) {
           if (legacyInsertError.code === '23505') {
+            await this.refreshSongTemperatureCache(songId);
             return { liked: true, reaction: safeReaction };
           }
           throw new Error(
@@ -479,6 +758,7 @@ export class LeaderboardService {
           );
         }
       } else if (error.code === '23505') {
+        await this.refreshSongTemperatureCache(songId);
         return { liked: true, reaction: safeReaction };
       } else {
         throw new Error(`Failed to record leaderboard like: ${error.message}`);
@@ -510,6 +790,7 @@ export class LeaderboardService {
       // Best-effort Rising Star: only emits once per play due to unique index.
       void this.maybeEmitRisingStarForPlay(playId, songId);
     }
+    await this.refreshSongTemperatureCache(songId);
     return { liked: true, reaction: safeReaction };
   }
 }

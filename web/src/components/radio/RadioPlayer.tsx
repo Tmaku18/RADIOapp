@@ -70,7 +70,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [listenerCount, setListenerCount] = useState(0);
   const [fireVotes, setFireVotes] = useState(0);
   const [shitVotes, setShitVotes] = useState(0);
-  const [temperaturePercent, setTemperaturePercent] = useState(50);
+  const [temperaturePercent, setTemperaturePercent] = useState(0);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [noContent, setNoContent] = useState(false);
@@ -155,7 +155,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     const total = Math.max(0, nextFireVotes) + Math.max(0, nextShitVotes);
     setFireVotes(Math.max(0, nextFireVotes));
     setShitVotes(Math.max(0, nextShitVotes));
-    setTemperaturePercent(total > 0 ? Math.round((Math.max(0, nextFireVotes) / total) * 100) : 50);
+    setTemperaturePercent(total > 0 ? Math.round((Math.max(0, nextFireVotes) / total) * 100) : 0);
   }, []);
 
   // Callback for when track ends - immediately fetch next track

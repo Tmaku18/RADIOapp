@@ -370,7 +370,13 @@ export const suggestionsApi = {
 };
 
 export const leaderboardApi = {
-  getSongs: (params: { by: 'likes' | 'listens'; limit?: number; offset?: number }) => 
+  getSongs: (
+    params: {
+      by: 'likes' | 'listens' | 'positive_votes' | 'ratio' | 'saves';
+      limit?: number;
+      offset?: number;
+    },
+  ) => 
     api.get('/leaderboard/songs', { params }),
   getUpvotesPerMinute: (params?: { windowMinutes?: number; limit?: number; offset?: number }) =>
     api.get('/leaderboard/upvotes-per-minute', { params }),

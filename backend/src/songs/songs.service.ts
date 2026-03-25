@@ -1681,6 +1681,7 @@ export class SongsService {
     const likeCountsBySongId = new Map<string, number>();
     const fireVotesBySongId = new Map<string, number>();
     const shitVotesBySongId = new Map<string, number>();
+    const temperatureBySongId = new Map<string, number>();
 
     if (songIds.length > 0) {
       const { data: likeRows, error: likesCountError } = await supabase
@@ -1699,29 +1700,62 @@ export class SongsService {
         );
       }
 
-      const { data: reactionsRows, error: reactionsError } = await supabase
-        .from('leaderboard_likes')
-        .select('song_id, reaction')
+      const { data: temperatureRows, error: temperatureError } = await supabase
+        .from('song_temperature')
+        .select('song_id, fire_votes, shit_votes, temperature_percent')
         .in('song_id', songIds);
-      if (reactionsError) {
+      const missingSongTemperatureTable =
+        temperatureError &&
+        (temperatureError.code === '42P01' ||
+          temperatureError.code === 'PGRST205');
+      if (!temperatureError && temperatureRows) {
+        for (const row of temperatureRows as Array<{
+          song_id: string;
+          fire_votes: number | null;
+          shit_votes: number | null;
+          temperature_percent: number | null;
+        }>) {
+          fireVotesBySongId.set(row.song_id, Number(row.fire_votes ?? 0) || 0);
+          shitVotesBySongId.set(row.song_id, Number(row.shit_votes ?? 0) || 0);
+          temperatureBySongId.set(
+            row.song_id,
+            Number.isFinite(row.temperature_percent as number)
+              ? Math.max(
+                  0,
+                  Math.min(100, Math.round(Number(row.temperature_percent))),
+                )
+              : 0,
+          );
+        }
+      } else if (temperatureError && !missingSongTemperatureTable) {
         throw new Error(
-          `Failed to load song temperatures: ${reactionsError.message}`,
+          `Failed to load song temperatures: ${temperatureError.message}`,
         );
-      }
-      for (const row of (reactionsRows ?? []) as Array<{
-        song_id: string;
-        reaction: string | null;
-      }>) {
-        if (row.reaction === 'shit') {
-          shitVotesBySongId.set(
-            row.song_id,
-            (shitVotesBySongId.get(row.song_id) ?? 0) + 1,
+      } else {
+        const { data: reactionsRows, error: reactionsError } = await supabase
+          .from('leaderboard_likes')
+          .select('song_id, reaction')
+          .in('song_id', songIds);
+        if (reactionsError) {
+          throw new Error(
+            `Failed to load song temperatures: ${reactionsError.message}`,
           );
-        } else {
-          fireVotesBySongId.set(
-            row.song_id,
-            (fireVotesBySongId.get(row.song_id) ?? 0) + 1,
-          );
+        }
+        for (const row of (reactionsRows ?? []) as Array<{
+          song_id: string;
+          reaction: string | null;
+        }>) {
+          if (row.reaction === 'shit') {
+            shitVotesBySongId.set(
+              row.song_id,
+              (shitVotesBySongId.get(row.song_id) ?? 0) + 1,
+            );
+          } else {
+            fireVotesBySongId.set(
+              row.song_id,
+              (fireVotesBySongId.get(row.song_id) ?? 0) + 1,
+            );
+          }
         }
       }
     }
@@ -1736,7 +1770,8 @@ export class SongsService {
         fireVotes,
         shitVotes,
         temperaturePercent:
-          totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 50,
+          temperatureBySongId.get(song.id) ??
+          (totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 0),
       };
     });
   }
