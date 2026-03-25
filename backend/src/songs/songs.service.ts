@@ -1613,10 +1613,27 @@ export class SongsService {
       .filter((song): song is NonNullable<typeof song> => song !== null);
 
     const songIds = [...new Set(librarySongs.map((s) => s.id))];
+    const likeCountsBySongId = new Map<string, number>();
     const fireVotesBySongId = new Map<string, number>();
     const shitVotesBySongId = new Map<string, number>();
 
     if (songIds.length > 0) {
+      const { data: likeRows, error: likesCountError } = await supabase
+        .from('likes')
+        .select('song_id')
+        .in('song_id', songIds);
+      if (likesCountError) {
+        throw new Error(
+          `Failed to load library like counts: ${likesCountError.message}`,
+        );
+      }
+      for (const row of (likeRows ?? []) as Array<{ song_id: string }>) {
+        likeCountsBySongId.set(
+          row.song_id,
+          (likeCountsBySongId.get(row.song_id) ?? 0) + 1,
+        );
+      }
+
       const { data: reactionsRows, error: reactionsError } = await supabase
         .from('leaderboard_likes')
         .select('song_id, reaction')
@@ -1650,6 +1667,7 @@ export class SongsService {
       const totalVotes = fireVotes + shitVotes;
       return {
         ...song,
+        likeCount: likeCountsBySongId.get(song.id) ?? song.likeCount,
         fireVotes,
         shitVotes,
         temperaturePercent:

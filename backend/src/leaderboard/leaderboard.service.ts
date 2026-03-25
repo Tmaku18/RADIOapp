@@ -277,12 +277,38 @@ export class LeaderboardService {
       reaction === 'shit' ? 'shit' : 'fire';
 
     if (playId) {
-      const { data: existing } = await supabase
+      let existing:
+        | { id: string; reaction?: LeaderboardReaction | null }
+        | null
+        | undefined = null;
+      const existingRes = await supabase
         .from('leaderboard_likes')
         .select('id, reaction')
         .eq('user_id', userId)
         .eq('play_id', playId)
         .single();
+      if (
+        existingRes.error &&
+        this.isMissingLeaderboardReactionColumn(existingRes.error)
+      ) {
+        const legacyExistingRes = await supabase
+          .from('leaderboard_likes')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('play_id', playId)
+          .single();
+        existing = legacyExistingRes.data
+          ? ({ id: (legacyExistingRes.data as { id: string }).id } as {
+              id: string;
+              reaction?: LeaderboardReaction | null;
+            })
+          : null;
+      } else {
+        existing = existingRes.data as
+          | { id: string; reaction?: LeaderboardReaction | null }
+          | null
+          | undefined;
+      }
       if (existing) {
         const existingReaction =
           (existing as { reaction?: LeaderboardReaction | null }).reaction ??
@@ -292,7 +318,12 @@ export class LeaderboardService {
             .from('leaderboard_likes')
             .update({ reaction: safeReaction })
             .eq('id', (existing as { id: string }).id);
-          if (updateError) {
+          if (
+            updateError &&
+            this.isMissingLeaderboardReactionColumn(updateError)
+          ) {
+            // Legacy schema has no reaction column; keep existing vote.
+          } else if (updateError) {
             throw new Error(
               `Failed to update leaderboard reaction: ${updateError.message}`,
             );
@@ -323,7 +354,11 @@ export class LeaderboardService {
         };
       }
     } else {
-      const { data: existingSongVote } = await supabase
+      let existingSongVote:
+        | { id: string; reaction?: LeaderboardReaction | null }
+        | null
+        | undefined = null;
+      const existingSongVoteRes = await supabase
         .from('leaderboard_likes')
         .select('id, reaction')
         .eq('user_id', userId)
@@ -331,6 +366,30 @@ export class LeaderboardService {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (
+        existingSongVoteRes.error &&
+        this.isMissingLeaderboardReactionColumn(existingSongVoteRes.error)
+      ) {
+        const legacySongVoteRes = await supabase
+          .from('leaderboard_likes')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('song_id', songId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        existingSongVote = legacySongVoteRes.data
+          ? ({ id: (legacySongVoteRes.data as { id: string }).id } as {
+              id: string;
+              reaction?: LeaderboardReaction | null;
+            })
+          : null;
+      } else {
+        existingSongVote = existingSongVoteRes.data as
+          | { id: string; reaction?: LeaderboardReaction | null }
+          | null
+          | undefined;
+      }
       if (existingSongVote) {
         const existingReaction =
           (existingSongVote as { reaction?: LeaderboardReaction | null })
@@ -340,7 +399,12 @@ export class LeaderboardService {
             .from('leaderboard_likes')
             .update({ reaction: safeReaction })
             .eq('id', (existingSongVote as { id: string }).id);
-          if (updateError) {
+          if (
+            updateError &&
+            this.isMissingLeaderboardReactionColumn(updateError)
+          ) {
+            // Legacy schema has no reaction column; keep existing vote.
+          } else if (updateError) {
             throw new Error(
               `Failed to update leaderboard reaction: ${updateError.message}`,
             );
