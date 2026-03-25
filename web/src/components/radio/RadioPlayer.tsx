@@ -853,7 +853,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             />
           </div>
           <div className="mt-2 flex items-center justify-between text-xs">
-            <span className="text-cyan-300">🧊 {shitVotes}</span>
+            <span>💩 {shitVotes}</span>
             <span>🔥 {fireVotes}</span>
           </div>
         </div>
@@ -890,12 +890,12 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             disabled={!state.track || isVoting || state.source !== 'radio'}
             className={`h-12 w-12 rounded-full text-2xl transition ${
               selectedReaction === 'shit'
-                ? 'bg-cyan-500/20 ring-2 ring-cyan-400'
-                : 'bg-muted/40 hover:bg-cyan-500/10'
+                ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
+                : 'bg-muted/40 hover:bg-emerald-600/10'
             } disabled:opacity-50`}
-            title="Ice reaction (negative)"
+            title="Shit reaction"
           >
-            🧊
+            💩
           </button>
 
           {/* Pause/Resume Button (Soft Pause) */}

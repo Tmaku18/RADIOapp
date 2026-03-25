@@ -1278,11 +1278,7 @@ class _PlayerBody extends StatelessWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '🧊 $shitVotes',
-                          style: Theme.of(context).textTheme.bodyMedium
-                              ?.copyWith(color: Colors.lightBlueAccent),
-                        ),
+                        Text('💩 $shitVotes'),
                         Text('🔥 $fireVotes'),
                       ],
                     ),
@@ -1316,7 +1312,7 @@ class _PlayerBody extends StatelessWidget {
                             height: 18,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Text('🧊'),
+                        : const Text('💩'),
                   ),
                   const SizedBox(width: 6),
                   FilledButton.tonal(
