@@ -1548,24 +1548,7 @@ export class SongsService {
 
     const { data: likesRows, error: likesError } = await supabase
       .from('likes')
-      .select(
-        `
-        song_id,
-        created_at,
-        songs:song_id (
-          id,
-          title,
-          artist_name,
-          artist_id,
-          artwork_url,
-          audio_url,
-          duration_seconds,
-          like_count,
-          play_count,
-          status
-        )
-      `,
-      )
+      .select('song_id, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500);
@@ -1574,7 +1557,7 @@ export class SongsService {
       throw new Error(`Failed to load library songs: ${likesError.message}`);
     }
 
-    type SongJoin = {
+    type SongRow = {
       id: string;
       title: string;
       artist_name: string;
@@ -1590,12 +1573,39 @@ export class SongsService {
     const rows = (likesRows ?? []) as Array<{
       song_id: string;
       created_at: string | null;
-      songs: SongJoin | SongJoin[] | null;
     }>;
+
+    const likedAtBySongId = new Map<string, string>();
+    for (const row of rows) {
+      if (!likedAtBySongId.has(row.song_id)) {
+        likedAtBySongId.set(
+          row.song_id,
+          row.created_at ?? new Date().toISOString(),
+        );
+      }
+    }
+    const orderedSongIds = rows.map((r) => r.song_id);
+    const uniqueSongIds = [...new Set(orderedSongIds)];
+
+    const songsById = new Map<string, SongRow>();
+    if (uniqueSongIds.length > 0) {
+      const { data: songRows, error: songsError } = await supabase
+        .from('songs')
+        .select(
+          'id, title, artist_name, artist_id, artwork_url, audio_url, duration_seconds, like_count, play_count, status',
+        )
+        .in('id', uniqueSongIds);
+      if (songsError) {
+        throw new Error(`Failed to load library songs: ${songsError.message}`);
+      }
+      for (const song of (songRows ?? []) as SongRow[]) {
+        songsById.set(song.id, song);
+      }
+    }
 
     const librarySongs = rows
       .map((r) => {
-        const song = Array.isArray(r.songs) ? (r.songs[0] ?? null) : r.songs;
+        const song = songsById.get(r.song_id) ?? null;
         if (!song || song.status !== 'approved') return null;
         return {
           id: song.id,
@@ -1607,7 +1617,7 @@ export class SongsService {
           durationSeconds: song.duration_seconds ?? 180,
           likeCount: song.like_count ?? 0,
           playCount: song.play_count ?? 0,
-          likedAt: r.created_at ?? new Date().toISOString(),
+          likedAt: likedAtBySongId.get(song.id) ?? new Date().toISOString(),
         };
       })
       .filter((song): song is NonNullable<typeof song> => song !== null);
