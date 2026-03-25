@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
@@ -22,21 +22,6 @@ type PinnedCatalyst = {
   displayName: string;
   avatarUrl: string | null;
   role: string;
-};
-
-type LibrarySong = {
-  id: string;
-  title: string;
-  artistName: string;
-  artistId: string;
-  artworkUrl: string | null;
-  audioUrl: string | null;
-  durationSeconds: number;
-  likeCount: number;
-  playCount: number;
-  fireVotes: number;
-  shitVotes: number;
-  temperaturePercent: number;
 };
 
 function roleToLabel(role: string): string {
@@ -81,12 +66,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [isVoting, setIsVoting] = useState(false);
   const [isHeartSaving, setIsHeartSaving] = useState(false);
   const [likedInLibrary, setLikedInLibrary] = useState(false);
-  const [libraryOpen, setLibraryOpen] = useState(false);
-  const [libraryLoading, setLibraryLoading] = useState(false);
-  const [librarySongs, setLibrarySongs] = useState<LibrarySong[]>([]);
-  const [librarySortBy, setLibrarySortBy] = useState<
-    'artist' | 'title' | 'likes' | 'plays' | 'temperature'
-  >('likes');
   const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [fireVotes, setFireVotes] = useState(0);
@@ -656,66 +635,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }
   };
 
-  const loadLibrarySongs = useCallback(async () => {
-    setLibraryLoading(true);
-    try {
-      const res = await songsApi.getLibrary();
-      const rows = (res.data ?? []) as LibrarySong[];
-      setLibrarySongs(rows.filter((s) => !!s.audioUrl));
-    } catch (error) {
-      console.error('Failed to load library songs:', error);
-      setLibrarySongs([]);
-    } finally {
-      setLibraryLoading(false);
-    }
-  }, []);
-
-  const sortedLibrarySongs = useMemo(() => {
-    const list = [...librarySongs];
-    list.sort((a, b) => {
-      if (librarySortBy === 'artist') {
-        return a.artistName.localeCompare(b.artistName);
-      }
-      if (librarySortBy === 'title') {
-        return a.title.localeCompare(b.title);
-      }
-      if (librarySortBy === 'temperature') {
-        return b.temperaturePercent - a.temperaturePercent;
-      }
-      if (librarySortBy === 'plays') {
-        return b.playCount - a.playCount;
-      }
-      return b.likeCount - a.likeCount;
-    });
-    return list;
-  }, [librarySongs, librarySortBy]);
-
-  const handlePlayFromLibrary = useCallback(
-    async (song: LibrarySong) => {
-      if (!song.audioUrl) return;
-      actions.loadTrack(
-        {
-          id: song.id,
-          title: song.title,
-          artistName: song.artistName,
-          artistId: song.artistId,
-          artworkUrl: song.artworkUrl,
-          audioUrl: song.audioUrl,
-          durationSeconds: song.durationSeconds || 180,
-          playId: null,
-        },
-        'discography',
-      );
-      setLibraryOpen(false);
-      try {
-        await actions.play();
-      } catch (error) {
-        console.error('Failed to play library track:', error);
-      }
-    },
-    [actions],
-  );
-
   const handleBackToLiveRadio = useCallback(async () => {
     await fetchCurrentTrack(false, true);
   }, [fetchCurrentTrack]);
@@ -986,15 +905,12 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span>{isHeartSaving ? 'Saving…' : likedInLibrary ? 'Saved' : 'Save'}</span>
           </button>
           <Button
+            asChild
             type="button"
             variant="outline"
             className="rounded-full"
-            onClick={() => {
-              setLibraryOpen(true);
-              void loadLibrarySongs();
-            }}
           >
-            Open Library
+            <Link href="/browse/saved">Your Library</Link>
           </Button>
         </div>
 
@@ -1104,75 +1020,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </p>
         )}
       </div>
-
-      <Dialog open={libraryOpen} onOpenChange={setLibraryOpen}>
-        <DialogContent className="sm:max-w-[680px]">
-          <DialogHeader>
-            <DialogTitle>Your Library</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <Label htmlFor="library-sort">Sort by</Label>
-              <select
-                id="library-sort"
-                value={librarySortBy}
-                onChange={(e) =>
-                  setLibrarySortBy(
-                    e.target.value as
-                      | 'artist'
-                      | 'title'
-                      | 'likes'
-                      | 'plays'
-                      | 'temperature',
-                  )
-                }
-                className="h-9 rounded-md border border-border bg-background px-2 text-sm"
-              >
-                <option value="artist">Artist</option>
-                <option value="title">Song title</option>
-                <option value="likes">Likes</option>
-                <option value="plays">Plays</option>
-                <option value="temperature">Temperature</option>
-              </select>
-            </div>
-            <div className="max-h-[55vh] overflow-y-auto space-y-2 pr-1">
-              {libraryLoading ? (
-                <div className="text-sm text-muted-foreground">Loading library…</div>
-              ) : sortedLibrarySongs.length === 0 ? (
-                <div className="text-sm text-muted-foreground">
-                  No saved songs yet. Tap Save on any track to build your library.
-                </div>
-              ) : (
-                sortedLibrarySongs.map((song) => (
-                  <button
-                    key={song.id}
-                    type="button"
-                    onClick={() => void handlePlayFromLibrary(song)}
-                    className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2 text-left transition hover:bg-muted/40"
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium">{song.title}</p>
-                        <p className="truncate text-xs text-muted-foreground">{song.artistName}</p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-3 text-[11px] text-muted-foreground">
-                        <span>♥ {song.likeCount}</span>
-                        <span>▶ {song.playCount}</span>
-                        <span>🌡 {song.temperaturePercent}%</span>
-                      </div>
-                    </div>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setLibraryOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
         <DialogContent className="sm:max-w-[520px]">

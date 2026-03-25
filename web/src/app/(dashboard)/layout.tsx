@@ -55,6 +55,7 @@ type MainNavItem = { name: string; href: string; icon: string; external?: boolea
 
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
+  { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Vote', href: '/competition', icon: '📢' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
@@ -63,6 +64,7 @@ const listenerNavigation: MainNavItem[] = [
 
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
+  { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
@@ -125,6 +127,7 @@ const adminSubNavigation = [
 
 // Flattened nav for page title lookup
 function getPageTitle(pathname: string): string {
+  if (pathname.startsWith('/browse/saved')) return 'Library';
   if (pathname.startsWith('/admin/songs')) return 'Songs';
   if (pathname.startsWith('/admin/users')) return 'Users';
   if (pathname.startsWith('/admin/swipe')) return 'Swipe';
@@ -152,7 +155,6 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/artist/stats')) return 'Analytics';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Pro-Networx';
-  if (pathname.startsWith('/browse/saved')) return 'Saved';
   if (pathname.startsWith('/competition')) return 'Vote';
   if (pathname.startsWith('/job-board')) return 'Pro-Networx';
   if (pathname.startsWith('/apply')) return 'Apply for Artist';
