@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
@@ -7,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +19,6 @@ import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/station_events_service.dart';
-import '../../core/services/play_billing_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
 import '../../core/env.dart';
@@ -103,7 +100,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
-  final ApiService _api = ApiService();
   Track? _currentTrack;
   bool _isPlaying = false;
   bool _isLoading = true;
@@ -114,7 +110,6 @@ class _PlayerScreenState extends State<PlayerScreen>
   String? _noContentMessage;
   VenueAd? _ad;
   app_user.User? _me;
-  bool _quickBuying = false;
   String? _risingStarText;
   StreamSubscription? _risingStarSub;
   bool _rippleActive = false;
@@ -554,111 +549,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  bool get _canQuickBuy {
-    final me = _me;
-    final track = _currentTrack;
-    if (me == null || track == null) return false;
-    if (me.role != 'artist') return false;
-    if (track.artistId == null || track.artistId!.isEmpty) return false;
-    return me.id == track.artistId;
-  }
-
-  Future<void> _quickBuyFivePlays() async {
-    final track = _currentTrack;
-    if (track == null || _quickBuying) return;
-    setState(() => _quickBuying = true);
-    try {
-      if (Platform.isAndroid) {
-        final pricing = await _api.get(
-          'payments/song-play-price?songId=${Uri.encodeComponent(track.id)}',
-        );
-        final options = pricing['options'] as List<dynamic>? ?? const [];
-        final option = options.cast<Map<String, dynamic>?>().firstWhere(
-          (o) => (o?['plays'] as num?)?.toInt() == 5,
-          orElse: () => null,
-        );
-        if (option == null) {
-          throw Exception('No pricing option found for 5 plays.');
-        }
-        final totalCents = (option['totalCents'] as num?)?.toInt();
-        if (totalCents == null || totalCents <= 0) {
-          throw Exception('Invalid price for 5 plays.');
-        }
-        final productId = PlayBillingService.instance
-            .songPlaysProductIdForPricing(plays: 5, totalCents: totalCents);
-        if (productId == null || productId.isEmpty) {
-          throw Exception(
-            'No Google Play product mapping found for 5 plays at $totalCents cents.',
-          );
-        }
-        final purchase = await PlayBillingService.instance.buyConsumable(
-          productId,
-        );
-        await _api.post('payments/google-play/complete', {
-          'productId': purchase.productId,
-          'purchaseToken': purchase.purchaseToken,
-          'songId': track.id,
-        });
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Added 5 minutes.'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-        return;
-      }
-
-      final response = await _api.post('payments/create-intent-song-plays', {
-        'songId': track.id,
-        'plays': 5,
-      });
-      final clientSecret = response['clientSecret'] as String?;
-      if (clientSecret == null || clientSecret.isEmpty) {
-        throw Exception('No payment client secret');
-      }
-
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          merchantDisplayName: 'Radio App',
-          style: ThemeMode.system,
-          appearance: const PaymentSheetAppearance(
-            colors: PaymentSheetAppearanceColors(
-              primary: NetworxTokens.butterflyElectric,
-            ),
-          ),
-        ),
-      );
-      await Stripe.instance.presentPaymentSheet();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Added 5 minutes.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } on StripeException catch (e) {
-      if (!mounted) return;
-      final msg = e.error.localizedMessage ?? 'Payment was cancelled';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.orange),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Quick-buy failed: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _quickBuying = false);
-    }
-  }
-
   Future<void> _togglePlayPause() async {
     if (_isPlaying) {
       await _audioPlayer.pause();
@@ -756,9 +646,6 @@ class _PlayerScreenState extends State<PlayerScreen>
                         onChangeStation: _openStationPicker,
                         risingStarText: _risingStarText,
                         ad: _ad,
-                        canQuickBuy: _canQuickBuy,
-                        quickBuying: _quickBuying,
-                        onQuickBuy: _quickBuyFivePlays,
                         isPlaying: _isPlaying,
                         hasVoted: _hasVoted,
                         isVoting: _isVoting,
@@ -1000,9 +887,6 @@ class _PlayerBody extends StatelessWidget {
   final VoidCallback onChangeStation;
   final String? risingStarText;
   final VenueAd? ad;
-  final bool canQuickBuy;
-  final bool quickBuying;
-  final VoidCallback onQuickBuy;
   final bool isPlaying;
   final bool hasVoted;
   final bool isVoting;
@@ -1021,9 +905,6 @@ class _PlayerBody extends StatelessWidget {
     required this.onChangeStation,
     required this.risingStarText,
     required this.ad,
-    required this.canQuickBuy,
-    required this.quickBuying,
-    required this.onQuickBuy,
     required this.isPlaying,
     required this.hasVoted,
     required this.isVoting,
@@ -1409,16 +1290,6 @@ class _PlayerBody extends StatelessWidget {
                 ),
               ),
               SizedBox(height: afterProgressGap),
-              if (canQuickBuy) ...[
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: quickBuying ? null : onQuickBuy,
-                    child: Text(quickBuying ? 'Opening…' : 'Add 5 Minutes'),
-                  ),
-                ),
-                SizedBox(height: afterProgressGap),
-              ],
               Row(
                 children: [
                   IconButton(

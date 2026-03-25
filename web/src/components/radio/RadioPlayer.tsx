@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
-import { prospectorApi, radioApi, leaderboardApi, analyticsApi, paymentsApi, songsApi } from '@/lib/api';
+import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
@@ -66,7 +66,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [isVoting, setIsVoting] = useState(false);
   const [isHeartSaving, setIsHeartSaving] = useState(false);
   const [likedInLibrary, setLikedInLibrary] = useState(false);
-  const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [fireVotes, setFireVotes] = useState(0);
   const [shitVotes, setShitVotes] = useState(0);
@@ -645,28 +644,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const canQuickBuy =
-    !!profile?.id &&
-    !!state.track?.id &&
-    !!state.track?.artistId &&
-    profile.id === state.track.artistId;
-
-  const handleQuickBuy = async () => {
-    if (!state.track?.id || isQuickBuying) return;
-    setIsQuickBuying(true);
-    try {
-      const res = await paymentsApi.quickAddMinutes({ songId: state.track.id });
-      const url = res.data?.url;
-      if (url && typeof window !== 'undefined') {
-        window.location.href = url;
-      }
-    } catch (e) {
-      console.error('Quick-buy failed', e);
-    } finally {
-      setIsQuickBuying(false);
-    }
-  };
-
   if (noContent) {
     return (
       <Card className="overflow-hidden">
@@ -830,14 +807,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span>{formatTime(state.duration)}</span>
           </div>
         </div>
-
-        {canQuickBuy && (
-          <div className="mb-4 flex justify-center">
-            <Button onClick={handleQuickBuy} disabled={isQuickBuying || state.isLoading} className="rounded-full">
-              {isQuickBuying ? 'Opening checkout…' : 'Add 5 Minutes'}
-            </Button>
-          </div>
-        )}
 
         {/* LIVE Indicator */}
         <div className="flex items-center justify-center mb-4">
