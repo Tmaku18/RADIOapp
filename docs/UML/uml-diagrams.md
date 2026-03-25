@@ -362,9 +362,11 @@ flowchart TD
     TrackChange -->|No| HeartbeatLoop
 
     StartPlayback --> UserVote{User votes?}
-    UserVote -->|Yes| PostLike[POST /leaderboard/songs/:id/like with playId]
-    PostLike --> RealtimeBroadcast[Supabase Realtime broadcasts like]
-    RealtimeBroadcast --> StartPlayback
+    UserVote -->|Yes| PostLike[POST /leaderboard/songs/:id/like with playId and reaction]
+    PostLike --> DbVote[leaderboard_likes upsert + refresh_song_temperature]
+    DbVote --> MaybeLib[Fire votes may INSERT likes library row]
+    MaybeLib --> PollTemp[Clients read temperature via GET /radio/current]
+    PollTemp --> StartPlayback
     UserVote -->|No| StartPlayback
 ```
 
@@ -394,23 +396,25 @@ flowchart TD
 
 ---
 
-### AD5: Ripple (Vote) Flow
+### AD5: Ripple / radio vote flow
 
 ```mermaid
 flowchart TD
     Start([Listener: Vote on track]) --> HasPlayId{Has current playId?}
     HasPlayId -->|No| GetCurrent[GET /radio/current]
     GetCurrent --> HasPlayId
-    HasPlayId -->|Yes| AlreadyVoted{Already voted this play?}
-    AlreadyVoted -->|Yes| Deny([One vote per play - denied])
-    AlreadyVoted -->|No| PostLike[POST /leaderboard/songs/:id/like with playId]
-
-    PostLike --> BackendValidate[Backend: validate user and playId]
-    BackendValidate --> InsertLike[Insert like record]
-    InsertLike --> UpdateCount[Update aggregation / leaderboard]
-    UpdateCount --> RealtimeNotify[Supabase Realtime: broadcast INSERT]
-    RealtimeNotify --> CheckRisingStar{Conversion >= 5%?}
-    CheckRisingStar -->|Yes| EmitRisingStar[Emit Rising Star event]
+    HasPlayId -->|Yes| HasRow{Existing row for user plus play?}
+    HasRow -->|No| PostLike[POST /leaderboard/songs/:id/like with playId and reaction]
+    HasRow -->|Yes| UpdateReact[Update reaction fire or shit same row]
+    PostLike --> BackendValidate[Backend: validate user playId songId]
+    UpdateReact --> BackendValidate
+    BackendValidate --> InsertLL[Insert or update leaderboard_likes]
+    InsertLL --> TriggerRefresh[DB trigger refresh_song_temperature]
+    TriggerRefresh --> CacheRow[Upsert song_temperature decayed totals]
+    CacheRow --> MaybeSave[If fire ensure likes library row]
+    MaybeSave --> RealtimeOptional[Optional Realtime likes INSERT for visuals]
+    RealtimeOptional --> CheckRisingStar{Conversion to votes ge 5 percent?}
+    CheckRisingStar -->|Yes| EmitRisingStar[Emit Rising Star station_event]
     EmitRisingStar --> Success([Vote recorded])
     CheckRisingStar -->|No| Success
 ```
@@ -545,6 +549,104 @@ flowchart TD
 
 ---
 
+## Part 4: Architecture, schema, and flows (Mermaid)
+
+### ARCH1: Containers (web, mobile, backend, data stores)
+
+```mermaid
+flowchart TB
+  subgraph clients [Clients]
+    Web[Web Next.js]
+    Mobile[Flutter]
+  end
+
+  subgraph api [NestJS API]
+    Radio[Radio]
+    LB[Leaderboard]
+    Songs[Songs]
+  end
+
+  Redis[("Redis")]
+  Supabase[("Supabase Postgres + Realtime + Storage")]
+  Firebase["Firebase Auth + FCM"]
+  Stripe["Stripe payments"]
+
+  Web --> api
+  Mobile --> api
+  Radio --> Redis
+  Radio --> Supabase
+  LB --> Supabase
+  Songs --> Supabase
+  api --> Firebase
+  api --> Stripe
+```
+
+### ER1: Core entities for radio votes and temperature
+
+```mermaid
+erDiagram
+  users ||--o{ leaderboard_likes : submits
+  songs ||--o{ leaderboard_likes : target
+  plays ||--o{ leaderboard_likes : play_scope
+  songs ||--o| song_temperature : cache
+  users ||--o{ likes : library
+  songs ||--o{ likes : saved
+
+  leaderboard_likes {
+    uuid id PK
+    uuid user_id FK
+    uuid song_id FK
+    uuid play_id FK
+    text reaction
+    timestamptz created_at
+  }
+
+  song_temperature {
+    uuid song_id PK
+    int fire_votes
+    int shit_votes
+    int total_votes
+    int temperature_percent
+    timestamptz updated_at
+  }
+```
+
+### SEQ1: Per-play vote, cache refresh, current track read
+
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant API as NestJS
+  participant DB as Supabase Postgres
+  C->>API: POST leaderboard songs id like playId reaction
+  API->>DB: upsert leaderboard_likes
+  Note over DB: trigger trg_refresh_song_temperature
+  API->>DB: RPC refresh_song_temperature p_song_id
+  API->>DB: select song_temperature by song_id
+  API-->>C: liked reaction
+  C->>API: GET radio current
+  API->>DB: RPC refresh_song_temperature
+  API->>DB: select song_temperature
+  API-->>C: now playing plus temperature_percent
+```
+
+### ACT1: Temperature lifecycle (zero baseline plus decay)
+
+```mermaid
+flowchart TD
+  N([New or idle song]) --> Z[temperature_percent defaults to 0]
+  Z --> V{leaderboard_likes has votes?}
+  V -->|no| Z
+  V -->|yes| R[refresh_song_temperature recomputes]
+  R --> D[Decay each vote by age half-life 24h]
+  D --> P[percent equals clamped decayed fire minus decayed shit]
+  P --> E[Clients show bar from GET radio current]
+  E --> T{Time passes or new vote?}
+  T --> R
+```
+
+---
+
 ## Summary
 
 | Diagram | Type | Scope |
@@ -568,5 +670,9 @@ flowchart TD
 | AD8 | Activity | Song Rotation Selection |
 | AD9 | Activity | Refinery Rating |
 | AD10 | Activity | Creator Network Messaging |
+| ARCH1 | Flowchart | Containers and integrations |
+| ER1 | ER diagram | Votes, library, temperature cache |
+| SEQ1 | Sequence | Vote, RPC, current track |
+| ACT1 | Activity | Temperature decay lifecycle |
 
-*Generated: March 2026*
+*Updated: March 2026 — aligned with migrations 047–049 and leaderboard query modes.*

@@ -40,10 +40,13 @@ This document is a single reference for all platform features across web, mobile
 
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
-| **Ripples (persistent likes)** | Like/unlike on artist profile discography; drives leaderboard “By Ripples” | ✅ | ✅ | `POST/DELETE /songs/:id/like`, `songs.like_count` |
-| **Vote once per play (radio)** | While a track is on air, each listener can vote once per play (no unlike); same track again = vote again | ✅ | ✅ | `POST /leaderboard/songs/:id/like` with `playId` |
+| **Ripples (persistent likes)** | Like/unlike on artist profile discography; drives leaderboard “By Ripples” / saves | ✅ | ✅ | `POST/DELETE /songs/:id/like`, `songs.like_count` |
+| **Saved library** | List saved songs (`likes`); **fire** radio votes also upsert `likes` | ✅ | ✅ | `GET /songs/library` |
+| **Radio reactions** | Per-play **fire** / **shit** vote; one `leaderboard_likes` row per `(user, play)`; reaction can be updated | ✅ | ✅ | `POST /leaderboard/songs/:id/like` + `reaction` |
+| **Vote once per play (radio)** | One vote **row** per play; changing fire ↔ shit updates that row (not a second vote) | ✅ | ✅ | Unique index on `(user_id, play_id)` |
 | **Play ID on radio** | Current play row id returned in `GET /radio/current` for per-play voting | — | — | Radio state + plays table |
-| **Realtime Ripple visuals** | Live Ripple + Global Vote Map on listen page (Supabase Realtime `likes` INSERT) | ✅ | — | Supabase Realtime |
+| **Song temperature** | Decayed global score + counts on now-playing (`temperature_percent`, vote tallies) | ✅ | ✅ | `song_temperature`, `refresh_song_temperature`, `GET /radio/current` |
+| **Realtime Ripple visuals** | Live Ripple / vote map often listens on `likes` INSERT; full vote stream = `leaderboard_likes` | ✅ | — | Supabase Realtime |
 | **Rising Star / Butterfly Ripple** | When a track hits ~5% conversion during its play, “Rising Star” event; web pulse overlay, mobile haptic + ripple animation | ✅ | ✅ | `station_events`, leaderboard service |
 
 ---
@@ -54,7 +57,10 @@ This document is a single reference for all platform features across web, mobile
 |--------|-------------|-----|--------|---------|
 | **By Ripples** | Leaderboard ranked by persistent `songs.like_count` | ✅ | ✅ | `GET /leaderboard/songs?by=likes` |
 | **By discoveries (listens)** | Combined radio + profile listens | ✅ | ✅ | `GET /leaderboard/songs?by=listens` |
-| **Trial by Fire** | Ranking by upvotes per minute in a time window | ✅ | ✅ | `GET /leaderboard/upvotes-per-minute` |
+| **By positive votes** | Count of **fire** reactions (`leaderboard_likes`) | ✅ | ✅ | `GET /leaderboard/songs?by=positive_votes` |
+| **By fire/shit ratio** | `fire / (fire + shit)` from reaction stats | ✅ | ✅ | `GET /leaderboard/songs?by=ratio` |
+| **By saves** | Library size (`likes` rows per song) | ✅ | ✅ | `GET /leaderboard/songs?by=saves` |
+| **Trial by Fire** | Ranking by votes per minute in a time window (`leaderboard_likes` in window) | ✅ | ✅ | `GET /leaderboard/upvotes-per-minute` |
 | **Trial-by-Fire window** | Configurable daily window; “Live” indicator switches to Radioactive Lime when active | ✅ | ✅ | Env + `trial_by_fire_active` in radio payload |
 | **Daily Diamond** | Snapshot of winner at end of Trial-by-Fire window (cron + `daily_diamonds` table) | — | — | Daily diamond cron service |
 | **Spotlight / Top 7** | Featured tracks and vote surfaces | ✅ | ✅ | Competition + spotlight modules |
@@ -138,7 +144,7 @@ This document is a single reference for all platform features across web, mobile
 | **Buy credits** | Stripe PaymentIntent (mobile) or Checkout (web) | ✅ | ✅ | Payments service |
 | **Allocate credits** | Assign credits to a track for airtime | ✅ | ✅ | Credits allocation |
 | **Buy song plays** | Per-song play packs (pricing API + intent) | ✅ | ✅ | `GET /payments/song-play-price`, create-intent-song-plays |
-| **Quick Add 5 Minutes** | Fixed quick-buy during airtime | ✅ | ✅ | `POST /payments/quick-add-minutes` |
+| **Quick Add minutes** | API for quick-buy airtime; **not** on main Engine Stage player (optional in other apps e.g. pro-web) | — | — | `POST /payments/quick-add-minutes` |
 | **Transactions** | User transaction history | ✅ | ✅ | `GET /payments/transactions` |
 | **Stripe webhooks** | Payment and subscription events | — | — | `POST /payments/webhook` |
 | **Creator Network subscription** | Stripe subscription for DMs and premium features | ✅ | ✅ | Checkout + webhook (subscription created/updated/deleted) |
@@ -220,7 +226,7 @@ This document is a single reference for all platform features across web, mobile
 | Feature | Description |
 |--------|-------------|
 | **Redis** | Radio state, listener counts, emoji aggregation |
-| **Supabase** | PostgreSQL (users, songs, plays, credits, yield, refinery, artist-live, etc.), Realtime, Storage |
+| **Supabase** | PostgreSQL (users, songs, plays, likes, **leaderboard_likes**, **song_temperature**, credits, yield, refinery, artist-live, etc.), Realtime, Storage |
 | **Structured logging** | Winston JSON logging |
 | **Request ID** | Tracing middleware |
 | **Sentry** | Error reporting |
@@ -238,4 +244,4 @@ This document is a single reference for all platform features across web, mobile
 
 ---
 
-*Last updated: February 2026. For changelog see [changelog/2026-02.md](changelog/2026-02.md).*
+*Last updated: March 2026. See [changelog/2026-02.md](changelog/2026-02.md), [changelog/2026-03.md](changelog/2026-03.md), and the documentation refresh notes in 2026-03.*

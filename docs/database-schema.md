@@ -115,6 +115,49 @@ CREATE INDEX idx_likes_user_id ON likes(user_id);
 CREATE INDEX idx_likes_song_id ON likes(song_id);
 ```
 
+### leaderboard_likes
+Per-user votes tied to a **radio play** (or legacy song-level rows). One row per `(user_id, play_id)` when `play_id` is set (partial unique index). Reactions **`fire`** / **`shit`** added in migration **047** (default `fire` for backfilled rows).
+
+```sql
+-- Created in 007_competition_leaderboard_votes_spotlight_winners.sql; reaction added in 047.
+CREATE TABLE leaderboard_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+  play_id UUID REFERENCES plays(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  reaction TEXT NOT NULL DEFAULT 'fire' CHECK (reaction IN ('fire', 'shit'))
+);
+
+CREATE UNIQUE INDEX idx_leaderboard_likes_user_play
+  ON leaderboard_likes(user_id, play_id) WHERE play_id IS NOT NULL;
+CREATE INDEX idx_leaderboard_likes_song ON leaderboard_likes(song_id);
+CREATE INDEX idx_leaderboard_likes_play_reaction ON leaderboard_likes(play_id, reaction);
+```
+
+### song_temperature
+Global, read-optimized cache of reaction totals and **decayed** temperature per song (`song_id` is **`UUID`**, matching `songs.id`). Created in **048**; decay columns and zero-baseline temperature in **049**.
+
+```sql
+CREATE TABLE song_temperature (
+  song_id UUID PRIMARY KEY,
+  fire_votes INTEGER NOT NULL DEFAULT 0,
+  shit_votes INTEGER NOT NULL DEFAULT 0,
+  total_votes INTEGER NOT NULL DEFAULT 0,
+  decayed_fire_votes NUMERIC(14, 4) NOT NULL DEFAULT 0,
+  decayed_shit_votes NUMERIC(14, 4) NOT NULL DEFAULT 0,
+  temperature_percent INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_song_temperature_updated_at ON song_temperature(updated_at DESC);
+```
+
+- **`fire_votes` / `shit_votes` / `total_votes`:** raw counts from all `leaderboard_likes` for that `song_id`.
+- **`temperature_percent`:** after **049**, `GREATEST(0, LEAST(100, ROUND(decayed_fire_votes - decayed_shit_votes)))` where decayed values sum `0.5 ** (age_seconds / half_life_seconds)` per vote (half-life **24 hours** in SQL).
+- **`refresh_song_temperature(p_song_id uuid)`:** recomputes and upserts the row for one song.
+- **Trigger `trg_refresh_song_temperature`:** `AFTER INSERT OR UPDATE OR DELETE ON leaderboard_likes` → `refresh_song_temperature` for affected `song_id` (and old `song_id` on update).
+
 ### subscriptions
 Artist subscription plans (planned; schema reserved).
 
@@ -597,6 +640,16 @@ END;
 $$ LANGUAGE plpgsql;
 ```
 
+## Migration notes: leaderboard reactions & temperature (047 → 049)
+
+| Migration | Purpose |
+|-----------|---------|
+| **047** | Adds `leaderboard_likes.reaction` (`fire` \| `shit`), backfill, `CHECK`, index on `(play_id, reaction)`. |
+| **048** | Introduces `song_temperature`, `refresh_song_temperature(uuid)`, trigger on `leaderboard_likes`, backfill from existing votes. Initial `temperature_percent` used a ratio-style default when no votes. |
+| **049** | Adds `decayed_fire_votes` / `decayed_shit_votes`, sets default `temperature_percent` to **0**, replaces `refresh_song_temperature` with **time-decay** aggregation, backfills all songs with votes. |
+
+Apply in numeric order with other Supabase migrations under `backend/supabase/migrations/`.
+
 ## Row Level Security (RLS)
 
 Enable RLS on all tables and create policies as needed for Supabase.
@@ -606,6 +659,9 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE songs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plays ENABLE ROW LEVEL SECURITY;
 ALTER TABLE likes ENABLE ROW LEVEL SECURITY;
+-- Also enable RLS for competition/temperature tables in production Supabase projects:
+-- ALTER TABLE leaderboard_likes ENABLE ROW LEVEL SECURITY;
+-- ALTER TABLE song_temperature ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE credits ENABLE ROW LEVEL SECURITY;

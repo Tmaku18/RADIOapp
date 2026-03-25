@@ -60,7 +60,7 @@ cd mobile && flutter run
 - 🎤 **Artist Uploads** — secure uploads with server-side validation and moderation workflows
 - 💳 **Credit System** — artists buy credits and allocate airtime to tracks (audited allocation + play decisions)
 - 🆓 **Trial Rotation** — newly approved tracks receive free trial plays before paid rotation
-- ❤️ **Ripples** — live likes/votes on tracks during airtime (vote-once-per-play on radio)
+- ❤️ **Ripples** — profile “saves” (`likes`) plus **radio play votes** (`leaderboard_likes`: fire/shit, one row per user per `play_id`); **song temperature** is a decaying global score derived from those votes (see `song_temperature` + `refresh_song_temperature`)
 - 💬 **Live Radio Chat** — real-time chat + reactions for shared listening
 - 📲 **Artist Notifications** — “Up Next” and “Live Now” push alerts via FCM
 - 📊 **Admin Tools** — moderation, free rotation management, fallback playlist, and user enforcement tools
@@ -83,6 +83,8 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - ✅ **Discover (IG-style)**: Tabs For you / Artists / Catalysts with search and filters; combined artist + Pro-Networx profiles; primary-accent styling
 - ✅ **Bottom nav (web)**: Twitch/IG-style bottom bar: Home, Discover, Live, Activity, Profile (fixed; brand primary for active).
 - ✅ **Live discovery**: `/live` page lists live sessions; sort by viewers/recent; profile Go Live opens Stream Manager (web) or Stream settings (mobile).
+- ✅ **Competition leaderboards**: `GET /leaderboard/songs?by=` supports **`likes`**, **`listens`**, **`positive_votes`**, **`ratio`**, **`saves`** (plus Trial by Fire window mode).
+- ✅ **Radio temperature model**: `GET /radio/current` exposes `play_id`, vote tallies, and `temperature_percent` (zero baseline, time-decayed aggregate from `leaderboard_likes`; migrations **047–049**).
 
 See **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)** and **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)** for full changelogs.
 
@@ -114,7 +116,7 @@ User-facing copy uses the following terms. See **[docs/branding-terminology.md](
 | Term | Meaning | Backend equivalent |
 |------|---------|--------------------|
 | **Prospectors** | Audience (listeners) | `listener`, `listener_count` |
-| **Ripples** | Likes/votes on tracks | `likes` |
+| **Ripples** | Profile saves + radio play votes (fire/shit) | `likes`, `leaderboard_likes` (`reaction`) |
 | **The Wake** | Artist analytics report; tagline: *“The path left behind by a thousand Ripples.”* | analytics, stats |
 | **The Yield** | Prospector rewards balance and redemption | prospector yield tables |
 | **Songs** | Tracks/songs | `song`, `songs` |
@@ -123,7 +125,7 @@ API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_c
 
 ## API auth cheat sheet
 
-- **Mobile + API clients**: send Firebase ID token as `Authorization: Bearer <token>` to `/api/*`.
+- **Mobile + API clients**: send Firebase ID token as `Authorization: Bearer <token>` to `/api/*` (see `docs/api-spec.md` for **public** exceptions such as `GET /radio/current`).
 - **Web (SSR dashboard)**: uses HTTP-only session cookies created by `web/src/app/api/auth/login/route.ts` for server-rendered routes.
 
 ### Legacy/internal naming (one-time note)
@@ -140,10 +142,11 @@ The product “Engine” pages now share the same look/feel and core behaviors a
   - Pinned catalyst credits (during airtime)
   - Rising Star alert banner (realtime)
   - Venue Partner slot
-  - Quick-buy “Add 5 Minutes” for the owning artist
+  - Song **temperature** and per-play voting (fire/shit) aligned with `/radio/current` + `/leaderboard/songs/:id/like`
 - **Competition**
-  - Likes + discoveries leaderboards
-  - Trial by Fire (upvotes/min) leaderboard
+  - Leaderboards by Ripples, discoveries, **positive votes**, **fire/shit ratio**, **saves**, and Trial by Fire (upvotes/min)
+- **Library**
+  - Saved songs via `GET /songs/library` (profile `likes` / Ripples and **fire** radio votes that upsert `likes`)
 - **Analytics**
   - ROI card
   - Listener heatmap proxy by region

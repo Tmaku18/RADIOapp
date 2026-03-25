@@ -4,7 +4,7 @@ Base URL: `http://localhost:3000/api`
 
 > **Product terminology**: In the UI and marketing, we use **Prospectors** (audience), **Ripples** (likes), **The Wake** (analytics), **The Yield** (Prospector rewards), **The Refinery** (Prospector portal for reviewing songs), and **Songs**. This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
 
-All endpoints require Firebase ID token in Authorization header: `Authorization: Bearer <token>`
+Most endpoints require a Firebase ID token: `Authorization: Bearer <token>`. **Public (no auth)** radio read endpoints: `GET /radio/current`, `GET /radio/next` (see Radio section).
 
 ## Authentication
 
@@ -43,6 +43,11 @@ All endpoints require Firebase ID token in Authorization header: `Authorization:
 - **GET** `/songs/:id`
 - Returns: Song details
 
+### Get saved library (authenticated)
+- **GET** `/songs/library`
+- Roles: `listener`, `artist`, `service_provider`, `admin`
+- Returns: Songs the user has saved in `likes` (profile Ripples and **fire** radio votes may add rows; see leaderboard like endpoint).
+
 ### Like Song
 - **POST** `/songs/:id/like`
 - Toggles like status
@@ -55,10 +60,16 @@ All endpoints require Firebase ID token in Authorization header: `Authorization:
 Track selection (free vs paid mode, four-tier fallback, artist spacing) is documented in **`docs/radio-logic.md`**.
 
 ### Get Current Track
-- **GET** `/radio/current`
-- Returns: Current playing song with metadata.
-- Notes:
+- **GET** `/radio/current?radio=<stationId>` (optional `radio`; default station)
+- **Public** — no `Authorization` required.
+- Returns: Current playing song with metadata and radio timing fields.
+- **Temperature / votes** (when migrations 048–049 are applied): the payload includes:
+  - `play_id` — current `plays.id` when available (for per-play voting)
+  - `fire_votes`, `shit_votes`, `total_votes` — raw counts from `song_temperature` (global per song)
+  - `temperature_percent` — **0–100**, zero baseline; recomputed with **exponential time decay** (half-life 24h in DB) from `leaderboard_likes` rows; backend calls `refresh_song_temperature(p_song_id)` before read so stale cache decays naturally.
+- Other notes:
   - Includes `artist_id` and may include `pinned_catalysts` (Catalyst deep-link credits) during airtime.
+  - `trial_by_fire_active` reflects the configured Trial-by-Fire window.
 
 ### Get Next Track
 - **GET** `/radio/next`
@@ -189,9 +200,29 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 
 ## Leaderboard
 
+### Song leaderboards
+- **GET** `/leaderboard/songs?by=<mode>&limit=50&offset=0`
+- **Auth:** required (Firebase bearer).
+- **Query `by`** (default `likes`):
+  - **`likes`** — `songs.like_count` (persistent profile Ripples / saves)
+  - **`listens`** — combined radio + profile listens (`play_count` + `profile_play_count`, sorted by total)
+  - **`positive_votes`** — count of **`fire`** reactions in `leaderboard_likes` (ties broken with ratio / saves)
+  - **`ratio`** — `positiveRatio` = fire / (fire + shit) from reaction stats
+  - **`saves`** — rows in `likes` per song (library size)
+- **Typical fields** on each item: `id`, `title`, `artistName`, `artistId`, `artworkUrl`, `likeCount`, `playCount`, `profilePlayCount`, `totalListenCount`, and when relevant `positiveVotes`, `negativeVotes`, `positiveRatio`, `saveCount`, `spotlightListenCount`.
+
+### Per-play / song vote (radio)
+- **POST** `/leaderboard/songs/:id/like`
+- **Body:** `{ "playId"?: uuid | null, "reaction"?: "fire" | "shit" }` (default `fire`).
+- **Semantics:**
+  - With **`playId`**: one vote per `(user_id, play_id)`; sending again updates **`reaction`** (fire ↔ shit). Uniqueness enforced by partial unique index on `leaderboard_likes`.
+  - **Fire** votes best-effort add a **`likes`** row (library save) if missing.
+  - Triggers / service refresh **`song_temperature`** for the song (global cache + decay in migration 049).
+- **Returns:** `{ liked: boolean, reaction: "fire" | "shit" }`
+
 ### Trial by Fire (upvotes per minute)
 - **GET** `/leaderboard/upvotes-per-minute?windowMinutes=60&limit=50&offset=0`
-- Returns: ranked songs with window metrics: `likesInWindow`, `playsInWindow`, `upvotesPerMinute`, `windowMinutes`.
+- Counts **`leaderboard_likes`** in the window (all reactions); returns ranked songs with `likesInWindow`, `playsInWindow`, `upvotesPerMinute`, `windowMinutes`.
 
 ## Discovery / Pro-Directory
 
@@ -216,7 +247,7 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 
 The platform emits realtime events through Supabase Realtime. Clients subscribe via `postgres_changes`:
 
-- **Likes**: `public.likes` `INSERT` (used by Live Ripple and Global Vote Map visuals).
+- **Likes**: `public.likes` `INSERT` — still used for some **Live Ripple / vote map** visuals when a **fire** vote also creates or confirms a library `likes` row; **authoritative radio votes** live in `public.leaderboard_likes` (subscribe here if you need every play vote including **shit** without a `likes` row).
 - **Rising Star**: `public.station_events` `INSERT` with filter `type=eq.rising_star` (used for “Butterfly Ripple” banner).
 
 ## Admin (Admin role required)
