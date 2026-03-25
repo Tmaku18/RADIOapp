@@ -64,6 +64,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [hasVoted, setHasVoted] = useState(false);
   const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
+  const [reactionError, setReactionError] = useState<string | null>(null);
   const [isHeartSaving, setIsHeartSaving] = useState(false);
   const [likedInLibrary, setLikedInLibrary] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
@@ -564,6 +565,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     if (isVoting) return;
 
     setIsVoting(true);
+    setReactionError(null);
     try {
       await leaderboardApi.addLeaderboardReaction(
         state.track.id,
@@ -577,13 +579,38 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(true);
       setSelectedReaction(reaction);
-      if (reaction === 'fire') {
-        updateTemperatureFromCounts(fireVotes + 1, shitVotes);
-      } else {
-        updateTemperatureFromCounts(fireVotes, shitVotes + 1);
+      // Optimistic local update first, then reconcile from server.
+      let nextFireVotes = fireVotes;
+      let nextShitVotes = shitVotes;
+      if (selectedReaction === 'fire') nextFireVotes -= 1;
+      if (selectedReaction === 'shit') nextShitVotes -= 1;
+      if (reaction === 'fire') nextFireVotes += 1;
+      if (reaction === 'shit') nextShitVotes += 1;
+      updateTemperatureFromCounts(
+        Math.max(0, nextFireVotes),
+        Math.max(0, nextShitVotes),
+      );
+
+      const latest = await radioApi.getCurrentTrack(radioId);
+      const latestTrack = latest.data;
+      const latestFireVotes = coerceListenerCount(latestTrack?.fire_votes);
+      const latestShitVotes = coerceListenerCount(latestTrack?.shit_votes);
+      updateTemperatureFromCounts(latestFireVotes, latestShitVotes);
+      const nextTemperatureRaw = Number(latestTrack?.temperature_percent);
+      if (Number.isFinite(nextTemperatureRaw)) {
+        setTemperaturePercent(
+          Math.max(0, Math.min(100, Math.round(nextTemperatureRaw))),
+        );
       }
     } catch (error) {
       console.error('Failed to submit reaction:', error);
+      const maybeMessage = (
+        error as { response?: { data?: { message?: string } }; message?: string }
+      )?.response?.data?.message;
+      setReactionError(
+        (typeof maybeMessage === 'string' && maybeMessage.trim()) ||
+          'Could not submit reaction right now.',
+      );
     } finally {
       setIsVoting(false);
     }
@@ -856,6 +883,9 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span>💩 {shitVotes}</span>
             <span>🔥 {fireVotes}</span>
           </div>
+          {reactionError && (
+            <p className="mt-2 text-xs text-red-300">{reactionError}</p>
+          )}
         </div>
 
         {/* Library actions */}
