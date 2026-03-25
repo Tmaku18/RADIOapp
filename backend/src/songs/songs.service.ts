@@ -1588,6 +1588,17 @@ export class SongsService {
     const uniqueSongIds = [...new Set(orderedSongIds)];
 
     const songsById = new Map<string, SongRow>();
+    const adminFallbackById = new Map<
+      string,
+      {
+        id: string;
+        title: string;
+        artist_name: string | null;
+        artwork_url: string | null;
+        audio_url: string | null;
+        duration_seconds: number | null;
+      }
+    >();
     if (uniqueSongIds.length > 0) {
       const { data: songRows, error: songsError } = await supabase
         .from('songs')
@@ -1601,23 +1612,52 @@ export class SongsService {
       for (const song of (songRows ?? []) as SongRow[]) {
         songsById.set(song.id, song);
       }
+
+      const { data: adminFallbackRows, error: adminFallbackError } =
+        await supabase
+          .from('admin_fallback_songs')
+          .select(
+            'id, title, artist_name, artwork_url, audio_url, duration_seconds',
+          )
+          .in('id', uniqueSongIds);
+      if (adminFallbackError) {
+        throw new Error(
+          `Failed to load fallback library songs: ${adminFallbackError.message}`,
+        );
+      }
+      for (const row of (adminFallbackRows ?? []) as Array<{
+        id: string;
+        title: string;
+        artist_name: string | null;
+        artwork_url: string | null;
+        audio_url: string | null;
+        duration_seconds: number | null;
+      }>) {
+        adminFallbackById.set(row.id, row);
+      }
     }
 
     const librarySongs = rows
       .map((r) => {
         const song = songsById.get(r.song_id) ?? null;
-        if (!song || song.status !== 'approved') return null;
+        const fallback = adminFallbackById.get(r.song_id) ?? null;
+        if (song && song.status !== 'approved') return null;
+        if (!song && !fallback) return null;
         return {
-          id: song.id,
-          title: song.title,
-          artistName: song.artist_name,
-          artistId: song.artist_id,
-          artworkUrl: song.artwork_url,
-          audioUrl: song.audio_url,
-          durationSeconds: song.duration_seconds ?? 180,
-          likeCount: song.like_count ?? 0,
-          playCount: song.play_count ?? 0,
-          likedAt: likedAtBySongId.get(song.id) ?? new Date().toISOString(),
+          id: song?.id ?? fallback!.id,
+          title: song?.title ?? fallback!.title,
+          artistName:
+            song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
+          artistId: song?.artist_id ?? '',
+          artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
+          audioUrl: song?.audio_url ?? fallback?.audio_url ?? null,
+          durationSeconds:
+            song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
+          likeCount: song?.like_count ?? 0,
+          playCount: song?.play_count ?? 0,
+          likedAt:
+            likedAtBySongId.get(song?.id ?? fallback!.id) ??
+            new Date().toISOString(),
         };
       })
       .filter((song): song is NonNullable<typeof song> => song !== null);

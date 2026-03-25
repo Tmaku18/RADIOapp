@@ -496,8 +496,6 @@ class _PlayerScreenState extends State<PlayerScreen>
       return;
     }
 
-    if (_hasVoted && _lastVotedPlayId == playId) return;
-
     setState(() {
       _isVoting = true;
     });
@@ -1398,7 +1396,14 @@ class _PlayerBody extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [Text('🔥 $fireVotes'), Text('💩 $shitVotes')],
+                      children: [
+                        Text(
+                          '🧊 $shitVotes',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(color: Colors.lightBlueAccent),
+                        ),
+                        Text('🔥 $fireVotes'),
+                      ],
                     ),
                   ],
                 ),
@@ -1431,7 +1436,20 @@ class _PlayerBody extends StatelessWidget {
                     icon: const Icon(Icons.forum_outlined),
                   ),
                   FilledButton.tonal(
-                    onPressed: (!canVote || isVoting || hasVoted)
+                    onPressed: (!canVote || isVoting)
+                        ? null
+                        : () => onReact('shit'),
+                    child: isVoting
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('🧊'),
+                  ),
+                  const SizedBox(width: 6),
+                  FilledButton.tonal(
+                    onPressed: (!canVote || isVoting)
                         ? null
                         : () => onReact('fire'),
                     child: isVoting
@@ -1441,19 +1459,6 @@ class _PlayerBody extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('🔥'),
-                  ),
-                  const SizedBox(width: 6),
-                  FilledButton.tonal(
-                    onPressed: (!canVote || isVoting || hasVoted)
-                        ? null
-                        : () => onReact('shit'),
-                    child: isVoting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('💩'),
                   ),
                 ],
               ),

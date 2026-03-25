@@ -23,6 +23,9 @@ export type LeaderboardReaction = 'fire' | 'shit';
 
 @Injectable()
 export class LeaderboardService {
+  private readonly reactionMigrationErrorMessage =
+    'Negative reactions are temporarily unavailable because the reaction migration is missing. Please apply database migration 047_leaderboard_reactions_and_temperature.';
+
   private isMissingLeaderboardReactionColumn(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
@@ -291,6 +294,9 @@ export class LeaderboardService {
         existingRes.error &&
         this.isMissingLeaderboardReactionColumn(existingRes.error)
       ) {
+        if (safeReaction === 'shit') {
+          throw new Error(this.reactionMigrationErrorMessage);
+        }
         const legacyExistingRes = await supabase
           .from('leaderboard_likes')
           .select('id')
@@ -322,6 +328,9 @@ export class LeaderboardService {
             updateError &&
             this.isMissingLeaderboardReactionColumn(updateError)
           ) {
+            if (safeReaction === 'shit') {
+              throw new Error(this.reactionMigrationErrorMessage);
+            }
             // Legacy schema has no reaction column; keep existing vote.
           } else if (updateError) {
             throw new Error(
@@ -370,6 +379,9 @@ export class LeaderboardService {
         existingSongVoteRes.error &&
         this.isMissingLeaderboardReactionColumn(existingSongVoteRes.error)
       ) {
+        if (safeReaction === 'shit') {
+          throw new Error(this.reactionMigrationErrorMessage);
+        }
         const legacySongVoteRes = await supabase
           .from('leaderboard_likes')
           .select('id')
@@ -403,6 +415,9 @@ export class LeaderboardService {
             updateError &&
             this.isMissingLeaderboardReactionColumn(updateError)
           ) {
+            if (safeReaction === 'shit') {
+              throw new Error(this.reactionMigrationErrorMessage);
+            }
             // Legacy schema has no reaction column; keep existing vote.
           } else if (updateError) {
             throw new Error(
@@ -444,6 +459,9 @@ export class LeaderboardService {
     });
     if (error) {
       if (this.isMissingLeaderboardReactionColumn(error)) {
+        if (safeReaction === 'shit') {
+          throw new Error(this.reactionMigrationErrorMessage);
+        }
         // Backward-compatible fallback for environments missing the reaction column.
         const { error: legacyInsertError } = await supabase
           .from('leaderboard_likes')
