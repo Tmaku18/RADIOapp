@@ -31,7 +31,9 @@ class RadioService {
       }
       return const TrackFetchResult(track: null);
     } catch (e) {
-      return const TrackFetchResult(track: null);
+      return TrackFetchResult.noContent(
+        'Unable to reach radio service. Please try again.',
+      );
     }
   }
 
@@ -52,7 +54,9 @@ class RadioService {
       }
       return const TrackFetchResult(track: null);
     } catch (e) {
-      return const TrackFetchResult(track: null);
+      return TrackFetchResult.noContent(
+        'Unable to reach radio service. Please try again.',
+      );
     }
   }
 

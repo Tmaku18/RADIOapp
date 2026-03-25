@@ -25,7 +25,7 @@ class ApiService {
   static const Duration _requestTimeout = Duration(seconds: 15);
   String? _resolvedBaseUrl;
 
-  String get baseUrl => env('API_BASE_URL') ?? 'http://localhost:3000';
+  String get baseUrl => env('API_BASE_URL') ?? 'https://www.networxradio.com';
   String? _authToken;
   Future<String?> Function()? _tokenProvider;
   Future<void> Function()? _onUnauthorized;
@@ -78,6 +78,9 @@ class ApiService {
 
     add(_resolvedBaseUrl);
     add(baseUrl);
+    // Production fallbacks so mobile still works when local dev API is unavailable.
+    add('https://www.networxradio.com');
+    add('https://networxradio.com');
     add('http://10.0.2.2:3000');
     add('http://10.0.2.2:3005');
     add('http://localhost:3000');
