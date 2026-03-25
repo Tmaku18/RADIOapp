@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/song.dart';
+import '../../core/services/refinery_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
@@ -15,6 +16,7 @@ class StudioScreen extends StatefulWidget {
 
 class _StudioScreenState extends State<StudioScreen> {
   final SongsService _songs = SongsService();
+  final RefineryService _refinery = RefineryService();
   bool _loading = true;
   List<Song> _items = const [];
 
@@ -60,23 +62,40 @@ class _StudioScreenState extends State<StudioScreen> {
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Text(
-                            'Buy plays for each approved song. \$1/min per play, rounded up to the nearest cent. Tap a track to buy plays.',
-                            style: TextStyle(
-                              color: surfaces.textSecondary,
-                              fontSize: 13,
-                            ),
+                        Text(
+                          'Buy plays for each approved song. \$1/min per play, rounded up to the nearest cent. Tap a track to buy plays.',
+                          style: TextStyle(
+                            color: surfaces.textSecondary,
+                            fontSize: 13,
                           ),
                         ),
-                        FilledButton.icon(
-                          onPressed: () {
-                            Navigator.pushNamed(context, AppRoutes.upload).then((_) => _load());
-                          },
-                          icon: const Icon(Icons.upload),
-                          label: const Text('Upload'),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          alignment: WrapAlignment.end,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: () {
+                                Navigator.pushNamed(context, AppRoutes.upload)
+                                    .then((_) => _load());
+                              },
+                              icon: const Icon(Icons.upload),
+                              label: const Text('Upload'),
+                            ),
+                            OutlinedButton.icon(
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                        context, AppRoutes.liveServices)
+                                    .then((_) => _load());
+                              },
+                              icon: const Icon(Icons.event_available_outlined),
+                              label: const Text('Live services'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -118,54 +137,124 @@ class _StudioScreenState extends State<StudioScreen> {
                   ..._items.map((s) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Card(
-                          child: ListTile(
-                            title: Text(
-                              s.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: Text(
-                              '${s.status} · ${s.playCount} discoveries · ${s.likeCount} likes',
-                              style: TextStyle(color: surfaces.textSecondary),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              ListTile(
+                                title: Text(
+                                  s.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                subtitle: Text(
+                                  '${s.status} · ${s.playCount} discoveries · ${s.likeCount} likes',
+                                  style: TextStyle(color: surfaces.textSecondary),
+                                ),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    Text(
-                                      '${s.creditsRemaining}',
-                                      style: TextStyle(
-                                          color: scheme.primary,
-                                          fontWeight: FontWeight.w700),
+                                    Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          '${s.creditsRemaining}',
+                                          style: TextStyle(
+                                              color: scheme.primary,
+                                              fontWeight: FontWeight.w700),
+                                        ),
+                                        Text(
+                                          'plays',
+                                          style: TextStyle(
+                                              color: surfaces.textMuted,
+                                              fontSize: 12),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      'plays',
-                                      style: TextStyle(
-                                          color: surfaces.textMuted,
-                                          fontSize: 12),
-                                    ),
+                                    if (s.status == 'approved') ...[
+                                      const SizedBox(width: 8),
+                                      FilledButton(
+                                        onPressed: () {
+                                          Navigator.pushNamed(
+                                            context,
+                                            AppRoutes.buyPlays,
+                                            arguments: s,
+                                          ).then((result) {
+                                            if (result == true) _load();
+                                          });
+                                        },
+                                        child: const Text('Buy plays'),
+                                      ),
+                                    ],
                                   ],
                                 ),
-                                if (s.status == 'approved') ...[
-                                  const SizedBox(width: 8),
-                                  FilledButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        AppRoutes.buyPlays,
-                                        arguments: s,
-                                      ).then((result) {
-                                        if (result == true) _load();
-                                      });
-                                    },
-                                    child: const Text('Buy plays'),
+                              ),
+                              if (s.status == 'approved')
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                                  child: Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    children: [
+                                      if (s.inRefinery)
+                                        Chip(
+                                          label: const Text('In The Refinery'),
+                                          avatar: Icon(
+                                            Icons.science_outlined,
+                                            size: 18,
+                                            color: scheme.primary,
+                                          ),
+                                        ),
+                                      TextButton.icon(
+                                        onPressed: s.inRefinery
+                                            ? null
+                                            : () async {
+                                                try {
+                                                  await _refinery
+                                                      .addSongToRefinery(s.id);
+                                                  if (mounted) await _load();
+                                                } catch (e) {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                          content: Text(
+                                                              'Refinery: $e')),
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                        icon: const Icon(Icons.add_circle_outline),
+                                        label: const Text('Add to Refinery'),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: !s.inRefinery
+                                            ? null
+                                            : () async {
+                                                try {
+                                                  await _refinery
+                                                      .removeSongFromRefinery(
+                                                          s.id);
+                                                  if (mounted) await _load();
+                                                } catch (e) {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                          content: Text(
+                                                              'Refinery: $e')),
+                                                    );
+                                                  }
+                                                }
+                                              },
+                                        icon: const Icon(Icons.remove_circle_outline),
+                                        label: const Text('Remove from Refinery'),
+                                      ),
+                                    ],
                                   ),
-                                ],
-                              ],
-                            ),
+                                ),
+                            ],
                           ),
                         ),
                       )),

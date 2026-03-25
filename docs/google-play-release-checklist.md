@@ -34,6 +34,7 @@ flutter build appbundle --release --build-number 42
 
 - Upload AAB to **Internal testing** first.
 - Verify login, playback, notifications, location prompts, and purchase flows.
+- Spot-check items in [android-14-15-smoke-test.md](./android-14-15-smoke-test.md) and [mobile-web-parity-matrix.md](./mobile-web-parity-matrix.md).
 
 ## 5) Play Console app content/disclosures
 

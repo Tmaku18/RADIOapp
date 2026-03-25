@@ -195,6 +195,8 @@ class PushNotificationService {
             presentAlert: true,
             presentBadge: true,
             presentSound: true,
+            threadIdentifier: 'radio_alerts',
+            subtitle: 'NETWORX Radio',
           ),
         ),
         payload: message.data.isNotEmpty ? jsonEncode(message.data) : null,

@@ -184,6 +184,16 @@ class _PaymentScreenState extends State<PaymentScreen> {
                       ),
                   textAlign: TextAlign.center,
                 ),
+                const SizedBox(height: 10),
+                Text(
+                  Platform.isAndroid
+                      ? 'On this device, credit packs are purchased with Google Play.'
+                      : 'On this device, credit packs use Stripe (card or Apple Pay when available).',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
           ),

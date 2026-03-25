@@ -14,6 +14,8 @@ class Song {
   final String status;
   final DateTime createdAt;
   final DateTime updatedAt;
+  /// True when the song is in The Refinery for Prospector review (`/songs/mine`).
+  final bool inRefinery;
 
   Song({
     required this.id,
@@ -31,25 +33,34 @@ class Song {
     required this.status,
     required this.createdAt,
     required this.updatedAt,
+    this.inRefinery = false,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
+    final id = json['id']?.toString() ?? '';
+    final artistId = (json['artist_id'] ?? json['artistId'])?.toString() ?? '';
     return Song(
-      id: json['id'],
-      artistId: json['artist_id'],
-      title: json['title'],
-      artistName: json['artist_name'],
-      audioUrl: json['audio_url'],
-      artworkUrl: json['artwork_url'],
-      durationSeconds: json['duration_seconds'],
-      fileSizeBytes: json['file_size_bytes'],
-      creditsRemaining: json['credits_remaining'] ?? 0,
-      playCount: json['play_count'] ?? 0,
-      likeCount: json['like_count'] ?? 0,
-      skipCount: json['skip_count'] ?? 0,
-      status: json['status'],
-      createdAt: DateTime.parse(json['created_at']),
-      updatedAt: DateTime.parse(json['updated_at']),
+      id: id,
+      artistId: artistId.isNotEmpty ? artistId : id,
+      title: json['title']?.toString() ?? '',
+      artistName: (json['artist_name'] ?? json['artistName'])?.toString() ?? '',
+      audioUrl: (json['audio_url'] ?? json['audioUrl'])?.toString() ?? '',
+      artworkUrl: (json['artwork_url'] ?? json['artworkUrl'])?.toString(),
+      durationSeconds: json['duration_seconds'] ?? json['durationSeconds'] as int?,
+      fileSizeBytes: json['file_size_bytes'] ?? json['fileSizeBytes'] as int?,
+      creditsRemaining:
+          (json['credits_remaining'] ?? json['creditsRemaining'] ?? 0) as int,
+      playCount: (json['play_count'] ?? json['playCount'] ?? 0) as int,
+      likeCount: (json['like_count'] ?? json['likeCount'] ?? 0) as int,
+      skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
+      status: json['status']?.toString() ?? 'pending',
+      inRefinery: json['inRefinery'] == true || json['in_refinery'] == true,
+      createdAt: DateTime.parse(
+        (json['created_at'] ?? json['createdAt']).toString(),
+      ),
+      updatedAt: DateTime.parse(
+        (json['updated_at'] ?? json['updatedAt']).toString(),
+      ),
     );
   }
 
@@ -68,6 +79,7 @@ class Song {
       'like_count': likeCount,
       'skip_count': skipCount,
       'status': status,
+      'in_refinery': inRefinery,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

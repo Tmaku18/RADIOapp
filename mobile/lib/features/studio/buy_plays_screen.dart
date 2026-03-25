@@ -301,6 +301,16 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                   fontWeight: FontWeight.w700,
                                 ),
                           ),
+                          const SizedBox(height: 10),
+                          Text(
+                            Platform.isAndroid
+                                ? 'Checkout on this device: Google Play in-app purchase.'
+                                : 'Checkout on this device: Stripe (card / Apple Pay when available).',
+                            style: TextStyle(
+                              color: surfaces.textMuted,
+                              fontSize: 12,
+                            ),
+                          ),
                           const SizedBox(height: 20),
                           Text(
                             'Choose number of plays',

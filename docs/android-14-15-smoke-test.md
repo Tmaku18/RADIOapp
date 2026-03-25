@@ -32,7 +32,9 @@ Use this for every Android release candidate before moving from Internal testing
    - Nearby screen handles denied permission gracefully.
 5. Payments:
    - Android purchase path uses Google Play Billing (no in-app Stripe payment sheet).
-6. Stability:
+6. Live services (Gem/Catalyst):
+   - **More → Live services** (or Studio → Live services): add a listing, delete it, open **Support** and submit with a valid `discord.com` / `discord.gg` link (backend email or console log).
+7. Stability:
    - No startup crash after cold launch.
    - No crash when app returns from background while audio is active.
 

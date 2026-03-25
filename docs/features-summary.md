@@ -128,7 +128,7 @@ This document is a single reference for all platform features across web, mobile
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
 | **List Refinery songs** | Songs submitted by artists for review | ✅ | ✅ | `GET /refinery/songs` |
-| **Add/remove from Refinery** | Artist adds/removes own song | ✅ | — | `POST /refinery/songs/:id/add|remove` |
+| **Add/remove from Refinery** | Artist adds/removes own song (Studio on mobile) | ✅ | ✅ | `POST /refinery/songs/:id/add|remove` |
 | **Unlimited listens** | Prospectors can play Refinery songs unlimited times | ✅ | ✅ | — |
 | **Rank (1–10)** | Refinement score per user/song | ✅ | ✅ | Refinement endpoint |
 | **Comments** | Prospector comments on Refinery songs | ✅ | ✅ | `GET|POST /refinery/songs/:id/comments` |

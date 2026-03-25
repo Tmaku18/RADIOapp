@@ -156,6 +156,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.pushNamed(context, AppRoutes.streamSettings);
                     },
                   ),
+                if (isStreamerRole)
+                  ListTile(
+                    leading: const Icon(Icons.event_available_outlined),
+                    title: const Text('Live services'),
+                    subtitle: const Text('Promote gigs and contact support'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.liveServices);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.mail_outline),
                   title: const Text('Messages'),

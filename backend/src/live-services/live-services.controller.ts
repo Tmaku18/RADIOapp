@@ -70,7 +70,7 @@ export class LiveServicesController {
 
   @Get()
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('artist', 'service_provider', 'admin')
   async listMine(@CurrentUser() user: FirebaseUser) {
     const userId = await this.getUserId(user.uid);
     return this.liveServices.listMine(userId);
@@ -78,7 +78,7 @@ export class LiveServicesController {
 
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('artist', 'service_provider', 'admin')
   async create(
     @CurrentUser() user: FirebaseUser,
     @Body()
@@ -125,7 +125,7 @@ export class LiveServicesController {
 
   @Patch(':id')
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('artist', 'service_provider', 'admin')
   async update(
     @CurrentUser() user: FirebaseUser,
     @Param('id') id: string,
@@ -150,7 +150,7 @@ export class LiveServicesController {
 
   @Delete(':id')
   @UseGuards(RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('artist', 'service_provider', 'admin')
   async delete(@CurrentUser() user: FirebaseUser, @Param('id') id: string) {
     const userId = await this.getUserId(user.uid);
     await this.liveServices.delete(id, userId);

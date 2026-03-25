@@ -135,6 +135,7 @@
 │ Moderation workflow                │    ✅   │    —    │
 │ Paid rotation (credits)            │    ✅   │    ✅   │
 │ Artist discography                 │    ✅   │    ✅   │
+│ Live services (promote + support)  │    ✅   │    ✅   │
 │ Profile listens                    │    ✅   │    —    │
 ├────────────────────────────────────┼─────────┼─────────┤
 │ ENGAGEMENT & RIPPLES               │         │         │
@@ -185,7 +186,7 @@
 │ THE REFINERY                       │         │         │
 ├────────────────────────────────────┼─────────┼─────────┤
 │ List Refinery songs                │    ✅   │    ✅   │
-│ Add/remove from Refinery           │    ✅   │    —    │
+│ Add/remove from Refinery           │    ✅   │    ✅   │
 │ Rank (1–10)                        │    ✅   │    ✅   │
 │ Comments                           │    ✅   │    ✅   │
 ├────────────────────────────────────┼─────────┼─────────┤

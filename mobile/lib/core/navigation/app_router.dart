@@ -23,12 +23,14 @@ import '../../features/refinery/refinery_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
+import '../../features/studio/live_services_screen.dart';
 import '../../features/studio/studio_screen.dart';
 import '../../features/upload/upload_screen.dart';
 import '../../features/yield/yield_screen.dart';
 import '../../widgets/home_screen.dart';
 import '../../widgets/login_screen.dart';
 import '../../widgets/require_artist.dart';
+import '../../widgets/require_gem_capability.dart';
 import '../models/job_board_models.dart';
 import '../models/song.dart';
 import 'app_routes.dart';
@@ -116,6 +118,11 @@ class AppRouter {
           return _route(BuyPlaysScreen(song: args), settings);
         }
         return _unknown(settings);
+      case AppRoutes.liveServices:
+        return _route(
+          const RequireGemCapability(child: LiveServicesScreen()),
+          settings,
+        );
       default:
         return null;
     }

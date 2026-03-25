@@ -2,6 +2,10 @@
 
 Flutter mobile app for the RadioApp radio streaming platform.
 
+## Web parity matrix
+
+Cross-platform status (web vs Flutter, Android vs iOS) lives in **[docs/mobile-web-parity-matrix.md](../docs/mobile-web-parity-matrix.md)**.
+
 ## Overview
 
 The mobile app enables:
@@ -20,7 +24,9 @@ The mobile app enables:
 
 ### For Artists
 - Upload songs with audio files and artwork
-- Purchase credits via Stripe
+- **Credits:** Google Play Billing on Android; Stripe (Payment Sheet) on iOS
+- Live services (promote gigs) and Support tab (Discord link) — parity with web dashboard
+- Add/remove own tracks in **The Refinery** from Studio
 - View credit balance and transaction history
 - Track song plays and engagement
 
@@ -30,7 +36,7 @@ The mobile app enables:
 - **State Management**: Provider
 - **Authentication**: Firebase Auth
 - **Audio Playback**: just_audio
-- **Payments**: flutter_stripe (PaymentIntent flow)
+- **Payments**: Google Play Billing (Android credits + song plays); flutter_stripe on iOS
 - **HTTP**: http package
 - **Image Caching**: cached_network_image
 

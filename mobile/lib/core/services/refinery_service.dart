@@ -78,4 +78,14 @@ class RefineryService {
   Future<void> addComment(String songId, String body) async {
     await _api.post('refinery/songs/$songId/comments', {'body': body});
   }
+
+  /// Artist adds their own approved song to The Refinery.
+  Future<void> addSongToRefinery(String songId) async {
+    await _api.post('refinery/songs/$songId/add', {});
+  }
+
+  /// Artist removes their song from The Refinery.
+  Future<void> removeSongFromRefinery(String songId) async {
+    await _api.post('refinery/songs/$songId/remove', {});
+  }
 }
