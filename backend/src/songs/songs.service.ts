@@ -1496,12 +1496,18 @@ export class SongsService {
     const supabase = getSupabaseClient();
 
     // Check if already liked
-    const { data: existingLike } = await supabase
+    const { data: existingLike, error: existingLikeError } = await supabase
       .from('likes')
       .select('id')
       .eq('user_id', userId)
       .eq('song_id', songId)
-      .single();
+      .maybeSingle();
+
+    if (existingLikeError) {
+      throw new Error(
+        `Failed to check like status: ${existingLikeError.message}`,
+      );
+    }
 
     if (existingLike) {
       // Already liked, return current status
@@ -1509,10 +1515,16 @@ export class SongsService {
     }
 
     // Like
-    await supabase.from('likes').insert({
+    const { error: insertError } = await supabase.from('likes').insert({
       user_id: userId,
       song_id: songId,
     });
+    if (insertError) {
+      if (insertError.code === '23505') {
+        return { liked: true };
+      }
+      throw new Error(`Failed to save song to library: ${insertError.message}`);
+    }
     await this.maybeNotifyArtistLike(userId, songId);
     return { liked: true };
   }
@@ -1521,11 +1533,14 @@ export class SongsService {
     const supabase = getSupabaseClient();
 
     // Delete like if it exists
-    await supabase
+    const { error } = await supabase
       .from('likes')
       .delete()
       .eq('user_id', userId)
       .eq('song_id', songId);
+    if (error) {
+      throw new Error(`Failed to remove saved song: ${error.message}`);
+    }
 
     return { liked: false };
   }
@@ -1730,23 +1745,41 @@ export class SongsService {
     const supabase = getSupabaseClient();
 
     // Check if already liked
-    const { data: existingLike } = await supabase
+    const { data: existingLike, error: existingLikeError } = await supabase
       .from('likes')
       .select('id')
       .eq('user_id', userId)
       .eq('song_id', songId)
-      .single();
+      .maybeSingle();
+
+    if (existingLikeError) {
+      throw new Error(
+        `Failed to check like status: ${existingLikeError.message}`,
+      );
+    }
 
     if (existingLike) {
       // Unlike
-      await supabase.from('likes').delete().eq('id', existingLike.id);
+      const { error: unlikeError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('id', existingLike.id);
+      if (unlikeError) {
+        throw new Error(`Failed to remove saved song: ${unlikeError.message}`);
+      }
       return { liked: false };
     } else {
       // Like
-      await supabase.from('likes').insert({
+      const { error: likeError } = await supabase.from('likes').insert({
         user_id: userId,
         song_id: songId,
       });
+      if (likeError) {
+        if (likeError.code === '23505') {
+          return { liked: true };
+        }
+        throw new Error(`Failed to save song to library: ${likeError.message}`);
+      }
       await this.maybeNotifyArtistLike(userId, songId);
       return { liked: true };
     }
