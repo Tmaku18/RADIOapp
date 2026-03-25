@@ -25,6 +25,10 @@ interface LeaderboardSong {
   likesInWindow?: number;
   playsInWindow?: number;
   upvotesPerMinute?: number;
+  positiveVotes?: number;
+  negativeVotes?: number;
+  positiveRatio?: number;
+  saveCount?: number;
 }
 
 interface NewsItem {
@@ -46,6 +50,9 @@ export default function CompetitionPage() {
   const { profile } = useAuth();
   const [leaderboardLikes, setLeaderboardLikes] = useState<LeaderboardSong[]>([]);
   const [leaderboardListens, setLeaderboardListens] = useState<LeaderboardSong[]>([]);
+  const [leaderboardPositiveVotes, setLeaderboardPositiveVotes] = useState<LeaderboardSong[]>([]);
+  const [leaderboardRatios, setLeaderboardRatios] = useState<LeaderboardSong[]>([]);
+  const [leaderboardSaves, setLeaderboardSaves] = useState<LeaderboardSong[]>([]);
   const [trialByFire, setTrialByFire] = useState<LeaderboardSong[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [todaySpotlight, setTodaySpotlight] = useState<{ artistId: string; artistName: string; songId: string | null; songTitle: string | null } | null>(null);
@@ -62,9 +69,23 @@ export default function CompetitionPage() {
     let ignore = false;
     async function load() {
       try {
-        const [likesRes, listensRes, trialRes, feedRes, todayRes, weekRes, weekInfoRes] = await Promise.all([
+        const [
+          likesRes,
+          listensRes,
+          positiveVotesRes,
+          ratioRes,
+          savesRes,
+          trialRes,
+          feedRes,
+          todayRes,
+          weekRes,
+          weekInfoRes,
+        ] = await Promise.all([
           leaderboardApi.getSongs({ by: 'likes', limit: 20 }),
           leaderboardApi.getSongs({ by: 'listens', limit: 20 }),
+          leaderboardApi.getSongs({ by: 'positive_votes', limit: 20 }),
+          leaderboardApi.getSongs({ by: 'ratio', limit: 20 }),
+          leaderboardApi.getSongs({ by: 'saves', limit: 20 }),
           leaderboardApi.getUpvotesPerMinute({ windowMinutes: 60, limit: 20 }),
           feedApi.getNewsPromotions(10),
           spotlightApi.getToday(),
@@ -80,6 +101,9 @@ export default function CompetitionPage() {
           if (!ignore) setBrowseLeaderboard(null);
         }
         setLeaderboardListens(listensRes.data || []);
+        setLeaderboardPositiveVotes(positiveVotesRes.data || []);
+        setLeaderboardRatios(ratioRes.data || []);
+        setLeaderboardSaves(savesRes.data || []);
         setTrialByFire(trialRes.data || []);
         setNews(feedRes.data || []);
         setTodaySpotlight(todayRes.data || null);
@@ -243,9 +267,12 @@ export default function CompetitionPage() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="likes" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="grid w-full max-w-5xl grid-cols-6">
               <TabsTrigger value="likes">By Likes</TabsTrigger>
               <TabsTrigger value="listens">By Plays</TabsTrigger>
+              <TabsTrigger value="positive_votes">Positive Votes</TabsTrigger>
+              <TabsTrigger value="ratio">Best Ratio</TabsTrigger>
+              <TabsTrigger value="saves">Most Saves</TabsTrigger>
               <TabsTrigger value="trial">Votes/Minute</TabsTrigger>
             </TabsList>
             <TabsContent value="likes" className="mt-4">
@@ -321,6 +348,82 @@ export default function CompetitionPage() {
                     </li>
                   ))}
                   {!loading && trialByFire.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="positive_votes" className="mt-4">
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <ul className="space-y-2">
+                  {leaderboardPositiveVotes.map((s, i) => (
+                    <li key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <span className="w-6 text-muted-foreground font-mono">{i + 1}</span>
+                      {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.title}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="secondary">🔥 {s.positiveVotes ?? 0}</Badge>
+                        <span className="text-xs text-muted-foreground">💩 {s.negativeVotes ?? 0}</span>
+                      </div>
+                    </li>
+                  ))}
+                  {!loading && leaderboardPositiveVotes.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="ratio" className="mt-4">
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <ul className="space-y-2">
+                  {leaderboardRatios.map((s, i) => (
+                    <li key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <span className="w-6 text-muted-foreground font-mono">{i + 1}</span>
+                      {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.title}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="secondary">
+                          {(((s.positiveRatio ?? 0) * 100)).toFixed(1)}%
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          🔥 {s.positiveVotes ?? 0} / 💩 {s.negativeVotes ?? 0}
+                        </span>
+                      </div>
+                    </li>
+                  ))}
+                  {!loading && leaderboardRatios.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
+                </ul>
+              )}
+            </TabsContent>
+            <TabsContent value="saves" className="mt-4">
+              {loading ? (
+                <Skeleton className="h-64 w-full" />
+              ) : (
+                <ul className="space-y-2">
+                  {leaderboardSaves.map((s, i) => (
+                    <li key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                      <span className="w-6 text-muted-foreground font-mono">{i + 1}</span>
+                      {s.artworkUrl && <img src={s.artworkUrl} alt="" className="w-10 h-10 rounded object-cover" />}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{s.title}</p>
+                        <Link href={`/artist/${s.artistId}`} className="text-sm text-muted-foreground truncate hover:underline">
+                          {s.artistName}
+                        </Link>
+                      </div>
+                      <Badge variant="secondary">♥ {s.saveCount ?? s.likeCount ?? 0}</Badge>
+                    </li>
+                  ))}
+                  {!loading && leaderboardSaves.length === 0 && <p className="text-muted-foreground">No data yet.</p>}
                 </ul>
               )}
             </TabsContent>
