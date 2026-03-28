@@ -94,6 +94,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return '${local.month}/${local.day}/${local.year}';
   }
 
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'song_approved':
+        return Icons.check_circle_outline;
+      case 'song_rejected':
+        return Icons.cancel_outlined;
+      case 'song_liked':
+        return Icons.favorite_outline;
+      case 'song_played':
+        return Icons.music_note_outlined;
+      default:
+        return Icons.notifications_none;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -145,6 +160,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   .withValues(alpha: 0.25),
                           child: ListTile(
                             onTap: () => _markAsRead(n),
+                            leading: Icon(
+                              _iconForType(n.type),
+                              color: n.type == 'song_liked'
+                                  ? Theme.of(context).colorScheme.primary
+                                  : surfaces.textSecondary,
+                            ),
                             title: Text(
                               n.title,
                               style: TextStyle(

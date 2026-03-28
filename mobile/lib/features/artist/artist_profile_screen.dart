@@ -237,6 +237,116 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
   }
 
+  String _likeTimeAgo(DateTime? dt) {
+    if (dt == null) return 'Recently';
+    final local = dt.toLocal();
+    final diff = DateTime.now().difference(local);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${local.month}/${local.day}/${local.year}';
+  }
+
+  Future<void> _showLikesSheet(Song song) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) {
+        final surfaces = context.networxSurfaces;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: FutureBuilder<SongLikesResponse>(
+              future: _songs.getLikes(song.id),
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const SizedBox(
+                    height: 220,
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                if (snap.hasError) {
+                  return SizedBox(
+                    height: 220,
+                    child: Center(
+                      child: Text(
+                        'Could not load likes.',
+                        style: TextStyle(color: surfaces.textSecondary),
+                      ),
+                    ),
+                  );
+                }
+                final data = snap.data ??
+                    const SongLikesResponse(totalLikes: 0, likes: <SongLikeUser>[]);
+                return SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Likes for "${song.title}" (${data.totalLikes})',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 12),
+                      if (data.likes.isEmpty)
+                        Expanded(
+                          child: Center(
+                            child: Text(
+                              'No likes yet.',
+                              style: TextStyle(color: surfaces.textSecondary),
+                            ),
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: ListView.separated(
+                            itemCount: data.likes.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final like = data.likes[index];
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading: CircleAvatar(
+                                  backgroundImage:
+                                      (like.avatarUrl ?? '').trim().isNotEmpty
+                                      ? CachedNetworkImageProvider(like.avatarUrl!)
+                                      : null,
+                                  child: (like.avatarUrl ?? '').trim().isEmpty
+                                      ? const Icon(Icons.person_outline)
+                                      : null,
+                                ),
+                                title: Text(like.displayName?.trim().isNotEmpty == true
+                                    ? like.displayName!
+                                    : 'Unknown user'),
+                                subtitle: Text(_likeTimeAgo(like.likedAt)),
+                                onTap: like.userId.trim().isEmpty
+                                    ? null
+                                    : () {
+                                        Navigator.pop(context);
+                                        Navigator.pushNamed(
+                                          this.context,
+                                          AppRoutes.artistProfile,
+                                          arguments: like.userId,
+                                        );
+                                      },
+                              );
+                            },
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -489,6 +599,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                     color: surfaces.textMuted,
                                     fontSize: 12,
                                   ),
+                                ),
+                                TextButton(
+                                  onPressed: () => _showLikesSheet(s),
+                                  style: TextButton.styleFrom(
+                                    minimumSize: Size.zero,
+                                    padding: EdgeInsets.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: const Text('View likes'),
                                 ),
                               ],
                             ),
