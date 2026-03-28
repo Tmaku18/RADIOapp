@@ -146,7 +146,7 @@ export default function BuyPlaysPage() {
         <CardContent className="pt-6">
           <p className="text-sm text-muted-foreground mb-1">Price per play</p>
           <p className="text-2xl font-semibold text-foreground">${price.pricePerPlayDollars} <span className="text-base font-normal text-muted-foreground">/ play</span></p>
-          <p className="text-xs text-muted-foreground mt-1">$1 per minute, rounded up to the nearest cent</p>
+          <p className="text-xs text-muted-foreground mt-1">Flat price: $1.99 per play</p>
 
           <div className="mt-6">
             <p className="text-sm font-medium text-foreground mb-3">Choose number of plays</p>

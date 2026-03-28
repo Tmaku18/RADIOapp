@@ -55,11 +55,11 @@ export default function CreditsPage() {
         <CardContent className="pt-6">
           <h2 className="text-lg font-semibold text-foreground mb-2">Buy plays per song</h2>
           <p className="text-muted-foreground mb-4">
-            Plays cost <strong className="text-foreground">$1 per minute per play</strong>, rounded up to the nearest cent.
+            Plays cost <strong className="text-foreground">$1.99 per play</strong>.
             There is no credit bank — you buy plays for each approved song.
           </p>
           <p className="text-muted-foreground mb-2">
-            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy plays</strong> on an approved track to see price (based on song length) and choose 1, 3, 5, 10, 25, 50, or 100 plays.
+            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy plays</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 plays.
           </p>
           <Button variant="default" asChild>
             <Link href="/artist/songs">Open My Songs →</Link>

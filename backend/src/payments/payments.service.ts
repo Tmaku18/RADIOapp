@@ -16,10 +16,10 @@ type GooglePlayCatalogEntry = {
   plays?: number;
 };
 
-/** $1 per minute per play, rounded up to nearest cent. Returns cents. */
+/** Flat $1.99 per play. Returns cents. */
 export function pricePerPlayCents(durationSeconds: number): number {
-  const minutes = durationSeconds / 60;
-  return Math.ceil(minutes * 100);
+  void durationSeconds;
+  return 199;
 }
 
 @Injectable()
