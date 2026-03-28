@@ -22,7 +22,14 @@ function formatListens(n: number): string {
 
 // Fetch platform stats from the API
 async function getHomepageData() {
-  const featuredArtistsFallback = [
+  type FeaturedArtist = {
+    id: string;
+    name: string;
+    genre: string;
+    imageUrl: string | null;
+  };
+
+  const featuredArtistsFallback: FeaturedArtist[] = [
     { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
     { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
     { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
@@ -48,7 +55,7 @@ async function getHomepageData() {
         totalPlays?: number;
       };
 
-      let featuredArtists = featuredArtistsFallback;
+      let featuredArtists: FeaturedArtist[] = featuredArtistsFallback;
       if (leaderboardResponse.ok) {
         const leaderboard = (await leaderboardResponse.json()) as Array<{
           id?: string;
