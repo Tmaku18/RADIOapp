@@ -57,6 +57,9 @@ interface RadioPlayerProps {
 }
 
 const DEFAULT_RADIO_ID = 'global';
+const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
+
+type StoredReactions = Record<string, 'fire' | 'shit'>;
 
 export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
@@ -515,14 +518,54 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     [],
   );
 
+  const readStoredReaction = useCallback((voteKey: string | null) => {
+    if (!voteKey || typeof window === 'undefined') return null;
+    try {
+      const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredReactions;
+      const reaction = parsed[voteKey];
+      return reaction === 'fire' || reaction === 'shit' ? reaction : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const persistReaction = useCallback(
+    (voteKey: string | null, reaction: 'fire' | 'shit') => {
+      if (!voteKey || typeof window === 'undefined') return;
+      try {
+        const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as StoredReactions) : {};
+        parsed[voteKey] = reaction;
+        window.sessionStorage.setItem(REACTION_STORAGE_KEY, JSON.stringify(parsed));
+      } catch {
+        // Ignore storage failures so voting UX is unaffected.
+      }
+    },
+    [],
+  );
+
   // Reset vote state when the current vote key changes.
   useEffect(() => {
     const voteKey = getVoteKey(state.track ?? null);
-    if (voteKey && voteKey !== lastVoteKeyRef.current) {
+    if (!voteKey) {
       setHasVoted(false);
       setSelectedReaction(null);
+      return;
     }
-  }, [state.track, getVoteKey]);
+    if (voteKey !== lastVoteKeyRef.current) {
+      const storedReaction = readStoredReaction(voteKey);
+      if (storedReaction) {
+        setHasVoted(true);
+        setSelectedReaction(storedReaction);
+        lastVoteKeyRef.current = voteKey;
+      } else {
+        setHasVoted(false);
+        setSelectedReaction(null);
+      }
+    }
+  }, [state.track, getVoteKey, readStoredReaction]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -612,6 +655,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(true);
       setSelectedReaction(reaction);
+      persistReaction(lastVoteKeyRef.current, reaction);
       // Optimistic local update first, then reconcile from server.
       let nextFireVotes = fireVotes;
       let nextShitVotes = shitVotes;
