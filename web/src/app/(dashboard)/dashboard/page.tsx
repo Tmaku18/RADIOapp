@@ -4,17 +4,32 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { creditsApi } from '@/lib/api';
-import { hasArtistCapability } from '@/lib/roles';
+import { analyticsApi, creditsApi, prospectorApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
 
 interface DashboardStats {
+  platform?: {
+    totalArtists: number;
+    totalSongs: number;
+    totalPlays: number;
+    totalProfileClicks: number;
+  };
+  artist?: {
+    totalPlays: number;
+    totalSongs: number;
+    totalLikes: number;
+  };
   credits?: {
     balance: number;
     totalPurchased: number;
     totalUsed: number;
+  };
+  yield?: {
+    balanceCents: number;
+    tier: string;
+    songsRefinedCount: number;
   };
 }
 
@@ -91,14 +106,64 @@ export default function DashboardPage() {
   const role = (profile?.role ?? 'artist') as Role;
   const homeKey = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
   const home = ROLE_HOME[homeKey] ?? ROLE_HOME.artist;
+  const hasArtistStats = role === 'artist' || role === 'service_provider';
+  const hasProspectorStats = role === 'listener';
 
   useEffect(() => {
     async function loadStats() {
       try {
-        if (hasArtistCapability(profile?.role)) {
-          const creditsResponse = await creditsApi.getBalance();
-          setStats({ credits: creditsResponse.data });
+        const next: DashboardStats = {};
+
+        try {
+          const platformResponse = await analyticsApi.getPlatformStats();
+          const platform = platformResponse.data as {
+            totalArtists?: number;
+            totalSongs?: number;
+            totalPlays?: number;
+            totalProfileClicks?: number;
+          };
+          next.platform = {
+            totalArtists: platform.totalArtists ?? 0,
+            totalSongs: platform.totalSongs ?? 0,
+            totalPlays: platform.totalPlays ?? 0,
+            totalProfileClicks: platform.totalProfileClicks ?? 0,
+          };
+        } catch (platformError) {
+          console.error('Failed to load platform stats:', platformError);
         }
+
+        if (hasArtistStats) {
+          const [creditsResponse, artistAnalyticsResponse] = await Promise.all([
+            creditsApi.getBalance(),
+            analyticsApi.getMyAnalytics(30),
+          ]);
+          const artist = artistAnalyticsResponse.data as {
+            totalPlays?: number;
+            totalSongs?: number;
+            totalLikes?: number;
+          };
+          next.credits = creditsResponse.data;
+          next.artist = {
+            totalPlays: artist.totalPlays ?? 0,
+            totalSongs: artist.totalSongs ?? 0,
+            totalLikes: artist.totalLikes ?? 0,
+          };
+        }
+
+        if (hasProspectorStats) {
+          const yieldResponse = await prospectorApi.getYield();
+          const yieldData = yieldResponse.data as {
+            balanceCents?: number;
+            tier?: string;
+            songsRefinedCount?: number;
+          };
+          next.yield = {
+            balanceCents: yieldData.balanceCents ?? 0,
+            tier: yieldData.tier ?? 'none',
+            songsRefinedCount: yieldData.songsRefinedCount ?? 0,
+          };
+        }
+        setStats(next);
       } catch (error) {
         console.error('Failed to load dashboard stats:', error);
       } finally {
@@ -106,10 +171,12 @@ export default function DashboardPage() {
       }
     }
 
-    if (profile) {
+    if (profile?.id) {
       loadStats();
+    } else {
+      setLoading(false);
     }
-  }, [profile]);
+  }, [profile?.id, hasArtistStats, hasProspectorStats]);
 
   return (
     <div className="space-y-8">
@@ -164,7 +231,45 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {hasArtistCapability(profile?.role) && (
+      <Card>
+        <CardContent className="pt-6">
+          <h2 className="text-xl font-semibold text-foreground mb-6">Network Snapshot</h2>
+          {loading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-primary/10 rounded-xl p-4">
+                <div className="text-sm text-primary font-medium">Artists</div>
+                <div className="text-3xl font-bold text-foreground mt-1">
+                  {(stats.platform?.totalArtists ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-muted rounded-xl p-4">
+                <div className="text-sm text-muted-foreground font-medium">Songs</div>
+                <div className="text-3xl font-bold text-foreground mt-1">
+                  {(stats.platform?.totalSongs ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-muted rounded-xl p-4">
+                <div className="text-sm text-muted-foreground font-medium">Listens</div>
+                <div className="text-3xl font-bold text-foreground mt-1">
+                  {(stats.platform?.totalPlays ?? 0).toLocaleString()}
+                </div>
+              </div>
+              <div className="bg-muted rounded-xl p-4">
+                <div className="text-sm text-muted-foreground font-medium">Discoveries</div>
+                <div className="text-3xl font-bold text-foreground mt-1">
+                  {(stats.platform?.totalProfileClicks ?? 0).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {hasArtistStats && (
         <Card>
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-6">Your Stats</h2>
@@ -173,18 +278,56 @@ export default function DashboardPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                 <div className="bg-primary/10 rounded-xl p-4">
                   <div className="text-sm text-primary font-medium">Credit Balance</div>
                   <div className="text-3xl font-bold text-foreground mt-1">{stats.credits?.balance ?? 0}</div>
                 </div>
                 <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Total Purchased</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.credits?.totalPurchased ?? 0}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Your Plays</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalPlays ?? 0}</div>
                 </div>
                 <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Credits Used</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.credits?.totalUsed ?? 0}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Your Songs</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalSongs ?? 0}</div>
+                </div>
+                <div className="bg-muted rounded-xl p-4">
+                  <div className="text-sm text-muted-foreground font-medium">Your Likes</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalLikes ?? 0}</div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {hasProspectorStats && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-semibold text-foreground mb-6">Prospector Stats</h2>
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-primary/10 rounded-xl p-4">
+                  <div className="text-sm text-primary font-medium">Yield Balance</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">
+                    ${((stats.yield?.balanceCents ?? 0) / 100).toFixed(2)}
+                  </div>
+                </div>
+                <div className="bg-muted rounded-xl p-4">
+                  <div className="text-sm text-muted-foreground font-medium">Tier</div>
+                  <div className="text-3xl font-bold text-foreground mt-1 capitalize">
+                    {stats.yield?.tier ?? 'none'}
+                  </div>
+                </div>
+                <div className="bg-muted rounded-xl p-4">
+                  <div className="text-sm text-muted-foreground font-medium">Songs Refined</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">
+                    {stats.yield?.songsRefinedCount ?? 0}
+                  </div>
                 </div>
               </div>
             )}

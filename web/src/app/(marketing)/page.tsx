@@ -22,7 +22,7 @@ function formatListens(n: number): string {
 
 // Fetch platform stats from the API
 async function getHomepageData() {
-  const featuredArtists = [
+  const featuredArtistsFallback = [
     { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
     { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
     { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
@@ -30,18 +30,40 @@ async function getHomepageData() {
 
   try {
     for (const baseUrl of getBackendBaseUrls()) {
-      const response = await fetch(`${baseUrl}/api/analytics/platform`, {
-        next: { revalidate: 60 }, // Cache for 60 seconds
-      });
+      const [platformResponse, leaderboardResponse] = await Promise.all([
+        fetch(`${baseUrl}/api/analytics/platform`, {
+          next: { revalidate: 60 }, // Cache for 60 seconds
+        }),
+        fetch(`${baseUrl}/api/leaderboard/songs?by=listens&limit=3&offset=0`, {
+          next: { revalidate: 60 },
+        }),
+      ]);
 
-      if (!response.ok) continue;
+      if (!platformResponse.ok) continue;
 
-      const stats = (await response.json()) as {
+      const stats = (await platformResponse.json()) as {
         totalArtists?: number;
         totalSongs?: number;
         totalProfileClicks?: number;
         totalPlays?: number;
       };
+
+      let featuredArtists = featuredArtistsFallback;
+      if (leaderboardResponse.ok) {
+        const leaderboard = (await leaderboardResponse.json()) as Array<{
+          id?: string;
+          artistName?: string;
+          artworkUrl?: string | null;
+        }>;
+        if (Array.isArray(leaderboard) && leaderboard.length > 0) {
+          featuredArtists = leaderboard.slice(0, 3).map((item, index) => ({
+            id: item.id ?? `${index + 1}`,
+            name: item.artistName ?? 'Featured Artist',
+            genre: 'Top by Listens',
+            imageUrl: item.artworkUrl ?? null,
+          }));
+        }
+      }
 
       return {
         featuredArtists,
@@ -59,7 +81,7 @@ async function getHomepageData() {
   
   // Fallback to default data
   return {
-    featuredArtists,
+    featuredArtists: featuredArtistsFallback,
     stats: {
       totalArtists: 0,
       totalSongs: 0,
