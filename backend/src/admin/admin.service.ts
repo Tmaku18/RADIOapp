@@ -851,6 +851,10 @@ export class AdminService {
       },
       { id: 'us-beats', state: 'US', label: 'Beats Radio (National)' },
       { id: 'us-freestyle', state: 'US', label: 'Freestyle Radio (National)' },
+      { id: 'us-instrumental', state: 'US', label: 'Instrumental Radio (National)' },
+      { id: 'us-lofi', state: 'US', label: 'Lo-Fi Radio (National)' },
+      { id: 'us-jazz', state: 'US', label: 'Jazz Radio (National)' },
+      { id: 'us-audiobook', state: 'US', label: 'Audiobook Radio (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

@@ -34,6 +34,10 @@ const GENRE_SYMBOLS: Record<string, string> = {
   'ai-created': '🤖',
   beats: '🥁',
   freestyle: '🎙️',
+  instrumental: '🎼',
+  lofi: '🌙',
+  jazz: '🎷',
+  audiobook: '📚',
 };
 
 function MapController({

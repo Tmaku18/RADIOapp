@@ -19,7 +19,11 @@ export type GenreId =
   | 'emo'
   | 'ai-created'
   | 'beats'
-  | 'freestyle';
+  | 'freestyle'
+  | 'instrumental'
+  | 'lofi'
+  | 'jazz'
+  | 'audiobook';
 
 export interface Tower {
   id: string;
@@ -215,6 +219,42 @@ export const TOWERS: Tower[] = [
     genreId: 'freestyle',
     lat: 33.4484,
     lng: -112.074,
+  },
+  {
+    id: 'us-instrumental',
+    state: 'US',
+    city: 'Portland',
+    genre: 'Instrumental Radio',
+    genreId: 'instrumental',
+    lat: 45.5152,
+    lng: -122.6784,
+  },
+  {
+    id: 'us-lofi',
+    state: 'US',
+    city: 'San Diego',
+    genre: 'Lo-Fi Radio',
+    genreId: 'lofi',
+    lat: 32.7157,
+    lng: -117.1611,
+  },
+  {
+    id: 'us-jazz',
+    state: 'US',
+    city: 'Kansas City',
+    genre: 'Jazz Radio',
+    genreId: 'jazz',
+    lat: 39.0997,
+    lng: -94.5786,
+  },
+  {
+    id: 'us-audiobook',
+    state: 'US',
+    city: 'Minneapolis',
+    genre: 'Audiobook Radio',
+    genreId: 'audiobook',
+    lat: 44.9778,
+    lng: -93.265,
   },
 ];
 

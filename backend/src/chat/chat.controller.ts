@@ -75,10 +75,16 @@ export class ChatController {
    * GET /api/v1/chat/history
    */
   @Get('history')
-  async getHistory(@Query('limit') limit?: string, @Query('radioId') radioId?: string) {
+  async getHistory(
+    @Query('limit') limit?: string,
+    @Query('radioId') radioId?: string,
+  ) {
     try {
       const parsedLimit = limit ? Math.min(parseInt(limit, 10), 100) : 50;
-      const messages = await this.chatService.getHistory(parsedLimit, radioId || 'global');
+      const messages = await this.chatService.getHistory(
+        parsedLimit,
+        radioId || 'global',
+      );
 
       return {
         messages: messages.map((m) => ({

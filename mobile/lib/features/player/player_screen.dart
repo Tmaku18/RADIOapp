@@ -84,6 +84,18 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   ),
   _StationOption(id: 'us-beats', genre: 'Beats Radio', city: 'Miami'),
   _StationOption(id: 'us-freestyle', genre: 'Freestyle Radio', city: 'Phoenix'),
+  _StationOption(
+    id: 'us-instrumental',
+    genre: 'Instrumental Radio',
+    city: 'Portland',
+  ),
+  _StationOption(id: 'us-lofi', genre: 'Lo-Fi Radio', city: 'San Diego'),
+  _StationOption(id: 'us-jazz', genre: 'Jazz Radio', city: 'Kansas City'),
+  _StationOption(
+    id: 'us-audiobook',
+    genre: 'Audiobook Radio',
+    city: 'Minneapolis',
+  ),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
