@@ -127,6 +127,8 @@ class _MyAppState extends State<MyApp> {
           nav.pushNamed(AppRoutes.player);
         } else if (data['type'] == 'artist_live_now' && data['artistId'] != null) {
           nav.pushNamed(AppRoutes.watchLive, arguments: data['artistId'].toString());
+        } else if (data['type'] == 'song_liked') {
+          nav.pushNamed(AppRoutes.notifications);
         }
       };
     });

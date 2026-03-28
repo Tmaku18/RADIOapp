@@ -228,6 +228,10 @@ class PushNotificationService {
         'type': 'artist_live_now',
         'artistId': message.data['artistId'],
       });
+      return;
+    }
+    if (type == 'song_liked') {
+      onNotificationTap?.call({'type': 'song_liked'});
     }
   }
 

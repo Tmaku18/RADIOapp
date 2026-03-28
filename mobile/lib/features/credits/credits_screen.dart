@@ -134,7 +134,7 @@ class _CreditsScreenState extends State<CreditsScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: Text(
-                            'Plays are purchased per song from Studio at \$1/min per play (rounded up). Buy plays from each approved track in Studio.',
+                            'Plays are purchased per song from Studio at a flat \$1.99 per play. Buy plays from each approved track in Studio.',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                               fontSize: 14,
