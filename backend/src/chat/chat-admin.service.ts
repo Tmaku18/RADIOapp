@@ -183,11 +183,15 @@ export class ChatAdminService {
 
     // Broadcast deletion to clients
     try {
-      const channel = supabase.channel('radio-chat');
+      const radioId =
+        (data as { radio_id?: string | null } | null)?.radio_id?.trim() ||
+        'global';
+      const channel = supabase.channel(`radio-chat:${radioId}`);
+      await channel.subscribe();
       await channel.send({
         type: 'broadcast',
         event: 'message_deleted',
-        payload: { messageId },
+        payload: { messageId, radioId },
       });
     } catch (e) {
       this.logger.warn(`Failed to broadcast message deletion: ${e.message}`);

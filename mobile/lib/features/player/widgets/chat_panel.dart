@@ -14,6 +14,7 @@ import '../../../core/theme/networx_extensions.dart';
 class ChatPanel extends StatefulWidget {
   final String? currentSongId;
   final String? currentSongTitle;
+  final String? currentRadioId;
   final bool isExpanded;
   final VoidCallback? onToggleExpand;
   final bool fillHeightWhenExpanded;
@@ -23,6 +24,7 @@ class ChatPanel extends StatefulWidget {
     super.key,
     this.currentSongId,
     this.currentSongTitle,
+    this.currentRadioId,
     this.isExpanded = false,
     this.onToggleExpand,
     this.fillHeightWhenExpanded = false,
@@ -47,11 +49,23 @@ class _ChatPanelState extends State<ChatPanel> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    if (widget.currentRadioId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        chatService.setRadioId(widget.currentRadioId!);
+      });
+    }
   }
 
   @override
   void didUpdateWidget(ChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.currentRadioId != null &&
+        widget.currentRadioId != oldWidget.currentRadioId) {
+      final chatService = Provider.of<ChatService>(context, listen: false);
+      chatService.setRadioId(widget.currentRadioId!);
+    }
     // Handle song transitions
     if (widget.currentSongTitle != null && 
         widget.currentSongTitle != _lastSongTitle &&
@@ -262,6 +276,9 @@ class _ChatPanelState extends State<ChatPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final channelLabel = (widget.currentRadioId?.trim().isNotEmpty ?? false)
+        ? widget.currentRadioId!.trim()
+        : 'global';
     return Consumer<ChatService>(
       builder: (context, chatService, child) {
         final scheme = Theme.of(context).colorScheme;
@@ -284,7 +301,7 @@ class _ChatPanelState extends State<ChatPanel> {
                       color: surfaces.textSecondary, size: 18),
                   const SizedBox(width: 8),
                   Text(
-                    'The Room',
+                    'The Room · $channelLabel',
                     style: TextStyle(color: surfaces.textSecondary),
                   ),
                   const SizedBox(width: 8),
@@ -340,7 +357,7 @@ class _ChatPanelState extends State<ChatPanel> {
                           color: scheme.onSurface, size: 18),
                       const SizedBox(width: 8),
                       Text(
-                        'The Room',
+                        'The Room · $channelLabel',
                         style: TextStyle(
                           color: scheme.onSurface,
                           fontWeight: FontWeight.w600,

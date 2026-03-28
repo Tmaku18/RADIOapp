@@ -53,6 +53,7 @@ export class ChatController {
         user.id,
         dto.message,
         dto.songId || null,
+        dto.radioId || 'global',
         user.display_name || 'Anonymous',
         user.avatar_url,
       );
@@ -74,16 +75,17 @@ export class ChatController {
    * GET /api/v1/chat/history
    */
   @Get('history')
-  async getHistory(@Query('limit') limit?: string) {
+  async getHistory(@Query('limit') limit?: string, @Query('radioId') radioId?: string) {
     try {
       const parsedLimit = limit ? Math.min(parseInt(limit, 10), 100) : 50;
-      const messages = await this.chatService.getHistory(parsedLimit);
+      const messages = await this.chatService.getHistory(parsedLimit, radioId || 'global');
 
       return {
         messages: messages.map((m) => ({
           id: m.id,
           userId: m.user_id,
           songId: m.song_id,
+          radioId: m.radio_id,
           displayName: m.display_name,
           avatarUrl: m.avatar_url,
           message: m.message,

@@ -31,6 +31,7 @@ describe('ChatController', () => {
       'user-id',
       'hi',
       'song-1',
+      'global',
       'User',
       null,
     );
@@ -45,6 +46,7 @@ describe('ChatController', () => {
           id: 'msg-1',
           user_id: 'user-id',
           song_id: 'song-1',
+          radio_id: 'us-rap',
           display_name: 'User',
           avatar_url: null,
           message: 'hello',
@@ -55,7 +57,7 @@ describe('ChatController', () => {
     };
     const controller = new ChatController(chatService as any);
 
-    const result = await controller.getHistory('10');
+    const result = await controller.getHistory('10', 'us-rap');
 
     expect(result).toEqual({
       messages: [
@@ -63,6 +65,7 @@ describe('ChatController', () => {
           id: 'msg-1',
           userId: 'user-id',
           songId: 'song-1',
+          radioId: 'us-rap',
           displayName: 'User',
           avatarUrl: null,
           message: 'hello',

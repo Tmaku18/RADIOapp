@@ -973,9 +973,9 @@ export const analyticsApi = {
 };
 
 export const chatApi = {
-  sendMessage: (message: string, songId?: string) => 
-    api.post('/chat/send', { message, songId }),
-  getHistory: (params?: { limit?: number }) => 
+  sendMessage: (message: string, songId?: string, radioId?: string) =>
+    api.post('/chat/send', { message, songId, radioId }),
+  getHistory: (params?: { limit?: number; radioId?: string }) =>
     api.get('/chat/history', { params }),
   getStatus: () => api.get('/chat/status'),
 };

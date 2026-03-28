@@ -9,4 +9,9 @@ export class SendMessageDto {
   @IsString()
   @IsOptional()
   songId?: string;
+
+  @IsString()
+  @IsOptional()
+  @MaxLength(64)
+  radioId?: string;
 }

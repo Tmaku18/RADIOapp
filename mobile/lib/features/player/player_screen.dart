@@ -597,6 +597,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             child: ChatPanel(
               currentSongId: _currentTrack?.id,
               currentSongTitle: _currentTrack?.title,
+              currentRadioId: _radioId,
               isExpanded: true,
               fillHeightWhenExpanded: true,
               expandedHeight: 9999,
@@ -610,7 +611,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ChatService()..initialize(),
+      create: (_) => ChatService()..initialize(radioId: _radioId),
       child: Builder(
         builder: (providerContext) {
           return Scaffold(

@@ -12,6 +12,7 @@ interface ChatMessage {
   id: string;
   user_id: string;
   song_id: string | null;
+  radio_id: string;
   display_name: string;
   avatar_url: string | null;
   message: string;
@@ -36,14 +37,12 @@ interface RateLimitEntry {
 @Injectable()
 export class ChatService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(ChatService.name);
-
-  // Persistent Realtime channel for broadcasting
-  private chatChannel: RealtimeChannel | null = null;
-
-  // Track if channel is ready for broadcasting
-  private isChannelReady = false;
-  private channelReadyPromise: Promise<void> | null = null;
-  private channelReadyResolve: (() => void) | null = null;
+  private readonly DEFAULT_RADIO_ID = 'global';
+  private readonly MAX_RADIO_ID_LENGTH = 64;
+  private readonly channels = new Map<string, RealtimeChannel>();
+  private readonly channelReady = new Map<string, boolean>();
+  private readonly channelReadyPromises = new Map<string, Promise<void>>();
+  private readonly channelReadyResolvers = new Map<string, () => void>();
 
   // In-memory rate limiting (use Redis in production for multi-instance)
   private rateLimits: Map<string, RateLimitEntry> = new Map();
@@ -56,88 +55,73 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   private lastMessageTime: Map<string, number> = new Map();
 
   /**
-   * Initialize the Realtime channel subscription on module start.
-   * The channel MUST be subscribed before we can broadcast to it.
+   * Initialize a default channel so first chat broadcast is ready.
    */
   async onModuleInit() {
-    const supabase = getSupabaseClient();
-
-    // Create promise to wait for channel ready state
-    this.channelReadyPromise = new Promise((resolve) => {
-      this.channelReadyResolve = resolve;
-    });
-
-    this.chatChannel = supabase.channel('radio-chat');
-
-    // Subscribe to the channel (required before sending)
-    this.chatChannel.subscribe((status) => {
-      if (status === 'SUBSCRIBED') {
-        this.logger.log('Chat broadcast channel subscribed and ready');
-        this.isChannelReady = true;
-        if (this.channelReadyResolve) {
-          this.channelReadyResolve();
-        }
-      } else if (status === 'CHANNEL_ERROR') {
-        this.logger.error('Chat channel subscription error');
-        this.isChannelReady = false;
-        // Try to reconnect after error
-        setTimeout(() => this.reconnectChannel(), 5000);
-      } else if (status === 'TIMED_OUT') {
-        this.logger.warn('Chat channel subscription timed out');
-        this.isChannelReady = false;
-        // Try to reconnect after timeout
-        setTimeout(() => this.reconnectChannel(), 5000);
-      } else if (status === 'CLOSED') {
-        this.logger.warn('Chat channel closed');
-        this.isChannelReady = false;
-      }
-    });
+    await this.ensureChannel(this.DEFAULT_RADIO_ID);
   }
 
-  /**
-   * Reconnect the chat channel after an error or timeout.
-   */
-  private async reconnectChannel() {
-    this.logger.log('Attempting to reconnect chat channel...');
+  private normalizeRadioId(radioId?: string | null): string {
+    const fallback = this.DEFAULT_RADIO_ID;
+    const normalized = radioId?.trim();
+    if (!normalized) return fallback;
+    return normalized.slice(0, this.MAX_RADIO_ID_LENGTH);
+  }
 
-    if (this.chatChannel) {
-      await this.chatChannel.unsubscribe();
-    }
+  private channelNameFor(radioId: string): string {
+    return `radio-chat:${radioId}`;
+  }
 
-    // Reset ready state
-    this.isChannelReady = false;
-    this.channelReadyPromise = new Promise((resolve) => {
-      this.channelReadyResolve = resolve;
-    });
+  private async ensureChannel(radioId: string): Promise<void> {
+    const normalized = this.normalizeRadioId(radioId);
+    const existing = this.channels.get(normalized);
+    if (existing) return;
 
     const supabase = getSupabaseClient();
-    this.chatChannel = supabase.channel('radio-chat');
+    const channelName = this.channelNameFor(normalized);
+    const channel = supabase.channel(channelName);
 
-    this.chatChannel.subscribe((status) => {
+    this.channelReady.set(normalized, false);
+    this.channelReadyPromises.set(
+      normalized,
+      new Promise((resolve) => {
+        this.channelReadyResolvers.set(normalized, resolve);
+      }),
+    );
+
+    channel.subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        this.logger.log('Chat channel reconnected successfully');
-        this.isChannelReady = true;
-        if (this.channelReadyResolve) {
-          this.channelReadyResolve();
-        }
+        this.channelReady.set(normalized, true);
+        this.channelReadyResolvers.get(normalized)?.();
+        this.logger.log(`Chat channel ready: ${channelName}`);
       } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-        this.logger.error(`Chat channel reconnection failed: ${status}`);
-        // Retry with exponential backoff could be added here
+        this.logger.warn(`Chat channel unhealthy (${channelName}): ${status}`);
+        this.channelReady.set(normalized, false);
+      } else if (status === 'CLOSED') {
+        this.logger.warn(`Chat channel closed: ${channelName}`);
+        this.channelReady.set(normalized, false);
+        this.channels.delete(normalized);
       }
     });
+
+    this.channels.set(normalized, channel);
   }
 
   /**
    * Wait for channel to be ready (with timeout).
    */
-  private async waitForChannel(timeoutMs = 5000): Promise<boolean> {
-    if (this.isChannelReady) return true;
-
-    if (!this.channelReadyPromise) return false;
+  private async waitForChannel(
+    radioId: string,
+    timeoutMs = 5000,
+  ): Promise<boolean> {
+    const normalized = this.normalizeRadioId(radioId);
+    if (this.channelReady.get(normalized)) return true;
+    const readyPromise = this.channelReadyPromises.get(normalized);
+    if (!readyPromise) return false;
 
     try {
       await Promise.race([
-        this.channelReadyPromise,
+        readyPromise,
         new Promise((_, reject) =>
           setTimeout(
             () => reject(new Error('Channel ready timeout')),
@@ -155,10 +139,14 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    * Clean up channel subscription on module destroy.
    */
   async onModuleDestroy() {
-    if (this.chatChannel) {
-      await this.chatChannel.unsubscribe();
-      this.logger.log('Chat broadcast channel unsubscribed');
+    for (const [radioId, channel] of this.channels.entries()) {
+      await channel.unsubscribe();
+      this.logger.log(`Chat broadcast channel unsubscribed: ${radioId}`);
     }
+    this.channels.clear();
+    this.channelReady.clear();
+    this.channelReadyPromises.clear();
+    this.channelReadyResolvers.clear();
   }
 
   /**
@@ -174,6 +162,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
     userId: string,
     message: string,
     songId: string | null,
+    radioId: string,
     displayName: string,
     avatarUrl: string | null,
   ): Promise<{ success: boolean; id: string }> {
@@ -223,12 +212,15 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Message cannot be empty');
     }
 
+    const normalizedRadioId = this.normalizeRadioId(radioId);
+
     // Save message to database
     const { data: savedMessage, error } = await supabase
       .from('chat_messages')
       .insert({
         user_id: userId,
         song_id: songId,
+        radio_id: normalizedRadioId,
         display_name: displayName,
         avatar_url: avatarUrl,
         message: message.trim(),
@@ -254,12 +246,14 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   /**
    * Get chat history for hydration (last 50 messages)
    */
-  async getHistory(limit = 50): Promise<ChatMessage[]> {
+  async getHistory(limit = 50, radioId?: string): Promise<ChatMessage[]> {
     const supabase = getSupabaseClient();
+    const normalizedRadioId = this.normalizeRadioId(radioId);
 
     const { data, error } = await supabase
       .from('chat_messages')
       .select('*')
+      .eq('radio_id', normalizedRadioId)
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -299,15 +293,15 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
    * subscribed before broadcasting.
    */
   private async broadcast(message: ChatMessage) {
-    if (!this.chatChannel) {
-      this.logger.error('Chat channel not initialized - cannot broadcast');
-      return;
-    }
+    const radioId = this.normalizeRadioId(message.radio_id);
+    await this.ensureChannel(radioId);
+    const channel = this.channels.get(radioId);
+    if (!channel) return;
 
     // Wait for channel to be ready before broadcasting
-    if (!this.isChannelReady) {
-      this.logger.warn('Chat channel not ready, waiting...');
-      const ready = await this.waitForChannel(5000);
+    if (!this.channelReady.get(radioId)) {
+      this.logger.warn(`Chat channel not ready for ${radioId}, waiting...`);
+      const ready = await this.waitForChannel(radioId, 5000);
       if (!ready) {
         this.logger.error(
           'Chat channel not ready after timeout - message not broadcasted',
@@ -318,13 +312,14 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
 
     try {
       // Use the persistent, already-subscribed channel
-      await this.chatChannel.send({
+      await channel.send({
         type: 'broadcast',
         event: 'new_message',
         payload: {
           id: message.id,
           userId: message.user_id,
           songId: message.song_id,
+          radioId: radioId,
           displayName: message.display_name,
           avatarUrl: message.avatar_url,
           message: message.message,
@@ -332,9 +327,7 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
         },
       });
 
-      this.logger.debug(
-        `Broadcasted message ${message.id} to radio-chat channel`,
-      );
+      this.logger.debug(`Broadcasted message ${message.id} to ${radioId}`);
     } catch (error) {
       this.logger.error(`Failed to broadcast message: ${error.message}`);
       // Don't throw - message is already saved

@@ -1,4 +1,4 @@
-# NETWORX Platform — Use Case and Activity UML Diagrams
+![1774466270704](image/uml-diagrams/1774466270704.png)![1774466276272](image/uml-diagrams/1774466276272.png)![1774472945842](image/uml-diagrams/1774472945842.png)# NETWORX Platform — Use Case and Activity UML Diagrams
 
 **Product:** NETWORX Radio: The Butterfly Effect  
 **Tagline:** By artists, for artists.

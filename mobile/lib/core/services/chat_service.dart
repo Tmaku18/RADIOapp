@@ -35,6 +35,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   int _unreadCount = 0;
   bool _isUserAtBottom = true;
   bool _initialized = false;
+  String _radioId = 'global';
 
   // Getters
   ChatConnectionState get connectionState => _connectionState;
@@ -44,8 +45,11 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   int get unreadCount => _unreadCount;
   bool get isUserAtBottom => _isUserAtBottom;
 
+  String get radioId => _radioId;
+
   /// Initialize the chat service and register lifecycle observer
-  Future<void> initialize() async {
+  Future<void> initialize({String radioId = 'global'}) async {
+    _radioId = (radioId.trim().isEmpty ? 'global' : radioId.trim());
     if (_initialized) return;
     
     // Initialize Supabase client
@@ -102,7 +106,9 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
     try {
       // Step 1: Hydration - Fetch latest history from API
-      final response = await _apiService.get('chat/history?limit=50');
+      final response = await _apiService.get(
+        'chat/history?limit=50&radioId=${Uri.encodeComponent(_radioId)}',
+      );
       
       if (response != null && response['messages'] != null) {
         final messagesList = response['messages'] as List;
@@ -138,7 +144,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     // Unsubscribe from existing channel first
     await _unsubscribe();
 
-    _channel = _supabase!.channel('radio-chat');
+    _channel = _supabase!.channel('radio-chat:$_radioId');
     
     _channel!
       .onBroadcast(
@@ -162,7 +168,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
       .subscribe((status, error) {
         if (status == RealtimeSubscribeStatus.subscribed) {
           _connectionState = ChatConnectionState.connected;
-          debugPrint('ChatService: Connected to radio-chat channel');
+          debugPrint('ChatService: Connected to radio-chat:$_radioId channel');
         } else if (status == RealtimeSubscribeStatus.timedOut) {
           _connectionState = ChatConnectionState.reconnecting;
           debugPrint('ChatService: Connection timed out, reconnecting...');
@@ -186,6 +192,8 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   void _handleNewMessage(Map<String, dynamic> payload) {
     try {
       final message = ChatMessage.fromJson(payload);
+      final messageRadioId = (message.radioId ?? 'global').trim();
+      if (messageRadioId != _radioId) return;
       
       // Avoid duplicates
       if (_messages.any((m) => m.id == message.id)) return;
@@ -210,6 +218,10 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Handle message deletion from realtime broadcast
   void _handleMessageDeleted(Map<String, dynamic> payload) {
+    final deletedRadioId = (payload['radioId'] as String?)?.trim();
+    if (deletedRadioId != null && deletedRadioId.isNotEmpty && deletedRadioId != _radioId) {
+      return;
+    }
     final messageId = payload['messageId'] as String?;
     if (messageId != null) {
       _messages.removeWhere((m) => m.id == messageId);
@@ -232,6 +244,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
       await _apiService.post('chat/send', {
         'message': message.trim(),
         if (songId != null) 'songId': songId,
+        'radioId': _radioId,
       });
       return true;
     } catch (e) {
@@ -245,6 +258,7 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     try {
       await _apiService.post('chat/emoji', {
         'emoji': emoji,
+        'radioId': _radioId,
       });
       return true;
     } catch (e) {
@@ -280,6 +294,16 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   Future<void> reconnect() async {
     if (_connectionState == ChatConnectionState.offline ||
         _connectionState == ChatConnectionState.reconnecting) {
+      await _rehydrateAndSubscribe();
+    }
+  }
+
+  /// Switch chat to a different radio channel and rehydrate.
+  Future<void> setRadioId(String radioId) async {
+    final normalized = radioId.trim().isEmpty ? 'global' : radioId.trim();
+    if (normalized == _radioId) return;
+    _radioId = normalized;
+    if (_initialized) {
       await _rehydrateAndSubscribe();
     }
   }

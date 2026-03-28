@@ -3,6 +3,7 @@ class ChatMessage {
   final String id;
   final String userId;
   final String? songId;
+  final String? radioId;
   final String displayName;
   final String? avatarUrl;
   final String message;
@@ -13,6 +14,7 @@ class ChatMessage {
     required this.id,
     required this.userId,
     this.songId,
+    this.radioId,
     required this.displayName,
     this.avatarUrl,
     required this.message,
@@ -26,6 +28,7 @@ class ChatMessage {
       id: json['id'] as String,
       userId: json['userId'] as String,
       songId: json['songId'] as String?,
+      radioId: (json['radioId'] ?? json['radio_id']) as String?,
       displayName: json['displayName'] as String,
       avatarUrl: json['avatarUrl'] as String?,
       message: json['message'] as String,
@@ -40,6 +43,7 @@ class ChatMessage {
       'id': id,
       'userId': userId,
       'songId': songId,
+      'radioId': radioId,
       'displayName': displayName,
       'avatarUrl': avatarUrl,
       'message': message,

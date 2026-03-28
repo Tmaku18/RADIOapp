@@ -13,6 +13,7 @@ interface ChatMessage {
   id: string;
   userId: string;
   songId: string | null;
+  radioId?: string;
   displayName: string;
   avatarUrl: string | null;
   message: string;
@@ -58,7 +59,10 @@ function mergeMessages(
     .slice(-100);
 }
 
-export default function ChatSidebar() {
+export default function ChatSidebar({ radioId = 'global' }: { radioId?: string }) {
+  const normalizedRadioId = radioId.trim() || 'global';
+  const channelName = `radio-chat:${normalizedRadioId}`;
+
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -123,7 +127,7 @@ export default function ChatSidebar() {
       setError(null);
       setIsLoading(true);
       const [historyRes, statusRes] = await Promise.all([
-        chatApi.getHistory({ limit: 50 }),
+        chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
         chatApi.getStatus(),
       ]);
       setMessages(historyRes.data.messages || []);
@@ -143,7 +147,7 @@ export default function ChatSidebar() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [normalizedRadioId]);
 
   useEffect(() => {
     if (user) loadHistory();
@@ -158,10 +162,12 @@ export default function ChatSidebar() {
       if (stopped || document.visibilityState !== 'visible') return;
       try {
         const [historyRes, statusRes] = await Promise.all([
-          chatApi.getHistory({ limit: 50 }),
+          chatApi.getHistory({ limit: 50, radioId: normalizedRadioId }),
           chatApi.getStatus(),
         ]);
-        const fetched = (historyRes.data.messages || []) as ChatMessage[];
+        const fetched = ((historyRes.data.messages || []) as ChatMessage[]).filter(
+          (m) => (m.radioId || 'global') === normalizedRadioId,
+        );
         setMessages((prev) => mergeMessages(prev, fetched));
         setChatEnabled(statusRes.data.enabled ?? true);
       } catch {
@@ -177,7 +183,7 @@ export default function ChatSidebar() {
       stopped = true;
       clearInterval(interval);
     };
-  }, [user]);
+  }, [user, normalizedRadioId]);
 
   // Subscribe to Supabase Realtime for new messages
   useEffect(() => {
@@ -225,9 +231,10 @@ export default function ChatSidebar() {
       }, 10000);
       
       const channel = supabase
-        .channel('radio-chat')
+        .channel(channelName)
         .on('broadcast', { event: 'new_message' }, (payload) => {
           const newMsg = payload.payload as ChatMessage;
+          if ((newMsg.radioId || 'global') !== normalizedRadioId) return;
           setMessages((prev) => mergeMessages(prev, [newMsg]));
           // If we receive a message, we're definitely connected
           if (!hasConnected) {
@@ -240,7 +247,11 @@ export default function ChatSidebar() {
           }
         })
         .on('broadcast', { event: 'message_deleted' }, (payload) => {
-          const { messageId } = payload.payload as { messageId: string };
+          const { messageId, radioId: deletedRadioId } = payload.payload as {
+            messageId: string;
+            radioId?: string;
+          };
+          if ((deletedRadioId || normalizedRadioId) !== normalizedRadioId) return;
           setMessages((prev) => prev.filter((m) => m.id !== messageId));
         })
         .subscribe((status) => {
@@ -316,7 +327,7 @@ export default function ChatSidebar() {
         clearTimeout(connectionTimeoutId);
       }
     };
-  }, []);
+  }, [channelName, normalizedRadioId]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,7 +339,7 @@ export default function ChatSidebar() {
     setError(null);
 
     try {
-      const res = await chatApi.sendMessage(text);
+      const res = await chatApi.sendMessage(text, undefined, normalizedRadioId);
       const id = (res.data as { id?: string })?.id;
       setNewMessage('');
       inputRef.current?.focus();
@@ -338,6 +349,7 @@ export default function ChatSidebar() {
           id,
           userId: profile.id,
           songId: null,
+          radioId: normalizedRadioId,
           displayName: profile.displayName || 'You',
           avatarUrl: profile.avatarUrl ?? null,
           message: text,
@@ -407,7 +419,11 @@ export default function ChatSidebar() {
           <span className="text-base">💬</span>
           <div>
             <h2 className="font-semibold text-foreground text-sm">Live Chat</h2>
-            <p className="text-[11px] text-muted-foreground">Collective channel</p>
+            <p className="text-[11px] text-muted-foreground">
+              {normalizedRadioId === 'global'
+                ? 'Global channel'
+                : `${normalizedRadioId} channel`}
+            </p>
           </div>
           {/* Connection status indicator */}
           {connectionStatus === 'connected' && (
