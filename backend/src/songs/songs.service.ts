@@ -36,6 +36,13 @@ export interface DiscoverLikedListItem extends DiscoverSongCard {
   likedAt: string;
 }
 
+export interface SongLikeUser {
+  userId: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  likedAt: string;
+}
+
 interface ArtistLikeNotificationSettings {
   muted: boolean;
   minLikesTrigger: number;
@@ -1136,6 +1143,39 @@ export class SongsService {
     }
 
     if (params.direction === 'right_like') {
+      const { data: existingDiscoverLike, error: existingDiscoverLikeError } =
+        await supabase
+          .from('discover_song_likes')
+          .select('user_id')
+          .eq('user_id', userId)
+          .eq('song_id', params.songId)
+          .maybeSingle();
+      const discoverLikesMissing = this.isMissingTableError(
+        existingDiscoverLikeError,
+        'discover_song_likes',
+      );
+      if (existingDiscoverLikeError && !discoverLikesMissing) {
+        throw new Error(
+          `Failed to check discover like status: ${existingDiscoverLikeError.message}`,
+        );
+      }
+
+      let alreadyLiked = !!existingDiscoverLike;
+      if (discoverLikesMissing) {
+        const { data: existingLike, error: existingLikeError } = await supabase
+          .from('likes')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('song_id', params.songId)
+          .maybeSingle();
+        if (existingLikeError) {
+          throw new Error(
+            `Failed to check discover like fallback status: ${existingLikeError.message}`,
+          );
+        }
+        alreadyLiked = !!existingLike;
+      }
+
       const { error: likeError } = await supabase
         .from('discover_song_likes')
         .upsert(
@@ -1157,6 +1197,9 @@ export class SongsService {
         );
       } else if (likeError) {
         throw new Error(`Failed to save discover like: ${likeError.message}`);
+      }
+      if (!alreadyLiked) {
+        await this.maybeNotifyArtistLike(userId, params.songId);
       }
       return { direction: params.direction, liked: true };
     }
@@ -1490,6 +1533,77 @@ export class SongsService {
       }));
 
     return { items: ordered, total: count ?? ordered.length };
+  }
+
+  async getSongLikes(
+    songId: string,
+    options?: { limit?: number; offset?: number },
+  ): Promise<{ songId: string; totalLikes: number; likes: SongLikeUser[] }> {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 200);
+    const offset = Math.max(options?.offset ?? 0, 0);
+
+    const { count, error: countError } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true })
+      .eq('song_id', songId);
+    if (countError) {
+      throw new Error(`Failed to count song likes: ${countError.message}`);
+    }
+
+    const { data: likeRows, error: likesError } = await supabase
+      .from('likes')
+      .select('user_id, created_at')
+      .eq('song_id', songId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (likesError) {
+      throw new Error(`Failed to load song likes: ${likesError.message}`);
+    }
+
+    const rows = (likeRows ?? []) as Array<{
+      user_id: string;
+      created_at: string | null;
+    }>;
+    const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))];
+    const usersById = new Map<
+      string,
+      { displayName: string | null; avatarUrl: string | null }
+    >();
+
+    if (userIds.length > 0) {
+      const { data: userRows, error: usersError } = await supabase
+        .from('users')
+        .select('id, display_name, avatar_url')
+        .in('id', userIds);
+      if (usersError) {
+        throw new Error(`Failed to load like users: ${usersError.message}`);
+      }
+      for (const user of (userRows ?? []) as Array<{
+        id: string;
+        display_name: string | null;
+        avatar_url: string | null;
+      }>) {
+        usersById.set(user.id, {
+          displayName: user.display_name ?? null,
+          avatarUrl: user.avatar_url ?? null,
+        });
+      }
+    }
+
+    return {
+      songId,
+      totalLikes: count ?? 0,
+      likes: rows.map((row) => {
+        const user = usersById.get(row.user_id);
+        return {
+          userId: row.user_id,
+          displayName: user?.displayName ?? null,
+          avatarUrl: user?.avatarUrl ?? null,
+          likedAt: row.created_at ?? new Date().toISOString(),
+        };
+      }),
+    };
   }
 
   async likeSong(userId: string, songId: string) {

@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 
 type ApiError = { response?: { status?: number; data?: { message?: string } } };
 
@@ -131,6 +132,9 @@ export default function MySongsPage() {
   const [discoverActionSongId, setDiscoverActionSongId] = useState<string | null>(
     null,
   );
+  const [likesDialogOpen, setLikesDialogOpen] = useState(false);
+  const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
+  const [likesDialogSongTitle, setLikesDialogSongTitle] = useState<string>('');
 
   useEffect(() => {
     loadSongs();
@@ -631,7 +635,20 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-foreground">{song.playCount} plays</div>
-                    <div className="text-xs text-muted-foreground">{song.likeCount} ripples</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{song.likeCount} likes</span>
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => {
+                          setLikesDialogSongId(song.id);
+                          setLikesDialogSongTitle(song.title);
+                          setLikesDialogOpen(true);
+                        }}
+                      >
+                        View
+                      </button>
+                    </div>
                   </TableCell>
                   <TableCell>
                     {song.status === 'approved' ? (
@@ -897,6 +914,12 @@ export default function MySongsPage() {
           </div>
         </div>
       )}
+      <SongLikesDialog
+        open={likesDialogOpen}
+        onOpenChange={setLikesDialogOpen}
+        songId={likesDialogSongId}
+        songTitle={likesDialogSongTitle}
+      />
     </div>
   );
 }

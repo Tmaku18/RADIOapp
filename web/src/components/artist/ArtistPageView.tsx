@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { DiscographyPlayer, type DiscographyTrack } from '@/components/player/DiscographyPlayer';
 import { usePlayback } from '@/components/playback';
+import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 
 type ArtistSong = {
   id: string;
@@ -114,6 +115,9 @@ export function ArtistPageView({
   const [followLoading, setFollowLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [likesDialogOpen, setLikesDialogOpen] = useState(false);
+  const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
+  const [likesDialogSongTitle, setLikesDialogSongTitle] = useState('');
 
   useEffect(() => {
     let ignore = false;
@@ -409,6 +413,17 @@ export function ArtistPageView({
                   <p className="text-xs text-muted-foreground">
                     {formatNumber(song.profilePlayCount)} individual listens · {formatNumber(song.likeCount)} likes
                   </p>
+                  <button
+                    type="button"
+                    className="text-xs text-primary hover:underline mt-1"
+                    onClick={() => {
+                      setLikesDialogSongId(song.id);
+                      setLikesDialogSongTitle(song.title);
+                      setLikesDialogOpen(true);
+                    }}
+                  >
+                    View likes
+                  </button>
                 </div>
                 <span className="text-xs text-muted-foreground">{formatDuration(song.durationSeconds)}</span>
                 <Button size="sm" onClick={() => void handlePlayPopular(song)} disabled={!song.audioUrl}>Play</Button>
@@ -451,6 +466,12 @@ export function ArtistPageView({
           </CardContent>
         </Card>
       )}
+      <SongLikesDialog
+        open={likesDialogOpen}
+        onOpenChange={setLikesDialogOpen}
+        songId={likesDialogSongId}
+        songTitle={likesDialogSongTitle}
+      />
     </div>
   );
 }

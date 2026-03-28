@@ -213,6 +213,17 @@ export const songsApi = {
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),
   getLikeStatus: (id: string) => api.get(`/songs/${id}/like`),
+  getLikes: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{
+      songId: string;
+      totalLikes: number;
+      likes: Array<{
+        userId: string;
+        displayName: string | null;
+        avatarUrl: string | null;
+        likedAt: string;
+      }>;
+    }>(`/songs/${id}/likes`, { params: params ?? {} }),
   recordProfileListen: (id: string, data?: { startedAt?: string; secondsListened?: number }) =>
     api.post(`/songs/${id}/profile-listen`, data ?? {}),
   update: (

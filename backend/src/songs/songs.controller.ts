@@ -1023,6 +1023,19 @@ export class SongsController {
     return this.songsService.isLiked(userData.id, songId);
   }
 
+  @Public()
+  @Get(':id/likes')
+  async getSongLikes(
+    @Param('id') songId: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.songsService.getSongLikes(songId, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
   @Post(':id/like')
   async toggleLike(
     @CurrentUser() user: FirebaseUser,

@@ -32,6 +32,8 @@ function getNotificationIcon(type: string): string {
       return '✅';
     case 'song_rejected':
       return '❌';
+    case 'song_liked':
+      return '❤️';
     case 'song_played':
       return '🎵';
     default:
