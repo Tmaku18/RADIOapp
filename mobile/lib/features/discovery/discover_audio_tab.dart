@@ -217,6 +217,18 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     }
   }
 
+  void _handleCardHorizontalDragEnd(DragEndDetails details) {
+    if (_busySwipe) return;
+    final velocity = details.primaryVelocity ?? 0;
+    // Require an intentional horizontal fling to avoid accidental swipes.
+    if (velocity.abs() < 250) return;
+    if (velocity < 0) {
+      unawaited(_applySwipe('left_skip'));
+    } else {
+      unawaited(_applySwipe('right_like'));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -263,146 +275,149 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                 child: Text(_error!),
               ),
             ),
-          Card(
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                AspectRatio(
-                  aspectRatio: 1,
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (card.backgroundUrl != null &&
-                          card.backgroundUrl!.isNotEmpty)
-                        Image.network(
-                          card.backgroundUrl!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                decoration: BoxDecoration(
-                                  gradient: surfaces.signatureGradient,
+          GestureDetector(
+            onHorizontalDragEnd: _handleCardHorizontalDragEnd,
+            child: Card(
+              clipBehavior: Clip.antiAlias,
+              child: Column(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 1,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        if (card.backgroundUrl != null &&
+                            card.backgroundUrl!.isNotEmpty)
+                          Image.network(
+                            card.backgroundUrl!,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  decoration: BoxDecoration(
+                                    gradient: surfaces.signatureGradient,
+                                  ),
                                 ),
-                              ),
-                        )
-                      else
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: surfaces.signatureGradient,
-                          ),
-                        ),
-                      Container(color: Colors.black.withValues(alpha: 0.35)),
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '${card.clipDurationSeconds.toStringAsFixed(0)}s clip • $_stationId',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            '${card.likeCount} likes',
-                            style: const TextStyle(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                      Positioned(
-                        left: 14,
-                        right: 14,
-                        bottom: 14,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              card.title,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 24,
-                                fontWeight: FontWeight.w700,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                          )
+                        else
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: surfaces.signatureGradient,
                             ),
-                            const SizedBox(height: 4),
-                            Text(
-                              card.artistDisplayName ?? card.artistName,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 14,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          ),
+                        Container(color: Colors.black.withValues(alpha: 0.35)),
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
                             ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _busySwipe
-                              ? null
-                              : _toggleCurrentClipPlayback,
-                          icon: Icon(
-                            _clipIsPlaying
-                                ? Icons.pause_circle_outline
-                                : Icons.play_circle_outline,
-                          ),
-                          label: Text(
-                            _clipIsPlaying ? 'Pause clip' : 'Play clip',
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${card.clipDurationSeconds.toStringAsFixed(0)}s clip • $_stationId',
+                              style: const TextStyle(color: Colors.white),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: _busySwipe
-                              ? null
-                              : () => _applySwipe('left_skip'),
-                          icon: const Icon(Icons.keyboard_double_arrow_left),
-                          label: const Text('Skip'),
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              '${card.likeCount} likes',
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: FilledButton.icon(
-                          onPressed: _busySwipe
-                              ? null
-                              : () => _applySwipe('right_like'),
-                          icon: const Icon(Icons.favorite_outline),
-                          label: const Text('Save'),
+                        Positioned(
+                          left: 14,
+                          right: 14,
+                          bottom: 14,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                card.title,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                card.artistDisplayName ?? card.artistName,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busySwipe
+                                ? null
+                                : _toggleCurrentClipPlayback,
+                            icon: Icon(
+                              _clipIsPlaying
+                                  ? Icons.pause_circle_outline
+                                  : Icons.play_circle_outline,
+                            ),
+                            label: Text(
+                              _clipIsPlaying ? 'Pause clip' : 'Play clip',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: _busySwipe
+                                ? null
+                                : () => _applySwipe('left_skip'),
+                            icon: const Icon(Icons.keyboard_double_arrow_left),
+                            label: const Text('Skip'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: _busySwipe
+                                ? null
+                                : () => _applySwipe('right_like'),
+                            icon: const Icon(Icons.favorite_outline),
+                            label: const Text('Save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           if (_loadingMore)
