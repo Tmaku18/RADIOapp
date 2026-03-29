@@ -34,7 +34,7 @@ flutter build appbundle --release --build-number 42
 
 - Upload AAB to **Internal testing** first.
 - Verify login, playback, notifications, location prompts, and purchase flows.
-- Spot-check items in [android-14-15-smoke-test.md](./android-14-15-smoke-test.md) and [mobile-web-parity-matrix.md](./mobile-web-parity-matrix.md).
+- Spot-check items in [android-14-15-smoke-test.md](./android-14-15-smoke-test.md) and [web_mobile_parity_matrix.md](../mobile/docs/web_mobile_parity_matrix.md).
 
 ## 5) Play Console app content/disclosures
 
@@ -42,8 +42,13 @@ flutter build appbundle --release --build-number 42
 - Ads declaration set correctly.
 - Privacy policy URL points to public HTTPS page.
 - Permissions declarations (notifications/location/foreground service) are complete and accurate.
+- Content rating questionnaire reflects creator-uploaded music and explicit content possibilities.
+- Target audience settings remain consistent with app age suitability.
+- Support contact details match `support@networxradio.com`.
+- Cross-check all disclosures against `docs/legal/mobile-store-compliance-packet.md`.
 
 ## 6) Promote to production
 
 - Confirm no policy warnings remain in Play Console.
 - Roll out production with staged rollout if needed.
+- Save final reviewer notes and screenshots used during submission in release records.

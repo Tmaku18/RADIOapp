@@ -48,6 +48,16 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Creator Content, Safety, and Explicit Labels</h2>
+        <p className="text-muted-foreground">
+          NETWORX supports creator-uploaded audio and community interactions. We process
+          creator metadata, including explicit-content labels, to help provide appropriate
+          station experiences and enforce safety standards. We may review, moderate, remove,
+          or restrict content and accounts for legal, policy, or safety reasons.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Sharing of Information</h2>
         <p className="text-muted-foreground">
           We may share data with service providers that help operate authentication,

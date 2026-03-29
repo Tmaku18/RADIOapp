@@ -23,7 +23,8 @@ export type GenreId =
   | 'instrumental'
   | 'lofi'
   | 'jazz'
-  | 'audiobook';
+  | 'audiobook'
+  | 'spanish';
 
 export interface Tower {
   id: string;
@@ -75,6 +76,15 @@ export const TOWERS: Tower[] = [
     genreId: 'rap',
     lat: 40.7128,
     lng: -74.006,
+  },
+  {
+    id: 'us-rap-clean',
+    state: 'US',
+    city: 'Charlotte',
+    genre: 'Clean Rap Radio',
+    genreId: 'rap',
+    lat: 35.2271,
+    lng: -80.8431,
   },
   {
     id: 'us-ready-now-rap',
@@ -255,6 +265,15 @@ export const TOWERS: Tower[] = [
     genreId: 'audiobook',
     lat: 44.9778,
     lng: -93.265,
+  },
+  {
+    id: 'us-spanish',
+    state: 'US',
+    city: 'Miami',
+    genre: 'Spanish Radio',
+    genreId: 'spanish',
+    lat: 25.7617,
+    lng: -80.1918,
   },
 ];
 

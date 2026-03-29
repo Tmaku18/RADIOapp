@@ -546,6 +546,19 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     [],
   );
 
+  const clearPersistedReaction = useCallback((voteKey: string | null) => {
+    if (!voteKey || typeof window === 'undefined') return;
+    try {
+      const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as StoredReactions;
+      delete parsed[voteKey];
+      window.sessionStorage.setItem(REACTION_STORAGE_KEY, JSON.stringify(parsed));
+    } catch {
+      // Ignore storage failures so voting UX is unaffected.
+    }
+  }, []);
+
   // Reset vote state when the current vote key changes.
   useEffect(() => {
     const voteKey = getVoteKey(state.track ?? null);
@@ -643,26 +656,33 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     setIsVoting(true);
     setReactionError(null);
     try {
-      await leaderboardApi.addLeaderboardReaction(
+      const voteRes = await leaderboardApi.addLeaderboardReaction(
         state.track.id,
         reaction,
         state.track.playId ?? undefined,
       );
-      if (reaction === 'fire') {
+      const serverReaction = voteRes.data?.reaction ?? null;
+      const previousReaction = voteRes.data?.previousReaction ?? selectedReaction;
+
+      if (serverReaction === 'fire') {
         // Persist to song library using the existing like endpoint.
         await songsApi.like(state.track.id);
       }
       lastVoteKeyRef.current = getVoteKey(state.track);
-      setHasVoted(true);
-      setSelectedReaction(reaction);
-      persistReaction(lastVoteKeyRef.current, reaction);
+      setHasVoted(serverReaction !== null);
+      setSelectedReaction(serverReaction);
+      if (serverReaction) {
+        persistReaction(lastVoteKeyRef.current, serverReaction);
+      } else {
+        clearPersistedReaction(lastVoteKeyRef.current);
+      }
       // Optimistic local update first, then reconcile from server.
       let nextFireVotes = fireVotes;
       let nextShitVotes = shitVotes;
-      if (selectedReaction === 'fire') nextFireVotes -= 1;
-      if (selectedReaction === 'shit') nextShitVotes -= 1;
-      if (reaction === 'fire') nextFireVotes += 1;
-      if (reaction === 'shit') nextShitVotes += 1;
+      if (previousReaction === 'fire') nextFireVotes -= 1;
+      if (previousReaction === 'shit') nextShitVotes -= 1;
+      if (serverReaction === 'fire') nextFireVotes += 1;
+      if (serverReaction === 'shit') nextShitVotes += 1;
       updateTemperatureFromCounts(
         Math.max(0, nextFireVotes),
         Math.max(0, nextShitVotes),

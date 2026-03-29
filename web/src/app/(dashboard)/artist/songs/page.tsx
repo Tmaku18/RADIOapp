@@ -52,6 +52,7 @@ interface Song {
     displayName: string | null;
     avatarUrl: string | null;
   }>;
+  isExplicit?: boolean;
 }
 
 function parseTimeToSeconds(value: string): number | null {
@@ -120,6 +121,7 @@ export default function MySongsPage() {
   const [editDiscoverBackgroundPreview, setEditDiscoverBackgroundPreview] = useState<string | null>(null);
   const [editDiscoverClipStartSeconds, setEditDiscoverClipStartSeconds] = useState('0');
   const [editDiscoverClipEndSeconds, setEditDiscoverClipEndSeconds] = useState('15');
+  const [editIsExplicit, setEditIsExplicit] = useState(false);
   const [editFeaturedArtists, setEditFeaturedArtists] = useState<
     Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
   >([]);
@@ -253,6 +255,7 @@ export default function MySongsPage() {
       formatSecondsForTrimInput(song.discoverClipEndSeconds ?? 15),
     );
     setEditFeaturedArtists(song.featuredArtists || []);
+    setEditIsExplicit(song.isExplicit === true);
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
   };
@@ -385,6 +388,7 @@ export default function MySongsPage() {
         artworkUrl: finalArtworkUrl,
         discoverEnabled: editDiscoverEnabled,
         featuredArtistIds: editFeaturedArtists.map((a) => a.id),
+        isExplicit: editIsExplicit,
       });
 
       let discoverUpdated:
@@ -438,6 +442,7 @@ export default function MySongsPage() {
           displayName: string | null;
           avatarUrl: string | null;
         }>;
+        isExplicit?: boolean;
       };
       setSongs((prev) =>
         prev.map((song) =>
@@ -474,6 +479,10 @@ export default function MySongsPage() {
                   (parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15) -
                     (parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0),
                 featuredArtists: updated.featuredArtists ?? editFeaturedArtists,
+                isExplicit:
+                  updated.isExplicit !== undefined
+                    ? updated.isExplicit
+                    : editIsExplicit,
               }
             : song,
         ),
@@ -555,6 +564,9 @@ export default function MySongsPage() {
                       </div>
                       <div className="ml-4">
                         <div className="text-sm font-medium text-foreground">{song.title}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {song.isExplicit ? 'Explicit' : 'Clean'}
+                        </div>
                         <div className="text-sm text-muted-foreground">{song.artistName}</div>
                         {(song.featuredArtists?.length ?? 0) > 0 && (
                           <div className="text-xs text-muted-foreground">
@@ -714,6 +726,19 @@ export default function MySongsPage() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Explicit content</label>
+                <input
+                  type="checkbox"
+                  checked={editIsExplicit}
+                  onChange={(e) => setEditIsExplicit(e.target.checked)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Mark explicit when track audio includes explicit language/content.
+              </p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Album Cover URL</label>

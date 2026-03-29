@@ -61,6 +61,7 @@ export default function NotificationsPage() {
   const { user, loading: authLoading } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -106,6 +107,21 @@ export default function NotificationsPage() {
     }
   };
 
+  const handleClearAll = async () => {
+    if (notifications.length === 0 || clearing) return;
+    const confirmed = window.confirm('Clear all notifications? This cannot be undone.');
+    if (!confirmed) return;
+    try {
+      setClearing(true);
+      await notificationsApi.deleteAll();
+      setNotifications([]);
+    } catch (err: unknown) {
+      console.error('Failed to clear notifications:', err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   if (loading || authLoading) {
@@ -133,11 +149,21 @@ export default function NotificationsPage() {
             {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : "You're all caught up!"}
           </p>
         </div>
-        {unreadCount > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
-            Mark all as read
+        <div className="flex items-center gap-2">
+          {unreadCount > 0 && (
+            <Button variant="ghost" size="sm" onClick={handleMarkAllAsRead}>
+              Mark all as read
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleClearAll}
+            disabled={notifications.length === 0 || clearing}
+          >
+            {clearing ? 'Clearing...' : 'Clear notifications'}
           </Button>
-        )}
+        </div>
       </div>
 
       {notifications.length === 0 ? (

@@ -50,6 +50,7 @@ CREATE TABLE songs (
   like_count INTEGER DEFAULT 0,
   skip_count INTEGER DEFAULT 0,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
+  is_explicit BOOLEAN DEFAULT FALSE,
   fallback_eligible BOOLEAN DEFAULT FALSE,
   opt_in_free_play BOOLEAN DEFAULT FALSE,
   last_played_at TIMESTAMPTZ,
@@ -73,6 +74,7 @@ CREATE INDEX idx_songs_created_at ON songs(created_at DESC);
 CREATE INDEX idx_songs_free_rotation 
   ON songs(admin_free_rotation, opt_in_free_play, paid_play_count) 
   WHERE status = 'approved';
+CREATE INDEX idx_songs_status_explicit ON songs(status, is_explicit);
 ```
 
 ### plays

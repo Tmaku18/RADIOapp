@@ -26,6 +26,7 @@ class _UploadScreenState extends State<UploadScreen> {
   String? _error;
   bool _readyForRotation = false;
   int? _durationSeconds;
+  bool _isExplicit = false;
 
   Future<void> _pickAudioFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -186,6 +187,7 @@ class _UploadScreenState extends State<UploadScreen> {
         'audioPath': audioPath,
         if (artworkPath != null) 'artworkPath': artworkPath,
         if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
+        'isExplicit': _isExplicit,
       });
 
       if (!mounted) return;
@@ -369,6 +371,18 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
                     ),
+                  const SizedBox(height: 12),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Mark as explicit'),
+                    subtitle: const Text(
+                      'Enable when lyrics/audio include explicit language/content.',
+                    ),
+                    value: _isExplicit,
+                    onChanged: _isUploading
+                        ? null
+                        : (value) => setState(() => _isExplicit = value),
+                  ),
                   const SizedBox(height: 16),
                   if (_isUploading)
                     Column(

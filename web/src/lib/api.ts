@@ -208,6 +208,7 @@ export const songsApi = {
     discoverBackgroundPath?: string;
     discoverClipStartSeconds?: number;
     discoverClipEndSeconds?: number;
+    isExplicit?: boolean;
   }) => 
     api.post('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
@@ -239,6 +240,7 @@ export const songsApi = {
       discoverClipStartSeconds?: number;
       discoverClipEndSeconds?: number;
       featuredArtistIds?: string[];
+      isExplicit?: boolean;
     },
   ) => api.patch(`/songs/${id}`, data),
   publishDiscoverFromLibrary: (
@@ -384,6 +386,12 @@ export const suggestionsApi = {
   getLocalArtists: (limit?: number) => api.get('/suggestions/local-artists', { params: { limit } }),
 };
 
+type LeaderboardVoteResponse = {
+  liked: boolean;
+  reaction: 'fire' | 'shit' | null;
+  previousReaction: 'fire' | 'shit' | null;
+};
+
 export const leaderboardApi = {
   getSongs: (
     params: {
@@ -396,12 +404,12 @@ export const leaderboardApi = {
   getUpvotesPerMinute: (params?: { windowMinutes?: number; limit?: number; offset?: number }) =>
     api.get('/leaderboard/upvotes-per-minute', { params }),
   addLeaderboardLike: (songId: string, playId?: string | null) => 
-    api.post(`/leaderboard/songs/${songId}/like`, { playId, reaction: 'fire' }),
+    api.post<LeaderboardVoteResponse>(`/leaderboard/songs/${songId}/like`, { playId, reaction: 'fire' }),
   addLeaderboardReaction: (
     songId: string,
     reaction: 'fire' | 'shit',
     playId?: string | null,
-  ) => api.post(`/leaderboard/songs/${songId}/like`, { playId, reaction }),
+  ) => api.post<LeaderboardVoteResponse>(`/leaderboard/songs/${songId}/like`, { playId, reaction }),
 };
 
 export const feedApi = {
@@ -815,6 +823,7 @@ export const adminApi = {
       stationId?: string;
       stationIds?: string[];
       artworkUrl?: string | null;
+      isExplicit?: boolean;
     },
   ) => api.patch(`/admin/songs/${id}/metadata`, data),
   deleteSong: (id: string) => api.delete(`/admin/songs/${id}`),

@@ -277,6 +277,7 @@ export class SongsController {
       artistOriginCity: string;
       artistOriginState: string;
       stationId: string;
+      isExplicit?: boolean;
     },
   ) {
     const supabase = getSupabaseClient();
@@ -334,6 +335,7 @@ export class SongsController {
       artworkUrl,
       durationSeconds, // Server-validated duration
       stationId: body.stationId,
+      isExplicit: body.isExplicit === true,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -486,6 +488,7 @@ export class SongsController {
       discoverBackgroundUrl,
       discoverClipStartSeconds: dto.discoverClipStartSeconds,
       discoverClipEndSeconds: dto.discoverClipEndSeconds,
+      isExplicit: dto.isExplicit === true,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&
@@ -805,6 +808,7 @@ export class SongsController {
       inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
       rejectionReason: song.rejection_reason,
       rejectedAt: song.rejected_at,
+      isExplicit: song.is_explicit === true,
       createdAt: song.created_at,
       updatedAt: song.updated_at,
       featuredArtists: featuredBySongId.get(song.id) ?? [],
@@ -909,6 +913,9 @@ export class SongsController {
     if (body.discoverClipEndSeconds !== undefined) {
       updateData.discover_clip_end_seconds = body.discoverClipEndSeconds;
     }
+    if (body.isExplicit !== undefined) {
+      updateData.is_explicit = body.isExplicit;
+    }
     if (
       updateData.discover_clip_start_seconds != null &&
       updateData.discover_clip_end_seconds != null
@@ -1000,6 +1007,7 @@ export class SongsController {
       discoverClipStartSeconds: updated.discover_clip_start_seconds,
       discoverClipEndSeconds: updated.discover_clip_end_seconds,
       discoverClipDurationSeconds: updated.discover_clip_duration_seconds,
+      isExplicit: updated.is_explicit === true,
       featuredArtists,
     };
   }

@@ -57,6 +57,11 @@ const List<_StationOption> _stationOptions = <_StationOption>[
     city: 'New York',
   ),
   _StationOption(
+    id: 'us-rap-clean',
+    genre: 'Clean Rap Radio',
+    city: 'Charlotte',
+  ),
+  _StationOption(
     id: 'us-ready-now-rap',
     genre: 'Ready Now Rap Radio',
     city: 'Houston',
@@ -96,6 +101,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
     genre: 'Audiobook Radio',
     city: 'Minneapolis',
   ),
+  _StationOption(id: 'us-spanish', genre: 'Spanish Radio', city: 'Miami'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
@@ -116,6 +122,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _isPlaying = false;
   bool _isLoading = true;
   bool _hasVoted = false;
+  String? _selectedReaction;
   bool _isVoting = false;
   String? _lastVotedPlayId;
   bool _noContent = false;
@@ -235,6 +242,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       _isLoading = true;
       _isPlaying = false;
       _currentTrack = null;
+      _selectedReaction = null;
       _noContent = false;
       _noContentMessage = null;
     });
@@ -351,6 +359,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       _isPlaying = true;
       _isLoading = false;
       _hasVoted = alreadyVoted;
+      if (!alreadyVoted) {
+        _selectedReaction = null;
+      }
     });
     _scheduleTrackBoundarySync(track);
     _presenceTick();
@@ -410,6 +421,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           _noContent = false;
           _noContentMessage = null;
           _hasVoted = false;
+          _selectedReaction = null;
           _isVoting = false;
         });
         await _loadAndPlay(
@@ -509,17 +521,33 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     try {
       HapticFeedback.lightImpact();
-      await _radioService.submitReaction(
+      final result = await _radioService.submitReaction(
         songId: track.id,
         playId: playId,
         reaction: reaction,
       );
-      if (reaction == 'fire') {
+      final previousReaction =
+          ((result?['previousReaction'] as String?) ?? _selectedReaction);
+      String? serverReaction = result?['reaction'] as String?;
+      if (serverReaction != 'fire' && serverReaction != 'shit') {
+        // Backward-compatible fallback if backend returns the old shape.
+        final alreadyVoted = result?['alreadyVoted'] == true;
+        if (alreadyVoted) {
+          serverReaction = previousReaction;
+        } else {
+          serverReaction = reaction;
+        }
+      }
+      if (serverReaction == 'fire') {
         await _radioService.ensureLiked(track.id);
       }
 
-      final fireVotes = track.fireVotes + (reaction == 'fire' ? 1 : 0);
-      final shitVotes = track.shitVotes + (reaction == 'shit' ? 1 : 0);
+      var fireVotes = track.fireVotes;
+      var shitVotes = track.shitVotes;
+      if (previousReaction == 'fire') fireVotes -= 1;
+      if (previousReaction == 'shit') shitVotes -= 1;
+      if (serverReaction == 'fire') fireVotes += 1;
+      if (serverReaction == 'shit') shitVotes += 1;
       final totalVotes = fireVotes + shitVotes;
       final temperaturePercent = totalVotes > 0
           ? ((fireVotes / totalVotes) * 100).round()
@@ -532,18 +560,27 @@ class _PlayerScreenState extends State<PlayerScreen>
           shitVotes: shitVotes,
           temperaturePercent: temperaturePercent,
         );
-        _hasVoted = true;
-        _lastVotedPlayId = playId;
+        _hasVoted = serverReaction != null;
+        _selectedReaction = serverReaction;
+        _lastVotedPlayId = serverReaction != null ? playId : null;
         _isVoting = false;
       });
 
       if (mounted) {
+        final changedToFire =
+            previousReaction != 'fire' && serverReaction == 'fire';
+        final changedToShit =
+            previousReaction != 'shit' && serverReaction == 'shit';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              reaction == 'fire'
+              serverReaction == null
+                  ? 'Vote removed.'
+                  : changedToFire
                   ? '🔥 Vote locked in. Saved to your library.'
-                  : '💩 Vote locked in.',
+                  : changedToShit
+                  ? '💩 Vote locked in.'
+                  : 'Vote updated.',
             ),
             duration: Duration(seconds: 1),
           ),
@@ -598,21 +635,25 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   void _openRoom(BuildContext providerContext) {
+    final chatService = providerContext.read<ChatService>();
     showModalBottomSheet<void>(
       context: providerContext,
       isScrollControlled: true,
       showDragHandle: true,
       builder: (context) {
-        return SafeArea(
-          child: SizedBox(
-            height: MediaQuery.of(context).size.height * 0.78,
-            child: ChatPanel(
-              currentSongId: _currentTrack?.id,
-              currentSongTitle: _currentTrack?.title,
-              currentRadioId: _radioId,
-              isExpanded: true,
-              fillHeightWhenExpanded: true,
-              expandedHeight: 9999,
+        return ChangeNotifierProvider.value(
+          value: chatService,
+          child: SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.78,
+              child: ChatPanel(
+                currentSongId: _currentTrack?.id,
+                currentSongTitle: _currentTrack?.title,
+                currentRadioId: _radioId,
+                isExpanded: true,
+                fillHeightWhenExpanded: true,
+                expandedHeight: 9999,
+              ),
             ),
           ),
         );
@@ -629,18 +670,6 @@ class _PlayerScreenState extends State<PlayerScreen>
           return Scaffold(
             appBar: AppBar(
               title: Text('Radio · ${_activeStation.genre}'),
-              actions: [
-                IconButton(
-                  onPressed: _openStationPicker,
-                  tooltip: 'Change station',
-                  icon: const Icon(Icons.swap_horiz),
-                ),
-                IconButton(
-                  onPressed: () => _openRoom(providerContext),
-                  tooltip: 'Enter the Room',
-                  icon: const Icon(Icons.forum_outlined),
-                ),
-              ],
             ),
             body: Stack(
               children: [
@@ -662,6 +691,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                         isPlaying: _isPlaying,
                         hasVoted: _hasVoted,
                         isVoting: _isVoting,
+                        selectedReaction: _selectedReaction,
                         canVote: (_currentTrack?.playId ?? '').isNotEmpty,
                         fireVotes: _currentTrack?.fireVotes ?? 0,
                         shitVotes: _currentTrack?.shitVotes ?? 0,
@@ -903,6 +933,7 @@ class _PlayerBody extends StatelessWidget {
   final bool isPlaying;
   final bool hasVoted;
   final bool isVoting;
+  final String? selectedReaction;
   final bool canVote;
   final int fireVotes;
   final int shitVotes;
@@ -921,6 +952,7 @@ class _PlayerBody extends StatelessWidget {
     required this.isPlaying,
     required this.hasVoted,
     required this.isVoting,
+    required this.selectedReaction,
     required this.canVote,
     required this.fireVotes,
     required this.shitVotes,
@@ -1316,6 +1348,14 @@ class _PlayerBody extends StatelessWidget {
                     icon: const Icon(Icons.forum_outlined),
                   ),
                   FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: selectedReaction == 'shit'
+                          ? scheme.errorContainer
+                          : null,
+                      foregroundColor: selectedReaction == 'shit'
+                          ? scheme.onErrorContainer
+                          : null,
+                    ),
                     onPressed: (!canVote || isVoting)
                         ? null
                         : () => onReact('shit'),
@@ -1329,6 +1369,14 @@ class _PlayerBody extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   FilledButton.tonal(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: selectedReaction == 'fire'
+                          ? scheme.primaryContainer
+                          : null,
+                      foregroundColor: selectedReaction == 'fire'
+                          ? scheme.onPrimaryContainer
+                          : null,
+                    ),
                     onPressed: (!canVote || isVoting)
                         ? null
                         : () => onReact('fire'),

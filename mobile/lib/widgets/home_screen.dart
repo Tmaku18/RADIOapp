@@ -323,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const MiniPlayerBar(),
+          if (_currentIndex != 0) const MiniPlayerBar(),
           NavigationBar(
             selectedIndex: _currentIndex,
             destinations: destinations,

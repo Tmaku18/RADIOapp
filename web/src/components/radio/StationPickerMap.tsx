@@ -38,6 +38,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   lofi: '🌙',
   jazz: '🎷',
   audiobook: '📚',
+  spanish: '💃',
 };
 
 function MapController({

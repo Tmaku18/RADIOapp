@@ -550,10 +550,33 @@ export class LeaderboardService {
     songId: string,
     playId: string | null,
     reaction: LeaderboardReaction = 'fire',
-  ): Promise<{ liked: boolean; reaction: LeaderboardReaction }> {
+  ): Promise<{
+    liked: boolean;
+    reaction: LeaderboardReaction | null;
+    previousReaction: LeaderboardReaction | null;
+  }> {
     const supabase = getSupabaseClient();
     const safeReaction: LeaderboardReaction =
       reaction === 'shit' ? 'shit' : 'fire';
+    const ensureSongLiked = async () => {
+      const { data: existingLike } = await supabase
+        .from('likes')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('song_id', songId)
+        .maybeSingle();
+      if (!existingLike) {
+        const { error: likeError } = await supabase.from('likes').insert({
+          user_id: userId,
+          song_id: songId,
+        });
+        if (likeError && likeError.code !== '23505') {
+          throw new Error(
+            `Failed to save song to library: ${likeError.message}`,
+          );
+        }
+      }
+    };
 
     if (playId) {
       let existing:
@@ -595,48 +618,48 @@ export class LeaderboardService {
         const existingReaction =
           (existing as { reaction?: LeaderboardReaction | null }).reaction ??
           'fire';
-        if (existingReaction !== safeReaction) {
-          const { error: updateError } = await supabase
+        if (existingReaction === safeReaction) {
+          const { error: deleteError } = await supabase
             .from('leaderboard_likes')
-            .update({ reaction: safeReaction })
+            .delete()
             .eq('id', (existing as { id: string }).id);
-          if (
-            updateError &&
-            this.isMissingLeaderboardReactionColumn(updateError)
-          ) {
-            if (safeReaction === 'shit') {
-              throw new Error(this.reactionMigrationErrorMessage);
-            }
-            // Legacy schema has no reaction column; keep existing vote.
-          } else if (updateError) {
+          if (deleteError) {
             throw new Error(
-              `Failed to update leaderboard reaction: ${updateError.message}`,
+              `Failed to remove leaderboard reaction: ${deleteError.message}`,
             );
           }
-          if (safeReaction === 'fire') {
-            const { data: existingLike } = await supabase
-              .from('likes')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('song_id', songId)
-              .maybeSingle();
-            if (!existingLike) {
-              const { error: likeError } = await supabase.from('likes').insert({
-                user_id: userId,
-                song_id: songId,
-              });
-              if (likeError && likeError.code !== '23505') {
-                throw new Error(
-                  `Failed to save song to library: ${likeError.message}`,
-                );
-              }
-            }
+          await this.refreshSongTemperatureCache(songId);
+          return {
+            liked: false,
+            reaction: null,
+            previousReaction: existingReaction,
+          };
+        }
+        const { error: updateError } = await supabase
+          .from('leaderboard_likes')
+          .update({ reaction: safeReaction })
+          .eq('id', (existing as { id: string }).id);
+        if (
+          updateError &&
+          this.isMissingLeaderboardReactionColumn(updateError)
+        ) {
+          if (safeReaction === 'shit') {
+            throw new Error(this.reactionMigrationErrorMessage);
           }
+          // Legacy schema has no reaction column; keep existing vote.
+        } else if (updateError) {
+          throw new Error(
+            `Failed to update leaderboard reaction: ${updateError.message}`,
+          );
+        }
+        if (safeReaction === 'fire') {
+          await ensureSongLiked();
         }
         await this.refreshSongTemperatureCache(songId);
         return {
           liked: true,
           reaction: safeReaction,
+          previousReaction: existingReaction,
         };
       }
     } else {
@@ -683,48 +706,48 @@ export class LeaderboardService {
         const existingReaction =
           (existingSongVote as { reaction?: LeaderboardReaction | null })
             .reaction ?? 'fire';
-        if (existingReaction !== safeReaction) {
-          const { error: updateError } = await supabase
+        if (existingReaction === safeReaction) {
+          const { error: deleteError } = await supabase
             .from('leaderboard_likes')
-            .update({ reaction: safeReaction })
+            .delete()
             .eq('id', (existingSongVote as { id: string }).id);
-          if (
-            updateError &&
-            this.isMissingLeaderboardReactionColumn(updateError)
-          ) {
-            if (safeReaction === 'shit') {
-              throw new Error(this.reactionMigrationErrorMessage);
-            }
-            // Legacy schema has no reaction column; keep existing vote.
-          } else if (updateError) {
+          if (deleteError) {
             throw new Error(
-              `Failed to update leaderboard reaction: ${updateError.message}`,
+              `Failed to remove leaderboard reaction: ${deleteError.message}`,
             );
           }
-          if (safeReaction === 'fire') {
-            const { data: existingLike } = await supabase
-              .from('likes')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('song_id', songId)
-              .maybeSingle();
-            if (!existingLike) {
-              const { error: likeError } = await supabase.from('likes').insert({
-                user_id: userId,
-                song_id: songId,
-              });
-              if (likeError && likeError.code !== '23505') {
-                throw new Error(
-                  `Failed to save song to library: ${likeError.message}`,
-                );
-              }
-            }
+          await this.refreshSongTemperatureCache(songId);
+          return {
+            liked: false,
+            reaction: null,
+            previousReaction: existingReaction,
+          };
+        }
+        const { error: updateError } = await supabase
+          .from('leaderboard_likes')
+          .update({ reaction: safeReaction })
+          .eq('id', (existingSongVote as { id: string }).id);
+        if (
+          updateError &&
+          this.isMissingLeaderboardReactionColumn(updateError)
+        ) {
+          if (safeReaction === 'shit') {
+            throw new Error(this.reactionMigrationErrorMessage);
           }
+          // Legacy schema has no reaction column; keep existing vote.
+        } else if (updateError) {
+          throw new Error(
+            `Failed to update leaderboard reaction: ${updateError.message}`,
+          );
+        }
+        if (safeReaction === 'fire') {
+          await ensureSongLiked();
         }
         await this.refreshSongTemperatureCache(songId);
         return {
           liked: true,
           reaction: safeReaction,
+          previousReaction: existingReaction,
         };
       }
     }
@@ -750,16 +773,75 @@ export class LeaderboardService {
           });
         if (legacyInsertError) {
           if (legacyInsertError.code === '23505') {
+            let existingReaction: LeaderboardReaction = safeReaction;
+            if (playId) {
+              const existingLegacyVoteRes = await supabase
+                .from('leaderboard_likes')
+                .select('reaction')
+                .eq('user_id', userId)
+                .eq('play_id', playId)
+                .maybeSingle();
+              if (
+                existingLegacyVoteRes.error &&
+                this.isMissingLeaderboardReactionColumn(
+                  existingLegacyVoteRes.error,
+                )
+              ) {
+                existingReaction = 'fire';
+              } else if (
+                existingLegacyVoteRes.data &&
+                (
+                  existingLegacyVoteRes.data as {
+                    reaction?: LeaderboardReaction | null;
+                  }
+                ).reaction === 'shit'
+              ) {
+                existingReaction = 'shit';
+              } else {
+                existingReaction = 'fire';
+              }
+            }
             await this.refreshSongTemperatureCache(songId);
-            return { liked: true, reaction: safeReaction };
+            return {
+              liked: true,
+              reaction: existingReaction,
+              previousReaction: existingReaction,
+            };
           }
           throw new Error(
             `Failed to record leaderboard like: ${legacyInsertError.message}`,
           );
         }
       } else if (error.code === '23505') {
+        let existingReaction: LeaderboardReaction = safeReaction;
+        if (playId) {
+          const existingVoteRes = await supabase
+            .from('leaderboard_likes')
+            .select('reaction')
+            .eq('user_id', userId)
+            .eq('play_id', playId)
+            .maybeSingle();
+          if (
+            existingVoteRes.error &&
+            this.isMissingLeaderboardReactionColumn(existingVoteRes.error)
+          ) {
+            existingReaction = 'fire';
+          } else if (
+            existingVoteRes.data &&
+            (existingVoteRes.data as { reaction?: LeaderboardReaction | null })
+              .reaction === 'shit'
+          ) {
+            existingReaction = 'shit';
+          } else {
+            existingReaction = 'fire';
+          }
+        }
         await this.refreshSongTemperatureCache(songId);
-        return { liked: true, reaction: safeReaction };
+        return {
+          liked: true,
+          reaction: existingReaction,
+          previousReaction: existingReaction,
+        };
       } else {
         throw new Error(`Failed to record leaderboard like: ${error.message}`);
       }
@@ -767,23 +849,7 @@ export class LeaderboardService {
 
     // Persist positive sentiment into the user's saved song library.
     if (safeReaction === 'fire') {
-      const { data: existingLike } = await supabase
-        .from('likes')
-        .select('id')
-        .eq('user_id', userId)
-        .eq('song_id', songId)
-        .maybeSingle();
-      if (!existingLike) {
-        const { error: likeError } = await supabase.from('likes').insert({
-          user_id: userId,
-          song_id: songId,
-        });
-        if (likeError && likeError.code !== '23505') {
-          throw new Error(
-            `Failed to save song to library: ${likeError.message}`,
-          );
-        }
-      }
+      await ensureSongLiked();
     }
 
     if (playId) {
@@ -791,6 +857,6 @@ export class LeaderboardService {
       void this.maybeEmitRisingStarForPlay(playId, songId);
     }
     await this.refreshSongTemperatureCache(songId);
-    return { liked: true, reaction: safeReaction };
+    return { liked: true, reaction: safeReaction, previousReaction: null };
   }
 }

@@ -17,7 +17,11 @@ import {
   PlaylistState,
   DEFAULT_RADIO_ID,
 } from './radio-state.service';
-import { RAP_STATION_ID, normalizeSongStationId } from './station.constants';
+import {
+  CLEAN_RAP_STATION_ID,
+  RAP_STATION_ID,
+  normalizeSongStationId,
+} from './station.constants';
 
 // Default song duration if not specified (3 minutes in seconds)
 const DEFAULT_DURATION_SECONDS = 180;
@@ -394,6 +398,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return query.or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`);
   }
 
+  private isCleanStation(stationId: string): boolean {
+    return stationId === CLEAN_RAP_STATION_ID;
+  }
+
+  private applyExplicitContentScope(query: any, stationId: string) {
+    if (!this.isCleanStation(stationId)) return query;
+    return query.eq('is_explicit', false);
+  }
+
+  private songMatchesExplicitScope(song: any, stationId: string): boolean {
+    if (!this.isCleanStation(stationId)) return true;
+    return (song as { is_explicit?: boolean | null }).is_explicit !== true;
+  }
+
   private songMatchesStationScope(song: any, stationId: string): boolean {
     if (!song || typeof song !== 'object') return false;
     if ((song as { station_id?: string | null }).station_id === stationId) {
@@ -443,7 +461,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async getBackgroundRadioIds(): Promise<string[]> {
-    const ids = new Set<string>([DEFAULT_RADIO_ID, RAP_STATION_ID]);
+    const ids = new Set<string>([
+      DEFAULT_RADIO_ID,
+      RAP_STATION_ID,
+      CLEAN_RAP_STATION_ID,
+    ]);
     const supabase = getSupabaseClient();
 
     const { data: playlistRows } = await supabase
@@ -1106,12 +1128,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
-      .gt('credits_remaining', 0);
+    const creditedQuery = this.applySongStationScope(
+      supabase
+        .from('songs')
+        .select('*')
+        .eq('status', 'approved')
+        .gt('credits_remaining', 0),
+      stationId,
+    );
+    const { data: songs } = await this.applyExplicitContentScope(
+      creditedQuery,
+      stationId,
+    );
 
     if (!songs || songs.length === 0) return null;
 
@@ -1150,13 +1178,19 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
-      .gt('trial_plays_remaining', 0)
-      .lte('credits_remaining', 0);
+    const trialQuery = this.applySongStationScope(
+      supabase
+        .from('songs')
+        .select('*')
+        .eq('status', 'approved')
+        .gt('trial_plays_remaining', 0)
+        .lte('credits_remaining', 0),
+      stationId,
+    );
+    const { data: songs } = await this.applyExplicitContentScope(
+      trialQuery,
+      stationId,
+    );
 
     if (!songs || songs.length === 0) return null;
     const webPlayableSongs = songs.filter((song) =>
@@ -1185,14 +1219,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
 
-    const { data: songs } = await supabase
-      .from('songs')
-      .select('*')
-      .eq('status', 'approved')
-      .or(`station_id.eq.${stationId},station_ids.cs.{${stationId}}`)
-      .eq('admin_free_rotation', true)
-      .lte('trial_plays_remaining', 0)
-      .lte('credits_remaining', 0);
+    const optInQuery = this.applySongStationScope(
+      supabase
+        .from('songs')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('admin_free_rotation', true)
+        .lte('trial_plays_remaining', 0)
+        .lte('credits_remaining', 0),
+      stationId,
+    );
+    const { data: songs } = await this.applyExplicitContentScope(
+      optInQuery,
+      stationId,
+    );
 
     if (!songs || songs.length === 0) return null;
     const webPlayableSongs = songs.filter((song) =>
@@ -1241,12 +1281,15 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    const songsQuery = this.applySongStationScope(
-      supabase
-        .from('songs')
-        .select('id, artist_id, audio_url')
-        .eq('status', 'approved')
-        .eq('admin_free_rotation', true),
+    const songsQuery = this.applyExplicitContentScope(
+      this.applySongStationScope(
+        supabase
+          .from('songs')
+          .select('id, artist_id, audio_url')
+          .eq('status', 'approved')
+          .eq('admin_free_rotation', true),
+        stationId,
+      ),
       stationId,
     );
     const { data: songsData, error: songsError } = await songsQuery;
@@ -1381,7 +1424,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .select('*')
         .eq('id', actualId)
         .maybeSingle();
-      if (error || !data || !this.songMatchesStationScope(data, stationId)) {
+      if (
+        error ||
+        !data ||
+        !this.songMatchesStationScope(data, stationId) ||
+        !this.songMatchesExplicitScope(data, stationId)
+      ) {
         this.logger.warn(`Free rotation song ${actualId} not found`);
         return null;
       }
@@ -1397,14 +1445,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .single();
     if (adminData) return { ...adminData, _source: 'admin_fallback' as const };
 
-    const songQuery = supabase
-      .from('songs')
-      .select('*')
-      .eq('id', stackId)
-      .eq('status', 'approved')
-      .eq('admin_free_rotation', true);
+    const songQuery = this.applyExplicitContentScope(
+      supabase
+        .from('songs')
+        .select('*')
+        .eq('id', stackId)
+        .eq('status', 'approved')
+        .eq('admin_free_rotation', true),
+      stationId,
+    );
     const { data: songData } = await songQuery.single();
-    if (songData && this.songMatchesStationScope(songData, stationId)) {
+    if (
+      songData &&
+      this.songMatchesStationScope(songData, stationId) &&
+      this.songMatchesExplicitScope(songData, stationId)
+    ) {
       return { ...songData, _source: 'songs' as const };
     }
 
@@ -1615,7 +1670,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         const endTime = startedAt + durationMs;
         const timeRemainingMs = endTime - now;
 
-        if (timeRemainingMs > SONG_END_BUFFER_MS) {
+        if (
+          timeRemainingMs > SONG_END_BUFFER_MS &&
+          (isAdminSong ||
+            this.songMatchesExplicitScope(
+              currentSong,
+              normalizeSongStationId(radioId),
+            ))
+        ) {
           const pinnedCatalysts = currentState.isAdminFallback
             ? []
             : await this.getPinnedCatalystsForSong(actualSongId);
@@ -1678,12 +1740,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     let targetType = currentType;
 
     // Rap station is intended to run nonstop free rotation.
-    if (radioId === RAP_STATION_ID) {
+    const forceFreeRotation =
+      radioId === RAP_STATION_ID || radioId === CLEAN_RAP_STATION_ID;
+    if (forceFreeRotation) {
       targetType = 'free_rotation';
     }
 
     if (
-      radioId !== RAP_STATION_ID &&
+      !forceFreeRotation &&
       currentType === 'free_rotation' &&
       listenerCount >= THRESHOLD_ENTER_PAID
     ) {
@@ -1692,7 +1756,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         `Switching to PAID playlist (listeners: ${listenerCount} >= ${THRESHOLD_ENTER_PAID})`,
       );
     } else if (
-      radioId !== RAP_STATION_ID &&
+      !forceFreeRotation &&
       currentType === 'paid' &&
       listenerCount <= THRESHOLD_EXIT_PAID
     ) {

@@ -14,6 +14,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationsService _service = NotificationsService();
   bool _loading = true;
   bool _markingAll = false;
+  bool _clearingAll = false;
   List<AppNotification> _items = const [];
   String? _error;
 
@@ -83,6 +84,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  Future<void> _clearAll() async {
+    if (_clearingAll || _items.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clear notifications?'),
+        content: const Text('This will permanently remove all notifications.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Clear'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _clearingAll = true);
+    try {
+      await _service.deleteAll();
+      if (!mounted) return;
+      setState(() => _items = const []);
+    } finally {
+      if (mounted) setState(() => _clearingAll = false);
+    }
+  }
+
   String _friendlyDate(DateTime? dt) {
     if (dt == null) return '';
     final local = dt.toLocal();
@@ -116,6 +147,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       appBar: AppBar(
         title: const Text('Notifications'),
         actions: [
+          TextButton(
+            onPressed: (_items.isEmpty || _clearingAll) ? null : _clearAll,
+            child: _clearingAll
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Clear all'),
+          ),
           TextButton(
             onPressed: (_items.isEmpty || _markingAll) ? null : _markAllAsRead,
             child: _markingAll

@@ -81,6 +81,7 @@ export default function UploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [readyForRotation, setReadyForRotation] = useState(false);
+  const [isExplicit, setIsExplicit] = useState(false);
 
   const extractDurationSeconds = (file: File): Promise<number | null> => {
     return new Promise((resolve) => {
@@ -354,6 +355,7 @@ export default function UploadPage() {
           discoverBackgroundPath,
           discoverClipStartSeconds: parsedStartSeconds ?? undefined,
           discoverClipEndSeconds: parsedEndSeconds ?? undefined,
+          isExplicit,
         });
       } catch (dbErr) {
         throw new Error(
@@ -389,6 +391,9 @@ export default function UploadPage() {
             )}
             <p className="mt-4 font-medium text-foreground">{title}</p>
             <p className="text-sm text-muted-foreground">{artistName}</p>
+            <p className="text-xs text-muted-foreground">
+              Content rating: {isExplicit ? 'Explicit' : 'Clean'}
+            </p>
             <p className="text-sm text-muted-foreground">
               {artistOriginCity.trim()}, {artistOriginState.trim()}
             </p>
@@ -634,6 +639,24 @@ export default function UploadPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label htmlFor="isExplicit">Mark as explicit</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Enable this if lyrics or audio include explicit language/content.
+                  </p>
+                </div>
+                <input
+                  id="isExplicit"
+                  type="checkbox"
+                  checked={isExplicit}
+                  onChange={(e) => setIsExplicit(e.target.checked)}
+                  className="h-4 w-4"
+                />
+              </div>
             </div>
 
             {isUploading && (

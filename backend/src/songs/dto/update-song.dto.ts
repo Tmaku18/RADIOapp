@@ -55,4 +55,8 @@ export class UpdateSongDto {
   @IsString({ each: true })
   @IsOptional()
   featuredArtistIds?: string[];
+
+  @IsBoolean()
+  @IsOptional()
+  isExplicit?: boolean;
 }

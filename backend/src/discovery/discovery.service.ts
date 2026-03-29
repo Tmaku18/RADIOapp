@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { CLEAN_RAP_STATION_ID } from '../radio/station.constants';
 
 export interface DiscoveryProfile {
   id: string;
@@ -230,6 +231,9 @@ export class DiscoveryService {
       songsQuery = songsQuery.or(
         `station_id.eq.${stationId},station_ids.cs.{${stationId}}`,
       );
+      if (stationId === CLEAN_RAP_STATION_ID) {
+        songsQuery = songsQuery.eq('is_explicit', false);
+      }
     }
     const { data: songs, error: songsError } = await songsQuery.limit(10000);
     if (songsError) {

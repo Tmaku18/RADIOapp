@@ -5,6 +5,7 @@ import {
   IsNumber,
   Min,
   IsIn,
+  IsBoolean,
 } from 'class-validator';
 import { STATION_IDS } from '../../radio/station.constants';
 
@@ -65,4 +66,8 @@ export class CreateSongFromPathDto {
   @IsOptional()
   @Min(0)
   discoverClipEndSeconds?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  isExplicit?: boolean;
 }

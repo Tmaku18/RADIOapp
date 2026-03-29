@@ -106,6 +106,7 @@ export class AdminController {
       stationId?: string;
       stationIds?: string[];
       artworkUrl?: string | null;
+      isExplicit?: boolean;
     },
   ) {
     const song = await this.adminService.updateSongMetadata(songId, body);

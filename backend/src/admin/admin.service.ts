@@ -285,6 +285,7 @@ export class AdminService {
       stationId?: string;
       stationIds?: string[];
       artworkUrl?: string | null;
+      isExplicit?: boolean;
     },
   ) {
     const supabase = getSupabaseClient();
@@ -352,6 +353,10 @@ export class AdminService {
       updateData.artwork_url = artwork.length > 0 ? artwork : null;
     }
 
+    if (dto.isExplicit !== undefined) {
+      updateData.is_explicit = dto.isExplicit;
+    }
+
     if (Object.keys(updateData).length === 1) {
       throw new BadRequestException('No editable fields provided');
     }
@@ -360,7 +365,7 @@ export class AdminService {
       .from('songs')
       .update(updateData)
       .eq('id', songId)
-      .select('id, title, station_id, station_ids, artwork_url')
+      .select('id, title, station_id, station_ids, artwork_url, is_explicit')
       .single();
 
     if (updateError || !updated) {
@@ -381,6 +386,7 @@ export class AdminService {
             ? [updated.station_id]
             : [],
       artworkUrl: updated.artwork_url ?? null,
+      isExplicit: updated.is_explicit === true,
     };
   }
 
@@ -827,6 +833,7 @@ export class AdminService {
   ): { id: string; state: string; label: string }[] {
     const radios = [
       { id: 'us-rap', state: 'US', label: 'Up & Coming Rap Radio (National)' },
+      { id: 'us-rap-clean', state: 'US', label: 'Clean Rap Radio (National)' },
       {
         id: 'us-ready-now-rap',
         state: 'US',
@@ -851,10 +858,15 @@ export class AdminService {
       },
       { id: 'us-beats', state: 'US', label: 'Beats Radio (National)' },
       { id: 'us-freestyle', state: 'US', label: 'Freestyle Radio (National)' },
-      { id: 'us-instrumental', state: 'US', label: 'Instrumental Radio (National)' },
+      {
+        id: 'us-instrumental',
+        state: 'US',
+        label: 'Instrumental Radio (National)',
+      },
       { id: 'us-lofi', state: 'US', label: 'Lo-Fi Radio (National)' },
       { id: 'us-jazz', state: 'US', label: 'Jazz Radio (National)' },
       { id: 'us-audiobook', state: 'US', label: 'Audiobook Radio (National)' },
+      { id: 'us-spanish', state: 'US', label: 'Spanish Radio (National)' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

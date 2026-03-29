@@ -626,6 +626,7 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
       station_id: createSongDto.stationId,
+      is_explicit: createSongDto.isExplicit === true,
       status: 'pending',
     };
     const legacyBaseInsertPayload = {
@@ -1565,7 +1566,9 @@ export class SongsService {
       user_id: string;
       created_at: string | null;
     }>;
-    const userIds = [...new Set(rows.map((row) => row.user_id).filter(Boolean))];
+    const userIds = [
+      ...new Set(rows.map((row) => row.user_id).filter(Boolean)),
+    ];
     const usersById = new Map<
       string,
       { displayName: string | null; avatarUrl: string | null }

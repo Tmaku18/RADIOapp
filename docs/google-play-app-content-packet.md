@@ -11,6 +11,11 @@ production release forms.
 - Privacy policy URL: `https://discovermeradio.com/privacy` (publish and verify)
 - Terms URL: `https://discovermeradio.com/terms` (publish and verify)
 - Legal center URL: `https://discovermeradio.com/legal` (publish and verify)
+- Community guidelines URL: `https://discovermeradio.com/community-guidelines`
+- DMCA URL: `https://discovermeradio.com/dmca`
+- Support email: `support@networxradio.com`
+
+See also: `docs/legal/mobile-store-compliance-packet.md`
 
 ## Permissions declaration mapping
 
@@ -32,7 +37,7 @@ Confirm final answers with legal and product owners before submission.
 - Account identifiers:
   - Email / user ID collected for authentication and account management.
 - User content:
-  - Profile information, uploads, chat messages, reactions.
+  - Profile information, uploads, explicit labels, chat messages, reactions.
 - App activity:
   - Playback events, likes/reactions, analytics events.
 - Diagnostics:
@@ -47,6 +52,17 @@ Confirm final answers with legal and product owners before submission.
 - Current product policy in repo indicates no interrupting audio ads in core radio,
   but visual sponsorship/ad placements may exist in app surfaces.
 - In Play Console, set Ads declaration to match actual shipped build behavior.
+
+## Content rating and target audience
+
+- Complete the Play content rating questionnaire based on actual shipped content.
+- Because creator uploads may include explicit tracks, ensure rating answers include
+  mature-language/music descriptors where applicable.
+- Confirm target audience settings are not configured as children-directed.
+- Ensure in-app and listing statements remain consistent with:
+  - privacy policy,
+  - community guidelines,
+  - explicit labeling and clean-station behavior.
 
 ## Payments declaration
 
@@ -74,6 +90,7 @@ Confirm final answers with legal and product owners before submission.
    - Content rating
    - Target audience
    - Privacy policy URL
+   - App access details (if reviewer login/testing notes are required)
 5. Confirm Android billing products are active in Play Console and IDs match:
    - mobile env IDs
    - backend `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`

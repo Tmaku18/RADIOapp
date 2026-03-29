@@ -20,6 +20,7 @@ interface Song {
   admin_free_rotation?: boolean;
   paid_play_count?: number;
   status: 'pending' | 'approved' | 'rejected';
+  is_explicit?: boolean;
   rejection_reason?: string;
   created_at: string;
   users?: {
@@ -62,6 +63,7 @@ export default function AdminSongsPage() {
   const [editStationIds, setEditStationIds] = useState<string[]>([]);
   const [editArtworkUrl, setEditArtworkUrl] = useState('');
   const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+  const [editIsExplicit, setEditIsExplicit] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   
   // Rejection modal state
@@ -341,6 +343,7 @@ export default function AdminSongsPage() {
     setEditStationIds(currentStations);
     setEditArtworkUrl(song.artwork_url || '');
     setEditArtworkFile(null);
+    setEditIsExplicit(song.is_explicit === true);
   };
 
   const closeEditModal = () => {
@@ -371,6 +374,7 @@ export default function AdminSongsPage() {
         stationId: editStationIds[0],
         stationIds: editStationIds,
         artworkUrl: finalArtworkUrl,
+        isExplicit: editIsExplicit,
       });
       const updated = response.data?.song as {
         id: string;
@@ -378,6 +382,7 @@ export default function AdminSongsPage() {
         stationId?: string;
         stationIds?: string[];
         artworkUrl?: string | null;
+        isExplicit?: boolean;
       };
       setSongs((prev) =>
         prev.map((song) =>
@@ -388,6 +393,10 @@ export default function AdminSongsPage() {
                 station_id: updated.stationId ?? editStationIds[0],
                 station_ids: updated.stationIds ?? editStationIds,
                 artwork_url: updated.artworkUrl !== undefined ? updated.artworkUrl : finalArtworkUrl,
+                is_explicit:
+                  updated.isExplicit !== undefined
+                    ? updated.isExplicit
+                    : editIsExplicit,
               }
             : song,
         ),
@@ -495,6 +504,7 @@ export default function AdminSongsPage() {
                 >
                   Status <SortIcon field="status" />
                 </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Content</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Free Rotation</th>
                 <th 
                   className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
@@ -558,6 +568,17 @@ export default function AdminSongsPage() {
                         {song.rejection_reason}
                       </p>
                     )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        song.is_explicit
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {song.is_explicit ? 'Explicit' : 'Clean'}
+                    </span>
                   </td>
                   <td className="px-6 py-4">
                     {song.status === 'approved' ? (
@@ -823,6 +844,19 @@ export default function AdminSongsPage() {
                   onChange={(e) => setEditArtworkFile(e.target.files?.[0] ?? null)}
                   className="w-full"
                 />
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <label className="flex items-center justify-between text-sm text-gray-700">
+                  <span>Explicit content</span>
+                  <input
+                    type="checkbox"
+                    checked={editIsExplicit}
+                    onChange={(e) => setEditIsExplicit(e.target.checked)}
+                  />
+                </label>
+                <p className="text-xs text-gray-500 mt-2">
+                  Mark this song explicit when audio includes explicit language/content.
+                </p>
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-5">
