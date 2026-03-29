@@ -179,12 +179,17 @@ export class UploadsService {
         ? (bucket as any).allowedMimeTypes
         : this.songBucketAllowedMimeTypes;
 
-    await supabase.storage.updateBucket('songs', {
-      public: Boolean((bucket as any).public),
-      fileSizeLimit: this.songBucketTargetBytes,
-      allowedMimeTypes: maybeAllowedMimeTypes,
-    });
-    this.lastSongBucketEnsureAt = now;
+    try {
+      await supabase.storage.updateBucket('songs', {
+        public: Boolean((bucket as any).public),
+        fileSizeLimit: this.songBucketTargetBytes,
+        allowedMimeTypes: maybeAllowedMimeTypes,
+      });
+      this.lastSongBucketEnsureAt = now;
+    } catch {
+      // Some environments use limited Supabase keys that cannot mutate bucket
+      // metadata. Uploads should still proceed with existing bucket settings.
+    }
   }
 
   private async ensureImageBucketLimit(bucketName: string): Promise<void> {
@@ -234,13 +239,17 @@ export class UploadsService {
       ? [...new Set([...currentMimeTypes, ...requiredMimeTypes])]
       : currentMimeTypes;
 
-    await supabase.storage.updateBucket(bucketName, {
-      public: Boolean((bucket as any).public),
-      fileSizeLimit: this.imageUploadMaxBytes,
-      allowedMimeTypes:
-        nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
-    });
-    this.lastImageBucketEnsureAt.set(bucketName, now);
+    try {
+      await supabase.storage.updateBucket(bucketName, {
+        public: Boolean((bucket as any).public),
+        fileSizeLimit: this.imageUploadMaxBytes,
+        allowedMimeTypes:
+          nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
+      });
+      this.lastImageBucketEnsureAt.set(bucketName, now);
+    } catch {
+      // Do not block uploads if bucket metadata updates are forbidden.
+    }
   }
 
   private async ensurePortfolioBucketLimit(): Promise<void> {
@@ -272,13 +281,17 @@ export class UploadsService {
       return;
     }
 
-    await supabase.storage.updateBucket('portfolio', {
-      public: Boolean((bucket as any).public),
-      fileSizeLimit: this.portfolioBucketTargetBytes,
-      allowedMimeTypes: [
-        ...new Set([...currentMimeTypes, ...this.portfolioAllowedMimeTypes]),
-      ],
-    });
+    try {
+      await supabase.storage.updateBucket('portfolio', {
+        public: Boolean((bucket as any).public),
+        fileSizeLimit: this.portfolioBucketTargetBytes,
+        allowedMimeTypes: [
+          ...new Set([...currentMimeTypes, ...this.portfolioAllowedMimeTypes]),
+        ],
+      });
+    } catch {
+      // Do not block uploads if bucket metadata updates are forbidden.
+    }
   }
 
   /**
