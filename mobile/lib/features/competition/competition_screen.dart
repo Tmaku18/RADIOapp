@@ -104,9 +104,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
         _voteController.text = '';
         _voteSongIds = <String>[];
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vote submitted.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Vote submitted.')));
     } catch (e) {
       if (!mounted) return;
       setState(() => _voteError = 'Vote failed: $e');
@@ -150,18 +150,16 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                     children: [
                       Text(
                         'Competition & Spotlight',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontFamily: 'Lora'),
+                        style: Theme.of(
+                          context,
+                        ).textTheme.headlineSmall?.copyWith(fontFamily: 'Lora'),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Leaderboards, gems, and the weekly Top 7 vote.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodyMedium
-                            ?.copyWith(color: surfaces.textSecondary),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: surfaces.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -171,10 +169,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                 if (_news.isNotEmpty) ...[
                   Text(
                     'Now Live',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontFamily: 'Lora'),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(fontFamily: 'Lora'),
                   ),
                   const SizedBox(height: 8),
                   SizedBox(
@@ -187,8 +184,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                         final n = _news[i];
                         return ActionChip(
                           label: Text(n.title, overflow: TextOverflow.ellipsis),
-                          onPressed:
-                              n.linkUrl == null ? null : () => _openLink(n.linkUrl!),
+                          onPressed: n.linkUrl == null
+                              ? null
+                              : () => _openLink(n.linkUrl!),
                         );
                       },
                     ),
@@ -217,13 +215,17 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                   const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                        horizontal: 8, vertical: 4),
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(999),
-                                      border:
-                                          Border.all(color: surfaces.roseGold),
-                                      color: surfaces.roseGold
-                                          .withValues(alpha: 0.12),
+                                      border: Border.all(
+                                        color: surfaces.roseGold,
+                                      ),
+                                      color: surfaces.roseGold.withValues(
+                                        alpha: 0.12,
+                                      ),
                                     ),
                                     child: Text(
                                       'Featured',
@@ -243,25 +245,24 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                               if (_currentWeek != null)
                                 Text(
                                   'Week ${_currentWeek!.periodStart} – ${_currentWeek!.periodEnd} · Voting ${_currentWeek!.votingOpen ? 'open' : 'closed'}',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
+                                  style: Theme.of(context).textTheme.bodySmall
                                       ?.copyWith(color: surfaces.textMuted),
                                 ),
                               const SizedBox(height: 10),
                               if (_today == null)
                                 Text(
                                   'No spotlight set for today.',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .bodyMedium
+                                  style: Theme.of(context).textTheme.bodyMedium
                                       ?.copyWith(color: surfaces.textSecondary),
                                 )
                               else
                                 Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('🎤', style: TextStyle(fontSize: 28)),
+                                    const Text(
+                                      '🎤',
+                                      style: TextStyle(fontSize: 28),
+                                    ),
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Column(
@@ -274,8 +275,8 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                                 .textTheme
                                                 .titleMedium
                                                 ?.copyWith(
-                                                    fontWeight:
-                                                        FontWeight.w600),
+                                                  fontWeight: FontWeight.w600,
+                                                ),
                                           ),
                                           if (_today!.songTitle != null)
                                             Text(
@@ -284,8 +285,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                                   .textTheme
                                                   .bodySmall
                                                   ?.copyWith(
-                                                      color: surfaces
-                                                          .textSecondary),
+                                                    color:
+                                                        surfaces.textSecondary,
+                                                  ),
                                             ),
                                         ],
                                       ),
@@ -309,18 +311,15 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                       children: [
                         Text(
                           "This week's lineup",
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontFamily: 'Lora'),
+                          style: Theme.of(
+                            context,
+                          ).textTheme.titleMedium?.copyWith(fontFamily: 'Lora'),
                         ),
                         const SizedBox(height: 8),
                         if (_week.isEmpty)
                           Text(
                             'No lineup for this week yet.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: surfaces.textSecondary),
                           )
                         else
@@ -345,7 +344,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
-                                          ?.copyWith(fontWeight: FontWeight.w600),
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -380,8 +381,12 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                               ),
                               _LeaderboardList(
                                 songs: _listens,
-                                trailingLabel: (s) =>
-                                    '${(s.playCount != 0 ? s.playCount : s.spotlightListenCount)} discoveries',
+                                trailingLabel: (s) {
+                                  final total = s.totalListenCount > 0
+                                      ? s.totalListenCount
+                                      : (s.playCount + s.profilePlayCount);
+                                  return '$total discoveries';
+                                },
                               ),
                               _LeaderboardList(
                                 songs: _trial,
@@ -408,9 +413,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                             padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
                             child: Text(
                               'Top in Browse by category',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
+                              style: Theme.of(context).textTheme.titleMedium
                                   ?.copyWith(fontFamily: 'Lora'),
                             ),
                           ),
@@ -418,18 +421,18 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                             padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
                             child: Text(
                               'Most-liked creator content by service type.',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(color: surfaces.textSecondary),
                             ),
                           ),
                           TabBar(
                             isScrollable: true,
                             tabs: _browseCats
-                                .map((c) => Tab(
-                                      text: c.serviceType.replaceAll('_', ' '),
-                                    ))
+                                .map(
+                                  (c) => Tab(
+                                    text: c.serviceType.replaceAll('_', ' '),
+                                  ),
+                                )
                                 .toList(),
                           ),
                           SizedBox(
@@ -449,12 +452,14 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                       subtitle: Text(
                                         item.providerDisplayName ?? 'Creator',
                                         style: TextStyle(
-                                            color: surfaces.textSecondary),
+                                          color: surfaces.textSecondary,
+                                        ),
                                       ),
                                       trailing: Text(
                                         '${item.likeCount} likes',
                                         style: TextStyle(
-                                            color: surfaces.textMuted),
+                                          color: surfaces.textMuted,
+                                        ),
                                       ),
                                     );
                                   },
@@ -478,36 +483,30 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                         children: [
                           Text(
                             'Democratic Development — Vote for Top 7',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(fontFamily: 'Lora'),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             'Pick 7 songs and rank them 1–7 (comma-separated IDs).',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodySmall
+                            style: Theme.of(context).textTheme.bodySmall
                                 ?.copyWith(color: surfaces.textSecondary),
                           ),
                           const SizedBox(height: 10),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(999),
                             child: LinearProgressIndicator(
-                              value:
-                                  (_voteSongIds.length / 7).clamp(0.0, 1.0),
+                              value: (_voteSongIds.length / 7).clamp(0.0, 1.0),
                               minHeight: 6,
-                              backgroundColor:
-                                  scheme.onSurface.withValues(alpha: 0.12),
+                              backgroundColor: scheme.onSurface.withValues(
+                                alpha: 0.12,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             '${_voteSongIds.length}/7 selected',
-                            style: Theme.of(context)
-                                .textTheme
-                                .labelSmall
+                            style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: surfaces.textMuted),
                           ),
                           const SizedBox(height: 10),
@@ -529,8 +528,8 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
-                              onPressed: _voteSubmitting ||
-                                      _voteSongIds.length != 7
+                              onPressed:
+                                  _voteSubmitting || _voteSongIds.length != 7
                                   ? null
                                   : _submitVote,
                               child: _voteSubmitting
@@ -538,7 +537,8 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                       width: 18,
                                       height: 18,
                                       child: CircularProgressIndicator(
-                                          strokeWidth: 2),
+                                        strokeWidth: 2,
+                                      ),
                                     )
                                   : const Text('Submit vote'),
                             ),
@@ -578,8 +578,9 @@ class _LeaderboardList extends StatelessWidget {
         final s = songs[i];
         return ListTile(
           leading: CircleAvatar(
-            backgroundColor:
-                Theme.of(context).colorScheme.primary.withValues(alpha: 0.14),
+            backgroundColor: Theme.of(
+              context,
+            ).colorScheme.primary.withValues(alpha: 0.14),
             child: Text('${i + 1}'),
           ),
           title: Text(s.title, maxLines: 1, overflow: TextOverflow.ellipsis),

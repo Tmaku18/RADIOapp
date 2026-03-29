@@ -123,40 +123,44 @@ export class LeaderboardService {
   }
 
   /**
-   * Songs ordered by persistent like count (profile likes).
+   * Songs ordered by saved-count from analytics (likes table).
    */
   async getSongsByLikes(
     limit: number,
     offset: number,
   ): Promise<LeaderboardSong[]> {
-    const supabase = getSupabaseClient();
-    const { data: songs, error } = await supabase
-      .from('songs')
-      .select(
-        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count',
-      )
-      .eq('status', 'approved')
-      .order('like_count', { ascending: false, nullsFirst: false })
-      .order('play_count', { ascending: false, nullsFirst: false })
-      .range(offset, offset + limit - 1);
+    const songs = await this.getApprovedSongsBase();
+    const songIds = songs.map((song) => song.id);
+    const { saveCounts, playCounts, profileListenCounts } =
+      await this.getEngagementCountsBySongId(songIds);
 
-    if (error)
-      throw new Error(`Failed to fetch likes leaderboard: ${error.message}`);
-    return (songs || []).map((s: any) => {
-      const playCount = s.play_count ?? 0;
-      const profilePlayCount = s.profile_play_count ?? 0;
-      return {
-        id: s.id,
-        title: s.title,
-        artistName: s.artist_name,
-        artistId: s.artist_id,
-        artworkUrl: s.artwork_url,
-        likeCount: s.like_count ?? 0,
-        playCount,
-        profilePlayCount,
-        totalListenCount: playCount + profilePlayCount,
-      } satisfies LeaderboardSong;
-    });
+    const ranked = songs
+      .map((song) => {
+        const playCount = playCounts.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount =
+          profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
+        const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          likeCount: saveCount,
+          saveCount,
+          playCount,
+          profilePlayCount,
+          totalListenCount: playCount + profilePlayCount,
+        } satisfies LeaderboardSong;
+      })
+      .sort(
+        (a, b) =>
+          (b.saveCount ?? 0) - (a.saveCount ?? 0) ||
+          (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) ||
+          (b.playCount ?? 0) - (a.playCount ?? 0),
+      );
+
+    return ranked.slice(offset, offset + limit);
   }
 
   /**
@@ -166,39 +170,38 @@ export class LeaderboardService {
     limit: number,
     offset: number,
   ): Promise<LeaderboardSong[]> {
-    const supabase = getSupabaseClient();
-    const { data: songs, error } = await supabase
-      .from('songs')
-      .select(
-        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, spotlight_listen_count, like_count',
-      )
-      .eq('status', 'approved')
-      .range(offset, offset + limit - 1);
+    const songs = await this.getApprovedSongsBase();
+    const songIds = songs.map((song) => song.id);
+    const { saveCounts, playCounts, profileListenCounts } =
+      await this.getEngagementCountsBySongId(songIds);
 
-    if (error)
-      throw new Error(`Failed to fetch listens leaderboard: ${error.message}`);
-    const withTotals = (songs || []).map((s: any) => {
-      const playCount = s.play_count ?? 0;
-      const profilePlayCount = s.profile_play_count ?? 0;
-      return {
-        id: s.id,
-        title: s.title,
-        artistName: s.artist_name,
-        artistId: s.artist_id,
-        artworkUrl: s.artwork_url,
-        likeCount: s.like_count ?? 0,
-        playCount,
-        profilePlayCount,
-        totalListenCount: playCount + profilePlayCount,
-        spotlightListenCount: s.spotlight_listen_count ?? 0,
-      } satisfies LeaderboardSong;
-    });
-    withTotals.sort(
-      (a, b) =>
-        (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) ||
-        (b.playCount ?? 0) - (a.playCount ?? 0),
-    );
-    return withTotals.slice(0, limit);
+    const ranked = songs
+      .map((song) => {
+        const playCount = playCounts.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount =
+          profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
+        const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
+        return {
+          id: song.id,
+          title: song.title,
+          artistName: song.artist_name,
+          artistId: song.artist_id,
+          artworkUrl: song.artwork_url,
+          likeCount: saveCount,
+          saveCount,
+          playCount,
+          profilePlayCount,
+          totalListenCount: playCount + profilePlayCount,
+          spotlightListenCount: song.spotlight_listen_count ?? 0,
+        } satisfies LeaderboardSong;
+      })
+      .sort(
+        (a, b) =>
+          (b.totalListenCount ?? 0) - (a.totalListenCount ?? 0) ||
+          (b.playCount ?? 0) - (a.playCount ?? 0) ||
+          (b.saveCount ?? 0) - (a.saveCount ?? 0),
+      );
+    return ranked.slice(offset, offset + limit);
   }
 
   /**
@@ -303,13 +306,14 @@ export class LeaderboardService {
       play_count: number | null;
       profile_play_count: number | null;
       like_count: number | null;
+      spotlight_listen_count: number | null;
     }>
   > {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('songs')
       .select(
-        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count',
+        'id, title, artist_name, artist_id, artwork_url, play_count, profile_play_count, like_count, spotlight_listen_count',
       )
       .eq('status', 'approved');
     if (error) {
@@ -324,10 +328,13 @@ export class LeaderboardService {
       play_count: number | null;
       profile_play_count: number | null;
       like_count: number | null;
+      spotlight_listen_count: number | null;
     }>;
   }
 
-  private async getReactionStatsBySongId(): Promise<
+  private async getReactionStatsBySongId(
+    songIds?: string[],
+  ): Promise<
     Map<string, { fireVotes: number; shitVotes: number; totalVotes: number }>
   > {
     const supabase = getSupabaseClient();
@@ -336,9 +343,13 @@ export class LeaderboardService {
       { fireVotes: number; shitVotes: number; totalVotes: number }
     >();
 
-    const songTemperatureRes = await supabase
+    let songTemperatureQuery = supabase
       .from('song_temperature')
       .select('song_id, fire_votes, shit_votes, total_votes');
+    if (songIds != null && songIds.isNotEmpty) {
+      songTemperatureQuery = songTemperatureQuery.in('song_id', songIds);
+    }
+    const songTemperatureRes = await songTemperatureQuery;
     if (!songTemperatureRes.error && songTemperatureRes.data) {
       for (const row of songTemperatureRes.data as Array<{
         song_id: string;
@@ -361,9 +372,13 @@ export class LeaderboardService {
       return stats;
     }
 
-    const { data: rows, error } = await supabase
+    let reactionQuery = supabase
       .from('leaderboard_likes')
       .select('song_id, reaction');
+    if (songIds != null && songIds.isNotEmpty) {
+      reactionQuery = reactionQuery.in('song_id', songIds);
+    }
+    const { data: rows, error } = await reactionQuery;
     if (error) {
       throw new Error(`Failed to fetch reaction stats: ${error.message}`);
     }
@@ -387,10 +402,16 @@ export class LeaderboardService {
     return stats;
   }
 
-  private async getSaveCountsBySongId(): Promise<Map<string, number>> {
+  private async getSaveCountsBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
     const supabase = getSupabaseClient();
     const counts = new Map<string, number>();
-    const { data, error } = await supabase.from('likes').select('song_id');
+    if (songIds.length === 0) return counts;
+    const { data, error } = await supabase
+      .from('likes')
+      .select('song_id')
+      .in('song_id', songIds);
     if (error) {
       throw new Error(`Failed to fetch save stats: ${error.message}`);
     }
@@ -400,15 +421,77 @@ export class LeaderboardService {
     return counts;
   }
 
+  private async getPlayCountsBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const supabase = getSupabaseClient();
+    const counts = new Map<string, number>();
+    if (songIds.length === 0) return counts;
+    const { data, error } = await supabase
+      .from('plays')
+      .select('song_id')
+      .in('song_id', songIds);
+    if (error) {
+      throw new Error(`Failed to fetch play stats: ${error.message}`);
+    }
+    for (const row of (data ?? []) as Array<{ song_id: string }>) {
+      counts.set(row.song_id, (counts.get(row.song_id) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private async getProfileListenCountsBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const supabase = getSupabaseClient();
+    const counts = new Map<string, number>();
+    if (songIds.length === 0) return counts;
+    const { data, error } = await supabase
+      .from('song_profile_listens')
+      .select('song_id')
+      .in('song_id', songIds);
+    if (error) {
+      const message = (error.message ?? '').toLowerCase();
+      const missingTable =
+        error.code === '42P01' ||
+        (error.code === 'PGRST205' && message.includes('song_profile_listens'));
+      if (!missingTable) {
+        throw new Error(
+          `Failed to fetch profile-listen stats: ${error.message}`,
+        );
+      }
+      return counts;
+    }
+    for (const row of (data ?? []) as Array<{ song_id: string }>) {
+      counts.set(row.song_id, (counts.get(row.song_id) ?? 0) + 1);
+    }
+    return counts;
+  }
+
+  private async getEngagementCountsBySongId(songIds: string[]): Promise<{
+    saveCounts: Map<string, number>;
+    playCounts: Map<string, number>;
+    profileListenCounts: Map<string, number>;
+  }> {
+    const [saveCounts, playCounts, profileListenCounts] = await Promise.all([
+      this.getSaveCountsBySongId(songIds),
+      this.getPlayCountsBySongId(songIds),
+      this.getProfileListenCountsBySongId(songIds),
+    ]);
+    return { saveCounts, playCounts, profileListenCounts };
+  }
+
   async getSongsByPositiveVotes(
     limit: number,
     offset: number,
   ): Promise<LeaderboardSong[]> {
-    const [songs, reactionStats, saveCounts] = await Promise.all([
-      this.getApprovedSongsBase(),
-      this.getReactionStatsBySongId(),
-      this.getSaveCountsBySongId(),
-    ]);
+    const songs = await this.getApprovedSongsBase();
+    const songIds = songs.map((song) => song.id);
+    const [reactionStats, { saveCounts, playCounts, profileListenCounts }] =
+      await Promise.all([
+        this.getReactionStatsBySongId(songIds),
+        this.getEngagementCountsBySongId(songIds),
+      ]);
 
     const ranked = songs
       .map((song) => {
@@ -419,8 +502,9 @@ export class LeaderboardService {
         };
         const positiveRatio =
           stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
-        const playCount = song.play_count ?? 0;
-        const profilePlayCount = song.profile_play_count ?? 0;
+        const playCount = playCounts.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount =
+          profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         return {
           id: song.id,
           title: song.title,
@@ -451,11 +535,13 @@ export class LeaderboardService {
     limit: number,
     offset: number,
   ): Promise<LeaderboardSong[]> {
-    const [songs, reactionStats, saveCounts] = await Promise.all([
-      this.getApprovedSongsBase(),
-      this.getReactionStatsBySongId(),
-      this.getSaveCountsBySongId(),
-    ]);
+    const songs = await this.getApprovedSongsBase();
+    const songIds = songs.map((song) => song.id);
+    const [reactionStats, { saveCounts, playCounts, profileListenCounts }] =
+      await Promise.all([
+        this.getReactionStatsBySongId(songIds),
+        this.getEngagementCountsBySongId(songIds),
+      ]);
 
     const ranked = songs
       .map((song) => {
@@ -466,8 +552,9 @@ export class LeaderboardService {
         };
         const positiveRatio =
           stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
-        const playCount = song.play_count ?? 0;
-        const profilePlayCount = song.profile_play_count ?? 0;
+        const playCount = playCounts.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount =
+          profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         return {
           id: song.id,
           title: song.title,
@@ -498,11 +585,13 @@ export class LeaderboardService {
     limit: number,
     offset: number,
   ): Promise<LeaderboardSong[]> {
-    const [songs, reactionStats, saveCounts] = await Promise.all([
-      this.getApprovedSongsBase(),
-      this.getReactionStatsBySongId(),
-      this.getSaveCountsBySongId(),
-    ]);
+    const songs = await this.getApprovedSongsBase();
+    const songIds = songs.map((song) => song.id);
+    const [reactionStats, { saveCounts, playCounts, profileListenCounts }] =
+      await Promise.all([
+        this.getReactionStatsBySongId(songIds),
+        this.getEngagementCountsBySongId(songIds),
+      ]);
 
     const ranked = songs
       .map((song) => {
@@ -513,8 +602,9 @@ export class LeaderboardService {
         };
         const positiveRatio =
           stats.totalVotes > 0 ? stats.fireVotes / stats.totalVotes : 0;
-        const playCount = song.play_count ?? 0;
-        const profilePlayCount = song.profile_play_count ?? 0;
+        const playCount = playCounts.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount =
+          profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
         return {
           id: song.id,

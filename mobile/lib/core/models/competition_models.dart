@@ -6,7 +6,13 @@ class LeaderboardSong {
   final String? artworkUrl;
   final int likeCount;
   final int playCount;
+  final int profilePlayCount;
+  final int totalListenCount;
   final int spotlightListenCount;
+  final int saveCount;
+  final int positiveVotes;
+  final int negativeVotes;
+  final double positiveRatio;
   final int? windowMinutes;
   final int? likesInWindow;
   final int? playsInWindow;
@@ -20,7 +26,13 @@ class LeaderboardSong {
     this.artworkUrl,
     required this.likeCount,
     required this.playCount,
+    required this.profilePlayCount,
+    required this.totalListenCount,
     required this.spotlightListenCount,
+    required this.saveCount,
+    required this.positiveVotes,
+    required this.negativeVotes,
+    required this.positiveRatio,
     this.windowMinutes,
     this.likesInWindow,
     this.playsInWindow,
@@ -49,29 +61,86 @@ class LeaderboardSong {
       artworkUrl: (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
       likeCount: (json['likeCount'] ?? json['like_count'] ?? 0) is int
           ? (json['likeCount'] ?? json['like_count'] ?? 0) as int
-          : int.tryParse((json['likeCount'] ?? json['like_count'] ?? '0').toString()) ??
-              0,
+          : int.tryParse(
+                  (json['likeCount'] ?? json['like_count'] ?? '0').toString(),
+                ) ??
+                0,
       playCount: (json['playCount'] ?? json['play_count'] ?? 0) is int
           ? (json['playCount'] ?? json['play_count'] ?? 0) as int
-          : int.tryParse((json['playCount'] ?? json['play_count'] ?? '0').toString()) ??
-              0,
+          : int.tryParse(
+                  (json['playCount'] ?? json['play_count'] ?? '0').toString(),
+                ) ??
+                0,
+      profilePlayCount:
+          (json['profilePlayCount'] ?? json['profile_play_count'] ?? 0) is int
+          ? (json['profilePlayCount'] ?? json['profile_play_count'] ?? 0) as int
+          : int.tryParse(
+                  (json['profilePlayCount'] ??
+                          json['profile_play_count'] ??
+                          '0')
+                      .toString(),
+                ) ??
+                0,
+      totalListenCount:
+          (json['totalListenCount'] ?? json['total_listen_count'] ?? 0) is int
+          ? (json['totalListenCount'] ?? json['total_listen_count'] ?? 0) as int
+          : int.tryParse(
+                  (json['totalListenCount'] ??
+                          json['total_listen_count'] ??
+                          '0')
+                      .toString(),
+                ) ??
+                0,
       spotlightListenCount:
           (json['spotlightListenCount'] ?? json['spotlight_listen_count'] ?? 0)
-                  is int
-              ? (json['spotlightListenCount'] ??
-                  json['spotlight_listen_count'] ??
-                  0) as int
-              : int.tryParse(
-                    (json['spotlightListenCount'] ??
-                            json['spotlight_listen_count'] ??
-                            '0')
-                        .toString(),
-                  ) ??
-                  0,
-      windowMinutes: toNullableInt(json['windowMinutes'] ?? json['window_minutes']),
-      likesInWindow: toNullableInt(json['likesInWindow'] ?? json['likes_in_window']),
-      playsInWindow: toNullableInt(json['playsInWindow'] ?? json['plays_in_window']),
-      upvotesPerMinute: toDouble(json['upvotesPerMinute'] ?? json['upvotes_per_minute']),
+              is int
+          ? (json['spotlightListenCount'] ??
+                    json['spotlight_listen_count'] ??
+                    0)
+                as int
+          : int.tryParse(
+                  (json['spotlightListenCount'] ??
+                          json['spotlight_listen_count'] ??
+                          '0')
+                      .toString(),
+                ) ??
+                0,
+      saveCount: (json['saveCount'] ?? json['save_count'] ?? 0) is int
+          ? (json['saveCount'] ?? json['save_count'] ?? 0) as int
+          : int.tryParse(
+                  (json['saveCount'] ?? json['save_count'] ?? '0').toString(),
+                ) ??
+                0,
+      positiveVotes:
+          (json['positiveVotes'] ?? json['positive_votes'] ?? 0) is int
+          ? (json['positiveVotes'] ?? json['positive_votes'] ?? 0) as int
+          : int.tryParse(
+                  (json['positiveVotes'] ?? json['positive_votes'] ?? '0')
+                      .toString(),
+                ) ??
+                0,
+      negativeVotes:
+          (json['negativeVotes'] ?? json['negative_votes'] ?? 0) is int
+          ? (json['negativeVotes'] ?? json['negative_votes'] ?? 0) as int
+          : int.tryParse(
+                  (json['negativeVotes'] ?? json['negative_votes'] ?? '0')
+                      .toString(),
+                ) ??
+                0,
+      positiveRatio:
+          toDouble(json['positiveRatio'] ?? json['positive_ratio']) ?? 0,
+      windowMinutes: toNullableInt(
+        json['windowMinutes'] ?? json['window_minutes'],
+      ),
+      likesInWindow: toNullableInt(
+        json['likesInWindow'] ?? json['likes_in_window'],
+      ),
+      playsInWindow: toNullableInt(
+        json['playsInWindow'] ?? json['plays_in_window'],
+      ),
+      upvotesPerMinute: toDouble(
+        json['upvotesPerMinute'] ?? json['upvotes_per_minute'],
+      ),
     );
   }
 }
@@ -100,11 +169,15 @@ class NewsItem {
       id: (json['id'] ?? '').toString(),
       type: (json['type'] ?? 'news').toString(),
       title: (json['title'] ?? '').toString(),
-      bodyOrDescription: (json['bodyOrDescription'] ?? json['body_or_description'])
-          ?.toString(),
+      bodyOrDescription:
+          (json['bodyOrDescription'] ?? json['body_or_description'])
+              ?.toString(),
       imageUrl: (json['imageUrl'] ?? json['image_url'])?.toString(),
       linkUrl: (json['linkUrl'] ?? json['link_url'])?.toString(),
-      createdAt: DateTime.tryParse((json['createdAt'] ?? json['created_at'] ?? '').toString()) ??
+      createdAt:
+          DateTime.tryParse(
+            (json['createdAt'] ?? json['created_at'] ?? '').toString(),
+          ) ??
           DateTime.now(),
     );
   }
@@ -168,7 +241,8 @@ class CurrentWeek {
 
   factory CurrentWeek.fromJson(Map<String, dynamic> json) {
     return CurrentWeek(
-      periodStart: (json['periodStart'] ?? json['period_start'] ?? '').toString(),
+      periodStart: (json['periodStart'] ?? json['period_start'] ?? '')
+          .toString(),
       periodEnd: (json['periodEnd'] ?? json['period_end'] ?? '').toString(),
       votingOpen: json['votingOpen'] == true || json['voting_open'] == true,
     );
@@ -198,8 +272,10 @@ class BrowseLeaderboardItem {
       fileUrl: (json['fileUrl'] ?? json['file_url'] ?? '').toString(),
       likeCount: (json['likeCount'] ?? json['like_count'] ?? 0) is int
           ? (json['likeCount'] ?? json['like_count'] ?? 0) as int
-          : int.tryParse((json['likeCount'] ?? json['like_count'] ?? '0').toString()) ??
-              0,
+          : int.tryParse(
+                  (json['likeCount'] ?? json['like_count'] ?? '0').toString(),
+                ) ??
+                0,
       providerDisplayName: provider is Map<String, dynamic>
           ? (provider['displayName'] ?? provider['display_name'])?.toString()
           : null,
@@ -216,13 +292,16 @@ class BrowseLeaderboardCategory {
   factory BrowseLeaderboardCategory.fromJson(Map<String, dynamic> json) {
     final rawItems = (json['items'] as List?) ?? const [];
     return BrowseLeaderboardCategory(
-      serviceType: (json['serviceType'] ?? json['service_type'] ?? '').toString(),
+      serviceType: (json['serviceType'] ?? json['service_type'] ?? '')
+          .toString(),
       items: rawItems
           .whereType<Map>()
-          .map((e) => BrowseLeaderboardItem.fromJson(
-              e.map((k, v) => MapEntry(k.toString(), v))))
+          .map(
+            (e) => BrowseLeaderboardItem.fromJson(
+              e.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
           .toList(),
     );
   }
 }
-
