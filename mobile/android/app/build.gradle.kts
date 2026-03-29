@@ -84,11 +84,12 @@ flutter {
     source = "../.."
 }
 
-// Workaround: Flutter CLI expects APK at build/app/outputs/flutter-apk/ when using
-// modern AGP DSL (pluginManagement). AGP writes to android/app/build/outputs/apk/
-// instead. Copy so "flutter run" / "flutter build apk" can find the APK.
+// Workaround: Flutter CLI expects build artifacts under mobile/build/... when using
+// modern AGP DSL (pluginManagement). AGP writes to android/app/build/outputs/... .
+// Copy artifacts so Flutter commands can find APK/AAB outputs.
 // See: https://github.com/flutter/flutter/issues/174620
 val cliOutDir = rootDir.parentFile!!.resolve("build/app/outputs/flutter-apk")
+val cliBundleOutDir = rootDir.parentFile!!.resolve("build/app/outputs/bundle/release")
 tasks.register("syncFlutterApks") {
     doLast {
         cliOutDir.mkdirs()
@@ -100,12 +101,26 @@ tasks.register("syncFlutterApks") {
         }
     }
 }
+tasks.register("syncFlutterBundles") {
+    doLast {
+        cliBundleOutDir.mkdirs()
+        val bundleDir = layout.buildDirectory.dir("outputs/bundle").get().asFile
+        if (bundleDir.exists()) {
+            bundleDir.walk().filter { it.isFile && it.extension == "aab" }.forEach { aab ->
+                aab.copyTo(cliBundleOutDir.resolve(aab.name), overwrite = true)
+            }
+        }
+    }
+}
 android.applicationVariants.all {
     val cap = name.replaceFirstChar { it.uppercase() }
     listOf("package$cap", "assemble$cap").forEach { taskName ->
         tasks.matching { it.name == taskName }.configureEach {
             finalizedBy(tasks.named("syncFlutterApks"))
         }
+    }
+    tasks.matching { it.name == "bundle$cap" }.configureEach {
+        finalizedBy(tasks.named("syncFlutterBundles"))
     }
 }
 

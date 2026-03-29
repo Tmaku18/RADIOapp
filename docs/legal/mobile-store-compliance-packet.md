@@ -16,6 +16,8 @@ This packet centralizes policy and compliance details required for App Store and
 
 All links must be publicly accessible over HTTPS without authentication.
 
+Source draft for policy maintenance: `docs/legal/privacy-policy.md`.
+
 ## 2) Data handling disclosures (store forms baseline)
 
 NETWORX handles the following categories in support of core radio and creator features:

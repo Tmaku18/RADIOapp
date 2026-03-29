@@ -80,6 +80,25 @@ CHECKPOINT_INTERVAL=5
 3. Set **Root Directory** to `web` (so the Next.js app in `web/` is built).
 4. Do **not** add the domain yet; we’ll add it after Namecheap DNS.
 
+### 2.1a Build-minute controls (recommended)
+
+To avoid unnecessary Vercel build minutes in this monorepo:
+
+1. Keep each Vercel project pointed at its app root:
+   - `web` project -> Root Directory `web`
+   - `pro-web` project -> Root Directory `pro-web`
+   - `admin` project -> Root Directory `admin`
+2. Keep app-local `vercel.json` checked in (`web/vercel.json`, `pro-web/vercel.json`, `admin/vercel.json`).
+   - Each file uses `ignoreCommand` so Vercel skips builds when that app folder did not change.
+3. Keep dependency updates app-local:
+   - If you change `web/package.json`, commit `web/package-lock.json` in the same PR.
+   - If you change `pro-web/package.json`, commit `pro-web/package-lock.json` in the same PR.
+   - If you change `admin/package.json`, commit `admin/package-lock.json` in the same PR.
+4. Avoid noisy preview churn:
+   - Batch small docs/notes commits locally when possible.
+   - Push when preview validation is needed.
+   - Use Vercel **Redeploy** for manual preview refreshes instead of creating extra commits.
+
 ### 2.2 Vercel env variables (copy-paste block)
 
 Copy the block below. Replace placeholders with values from your **local `web/.env.local`**. For **Supabase**: use **Supabase MCP** `get_project_url` and `get_publishable_keys` with project_id `tgjydsqeatvcerzpdqup` for URL and anon key if you prefer.

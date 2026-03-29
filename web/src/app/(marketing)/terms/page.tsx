@@ -4,7 +4,7 @@ export default function TermsPage() {
       <header>
         <h1 className="text-4xl font-bold text-foreground">Terms of Service</h1>
         <p className="text-muted-foreground mt-3">
-          Effective date: March 18, 2026
+          Effective date: March 29, 2026
         </p>
       </header>
 
@@ -19,6 +19,7 @@ export default function TermsPage() {
       <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Eligibility and Accounts</h2>
         <ul className="list-disc pl-6 text-muted-foreground space-y-2">
+          <li>You must be at least 13 years old to use the service.</li>
           <li>You must provide accurate account information and keep it current.</li>
           <li>You are responsible for safeguarding account credentials.</li>
           <li>You are responsible for activity under your account.</li>
@@ -41,6 +42,15 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">User Safety and Moderation</h2>
+        <p className="text-muted-foreground">
+          NETWORX supports creator-uploaded audio and community interactions. We may
+          monitor, moderate, remove, or restrict content/accounts that violate these
+          terms, our policies, legal requirements, or safety standards.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Payments</h2>
         <p className="text-muted-foreground">
           Paid features may include one-time purchases and subscriptions. Charges are
@@ -60,10 +70,28 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Intellectual Property</h2>
+        <p className="text-muted-foreground">
+          The NETWORX service, branding, software, and related materials are owned by
+          DISCOVERMERADIO GROUP LLC or its licensors and are protected by applicable
+          intellectual property laws. Except as permitted by law, you may not copy,
+          modify, reverse engineer, or distribute service materials without permission.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Termination</h2>
         <p className="text-muted-foreground">
           We may suspend or terminate access for terms or policy violations, legal risk,
           abuse, or security concerns. You may stop using the service at any time.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Changes to the Service</h2>
+        <p className="text-muted-foreground">
+          We may modify, suspend, or discontinue all or part of the service at any time,
+          with or without notice, as permitted by law.
         </p>
       </section>
 
@@ -77,11 +105,30 @@ export default function TermsPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Indemnification</h2>
+        <p className="text-muted-foreground">
+          To the extent permitted by law, you agree to indemnify and hold harmless
+          DISCOVERMERADIO GROUP LLC and its affiliates from claims, damages, losses, and
+          expenses arising from your content, your use of the service, or your violation
+          of these terms or applicable law.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Governing Law</h2>
         <p className="text-muted-foreground">
           These terms are governed by applicable law in the United States and the State
           of Georgia, without regard to conflict-of-law rules, unless otherwise required
           by non-waivable consumer law.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Changes to These Terms</h2>
+        <p className="text-muted-foreground">
+          We may update these Terms of Service from time to time. If we make material
+          changes, we will update the effective date and provide notice where required
+          by law.
         </p>
       </section>
 
@@ -97,11 +144,6 @@ export default function TermsPage() {
           </a>
         </p>
       </section>
-
-      <p className="text-sm text-muted-foreground border-t border-border pt-6">
-        Legal review note: this terms document should be reviewed by licensed counsel
-        prior to major commercial launch or expansion to additional jurisdictions.
-      </p>
     </div>
   );
 }

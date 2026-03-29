@@ -2,8 +2,11 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/services/discover_audio_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
 class DiscoverAudioTab extends StatefulWidget {
@@ -15,8 +18,11 @@ class DiscoverAudioTab extends StatefulWidget {
 
 class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   static const int _pageSize = 12;
+  static const String _selectedStationPrefKey = 'selected_radio_station_id';
+  static const String _defaultStationId = 'us-rap';
   final DiscoverAudioService _service = DiscoverAudioService();
-  final AudioPlayer _player = AudioPlayer();
+  final AudioPlayer _player = AudioPlayerService().player;
+  StreamSubscription<PlayerState>? _playerStateSub;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -26,8 +32,10 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   List<DiscoverAudioSongCard> _cards = const [];
   int _shownAtMs = DateTime.now().millisecondsSinceEpoch;
   Timer? _clipStopTimer;
+  String _stationId = _defaultStationId;
   String _seed =
       '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
+  bool _clipIsPlaying = false;
 
   DiscoverAudioSongCard? get _currentCard =>
       _cards.isEmpty ? null : _cards.first;
@@ -35,17 +43,62 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   @override
   void initState() {
     super.initState();
+    _playerStateSub = _player.playerStateStream.listen((playerState) {
+      if (!mounted) return;
+      setState(() => _clipIsPlaying = playerState.playing);
+    });
     _loadPage(append: false);
   }
 
   @override
   void dispose() {
     _clipStopTimer?.cancel();
-    _player.dispose();
+    _playerStateSub?.cancel();
+    // Keep the shared player alive globally, but stop discover clip playback
+    // when leaving this tab.
+    _player.stop();
     super.dispose();
   }
 
+  String _clipMediaId(DiscoverAudioSongCard card) => 'discover:${card.songId}';
+
+  bool _isCurrentClipLoaded(DiscoverAudioSongCard card) {
+    final currentTag = _player.sequenceState?.currentSource?.tag;
+    if (currentTag is MediaItem) {
+      return currentTag.id == _clipMediaId(card);
+    }
+    return false;
+  }
+
+  void _startClipStopTimer(DiscoverAudioSongCard card) {
+    _clipStopTimer?.cancel();
+    final capSeconds = card.clipDurationSeconds.clamp(1, 15).toDouble();
+    _clipStopTimer = Timer(
+      Duration(milliseconds: (capSeconds * 1000).toInt()),
+      () async {
+        try {
+          await _player.pause();
+          await _player.seek(Duration.zero);
+        } catch (_) {}
+      },
+    );
+  }
+
+  Future<String> _resolveStationId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) return stored;
+    } catch (_) {
+      // Keep fallback if prefs is unavailable.
+    }
+    return _defaultStationId;
+  }
+
   Future<void> _loadPage({required bool append}) async {
+    if (!append) {
+      _stationId = await _resolveStationId();
+    }
     if (!append) {
       // New seed on refresh gives a new random order.
       _seed =
@@ -65,6 +118,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
         limit: _pageSize,
         cursor: append ? _nextCursor : null,
         seed: _seed,
+        stationId: _stationId,
       );
       if (!mounted) return;
       setState(() {
@@ -96,17 +150,41 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
       return;
     }
 
-    final capSeconds = card.clipDurationSeconds.clamp(1, 15).toDouble();
-    await _player.setUrl(card.clipUrl);
+    await _player.setAudioSource(
+      AudioSource.uri(
+        Uri.parse(card.clipUrl),
+        tag: MediaItem(
+          id: _clipMediaId(card),
+          title: card.title,
+          artist: card.artistDisplayName ?? card.artistName,
+          artUri: (card.backgroundUrl != null && card.backgroundUrl!.isNotEmpty)
+              ? Uri.tryParse(card.backgroundUrl!)
+              : null,
+        ),
+      ),
+    );
     await _player.seek(Duration.zero);
     unawaited(_player.play());
-    _clipStopTimer = Timer(Duration(milliseconds: (capSeconds * 1000).toInt()),
-        () async {
-      try {
-        await _player.pause();
-        await _player.seek(Duration.zero);
-      } catch (_) {}
-    });
+    _startClipStopTimer(card);
+  }
+
+  Future<void> _toggleCurrentClipPlayback() async {
+    final card = _currentCard;
+    if (card == null || card.clipUrl.isEmpty) return;
+
+    if (_clipIsPlaying) {
+      _clipStopTimer?.cancel();
+      await _player.pause();
+      return;
+    }
+
+    if (!_isCurrentClipLoaded(card)) {
+      await _autoplayCurrent();
+      return;
+    }
+
+    unawaited(_player.play());
+    _startClipStopTimer(card);
   }
 
   Future<void> _applySwipe(String direction) async {
@@ -114,13 +192,13 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     if (card == null || _busySwipe) return;
 
     setState(() => _busySwipe = true);
-    final decisionMs =
-        DateTime.now().millisecondsSinceEpoch - _shownAtMs;
+    final decisionMs = DateTime.now().millisecondsSinceEpoch - _shownAtMs;
     try {
       await _service.swipe(
         songId: card.songId,
         direction: direction,
         decisionMs: decisionMs < 0 ? 0 : decisionMs,
+        stationId: _stationId,
       );
       if (!mounted) return;
       setState(() {
@@ -199,11 +277,12 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                         Image.network(
                           card.backgroundUrl!,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => Container(
-                            decoration: BoxDecoration(
-                              gradient: surfaces.signatureGradient,
-                            ),
-                          ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                decoration: BoxDecoration(
+                                  gradient: surfaces.signatureGradient,
+                                ),
+                              ),
                         )
                       else
                         Container(
@@ -217,13 +296,15 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                         left: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
-                            '${card.clipDurationSeconds.toStringAsFixed(0)}s clip',
+                            '${card.clipDurationSeconds.toStringAsFixed(0)}s clip • $_stationId',
                             style: const TextStyle(color: Colors.white),
                           ),
                         ),
@@ -233,7 +314,9 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                         right: 10,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.5),
                             borderRadius: BorderRadius.circular(999),
@@ -281,6 +364,22 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                   padding: const EdgeInsets.all(12),
                   child: Row(
                     children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _busySwipe
+                              ? null
+                              : _toggleCurrentClipPlayback,
+                          icon: Icon(
+                            _clipIsPlaying
+                                ? Icons.pause_circle_outline
+                                : Icons.play_circle_outline,
+                          ),
+                          label: Text(
+                            _clipIsPlaying ? 'Pause clip' : 'Play clip',
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _busySwipe

@@ -4,15 +4,16 @@ export default function PrivacyPage() {
       <header>
         <h1 className="text-4xl font-bold text-foreground">Privacy Policy</h1>
         <p className="text-muted-foreground mt-3">
-          Effective date: March 18, 2026
+          Effective date: March 29, 2026
         </p>
       </header>
 
       <section className="space-y-3">
         <p className="text-muted-foreground">
-          This Privacy Policy explains how DISCOVERMERADIO GROUP LLC (&quot;NETWORX,&quot;
-          &quot;we,&quot; &quot;us,&quot; &quot;our&quot;) collects, uses, and shares personal data
-          when you use NETWORX applications, websites, and related services.
+          This Privacy Policy explains how DISCOVERMERADIO GROUP LLC
+          (&quot;NETWORX,&quot; &quot;we,&quot; &quot;us,&quot; &quot;our&quot;) collects, uses, discloses, and
+          protects information when you use NETWORX applications, websites, and
+          related services (collectively, the &quot;Services&quot;).
         </p>
       </section>
 
@@ -23,7 +24,7 @@ export default function PrivacyPage() {
           <li>
             Content and activity (uploads, messages, reactions, comments, and profile data).
           </li>
-          <li>Payment and purchase metadata needed to process transactions.</li>
+          <li>Payment and purchase metadata used for transaction processing and verification.</li>
           <li>
             Device and usage information (logs, crash diagnostics, app interactions).
           </li>
@@ -48,6 +49,16 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Legal Bases and Consent</h2>
+        <p className="text-muted-foreground">
+          Depending on your location, we process personal data under one or more legal
+          bases: your consent, performance of a contract, legitimate interests, and
+          legal obligations. You can withdraw consent for optional processing at any
+          time by changing app/device settings where available.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Creator Content, Safety, and Explicit Labels</h2>
         <p className="text-muted-foreground">
           NETWORX supports creator-uploaded audio and community interactions. We process
@@ -64,6 +75,15 @@ export default function PrivacyPage() {
           infrastructure, analytics, notifications, and payments. We may also disclose
           data when required by law, to enforce rights, or in connection with a business
           transfer.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">International Transfers</h2>
+        <p className="text-muted-foreground">
+          We and our service providers may process data in the United States and other
+          countries that may have different data protection laws than your country.
+          Where required, we use appropriate safeguards for cross-border data transfers.
         </p>
       </section>
 
@@ -94,6 +114,32 @@ export default function PrivacyPage() {
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Account Deletion</h2>
+        <p className="text-muted-foreground">
+          You may request deletion of your account and associated personal data by
+          contacting support. We may retain limited information as required by law,
+          to resolve disputes, or for fraud and security prevention.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Security</h2>
+        <p className="text-muted-foreground">
+          We use reasonable administrative, technical, and organizational measures to
+          protect personal data. No system is perfectly secure, and we cannot guarantee
+          absolute security.
+        </p>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-2xl font-semibold">Changes To This Policy</h2>
+        <p className="text-muted-foreground">
+          We may update this Privacy Policy from time to time. If we make material changes,
+          we will update the effective date and provide notice where required by law.
+        </p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-2xl font-semibold">Children&apos;s Privacy</h2>
         <p className="text-muted-foreground">
           NETWORX is not directed to children under 13, and we do not knowingly collect
@@ -113,11 +159,6 @@ export default function PrivacyPage() {
           </a>
         </p>
       </section>
-
-      <p className="text-sm text-muted-foreground border-t border-border pt-6">
-        Legal review note: this policy is a production-ready baseline but should be
-        reviewed by counsel before broad public distribution in additional jurisdictions.
-      </p>
     </div>
   );
 }

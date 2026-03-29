@@ -225,15 +225,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const play = useCallback(async () => {
     const audio = audioRef.current;
     if (!audio) return;
+    setState((s) => ({ ...s, isPlaying: true, error: null }));
     try {
       await audio.play();
     } catch {
-      setState((s) => ({ ...s, error: 'Failed to play.' }));
+      setState((s) => ({ ...s, isPlaying: false, error: 'Failed to play.' }));
     }
   }, []);
 
   const pause = useCallback(() => {
     audioRef.current?.pause();
+    setState((s) => ({ ...s, isPlaying: false }));
   }, []);
 
   const togglePlay = useCallback(async () => {
@@ -282,7 +284,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
   const softPause = useCallback(() => {
     audioRef.current?.pause();
-    setState((s) => ({ ...s, pausedAt: Date.now(), isLive: false }));
+    setState((s) => ({
+      ...s,
+      isPlaying: false,
+      pausedAt: Date.now(),
+      isLive: false,
+    }));
   }, []);
 
   const softResume = useCallback(async () => {
@@ -292,10 +299,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const pauseDuration = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
     if (pauseDuration <= 30) {
       try {
+        setState((s) => ({ ...s, isPlaying: true, error: null }));
         await audio.play();
-        setState((s) => ({ ...s, pausedAt: null }));
+        setState((s) => ({ ...s, isPlaying: true, pausedAt: null }));
       } catch {
-        // ignore
+        setState((s) => ({ ...s, isPlaying: false }));
       }
     }
   }, [state.pausedAt]);
@@ -304,16 +312,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = positionSeconds;
+    setState((s) => ({ ...s, isPlaying: true, error: null }));
     try {
       await audio.play();
       setState((s) => ({
         ...s,
+        isPlaying: true,
         pausedAt: null,
         isLive: true,
         serverPosition: positionSeconds,
       }));
     } catch {
-      // ignore
+      setState((s) => ({ ...s, isPlaying: false }));
     }
   }, []);
 

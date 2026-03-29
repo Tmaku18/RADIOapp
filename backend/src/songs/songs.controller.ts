@@ -530,6 +530,7 @@ export class SongsController {
     @Query('limit') limit?: string,
     @Query('cursor') cursor?: string,
     @Query('seed') seed?: string,
+    @Query('stationId') stationId?: string,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -546,6 +547,7 @@ export class SongsController {
       limitNum,
       cursor,
       seed,
+      stationId,
     );
   }
 
@@ -559,6 +561,7 @@ export class SongsController {
       songId: string;
       direction: 'left_skip' | 'right_like';
       decisionMs?: number;
+      stationId?: string;
     },
   ) {
     if (!body?.songId) throw new BadRequestException('songId is required');
@@ -578,6 +581,7 @@ export class SongsController {
       songId: body.songId,
       direction: body.direction,
       decisionMs: body.decisionMs,
+      stationId: body.stationId,
     });
   }
 

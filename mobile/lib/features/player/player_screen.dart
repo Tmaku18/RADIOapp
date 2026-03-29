@@ -135,6 +135,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _presenceTimer;
   Timer? _trackSyncTimer;
   Timer? _trackBoundaryTimer;
+  StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
@@ -177,7 +178,10 @@ class _PlayerScreenState extends State<PlayerScreen>
         setState(() => _risingStarText = null);
       });
     });
-    _audioPlayer.playerStateStream.listen((state) {
+    _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
+      if (mounted && _isPlaying != state.playing) {
+        setState(() => _isPlaying = state.playing);
+      }
       if (state.processingState == ProcessingState.completed) {
         _syncCurrentTrack(forceReload: true);
       }
@@ -599,21 +603,28 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _togglePlayPause() async {
-    if (_isPlaying) {
-      await _audioPlayer.pause();
-    } else {
-      await _audioPlayer.play();
+    final shouldPlay = !_audioPlayer.playing;
+    // Optimistic UI update; stream listener will reconcile with actual player state.
+    if (mounted) {
+      setState(() => _isPlaying = shouldPlay);
     }
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
-    if (_isPlaying) {
-      _presenceTick();
+    try {
+      if (shouldPlay) {
+        await _audioPlayer.play();
+        _presenceTick();
+      } else {
+        await _audioPlayer.pause();
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() => _isPlaying = _audioPlayer.playing);
+      }
     }
   }
 
   @override
   void dispose() {
+    _playerStateSub?.cancel();
     _risingStarSub?.cancel();
     _presenceTimer?.cancel();
     _trackSyncTimer?.cancel();
@@ -668,9 +679,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       child: Builder(
         builder: (providerContext) {
           return Scaffold(
-            appBar: AppBar(
-              title: Text('Radio · ${_activeStation.genre}'),
-            ),
+            appBar: AppBar(title: Text('Radio · ${_activeStation.genre}')),
             body: Stack(
               children: [
                 _isLoading
@@ -1322,10 +1331,7 @@ class _PlayerBody extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('💩 $shitVotes'),
-                        Text('🔥 $fireVotes'),
-                      ],
+                      children: [Text('💩 $shitVotes'), Text('🔥 $fireVotes')],
                     ),
                   ],
                 ),

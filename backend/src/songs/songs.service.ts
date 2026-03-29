@@ -873,6 +873,7 @@ export class SongsService {
     limitInput = 12,
     cursor?: string,
     seed?: string,
+    stationId?: string,
   ): Promise<DiscoverFeedResponse> {
     const supabase = getSupabaseClient();
     const limit = Math.min(Math.max(1, limitInput), 30);
@@ -895,14 +896,21 @@ export class SongsService {
     const swipedSongIds = new Set<string>((swipes || []).map((r) => r.song_id));
 
     let rows: any[] = [];
-    const songsDiscoverRes = await supabase
+    const normalizedStationId = stationId?.trim() || null;
+    let songsDiscoverQuery = supabase
       .from('songs')
       .select(
         'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status, created_at',
       )
       .eq('status', 'approved')
       .eq('discover_enabled', true)
-      .not('discover_clip_url', 'is', null)
+      .not('discover_clip_url', 'is', null);
+    if (normalizedStationId) {
+      songsDiscoverQuery = songsDiscoverQuery.or(
+        `station_id.eq.${normalizedStationId},station_ids.cs.{${normalizedStationId}}`,
+      );
+    }
+    const songsDiscoverRes = await songsDiscoverQuery
       .order('created_at', { ascending: false })
       .range(0, maxPool - 1);
     if (songsDiscoverRes.error) {
@@ -915,12 +923,19 @@ export class SongsService {
           'discover_clip_end_seconds',
         ])
       ) {
-        const songsLegacyRes = await supabase
+        let songsLegacyQuery = supabase
           .from('songs')
           .select(
             'id, artist_id, artist_name, title, artwork_url, audio_url, status, created_at',
           )
-          .eq('status', 'approved')
+          .eq('status', 'approved');
+        if (normalizedStationId) {
+          songsLegacyQuery = songsLegacyQuery.eq(
+            'station_id',
+            normalizedStationId,
+          );
+        }
+        const songsLegacyRes = await songsLegacyQuery
           .order('created_at', { ascending: false })
           .range(0, maxPool - 1);
         if (songsLegacyRes.error) {
@@ -1077,12 +1092,15 @@ export class SongsService {
       songId: string;
       direction: 'left_skip' | 'right_like';
       decisionMs?: number;
+      stationId?: string;
     },
   ): Promise<{ direction: 'left_skip' | 'right_like'; liked: boolean }> {
     const supabase = getSupabaseClient();
     const songDiscoverRes = await supabase
       .from('songs')
-      .select('id, artist_id, status, discover_enabled, discover_clip_url')
+      .select(
+        'id, artist_id, status, discover_enabled, discover_clip_url, station_id, station_ids',
+      )
       .eq('id', params.songId)
       .single();
     let song: any = songDiscoverRes.data;
@@ -1098,7 +1116,7 @@ export class SongsService {
     ) {
       const songLegacyRes = await supabase
         .from('songs')
-        .select('id, artist_id, status, audio_url')
+        .select('id, artist_id, status, audio_url, station_id')
         .eq('id', params.songId)
         .single();
       song = songLegacyRes.data
@@ -1118,6 +1136,22 @@ export class SongsService {
       !song.discover_clip_url
     ) {
       throw new ForbiddenException('Song is not available for Discover');
+    }
+
+    const normalizedStationId = params.stationId?.trim();
+    if (normalizedStationId) {
+      const matchesStation =
+        song.station_id === normalizedStationId ||
+        (Array.isArray(song.station_ids) &&
+          song.station_ids.some(
+            (id: unknown) =>
+              typeof id === 'string' && id === normalizedStationId,
+          ));
+      if (!matchesStation) {
+        throw new ForbiddenException(
+          'Song is not available for this station Discover feed',
+        );
+      }
     }
 
     const decisionMs =

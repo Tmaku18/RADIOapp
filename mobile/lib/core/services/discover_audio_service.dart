@@ -8,11 +8,13 @@ class DiscoverAudioService {
     int limit = 12,
     String? cursor,
     String? seed,
+    String? stationId,
   }) async {
     final q = <String>[
       'limit=$limit',
       if (cursor != null && cursor.isNotEmpty) 'cursor=$cursor',
       if (seed != null && seed.isNotEmpty) 'seed=$seed',
+      if (stationId != null && stationId.isNotEmpty) 'stationId=$stationId',
     ].join('&');
     final res = await _api.get('songs/discover/feed?$q');
     if (res is Map<String, dynamic>) {
@@ -25,11 +27,13 @@ class DiscoverAudioService {
     required String songId,
     required String direction,
     int? decisionMs,
+    String? stationId,
   }) async {
     await _api.post('songs/discover/swipe', {
       'songId': songId,
       'direction': direction,
       if (decisionMs != null) 'decisionMs': decisionMs,
+      if (stationId != null && stationId.isNotEmpty) 'stationId': stationId,
     });
   }
 }

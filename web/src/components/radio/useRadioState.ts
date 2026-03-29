@@ -206,13 +206,14 @@ export function useRadioState(options?: UseRadioStateOptions) {
 
   const play = useCallback(async () => {
     if (!audioRef.current) return;
-    
+    setState(s => ({ ...s, isPlaying: true, error: null }));
     try {
       await audioRef.current.play();
     } catch (error) {
       console.error('Failed to play:', error);
       setState(s => ({ 
         ...s, 
+        isPlaying: false,
         error: 'Failed to play audio. Please try again.',
       }));
     }
@@ -221,6 +222,7 @@ export function useRadioState(options?: UseRadioStateOptions) {
   const pause = useCallback(() => {
     if (!audioRef.current) return;
     audioRef.current.pause();
+    setState(s => ({ ...s, isPlaying: false }));
   }, []);
 
   const togglePlay = useCallback(() => {
@@ -278,6 +280,7 @@ export function useRadioState(options?: UseRadioStateOptions) {
     audioRef.current.pause();
     setState(s => ({ 
       ...s, 
+      isPlaying: false,
       pausedAt: Date.now(),
       isLive: false,
     }));
@@ -294,10 +297,12 @@ export function useRadioState(options?: UseRadioStateOptions) {
     // If paused less than 30s, just resume (DVR buffer)
     if (pauseDuration <= 30) {
       try {
+        setState(s => ({ ...s, isPlaying: true, error: null }));
         await audioRef.current.play();
-        setState(s => ({ ...s, pausedAt: null }));
+        setState(s => ({ ...s, isPlaying: true, pausedAt: null }));
       } catch (error) {
         console.error('Failed to resume:', error);
+        setState(s => ({ ...s, isPlaying: false }));
       }
     }
     // If paused more than 30s, caller should use jumpToLive instead
@@ -310,16 +315,19 @@ export function useRadioState(options?: UseRadioStateOptions) {
     if (!audioRef.current) return;
     
     audioRef.current.currentTime = positionSeconds;
+    setState(s => ({ ...s, isPlaying: true, error: null }));
     try {
       await audioRef.current.play();
       setState(s => ({ 
         ...s, 
+        isPlaying: true,
         pausedAt: null,
         isLive: true,
         serverPosition: positionSeconds,
       }));
     } catch (error) {
       console.error('Failed to jump to live:', error);
+      setState(s => ({ ...s, isPlaying: false }));
     }
   }, []);
 
