@@ -30,10 +30,65 @@ class SongLikesResponse {
   final int totalLikes;
   final List<SongLikeUser> likes;
 
-  const SongLikesResponse({
-    required this.totalLikes,
-    required this.likes,
+  const SongLikesResponse({required this.totalLikes, required this.likes});
+}
+
+class LibrarySong {
+  final String id;
+  final String title;
+  final String artistName;
+  final String artistId;
+  final String? artworkUrl;
+  final String? audioUrl;
+  final int durationSeconds;
+  final int likeCount;
+  final int playCount;
+  final int fireVotes;
+  final int shitVotes;
+  final int temperaturePercent;
+  final DateTime? likedAt;
+
+  const LibrarySong({
+    required this.id,
+    required this.title,
+    required this.artistName,
+    required this.artistId,
+    required this.artworkUrl,
+    required this.audioUrl,
+    required this.durationSeconds,
+    required this.likeCount,
+    required this.playCount,
+    required this.fireVotes,
+    required this.shitVotes,
+    required this.temperaturePercent,
+    required this.likedAt,
   });
+
+  factory LibrarySong.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    return LibrarySong(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      artistName: (json['artistName'] ?? '').toString(),
+      artistId: (json['artistId'] ?? '').toString(),
+      artworkUrl: json['artworkUrl']?.toString(),
+      audioUrl: json['audioUrl']?.toString(),
+      durationSeconds: parseInt(json['durationSeconds']),
+      likeCount: parseInt(json['likeCount']),
+      playCount: parseInt(json['playCount']),
+      fireVotes: parseInt(json['fireVotes']),
+      shitVotes: parseInt(json['shitVotes']),
+      temperaturePercent: parseInt(json['temperaturePercent']),
+      likedAt: json['likedAt'] != null
+          ? DateTime.tryParse(json['likedAt'].toString())
+          : null,
+    );
+  }
 }
 
 class SongsService {
@@ -44,14 +99,17 @@ class SongsService {
     if (res is List) {
       return res
           .whereType<Map>()
-          .map((e) =>
-              Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+          .map((e) => Song.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
           .toList();
     }
     return const [];
   }
 
-  Future<List<Song>> listApprovedByArtist(String artistId, {int limit = 50, int offset = 0}) async {
+  Future<List<Song>> listApprovedByArtist(
+    String artistId, {
+    int limit = 50,
+    int offset = 0,
+  }) async {
     final res = await _api.get(
       'songs?artistId=${Uri.encodeComponent(artistId)}&status=approved&limit=$limit&offset=$offset',
     );
@@ -82,6 +140,28 @@ class SongsService {
     return false;
   }
 
+  Future<List<LibrarySong>> getLibrary({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 200);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/library?limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map(
+            (e) => LibrarySong.fromJson(
+              e.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .toList();
+    }
+    return const <LibrarySong>[];
+  }
+
   Future<SongLikesResponse> getLikes(
     String songId, {
     int limit = 200,
@@ -107,11 +187,14 @@ class SongsService {
     return SongLikesResponse(totalLikes: totalLikes, likes: likes);
   }
 
-  Future<void> recordProfileListen(String songId, {String? startedAt, int? secondsListened}) async {
+  Future<void> recordProfileListen(
+    String songId, {
+    String? startedAt,
+    int? secondsListened,
+  }) async {
     await _api.post('songs/$songId/profile-listen', {
       if (startedAt != null) 'startedAt': startedAt,
       if (secondsListened != null) 'secondsListened': secondsListened,
     });
   }
 }
-

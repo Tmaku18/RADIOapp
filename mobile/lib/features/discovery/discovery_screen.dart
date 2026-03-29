@@ -2,11 +2,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/models/browse_models.dart';
+import '../../core/models/discover_audio_models.dart';
 import '../../core/models/discovery_map_models.dart';
 import '../../core/services/browse_like_events_service.dart';
 import '../../core/services/browse_service.dart';
+import '../../core/services/discover_audio_service.dart';
 import '../../core/services/discovery_map_service.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/songs_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'discover_audio_tab.dart';
 
@@ -42,9 +45,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       if (!mounted) return;
       setState(() {
         _items = _items
-            .map((item) => item.id == event.contentId
-                ? item.copyWith(likeCount: item.likeCount + 1)
-                : item)
+            .map(
+              (item) => item.id == event.contentId
+                  ? item.copyWith(likeCount: item.likeCount + 1)
+                  : item,
+            )
             .toList();
       });
     });
@@ -98,18 +103,21 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     try {
       final res = await _service.toggleLike(item.id);
       final liked = res['liked'] == true;
-      final likeCount = (res['likeCount'] ?? res['like_count'] ?? item.likeCount);
+      final likeCount =
+          (res['likeCount'] ?? res['like_count'] ?? item.likeCount);
       if (!mounted) return;
       setState(() {
         _items = _items
-            .map((i) => i.id == item.id
-                ? i.copyWith(
-                    liked: liked,
-                    likeCount: likeCount is int
-                        ? likeCount
-                        : int.tryParse(likeCount.toString()) ?? i.likeCount,
-                  )
-                : i)
+            .map(
+              (i) => i.id == item.id
+                  ? i.copyWith(
+                      liked: liked,
+                      likeCount: likeCount is int
+                          ? likeCount
+                          : int.tryParse(likeCount.toString()) ?? i.likeCount,
+                    )
+                  : i,
+            )
             .toList();
       });
     } finally {
@@ -126,12 +134,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         if (!mounted) return;
         setState(() {
           _items = _items
-              .map((i) => i.id == item.id
-                  ? i.copyWith(
-                      bookmarked: false,
-                      bookmarkCount: (i.bookmarkCount - 1).clamp(0, 1 << 30),
-                    )
-                  : i)
+              .map(
+                (i) => i.id == item.id
+                    ? i.copyWith(
+                        bookmarked: false,
+                        bookmarkCount: (i.bookmarkCount - 1).clamp(0, 1 << 30),
+                      )
+                    : i,
+              )
               .toList();
         });
       } else {
@@ -139,12 +149,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         if (!mounted) return;
         setState(() {
           _items = _items
-              .map((i) => i.id == item.id
-                  ? i.copyWith(
-                      bookmarked: true,
-                      bookmarkCount: i.bookmarkCount + 1,
-                    )
-                  : i)
+              .map(
+                (i) => i.id == item.id
+                    ? i.copyWith(
+                        bookmarked: true,
+                        bookmarkCount: i.bookmarkCount + 1,
+                      )
+                    : i,
+              )
               .toList();
         });
       }
@@ -216,7 +228,8 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                     children: [
                       IconButton(
                         iconSize: 48,
-                        onPressed: () => playing ? player.pause() : player.play(),
+                        onPressed: () =>
+                            playing ? player.pause() : player.play(),
                         icon: Icon(
                           playing ? Icons.pause_circle : Icons.play_circle,
                         ),
@@ -244,17 +257,19 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Social'),
           bottom: const TabBar(
+            isScrollable: true,
             tabs: [
               Tab(text: 'Discover'),
+              Tab(text: 'Discover List'),
               Tab(text: 'Browse'),
               Tab(text: 'Map'),
               Tab(text: 'Feed'),
-              Tab(text: 'Saved'),
+              Tab(text: 'Library'),
             ],
           ),
           actions: [
@@ -268,203 +283,227 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         body: TabBarView(
           children: [
             const DiscoverAudioTab(),
+            const _DiscoverListTab(),
             _loading && _items.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : _items.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No content in the feed yet.',
-                          style: TextStyle(color: surfaces.textSecondary),
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: () => _loadPage(append: false),
-                        child: GridView.builder(
-                          controller: _scroll,
-                          padding: const EdgeInsets.all(12),
-                          gridDelegate:
-                              const SliverGridDelegateWithFixedCrossAxisCount(
+                ? Center(
+                    child: Text(
+                      'No content in the feed yet.',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    ),
+                  )
+                : RefreshIndicator(
+                    onRefresh: () => _loadPage(append: false),
+                    child: GridView.builder(
+                      controller: _scroll,
+                      padding: const EdgeInsets.all(12),
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                             childAspectRatio: 0.82,
                           ),
-                          itemCount: _items.length + (_loadingMore ? 2 : 0),
-                          itemBuilder: (context, idx) {
-                            if (idx >= _items.length) {
-                              return const Center(
-                                child: CircularProgressIndicator(),
-                              );
-                            }
-                            final item = _items[idx];
-                            return Card(
-                              clipBehavior: Clip.antiAlias,
-                              child: Column(
-                                children: [
-                                  Expanded(
-                                    child: Stack(
-                                      children: [
-                                        Positioned.fill(
-                                          child: item.type == 'image'
-                                              ? Image.network(
-                                                  item.fileUrl,
-                                                  fit: BoxFit.cover,
-                                                  errorBuilder: (context, error, stackTrace) =>
-                                                      const Center(
-                                                    child: Icon(Icons.broken_image),
-                                                  ),
-                                                )
-                                              : Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient:
-                                                        surfaces.signatureGradient,
-                                                  ),
-                                                  child: Center(
-                                                    child: FilledButton.tonalIcon(
-                                                      onPressed: () =>
-                                                          _previewAudio(item.fileUrl),
-                                                      icon: const Icon(Icons.play_arrow),
-                                                      label:
-                                                          const Text('Preview'),
+                      itemCount: _items.length + (_loadingMore ? 2 : 0),
+                      itemBuilder: (context, idx) {
+                        if (idx >= _items.length) {
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+                        final item = _items[idx];
+                        return Card(
+                          clipBehavior: Clip.antiAlias,
+                          child: Column(
+                            children: [
+                              Expanded(
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: item.type == 'image'
+                                          ? Image.network(
+                                              item.fileUrl,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (
+                                                    context,
+                                                    error,
+                                                    stackTrace,
+                                                  ) => const Center(
+                                                    child: Icon(
+                                                      Icons.broken_image,
                                                     ),
                                                   ),
-                                                ),
-                                        ),
-                                        Positioned(
-                                          left: 8,
-                                          bottom: 8,
-                                          right: 8,
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 10, vertical: 6),
-                                            decoration: BoxDecoration(
-                                              color: Colors.black
-                                                  .withValues(alpha: 0.45),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                CircleAvatar(
-                                                  radius: 10,
-                                                  backgroundColor: scheme.primary
-                                                      .withValues(alpha: 0.25),
-                                                  backgroundImage: item.provider
-                                                              .avatarUrl ==
-                                                          null
-                                                      ? null
-                                                      : NetworkImage(item
-                                                          .provider.avatarUrl!),
-                                                  child: item.provider.avatarUrl ==
-                                                          null
-                                                      ? Text(
-                                                          (item.provider
-                                                                      .displayName ??
-                                                                  '?')
-                                                              .characters
-                                                              .first
-                                                              .toUpperCase(),
-                                                          style: const TextStyle(
-                                                              fontSize: 11,
-                                                              fontWeight:
-                                                                  FontWeight.bold),
-                                                        )
-                                                      : null,
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: Text(
-                                                    item.provider.displayName ??
-                                                        'Creator',
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: const TextStyle(
-                                                      color: Colors.white,
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w600,
-                                                    ),
+                                            )
+                                          : Container(
+                                              decoration: BoxDecoration(
+                                                gradient:
+                                                    surfaces.signatureGradient,
+                                              ),
+                                              child: Center(
+                                                child: FilledButton.tonalIcon(
+                                                  onPressed: () =>
+                                                      _previewAudio(
+                                                        item.fileUrl,
+                                                      ),
+                                                  icon: const Icon(
+                                                    Icons.play_arrow,
                                                   ),
+                                                  label: const Text('Preview'),
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
-                                        ),
-                                      ],
                                     ),
-                                  ),
-                                  Padding(
-                                    padding: const EdgeInsets.all(10),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.title ?? 'Untitled',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                              fontWeight: FontWeight.w600),
+                                    Positioned(
+                                      left: 8,
+                                      bottom: 8,
+                                      right: 8,
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 6,
                                         ),
-                                        if (item.description != null &&
-                                            item.description!.isNotEmpty)
-                                          Text(
-                                            item.description!,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
-                                                color: surfaces.textSecondary,
-                                                fontSize: 12),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.45,
                                           ),
-                                        const SizedBox(height: 6),
-                                        Row(
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: Row(
                                           children: [
-                                            IconButton(
-                                              tooltip: 'Ripple',
-                                              onPressed: _likingId == item.id
+                                            CircleAvatar(
+                                              radius: 10,
+                                              backgroundColor: scheme.primary
+                                                  .withValues(alpha: 0.25),
+                                              backgroundImage:
+                                                  item.provider.avatarUrl ==
+                                                      null
                                                   ? null
-                                                  : () => _toggleLike(item),
-                                              icon: Text(item.liked ? '❤️' : '🤍'),
-                                            ),
-                                            Text(
-                                              '${item.likeCount}',
-                                              style: TextStyle(
-                                                  color: surfaces.textMuted),
+                                                  : NetworkImage(
+                                                      item.provider.avatarUrl!,
+                                                    ),
+                                              child:
+                                                  item.provider.avatarUrl ==
+                                                      null
+                                                  ? Text(
+                                                      (item
+                                                                  .provider
+                                                                  .displayName ??
+                                                              '?')
+                                                          .characters
+                                                          .first
+                                                          .toUpperCase(),
+                                                      style: const TextStyle(
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    )
+                                                  : null,
                                             ),
                                             const SizedBox(width: 8),
-                                            IconButton(
-                                              tooltip: 'Save',
-                                              onPressed: _bookmarkingId == item.id
-                                                  ? null
-                                                  : () => _toggleBookmark(item),
-                                              icon: Text(item.bookmarked ? '🔖' : '📑'),
-                                            ),
-                                            Text(
-                                              '${item.bookmarkCount}',
-                                              style: TextStyle(
-                                                  color: surfaces.textMuted),
-                                            ),
-                                            const Spacer(),
-                                            IconButton(
-                                              tooltip: 'Report',
-                                              onPressed: () => _report(item),
-                                              icon: Icon(Icons.flag_outlined,
-                                                  color: surfaces.textMuted),
+                                            Expanded(
+                                              child: Text(
+                                                item.provider.displayName ??
+                                                    'Creator',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
                                             ),
                                           ],
                                         ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      item.title ?? 'Untitled',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (item.description != null &&
+                                        item.description!.isNotEmpty)
+                                      Text(
+                                        item.description!,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: surfaces.textSecondary,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          tooltip: 'Ripple',
+                                          onPressed: _likingId == item.id
+                                              ? null
+                                              : () => _toggleLike(item),
+                                          icon: Text(item.liked ? '❤️' : '🤍'),
+                                        ),
+                                        Text(
+                                          '${item.likeCount}',
+                                          style: TextStyle(
+                                            color: surfaces.textMuted,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          tooltip: 'Save',
+                                          onPressed: _bookmarkingId == item.id
+                                              ? null
+                                              : () => _toggleBookmark(item),
+                                          icon: Text(
+                                            item.bookmarked ? '🔖' : '📑',
+                                          ),
+                                        ),
+                                        Text(
+                                          '${item.bookmarkCount}',
+                                          style: TextStyle(
+                                            color: surfaces.textMuted,
+                                          ),
+                                        ),
+                                        const Spacer(),
+                                        IconButton(
+                                          tooltip: 'Report',
+                                          onPressed: () => _report(item),
+                                          icon: Icon(
+                                            Icons.flag_outlined,
+                                            color: surfaces.textMuted,
+                                          ),
+                                        ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            );
-                          },
-                        ),
-                      ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
             const _MapTab(),
             const _FeedTab(),
-            _SavedTab(service: _service),
+            const _LibraryTab(),
           ],
         ),
       ),
@@ -542,10 +581,9 @@ class _FeedTabState extends State<_FeedTab> {
                   children: [
                     Text(
                       author,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontFamily: 'Lora'),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.titleMedium?.copyWith(fontFamily: 'Lora'),
                     ),
                     if (imageUrl.isNotEmpty) ...[
                       const SizedBox(height: 8),
@@ -558,11 +596,13 @@ class _FeedTabState extends State<_FeedTab> {
                           fit: BoxFit.cover,
                           errorBuilder: (context, error, stackTrace) =>
                               Container(
-                            height: 180,
-                            alignment: Alignment.center,
-                            color: Theme.of(context).colorScheme.surfaceContainer,
-                            child: const Icon(Icons.broken_image_outlined),
-                          ),
+                                height: 180,
+                                alignment: Alignment.center,
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.surfaceContainer,
+                                child: const Icon(Icons.broken_image_outlined),
+                              ),
                         ),
                       ),
                     ],
@@ -576,7 +616,9 @@ class _FeedTabState extends State<_FeedTab> {
                     if ((createdAt ?? '').isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(
-                        DateTime.tryParse(createdAt!)?.toLocal().toString().split('.').first ??
+                        DateTime.tryParse(
+                              createdAt!,
+                            )?.toLocal().toString().split('.').first ??
                             createdAt,
                         style: TextStyle(
                           color: surfaces.textMuted,
@@ -593,14 +635,6 @@ class _FeedTabState extends State<_FeedTab> {
       ),
     );
   }
-}
-
-class _SavedTab extends StatefulWidget {
-  final BrowseService service;
-  const _SavedTab({required this.service});
-
-  @override
-  State<_SavedTab> createState() => _SavedTabState();
 }
 
 class _MapTab extends StatefulWidget {
@@ -667,15 +701,23 @@ class _MapTabState extends State<_MapTab> {
                   const Text('Area Heat (likes by artist home location)'),
                   const SizedBox(height: 8),
                   if (_heat.isEmpty)
-                    Text('No heat data yet.', style: TextStyle(color: surfaces.textSecondary))
+                    Text(
+                      'No heat data yet.',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    )
                   else
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: _heat.take(12).map((h) {
                         return Chip(
-                          label: Text('${h.totalLikes} likes • ${h.artistCount} artists'),
-                          avatar: const Icon(Icons.local_fire_department, size: 16),
+                          label: Text(
+                            '${h.totalLikes} likes • ${h.artistCount} artists',
+                          ),
+                          avatar: const Icon(
+                            Icons.local_fire_department,
+                            size: 16,
+                          ),
                         );
                       }).toList(),
                     ),
@@ -693,7 +735,10 @@ class _MapTabState extends State<_MapTab> {
                   const Text('Clusters'),
                   const SizedBox(height: 8),
                   if (_clusters.isEmpty)
-                    Text('No clusters yet.', style: TextStyle(color: surfaces.textSecondary))
+                    Text(
+                      'No clusters yet.',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    )
                   else
                     Wrap(
                       spacing: 8,
@@ -703,7 +748,9 @@ class _MapTabState extends State<_MapTab> {
                         return ChoiceChip(
                           selected: selected,
                           onSelected: (_) => _selectCluster(c),
-                          label: Text('${c.artistCount} artists • ${c.totalLikes} likes'),
+                          label: Text(
+                            '${c.artistCount} artists • ${c.totalLikes} likes',
+                          ),
                         );
                       }).toList(),
                     ),
@@ -721,19 +768,24 @@ class _MapTabState extends State<_MapTab> {
                   const Text('Artists in selected cluster'),
                   const SizedBox(height: 8),
                   if (_artists.isEmpty)
-                    Text('Pick a cluster to load artists.', style: TextStyle(color: surfaces.textSecondary))
+                    Text(
+                      'Pick a cluster to load artists.',
+                      style: TextStyle(color: surfaces.textSecondary),
+                    )
                   else
-                    ..._artists.take(25).map(
-                      (artist) => ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text(artist.displayName ?? 'Artist'),
-                        subtitle: Text(
-                          '${artist.locationRegion ?? 'Unknown'} • ${artist.likeCount} likes',
-                          style: TextStyle(color: surfaces.textSecondary),
+                    ..._artists
+                        .take(25)
+                        .map(
+                          (artist) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(artist.displayName ?? 'Artist'),
+                            subtitle: Text(
+                              '${artist.locationRegion ?? 'Unknown'} • ${artist.likeCount} likes',
+                              style: TextStyle(color: surfaces.textSecondary),
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -744,9 +796,19 @@ class _MapTabState extends State<_MapTab> {
   }
 }
 
-class _SavedTabState extends State<_SavedTab> {
+class _DiscoverListTab extends StatefulWidget {
+  const _DiscoverListTab();
+
+  @override
+  State<_DiscoverListTab> createState() => _DiscoverListTabState();
+}
+
+class _DiscoverListTabState extends State<_DiscoverListTab> {
+  final DiscoverAudioService _service = DiscoverAudioService();
   bool _loading = true;
-  List<BrowseFeedItem> _items = const [];
+  bool _clearing = false;
+  String? _removingSongId;
+  List<DiscoverAudioLikedItem> _items = const [];
 
   @override
   void initState() {
@@ -757,7 +819,7 @@ class _SavedTabState extends State<_SavedTab> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final items = await widget.service.getBookmarks(limit: 100);
+      final items = await _service.getLikedList(limit: 100, offset: 0);
       if (!mounted) return;
       setState(() => _items = items);
     } finally {
@@ -765,8 +827,125 @@ class _SavedTabState extends State<_SavedTab> {
     }
   }
 
-  Future<void> _remove(BrowseFeedItem item) async {
-    await widget.service.removeBookmark(item.id);
+  Future<void> _remove(String songId) async {
+    setState(() => _removingSongId = songId);
+    try {
+      await _service.removeLikedSong(songId);
+      if (!mounted) return;
+      setState(() => _items = _items.where((i) => i.songId != songId).toList());
+    } finally {
+      if (mounted) setState(() => _removingSongId = null);
+    }
+  }
+
+  Future<void> _clearAll() async {
+    if (_items.isEmpty || _clearing) return;
+    setState(() => _clearing = true);
+    try {
+      await _service.clearLikedList();
+      if (!mounted) return;
+      setState(() => _items = const []);
+    } finally {
+      if (mounted) setState(() => _clearing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = context.networxSurfaces;
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_items.isEmpty) {
+      return Center(
+        child: Text(
+          'Your Discover list is empty. Swipe right in Discover to add songs.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: surfaces.textSecondary),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: _items.length + 1,
+        itemBuilder: (context, i) {
+          if (i == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: OutlinedButton.icon(
+                  onPressed: _clearing ? null : _clearAll,
+                  icon: const Icon(Icons.clear_all),
+                  label: Text(_clearing ? 'Clearing...' : 'Clear list'),
+                ),
+              ),
+            );
+          }
+          final item = _items[i - 1];
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              leading:
+                  item.backgroundUrl != null && item.backgroundUrl!.isNotEmpty
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        item.backgroundUrl!,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : const Icon(Icons.music_note),
+              title: Text(item.title),
+              subtitle: Text(item.artistDisplayName ?? item.artistName),
+              trailing: IconButton(
+                onPressed: _removingSongId == item.songId
+                    ? null
+                    : () => _remove(item.songId),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Remove',
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _LibraryTab extends StatefulWidget {
+  const _LibraryTab();
+
+  @override
+  State<_LibraryTab> createState() => _LibraryTabState();
+}
+
+class _LibraryTabState extends State<_LibraryTab> {
+  final SongsService _songs = SongsService();
+  bool _loading = true;
+  List<LibrarySong> _items = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final items = await _songs.getLibrary(limit: 100, offset: 0);
+      if (!mounted) return;
+      setState(() => _items = items);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _remove(LibrarySong item) async {
+    await _songs.unlike(item.id);
     if (!mounted) return;
     setState(() => _items = _items.where((i) => i.id != item.id).toList());
   }
@@ -778,7 +957,7 @@ class _SavedTabState extends State<_SavedTab> {
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          'No saved items.',
+          'No songs saved yet. Like songs in radio to add them here.',
           style: TextStyle(color: surfaces.textSecondary),
         ),
       );
@@ -793,9 +972,9 @@ class _SavedTabState extends State<_SavedTab> {
           final item = _items[i];
           return Card(
             child: ListTile(
-              title: Text(item.title ?? 'Untitled'),
+              title: Text(item.title),
               subtitle: Text(
-                item.provider.displayName ?? 'Creator',
+                item.artistName,
                 style: TextStyle(color: surfaces.textSecondary),
               ),
               trailing: IconButton(
@@ -810,4 +989,3 @@ class _SavedTabState extends State<_SavedTab> {
     );
   }
 }
-

@@ -59,10 +59,7 @@ class DiscoverAudioFeedPage {
   final List<DiscoverAudioSongCard> items;
   final String? nextCursor;
 
-  const DiscoverAudioFeedPage({
-    required this.items,
-    required this.nextCursor,
-  });
+  const DiscoverAudioFeedPage({required this.items, required this.nextCursor});
 
   factory DiscoverAudioFeedPage.fromJson(Map<String, dynamic> json) {
     final raw = (json['items'] as List?) ?? const [];
@@ -76,6 +73,47 @@ class DiscoverAudioFeedPage {
           )
           .toList(),
       nextCursor: json['nextCursor']?.toString(),
+    );
+  }
+}
+
+class DiscoverAudioLikedItem extends DiscoverAudioSongCard {
+  final DateTime? likedAt;
+
+  const DiscoverAudioLikedItem({
+    required super.songId,
+    required super.artistId,
+    required super.artistName,
+    required super.artistDisplayName,
+    required super.artistAvatarUrl,
+    required super.artistHeadline,
+    required super.title,
+    required super.clipUrl,
+    required super.backgroundUrl,
+    required super.clipDurationSeconds,
+    required super.likeCount,
+    required super.likedByMe,
+    required this.likedAt,
+  });
+
+  factory DiscoverAudioLikedItem.fromJson(Map<String, dynamic> json) {
+    final base = DiscoverAudioSongCard.fromJson(json);
+    return DiscoverAudioLikedItem(
+      songId: base.songId,
+      artistId: base.artistId,
+      artistName: base.artistName,
+      artistDisplayName: base.artistDisplayName,
+      artistAvatarUrl: base.artistAvatarUrl,
+      artistHeadline: base.artistHeadline,
+      title: base.title,
+      clipUrl: base.clipUrl,
+      backgroundUrl: base.backgroundUrl,
+      clipDurationSeconds: base.clipDurationSeconds,
+      likeCount: base.likeCount,
+      likedByMe: base.likedByMe,
+      likedAt: json['likedAt'] != null
+          ? DateTime.tryParse(json['likedAt'].toString())
+          : null,
     );
   }
 }

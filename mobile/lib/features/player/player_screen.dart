@@ -679,7 +679,16 @@ class _PlayerScreenState extends State<PlayerScreen>
       child: Builder(
         builder: (providerContext) {
           return Scaffold(
-            appBar: AppBar(title: Text('Radio · ${_activeStation.genre}')),
+            appBar: AppBar(
+              title: Text('Radio · ${_activeStation.genre}'),
+              actions: [
+                TextButton.icon(
+                  onPressed: _openStationPicker,
+                  icon: const Icon(Icons.swap_horiz),
+                  label: const Text('Change'),
+                ),
+              ],
+            ),
             body: Stack(
               children: [
                 _isLoading
@@ -688,6 +697,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                     ? _NoContent(
                         message: _noContentMessage,
                         onRetry: _loadInitialTrack,
+                        onChangeStation: _openStationPicker,
                       )
                     : _currentTrack == null
                     ? const Center(child: Text('No track playing'))
@@ -807,7 +817,12 @@ class _ButterflyRippleOverlay extends StatelessWidget {
 class _NoContent extends StatelessWidget {
   final String? message;
   final VoidCallback onRetry;
-  const _NoContent({required this.message, required this.onRetry});
+  final VoidCallback onChangeStation;
+  const _NoContent({
+    required this.message,
+    required this.onRetry,
+    required this.onChangeStation,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -841,6 +856,12 @@ class _NoContent extends StatelessWidget {
                 onPressed: onRetry,
                 icon: const Icon(Icons.refresh),
                 label: const Text('Retry'),
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: onChangeStation,
+                icon: const Icon(Icons.swap_horiz),
+                label: const Text('Change station'),
               ),
             ],
           ),

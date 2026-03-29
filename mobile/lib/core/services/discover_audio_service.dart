@@ -36,4 +36,33 @@ class DiscoverAudioService {
       if (stationId != null && stationId.isNotEmpty) 'stationId': stationId,
     });
   }
+
+  Future<List<DiscoverAudioLikedItem>> getLikedList({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 200);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/discover/list?limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is! Map<String, dynamic>) return const <DiscoverAudioLikedItem>[];
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => DiscoverAudioLikedItem.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
+  Future<void> removeLikedSong(String songId) async {
+    await _api.delete('songs/discover/list/$songId');
+  }
+
+  Future<void> clearLikedList() async {
+    await _api.delete('songs/discover/list');
+  }
 }
