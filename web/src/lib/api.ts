@@ -174,6 +174,7 @@ export const songsApi = {
   getAll: (params?: { artistId?: string; status?: string; limit?: number; offset?: number }) => 
     api.get('/songs', { params }),
   getById: (id: string) => api.get(`/songs/${id}`),
+  delete: (id: string) => api.delete(`/songs/${id}`),
   getMine: () => api.get('/songs/mine'),
   getLibrary: () =>
     api.get<

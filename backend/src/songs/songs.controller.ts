@@ -32,6 +32,7 @@ import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { STATION_IDS } from '../radio/station.constants';
+import { AdminService } from '../admin/admin.service';
 
 @Controller('songs')
 export class SongsController {
@@ -41,6 +42,7 @@ export class SongsController {
     private readonly songsService: SongsService,
     private readonly uploadsService: UploadsService,
     private readonly durationService: DurationService,
+    private readonly adminService: AdminService,
   ) {}
 
   private assertArtistProfileComplete(userData: {
@@ -1014,6 +1016,47 @@ export class SongsController {
       isExplicit: updated.is_explicit === true,
       featuredArtists,
     };
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async deleteSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const targetSongId = songId.trim();
+    if (!targetSongId) {
+      throw new BadRequestException('Song id is required');
+    }
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', user.uid)
+      .single();
+
+    if (!userData) {
+      throw new Error('User not found');
+    }
+
+    const { data: song } = await supabase
+      .from('songs')
+      .select('artist_id')
+      .eq('id', targetSongId)
+      .single();
+
+    if (!song) {
+      throw new Error('Song not found');
+    }
+
+    if (userData.role !== 'admin' && song.artist_id !== userData.id) {
+      throw new ForbiddenException('You can only delete your own songs');
+    }
+
+    await this.adminService.deleteSong(targetSongId);
+    return { success: true };
   }
 
   @Get(':id/like')

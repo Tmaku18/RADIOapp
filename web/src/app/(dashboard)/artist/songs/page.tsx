@@ -131,6 +131,7 @@ export default function MySongsPage() {
   >([]);
   const [featuredSearchLoading, setFeaturedSearchLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
+  const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
   const [discoverActionSongId, setDiscoverActionSongId] = useState<string | null>(
     null,
   );
@@ -270,6 +271,27 @@ export default function MySongsPage() {
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
     setEditSaving(false);
+  };
+
+  const handleDeleteSong = async (song: Song) => {
+    if (deletingSongId) return;
+    const confirmed = window.confirm(
+      `Delete "${song.title}"? This removes the song and related analytics data and cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeletingSongId(song.id);
+    setError(null);
+    try {
+      await songsApi.delete(song.id);
+      if (editingSong?.id === song.id) {
+        closeEditModal();
+      }
+      setSongs((prev) => prev.filter((row) => row.id !== song.id));
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to delete song'));
+    } finally {
+      setDeletingSongId(null);
+    }
   };
 
   const unpublishDiscoverForSong = async (song: Song) => {
@@ -675,11 +697,27 @@ export default function MySongsPage() {
                         >
                           Buy plays
                         </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingSongId === song.id}
+                          onClick={() => void handleDeleteSong(song)}
+                        >
+                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
+                        </Button>
                       </div>
                     ) : song.status === 'pending' ? (
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
                           Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingSongId === song.id}
+                          onClick={() => void handleDeleteSong(song)}
+                        >
+                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
                         </Button>
                         <span className="text-muted-foreground">Pending review</span>
                       </div>
@@ -687,6 +725,14 @@ export default function MySongsPage() {
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
                           Edit
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          disabled={deletingSongId === song.id}
+                          onClick={() => void handleDeleteSong(song)}
+                        >
+                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
                         </Button>
                         <span className="text-muted-foreground">N/A</span>
                       </div>
@@ -941,6 +987,16 @@ export default function MySongsPage() {
             </div>
             </div>
             <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
+              {editingSong && (
+                <Button
+                  variant="destructive"
+                  onClick={() => void handleDeleteSong(editingSong)}
+                  disabled={editSaving || deletingSongId === editingSong.id}
+                  className="mr-auto"
+                >
+                  {deletingSongId === editingSong.id ? 'Deleting...' : 'Delete song'}
+                </Button>
+              )}
               <Button variant="outline" onClick={closeEditModal} disabled={editSaving}>
                 Cancel
               </Button>
