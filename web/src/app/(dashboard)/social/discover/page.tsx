@@ -452,7 +452,7 @@ export default function SocialDiscoverSwipePage() {
             onClick={() => void handleForgiveSwipes()}
             disabled={loading || busySwipe || forgiveBusy}
           >
-            {forgiveBusy ? 'Resetting...' : 'Forgive my swipes'}
+            {forgiveBusy ? 'Resetting...' : 'Forget my swipes'}
           </Button>
           <Button variant="outline" asChild>
             <Link href="/social">Back to Social</Link>
