@@ -6,13 +6,13 @@ This packet centralizes policy and compliance details required for App Store and
 
 ## 1) Canonical public legal URLs
 
-- Privacy Policy: `https://discovermeradio.com/privacy`
-- Terms of Service: `https://discovermeradio.com/terms`
-- Legal Center: `https://discovermeradio.com/legal`
-- Community Guidelines: `https://discovermeradio.com/community-guidelines`
-- DMCA Policy: `https://discovermeradio.com/dmca`
-- Refund Policy: `https://discovermeradio.com/refunds`
-- Copyright Policy: `https://discovermeradio.com/copyright-policy`
+- Privacy Policy: `https://pro-networx.com/privacy`
+- Terms of Service: `https://pro-networx.com/terms`
+- Legal Center: `https://pro-networx.com/legal`
+- Community Guidelines: `https://pro-networx.com/community-guidelines`
+- DMCA Policy: `https://pro-networx.com/dmca`
+- Refund Policy: `https://pro-networx.com/refunds`
+- Copyright Policy: `https://pro-networx.com/copyright-policy`
 
 All links must be publicly accessible over HTTPS without authentication.
 

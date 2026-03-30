@@ -20,7 +20,7 @@ export default function AuthLayout({
   useEffect(() => {
     if (!loading && user) {
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      const isDiscoverMe = host === 'discovermeradio.com' || host === 'www.discovermeradio.com';
+      const isDiscoverMe = host === 'pro-networx.com' || host === 'www.pro-networx.com';
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const redirectParam = params?.get('redirect') ?? null;
       const safeRedirect = redirectParam && redirectParam.startsWith('/') ? redirectParam : null;

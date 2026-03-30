@@ -8,11 +8,11 @@ production release forms.
 - App name: NETWORX (Radio App)
 - Android package: `com.radioapp.radio_app`
 - Company: DISCOVERMERADIO GROUP LLC
-- Privacy policy URL: `https://discovermeradio.com/privacy` (publish and verify)
-- Terms URL: `https://discovermeradio.com/terms` (publish and verify)
-- Legal center URL: `https://discovermeradio.com/legal` (publish and verify)
-- Community guidelines URL: `https://discovermeradio.com/community-guidelines`
-- DMCA URL: `https://discovermeradio.com/dmca`
+- Privacy policy URL: `https://pro-networx.com/privacy` (publish and verify)
+- Terms URL: `https://pro-networx.com/terms` (publish and verify)
+- Legal center URL: `https://pro-networx.com/legal` (publish and verify)
+- Community guidelines URL: `https://pro-networx.com/community-guidelines`
+- DMCA URL: `https://pro-networx.com/dmca`
 - Support email: `support@networxradio.com`
 
 See also: `docs/legal/mobile-store-compliance-packet.md`

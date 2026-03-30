@@ -92,7 +92,7 @@ function AuthHandoffContent() {
 }
 
 /**
- * When user on discovermeradio.com clicks "Networx Radio", they can be sent here with ?return_url=https://www.networxradio.com/...
+ * When user on pro-networx.com clicks "Networx Radio", they can be sent here with ?return_url=https://www.networxradio.com/...
  * If logged in, we get a one-time token from the backend and redirect to that URL with the token so they become logged in there too.
  */
 export default function AuthHandoffPage() {

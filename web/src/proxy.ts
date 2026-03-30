@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
-const DISCOVERME_HOSTS = ['discovermeradio.com', 'www.discovermeradio.com'];
+const PRO_NETWORX_HOSTS = ['pro-networx.com', 'www.pro-networx.com'];
 const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
 function getProNetworxOrigin(): string {
   const raw = (
@@ -86,15 +86,15 @@ export function proxy(request: NextRequest) {
     const proUrl = new URL(targetPath, PRO_NETWORX_DOMAIN);
     if (
       isNetworxDomain ||
-      (DISCOVERME_HOSTS.some((h) => hostname === h) &&
+      (PRO_NETWORX_HOSTS.some((h) => hostname === h) &&
         `${request.nextUrl.pathname}${request.nextUrl.search}` !== targetPath)
     ) {
       return NextResponse.redirect(proUrl, 302);
     }
   }
 
-  // Discover Me Radio domain: root resolves to ProNetworx landing.
-  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
+  // Pro Networx domain: root resolves to ProNetworx landing.
+  if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
     const proNetworxUrl = new URL(
       mapProNetworxPath('/pro-networx/directory'),
       PRO_NETWORX_DOMAIN,
@@ -102,8 +102,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(proNetworxUrl);
   }
 
-  // On discovermeradio.com, dashboard routes to ProNetworx directory.
-  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
+  // On pro-networx.com, dashboard routes to ProNetworx directory.
+  if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
     const proNetworxAppUrl = new URL(
       mapProNetworxPath('/pro-networx/directory'),
       PRO_NETWORX_DOMAIN,
@@ -111,8 +111,8 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(proNetworxAppUrl, 302);
   }
 
-  // On discovermeradio.com, profile routes to ProNetworx profile.
-  if (DISCOVERME_HOSTS.some((h) => hostname === h) && (pathname === '/profile' || pathname.startsWith('/profile/'))) {
+  // On pro-networx.com, profile routes to ProNetworx profile.
+  if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/profile' || pathname.startsWith('/profile/'))) {
     const proNetworxProfileUrl = new URL(
       mapProNetworxPath('/pro-networx/onboarding'),
       PRO_NETWORX_DOMAIN,

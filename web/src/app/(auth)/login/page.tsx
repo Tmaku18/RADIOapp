@@ -30,11 +30,11 @@ function LoginForm() {
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
   const sessionExpired = searchParams.get('session_expired') === 'true';
 
-  // On discovermeradio.com, default to ProNetworx app (directory) so users land in the app after login
+  // On pro-networx.com, default to ProNetworx app (directory) so users land in the app after login
   useEffect(() => {
     if (redirectParam) return;
     const host = typeof window !== 'undefined' ? window.location.hostname : '';
-    if (host === 'discovermeradio.com' || host === 'www.discovermeradio.com') {
+    if (host === 'pro-networx.com' || host === 'www.pro-networx.com') {
       setRedirectTo('/pro-networx/directory');
     }
   }, [redirectParam]);

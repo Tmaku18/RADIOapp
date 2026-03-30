@@ -3,7 +3,7 @@ import { getBackendBaseUrl } from '@/lib/backend-url';
 
 /**
  * Exchange a one-time cross-domain token for a session cookie on this origin.
- * Called when user arrives from discovermeradio.com (or other domain) with ?token=xxx.
+ * Called when user arrives from pro-networx.com (or other domain) with ?token=xxx.
  * Backend returns session cookie; we set it for the current origin so the user is logged in here.
  */
 export async function POST(request: NextRequest) {

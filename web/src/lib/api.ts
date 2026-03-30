@@ -33,7 +33,7 @@ function getClientBackendApiBases(): string[] {
   if (typeof window !== 'undefined') {
     const host = window.location.hostname.toLowerCase();
     if (
-      host.endsWith('discovermeradio.com') ||
+      host.endsWith('pro-networx.com') ||
       host.endsWith('networxradio.com') ||
       host.endsWith('pro-networx.com')
     ) {

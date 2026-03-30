@@ -34,8 +34,8 @@ export const ALLOWED_CROSS_DOMAIN_HOSTS = [
   'https://networxradio.com',
   'http://localhost:3000',
   'http://localhost:3001',
-  'https://www.discovermeradio.com',
-  'https://discovermeradio.com',
+  'https://www.pro-networx.com',
+  'https://pro-networx.com',
   'https://www.pro-networx.com',
   'https://pro-networx.com',
 ];

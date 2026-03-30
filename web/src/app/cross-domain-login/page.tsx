@@ -71,7 +71,7 @@ function CrossDomainLoginContent() {
 }
 
 /**
- * Page reached when user is redirected from another domain (e.g. discovermeradio.com) with ?token=xxx.
+ * Page reached when user is redirected from another domain (e.g. pro-networx.com) with ?token=xxx.
  * Exchanges the token for a session cookie on this origin, then redirects to dashboard.
  */
 export default function CrossDomainLoginPage() {

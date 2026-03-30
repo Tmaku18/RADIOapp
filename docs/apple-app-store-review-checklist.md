@@ -13,11 +13,11 @@ This checklist is for NETWORX iOS releases submitted through App Store Connect.
 
 Verify these links are live over HTTPS and publicly accessible:
 
-- Privacy Policy: `https://discovermeradio.com/privacy`
-- Terms of Service: `https://discovermeradio.com/terms`
-- Legal Center: `https://discovermeradio.com/legal`
-- Community Guidelines: `https://discovermeradio.com/community-guidelines`
-- DMCA Policy: `https://discovermeradio.com/dmca`
+- Privacy Policy: `https://pro-networx.com/privacy`
+- Terms of Service: `https://pro-networx.com/terms`
+- Legal Center: `https://pro-networx.com/legal`
+- Community Guidelines: `https://pro-networx.com/community-guidelines`
+- DMCA Policy: `https://pro-networx.com/dmca`
 
 Set Privacy Policy URL in App Store Connect and expose policy access in-app.
 
