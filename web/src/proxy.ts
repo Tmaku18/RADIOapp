@@ -25,35 +25,18 @@ function getProNetworxOrigin(): string {
 
 const PRO_NETWORX_DOMAIN = getProNetworxOrigin();
 
-/** pro-web on www.pro-networx.com uses /directory, /discover, etc. (no /pro-networx prefix). */
-function proNetworxUsesStandalonePaths(): boolean {
-  try {
-    const host = new URL(PRO_NETWORX_DOMAIN).hostname.toLowerCase();
-    return host === 'pro-networx.com' || host === 'www.pro-networx.com';
-  } catch {
-    return false;
-  }
-}
-
 function mapProNetworxPath(pathname: string): string {
-  const standalone = proNetworxUsesStandalonePaths();
   if (pathname === '/pro-networx' || pathname === '/pro-networx/')
-    return standalone ? '/' : '/pro-networx';
+    return '/pro-networx/directory';
   if (pathname === '/pro-networx/directory')
-    return standalone ? '/directory' : '/pro-networx/directory';
+    return '/pro-networx/directory';
   if (pathname === '/pro-networx/feed')
-    return standalone ? '/discover' : '/pro-networx/feed';
+    return '/pro-networx/feed';
   if (pathname === '/pro-networx/onboarding')
-    return standalone ? '/onboarding' : '/pro-networx/onboarding';
-  if (pathname.startsWith('/pro-networx/u/')) {
-    return standalone
-      ? pathname.replace(/^\/pro-networx\/u\//, '/u/')
-      : pathname;
-  }
+    return '/pro-networx/onboarding';
+  if (pathname.startsWith('/pro-networx/u/')) return pathname;
   if (pathname.startsWith('/pro-networx/')) {
-    return standalone
-      ? pathname.replace(/^\/pro-networx/, '') || '/'
-      : pathname;
+    return pathname;
   }
   if (pathname === '/job-board' || pathname.startsWith('/job-board/')) {
     return '/pro-networx/directory';
