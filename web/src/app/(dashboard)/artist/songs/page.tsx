@@ -700,9 +700,20 @@ export default function MySongsPage() {
       ) : null}
 
       {editingSong && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="w-full max-w-xl rounded-lg border bg-card p-5 space-y-4">
-            <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
+          <div className="mx-auto my-4 w-full max-w-xl rounded-lg border bg-card p-5 max-h-[calc(100vh-2rem)] flex flex-col">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                aria-label="Close edit modal"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-4 overflow-y-auto pr-1">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title</label>
               <input
@@ -928,7 +939,8 @@ export default function MySongsPage() {
                 </div>
               )}
             </div>
-            <div className="flex justify-end gap-2">
+            </div>
+            <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
               <Button variant="outline" onClick={closeEditModal} disabled={editSaving}>
                 Cancel
               </Button>
