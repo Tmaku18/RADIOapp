@@ -346,7 +346,7 @@ export class LeaderboardService {
     let songTemperatureQuery = supabase
       .from('song_temperature')
       .select('song_id, fire_votes, shit_votes, total_votes');
-    if (songIds != null && songIds.isNotEmpty) {
+    if (songIds != null && songIds.length > 0) {
       songTemperatureQuery = songTemperatureQuery.in('song_id', songIds);
     }
     const songTemperatureRes = await songTemperatureQuery;
@@ -375,7 +375,7 @@ export class LeaderboardService {
     let reactionQuery = supabase
       .from('leaderboard_likes')
       .select('song_id, reaction');
-    if (songIds != null && songIds.isNotEmpty) {
+    if (songIds != null && songIds.length > 0) {
       reactionQuery = reactionQuery.in('song_id', songIds);
     }
     const { data: rows, error } = await reactionQuery;
