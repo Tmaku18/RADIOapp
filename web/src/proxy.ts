@@ -40,7 +40,7 @@ function mapProNetworxPath(pathname: string): string {
   if (pathname === '/pro-networx' || pathname === '/pro-networx/')
     return standalone ? '/' : '/pro-networx';
   if (pathname === '/pro-networx/directory')
-    return standalone ? '/' : '/pro-networx/directory';
+    return standalone ? '/directory' : '/pro-networx/directory';
   if (pathname === '/pro-networx/feed')
     return standalone ? '/discover' : '/pro-networx/feed';
   if (pathname === '/pro-networx/onboarding')
@@ -56,15 +56,15 @@ function mapProNetworxPath(pathname: string): string {
       : pathname;
   }
   if (pathname === '/job-board' || pathname.startsWith('/job-board/')) {
-    return '/';
+    return '/pro-networx/directory';
   }
   if (
     pathname === '/artist/services' ||
     pathname.startsWith('/artist/services/')
   ) {
-    return '/';
+    return '/pro-networx/directory';
   }
-  return '/';
+  return '/pro-networx/directory';
 }
 
 export function proxy(request: NextRequest) {
@@ -93,10 +93,19 @@ export function proxy(request: NextRequest) {
     }
   }
 
-  // On pro-networx.com, dashboard routes to ProNetworx root.
+  // Pro Networx domain: root resolves to ProNetworx directory.
+  if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
+    const proNetworxUrl = new URL(
+      mapProNetworxPath('/pro-networx/directory'),
+      PRO_NETWORX_DOMAIN,
+    );
+    return NextResponse.redirect(proNetworxUrl, 302);
+  }
+
+  // On pro-networx.com, dashboard routes to ProNetworx directory.
   if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
     const proNetworxAppUrl = new URL(
-      '/',
+      mapProNetworxPath('/pro-networx/directory'),
       PRO_NETWORX_DOMAIN,
     );
     return NextResponse.redirect(proNetworxAppUrl, 302);
