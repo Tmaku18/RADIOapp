@@ -184,6 +184,14 @@ export function ArtistPageView({
             (sum, song) => sum + song.playCount + song.profilePlayCount,
             0,
           );
+          let followerCount = 0;
+          try {
+            const followCountsRes = await usersApi.getFollowCounts(artistId);
+            followerCount = Number(followCountsRes.data?.followers ?? 0);
+          } catch {
+            followerCount = 0;
+          }
+
           setData({
             artist: {
               id: user.id,
@@ -202,7 +210,7 @@ export function ArtistPageView({
             },
             stats: {
               totalSongs: mappedSongs.length,
-              followerCount: 0,
+              followerCount,
               monthlyListenerCount: 0,
               totalPlayCount,
             },

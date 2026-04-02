@@ -380,6 +380,17 @@ export class UsersService {
     return false;
   }
 
+  private isMissingSongsProfilePlayCountColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42703' ||
+      message.includes('songs.profile_play_count') ||
+      message.includes('column songs.profile_play_count does not exist') ||
+      message.includes('profile_play_count')
+    );
+  }
+
   async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     const resolvedUserId = await this.resolveUserId(userId);
@@ -682,38 +693,62 @@ export class UsersService {
 
     const requestingOwnProfile =
       !!viewerUserId && viewerUserId === resolvedUserId;
+    const songsBaseFields = [
+      'id',
+      'title',
+      'artist_id',
+      'artist_name',
+      'audio_url',
+      'artwork_url',
+      'duration_seconds',
+      'play_count',
+      'profile_play_count',
+      'like_count',
+      'created_at',
+      'status',
+    ];
     let songsQuery = supabase
       .from('songs')
-      .select(
-        [
-          'id',
-          'title',
-          'artist_id',
-          'artist_name',
-          'audio_url',
-          'artwork_url',
-          'duration_seconds',
-          'play_count',
-          'profile_play_count',
-          'like_count',
-          'created_at',
-          'status',
-        ].join(','),
-      )
+      .select(songsBaseFields.join(','))
       .eq('artist_id', resolvedUserId)
       .order('created_at', { ascending: false });
     if (!requestingOwnProfile) {
       songsQuery = songsQuery.eq('status', 'approved');
     }
     const { data: songs, error: songsError } = await songsQuery;
-
+    let songRows = (songs ?? []) as any[];
     if (songsError) {
-      throw new BadRequestException(
-        `Failed to load artist songs: ${songsError.message}`,
-      );
-    }
+      if (!this.isMissingSongsProfilePlayCountColumn(songsError)) {
+        throw new BadRequestException(
+          `Failed to load artist songs: ${songsError.message}`,
+        );
+      }
 
-    const songRows = (songs ?? []) as any[];
+      // Compatibility fallback for envs that have not added songs.profile_play_count yet.
+      let fallbackSongsQuery = supabase
+        .from('songs')
+        .select(
+          songsBaseFields
+            .filter((field) => field !== 'profile_play_count')
+            .join(','),
+        )
+        .eq('artist_id', resolvedUserId)
+        .order('created_at', { ascending: false });
+      if (!requestingOwnProfile) {
+        fallbackSongsQuery = fallbackSongsQuery.eq('status', 'approved');
+      }
+      const { data: fallbackSongs, error: fallbackSongsError } =
+        await fallbackSongsQuery;
+      if (fallbackSongsError) {
+        throw new BadRequestException(
+          `Failed to load artist songs: ${fallbackSongsError.message}`,
+        );
+      }
+      songRows = (fallbackSongs ?? []).map((row: any) => ({
+        ...row,
+        profile_play_count: 0,
+      }));
+    }
     const songIds = songRows.map((song) => song.id as string);
     const featuredBySongId = new Map<
       string,
