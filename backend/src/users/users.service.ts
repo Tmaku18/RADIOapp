@@ -391,6 +391,24 @@ export class UsersService {
     );
   }
 
+  private isMissingSongProfileListensTable(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    if (maybeError?.code === '42P01') {
+      return (
+        message.includes('song_profile_listens') ||
+        message.includes('public.song_profile_listens')
+      );
+    }
+    if (maybeError?.code === 'PGRST205') {
+      return (
+        message.includes('song_profile_listens') ||
+        message.includes("'public.song_profile_listens'")
+      );
+    }
+    return false;
+  }
+
   async getUserById(userId: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
     const resolvedUserId = await this.resolveUserId(userId);
@@ -860,11 +878,27 @@ export class UsersService {
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const { count: monthlyListenerCount } = await supabase
-      .from('song_profile_listens')
-      .select('id', { count: 'exact', head: true })
-      .eq('artist_id', resolvedUserId)
-      .gte('created_at', thirtyDaysAgo.toISOString());
+    const { data: monthlyListenerRows, error: monthlyListenerError } =
+      await supabase
+        .from('song_profile_listens')
+        .select('user_id')
+        .eq('artist_id', resolvedUserId)
+        .gte('created_at', thirtyDaysAgo.toISOString());
+    if (
+      monthlyListenerError &&
+      !this.isMissingSongProfileListensTable(monthlyListenerError)
+    ) {
+      throw new BadRequestException(
+        `Failed to load monthly listener count: ${monthlyListenerError.message}`,
+      );
+    }
+    const monthlyListenerCount = monthlyListenerError
+      ? 0
+      : new Set(
+          (monthlyListenerRows ?? [])
+            .map((row: any) => row.user_id as string | null)
+            .filter((userId): userId is string => !!userId),
+        ).size;
 
     const totalPlays = mappedSongs.reduce(
       (sum, s) => sum + s.playCount + s.profilePlayCount,
