@@ -136,13 +136,17 @@ export default function ProfilePage() {
     setIsSaving(true);
 
     try {
+      const normalizedRegion = region.trim();
+      const normalizedLocation = locationRegion.trim();
       await usersApi.updateMe({
         displayName,
-        region: region.trim() || undefined,
+        // Region powers some legacy ranking/discovery paths; when users only set
+        // Location, mirror it here to avoid forcing duplicate inputs.
+        region: normalizedRegion || normalizedLocation || undefined,
         suggestLocalArtists,
         bio: bio.trim() || undefined,
         headline: headline.trim() || undefined,
-        locationRegion: locationRegion.trim() || undefined,
+        locationRegion: normalizedLocation || undefined,
         instagramUrl: instagramUrl.trim() || undefined,
         twitterUrl: twitterUrl.trim() || undefined,
         youtubeUrl: youtubeUrl.trim() || undefined,
@@ -410,20 +414,6 @@ export default function ProfilePage() {
                 <Input value={locationRegion || 'Not set'} disabled />
               )}
               <p className="text-xs text-muted-foreground">Used for discovery and &quot;Artists in your area&quot;</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Region</Label>
-              {isEditing ? (
-                <Input
-                  value={region}
-                  onChange={(e) => setRegion(e.target.value)}
-                  placeholder="e.g. US, US-Georgia, UK-London"
-                />
-              ) : (
-                <Input value={region || 'Not set'} disabled />
-              )}
-              <p className="text-xs text-muted-foreground">Used for &quot;Artists in your area&quot; on the Competition page</p>
             </div>
 
             <div className="flex items-center justify-between space-x-2 rounded-lg border border-border p-4">
