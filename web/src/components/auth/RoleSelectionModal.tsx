@@ -92,7 +92,7 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
               <div className="flex-1">
                 <h3 className="font-semibold text-foreground">Gem</h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Upload your music, purchase airtime, and grow your audience
+                  Upload your music and grow your audience
                 </p>
               </div>
               {selectedRole === 'artist' && (

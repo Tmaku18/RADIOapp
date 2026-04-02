@@ -802,10 +802,26 @@ export class UsersService {
       .sort((a, b) => b.popularityScore - a.popularityScore)
       .slice(0, 10);
 
-    const { count: followerCount } = await supabase
+    const { count: followerCount, error: followerCountError } = await supabase
       .from('user_follows')
       .select('follower_user_id', { count: 'exact', head: true })
       .eq('followed_user_id', resolvedUserId);
+    if (
+      followerCountError &&
+      !this.isMissingUserFollowsTable(followerCountError)
+    ) {
+      throw new BadRequestException(
+        `Failed to load follower count: ${followerCountError.message}`,
+      );
+    }
+    const { count: legacyFollowerCount } = this.isMissingUserFollowsTable(
+      followerCountError,
+    )
+      ? await supabase
+          .from('artist_follows')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('artist_id', resolvedUserId)
+      : { count: null as number | null };
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -840,7 +856,7 @@ export class UsersService {
       },
       stats: {
         totalSongs: mappedSongs.length,
-        followerCount: followerCount ?? 0,
+        followerCount: followerCount ?? legacyFollowerCount ?? 0,
         monthlyListenerCount: monthlyListenerCount ?? 0,
         totalPlayCount: totalPlays,
       },

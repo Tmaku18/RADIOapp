@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { artistFollowsApi, songsApi, usersApi } from '@/lib/api';
+import { songsApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -252,7 +252,7 @@ export function ArtistPageView({
   useEffect(() => {
     if (!profile?.id || !data?.artist?.id || profile.id === data.artist.id) return;
     let ignore = false;
-    artistFollowsApi
+    usersApi
       .isFollowing(data.artist.id)
       .then((res) => {
         if (!ignore) setFollowing(!!res.data?.following);
@@ -305,15 +305,44 @@ export function ArtistPageView({
 
   const toggleFollow = async () => {
     if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
+    const nextFollowing = !following;
     setFollowLoading(true);
+    setFollowing(nextFollowing);
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stats: {
+          ...prev.stats,
+          followerCount: Math.max(
+            0,
+            prev.stats.followerCount + (nextFollowing ? 1 : -1),
+          ),
+        },
+      };
+    });
     try {
-      if (following) {
-        await artistFollowsApi.unfollow(data.artist.id);
-        setFollowing(false);
+      if (nextFollowing) {
+        await usersApi.follow(data.artist.id);
       } else {
-        await artistFollowsApi.follow(data.artist.id);
-        setFollowing(true);
+        await usersApi.unfollow(data.artist.id);
       }
+    } catch (error) {
+      console.error('Failed to toggle follow state:', error);
+      setFollowing(!nextFollowing);
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          stats: {
+            ...prev.stats,
+            followerCount: Math.max(
+              0,
+              prev.stats.followerCount + (nextFollowing ? -1 : 1),
+            ),
+          },
+        };
+      });
     } finally {
       setFollowLoading(false);
     }
@@ -355,7 +384,7 @@ export function ArtistPageView({
             <div className="md:ml-auto flex items-center gap-2">
               {profile?.id && profile.id !== data.artist.id && (
                 <Button variant={following ? 'secondary' : 'default'} onClick={toggleFollow} disabled={followLoading}>
-                  {followLoading ? '...' : following ? 'Following (tap to unfollow)' : 'Follow'}
+                  {followLoading ? '...' : following ? 'Following' : 'Follow'}
                 </Button>
               )}
               {mode === 'dashboard' ? (

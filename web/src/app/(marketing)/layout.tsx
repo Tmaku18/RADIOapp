@@ -58,9 +58,6 @@ export default function MarketingLayout({
                 <Link href="/about">About</Link>
               </Button>
               <Button variant="ghost" asChild>
-                <Link href="/pricing">Pricing</Link>
-              </Button>
-              <Button variant="ghost" asChild>
                 <Link href="/faq">FAQ</Link>
               </Button>
               <Button variant="ghost" asChild>
@@ -134,7 +131,6 @@ export default function MarketingLayout({
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-2 text-sm">
                 <li><Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
-                <li><Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
                 <li><Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</Link></li>
                 <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
                 <li>

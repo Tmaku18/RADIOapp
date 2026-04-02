@@ -151,7 +151,6 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/settings')) return 'Settings';
   if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
-  if (pathname.startsWith('/artist/credits')) return 'Credits';
   if (pathname.startsWith('/artist/stats')) return 'Analytics';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
   if (pathname.startsWith('/artist/services')) return 'Pro-Networx';
@@ -331,11 +330,6 @@ export default function DashboardLayout({
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/upload')}>
                               <Link href="/artist/upload">Upload</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/credits')}>
-                              <Link href="/artist/credits">Credits</Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                           <SidebarMenuSubItem>

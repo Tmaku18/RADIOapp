@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { useRadioState, Track } from './useRadioState';
-import { prospectorApi, radioApi, songsApi, analyticsApi, paymentsApi } from '@/lib/api';
+import { prospectorApi, radioApi, songsApi, analyticsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -39,7 +39,6 @@ export function RadioPlayer() {
   const { profile } = useAuth();
   const [isLiked, setIsLiked] = useState(false);
   const [isLoadingLike, setIsLoadingLike] = useState(false);
-  const [isQuickBuying, setIsQuickBuying] = useState(false);
   const [listenerCount, setListenerCount] = useState(0);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
@@ -440,28 +439,6 @@ export function RadioPlayer() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const canQuickBuy =
-    !!profile?.id &&
-    !!state.currentTrack?.id &&
-    !!state.currentTrack?.artistId &&
-    profile.id === state.currentTrack.artistId;
-
-  const handleQuickBuy = async () => {
-    if (!state.currentTrack?.id || isQuickBuying) return;
-    setIsQuickBuying(true);
-    try {
-      const res = await paymentsApi.quickAddMinutes({ songId: state.currentTrack.id });
-      const url = res.data?.url;
-      if (url && typeof window !== 'undefined') {
-        window.location.href = url;
-      }
-    } catch (e) {
-      console.error('Quick-buy failed', e);
-    } finally {
-      setIsQuickBuying(false);
-    }
-  };
-
   if (noContent) {
     return (
       <Card className="overflow-hidden">
@@ -604,14 +581,6 @@ export function RadioPlayer() {
             <span>{formatTime(state.duration)}</span>
           </div>
         </div>
-
-        {canQuickBuy && (
-          <div className="mb-4 flex justify-center">
-            <Button onClick={handleQuickBuy} disabled={isQuickBuying || state.isLoading} className="rounded-full">
-              {isQuickBuying ? 'Opening checkout…' : 'Add 5 Minutes'}
-            </Button>
-          </div>
-        )}
 
         {/* LIVE Indicator */}
         <div className="flex items-center justify-center mb-4">

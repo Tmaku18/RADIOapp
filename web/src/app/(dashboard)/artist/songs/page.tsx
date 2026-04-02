@@ -529,7 +529,7 @@ export default function MySongsPage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
-          <p className="text-muted-foreground mt-1">Manage your uploaded songs and buy plays for approved tracks</p>
+          <p className="text-muted-foreground mt-1">Manage your uploaded songs and track performance</p>
         </div>
         <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
       </div>
@@ -553,7 +553,7 @@ export default function MySongsPage() {
           <CardContent className="py-12 text-center">
             <div className="text-6xl mb-4">🎵</div>
             <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
-            <p className="text-muted-foreground mb-6">Upload your first song to get on the radio and buy plays for approved tracks.</p>
+            <p className="text-muted-foreground mb-6">Upload your first song to get on the radio.</p>
             <Button onClick={() => router.push('/artist/upload')}>Upload Your First Song</Button>
           </CardContent>
         </Card>
@@ -567,7 +567,7 @@ export default function MySongsPage() {
                 <TableHead>Discover</TableHead>
                 <TableHead>Refinery</TableHead>
                 <TableHead>Duration</TableHead>
-                <TableHead>Plays left</TableHead>
+                <TableHead>Availability</TableHead>
                 <TableHead>Stats</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -665,7 +665,9 @@ export default function MySongsPage() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
                   <TableCell>
-                    <div className="text-sm text-foreground">{song.creditsRemaining} plays</div>
+                    <div className="text-sm text-foreground">
+                      {song.status === 'approved' ? 'Active' : 'Pending review'}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <div className="text-sm text-foreground">{song.playCount} plays</div>
@@ -689,13 +691,6 @@ export default function MySongsPage() {
                       <div className="flex items-center gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
                           Edit
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => router.push(`/artist/songs/${song.id}/buy-plays`)}
-                        >
-                          Buy plays
                         </Button>
                         <Button
                           variant="destructive"

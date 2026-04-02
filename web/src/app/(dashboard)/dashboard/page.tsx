@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { analyticsApi, creditsApi, prospectorApi } from '@/lib/api';
+import { analyticsApi, prospectorApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
@@ -20,11 +20,6 @@ interface DashboardStats {
     totalPlays: number;
     totalSongs: number;
     totalLikes: number;
-  };
-  credits?: {
-    balance: number;
-    totalPurchased: number;
-    totalUsed: number;
   };
   yield?: {
     balanceCents: number;
@@ -56,11 +51,10 @@ const ROLE_HOME: Record<
   },
   artist: {
     title: "Gem Home",
-    subtitle: "Upload music, buy credits, and grow your discoveries.",
+    subtitle: 'Upload music and grow your discoveries.',
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
-      { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your songs and credits.' },
-      { href: '/artist/credits', icon: '💰', title: 'Buy Credits', desc: 'Boost your tracks with play credits.' },
+      { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your songs.' },
       { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track plays, engagement, and growth.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
@@ -133,16 +127,12 @@ export default function DashboardPage() {
         }
 
         if (hasArtistStats) {
-          const [creditsResponse, artistAnalyticsResponse] = await Promise.all([
-            creditsApi.getBalance(),
-            analyticsApi.getMyAnalytics(30),
-          ]);
+          const artistAnalyticsResponse = await analyticsApi.getMyAnalytics(30);
           const artist = artistAnalyticsResponse.data as {
             totalPlays?: number;
             totalSongs?: number;
             totalLikes?: number;
           };
-          next.credits = creditsResponse.data;
           next.artist = {
             totalPlays: artist.totalPlays ?? 0,
             totalSongs: artist.totalSongs ?? 0,
@@ -278,11 +268,7 @@ export default function DashboardPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-primary/10 rounded-xl p-4">
-                  <div className="text-sm text-primary font-medium">Credit Balance</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.credits?.balance ?? 0}</div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-muted rounded-xl p-4">
                   <div className="text-sm text-muted-foreground font-medium">Your Plays</div>
                   <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalPlays ?? 0}</div>

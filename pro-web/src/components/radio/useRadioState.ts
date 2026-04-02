@@ -33,11 +33,15 @@ interface UseRadioStateOptions {
 }
 
 export function useRadioState(options?: UseRadioStateOptions) {
+  const LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC = 3;
+  const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 6;
+  const LIVE_SYNC_SEEK_COOLDOWN_MS = 15000;
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const onTrackEndedRef = useRef(options?.onTrackEnded);
   const onTrackErrorRef = useRef(options?.onTrackError);
+  const lastSyncSeekAtRef = useRef(0);
 
   // Keep onTrackEnded callback ref in sync
   useEffect(() => {
@@ -261,21 +265,24 @@ export function useRadioState(options?: UseRadioStateOptions) {
    * Called when loading track or periodically to handle drift.
    */
   const syncToPosition = useCallback((positionSeconds: number) => {
-    if (audioRef.current && positionSeconds > 0) {
-      const currentPos = audioRef.current.currentTime;
-      const drift = Math.abs(currentPos - positionSeconds);
-      
-      // Only seek if drift is more than 2 seconds
-      if (drift > 2) {
+    if (!audioRef.current || positionSeconds <= 0 || audioRef.current.paused) return;
+    const currentPos = audioRef.current.currentTime;
+    const delta = positionSeconds - currentPos;
+    const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;
+    const needsBackwardCorrection = delta < -LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC;
+    if (needsForwardCatchup || needsBackwardCorrection) {
+      const now = Date.now();
+      if (now - lastSyncSeekAtRef.current >= LIVE_SYNC_SEEK_COOLDOWN_MS) {
         audioRef.current.currentTime = positionSeconds;
+        lastSyncSeekAtRef.current = now;
       }
-      
-      setState(s => ({ 
-        ...s, 
-        serverPosition: positionSeconds,
-        isLive: true,
-      }));
     }
+
+    setState(s => ({ 
+      ...s, 
+      serverPosition: positionSeconds,
+      isLive: true,
+    }));
   }, []);
 
   /**

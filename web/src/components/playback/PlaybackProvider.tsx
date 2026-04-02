@@ -62,6 +62,9 @@ interface PlaybackProviderProps {
 }
 
 export function PlaybackProvider({ children }: PlaybackProviderProps) {
+  const LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC = 3;
+  const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 6;
+  const LIVE_SYNC_SEEK_COOLDOWN_MS = 15000;
   const [state, setState] = useState<PlaybackState>(initialPlaybackState);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);
@@ -69,6 +72,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const sourceRef = useRef<PlaybackSource>(null);
   /** One recovery attempt for same track before advancing on media error (avoid skip cascade). */
   const hasRetriedAfterErrorRef = useRef(false);
+  const lastSyncSeekAtRef = useRef(0);
 
   useEffect(() => {
     sourceRef.current = state.source;
@@ -277,8 +281,21 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const syncToPosition = useCallback((positionSeconds: number) => {
     const audio = audioRef.current;
     if (!audio || positionSeconds <= 0) return;
-    const drift = Math.abs(audio.currentTime - positionSeconds);
-    if (drift > 2) audio.currentTime = positionSeconds;
+    if (audio.paused) return;
+
+    const delta = positionSeconds - audio.currentTime;
+    const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;
+    const needsBackwardCorrection = delta < -LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC;
+    if (!needsForwardCatchup && !needsBackwardCorrection) {
+      setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+      return;
+    }
+
+    const now = Date.now();
+    if (now - lastSyncSeekAtRef.current >= LIVE_SYNC_SEEK_COOLDOWN_MS) {
+      audio.currentTime = positionSeconds;
+      lastSyncSeekAtRef.current = now;
+    }
     setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
   }, []);
 

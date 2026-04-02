@@ -107,7 +107,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="font-medium text-foreground">Studio & Songs</p>
-                    <p className="text-sm text-muted-foreground">Upload, credits, rotation</p>
+                    <p className="text-sm text-muted-foreground">Upload and rotation</p>
                   </div>
                   <span className="text-muted-foreground" aria-hidden>›</span>
                 </Link>
