@@ -79,6 +79,7 @@ export default function ChatSidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('connecting');
   const [transparentMode, setTransparentMode] = useState(true);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesViewportRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -93,6 +94,14 @@ export default function ChatSidebar({
     if (typeof window === 'undefined') return;
     const saved = window.localStorage.getItem('networx_chat_transparent');
     if (saved === '0') setTransparentMode(false);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const updateViewport = () => setIsMobileViewport(window.innerWidth < 1024);
+    updateViewport();
+    window.addEventListener('resize', updateViewport);
+    return () => window.removeEventListener('resize', updateViewport);
   }, []);
 
   useEffect(() => {
@@ -467,7 +476,7 @@ export default function ChatSidebar({
           <button
             type="button"
             onClick={() => {
-              if (onExitMobile && typeof window !== 'undefined' && window.innerWidth < 1024) {
+              if (onExitMobile && isMobileViewport) {
                 onExitMobile();
                 return;
               }
@@ -476,7 +485,10 @@ export default function ChatSidebar({
             className="text-muted-foreground hover:text-foreground transition-colors"
             aria-label={onExitMobile ? 'Close chat' : 'Collapse chat'}
           >
-            ✕
+            <span className="inline-flex items-center gap-1">
+              <span className="lg:hidden">{onExitMobile && isMobileViewport ? 'Exit' : ''}</span>
+              <span>✕</span>
+            </span>
           </button>
         </div>
       </div>

@@ -112,7 +112,7 @@ export default function ListenPage() {
       <div
         className={`${
           showChat ? 'fixed inset-0 z-40 flex' : 'hidden'
-        } lg:static lg:inset-auto lg:z-auto lg:flex h-full max-h-full min-w-0 shrink-0 w-full lg:w-[clamp(340px,32vw,520px)] border-l border-border/40 bg-black/25 backdrop-blur-sm`}
+        } lg:static lg:inset-auto lg:z-auto lg:flex h-full max-h-full min-w-0 shrink-0 w-full lg:w-[clamp(340px,32vw,520px)] border-l border-border/40 bg-black/25 backdrop-blur-sm pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]`}
       >
         <div className="flex-1 min-h-0 h-full">
           <ChatSidebar
