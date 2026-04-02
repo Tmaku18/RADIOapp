@@ -59,7 +59,13 @@ function mergeMessages(
     .slice(-100);
 }
 
-export default function ChatSidebar({ radioId = 'global' }: { radioId?: string }) {
+export default function ChatSidebar({
+  radioId = 'global',
+  onExitMobile,
+}: {
+  radioId?: string;
+  onExitMobile?: () => void;
+}) {
   const normalizedRadioId = radioId.trim() || 'global';
   const channelName = `radio-chat:${normalizedRadioId}`;
 
@@ -459,8 +465,16 @@ export default function ChatSidebar({ radioId = 'global' }: { radioId?: string }
             {transparentMode ? 'Solid' : 'Glass'}
           </button>
           <button
-            onClick={() => setIsCollapsed(true)}
+            type="button"
+            onClick={() => {
+              if (onExitMobile && typeof window !== 'undefined' && window.innerWidth < 1024) {
+                onExitMobile();
+                return;
+              }
+              setIsCollapsed(true);
+            }}
             className="text-muted-foreground hover:text-foreground transition-colors"
+            aria-label={onExitMobile ? 'Close chat' : 'Collapse chat'}
           >
             ✕
           </button>

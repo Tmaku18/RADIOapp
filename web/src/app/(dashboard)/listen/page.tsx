@@ -115,7 +115,10 @@ export default function ListenPage() {
         } lg:static lg:inset-auto lg:z-auto lg:flex h-full max-h-full min-w-0 shrink-0 w-full lg:w-[clamp(340px,32vw,520px)] border-l border-border/40 bg-black/25 backdrop-blur-sm`}
       >
         <div className="flex-1 min-h-0 h-full">
-          <ChatSidebar radioId={resolvedStationId} />
+          <ChatSidebar
+            radioId={resolvedStationId}
+            onExitMobile={() => setShowChat(false)}
+          />
         </div>
       </div>
     </div>
