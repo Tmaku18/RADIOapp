@@ -1,4 +1,4 @@
-package com.radioapp.radio_app
+package com.discovermeradio.networxradio
 
 import com.ryanheise.audioservice.AudioServiceFragmentActivity
 
