@@ -312,21 +312,21 @@ export default function ProProfilePage() {
                 </CardContent>
               </Card>
 
-              <div className="md:hidden flex gap-2">
+              <div className="md:hidden flex flex-wrap gap-2">
                 {myUserId && myUserId !== data.userId && (
                   <Button
                     variant={isFollowing ? 'outline' : 'secondary'}
                     onClick={toggleFollow}
                     disabled={followBusy}
-                    className="flex-1"
+                    className="min-w-[130px] flex-1"
                   >
                     {followBusy ? '...' : isFollowing ? 'Following' : 'Follow'}
                   </Button>
                 )}
-                <Button asChild className="flex-1">
+                <Button asChild className="min-w-[130px] flex-1">
                   <Link href={`/messages?with=${data.userId}`}>Message</Link>
                 </Button>
-                <Button variant="outline" asChild className="flex-1">
+                <Button variant="outline" asChild className="w-full">
                   <Link href="/directory">Back</Link>
                 </Button>
               </div>

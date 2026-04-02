@@ -327,7 +327,7 @@ export default function ProfilePage() {
             </Alert>
           )}
 
-          <div className="flex items-center space-x-4 mb-6">
+          <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
             <div className="relative">
               <Avatar className="h-20 w-20">
                 <AvatarImage src={profile?.avatarUrl ?? undefined} />
@@ -525,14 +525,14 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="flex justify-end space-x-4 mt-6 pt-6 border-t border-border">
+          <div className="mt-6 flex flex-wrap justify-end gap-3 border-t border-border pt-6">
             {isEditing ? (
               <>
-                <Button variant="ghost" onClick={handleCancel} disabled={isSaving}>Cancel</Button>
-                <Button onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</Button>
+                <Button variant="ghost" onClick={handleCancel} disabled={isSaving} className="w-full sm:w-auto">Cancel</Button>
+                <Button onClick={handleSave} disabled={isSaving} className="w-full sm:w-auto">{isSaving ? 'Saving...' : 'Save Changes'}</Button>
               </>
             ) : (
-              <Button onClick={() => setIsEditing(true)}>Edit Profile</Button>
+              <Button onClick={() => setIsEditing(true)} className="w-full sm:w-auto">Edit Profile</Button>
             )}
           </div>
         </CardContent>
@@ -540,14 +540,14 @@ export default function ProfilePage() {
 
       <Card>
         <CardContent className="pt-6">
-          <div className="flex items-center justify-between gap-4 mb-4">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="text-lg font-semibold text-foreground">Social</h3>
               <p className="text-sm text-muted-foreground">
                 Your public follow graph (Instagram-style).
               </p>
             </div>
-            <div className="flex items-center gap-4 text-sm">
+            <div className="flex flex-wrap items-center gap-4 text-sm">
               <span>
                 <span className="font-semibold text-foreground">{followCounts.followers}</span>{' '}
                 <span className="text-muted-foreground">Followers</span>
@@ -599,11 +599,11 @@ export default function ProfilePage() {
                   following.map((u) => (
                     <div
                       key={`following-${u.id}`}
-                      className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50"
+                      className="flex flex-col gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <Link
                         href={getPublicProfileHref(u.id, u.role)}
-                        className="flex min-w-0 items-center gap-3"
+                        className="flex min-w-0 items-center gap-3 sm:flex-1"
                       >
                         <Avatar className="h-9 w-9">
                           <AvatarImage src={u.avatarUrl ?? undefined} />
@@ -619,7 +619,7 @@ export default function ProfilePage() {
                         size="sm"
                         disabled={followMutatingId === u.id}
                         onClick={() => void handleUnfollow(u.id)}
-                        className="shrink-0"
+                        className="w-full shrink-0 sm:w-auto"
                       >
                         {followMutatingId === u.id ? '...' : 'Unfollow'}
                       </Button>

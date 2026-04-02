@@ -389,16 +389,25 @@ export function ArtistPageView({
                 <p className="text-sm text-muted-foreground mt-1">{data.artist.headline}</p>
               )}
             </div>
-            <div className="md:ml-auto flex items-center gap-2">
+            <div className="md:ml-auto flex w-full md:w-auto flex-wrap items-center gap-2">
               {profile?.id && profile.id !== data.artist.id && (
-                <Button variant={following ? 'secondary' : 'default'} onClick={toggleFollow} disabled={followLoading}>
+                <Button
+                  variant={following ? 'secondary' : 'default'}
+                  onClick={toggleFollow}
+                  disabled={followLoading}
+                  className="w-full sm:w-auto"
+                >
                   {followLoading ? '...' : following ? 'Following' : 'Follow'}
                 </Button>
               )}
               {mode === 'dashboard' ? (
-                <Link href="/listen"><Button variant="outline">Back to Radio</Button></Link>
+                <Link href="/listen">
+                  <Button variant="outline" className="w-full sm:w-auto">Back to Radio</Button>
+                </Link>
               ) : (
-                <Link href="/"><Button variant="outline">Back Home</Button></Link>
+                <Link href="/">
+                  <Button variant="outline" className="w-full sm:w-auto">Back Home</Button>
+                </Link>
               )}
             </div>
           </div>
@@ -426,7 +435,7 @@ export function ArtistPageView({
           <h2 className="font-semibold text-xl mb-4">Popular</h2>
           <div className="space-y-2">
             {data.popularSongs.slice(0, 8).map((song, idx) => (
-              <div key={song.id} className="grid grid-cols-[24px_1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
+              <div key={song.id} className="grid grid-cols-[24px_1fr_auto] sm:grid-cols-[24px_1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
                 <span className="text-sm text-muted-foreground">{idx + 1}</span>
                 <div className="min-w-0">
                   <p className="font-medium truncate">{song.title}</p>
@@ -462,7 +471,7 @@ export function ArtistPageView({
                     View likes
                   </button>
                 </div>
-                <span className="text-xs text-muted-foreground">{formatDuration(song.durationSeconds)}</span>
+                <span className="hidden sm:block text-xs text-muted-foreground">{formatDuration(song.durationSeconds)}</span>
                 <Button size="sm" onClick={() => void handlePlayPopular(song)} disabled={!song.audioUrl}>Play</Button>
               </div>
             ))}
