@@ -133,8 +133,13 @@ api.interceptors.response.use(
 export const radioApi = {
   getCurrentTrack: (radioId?: string) =>
     api.get('/radio/current', { params: radioId ? { radio: radioId } : undefined }),
-  getNextTrack: (radioId?: string) =>
-    api.get('/radio/next', { params: radioId ? { radio: radioId } : undefined }),
+  getNextTrack: (radioIdOrParams?: string | { radio?: string; force?: boolean }) => {
+    const params =
+      typeof radioIdOrParams === 'string'
+        ? { radio: radioIdOrParams }
+        : radioIdOrParams;
+    return api.get('/radio/next', { params });
+  },
   getStream: (radioId?: string) =>
     api.get('/radio/stream', { params: radioId ? { radio: radioId } : undefined }),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>

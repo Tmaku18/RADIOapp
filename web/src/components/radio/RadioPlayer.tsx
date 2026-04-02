@@ -174,8 +174,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     isFetchingNextTrack.current = true;
     
     try {
-      // Immediately fetch and play next track
-      const response = await radioApi.getCurrentTrack(effectiveRadioId);
+      // Force-advance so a broken source can't keep re-serving the same track.
+      const response = await radioApi.getNextTrack({
+        radio: effectiveRadioId,
+        force: true,
+      });
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);

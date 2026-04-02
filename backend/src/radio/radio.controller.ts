@@ -42,9 +42,15 @@ export class RadioController {
 
   @Public()
   @Get('next')
-  async getNextTrack(@Query('radio') radioId?: string) {
+  async getNextTrack(
+    @Query('radio') radioId?: string,
+    @Query('force') force?: string,
+  ) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
-    return this.radioService.getNextTrack(id);
+    const forceAdvance = ['1', 'true', 'yes'].includes(
+      (force ?? '').trim().toLowerCase(),
+    );
+    return this.radioService.getNextTrack(id, forceAdvance);
   }
 
   @Post('play')

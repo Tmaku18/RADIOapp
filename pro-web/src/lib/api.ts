@@ -129,7 +129,8 @@ api.interceptors.response.use(
 // API methods for different endpoints
 export const radioApi = {
   getCurrentTrack: () => api.get('/radio/current'),
-  getNextTrack: () => api.get('/radio/next'),
+  getNextTrack: (params?: { force?: boolean; radio?: string }) =>
+    api.get('/radio/next', { params }),
   getStream: () => api.get('/radio/stream'),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }) => 
     api.post('/radio/heartbeat', data),

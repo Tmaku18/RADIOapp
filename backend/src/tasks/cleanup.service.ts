@@ -10,6 +10,8 @@ import { getSupabaseClient } from '../config/supabase.config';
 @Injectable()
 export class CleanupService {
   private readonly logger = new Logger(CleanupService.name);
+  private static readonly SUPABASE_PUBLIC_SONGS_MARKER =
+    '/storage/v1/object/public/songs/';
 
   /**
    * Archive old chat messages (preserves business value for artist sentiment analysis)
@@ -127,6 +129,108 @@ export class CleanupService {
   }
 
   /**
+   * Auto-quarantine radio entries that point to missing storage objects.
+   * Prevents "Audio source not available" incidents caused by stale URLs.
+   */
+  @Cron('*/30 * * * *')
+  async quarantineBrokenRadioAudioSources() {
+    this.logger.log('Starting radio audio integrity check...');
+    const supabase = getSupabaseClient();
+
+    const [songsRes, fallbackRes] = await Promise.all([
+      supabase
+        .from('songs')
+        .select('id, title, audio_url')
+        .eq('status', 'approved'),
+      supabase
+        .from('admin_fallback_songs')
+        .select('id, title, radio_id, audio_url')
+        .eq('is_active', true),
+    ]);
+
+    if (songsRes.error) {
+      this.logger.error(
+        `Failed loading approved songs for integrity check: ${songsRes.error.message}`,
+      );
+      return;
+    }
+    if (fallbackRes.error) {
+      this.logger.error(
+        `Failed loading active fallback songs for integrity check: ${fallbackRes.error.message}`,
+      );
+      return;
+    }
+
+    const songs = (songsRes.data ?? []) as Array<{
+      id: string;
+      title?: string | null;
+      audio_url?: string | null;
+    }>;
+    const fallbackSongs = (fallbackRes.data ?? []) as Array<{
+      id: string;
+      title?: string | null;
+      radio_id?: string | null;
+      audio_url?: string | null;
+    }>;
+
+    let quarantinedSongs = 0;
+    let quarantinedFallback = 0;
+
+    for (const song of songs) {
+      const path = this.extractPublicSongsPath(song.audio_url ?? null);
+      if (!path) continue;
+      const exists = await this.storageObjectExists(path);
+      if (exists) continue;
+
+      const { error } = await supabase
+        .from('songs')
+        .update({ status: 'pending', updated_at: new Date().toISOString() })
+        .eq('id', song.id);
+
+      if (error) {
+        this.logger.warn(
+          `Failed to quarantine broken song ${song.id}: ${error.message}`,
+        );
+        continue;
+      }
+
+      quarantinedSongs += 1;
+      this.logger.warn(
+        `Quarantined broken approved song "${song.title ?? song.id}" (${song.id})`,
+      );
+    }
+
+    for (const row of fallbackSongs) {
+      const path = this.extractPublicSongsPath(row.audio_url ?? null);
+      if (!path) continue;
+      const exists = await this.storageObjectExists(path);
+      if (exists) continue;
+
+      const { error } = await supabase
+        .from('admin_fallback_songs')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', row.id)
+        .eq('radio_id', row.radio_id ?? '');
+
+      if (error) {
+        this.logger.warn(
+          `Failed to disable broken fallback ${row.id}: ${error.message}`,
+        );
+        continue;
+      }
+
+      quarantinedFallback += 1;
+      this.logger.warn(
+        `Disabled broken fallback "${row.title ?? row.id}" (${row.id}) on radio ${row.radio_id ?? 'unknown'}`,
+      );
+    }
+
+    this.logger.log(
+      `Radio audio integrity complete: quarantined songs=${quarantinedSongs}, fallback=${quarantinedFallback}`,
+    );
+  }
+
+  /**
    * Extract storage path from URL and delete the file.
    */
   private async deleteFromStorage(bucket: string, url: string) {
@@ -159,5 +263,33 @@ export class CleanupService {
     } catch (error) {
       this.logger.warn(`Error parsing URL for deletion: ${url}`);
     }
+  }
+
+  private extractPublicSongsPath(audioUrl: string | null): string | null {
+    if (!audioUrl || typeof audioUrl !== 'string') return null;
+    const raw = audioUrl.trim();
+    if (!raw) return null;
+    const marker = CleanupService.SUPABASE_PUBLIC_SONGS_MARKER;
+    const markerIndex = raw.indexOf(marker);
+    if (markerIndex < 0) return null;
+    const remainder = raw.slice(markerIndex + marker.length);
+    const path = remainder.split('?')[0].trim();
+    return path || null;
+  }
+
+  private async storageObjectExists(path: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .schema('storage')
+      .from('objects')
+      .select('name')
+      .eq('bucket_id', 'songs')
+      .eq('name', path)
+      .maybeSingle();
+    if (error) {
+      this.logger.warn(`Storage existence check failed for "${path}"`);
+      return true;
+    }
+    return !!data?.name;
   }
 }

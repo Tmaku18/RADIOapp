@@ -89,8 +89,8 @@ export function RadioPlayer() {
     isFetchingNextTrack.current = true;
     
     try {
-      // Immediately fetch and play next track
-      const response = await radioApi.getCurrentTrack();
+      // Force-advance so a broken source can't keep re-serving the same track.
+      const response = await radioApi.getNextTrack({ force: true });
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       
@@ -195,7 +195,12 @@ export function RadioPlayer() {
     jumpToLive,
     needsJumpToLive,
     play,
-  } = useRadioState({ onTrackEnded: handleTrackEnded });
+  } = useRadioState({
+    onTrackEnded: handleTrackEnded,
+    onTrackError: () => {
+      void handleTrackEnded();
+    },
+  });
 
   // Keep refs in sync with latest functions
   useEffect(() => {

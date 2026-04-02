@@ -29,6 +29,7 @@ export interface RadioState {
 
 interface UseRadioStateOptions {
   onTrackEnded?: () => void;
+  onTrackError?: (reason: 'unsupported_source' | 'load_error') => void;
 }
 
 export function useRadioState(options?: UseRadioStateOptions) {
@@ -36,11 +37,16 @@ export function useRadioState(options?: UseRadioStateOptions) {
   const hlsRef = useRef<Hls | null>(null);
   const heartbeatIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const onTrackEndedRef = useRef(options?.onTrackEnded);
+  const onTrackErrorRef = useRef(options?.onTrackError);
 
   // Keep onTrackEnded callback ref in sync
   useEffect(() => {
     onTrackEndedRef.current = options?.onTrackEnded;
   }, [options?.onTrackEnded]);
+
+  useEffect(() => {
+    onTrackErrorRef.current = options?.onTrackError;
+  }, [options?.onTrackError]);
   
   const [state, setState] = useState<RadioState>({
     isPlaying: false,
@@ -98,9 +104,10 @@ export function useRadioState(options?: UseRadioStateOptions) {
           error: message,
           isLoading: false,
         }));
-        // Auto-advance to next track when source is unsupported (e.g. after playlist cycle)
-        if (isUnsupportedSource && onTrackEndedRef.current) {
-          onTrackEndedRef.current();
+        if (isUnsupportedSource && onTrackErrorRef.current) {
+          onTrackErrorRef.current('unsupported_source');
+        } else if (onTrackErrorRef.current) {
+          onTrackErrorRef.current('load_error');
         }
       });
 

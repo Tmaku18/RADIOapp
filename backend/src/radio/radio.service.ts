@@ -567,12 +567,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         const { data, error } = await supabase.storage
           .from('songs')
           .createSignedUrl(path, 60 * 60);
-        if (error || !data?.signedUrl) {
-          const { data: publicData } = supabase.storage
-            .from('songs')
-            .getPublicUrl(path);
-          return publicData?.publicUrl || null;
-        }
+        if (error || !data?.signedUrl) return null;
         return data.signedUrl;
       }
 
@@ -589,10 +584,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const { data, error } = await supabase.storage
         .from('songs')
         .createSignedUrl(path, 60 * 60);
-      if (error || !data?.signedUrl) return normalizedHttp;
+      if (error || !data?.signedUrl) return null;
       return data.signedUrl;
     } catch {
-      return audioUrl;
+      return null;
     }
   }
 
@@ -930,6 +925,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       ? null
       : await this.getArtistLiveNow(song.artist_id ?? null);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+    if (!audioUrl) {
+      this.logger.warn(
+        `Current song ${actualSongId} has no playable audio URL; advancing`,
+      );
+      return this.getNextTrack(radioId, true);
+    }
     const listenerCount = await this.getActiveListenerCountForSong(song.id);
     const temperature = await this.getSongTemperature({
       playId,
@@ -1631,7 +1632,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
    * 4. Handle playlist switch if needed (save/restore positions)
    * 5. Play from appropriate playlist with checkpointing
    */
-  async getNextTrack(radioId: string = DEFAULT_RADIO_ID): Promise<any> {
+  async getNextTrack(
+    radioId: string = DEFAULT_RADIO_ID,
+    forceAdvance: boolean = false,
+  ): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
     const isLive = await this.isLiveBroadcastActive();
@@ -1640,7 +1644,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const currentState = await this.getQueueState(radioId);
 
     // Check if song currently playing
-    if (currentState?.songId && currentState?.startedAt) {
+    if (!forceAdvance && currentState?.songId && currentState?.startedAt) {
       const isAdminSong = currentState.songId.startsWith('admin:');
       const actualSongId = currentState.songId.replace(/^admin:|^song:/, '');
 
