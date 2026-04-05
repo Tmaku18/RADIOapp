@@ -169,8 +169,48 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> with WidgetsBindingObserver {
+  bool _isSigningOutOnClose = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Auto sign out when the mobile app is being closed/terminated.
+    if (state != AppLifecycleState.detached || _isSigningOutOnClose) return;
+    _isSigningOutOnClose = true;
+    unawaited(_signOutOnClose());
+  }
+
+  Future<void> _signOutOnClose() async {
+    if (!mounted) return;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    if (!authService.firebaseInitialized || authService.currentUser == null) {
+      return;
+    }
+    try {
+      await authService.signOut();
+    } catch (e) {
+      debugPrint('Auto sign-out on app close failed: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
