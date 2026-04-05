@@ -17,6 +17,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
 
   List<LeaderboardSong> _likes = const [];
   List<LeaderboardSong> _listens = const [];
+  List<LeaderboardSong> _positiveVotes = const [];
+  List<LeaderboardSong> _bestRatios = const [];
+  List<LeaderboardSong> _mostSaves = const [];
   List<LeaderboardSong> _trial = const [];
   List<NewsItem> _news = const [];
   SpotlightToday? _today;
@@ -56,6 +59,9 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
       final results = await Future.wait([
         _service.getLeaderboardSongs(by: 'likes', limit: 20),
         _service.getLeaderboardSongs(by: 'listens', limit: 20),
+        _service.getLeaderboardSongs(by: 'positive_votes', limit: 20),
+        _service.getLeaderboardSongs(by: 'ratio', limit: 20),
+        _service.getLeaderboardSongs(by: 'saves', limit: 20),
         _service.getUpvotesPerMinute(windowMinutes: 60, limit: 20),
         _service.getNewsPromotions(limit: 10),
         _service.getTodaySpotlight(),
@@ -68,12 +74,15 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
       setState(() {
         _likes = results[0] as List<LeaderboardSong>;
         _listens = results[1] as List<LeaderboardSong>;
-        _trial = results[2] as List<LeaderboardSong>;
-        _news = results[3] as List<NewsItem>;
-        _today = results[4] as SpotlightToday?;
-        _week = results[5] as List<SpotlightWeekDay>;
-        _currentWeek = results[6] as CurrentWeek?;
-        _browseCats = results[7] as List<BrowseLeaderboardCategory>;
+        _positiveVotes = results[2] as List<LeaderboardSong>;
+        _bestRatios = results[3] as List<LeaderboardSong>;
+        _mostSaves = results[4] as List<LeaderboardSong>;
+        _trial = results[5] as List<LeaderboardSong>;
+        _news = results[6] as List<NewsItem>;
+        _today = results[7] as SpotlightToday?;
+        _week = results[8] as List<SpotlightWeekDay>;
+        _currentWeek = results[9] as CurrentWeek?;
+        _browseCats = results[10] as List<BrowseLeaderboardCategory>;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -360,14 +369,18 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                 const SizedBox(height: 16),
 
                 DefaultTabController(
-                  length: 3,
+                  length: 6,
                   child: Card(
                     child: Column(
                       children: [
                         const TabBar(
+                          isScrollable: true,
                           tabs: [
                             Tab(text: 'By likes'),
                             Tab(text: 'By discoveries'),
+                            Tab(text: 'Positive votes'),
+                            Tab(text: 'Best ratio'),
+                            Tab(text: 'Most saves'),
                             Tab(text: 'Trial by Fire'),
                           ],
                         ),
@@ -386,6 +399,25 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                       ? s.totalListenCount
                                       : (s.playCount + s.profilePlayCount);
                                   return '$total discoveries';
+                                },
+                              ),
+                              _LeaderboardList(
+                                songs: _positiveVotes,
+                                trailingLabel: (s) =>
+                                    '🔥 ${s.positiveVotes} · 💩 ${s.negativeVotes}',
+                              ),
+                              _LeaderboardList(
+                                songs: _bestRatios,
+                                trailingLabel: (s) =>
+                                    '${(s.positiveRatio * 100).toStringAsFixed(1)}% (🔥 ${s.positiveVotes} / 💩 ${s.negativeVotes})',
+                              ),
+                              _LeaderboardList(
+                                songs: _mostSaves,
+                                trailingLabel: (s) {
+                                  final saves = s.saveCount > 0
+                                      ? s.saveCount
+                                      : s.likeCount;
+                                  return '♥ $saves saves';
                                 },
                               ),
                               _LeaderboardList(
