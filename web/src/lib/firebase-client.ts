@@ -85,8 +85,13 @@ export async function createSessionCookie(idToken: string) {
   });
   
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || 'Failed to create session');
+    const payload = await response.json().catch(() => ({}));
+    const message =
+      payload?.message ||
+      payload?.error ||
+      payload?.details ||
+      'Failed to create session';
+    throw new Error(message);
   }
   
   return response.json();

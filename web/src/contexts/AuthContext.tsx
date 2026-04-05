@@ -97,8 +97,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (firebaseUser) {
         try {
           const idToken = await firebaseUser.getIdToken();
-          await createSessionCookie(idToken);
-        } catch {
+          try {
+            await createSessionCookie(idToken);
+          } catch (sessionErr) {
+            // Session cookie helps SSR/middleware, but should not block client login.
+            console.warn('Session cookie creation failed on auth change:', sessionErr);
+          }
+        } catch (tokenErr) {
+          console.error('Failed to fetch Firebase ID token:', tokenErr);
           setLoading(false);
           return;
         }
@@ -135,7 +141,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const firebaseUser = await signInWithGoogle();
       const idToken = await firebaseUser.getIdToken();
-      await createSessionCookie(idToken);
+      try {
+        await createSessionCookie(idToken);
+      } catch (sessionErr) {
+        // Keep auth usable when local session endpoint is unavailable.
+        console.warn('Session cookie creation failed during Google sign-in:', sessionErr);
+      }
       try {
         const response = await usersApi.getMe();
         if (response.data) {
@@ -173,7 +184,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // Get ID token and create session cookie
       const idToken = await firebaseUser.getIdToken();
-      await createSessionCookie(idToken);
+      try {
+        await createSessionCookie(idToken);
+      } catch (sessionErr) {
+        // Keep auth usable with bearer tokens even if cookie minting fails.
+        console.warn('Session cookie creation failed during email sign-in:', sessionErr);
+      }
       
       await fetchProfile();
     } catch (err) {
@@ -196,7 +212,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const firebaseUser = await signUpWithEmail(email, password);
 
       const idToken = await firebaseUser.getIdToken();
-      await createSessionCookie(idToken);
+      try {
+        await createSessionCookie(idToken);
+      } catch (sessionErr) {
+        // Do not block account creation when session endpoint fails.
+        console.warn('Session cookie creation failed during sign-up:', sessionErr);
+      }
 
       // Create profile; backend defaults non-admin users to listener
       await usersApi.create({
