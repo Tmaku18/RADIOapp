@@ -77,7 +77,7 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - 🚧 **In progress**: under active development
 - 📌 **Planned**: not implemented yet
 
-### Latest highlights (Mar 2026)
+### Latest highlights (Apr 2026)
 - ✅ **Streamer approval**: Artists and Catalysts must request streaming access; admin approves in **Admin → Streamers**. Only approved users can go live.
 - ✅ **Stream settings** (own menu): Dedicated **Stream settings** page/menu for request access, pending state, and (when approved) Stream Manager + Live services. Web: sidebar + `/stream-settings`; mobile: More sheet → Stream settings.
 - ✅ **Discover (IG-style)**: Tabs For you / Artists / Catalysts with search and filters; combined artist + Pro-Networx profiles; primary-accent styling
@@ -85,6 +85,9 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - ✅ **Live discovery**: `/live` page lists live sessions; sort by viewers/recent; profile Go Live opens Stream Manager (web) or Stream settings (mobile).
 - ✅ **Competition leaderboards**: `GET /leaderboard/songs?by=` supports **`likes`**, **`listens`**, **`positive_votes`**, **`ratio`**, **`saves`** (plus Trial by Fire window mode).
 - ✅ **Radio temperature model**: `GET /radio/current` exposes `play_id`, vote tallies, and `temperature_percent` (zero baseline, time-decayed aggregate from `leaderboard_likes`; migrations **047–049**).
+- ✅ **Mobile competition parity**: Flutter competition now shows live tabs for likes, discoveries, positive votes, best ratio, most saves, and Trial by Fire.
+- ✅ **Android release identity update**: package/application ID is now `com.discovermeradio.networxradio` for Play Console uniqueness.
+- ✅ **Web auth resilience**: login/signup now continue with bearer-token auth even if session cookie creation fails locally.
 
 See **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)** and **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)** for full changelogs.
 
@@ -126,7 +129,7 @@ API paths, DB columns, and role values are unchanged (e.g. `/songs`, `listener_c
 ## API auth cheat sheet
 
 - **Mobile + API clients**: send Firebase ID token as `Authorization: Bearer <token>` to `/api/*` (see `docs/api-spec.md` for **public** exceptions such as `GET /radio/current`).
-- **Web (SSR dashboard)**: uses HTTP-only session cookies created by `web/src/app/api/auth/login/route.ts` for server-rendered routes.
+- **Web (SSR dashboard)**: prefers HTTP-only session cookies created by `web/src/app/api/auth/login/route.ts` for server-rendered routes; if cookie minting fails locally, client auth still proceeds with Firebase bearer tokens.
 
 ### Legacy/internal naming (one-time note)
 - Repo/folder name: `RadioApp/`
@@ -932,7 +935,7 @@ Supabase Storage (Audio Files)
 - ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
 - ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)
 - ✅ **Creator Network** (Profile: subscribe via Stripe; DMs gated; webhook syncs subscription status)
-- ✅ **Competition** (leaderboards by likes and by plays with actual stats; spotlight, vote Top 7)
+- ✅ **Competition** (leaderboards by likes, discoveries, positive votes, ratio, saves, and Trial by Fire; spotlight, vote Top 7)
 - ✅ **Admin dashboard** (analytics, song moderation with status transitions)
 - ✅ **Admin user management** with hard ban and shadow ban controls
 - ✅ **Admin fallback playlist** management page
@@ -1045,8 +1048,8 @@ The platform is evolving into an **online music popularity competition** (freshm
 
 ### Web App Issues
 
-- **Session cookie not set**: Ensure `FIREBASE_SERVICE_ACCOUNT_KEY` is valid JSON in `.env.local`
-- **401 errors on API calls**: Token interceptor should refresh automatically; check browser console
+- **Session cookie not set**: Ensure `FIREBASE_SERVICE_ACCOUNT_KEY` is valid JSON in `.env.local`. Login can still proceed client-side, but SSR session features may be limited.
+- **401 errors on API calls**: Token interceptor should refresh automatically; check browser console for expired Firebase auth/session state.
 - **Hls.js errors**: Ensure audio files are in supported format (HLS/MP3)
 
 ### Mobile App Issues
