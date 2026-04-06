@@ -57,7 +57,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const AUTH_BOOT_TIMEOUT_MS = 8000;
+  const AUTH_BOOT_TIMEOUT_MS = 15000;
+
+  const getHttpStatus = useCallback((err: unknown): number | null => {
+    const status = (err as { response?: { status?: number } })?.response?.status;
+    return typeof status === 'number' ? status : null;
+  }, []);
 
   const withTimeout = useCallback(
     async <T,>(promise: Promise<T>, timeoutMs = AUTH_BOOT_TIMEOUT_MS): Promise<T> => {
@@ -87,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(response.data);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
-      setProfile(null);
+      // Preserve last known profile on transient failures/timeouts.
     }
   }, [withTimeout]);
 
@@ -140,8 +145,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             setProfile(null);
           }
-        } catch {
-          // New user: create profile (backend defaults to listener for non-admin)
+        } catch (err) {
+          // Only auto-create profile when backend confirms the user row does not exist.
+          if (getHttpStatus(err) !== 404) {
+            return;
+          }
           try {
             await createDefaultProfile(firebaseUser);
           } catch (createErr) {
@@ -159,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(bootTimeout);
       unsubscribe();
     };
-  }, [createDefaultProfile, withTimeout]);
+  }, [createDefaultProfile, withTimeout, getHttpStatus]);
 
   // Background reconciliation: if auth exists but profile is missing, keep retrying.
   // This prevents users getting stuck in unresolved "Loading..." role states.
@@ -173,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // Best-effort; keep retrying in the background.
       }
-    }, 10000);
+    }, 30000);
     return () => {
       cancelled = true;
       clearInterval(interval);

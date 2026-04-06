@@ -246,6 +246,28 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
   }
 
+  private async withTimeoutFallback<T>(
+    operation: Promise<T>,
+    fallback: T,
+    timeoutMs: number,
+    label: string,
+  ): Promise<T> {
+    try {
+      return await Promise.race([
+        operation,
+        new Promise<T>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`${label} timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          ),
+        ),
+      ]);
+    } catch (err) {
+      this.logger.warn(`${label} failed: ${err?.message ?? err}`);
+      return fallback;
+    }
+  }
+
   private async getSongTemperature(args: {
     playId?: string | null;
     songId: string;
@@ -892,7 +914,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const pinnedCatalysts = isAdminSong
       ? []
-      : await this.getPinnedCatalystsForSong(actualSongId);
+      : await this.withTimeoutFallback(
+          this.getPinnedCatalystsForSong(actualSongId),
+          [],
+          2000,
+          `getPinnedCatalystsForSong(${actualSongId})`,
+        );
 
     // Current play id (for per-play voting). Prefer Redis; fallback to a DB lookup near started_at.
     let playId: string | null = null;
@@ -923,7 +950,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const artistLiveNow = isAdminSong
       ? null
-      : await this.getArtistLiveNow(song.artist_id ?? null);
+      : await this.withTimeoutFallback(
+          this.getArtistLiveNow(song.artist_id ?? null),
+          null,
+          2000,
+          `getArtistLiveNow(${song.artist_id ?? 'unknown'})`,
+        );
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
     if (!audioUrl) {
       this.logger.warn(
@@ -931,12 +963,22 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
       return this.getNextTrack(radioId, true);
     }
-    const listenerCount = await this.getActiveListenerCountForSong(song.id);
-    const temperature = await this.getSongTemperature({
-      playId,
-      songId: song.id,
-      startedAtIso: queueState.playedAt ?? null,
-    });
+    const listenerCount = await this.withTimeoutFallback(
+      this.getActiveListenerCountForSong(song.id),
+      0,
+      1500,
+      `getActiveListenerCountForSong(${song.id})`,
+    );
+    const temperature = await this.withTimeoutFallback(
+      this.getSongTemperature({
+        playId,
+        songId: song.id,
+        startedAtIso: queueState.playedAt ?? null,
+      }),
+      { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: 0 },
+      2000,
+      `getSongTemperature(${song.id})`,
+    );
 
     return {
       ...song,
@@ -1684,21 +1726,39 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         ) {
           const pinnedCatalysts = currentState.isAdminFallback
             ? []
-            : await this.getPinnedCatalystsForSong(actualSongId);
+            : await this.withTimeoutFallback(
+                this.getPinnedCatalystsForSong(actualSongId),
+                [],
+                2000,
+                `getPinnedCatalystsForSong(${actualSongId})`,
+              );
           const artistLiveNow = currentState.isAdminFallback
             ? null
-            : await this.getArtistLiveNow(currentSong.artist_id ?? null);
+            : await this.withTimeoutFallback(
+                this.getArtistLiveNow(currentSong.artist_id ?? null),
+                null,
+                2000,
+                `getArtistLiveNow(${currentSong.artist_id ?? 'unknown'})`,
+              );
           const audioUrl = await this.ensurePlayableAudioUrl(
             currentSong.audio_url ?? null,
           );
-          const listenerCount = await this.getActiveListenerCountForSong(
-            currentSong.id,
+          const listenerCount = await this.withTimeoutFallback(
+            this.getActiveListenerCountForSong(currentSong.id),
+            0,
+            1500,
+            `getActiveListenerCountForSong(${currentSong.id})`,
           );
-          const temperature = await this.getSongTemperature({
-            playId: null,
-            songId: currentSong.id,
-            startedAtIso: currentState.playedAt ?? null,
-          });
+          const temperature = await this.withTimeoutFallback(
+            this.getSongTemperature({
+              playId: null,
+              songId: currentSong.id,
+              startedAtIso: currentState.playedAt ?? null,
+            }),
+            { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: 0 },
+            2000,
+            `getSongTemperature(${currentSong.id})`,
+          );
           return {
             ...currentSong,
             audio_url: audioUrl,
