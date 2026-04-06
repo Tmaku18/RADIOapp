@@ -887,14 +887,14 @@ export class UsersService {
         `Failed to load follower count: ${followerCountError.message}`,
       );
     }
-    const { count: legacyFollowerCount } = this.isMissingUserFollowsTable(
-      followerCountError,
-    )
-      ? await supabase
-          .from('artist_follows')
-          .select('user_id', { count: 'exact', head: true })
-          .eq('artist_id', resolvedUserId)
-      : { count: null as number | null };
+    const { count: legacyFollowerCount } = await supabase
+      .from('artist_follows')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('artist_id', resolvedUserId);
+    const mergedFollowerCount = Math.max(
+      followerCount ?? 0,
+      legacyFollowerCount ?? 0,
+    );
 
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -950,7 +950,7 @@ export class UsersService {
       },
       stats: {
         totalSongs: mappedSongs.length,
-        followerCount: followerCount ?? legacyFollowerCount ?? 0,
+        followerCount: mergedFollowerCount,
         monthlyListenerCount: monthlyListenerCount ?? 0,
         totalPlayCount: totalPlays,
       },
@@ -1099,9 +1099,20 @@ export class UsersService {
         following: legacyFollowing ?? 0,
       };
     }
+    const [{ count: legacyFollowers }, { count: legacyFollowing }] =
+      await Promise.all([
+        supabase
+          .from('artist_follows')
+          .select('user_id', { count: 'exact', head: true })
+          .eq('artist_id', resolvedUserId),
+        supabase
+          .from('artist_follows')
+          .select('artist_id', { count: 'exact', head: true })
+          .eq('user_id', resolvedUserId),
+      ]);
     return {
-      followers: followers ?? 0,
-      following: following ?? 0,
+      followers: Math.max(followers ?? 0, legacyFollowers ?? 0),
+      following: Math.max(following ?? 0, legacyFollowing ?? 0),
     };
   }
 
