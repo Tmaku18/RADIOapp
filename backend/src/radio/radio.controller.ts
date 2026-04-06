@@ -63,6 +63,14 @@ export class RadioController {
         err?.stack,
       );
       const message = err?.message || 'Radio unavailable';
+      const cached = this.radioService.getCachedCurrentTrack(id);
+      if (cached) {
+        return {
+          ...cached,
+          no_content: false,
+          stale_reason: message,
+        };
+      }
       return { no_content: true, message };
     }
   }
@@ -88,6 +96,14 @@ export class RadioController {
         err?.stack,
       );
       const message = err?.message || 'Unable to advance radio queue';
+      const cached = this.radioService.getCachedCurrentTrack(id);
+      if (cached) {
+        return {
+          ...cached,
+          no_content: false,
+          stale_reason: message,
+        };
+      }
       return { no_content: true, message };
     }
   }

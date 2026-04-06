@@ -29,6 +29,9 @@ export interface BanResult {
 export class AdminService {
   private readonly logger = new Logger(AdminService.name);
   private readonly ffmpegConfigured: boolean;
+  private readonly songsCache = new Map<string, { data: any[]; updatedAt: number }>();
+  private readonly queueCache = new Map<string, { data: any; updatedAt: number }>();
+  private readonly cacheTtlMs = 5 * 60 * 1000;
 
   constructor(
     private readonly emailService: EmailService,
@@ -50,7 +53,18 @@ export class AdminService {
   }
 
   async getRadioQueue(radioId: string, limit: number) {
-    return this.radioService.getAdminQueueState(radioId, limit);
+    const key = `${radioId}:${limit}`;
+    try {
+      const queue = await this.radioService.getAdminQueueState(radioId, limit);
+      this.queueCache.set(key, { data: queue, updatedAt: Date.now() });
+      return queue;
+    } catch (err) {
+      const cached = this.queueCache.get(key);
+      if (cached && Date.now() - cached.updatedAt <= this.cacheTtlMs) {
+        return { ...cached.data, stale: true, stale_cached_at: new Date(cached.updatedAt).toISOString() };
+      }
+      throw err;
+    }
   }
 
   async addRadioQueueEntries(
@@ -97,6 +111,14 @@ export class AdminService {
     offset?: number;
   }) {
     const supabase = getSupabaseClient();
+    const cacheKey = JSON.stringify({
+      status: filters.status ?? null,
+      search: filters.search?.trim() ?? null,
+      sortBy: filters.sortBy ?? null,
+      sortOrder: filters.sortOrder ?? null,
+      limit: filters.limit ?? null,
+      offset: filters.offset ?? null,
+    });
 
     let query = supabase.from('songs').select(`
         *,
@@ -195,10 +217,19 @@ export class AdminService {
     }
 
     if (error) {
+      const cached = this.songsCache.get(cacheKey);
+      if (cached && Date.now() - cached.updatedAt <= this.cacheTtlMs) {
+        return cached.data.map((row) => ({
+          ...row,
+          stale: true,
+          stale_cached_at: new Date(cached.updatedAt).toISOString(),
+        }));
+      }
       throw new BadRequestException(`Failed to fetch songs: ${error.message}`);
     }
-
-    return data ?? [];
+    const rows = data ?? [];
+    this.songsCache.set(cacheKey, { data: rows, updatedAt: Date.now() });
+    return rows;
   }
 
   async updateSongStatus(

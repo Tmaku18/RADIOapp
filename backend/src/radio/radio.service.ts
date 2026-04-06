@@ -194,6 +194,11 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RadioService.name);
   private nextSongNotifiedFor = new Map<string, string>();
+  private readonly lastKnownTrackByRadio = new Map<
+    string,
+    { payload: any; updatedAt: number }
+  >();
+  private readonly cachedTrackTtlMs = 5 * 60 * 1000;
   private backgroundRotationTimer: ReturnType<typeof setInterval> | null = null;
   private backgroundTickInFlight = false;
   private readonly backgroundPollMs = parseInt(
@@ -266,6 +271,28 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       this.logger.warn(`${label} failed: ${err?.message ?? err}`);
       return fallback;
     }
+  }
+
+  private cacheTrackSnapshot(radioId: string, payload: any): void {
+    if (!payload || !payload.id) return;
+    this.lastKnownTrackByRadio.set(radioId, {
+      payload,
+      updatedAt: Date.now(),
+    });
+  }
+
+  getCachedCurrentTrack(radioId: string = DEFAULT_RADIO_ID): any | null {
+    const cached = this.lastKnownTrackByRadio.get(radioId);
+    if (!cached) return null;
+    if (Date.now() - cached.updatedAt > this.cachedTrackTtlMs) {
+      this.lastKnownTrackByRadio.delete(radioId);
+      return null;
+    }
+    return {
+      ...cached.payload,
+      stale: true,
+      stale_cached_at: new Date(cached.updatedAt).toISOString(),
+    };
   }
 
   private async getSongTemperature(args: {
@@ -980,7 +1007,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       `getSongTemperature(${song.id})`,
     );
 
-    return {
+    const payload = {
       ...song,
       audio_url: audioUrl,
       is_playing: true,
@@ -999,6 +1026,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       total_votes: temperature.totalVotes,
       temperature_percent: temperature.temperaturePercent,
     };
+    this.cacheTrackSnapshot(radioId, payload);
+    return payload;
   }
 
   /**
@@ -1759,7 +1788,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             2000,
             `getSongTemperature(${currentSong.id})`,
           );
-          return {
+          const payload = {
             ...currentSong,
             audio_url: audioUrl,
             is_playing: true,
@@ -1779,6 +1808,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             total_votes: temperature.totalVotes,
             temperature_percent: temperature.temperaturePercent,
           };
+          this.cacheTrackSnapshot(radioId, payload);
+          return payload;
         }
       }
     }
