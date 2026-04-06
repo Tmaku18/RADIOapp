@@ -49,6 +49,74 @@ function getErrorMessage(error: unknown, fallback: string): string {
 
 type SortField = 'title' | 'created_at' | 'status';
 type SortOrder = 'asc' | 'desc';
+const ADMIN_SONGS_CACHE_KEY = 'admin:songs:last-success';
+
+function normalizeText(value: string | null | undefined): string {
+  return (value || '').trim().toLowerCase();
+}
+
+function sortSongsLocal(rows: Song[], sortBy: SortField, sortOrder: SortOrder): Song[] {
+  const multiplier = sortOrder === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (sortBy === 'created_at') {
+      const aTs = new Date(a.created_at || '').getTime();
+      const bTs = new Date(b.created_at || '').getTime();
+      return (aTs - bTs) * multiplier;
+    }
+    if (sortBy === 'status') {
+      return normalizeText(a.status).localeCompare(normalizeText(b.status)) * multiplier;
+    }
+    return normalizeText(a.title).localeCompare(normalizeText(b.title)) * multiplier;
+  });
+}
+
+function filterAndSortSongsLocal(
+  rows: Song[],
+  args: {
+    filter: 'pending' | 'approved' | 'rejected' | 'all';
+    search: string;
+    sortBy: SortField;
+    sortOrder: SortOrder;
+  },
+): Song[] {
+  const searchTerm = normalizeText(args.search);
+  const filtered = rows.filter((song) => {
+    if (args.filter !== 'all' && song.status !== args.filter) return false;
+    if (!searchTerm) return true;
+    const title = normalizeText(song.title);
+    const artist = normalizeText(song.artist_name || song.users?.display_name || '');
+    return title.includes(searchTerm) || artist.includes(searchTerm);
+  });
+  return sortSongsLocal(filtered, args.sortBy, args.sortOrder);
+}
+
+function readSongsCache(): { savedAt: string; songs: Song[] } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ADMIN_SONGS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: string; songs?: Song[] };
+    if (!Array.isArray(parsed?.songs)) return null;
+    return {
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date(0).toISOString(),
+      songs: parsed.songs,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSongsCache(songs: Song[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      ADMIN_SONGS_CACHE_KEY,
+      JSON.stringify({ savedAt: new Date().toISOString(), songs }),
+    );
+  } catch {
+    // Ignore localStorage quota/access issues.
+  }
+}
 
 export default function AdminSongsPage() {
   const [songs, setSongs] = useState<Song[]>([]);
@@ -157,6 +225,7 @@ export default function AdminSongsPage() {
       });
       const nextSongs = (response.data.songs || []) as Song[];
       setSongs(nextSongs);
+      writeSongsCache(nextSongs);
       const staleRow = nextSongs.find((row) => row?.stale);
       setStaleSongsNotice(
         staleRow?.stale_cached_at
@@ -167,8 +236,25 @@ export default function AdminSongsPage() {
       );
     } catch (err) {
       console.error('Failed to load songs:', err);
-      setError("Failed to load songs");
-      setStaleSongsNotice(null);
+      const cached = readSongsCache();
+      if (cached?.songs?.length) {
+        const fallbackSongs = filterAndSortSongsLocal(cached.songs, {
+          filter,
+          search: debouncedSearch || '',
+          sortBy,
+          sortOrder,
+        });
+        setSongs(fallbackSongs);
+        setError(null);
+        setStaleSongsNotice(
+          `Backend unavailable. Showing local cached songs from ${new Date(
+            cached.savedAt,
+          ).toLocaleTimeString()}.`,
+        );
+      } else {
+        setError("Failed to load songs");
+        setStaleSongsNotice(null);
+      }
     } finally {
       setLoading(false);
     }
