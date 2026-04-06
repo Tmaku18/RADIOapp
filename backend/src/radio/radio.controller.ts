@@ -19,8 +19,8 @@ import { DEFAULT_RADIO_ID } from './radio-state.service';
 export class RadioController {
   private readonly logger = new Logger(RadioController.name);
   private readonly endpointTimeoutMs = Math.max(
-    30000,
-    parseInt(process.env.RADIO_ENDPOINT_TIMEOUT_MS || '15000', 10),
+    1000,
+    parseInt(process.env.RADIO_ENDPOINT_TIMEOUT_MS || '8000', 10),
   );
 
   constructor(

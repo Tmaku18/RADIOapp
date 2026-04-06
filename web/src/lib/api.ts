@@ -127,23 +127,25 @@ api.interceptors.response.use(
 );
 
 // API methods for different endpoints
+const RADIO_API_TIMEOUT_MS = 35000;
+
 export const radioApi = {
   getCurrentTrack: (radioId?: string) =>
     api.get('/radio/current', {
       params: radioId ? { radio: radioId } : undefined,
-      timeout: 10000,
+      timeout: RADIO_API_TIMEOUT_MS,
     }),
   getNextTrack: (radioIdOrParams?: string | { radio?: string; force?: boolean }) => {
     const params =
       typeof radioIdOrParams === 'string'
         ? { radio: radioIdOrParams }
         : radioIdOrParams;
-    return api.get('/radio/next', { params, timeout: 10000 });
+    return api.get('/radio/next', { params, timeout: RADIO_API_TIMEOUT_MS });
   },
   getStream: (radioId?: string) =>
     api.get('/radio/stream', {
       params: radioId ? { radio: radioId } : undefined,
-      timeout: 10000,
+      timeout: RADIO_API_TIMEOUT_MS,
     }),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
     api.post('/radio/heartbeat', data, { params: radioId ? { radio: radioId } : undefined }),
