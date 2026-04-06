@@ -3,6 +3,8 @@ import { Logger } from '@nestjs/common';
 
 let redisClient: Redis | null = null;
 let redisDisabled = false;
+let errorLogCount = 0;
+const MAX_ERROR_LOGS = 5;
 const logger = new Logger('RedisConfig');
 
 const PLACEHOLDER_PATTERNS = [
@@ -16,6 +18,16 @@ const PLACEHOLDER_PATTERNS = [
 
 function isPlaceholderUrl(url: string): boolean {
   return PLACEHOLDER_PATTERNS.some((p) => url.includes(p));
+}
+
+function redactUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    if (u.password) u.password = '***';
+    return u.toString();
+  } catch {
+    return '(invalid URL)';
+  }
 }
 
 /**
@@ -40,6 +52,8 @@ export const getRedisClient = (): Redis => {
       throw new Error('Redis is disabled (no valid REDIS_URL).');
     }
 
+    logger.log(`Connecting to Redis at ${redactUrl(redisUrl)}`);
+
     redisClient = new Redis(redisUrl, {
       maxRetriesPerRequest: 3,
       retryStrategy(times) {
@@ -55,15 +69,28 @@ export const getRedisClient = (): Redis => {
     });
 
     redisClient.on('connect', () => {
+      errorLogCount = 0;
       logger.log('Redis client connected');
     });
 
+    redisClient.on('ready', () => {
+      logger.log('Redis client ready');
+    });
+
     redisClient.on('error', (err) => {
-      logger.error(`Redis client error: ${err.message}`);
+      if (errorLogCount < MAX_ERROR_LOGS) {
+        logger.error(`Redis client error: ${err.message}`);
+        errorLogCount++;
+        if (errorLogCount === MAX_ERROR_LOGS) {
+          logger.warn('Suppressing further Redis error logs');
+        }
+      }
     });
 
     redisClient.on('close', () => {
-      logger.warn('Redis connection closed');
+      if (errorLogCount < MAX_ERROR_LOGS) {
+        logger.warn('Redis connection closed');
+      }
     });
   }
 
