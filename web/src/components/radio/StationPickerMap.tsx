@@ -70,7 +70,7 @@ function createTowerIcon(tower: Tower) {
   return L.divIcon({
     className: 'tower-marker-icon border-0 bg-transparent',
     html: `
-      <div class="tower-marker" role="button" tabindex="0" aria-label="${tower.genre} - ${tower.city}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
+      <div class="tower-marker" role="button" tabindex="0" aria-label="${tower.genre}" style="display:flex;flex-direction:column;align-items:center;cursor:pointer;">
         <div class="tower-badge" style="width:36px;height:36px;border-radius:9999px;background:rgba(0,245,255,0.9);color:#0A0A0A;font-size:1rem;font-weight:600;display:flex;align-items:center;justify-content:center;border:2px solid #0A0A0A;box-shadow:0 2px 8px rgba(0,0,0,0.3);" title="${tower.genre}">${symbol}</div>
         <div style="font-size:0.75rem;font-weight:500;margin-top:4px;white-space:nowrap;background:rgba(10,10,10,0.9);color:#F5F5F5;padding:2px 8px;border-radius:4px;">${tower.genre}</div>
       </div>

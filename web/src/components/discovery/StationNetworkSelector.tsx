@@ -55,7 +55,7 @@ export function StationNetworkSelector({
                     : 'border-border bg-background/90 text-foreground hover:border-primary/50',
                 )}
                 style={{ top: node.top, left: node.left }}
-                title={`${tower.genre} (${tower.city})`}
+                title={tower.genre}
               >
                 {tower.genre}
               </button>
@@ -106,7 +106,7 @@ export function StationNetworkSelector({
                 )}
               >
                 <p className="font-medium">{tower.genre}</p>
-                <p className="text-xs text-muted-foreground">{tower.city} (National)</p>
+                <p className="text-xs text-muted-foreground">National Station</p>
               </button>
             ))}
           </div>

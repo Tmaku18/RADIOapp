@@ -86,7 +86,7 @@ export default function ListenPage() {
           {currentStation && (
             <div className="mb-2 flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
-                {currentStation.city} – {currentStation.genre}
+                {currentStation.genre}
               </p>
               <Button variant="ghost" size="sm" asChild>
                 <Link href="/discover?tab=station">Change station</Link>
