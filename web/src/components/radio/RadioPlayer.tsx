@@ -228,10 +228,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
         if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
-          console.warn('Next track has no audio URL; waiting for next poll');
-          setNoContent(true);
-          setNoContentMessage('Track has no playable source.');
-          setStaleTrackInfo(null);
+          console.warn('Track has no audio URL; will retry on next poll');
           return;
         }
         const track: PlaybackTrack = {
@@ -448,9 +445,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
         if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
-          setNoContent(true);
-          setNoContentMessage('Track has no playable source.');
-          setStaleTrackInfo(null);
+          console.warn('Next track has no audio URL; will retry on next poll');
           return;
         }
         const track: PlaybackTrack = {
@@ -625,11 +620,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     // Initial fetch - don't auto-play (wait for user interaction)
     fetchCurrentTrack(true, false);
     
-    // Poll for track changes every 30 seconds (reduced from 10s to ease DB pressure)
-    const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), 30000);
+    const pollMs = noContent ? 8000 : 30000;
+    const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), pollMs);
     
     return () => clearInterval(interval);
-  }, [fetchCurrentTrack, hasUserInteracted]);
+  }, [fetchCurrentTrack, hasUserInteracted, noContent]);
 
   // Re-sync every 60 seconds to handle drift (only when live)
   useEffect(() => {
@@ -810,30 +805,35 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   if (noContent) {
     return (
       <Card className="overflow-hidden">
-        {/* No Content Art */}
-        <div className="aspect-square bg-gradient-to-br from-gray-400 to-gray-600 relative">
-          <div className="w-full h-full flex items-center justify-center flex-col gap-4 p-8">
-            <span className="text-8xl">📻</span>
-            <div className="text-center">
-              <h3 className="text-white text-xl font-bold">No Content Available</h3>
-              <p className="text-gray-200 text-sm mt-2">
-                {noContentMessage || "Sorry for the inconvenience. No songs are currently available."}
+        <div className="h-[clamp(170px,30vh,320px)] sm:h-[clamp(210px,34vh,360px)] bg-gradient-to-br from-gray-800 to-gray-900 relative overflow-hidden">
+          <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 p-8">
+            <div className="relative">
+              <span className="text-6xl">📻</span>
+              <span className="absolute -bottom-1 -right-1 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-4 w-4 bg-amber-500" />
+              </span>
+            </div>
+            <div className="text-center mt-2">
+              <h3 className="text-white text-lg font-semibold">Looking for tracks...</h3>
+              <p className="text-gray-400 text-sm mt-1">
+                {noContentMessage || 'No songs are queued right now.'}
               </p>
             </div>
           </div>
         </div>
 
         <div className="p-6">
-          <div className="text-center mb-6">
-            <h2 className="text-xl font-bold text-foreground">Station Offline</h2>
-            <p className="text-muted-foreground">Please check back soon!</p>
+          <div className="text-center mb-4">
+            <h2 className="text-lg font-semibold text-foreground">No Track Playing</h2>
+            <p className="text-muted-foreground text-sm">Auto-retrying&hellip;</p>
           </div>
           <div className="flex items-center justify-center">
-            <Button onClick={() => fetchCurrentTrack(true, false)}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <Button variant="outline" size="sm" onClick={() => fetchCurrentTrack(true, hasUserInteracted)}>
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Retry
+              Retry Now
             </Button>
           </div>
         </div>
