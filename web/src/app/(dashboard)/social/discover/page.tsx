@@ -58,12 +58,19 @@ function parseTimeToSeconds(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
+function shuffleCards(items: DiscoverAudioSongCard[]): DiscoverAudioSongCard[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 export default function SocialDiscoverSwipePage() {
   const router = useRouter();
   const [cards, setCards] = useState<DiscoverAudioSongCard[]>([]);
-  const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [busySwipe, setBusySwipe] = useState(false);
   const [dragX, setDragX] = useState(0);
   const [dragging, setDragging] = useState(false);
@@ -101,7 +108,6 @@ export default function SocialDiscoverSwipePage() {
   const pointerStartX = useRef<number | null>(null);
   const pointerIdRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const prefetchingRef = useRef(false);
   const audioCapSecondsRef = useRef<number>(15);
   const discoverSeedRef = useRef<string>(generateDiscoverSeed());
 
@@ -111,40 +117,41 @@ export default function SocialDiscoverSwipePage() {
     Math.min(15, currentCard?.clipDurationSeconds || 15),
   );
 
-  const loadFeed = useCallback(
-    async (append: boolean) => {
-      if (!append) {
-        // New seed on refresh = new random order while keeping pagination stable.
-        discoverSeedRef.current = generateDiscoverSeed();
-      }
-      if (append) setLoadingMore(true);
-      else setLoading(true);
-      setError(null);
-      try {
+  const loadFeed = useCallback(async () => {
+    // New seed on refresh = new random order while keeping pagination stable.
+    discoverSeedRef.current = generateDiscoverSeed();
+    setLoading(true);
+    setError(null);
+    try {
+      const bySongId = new Map<string, DiscoverAudioSongCard>();
+      let cursor: string | undefined;
+      let pageGuard = 0;
+      while (pageGuard < 500) {
         const res = await discoverAudioApi.getFeed({
           limit: PAGE_SIZE,
-          cursor: append ? nextCursor ?? undefined : undefined,
+          cursor,
           seed: discoverSeedRef.current,
         });
         const data = res.data;
-        if (append) {
-          setCards((prev) => [...prev, ...data.items]);
-        } else {
-          setCards(data.items);
+        for (const card of data.items ?? []) {
+          if (!bySongId.has(card.songId)) {
+            bySongId.set(card.songId, card);
+          }
         }
-        setNextCursor(data.nextCursor);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to load discover feed');
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
+        if (!data.nextCursor) break;
+        cursor = data.nextCursor;
+        pageGuard += 1;
       }
-    },
-    [nextCursor],
-  );
+      setCards(shuffleCards(Array.from(bySongId.values())));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load discover feed');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    void loadFeed(false);
+    void loadFeed();
   }, [loadFeed]);
 
   useEffect(() => {
@@ -258,24 +265,6 @@ export default function SocialDiscoverSwipePage() {
     setAudioPositionSeconds(bounded);
   }, []);
 
-  const maybePrefetch = useCallback(async () => {
-    if (prefetchingRef.current) return;
-    if (cards.length > 3) return;
-    if (!nextCursor) return;
-    prefetchingRef.current = true;
-    try {
-      const res = await discoverAudioApi.getFeed({
-        limit: PAGE_SIZE,
-        cursor: nextCursor,
-        seed: discoverSeedRef.current,
-      });
-      setCards((prev) => [...prev, ...res.data.items]);
-      setNextCursor(res.data.nextCursor);
-    } finally {
-      prefetchingRef.current = false;
-    }
-  }, [cards.length, nextCursor]);
-
   const handleForgiveSwipes = useCallback(async () => {
     const confirmed = window.confirm(
       'Reset your Discover swipe history so old cards can appear again?',
@@ -285,7 +274,7 @@ export default function SocialDiscoverSwipePage() {
     setForgiveBusy(true);
     try {
       await discoverAudioApi.clearSwipes();
-      await loadFeed(false);
+      await loadFeed();
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to reset Discover swipes');
     } finally {
@@ -311,10 +300,9 @@ export default function SocialDiscoverSwipePage() {
         setError(e instanceof Error ? e.message : 'Swipe failed');
       } finally {
         setBusySwipe(false);
-        void maybePrefetch();
       }
     },
-    [busySwipe, currentCard, maybePrefetch, shownAt],
+    [busySwipe, currentCard, shownAt],
   );
 
   const loadLibrarySongs = useCallback(async () => {
@@ -561,7 +549,7 @@ export default function SocialDiscoverSwipePage() {
                           setLibraryOpen(false);
                           setClipStartSeconds('0:00');
                           setClipEndSeconds('0:15');
-                          await loadFeed(false);
+                          await loadFeed();
                         } catch (e) {
                           const apiMessage =
                             (e as { response?: { data?: { message?: string | string[] } } })
@@ -642,10 +630,10 @@ export default function SocialDiscoverSwipePage() {
         <Card>
           <CardContent className="pt-8 pb-8 text-center space-y-3">
             <p className="text-muted-foreground">
-              No more clips right now. Check your Discover list or refresh for new drops.
+              You&apos;ve reached the end of our content for now! Check back soon.
             </p>
             <div className="flex justify-center gap-2">
-              <Button onClick={() => void loadFeed(false)}>Refresh feed</Button>
+              <Button onClick={() => void loadFeed()}>Refresh feed</Button>
               <Button variant="outline" asChild>
                 <Link href="/social/discover/list">Open Discover list</Link>
               </Button>
@@ -812,9 +800,6 @@ export default function SocialDiscoverSwipePage() {
               Like Right
             </Button>
           </div>
-          {loadingMore && (
-            <p className="text-center text-sm text-muted-foreground">Loading more clips…</p>
-          )}
         </div>
       )}
       <Card className="border-border/80">
