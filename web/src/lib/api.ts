@@ -11,6 +11,9 @@ const api: AxiosInstance = axios.create({
 });
 
 let loginRedirectInProgress = false;
+// Keep sessions stable: avoid automatic sign-out redirects on transient auth/API issues.
+// Users can still navigate to /login manually when needed.
+const ENABLE_AUTO_LOGIN_REDIRECT = false;
 
 function normalizeBaseUrl(raw: string): string {
   const trimmed = raw.trim().replace(/\/$/, '');
@@ -67,18 +70,12 @@ api.interceptors.request.use(
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         } else if (typeof window !== 'undefined') {
-          if (!loginRedirectInProgress && !window.location.pathname.startsWith('/login')) {
-            loginRedirectInProgress = true;
-            const path = window.location.pathname || '/';
-            const search = window.location.search || '';
-            const redirect = encodeURIComponent(`${path}${search}`);
-            window.location.href = `/login?session_expired=true&redirect=${redirect}`;
-          }
           throw new Error('Authentication required');
         }
       } catch (error) {
         console.error('Failed to get ID token:', error);
         if (
+          ENABLE_AUTO_LOGIN_REDIRECT &&
           typeof window !== 'undefined' &&
           !loginRedirectInProgress &&
           !window.location.pathname.startsWith('/login')
@@ -109,7 +106,7 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error.response?.status === 401) {
+    if (ENABLE_AUTO_LOGIN_REDIRECT && error.response?.status === 401) {
       // Token truly invalid - redirect to login, preserving current path so user returns after re-login
       if (typeof window !== 'undefined') {
         // Avoid redirect loops on the radio player; let the page handle the error.
