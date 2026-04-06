@@ -849,11 +849,48 @@ export class UsersService {
       }
     }
 
+    let profileListenRows: Array<{ song_id: string; user_id: string | null }> =
+      [];
+    if (songIds.length > 0) {
+      const { data: listensData, error: listensError } = await supabase
+        .from('song_profile_listens')
+        .select('song_id, user_id')
+        .in('song_id', songIds);
+      if (
+        listensError &&
+        !this.isMissingSongProfileListensTable(listensError)
+      ) {
+        throw new BadRequestException(
+          `Failed to load profile listens: ${listensError.message}`,
+        );
+      }
+      if (!listensError) {
+        profileListenRows = (listensData || []) as Array<{
+          song_id: string;
+          user_id: string | null;
+        }>;
+      }
+    }
+    const activeListenersBySongId = new Map<string, number>();
+    if (profileListenRows.length > 0) {
+      const listenersSetBySongId = new Map<string, Set<string>>();
+      for (const row of profileListenRows) {
+        if (!row?.song_id || !row?.user_id) continue;
+        const listeners = listenersSetBySongId.get(row.song_id) ?? new Set();
+        listeners.add(row.user_id);
+        listenersSetBySongId.set(row.song_id, listeners);
+      }
+      for (const [songId, listeners] of listenersSetBySongId.entries()) {
+        activeListenersBySongId.set(songId, listeners.size);
+      }
+    }
+
     const mappedSongs = songRows.map((song) => {
       const playCount = song.play_count || 0;
       const profilePlayCount = song.profile_play_count || 0;
       const likeCount = song.like_count || 0;
-      const popularityScore = playCount + profilePlayCount + likeCount * 3;
+      const listenCount = activeListenersBySongId.get(song.id) ?? 0;
+      const popularityScore = listenCount + likeCount * 3;
       return {
         id: song.id,
         title: song.title,
@@ -864,6 +901,7 @@ export class UsersService {
         durationSeconds: song.duration_seconds || 0,
         playCount,
         profilePlayCount,
+        listenCount,
         likeCount,
         popularityScore,
         createdAt: song.created_at,
@@ -920,10 +958,7 @@ export class UsersService {
             .filter((userId): userId is string => !!userId),
         ).size;
 
-    const totalPlays = mappedSongs.reduce(
-      (sum, s) => sum + s.playCount + s.profilePlayCount,
-      0,
-    );
+    const totalListens = mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
 
     const userRow = user;
 
@@ -952,7 +987,8 @@ export class UsersService {
         totalSongs: mappedSongs.length,
         followerCount: mergedFollowerCount,
         monthlyListenerCount: monthlyListenerCount ?? 0,
-        totalPlayCount: totalPlays,
+        totalPlayCount: totalListens,
+        totalListenCount: totalListens,
       },
       popularSongs,
       librarySongs: mappedSongs,

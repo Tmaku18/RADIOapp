@@ -22,6 +22,7 @@ type ArtistSong = {
   durationSeconds: number;
   playCount: number;
   profilePlayCount: number;
+  listenCount?: number;
   likeCount: number;
   popularityScore: number;
   createdAt: string;
@@ -58,6 +59,7 @@ type ArtistProfileResponse = {
     followerCount: number;
     monthlyListenerCount: number;
     totalPlayCount: number;
+    totalListenCount?: number;
   };
   popularSongs: ArtistSong[];
   librarySongs: ArtistSong[];
@@ -105,7 +107,7 @@ function toDiscographyTrack(
     artworkUrl: song.artworkUrl,
     durationSeconds: song.durationSeconds,
     likeCount: song.likeCount,
-    individualListenCount: song.profilePlayCount,
+    individualListenCount: song.listenCount ?? song.profilePlayCount,
     liked: likedMap[song.id] ?? false,
   };
 }
@@ -205,14 +207,15 @@ export function ArtistPageView({
               durationSeconds: song.duration_seconds || 0,
               playCount,
               profilePlayCount,
+              listenCount: profilePlayCount,
               likeCount,
-              popularityScore: playCount + profilePlayCount + likeCount * 3,
+              popularityScore: profilePlayCount + likeCount * 3,
               createdAt: song.created_at,
               featuredArtists: [],
             };
           });
-          const totalPlayCount = mappedSongs.reduce(
-            (sum, song) => sum + song.playCount + song.profilePlayCount,
+          const totalListenCount = mappedSongs.reduce(
+            (sum, song) => sum + (song.listenCount ?? 0),
             0,
           );
           let followerCount = 0;
@@ -248,7 +251,8 @@ export function ArtistPageView({
               totalSongs: mappedSongs.length,
               followerCount,
               monthlyListenerCount: 0,
-              totalPlayCount,
+              totalPlayCount: totalListenCount,
+              totalListenCount,
             },
             popularSongs: [...mappedSongs]
               .sort((a, b) => b.popularityScore - a.popularityScore)
@@ -479,7 +483,7 @@ export function ArtistPageView({
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Followers</p><p className="text-xl font-bold">{formatNumber(data.stats.followerCount)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total plays</p><p className="text-xl font-bold">{formatNumber(data.stats.totalPlayCount)}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total listens</p><p className="text-xl font-bold">{formatNumber(data.stats.totalListenCount ?? data.stats.totalPlayCount)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Songs</p><p className="text-xl font-bold">{formatNumber(data.stats.totalSongs)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Monthly listeners</p><p className="text-xl font-bold">{formatNumber(data.stats.monthlyListenerCount)}</p></CardContent></Card>
       </div>
@@ -547,9 +551,9 @@ export function ArtistPageView({
                       ))}
                     </p>
                   )}
-                  <p className="text-xs text-muted-foreground">{formatNumber(song.playCount + song.profilePlayCount)} plays</p>
+                  <p className="text-xs text-muted-foreground">{formatNumber(song.listenCount ?? song.profilePlayCount)} listens</p>
                   <p className="text-xs text-muted-foreground">
-                    {formatNumber(song.profilePlayCount)} individual listens · {formatNumber(song.likeCount)} likes
+                    {formatNumber(song.likeCount)} likes
                   </p>
                   <button
                     type="button"
