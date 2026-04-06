@@ -171,7 +171,8 @@ export default function DashboardLayout({
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const [adminRoleHint, setAdminRoleHint] = useState(false);
-  const effectiveRole = profile?.role ?? (adminRoleHint ? 'admin' : undefined);
+  // Confirmed admin hint must override stale profile.role values.
+  const effectiveRole = adminRoleHint ? 'admin' : profile?.role;
   const isArtistMode = hasArtistCapability(effectiveRole);
   const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
 
@@ -355,14 +356,14 @@ export default function DashboardLayout({
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       ))}
-                      {hasArtistCapability(profile?.role) && (
+                      {hasArtistCapability(effectiveRole) && (
                         <SidebarMenuSubItem>
                           <SidebarMenuSubButton asChild isActive={pathname.startsWith(streamerNav.href)}>
                             <Link href={streamerNav.href}>{streamerNav.name}</Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
                       )}
-                      {hasArtistCapability(profile?.role) && (
+                      {hasArtistCapability(effectiveRole) && (
                         <>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/songs')}>

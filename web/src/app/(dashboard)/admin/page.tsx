@@ -35,13 +35,8 @@ export default function AdminDashboardPage() {
     let cancelled = false;
     let retry: NodeJS.Timeout | null = null;
     const resolveAdmin = async () => {
-      // Explicit non-admin role: bounce immediately.
-      if (profile && profile.role !== 'admin') {
-        router.push('/dashboard');
-        return;
-      }
       // Known admin profile.
-      if (profile?.role === 'admin') {
+      if (profile?.role === 'admin' || adminRoleHint) {
         if (!cancelled) {
           setAdminRoleHint(true);
           loadAnalytics();
@@ -59,7 +54,7 @@ export default function AdminDashboardPage() {
           return;
         }
         // When profile is still unresolved, do not prematurely redirect.
-        if (profile) {
+        if (profile && profile.role !== 'admin') {
           router.push('/dashboard');
           return;
         }
@@ -78,7 +73,7 @@ export default function AdminDashboardPage() {
       cancelled = true;
       if (retry) clearTimeout(retry);
     };
-  }, [profile, router]);
+  }, [profile, router, adminRoleHint]);
 
   useEffect(() => {
     if (!(profile?.role === 'admin' || adminRoleHint)) return;
