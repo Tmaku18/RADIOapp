@@ -93,7 +93,7 @@ const ROLE_HOME: Record<
 };
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [adminRoleHint, setAdminRoleHint] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
@@ -122,13 +122,12 @@ export default function DashboardPage() {
     };
   }, [profile?.role]);
 
-  // Single user type: non-admin users see full-access (artist) home; admin/catalyst keep their own
-  // Admin hint overrides stale profile.role while hydration catches up.
-  const role = ((adminRoleHint ? 'admin' : profile?.role) ?? 'listener') as Role;
-  const homeKey = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
-  const home = ROLE_HOME[homeKey] ?? ROLE_HOME.artist;
+  const role = ((adminRoleHint ? 'admin' : profile?.role) ?? (authLoading ? null : 'listener')) as Role | null;
+  const homeKey: keyof typeof ROLE_HOME = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
+  const home = role ? (ROLE_HOME[homeKey] ?? ROLE_HOME.artist) : null;
   const hasArtistStats = role === 'artist' || role === 'service_provider';
   const hasProspectorStats = role === 'listener';
+  const roleResolved = !!role;
 
   useEffect(() => {
     async function loadStats() {
@@ -216,13 +215,21 @@ export default function DashboardPage() {
 
       <Card className="bg-primary text-primary-foreground border-0">
         <CardContent className="pt-8">
-          <h2 className="text-2xl font-bold mb-2">{home.title}</h2>
-          <p className="text-primary-foreground/90">
-            {home.subtitle}
-          </p>
+          {home ? (
+            <>
+              <h2 className="text-2xl font-bold mb-2">{home.title}</h2>
+              <p className="text-primary-foreground/90">{home.subtitle}</p>
+            </>
+          ) : (
+            <>
+              <div className="h-8 w-48 bg-primary-foreground/20 rounded animate-pulse mb-2" />
+              <div className="h-5 w-72 bg-primary-foreground/10 rounded animate-pulse" />
+            </>
+          )}
         </CardContent>
       </Card>
 
+      {roleResolved && home && (
       <div>
         <h2 className="text-xl font-semibold text-foreground mb-4">{home.title}</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -249,6 +256,7 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+      )}
 
       <Card>
         <CardContent className="pt-6">
