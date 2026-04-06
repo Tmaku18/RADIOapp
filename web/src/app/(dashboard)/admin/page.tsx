@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { adminApi } from '@/lib/api';
+import { adminApi, usersApi } from '@/lib/api';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -24,6 +24,7 @@ interface Analytics {
 export default function AdminDashboardPage() {
   const { profile } = useAuth();
   const router = useRouter();
+  const [adminRoleHint, setAdminRoleHint] = useState(false);
   const [analytics, setAnalytics] = useState<Analytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,21 +32,45 @@ export default function AdminDashboardPage() {
   const [liveActionLoading, setLiveActionLoading] = useState(false);
 
   useEffect(() => {
-    // Redirect non-admins
-    if (profile && profile.role !== 'admin') {
-      router.push('/dashboard');
-      return;
-    }
-
-    loadAnalytics();
+    let cancelled = false;
+    const resolveAdmin = async () => {
+      // Explicit non-admin role: bounce immediately.
+      if (profile && profile.role !== 'admin') {
+        router.push('/dashboard');
+        return;
+      }
+      // Known admin profile.
+      if (profile?.role === 'admin') {
+        if (!cancelled) {
+          setAdminRoleHint(true);
+          loadAnalytics();
+        }
+        return;
+      }
+      // Profile not hydrated yet: use backend allowlist hint.
+      try {
+        const res = await usersApi.checkAdmin();
+        const isAdmin = !!res.data?.isAdmin;
+        if (cancelled) return;
+        setAdminRoleHint(isAdmin);
+        if (isAdmin) loadAnalytics();
+        else router.push('/dashboard');
+      } catch {
+        if (!cancelled) router.push('/dashboard');
+      }
+    };
+    resolveAdmin();
+    return () => {
+      cancelled = true;
+    };
   }, [profile, router]);
 
   useEffect(() => {
-    if (profile?.role !== 'admin') return;
+    if (!(profile?.role === 'admin' || adminRoleHint)) return;
     adminApi.getLiveStatus()
       .then((res) => setLiveStatus(res.data))
       .catch(() => setLiveStatus({ active: false }));
-  }, [profile?.role]);
+  }, [profile?.role, adminRoleHint]);
 
   const handleStartLive = async () => {
     setLiveActionLoading(true);

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
-import { notificationsApi } from '@/lib/api';
+import { notificationsApi, usersApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
 import {
   DropdownMenu,
@@ -170,7 +170,9 @@ export default function DashboardLayout({
   const isListenPage = pathname.startsWith('/listen');
   const router = useRouter();
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
-  const isArtistMode = hasArtistCapability(profile?.role);
+  const [adminRoleHint, setAdminRoleHint] = useState(false);
+  const effectiveRole = profile?.role ?? (adminRoleHint ? 'admin' : undefined);
+  const isArtistMode = hasArtistCapability(effectiveRole);
   const brandMode: 'listener' | 'artist' = isArtistMode ? 'artist' : 'listener';
 
   // Refetch profile when dashboard loads so role changes (e.g. admin grant) appear without sign-out
@@ -188,16 +190,40 @@ export default function DashboardLayout({
     }
   }, [loading, user, router, pathname]);
 
+  // Fallback role hint: if profile is delayed/missing, still unlock admin UI for allowlisted admins.
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) {
+      setAdminRoleHint(false);
+      return;
+    }
+    if (profile?.role === 'admin') {
+      setAdminRoleHint(true);
+      return;
+    }
+    usersApi
+      .checkAdmin()
+      .then((res) => {
+        if (!cancelled) setAdminRoleHint(!!res.data?.isAdmin);
+      })
+      .catch(() => {
+        if (!cancelled) setAdminRoleHint(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user, profile?.role]);
+
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { theme, setTheme } = useTheme();
 
   // Set role cookie for middleware (auth guard on /artist/* and /job-board)
   useEffect(() => {
-    if (typeof document === 'undefined' || !profile?.role) return;
-    const role = profile.role.toLowerCase();
+    if (typeof document === 'undefined' || !effectiveRole) return;
+    const role = effectiveRole.toLowerCase();
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
-  }, [profile?.role]);
+  }, [effectiveRole]);
 
   useEffect(() => {
     if (user && profile) {
@@ -366,7 +392,7 @@ export default function DashboardLayout({
                 </SidebarMenuItem>
               </Collapsible>
 
-              {profile?.role === 'admin' && (
+              {effectiveRole === 'admin' && (
                 <Collapsible defaultOpen={isAdminPath} className="group/collapsible">
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
@@ -406,7 +432,7 @@ export default function DashboardLayout({
         <SidebarFooter className="pb-20 md:pb-2">
           <div className="p-2">
             <p className="text-sm text-foreground truncate px-2">{profile?.displayName || user.email}</p>
-            <p className="text-xs text-muted-foreground capitalize px-2">{profile?.role || 'Loading...'}</p>
+            <p className="text-xs text-muted-foreground capitalize px-2">{effectiveRole || 'Loading...'}</p>
           </div>
           <SidebarMenu>
             <SidebarMenuItem>

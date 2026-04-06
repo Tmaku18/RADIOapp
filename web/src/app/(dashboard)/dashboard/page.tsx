@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
-import { analyticsApi, prospectorApi } from '@/lib/api';
+import { analyticsApi, prospectorApi, usersApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
@@ -94,11 +94,31 @@ const ROLE_HOME: Record<
 
 export default function DashboardPage() {
   const { profile } = useAuth();
+  const [adminRoleHint, setAdminRoleHint] = useState(false);
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (profile?.role === 'admin') {
+      setAdminRoleHint(true);
+      return;
+    }
+    usersApi
+      .checkAdmin()
+      .then((res) => {
+        if (!cancelled) setAdminRoleHint(!!res.data?.isAdmin);
+      })
+      .catch(() => {
+        if (!cancelled) setAdminRoleHint(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.role]);
+
   // Single user type: non-admin users see full-access (artist) home; admin/catalyst keep their own
-  const role = (profile?.role ?? 'artist') as Role;
+  const role = (profile?.role ?? (adminRoleHint ? 'admin' : 'artist')) as Role;
   const homeKey = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
   const home = ROLE_HOME[homeKey] ?? ROLE_HOME.artist;
   const hasArtistStats = role === 'artist' || role === 'service_provider';
