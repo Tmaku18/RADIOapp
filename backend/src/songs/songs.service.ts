@@ -664,12 +664,31 @@ export class SongsService {
         discoverClipEndSeconds,
       ),
     };
+    const removeExplicitFlag = <T extends Record<string, unknown>>(
+      payload: T,
+    ) => {
+      const { is_explicit, ...rest } = payload;
+      return rest;
+    };
+    let explicitColumnMissing = false;
 
     let insertRes = await supabase
       .from('songs')
       .insert(discoverInsertPayload)
       .select()
       .single();
+
+    if (
+      insertRes.error &&
+      this.isMissingColumnError(insertRes.error, 'is_explicit')
+    ) {
+      explicitColumnMissing = true;
+      insertRes = await supabase
+        .from('songs')
+        .insert(removeExplicitFlag(discoverInsertPayload))
+        .select()
+        .single();
+    }
 
     // Backward-compatible fallback when production DB has not applied Discover migration.
     if (
@@ -683,9 +702,12 @@ export class SongsService {
         'discover_clip_duration_seconds',
       ])
     ) {
+      const discoverFallbackPayload = explicitColumnMissing
+        ? removeExplicitFlag(baseInsertPayload)
+        : baseInsertPayload;
       insertRes = await supabase
         .from('songs')
-        .insert(baseInsertPayload)
+        .insert(discoverFallbackPayload)
         .select()
         .single();
     }
@@ -710,7 +732,9 @@ export class SongsService {
         ],
       )
         ? legacyBaseInsertPayload
-        : legacyDiscoverInsertPayload;
+        : explicitColumnMissing
+          ? removeExplicitFlag(legacyDiscoverInsertPayload)
+          : legacyDiscoverInsertPayload;
       insertRes = await supabase
         .from('songs')
         .insert(payloadWithoutOrigin)

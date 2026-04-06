@@ -119,6 +119,27 @@ export function ArtistPageView({
   const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
   const [likesDialogSongTitle, setLikesDialogSongTitle] = useState('');
 
+  const refreshFollowState = async (targetUserId: string) => {
+    const [followRes, countRes] = await Promise.all([
+      profile?.id && profile.id !== targetUserId
+        ? usersApi.isFollowing(targetUserId)
+        : Promise.resolve({ data: { following: false } }),
+      usersApi.getFollowCounts(targetUserId),
+    ]);
+
+    setFollowing(!!followRes.data?.following);
+    setData((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stats: {
+          ...prev.stats,
+          followerCount: Number(countRes.data?.followers ?? 0),
+        },
+      };
+    });
+  };
+
   useEffect(() => {
     let ignore = false;
     const run = async () => {
@@ -258,16 +279,37 @@ export function ArtistPageView({
   }, [data?.librarySongs, profile?.id]);
 
   useEffect(() => {
-    if (!profile?.id || !data?.artist?.id || profile.id === data.artist.id) return;
+    const targetUserId = data?.artist?.id;
+    if (!targetUserId) return;
     let ignore = false;
-    usersApi
-      .isFollowing(data.artist.id)
-      .then((res) => {
-        if (!ignore) setFollowing(!!res.data?.following);
-      })
-      .catch(() => {
-        if (!ignore) setFollowing(false);
-      });
+
+    (async () => {
+      try {
+        const [followRes, countRes] = await Promise.all([
+          profile?.id && profile.id !== targetUserId
+            ? usersApi.isFollowing(targetUserId)
+            : Promise.resolve({ data: { following: false } }),
+          usersApi.getFollowCounts(targetUserId),
+        ]);
+        if (ignore) return;
+        setFollowing(!!followRes.data?.following);
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            stats: {
+              ...prev.stats,
+              followerCount: Number(countRes.data?.followers ?? prev.stats.followerCount ?? 0),
+            },
+          };
+        });
+      } catch {
+        if (!ignore) {
+          setFollowing(false);
+        }
+      }
+    })();
+
     return () => {
       ignore = true;
     };
@@ -313,6 +355,7 @@ export function ArtistPageView({
 
   const toggleFollow = async () => {
     if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
+    const targetUserId = data.artist.id;
     const nextFollowing = !following;
     setFollowLoading(true);
     setFollowing(nextFollowing);
@@ -331,9 +374,9 @@ export function ArtistPageView({
     });
     try {
       if (nextFollowing) {
-        await usersApi.follow(data.artist.id);
+        await usersApi.follow(targetUserId);
       } else {
-        await usersApi.unfollow(data.artist.id);
+        await usersApi.unfollow(targetUserId);
       }
     } catch (error) {
       console.error('Failed to toggle follow state:', error);
@@ -352,6 +395,11 @@ export function ArtistPageView({
         };
       });
     } finally {
+      try {
+        await refreshFollowState(targetUserId);
+      } catch (refreshError) {
+        console.error('Failed to refresh follow state:', refreshError);
+      }
       setFollowLoading(false);
     }
   };

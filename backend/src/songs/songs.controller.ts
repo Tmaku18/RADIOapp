@@ -955,6 +955,25 @@ export class SongsController {
 
     if (
       updateResult.error &&
+      this.isMissingColumnError(updateResult.error, 'is_explicit')
+    ) {
+      const fallbackWithoutExplicit = { ...updateData };
+      delete fallbackWithoutExplicit.is_explicit;
+      if (Object.keys(fallbackWithoutExplicit).length <= 1) {
+        throw new BadRequestException(
+          'Explicit content flags are not available in this environment yet. Please run the latest database migrations.',
+        );
+      }
+      updateResult = await supabase
+        .from('songs')
+        .update(fallbackWithoutExplicit)
+        .eq('id', songId)
+        .select()
+        .single();
+    }
+
+    if (
+      updateResult.error &&
       this.isMissingAnyDiscoverColumnError(updateResult.error)
     ) {
       const fallbackUpdateData = { ...updateData };
