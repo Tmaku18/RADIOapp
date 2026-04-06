@@ -275,8 +275,8 @@ export class AdminService {
       updateData.rejected_at = null;
       updateData.admin_free_rotation = false;
     } else if (status === 'approved') {
-      // Admin approval now instantly places the song in free rotation.
       updateData.admin_free_rotation = true;
+      this.radioService.clearEmptyStationCache();
     }
 
     // Update the song status
@@ -1235,6 +1235,7 @@ export class AdminService {
       );
     }
 
+    this.radioService.clearEmptyStationCache(radioId);
     return data;
   }
 
@@ -1287,6 +1288,7 @@ export class AdminService {
       );
     }
 
+    this.radioService.clearEmptyStationCache(radioId);
     return data;
   }
 
@@ -1331,6 +1333,7 @@ export class AdminService {
       );
     }
 
+    this.radioService.clearEmptyStationCache(radioId);
     return data;
   }
 

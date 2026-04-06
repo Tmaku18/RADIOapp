@@ -210,6 +210,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly radioIdsCacheTtlMs = 5 * 60 * 1000;
   private consecutiveBackgroundFailures = 0;
   private readonly maxBackgroundBackoffMs = 5 * 60 * 1000;
+  private emptyStations = new Map<string, number>();
+  private readonly emptyStationRecheckMs = 10 * 60 * 1000;
+
+  clearEmptyStationCache(radioId?: string): void {
+    if (radioId) {
+      this.emptyStations.delete(radioId);
+    } else {
+      this.emptyStations.clear();
+    }
+  }
 
   private isMissingStreamTokenColumn(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
@@ -569,10 +579,24 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     let allFailed = true;
     try {
       const radioIds = await this.getBackgroundRadioIds();
+      const now = Date.now();
       for (const radioId of radioIds) {
+        const emptyAt = this.emptyStations.get(radioId);
+        if (emptyAt && now - emptyAt < this.emptyStationRecheckMs) {
+          continue;
+        }
+
         try {
-          await this.getCurrentTrack(radioId);
+          const result = await this.getCurrentTrack(radioId);
           allFailed = false;
+          if (result?.no_content) {
+            this.emptyStations.set(radioId, now);
+            this.logger.log(
+              `Station "${radioId}" has no content, skipping for ${Math.round(this.emptyStationRecheckMs / 60000)}min`,
+            );
+          } else {
+            this.emptyStations.delete(radioId);
+          }
         } catch (e) {
           this.logger.warn(
             `Background rotation failed for radio "${radioId}": ${e?.message ?? e}`,
