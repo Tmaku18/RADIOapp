@@ -377,7 +377,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                           isScrollable: true,
                           tabs: [
                             Tab(text: 'By likes'),
-                            Tab(text: 'By discoveries'),
+                            Tab(text: 'By listens'),
                             Tab(text: 'Positive votes'),
                             Tab(text: 'Best ratio'),
                             Tab(text: 'Most saves'),
@@ -398,7 +398,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                                   final total = s.totalListenCount > 0
                                       ? s.totalListenCount
                                       : (s.playCount + s.profilePlayCount);
-                                  return '$total discoveries';
+                                  return '$total listens';
                                 },
                               ),
                               _LeaderboardList(

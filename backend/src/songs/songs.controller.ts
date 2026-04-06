@@ -803,6 +803,37 @@ export class SongsController {
     const featuredBySongId = await this.getFeaturedArtistsBySongIds(
       songRows.map((song) => song.id as string),
     );
+    const songIds = songRows.map((song) => song.id as string);
+    const listenCountBySongId = new Map<string, number>();
+    if (songIds.length > 0) {
+      const { data: profileListenRows, error: profileListenError } = await supabase
+        .from('song_profile_listens')
+        .select('song_id, user_id')
+        .in('song_id', songIds);
+      if (
+        profileListenError &&
+        !this.isMissingTableError(profileListenError, 'song_profile_listens')
+      ) {
+        throw new Error(
+          `Failed to load song listens: ${profileListenError.message}`,
+        );
+      }
+      if (!profileListenError) {
+        const listenersSetBySongId = new Map<string, Set<string>>();
+        for (const row of (profileListenRows || []) as Array<{
+          song_id: string;
+          user_id: string | null;
+        }>) {
+          if (!row.song_id || !row.user_id) continue;
+          const listeners = listenersSetBySongId.get(row.song_id) ?? new Set<string>();
+          listeners.add(row.user_id);
+          listenersSetBySongId.set(row.song_id, listeners);
+        }
+        for (const [songId, listeners] of listenersSetBySongId.entries()) {
+          listenCountBySongId.set(songId, listeners.size);
+        }
+      }
+    }
 
     return songRows.map((song) => ({
       id: song.id,
@@ -813,6 +844,7 @@ export class SongsController {
       durationSeconds: song.duration_seconds,
       creditsRemaining: song.credits_remaining || 0,
       playCount: song.play_count || 0,
+      listenCount: listenCountBySongId.get(song.id) ?? 0,
       likeCount: song.like_count || 0,
       status: song.status,
       stationId: song.station_id || null,

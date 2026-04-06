@@ -16,6 +16,7 @@ interface TopSong {
   title: string;
   artworkUrl: string | null;
   totalPlays: number;
+  totalListens?: number;
   paidPlays: number;
   freePlays: number;
   creditsUsed: number;
@@ -25,6 +26,7 @@ interface TopSong {
 
 interface ArtistAnalytics {
   totalPlays: number;
+  totalListenCount?: number;
   totalPaidPlays: number;
   totalFreePlays: number;
   totalSongs: number;
@@ -110,8 +112,9 @@ export default function StatsPage() {
   };
 
   const last7Days = analytics?.dailyPlays?.slice(-7) ?? [];
-  const thisWeekPlays = last7Days.reduce((sum, d) => sum + d.plays, 0);
-  const thisMonthPlays = analytics?.dailyPlays?.reduce((sum, d) => sum + d.plays, 0) ?? 0;
+  const thisWeekListens = last7Days.reduce((sum, d) => sum + d.plays, 0);
+  const thisMonthListens = analytics?.dailyPlays?.reduce((sum, d) => sum + d.plays, 0) ?? 0;
+  const totalListens = analytics?.totalListenCount ?? analytics?.totalPlays ?? 0;
   const playsByDayForChart = last7Days.map((d) => {
     const day = new Date(d.date).getDay();
     return { day: DAY_NAMES[day], plays: d.plays };
@@ -139,7 +142,7 @@ export default function StatsPage() {
     <div className="space-y-8">
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground mt-1">Track plays, engagement, and audience growth.</p>
+        <p className="text-muted-foreground mt-1">Track listens, engagement, and audience growth.</p>
       </div>
       {playDetail && (
         <Card className="border-primary/30 bg-primary/5">
@@ -172,8 +175,8 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Discoveries</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPlays ?? 0).toLocaleString()}</div>
+            <div className="text-sm text-muted-foreground font-medium">Total listens</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">All time</div>
           </CardContent>
         </Card>
@@ -181,7 +184,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">This Week</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisWeekPlays.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{thisWeekListens.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Last 7 days</div>
           </CardContent>
         </Card>
@@ -189,7 +192,7 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">This Month</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisMonthPlays.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{thisMonthListens.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Last 30 days</div>
           </CardContent>
         </Card>
@@ -294,7 +297,7 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Discoveries This Week</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-6">Listens This Week</h2>
           <div className="flex items-end justify-between h-48 gap-2 artist-chart-plays">
             {playsByDayForChart.length > 0 ? (
               playsByDayForChart.map((day, i) => (
@@ -305,7 +308,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground text-sm col-span-full">No discoveries in the last 7 days.</p>
+              <p className="text-muted-foreground text-sm col-span-full">No listens in the last 7 days.</p>
             )}
           </div>
         </CardContent>
@@ -352,7 +355,7 @@ export default function StatsPage() {
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {song.totalPlays.toLocaleString()} discoveries · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
+                      {(song.totalListens ?? song.totalPlays).toLocaleString()} listens · {song.paidPlays.toLocaleString()} paid plays · {song.freePlays.toLocaleString()} free plays · {song.likeCount} ripples
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -362,7 +365,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No songs with discoveries yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No songs with listens yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>

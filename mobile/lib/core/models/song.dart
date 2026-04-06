@@ -9,6 +9,7 @@ class Song {
   final int? fileSizeBytes;
   final int creditsRemaining;
   final int playCount;
+  final int? listenCount;
   final int likeCount;
   final int skipCount;
   final String status;
@@ -28,6 +29,7 @@ class Song {
     this.fileSizeBytes,
     required this.creditsRemaining,
     required this.playCount,
+    this.listenCount,
     required this.likeCount,
     required this.skipCount,
     required this.status,
@@ -51,6 +53,7 @@ class Song {
       creditsRemaining:
           (json['credits_remaining'] ?? json['creditsRemaining'] ?? 0) as int,
       playCount: (json['play_count'] ?? json['playCount'] ?? 0) as int,
+      listenCount: (json['listen_count'] ?? json['listenCount']) as int?,
       likeCount: (json['like_count'] ?? json['likeCount'] ?? 0) as int,
       skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
       status: json['status']?.toString() ?? 'pending',
@@ -76,6 +79,7 @@ class Song {
       'file_size_bytes': fileSizeBytes,
       'credits_remaining': creditsRemaining,
       'play_count': playCount,
+      'listen_count': listenCount,
       'like_count': likeCount,
       'skip_count': skipCount,
       'status': status,

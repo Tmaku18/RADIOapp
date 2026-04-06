@@ -11,6 +11,7 @@ interface SongAnalytics {
   title: string;
   artworkUrl: string | null;
   totalPlays: number;
+  totalListens: number;
   paidPlays: number;
   freePlays: number;
   creditsUsed: number;
@@ -39,6 +40,7 @@ export interface DiscoverSwipeAnalytics {
 
 export interface ArtistAnalytics {
   totalPlays: number;
+  totalListenCount: number;
   totalPaidPlays: number;
   totalFreePlays: number;
   totalSongs: number;
@@ -371,6 +373,7 @@ export class AnalyticsService {
     if (!songs || songs.length === 0) {
       return {
         totalPlays: 0,
+        totalListenCount: 0,
         totalPaidPlays: 0,
         totalFreePlays: 0,
         totalSongs: 0,
@@ -384,6 +387,40 @@ export class AnalyticsService {
     }
 
     const songIds = songs.map((s) => s.id);
+    let profileListenRows: Array<{ song_id: string; user_id: string | null }> = [];
+    const listensRes = await supabase
+      .from('song_profile_listens')
+      .select('song_id, user_id')
+      .in('song_id', songIds);
+    if (
+      listensRes.error &&
+      !this.isMissingTableError(listensRes.error, 'song_profile_listens')
+    ) {
+      throw new Error(
+        `Failed to load profile listens: ${listensRes.error.message}`,
+      );
+    }
+    if (!listensRes.error) {
+      profileListenRows = (listensRes.data || []) as Array<{
+        song_id: string;
+        user_id: string | null;
+      }>;
+    }
+    const listenerSetsBySongId = new Map<string, Set<string>>();
+    for (const row of profileListenRows) {
+      if (!row?.song_id || !row?.user_id) continue;
+      const listeners = listenerSetsBySongId.get(row.song_id) ?? new Set<string>();
+      listeners.add(row.user_id);
+      listenerSetsBySongId.set(row.song_id, listeners);
+    }
+    const listenCountBySongId = new Map<string, number>();
+    for (const [songId, listeners] of listenerSetsBySongId.entries()) {
+      listenCountBySongId.set(songId, listeners.size);
+    }
+    const totalListenCount = [...listenCountBySongId.values()].reduce(
+      (sum, value) => sum + value,
+      0,
+    );
     const totalPaidPlays = (songs || []).reduce(
       (sum, song) => sum + (song.paid_play_count || 0),
       0,
@@ -429,13 +466,17 @@ export class AnalyticsService {
 
     // Get top songs by play count
     const topSongs: SongAnalytics[] = songs
-      .sort((a, b) => (b.play_count || 0) - (a.play_count || 0))
+      .sort(
+        (a, b) =>
+          (listenCountBySongId.get(b.id) ?? 0) - (listenCountBySongId.get(a.id) ?? 0),
+      )
       .slice(0, 5)
       .map((song) => ({
         songId: song.id,
         title: song.title,
         artworkUrl: song.artwork_url,
         totalPlays: song.play_count || 0,
+        totalListens: listenCountBySongId.get(song.id) ?? 0,
         paidPlays: song.paid_play_count || 0,
         freePlays: Math.max(
           0,
@@ -471,6 +512,7 @@ export class AnalyticsService {
 
     return {
       totalPlays: totalPlays || 0,
+      totalListenCount,
       totalPaidPlays,
       totalFreePlays,
       totalSongs: songs.length,

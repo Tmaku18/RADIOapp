@@ -724,7 +724,7 @@ export default function AdminSongsPage() {
                           />
                         </button>
                         <span className="text-xs text-gray-500">
-                          {song.paid_play_count || 0} plays
+                          {song.paid_play_count || 0} paid plays
                         </span>
                       </div>
                     ) : (

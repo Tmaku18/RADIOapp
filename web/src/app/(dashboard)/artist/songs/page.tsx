@@ -33,6 +33,7 @@ interface Song {
   durationSeconds?: number;
   creditsRemaining: number;
   playCount: number;
+  listenCount?: number;
   likeCount: number;
   status: 'pending' | 'approved' | 'rejected';
   stationId?: string;
@@ -670,7 +671,7 @@ export default function MySongsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm text-foreground">{song.playCount} plays</div>
+                    <div className="text-sm text-foreground">{song.listenCount ?? song.playCount} listens</div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">{song.likeCount} likes</span>
                       <button

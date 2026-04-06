@@ -855,6 +855,38 @@ export class AdminService {
     }
 
     const songList = songs || [];
+    const songIds = songList.map((song) => song.id as string);
+    const listenCountBySongId = new Map<string, number>();
+    if (songIds.length > 0) {
+      const { data: listens, error: listensError } = await supabase
+        .from('song_profile_listens')
+        .select('song_id, user_id')
+        .in('song_id', songIds);
+      if (listensError && !this.isMissingRelationError(listensError)) {
+        throw new BadRequestException(
+          `Failed to load user listen counts: ${listensError.message}`,
+        );
+      }
+      if (!listensError) {
+        const listenersBySongId = new Map<string, Set<string>>();
+        for (const row of (listens || []) as Array<{
+          song_id: string;
+          user_id: string | null;
+        }>) {
+          if (!row.song_id || !row.user_id) continue;
+          const listeners = listenersBySongId.get(row.song_id) ?? new Set<string>();
+          listeners.add(row.user_id);
+          listenersBySongId.set(row.song_id, listeners);
+        }
+        for (const [songId, listeners] of listenersBySongId.entries()) {
+          listenCountBySongId.set(songId, listeners.size);
+        }
+      }
+    }
+    const songsWithListenCounts = songList.map((song) => ({
+      ...song,
+      listen_count: listenCountBySongId.get(song.id) ?? 0,
+    }));
     const totalLikes = songList.reduce(
       (sum, song) => sum + (song.like_count || 0),
       0,
@@ -863,12 +895,17 @@ export class AdminService {
       (sum, song) => sum + (song.play_count || 0),
       0,
     );
+    const totalListenCount = songsWithListenCounts.reduce(
+      (sum, song) => sum + (song.listen_count || 0),
+      0,
+    );
 
     return {
       user: data,
-      songs: songList,
+      songs: songsWithListenCounts,
       totalLikes,
       totalPlays,
+      totalListenCount,
     };
   }
 
@@ -1385,6 +1422,15 @@ export class AdminService {
       );
     }
 
+    const { count: totalListenCount, error: listenCountError } = await supabase
+      .from('song_profile_listens')
+      .select('song_id', { count: 'exact', head: true });
+    if (listenCountError && !this.isMissingRelationError(listenCountError)) {
+      throw new BadRequestException(
+        `Failed to fetch listen analytics: ${listenCountError.message}`,
+      );
+    }
+
     // Get total likes
     const { count: totalLikes, error: likesError } = await supabase
       .from('likes')
@@ -1404,6 +1450,7 @@ export class AdminService {
       pendingSongs: pendingSongs || 0,
       approvedSongs: approvedSongs || 0,
       totalPlays: totalPlays || 0,
+      totalListenCount: totalListenCount || 0,
       totalLikes: totalLikes || 0,
     };
   }

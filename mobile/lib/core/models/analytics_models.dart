@@ -17,6 +17,7 @@ class TopSong {
   final String title;
   final String? artworkUrl;
   final int totalPlays;
+  final int totalListens;
   final int paidPlays;
   final int freePlays;
   final int creditsUsed;
@@ -28,6 +29,7 @@ class TopSong {
     required this.title,
     required this.artworkUrl,
     required this.totalPlays,
+    required this.totalListens,
     required this.paidPlays,
     required this.freePlays,
     required this.creditsUsed,
@@ -42,6 +44,7 @@ class TopSong {
       title: (json['title'] ?? '').toString(),
       artworkUrl: (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
+      totalListens: toInt(json['totalListens'] ?? json['total_listens']),
       paidPlays: toInt(json['paidPlays'] ?? json['paid_plays']),
       freePlays: toInt(json['freePlays'] ?? json['free_plays']),
       creditsUsed: toInt(json['creditsUsed'] ?? json['credits_used']),
@@ -54,6 +57,7 @@ class TopSong {
 
 class ArtistAnalytics {
   final int totalPlays;
+  final int totalListenCount;
   final int totalPaidPlays;
   final int totalFreePlays;
   final int totalSongs;
@@ -65,6 +69,7 @@ class ArtistAnalytics {
 
   ArtistAnalytics({
     required this.totalPlays,
+    required this.totalListenCount,
     required this.totalPaidPlays,
     required this.totalFreePlays,
     required this.totalSongs,
@@ -81,6 +86,8 @@ class ArtistAnalytics {
     final ts = (json['topSongs'] ?? json['top_songs']) as List? ?? const [];
     return ArtistAnalytics(
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
+      totalListenCount:
+          toInt(json['totalListenCount'] ?? json['total_listen_count']),
       totalPaidPlays:
           toInt(json['totalPaidPlays'] ?? json['total_paid_plays']),
       totalFreePlays:

@@ -18,6 +18,7 @@ interface DashboardStats {
   };
   artist?: {
     totalPlays: number;
+    totalListenCount?: number;
     totalSongs: number;
     totalLikes: number;
   };
@@ -55,7 +56,7 @@ const ROLE_HOME: Record<
     actions: [
       { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
       { href: '/artist/songs', icon: '🎵', title: 'My Songs', desc: 'Manage your songs.' },
-      { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track plays, engagement, and growth.' },
+      { href: '/artist/stats', icon: '📈', title: 'Analytics', desc: 'Track listens, engagement, and growth.' },
       { href: '/listen', icon: '🎧', title: 'Listen', desc: 'Tune in to the radio.' },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule and manage live events.' },
       { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Find and offer creative services.', external: true },
@@ -130,11 +131,13 @@ export default function DashboardPage() {
           const artistAnalyticsResponse = await analyticsApi.getMyAnalytics(30);
           const artist = artistAnalyticsResponse.data as {
             totalPlays?: number;
+            totalListenCount?: number;
             totalSongs?: number;
             totalLikes?: number;
           };
           next.artist = {
             totalPlays: artist.totalPlays ?? 0,
+            totalListenCount: artist.totalListenCount ?? artist.totalPlays ?? 0,
             totalSongs: artist.totalSongs ?? 0,
             totalLikes: artist.totalLikes ?? 0,
           };
@@ -270,8 +273,8 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Your Plays</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalPlays ?? 0}</div>
+                  <div className="text-sm text-muted-foreground font-medium">Your Listens</div>
+                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalListenCount ?? stats.artist?.totalPlays ?? 0}</div>
                 </div>
                 <div className="bg-muted rounded-xl p-4">
                   <div className="text-sm text-muted-foreground font-medium">Your Songs</div>

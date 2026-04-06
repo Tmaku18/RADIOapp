@@ -15,6 +15,7 @@ interface Analytics {
   totalArtists: number;
   totalSongs: number;
   totalPlays: number;
+  totalListenCount?: number;
   pendingSongs: number;
   approvedSongs: number;
   totalLikes: number;
@@ -142,8 +143,8 @@ export default function AdminDashboardPage() {
           <div className="flex items-center">
             <span className="text-3xl mr-3">▶️</span>
             <div>
-              <div className="text-sm text-muted-foreground">Discoveries</div>
-              <div className="text-2xl font-bold text-foreground">{analytics?.totalPlays?.toLocaleString() || 0}</div>
+              <div className="text-sm text-muted-foreground">Total listens</div>
+              <div className="text-2xl font-bold text-foreground">{(analytics?.totalListenCount ?? analytics?.totalPlays ?? 0).toLocaleString()}</div>
             </div>
           </div>
           </CardContent>

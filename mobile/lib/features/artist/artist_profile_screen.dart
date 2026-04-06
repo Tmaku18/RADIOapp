@@ -640,7 +640,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  '${s.likeCount} likes · ${s.playCount} plays',
+                                  '${s.likeCount} likes · ${s.listenCount ?? s.playCount} listens',
                                   style: TextStyle(
                                     color: surfaces.textMuted,
                                     fontSize: 12,

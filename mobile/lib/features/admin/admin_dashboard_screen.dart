@@ -323,6 +323,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             SizedBox(width: 220, child: _metricTile('Total Users', _analytics['totalUsers'], Icons.people_alt_outlined)),
             SizedBox(width: 220, child: _metricTile('Total Artists', _analytics['totalArtists'], Icons.mic_outlined)),
             SizedBox(width: 220, child: _metricTile('Total Songs', _analytics['totalSongs'], Icons.music_note_outlined)),
+            SizedBox(width: 220, child: _metricTile('Total listens', _analytics['totalListenCount'] ?? _analytics['totalPlays'], Icons.hearing_outlined)),
             SizedBox(width: 220, child: _metricTile('Pending Songs', _analytics['pendingSongs'], Icons.hourglass_top_outlined)),
           ],
         ),

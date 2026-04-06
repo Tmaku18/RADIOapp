@@ -269,7 +269,7 @@ export default function CompetitionPage() {
           <Tabs defaultValue="likes" className="w-full">
             <TabsList className="grid w-full max-w-5xl grid-cols-6">
               <TabsTrigger value="likes">By Likes</TabsTrigger>
-              <TabsTrigger value="listens">By Plays</TabsTrigger>
+              <TabsTrigger value="listens">By Listens</TabsTrigger>
               <TabsTrigger value="positive_votes">Positive Votes</TabsTrigger>
               <TabsTrigger value="ratio">Best Ratio</TabsTrigger>
               <TabsTrigger value="saves">Most Saves</TabsTrigger>
@@ -291,7 +291,7 @@ export default function CompetitionPage() {
                         </Link>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} radio plays</span>}
+                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} radio listens</span>}
                         <Badge variant="secondary">{s.likeCount ?? 0} likes</Badge>
                       </div>
                     </li>
@@ -316,7 +316,7 @@ export default function CompetitionPage() {
                         </Link>
                       </div>
                       <Badge variant="secondary">
-                        {s.totalListenCount ?? ((s.playCount ?? 0) + (s.profilePlayCount ?? 0))} plays
+                        {s.totalListenCount ?? ((s.playCount ?? 0) + (s.profilePlayCount ?? 0))} listens
                       </Badge>
                     </li>
                   ))}

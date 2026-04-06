@@ -26,12 +26,14 @@ interface UserProfile {
     artist_name: string;
     status: string;
     play_count: number;
+    listen_count?: number;
     like_count: number;
     artwork_url: string | null;
     created_at: string;
   }>;
   totalLikes: number;
   totalPlays: number;
+  totalListenCount?: number;
 }
 
 export default function AdminUserProfilePage() {
@@ -89,7 +91,7 @@ export default function AdminUserProfilePage() {
     );
   }
 
-  const { user, songs, totalLikes, totalPlays } = profile;
+  const { user, songs, totalLikes, totalPlays, totalListenCount } = profile;
   const userDisplayName = user.display_name || user.email || 'Unknown user';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
 
@@ -144,8 +146,8 @@ export default function AdminUserProfilePage() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Discoveries</p>
-              <p className="text-2xl font-semibold text-foreground">{totalPlays}</p>
+              <p className="text-sm text-muted-foreground">Total listens</p>
+              <p className="text-2xl font-semibold text-foreground">{totalListenCount ?? totalPlays}</p>
             </CardContent>
           </Card>
         </div>
@@ -163,7 +165,7 @@ export default function AdminUserProfilePage() {
                   <TableHead className="w-12" />
                   <TableHead>Title</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Discoveries</TableHead>
+                  <TableHead className="text-right">Listens</TableHead>
                   <TableHead className="text-right">Ripples</TableHead>
                   <TableHead>Added</TableHead>
                 </TableRow>
@@ -199,7 +201,7 @@ export default function AdminUserProfilePage() {
                         {song.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">{song.play_count ?? 0}</TableCell>
+                    <TableCell className="text-right">{song.listen_count ?? song.play_count ?? 0}</TableCell>
                     <TableCell className="text-right">{song.like_count ?? 0}</TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {new Date(song.created_at).toLocaleDateString()}
