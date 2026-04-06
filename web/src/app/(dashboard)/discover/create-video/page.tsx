@@ -131,6 +131,44 @@ export default function CreateDiscoverFeedVideoPage() {
     };
   }, [recordedUrl]);
 
+  const clearRecordedPreview = () => {
+    if (recordedUrl) {
+      URL.revokeObjectURL(recordedUrl);
+    }
+    setRecordedUrl(null);
+    setRecordedFile(null);
+    setState('idle');
+  };
+
+  const resetRecorderSession = () => {
+    if (stopTimerRef.current != null) {
+      window.clearTimeout(stopTimerRef.current);
+      stopTimerRef.current = null;
+    }
+    if (recorderRef.current && recorderRef.current.state === 'recording') {
+      recorderRef.current.stop();
+    }
+    recorderRef.current = null;
+    recorderChunksRef.current = [];
+    if (clipAudioElRef.current) {
+      clipAudioElRef.current.pause();
+      clipAudioElRef.current.src = '';
+      clipAudioElRef.current = null;
+    }
+    if (clipAudioSourceRef.current) {
+      clipAudioSourceRef.current.disconnect();
+      clipAudioSourceRef.current = null;
+    }
+    if (mixedAudioDestinationRef.current) {
+      mixedAudioDestinationRef.current.disconnect();
+      mixedAudioDestinationRef.current = null;
+    }
+    if (mixedAudioContextRef.current) {
+      void mixedAudioContextRef.current.close();
+      mixedAudioContextRef.current = null;
+    }
+  };
+
   const ensureCamera = async (): Promise<MediaStream> => {
     if (cameraStreamRef.current) return cameraStreamRef.current;
     const stream = await navigator.mediaDevices.getUserMedia({
@@ -157,6 +195,8 @@ export default function CreateDiscoverFeedVideoPage() {
     setError(null);
     setStarting(true);
     try {
+      resetRecorderSession();
+      clearRecordedPreview();
       const cameraStream = await ensureCamera();
       const audioContext = new AudioContext();
       const destination = audioContext.createMediaStreamDestination();
@@ -251,6 +291,11 @@ export default function CreateDiscoverFeedVideoPage() {
     } finally {
       setStopping(false);
     }
+  };
+
+  const reRecord = async () => {
+    clearRecordedPreview();
+    await startRecording();
   };
 
   const postToFeed = async () => {
@@ -409,9 +454,18 @@ export default function CreateDiscoverFeedVideoPage() {
               preload="metadata"
               className="w-full rounded-lg border"
             />
-            <Button onClick={() => void postToFeed()} disabled={posting || !canPostToFeed}>
-              {posting ? 'Posting...' : 'Post to full feed'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={() => void reRecord()}
+                disabled={posting || !canPostToFeed}
+              >
+                Re-record
+              </Button>
+              <Button onClick={() => void postToFeed()} disabled={posting || !canPostToFeed}>
+                {posting ? 'Posting...' : 'Post to full feed'}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}
