@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
@@ -25,7 +25,21 @@ type RisingStarStationEvent = {
 export default function ListenPage() {
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
-  const resolvedStationId = stationId || 'us-rap';
+  const resolvedStationId = useMemo(() => {
+    const fallback = 'us-rap';
+    if (!stationId) return fallback;
+    const trimmed = stationId.trim().toLowerCase();
+    if (!trimmed) return fallback;
+
+    // Accept legacy / malformed station query values like "us hip hop".
+    const normalized = trimmed
+      .replace(/[\s_]+/g, '-')
+      .replace(/-+/g, '-');
+
+    if (getStationById(normalized)) return normalized;
+    if (getStationById(trimmed)) return trimmed;
+    return fallback;
+  }, [stationId]);
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
   const [showChat, setShowChat] = useState(false);
