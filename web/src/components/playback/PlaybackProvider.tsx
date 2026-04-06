@@ -70,6 +70,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const hlsRef = useRef<Hls | null>(null);
   const onRadioTrackEndedRef = useRef<(() => void) | null>(null);
   const sourceRef = useRef<PlaybackSource>(null);
+  const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   /** One recovery attempt for same track before advancing on media error (avoid skip cascade). */
   const hasRetriedAfterErrorRef = useRef(false);
   const lastSyncSeekAtRef = useRef(0);
@@ -104,9 +105,35 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     };
     const onPlay = () => setState((s) => ({ ...s, isPlaying: true }));
     const onPause = () => setState((s) => ({ ...s, isPlaying: false }));
-    const onLoadStart = () => setState((s) => ({ ...s, isLoading: true }));
-    const onCanPlay = () => setState((s) => ({ ...s, isLoading: false }));
+    const clearLoadTimeout = () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+    };
+    const onLoadStart = () => {
+      clearLoadTimeout();
+      setState((s) => ({ ...s, isLoading: true }));
+      // Some browsers/network failures never emit canplay or error reliably.
+      // If a radio source is still loading after 12s, fail fast and advance.
+      loadTimeoutRef.current = setTimeout(() => {
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          error:
+            s.error ?? 'Audio is taking too long to load. Skipping to next track…',
+        }));
+        if (sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
+          onRadioTrackEndedRef.current();
+        }
+      }, 12000);
+    };
+    const onCanPlay = () => {
+      clearLoadTimeout();
+      setState((s) => ({ ...s, isLoading: false }));
+    };
     const onError = () => {
+      clearLoadTimeout();
       const mediaError = audio.error;
       const isUnsupported =
         mediaError?.code === 4 || mediaError?.message?.includes('supported source');
@@ -143,6 +170,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     audio.addEventListener('ended', onEnded);
 
     return () => {
+      clearLoadTimeout();
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('durationchange', onDurationChange);
       audio.removeEventListener('play', onPlay);
@@ -164,6 +192,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const loadTrack = useCallback((track: PlaybackTrack, source: PlaybackSource) => {
     const audio = audioRef.current;
     if (!audio) return;
+
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+      loadTimeoutRef.current = null;
+    }
 
     hasRetriedAfterErrorRef.current = false;
 
