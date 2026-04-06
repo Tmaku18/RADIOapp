@@ -126,19 +126,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (firebaseUser) {
         try {
-          const idToken = await firebaseUser.getIdToken();
-          try {
-            await createSessionCookie(idToken);
-          } catch (sessionErr) {
-            // Session cookie helps SSR/middleware, but should not block client login.
-            console.warn('Session cookie creation failed on auth change:', sessionErr);
-          }
-        } catch (tokenErr) {
-          console.error('Failed to fetch Firebase ID token:', tokenErr);
-          setLoading(false);
-          return;
-        }
-        try {
           const response = await withTimeout(usersApi.getMe());
           if (response.data) {
             setProfile(response.data);
