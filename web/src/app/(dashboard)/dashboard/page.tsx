@@ -118,7 +118,7 @@ export default function DashboardPage() {
   }, [profile?.role]);
 
   // Single user type: non-admin users see full-access (artist) home; admin/catalyst keep their own
-  const role = (profile?.role ?? (adminRoleHint ? 'admin' : 'artist')) as Role;
+  const role = (profile?.role ?? (adminRoleHint ? 'admin' : 'listener')) as Role;
   const homeKey = role === 'admin' ? 'admin' : role === 'service_provider' ? 'service_provider' : 'artist';
   const home = ROLE_HOME[homeKey] ?? ROLE_HOME.artist;
   const hasArtistStats = role === 'artist' || role === 'service_provider';

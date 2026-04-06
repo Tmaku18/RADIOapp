@@ -161,6 +161,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [createDefaultProfile, withTimeout]);
 
+  // Background reconciliation: if auth exists but profile is missing, keep retrying.
+  // This prevents users getting stuck in unresolved "Loading..." role states.
+  useEffect(() => {
+    if (!user || loading || profile) return;
+    let cancelled = false;
+    const interval = setInterval(async () => {
+      if (cancelled) return;
+      try {
+        await fetchProfile();
+      } catch {
+        // Best-effort; keep retrying in the background.
+      }
+    }, 10000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [user, profile, loading, fetchProfile]);
+
   const handleSignInWithGoogle = async () => {
     setError(null);
     setLoading(true);
