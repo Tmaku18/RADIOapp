@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../features/about/about_screen.dart';
+import '../../features/admin/admin_dashboard_screen.dart';
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/apply/apply_screen.dart';
 import '../../features/artist/artist_profile_screen.dart';
@@ -30,6 +31,7 @@ import '../../features/yield/yield_screen.dart';
 import '../../widgets/home_screen.dart';
 import '../../widgets/login_screen.dart';
 import '../../widgets/require_artist.dart';
+import '../../widgets/require_admin.dart';
 import '../../widgets/require_gem_capability.dart';
 import '../models/job_board_models.dart';
 import '../models/song.dart';
@@ -121,6 +123,11 @@ class AppRouter {
       case AppRoutes.liveServices:
         return _route(
           const RequireGemCapability(child: LiveServicesScreen()),
+          settings,
+        );
+      case AppRoutes.adminDashboard:
+        return _route(
+          const RequireAdmin(child: AdminDashboardScreen()),
           settings,
         );
       default:

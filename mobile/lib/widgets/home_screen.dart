@@ -56,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Determine which navigation items to show based on user role
     final isArtist = _user?.role == 'artist';
     final isStreamerRole = _user?.role == 'artist' || _user?.role == 'service_provider';
+    final isAdmin = _user?.role == 'admin';
 
     final List<NavigationDestination> destinations = isArtist
         ? const [
@@ -256,6 +257,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, AppRoutes.settings);
                   },
                 ),
+                if (isAdmin)
+                  ListTile(
+                    leading: const Icon(Icons.admin_panel_settings_outlined),
+                    title: const Text('Admin Dashboard'),
+                    subtitle: const Text('Full in-app admin controls'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.adminDashboard);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('About Networx'),

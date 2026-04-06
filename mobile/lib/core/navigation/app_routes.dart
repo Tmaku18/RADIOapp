@@ -31,4 +31,5 @@ class AppRoutes {
   static const artistProfile = '/artist-profile';
   static const buyPlays = '/buy-plays';
   static const liveServices = '/live-services';
+  static const adminDashboard = '/admin';
 }

@@ -6,6 +6,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:provider/provider.dart';
 import 'package:audio_service/audio_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
@@ -246,6 +247,39 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     if (diff.inDays < 7) return '${diff.inDays}d ago';
     return '${local.month}/${local.day}/${local.year}';
+  }
+
+  Future<void> _openExternalUrl(String rawUrl) async {
+    final raw = rawUrl.trim();
+    if (raw.isEmpty) return;
+    final uri = Uri.tryParse(raw.startsWith('http') ? raw : 'https://$raw');
+    if (uri == null || !await canLaunchUrl(uri)) return;
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  List<Widget> _buildSocialLinks(app_user.User? artist) {
+    if (artist == null) return const [];
+    final links = <({String label, String? value})>[
+      (label: 'Instagram', value: artist.instagramUrl),
+      (label: 'X', value: artist.twitterUrl),
+      (label: 'TikTok', value: artist.tiktokUrl),
+      (label: 'YouTube', value: artist.youtubeUrl),
+      (label: 'SoundCloud', value: artist.soundcloudUrl),
+      (label: 'Spotify', value: artist.spotifyUrl),
+      (label: 'Apple Music', value: artist.appleMusicUrl),
+      (label: 'Facebook', value: artist.facebookUrl),
+      (label: 'Snapchat', value: artist.snapchatUrl),
+      (label: 'Website', value: artist.websiteUrl),
+    ].where((e) => (e.value ?? '').trim().isNotEmpty).toList();
+
+    return links
+        .map(
+          (link) => TextButton(
+            onPressed: () => _openExternalUrl(link.value!),
+            child: Text(link.label),
+          ),
+        )
+        .toList();
   }
 
   Future<void> _showLikesSheet(Song song) async {
@@ -534,6 +568,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                   style: TextStyle(color: surfaces.textSecondary),
                 ),
               ],
+              ...(() {
+                final socialLinks = _buildSocialLinks(a);
+                if (socialLinks.isEmpty) return <Widget>[];
+                return <Widget>[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 2,
+                    children: socialLinks,
+                  ),
+                ];
+              })(),
               const SizedBox(height: 16),
               Text(
                 'Songs',

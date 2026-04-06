@@ -144,6 +144,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final bioCtrl = TextEditingController(text: user.bio ?? '');
     final locationCtrl = TextEditingController(text: user.locationRegion ?? '');
     final instagramCtrl = TextEditingController(text: user.instagramUrl ?? '');
+    final twitterCtrl = TextEditingController(text: user.twitterUrl ?? '');
+    final tiktokCtrl = TextEditingController(text: user.tiktokUrl ?? '');
+    final youtubeCtrl = TextEditingController(text: user.youtubeUrl ?? '');
+    final websiteCtrl = TextEditingController(text: user.websiteUrl ?? '');
+    final soundcloudCtrl = TextEditingController(text: user.soundcloudUrl ?? '');
+    final spotifyCtrl = TextEditingController(text: user.spotifyUrl ?? '');
+    final appleMusicCtrl = TextEditingController(text: user.appleMusicUrl ?? '');
+    final facebookCtrl = TextEditingController(text: user.facebookUrl ?? '');
+    final snapchatCtrl = TextEditingController(text: user.snapchatUrl ?? '');
     bool saving = false;
 
     await showModalBottomSheet<void>(
@@ -163,6 +172,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   headline: headlineCtrl.text.trim(),
                   bio: bioCtrl.text.trim(),
                   locationRegion: locationCtrl.text.trim(),
+                  instagramUrl: instagramCtrl.text.trim(),
+                  twitterUrl: twitterCtrl.text.trim(),
+                  tiktokUrl: tiktokCtrl.text.trim(),
+                  youtubeUrl: youtubeCtrl.text.trim(),
+                  websiteUrl: websiteCtrl.text.trim(),
+                  soundcloudUrl: soundcloudCtrl.text.trim(),
+                  spotifyUrl: spotifyCtrl.text.trim(),
+                  appleMusicUrl: appleMusicCtrl.text.trim(),
+                  facebookUrl: facebookCtrl.text.trim(),
+                  snapchatUrl: snapchatCtrl.text.trim(),
                 );
                 if (!mounted || !context.mounted) return;
                 Navigator.pop(context);
@@ -239,6 +258,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         keyboardType: TextInputType.url,
                         autocorrect: false,
                       ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: twitterCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'X / Twitter',
+                          hintText: 'https://twitter.com/you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: tiktokCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'TikTok',
+                          hintText: 'https://www.tiktok.com/@you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: youtubeCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'YouTube',
+                          hintText: 'https://www.youtube.com/@you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: soundcloudCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'SoundCloud',
+                          hintText: 'https://soundcloud.com/you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: spotifyCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Spotify',
+                          hintText: 'https://open.spotify.com/artist/...',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: appleMusicCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Apple Music',
+                          hintText: 'https://music.apple.com/...',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: facebookCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Facebook',
+                          hintText: 'https://facebook.com/you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: snapchatCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Snapchat',
+                          hintText: 'https://www.snapchat.com/add/you',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: websiteCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Website',
+                          hintText: 'https://your-site.com',
+                        ),
+                        keyboardType: TextInputType.url,
+                        autocorrect: false,
+                      ),
                       const SizedBox(height: 14),
                       Row(
                         children: [
@@ -274,6 +383,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+  }
+
+  Future<void> _openExternalUrl(String rawUrl) async {
+    final raw = rawUrl.trim();
+    if (raw.isEmpty) return;
+    final uri = Uri.tryParse(raw.startsWith('http') ? raw : 'https://$raw');
+    if (uri == null || !await canLaunchUrl(uri)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
+      return;
+    }
+    await launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  List<Widget> _buildSocialLinkButtons(app_user.User user) {
+    final links = <({String label, IconData icon, String? value})>[
+      (label: 'Instagram', icon: Icons.camera_alt_outlined, value: user.instagramUrl),
+      (label: 'X', icon: Icons.alternate_email_outlined, value: user.twitterUrl),
+      (label: 'TikTok', icon: Icons.music_video_outlined, value: user.tiktokUrl),
+      (label: 'YouTube', icon: Icons.ondemand_video_outlined, value: user.youtubeUrl),
+      (label: 'SoundCloud', icon: Icons.graphic_eq_outlined, value: user.soundcloudUrl),
+      (label: 'Spotify', icon: Icons.album_outlined, value: user.spotifyUrl),
+      (label: 'Apple Music', icon: Icons.library_music_outlined, value: user.appleMusicUrl),
+      (label: 'Facebook', icon: Icons.groups_outlined, value: user.facebookUrl),
+      (label: 'Snapchat', icon: Icons.chat_bubble_outline, value: user.snapchatUrl),
+      (label: 'Website', icon: Icons.language_outlined, value: user.websiteUrl),
+    ];
+
+    return links
+        .where((s) => (s.value ?? '').trim().isNotEmpty)
+        .map(
+          (social) => TextButton.icon(
+            onPressed: () => _openExternalUrl(social.value!),
+            icon: Icon(social.icon, size: 18),
+            label: Text(social.label),
+          ),
+        )
+        .toList();
   }
 
   Future<void> _openFollowList({required bool followers}) async {
@@ -510,33 +659,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: Theme.of(context).textTheme.bodyMedium,
                       ),
                     ],
-                    if ((_user!.instagramUrl ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: () async {
-                            final raw = _user!.instagramUrl!.trim();
-                            final uri = Uri.tryParse(
-                              raw.startsWith('http') ? raw : 'https://$raw',
-                            );
-                            if (uri != null && await canLaunchUrl(uri)) {
-                              await launchUrl(
-                                uri,
-                                mode: LaunchMode.externalApplication,
-                              );
-                            } else if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Could not open Instagram link.'),
-                                ),
-                              );
-                            }
-                          },
-                          icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                          label: const Text('Instagram'),
+                    ...(() {
+                      final socialButtons = _buildSocialLinkButtons(_user!);
+                      if (socialButtons.isEmpty) return <Widget>[];
+                      return <Widget>[
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Wrap(
+                            spacing: 8,
+                            runSpacing: 2,
+                            alignment: WrapAlignment.center,
+                            children: socialButtons,
+                          ),
                         ),
-                      ),
-                    ],
+                      ];
+                    })(),
                     const SizedBox(height: 10),
                     Card(
                       child: Padding(

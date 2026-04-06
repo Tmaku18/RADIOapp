@@ -13,6 +13,11 @@ class User {
   final String? youtubeUrl;
   final String? tiktokUrl;
   final String? websiteUrl;
+  final String? soundcloudUrl;
+  final String? spotifyUrl;
+  final String? appleMusicUrl;
+  final String? facebookUrl;
+  final String? snapchatUrl;
   final bool discoverable;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -32,6 +37,11 @@ class User {
     this.youtubeUrl,
     this.tiktokUrl,
     this.websiteUrl,
+    this.soundcloudUrl,
+    this.spotifyUrl,
+    this.appleMusicUrl,
+    this.facebookUrl,
+    this.snapchatUrl,
     this.discoverable = true,
     required this.createdAt,
     required this.updatedAt,
@@ -72,6 +82,13 @@ class User {
       youtubeUrl: (json['youtube_url'] ?? json['youtubeUrl'])?.toString(),
       tiktokUrl: (json['tiktok_url'] ?? json['tiktokUrl'])?.toString(),
       websiteUrl: (json['website_url'] ?? json['websiteUrl'])?.toString(),
+      soundcloudUrl:
+          (json['soundcloud_url'] ?? json['soundcloudUrl'])?.toString(),
+      spotifyUrl: (json['spotify_url'] ?? json['spotifyUrl'])?.toString(),
+      appleMusicUrl:
+          (json['apple_music_url'] ?? json['appleMusicUrl'])?.toString(),
+      facebookUrl: (json['facebook_url'] ?? json['facebookUrl'])?.toString(),
+      snapchatUrl: (json['snapchat_url'] ?? json['snapchatUrl'])?.toString(),
       discoverable: (json['discoverable'] ?? true) == true,
       createdAt: dt(json['created_at'] ?? json['createdAt']),
       updatedAt: dt(json['updated_at'] ?? json['updatedAt']),
@@ -94,6 +111,11 @@ class User {
       'youtubeUrl': youtubeUrl,
       'tiktokUrl': tiktokUrl,
       'websiteUrl': websiteUrl,
+      'soundcloudUrl': soundcloudUrl,
+      'spotifyUrl': spotifyUrl,
+      'appleMusicUrl': appleMusicUrl,
+      'facebookUrl': facebookUrl,
+      'snapchatUrl': snapchatUrl,
       'discoverable': discoverable,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),

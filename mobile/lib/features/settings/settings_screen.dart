@@ -502,12 +502,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.admin_panel_settings_outlined,
                       title: 'Admin tools',
                       subtitle: 'Manage content and users',
-                      onTap: () {
-                        // Could push an admin screen if available
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Open from web for full admin tools')),
-                        );
-                      },
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.adminDashboard),
                     ),
                   ]),
 

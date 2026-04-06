@@ -27,6 +27,11 @@ class UsersService {
     String? youtubeUrl,
     String? tiktokUrl,
     String? websiteUrl,
+    String? soundcloudUrl,
+    String? spotifyUrl,
+    String? appleMusicUrl,
+    String? facebookUrl,
+    String? snapchatUrl,
     String? role,
   }) async {
     final res = await _api.put('users/me', {
@@ -43,6 +48,11 @@ class UsersService {
       if (youtubeUrl != null) 'youtubeUrl': youtubeUrl,
       if (tiktokUrl != null) 'tiktokUrl': tiktokUrl,
       if (websiteUrl != null) 'websiteUrl': websiteUrl,
+      if (soundcloudUrl != null) 'soundcloudUrl': soundcloudUrl,
+      if (spotifyUrl != null) 'spotifyUrl': spotifyUrl,
+      if (appleMusicUrl != null) 'appleMusicUrl': appleMusicUrl,
+      if (facebookUrl != null) 'facebookUrl': facebookUrl,
+      if (snapchatUrl != null) 'snapchatUrl': snapchatUrl,
       if (role != null) 'role': role,
     });
     if (res is Map<String, dynamic>) return res;
