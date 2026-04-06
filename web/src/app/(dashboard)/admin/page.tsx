@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
           return;
         }
         // When profile is still unresolved, do not prematurely redirect.
-        if (profile && profile.role !== 'admin') {
+        if (profile) {
           router.push('/dashboard');
           return;
         }
