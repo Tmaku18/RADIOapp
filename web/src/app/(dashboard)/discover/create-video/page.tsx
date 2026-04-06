@@ -71,6 +71,8 @@ export default function CreateDiscoverFeedVideoPage() {
   const [caption, setCaption] = useState(initialCaption);
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordedFile, setRecordedFile] = useState<File | null>(null);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [isMirrored, setIsMirrored] = useState(true);
 
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -82,6 +84,7 @@ export default function CreateDiscoverFeedVideoPage() {
   const clipAudioElRef = useRef<HTMLAudioElement | null>(null);
   const clipAudioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const stopTimerRef = useRef<number | null>(null);
+  const recordingIntervalRef = useRef<number | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const canPostToFeed =
@@ -108,6 +111,9 @@ export default function CreateDiscoverFeedVideoPage() {
     return () => {
       if (stopTimerRef.current != null) {
         window.clearTimeout(stopTimerRef.current);
+      }
+      if (recordingIntervalRef.current != null) {
+        window.clearInterval(recordingIntervalRef.current);
       }
       if (recordedUrl) {
         URL.revokeObjectURL(recordedUrl);
@@ -145,6 +151,11 @@ export default function CreateDiscoverFeedVideoPage() {
       window.clearTimeout(stopTimerRef.current);
       stopTimerRef.current = null;
     }
+    if (recordingIntervalRef.current != null) {
+      window.clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    setRecordingSeconds(0);
     if (recorderRef.current && recorderRef.current.state === 'recording') {
       recorderRef.current.stop();
     }
@@ -198,6 +209,10 @@ export default function CreateDiscoverFeedVideoPage() {
       resetRecorderSession();
       clearRecordedPreview();
       const cameraStream = await ensureCamera();
+      if (previewVideoRef.current) {
+        previewVideoRef.current.srcObject = cameraStream;
+        await previewVideoRef.current.play().catch(() => undefined);
+      }
       const audioContext = new AudioContext();
       const destination = audioContext.createMediaStreamDestination();
       mixedAudioContextRef.current = audioContext;
@@ -260,6 +275,10 @@ export default function CreateDiscoverFeedVideoPage() {
       await clipAudio.play();
       recorder.start(250);
       setState('recording');
+      setRecordingSeconds(0);
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingSeconds((prev) => Math.min(MAX_SECONDS, prev + 1));
+      }, 1000);
 
       clipAudio.onended = () => {
         if (recorder.state === 'recording') recorder.stop();
@@ -414,10 +433,26 @@ export default function CreateDiscoverFeedVideoPage() {
               muted
               playsInline
               autoPlay
-              className="h-[420px] w-full object-cover"
+              className={`h-[420px] w-full object-cover ${isMirrored ? '-scale-x-100' : ''}`}
             />
+            <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-3 py-2 text-xs text-white">
+              <span>{state === 'recording' ? 'Recording in progress' : 'Camera preview'}</span>
+              {state === 'recording' && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-white" />
+                  {recordingSeconds}s / {MAX_SECONDS}s
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsMirrored((prev) => !prev)}
+              disabled={starting}
+            >
+              Flip mirror
+            </Button>
             <Button
               onClick={() => void startRecording()}
               disabled={starting || state === 'recording' || !canPostToFeed || !selectedClip?.clipUrl}
