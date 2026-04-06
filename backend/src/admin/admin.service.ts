@@ -833,6 +833,11 @@ export class AdminService {
   ): { id: string; state: string; label: string }[] {
     const radios = [
       { id: 'us-rap', state: 'US', label: 'Up & Coming Rap Radio (National)' },
+      {
+        id: 'us-old-school-rap',
+        state: 'US',
+        label: 'Old School Rap Radio (National)',
+      },
       { id: 'us-rap-clean', state: 'US', label: 'Clean Rap Radio (National)' },
       {
         id: 'us-ready-now-rap',

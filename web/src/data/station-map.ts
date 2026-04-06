@@ -78,6 +78,15 @@ export const TOWERS: Tower[] = [
     lng: -74.006,
   },
   {
+    id: 'us-old-school-rap',
+    state: 'US',
+    city: 'Detroit',
+    genre: 'Old School Rap Radio',
+    genreId: 'rap',
+    lat: 42.3314,
+    lng: -83.0458,
+  },
+  {
     id: 'us-rap-clean',
     state: 'US',
     city: 'Charlotte',
