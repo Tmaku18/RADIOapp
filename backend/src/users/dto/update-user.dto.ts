@@ -12,6 +12,11 @@ import {
 } from 'class-validator';
 import {
   normalizeInstagramUrl,
+  normalizeFacebookUrl,
+  normalizeAppleMusicUrl,
+  normalizeSoundcloudUrl,
+  normalizeSnapchatUrl,
+  normalizeSpotifyUrl,
   normalizeTwitterUrl,
   normalizeTiktokUrl,
   normalizeWebsiteUrl,
@@ -93,6 +98,36 @@ export class UpdateUserDto {
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
   websiteUrl?: string;
+
+  @Transform(({ value }) => normalizeSoundcloudUrl(value))
+  @ValidateIf((o) => o.soundcloudUrl != null && o.soundcloudUrl !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  soundcloudUrl?: string;
+
+  @Transform(({ value }) => normalizeSpotifyUrl(value))
+  @ValidateIf((o) => o.spotifyUrl != null && o.spotifyUrl !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  spotifyUrl?: string;
+
+  @Transform(({ value }) => normalizeAppleMusicUrl(value))
+  @ValidateIf((o) => o.appleMusicUrl != null && o.appleMusicUrl !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  appleMusicUrl?: string;
+
+  @Transform(({ value }) => normalizeFacebookUrl(value))
+  @ValidateIf((o) => o.facebookUrl != null && o.facebookUrl !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  facebookUrl?: string;
+
+  @Transform(({ value }) => normalizeSnapchatUrl(value))
+  @ValidateIf((o) => o.snapchatUrl != null && o.snapchatUrl !== '')
+  @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
+  @IsOptional()
+  snapchatUrl?: string;
 
   /** Artist map latitude for discovery map. */
   @IsNumber()

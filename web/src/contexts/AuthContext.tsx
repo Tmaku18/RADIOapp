@@ -30,6 +30,11 @@ interface UserProfile {
   youtubeUrl?: string | null;
   tiktokUrl?: string | null;
   websiteUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
 }
 
 interface AuthContextType {

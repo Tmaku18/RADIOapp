@@ -46,6 +46,11 @@ type ArtistProfileResponse = {
       youtubeUrl: string | null;
       tiktokUrl: string | null;
       websiteUrl: string | null;
+      soundcloudUrl: string | null;
+      spotifyUrl: string | null;
+      appleMusicUrl: string | null;
+      facebookUrl: string | null;
+      snapchatUrl: string | null;
     };
   };
   stats: {
@@ -70,6 +75,11 @@ type LegacyUserResponse = {
   youtubeUrl?: string | null;
   tiktokUrl?: string | null;
   websiteUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
 };
 
 function formatNumber(n: number) {
@@ -227,6 +237,11 @@ export function ArtistPageView({
                 youtubeUrl: user.youtubeUrl ?? null,
                 tiktokUrl: user.tiktokUrl ?? null,
                 websiteUrl: user.websiteUrl ?? null,
+                soundcloudUrl: user.soundcloudUrl ?? null,
+                spotifyUrl: user.spotifyUrl ?? null,
+                appleMusicUrl: user.appleMusicUrl ?? null,
+                facebookUrl: user.facebookUrl ?? null,
+                snapchatUrl: user.snapchatUrl ?? null,
               },
             },
             stats: {
@@ -546,7 +561,12 @@ export function ArtistPageView({
         data.artist.socials.twitterUrl ||
         data.artist.socials.youtubeUrl ||
         data.artist.socials.tiktokUrl ||
-        data.artist.socials.websiteUrl) && (
+        data.artist.socials.websiteUrl ||
+        data.artist.socials.soundcloudUrl ||
+        data.artist.socials.spotifyUrl ||
+        data.artist.socials.appleMusicUrl ||
+        data.artist.socials.facebookUrl ||
+        data.artist.socials.snapchatUrl) && (
         <Card>
           <CardContent className="pt-6">
             <h2 className="font-semibold mb-3">Social links</h2>
@@ -555,6 +575,11 @@ export function ArtistPageView({
               {data.artist.socials.twitterUrl && <a className="text-sm underline text-primary" href={data.artist.socials.twitterUrl} target="_blank" rel="noreferrer">X</a>}
               {data.artist.socials.youtubeUrl && <a className="text-sm underline text-primary" href={data.artist.socials.youtubeUrl} target="_blank" rel="noreferrer">YouTube</a>}
               {data.artist.socials.tiktokUrl && <a className="text-sm underline text-primary" href={data.artist.socials.tiktokUrl} target="_blank" rel="noreferrer">TikTok</a>}
+              {data.artist.socials.soundcloudUrl && <a className="text-sm underline text-primary" href={data.artist.socials.soundcloudUrl} target="_blank" rel="noreferrer">SoundCloud</a>}
+              {data.artist.socials.spotifyUrl && <a className="text-sm underline text-primary" href={data.artist.socials.spotifyUrl} target="_blank" rel="noreferrer">Spotify</a>}
+              {data.artist.socials.appleMusicUrl && <a className="text-sm underline text-primary" href={data.artist.socials.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music</a>}
+              {data.artist.socials.facebookUrl && <a className="text-sm underline text-primary" href={data.artist.socials.facebookUrl} target="_blank" rel="noreferrer">Facebook</a>}
+              {data.artist.socials.snapchatUrl && <a className="text-sm underline text-primary" href={data.artist.socials.snapchatUrl} target="_blank" rel="noreferrer">Snapchat</a>}
               {data.artist.socials.websiteUrl && <a className="text-sm underline text-primary" href={data.artist.socials.websiteUrl} target="_blank" rel="noreferrer">Website</a>}
             </div>
           </CardContent>

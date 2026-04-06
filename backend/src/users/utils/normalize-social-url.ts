@@ -104,3 +104,23 @@ export function normalizeTiktokUrl(value: unknown): string | undefined {
 
   return `https://${s.replace(/^\/+/, '')}`;
 }
+
+export function normalizeSoundcloudUrl(value: unknown): string | undefined {
+  return normalizeWebsiteUrl(value);
+}
+
+export function normalizeSpotifyUrl(value: unknown): string | undefined {
+  return normalizeWebsiteUrl(value);
+}
+
+export function normalizeAppleMusicUrl(value: unknown): string | undefined {
+  return normalizeWebsiteUrl(value);
+}
+
+export function normalizeFacebookUrl(value: unknown): string | undefined {
+  return normalizeWebsiteUrl(value);
+}
+
+export function normalizeSnapchatUrl(value: unknown): string | undefined {
+  return normalizeWebsiteUrl(value);
+}

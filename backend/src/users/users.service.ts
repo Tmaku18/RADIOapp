@@ -32,6 +32,11 @@ export interface UserResponse {
   youtubeUrl?: string | null;
   tiktokUrl?: string | null;
   websiteUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
   artistLat?: number | null;
   artistLng?: number | null;
 }
@@ -70,6 +75,11 @@ function transformUser(data: any): UserResponse {
     youtubeUrl: data.youtube_url ?? null,
     tiktokUrl: data.tiktok_url ?? null,
     websiteUrl: data.website_url ?? null,
+    soundcloudUrl: data.soundcloud_url ?? null,
+    spotifyUrl: data.spotify_url ?? null,
+    appleMusicUrl: data.apple_music_url ?? null,
+    facebookUrl: data.facebook_url ?? null,
+    snapchatUrl: data.snapchat_url ?? null,
     artistLat: data.artist_lat ?? null,
     artistLng: data.artist_lng ?? null,
   };
@@ -475,6 +485,16 @@ export class UsersService {
       updatePayload.tiktok_url = updateUserDto.tiktokUrl || null;
     if (updateUserDto.websiteUrl !== undefined)
       updatePayload.website_url = updateUserDto.websiteUrl || null;
+    if (updateUserDto.soundcloudUrl !== undefined)
+      updatePayload.soundcloud_url = updateUserDto.soundcloudUrl || null;
+    if (updateUserDto.spotifyUrl !== undefined)
+      updatePayload.spotify_url = updateUserDto.spotifyUrl || null;
+    if (updateUserDto.appleMusicUrl !== undefined)
+      updatePayload.apple_music_url = updateUserDto.appleMusicUrl || null;
+    if (updateUserDto.facebookUrl !== undefined)
+      updatePayload.facebook_url = updateUserDto.facebookUrl || null;
+    if (updateUserDto.snapchatUrl !== undefined)
+      updatePayload.snapchat_url = updateUserDto.snapchatUrl || null;
     if (updateUserDto.artistLat !== undefined)
       updatePayload.artist_lat = updateUserDto.artistLat;
     if (updateUserDto.artistLng !== undefined)
@@ -921,6 +941,11 @@ export class UsersService {
           youtubeUrl: userRow.youtube_url ?? null,
           tiktokUrl: userRow.tiktok_url ?? null,
           websiteUrl: userRow.website_url ?? null,
+          soundcloudUrl: userRow.soundcloud_url ?? null,
+          spotifyUrl: userRow.spotify_url ?? null,
+          appleMusicUrl: userRow.apple_music_url ?? null,
+          facebookUrl: userRow.facebook_url ?? null,
+          snapchatUrl: userRow.snapchat_url ?? null,
         },
       },
       stats: {

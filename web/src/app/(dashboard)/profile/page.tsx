@@ -39,6 +39,11 @@ export default function ProfilePage() {
   const [youtubeUrl, setYoutubeUrl] = useState(profile?.youtubeUrl ?? '');
   const [tiktokUrl, setTiktokUrl] = useState(profile?.tiktokUrl ?? '');
   const [websiteUrl, setWebsiteUrl] = useState(profile?.websiteUrl ?? '');
+  const [soundcloudUrl, setSoundcloudUrl] = useState(profile?.soundcloudUrl ?? '');
+  const [spotifyUrl, setSpotifyUrl] = useState(profile?.spotifyUrl ?? '');
+  const [appleMusicUrl, setAppleMusicUrl] = useState(profile?.appleMusicUrl ?? '');
+  const [facebookUrl, setFacebookUrl] = useState(profile?.facebookUrl ?? '');
+  const [snapchatUrl, setSnapchatUrl] = useState(profile?.snapchatUrl ?? '');
   const [selectedRole, setSelectedRole] = useState<
     'listener' | 'artist' | 'service_provider'
   >((profile?.role as 'listener' | 'artist' | 'service_provider') || 'listener');
@@ -93,11 +98,16 @@ export default function ProfilePage() {
       if (profile?.youtubeUrl !== undefined) setYoutubeUrl(profile.youtubeUrl ?? '');
       if (profile?.tiktokUrl !== undefined) setTiktokUrl(profile.tiktokUrl ?? '');
       if (profile?.websiteUrl !== undefined) setWebsiteUrl(profile.websiteUrl ?? '');
+      if (profile?.soundcloudUrl !== undefined) setSoundcloudUrl(profile.soundcloudUrl ?? '');
+      if (profile?.spotifyUrl !== undefined) setSpotifyUrl(profile.spotifyUrl ?? '');
+      if (profile?.appleMusicUrl !== undefined) setAppleMusicUrl(profile.appleMusicUrl ?? '');
+      if (profile?.facebookUrl !== undefined) setFacebookUrl(profile.facebookUrl ?? '');
+      if (profile?.snapchatUrl !== undefined) setSnapchatUrl(profile.snapchatUrl ?? '');
       if (profile?.role && profile.role !== 'admin') {
         setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
       }
     }
-  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.role, isEditing]);
+  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, isEditing]);
 
   useEffect(() => {
     const userId = profile?.id;
@@ -152,6 +162,11 @@ export default function ProfilePage() {
         youtubeUrl: youtubeUrl.trim() || undefined,
         tiktokUrl: tiktokUrl.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
+        soundcloudUrl: soundcloudUrl.trim() || undefined,
+        spotifyUrl: spotifyUrl.trim() || undefined,
+        appleMusicUrl: appleMusicUrl.trim() || undefined,
+        facebookUrl: facebookUrl.trim() || undefined,
+        snapchatUrl: snapchatUrl.trim() || undefined,
         role: !isAdmin ? selectedRole : undefined,
       });
       await refreshProfile();
@@ -179,6 +194,11 @@ export default function ProfilePage() {
     setYoutubeUrl(profile?.youtubeUrl ?? '');
     setTiktokUrl(profile?.tiktokUrl ?? '');
     setWebsiteUrl(profile?.websiteUrl ?? '');
+    setSoundcloudUrl(profile?.soundcloudUrl ?? '');
+    setSpotifyUrl(profile?.spotifyUrl ?? '');
+    setAppleMusicUrl(profile?.appleMusicUrl ?? '');
+    setFacebookUrl(profile?.facebookUrl ?? '');
+    setSnapchatUrl(profile?.snapchatUrl ?? '');
     if (profile?.role && profile.role !== 'admin') {
       setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
     }
@@ -253,6 +273,11 @@ export default function ProfilePage() {
     { label: 'YouTube', url: youtubeUrl.trim() },
     { label: 'TikTok', url: tiktokUrl.trim() },
     { label: 'Website', url: websiteUrl.trim() },
+    { label: 'SoundCloud', url: soundcloudUrl.trim() },
+    { label: 'Spotify', url: spotifyUrl.trim() },
+    { label: 'Apple Music', url: appleMusicUrl.trim() },
+    { label: 'Facebook', url: facebookUrl.trim() },
+    { label: 'Snapchat', url: snapchatUrl.trim() },
   ].filter((link) => link.url.length > 0);
   const roleLabel =
     profile?.role === 'admin'
@@ -459,7 +484,12 @@ export default function ProfilePage() {
                   <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="X / Twitter URL" disabled={!isEditing} />
                   <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="YouTube URL" disabled={!isEditing} />
                   <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" disabled={!isEditing} />
-                  <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" disabled={!isEditing} className="md:col-span-2" />
+                  <Input value={soundcloudUrl} onChange={(e) => setSoundcloudUrl(e.target.value)} placeholder="SoundCloud URL" disabled={!isEditing} />
+                  <Input value={spotifyUrl} onChange={(e) => setSpotifyUrl(e.target.value)} placeholder="Spotify URL" disabled={!isEditing} />
+                  <Input value={appleMusicUrl} onChange={(e) => setAppleMusicUrl(e.target.value)} placeholder="Apple Music URL" disabled={!isEditing} />
+                  <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" disabled={!isEditing} />
+                  <Input value={snapchatUrl} onChange={(e) => setSnapchatUrl(e.target.value)} placeholder="Snapchat URL" disabled={!isEditing} />
+                  <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" disabled={!isEditing} />
                 </div>
                 <p className="text-xs text-muted-foreground">These links appear on your Spotify-style artist page.</p>
                 {socialLinks.length > 0 && (

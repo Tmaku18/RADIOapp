@@ -350,7 +350,7 @@ export const discoverAudioApi = {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
