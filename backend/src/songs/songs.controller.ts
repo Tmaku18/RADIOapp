@@ -777,11 +777,23 @@ export class SongsController {
       throw new Error('User not found');
     }
 
-    const { data: songs, error } = await supabase
+    let songsQuery = supabase
       .from('songs')
       .select('*')
       .eq('artist_id', userData.id)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
+    let { data: songs, error } = await songsQuery;
+    if (error && this.isMissingColumnError(error, 'deleted_at')) {
+      songsQuery = supabase
+        .from('songs')
+        .select('*')
+        .eq('artist_id', userData.id)
+        .order('created_at', { ascending: false });
+      const fallback = await songsQuery;
+      songs = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       throw new Error(`Failed to fetch songs: ${error.message}`);

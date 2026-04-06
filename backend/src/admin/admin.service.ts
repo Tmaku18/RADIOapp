@@ -107,6 +107,8 @@ export class AdminService {
         )
       `);
 
+    query = query.is('deleted_at', null);
+
     // Only filter by status if explicitly provided and NOT 'all'
     if (filters.status && filters.status !== 'all') {
       query = query.eq('status', filters.status);
@@ -149,13 +151,54 @@ export class AdminService {
       );
     }
 
-    const { data, error } = await query;
+    let { data, error } = await query;
+    if (error && this.isMissingRelationError(error)) {
+      let fallbackQuery = supabase.from('songs').select(`
+        *,
+        users:artist_id (
+          id,
+          email,
+          display_name
+        )
+      `);
+      if (filters.status && filters.status !== 'all') {
+        fallbackQuery = fallbackQuery.eq('status', filters.status);
+      } else if (!filters.status) {
+        fallbackQuery = fallbackQuery.eq('status', 'pending');
+      }
+      if (filters.search && filters.search.trim()) {
+        fallbackQuery = fallbackQuery.ilike('title', `%${filters.search.trim()}%`);
+      }
+      const sortBy = filters.sortBy || 'created_at';
+      const sortOrder = filters.sortOrder || 'asc';
+      const ascending = sortOrder === 'asc';
+      const sortColumnMap: Record<string, string> = {
+        title: 'title',
+        artist: 'title',
+        created_at: 'created_at',
+        status: 'status',
+      };
+      const sortColumn = sortColumnMap[sortBy] || 'created_at';
+      fallbackQuery = fallbackQuery.order(sortColumn, { ascending });
+      if (filters.limit) {
+        fallbackQuery = fallbackQuery.limit(filters.limit);
+      }
+      if (filters.offset) {
+        fallbackQuery = fallbackQuery.range(
+          filters.offset,
+          filters.offset + (filters.limit || 50) - 1,
+        );
+      }
+      const fallbackRes = await fallbackQuery;
+      data = fallbackRes.data;
+      error = fallbackRes.error;
+    }
 
     if (error) {
       throw new BadRequestException(`Failed to fetch songs: ${error.message}`);
     }
 
-    return data;
+    return data ?? [];
   }
 
   async updateSongStatus(
