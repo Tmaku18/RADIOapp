@@ -185,6 +185,10 @@ export default function ChatSidebar({
         );
         setMessages((prev) => mergeMessages(prev, fetched));
         setChatEnabled(statusRes.data.enabled ?? true);
+        // Polling succeeded: reflect healthy chat even if realtime socket is flaky.
+        setConnectionStatus((prev) =>
+          prev === 'connected' ? prev : 'connected',
+        );
       } catch {
         // Silent fallback: realtime may still be working.
       }

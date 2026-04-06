@@ -18,18 +18,45 @@ import { DEFAULT_RADIO_ID } from './radio-state.service';
 @Controller('radio')
 export class RadioController {
   private readonly logger = new Logger(RadioController.name);
+  private readonly endpointTimeoutMs = Math.max(
+    1000,
+    parseInt(process.env.RADIO_ENDPOINT_TIMEOUT_MS || '8000', 10),
+  );
 
   constructor(
     private readonly radioService: RadioService,
     private readonly prospectorYieldService: ProspectorYieldService,
   ) {}
 
+  private async withTimeout<T>(
+    operation: Promise<T>,
+    label: string,
+  ): Promise<T> {
+    return Promise.race([
+      operation,
+      new Promise<T>((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                `${label} timed out after ${this.endpointTimeoutMs}ms`,
+              ),
+            ),
+          this.endpointTimeoutMs,
+        ),
+      ),
+    ]);
+  }
+
   @Public()
   @Get('current')
   async getCurrentTrack(@Query('radio') radioId?: string) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     try {
-      return await this.radioService.getCurrentTrack(id);
+      return await this.withTimeout(
+        this.radioService.getCurrentTrack(id),
+        `getCurrentTrack(${id})`,
+      );
     } catch (err) {
       this.logger.warn(
         `getCurrentTrack failed: ${err?.message || err}`,
@@ -50,7 +77,19 @@ export class RadioController {
     const forceAdvance = ['1', 'true', 'yes'].includes(
       (force ?? '').trim().toLowerCase(),
     );
-    return this.radioService.getNextTrack(id, forceAdvance);
+    try {
+      return await this.withTimeout(
+        this.radioService.getNextTrack(id, forceAdvance),
+        `getNextTrack(${id})`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `getNextTrack failed: ${err?.message || err}`,
+        err?.stack,
+      );
+      const message = err?.message || 'Unable to advance radio queue';
+      return { no_content: true, message };
+    }
   }
 
   @Post('play')

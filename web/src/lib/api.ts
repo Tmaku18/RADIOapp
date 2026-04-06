@@ -132,16 +132,22 @@ api.interceptors.response.use(
 // API methods for different endpoints
 export const radioApi = {
   getCurrentTrack: (radioId?: string) =>
-    api.get('/radio/current', { params: radioId ? { radio: radioId } : undefined }),
+    api.get('/radio/current', {
+      params: radioId ? { radio: radioId } : undefined,
+      timeout: 10000,
+    }),
   getNextTrack: (radioIdOrParams?: string | { radio?: string; force?: boolean }) => {
     const params =
       typeof radioIdOrParams === 'string'
         ? { radio: radioIdOrParams }
         : radioIdOrParams;
-    return api.get('/radio/next', { params });
+    return api.get('/radio/next', { params, timeout: 10000 });
   },
   getStream: (radioId?: string) =>
-    api.get('/radio/stream', { params: radioId ? { radio: radioId } : undefined }),
+    api.get('/radio/stream', {
+      params: radioId ? { radio: radioId } : undefined,
+      timeout: 10000,
+    }),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
     api.post('/radio/heartbeat', data, { params: radioId ? { radio: radioId } : undefined }),
   sendPresence: (data: { streamToken: string; songId: string; timestamp: string }, radioId?: string) =>
@@ -1002,10 +1008,10 @@ export const analyticsApi = {
 
 export const chatApi = {
   sendMessage: (message: string, songId?: string, radioId?: string) =>
-    api.post('/chat/send', { message, songId, radioId }),
+    api.post('/chat/send', { message, songId, radioId }, { timeout: 10000 }),
   getHistory: (params?: { limit?: number; radioId?: string }) =>
-    api.get('/chat/history', { params }),
-  getStatus: () => api.get('/chat/status'),
+    api.get('/chat/history', { params, timeout: 10000 }),
+  getStatus: () => api.get('/chat/status', { timeout: 10000 }),
 };
 
 export const pushNotificationsApi = {
