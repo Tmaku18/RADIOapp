@@ -35,41 +35,46 @@ async function getHomepageData() {
     { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
   ];
 
+  const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 5000) => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, {
+        next: { revalidate: 60 },
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      return (await response.json()) as T;
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
   try {
     for (const baseUrl of getBackendBaseUrls()) {
-      const [platformResponse, leaderboardResponse] = await Promise.all([
-        fetch(`${baseUrl}/api/analytics/platform`, {
-          next: { revalidate: 60 }, // Cache for 60 seconds
-        }),
-        fetch(`${baseUrl}/api/leaderboard/songs?by=listens&limit=3&offset=0`, {
-          next: { revalidate: 60 },
-        }),
-      ]);
-
-      if (!platformResponse.ok) continue;
-
-      const stats = (await platformResponse.json()) as {
+      const stats = await fetchJsonWithTimeout<{
         totalArtists?: number;
         totalSongs?: number;
         totalProfileClicks?: number;
         totalPlays?: number;
-      };
+      }>(`${baseUrl}/api/analytics/platform`);
+      if (!stats) continue;
 
       let featuredArtists: FeaturedArtist[] = featuredArtistsFallback;
-      if (leaderboardResponse.ok) {
-        const leaderboard = (await leaderboardResponse.json()) as Array<{
+      const leaderboard = await fetchJsonWithTimeout<
+        Array<{
           id?: string;
           artistName?: string;
           artworkUrl?: string | null;
-        }>;
-        if (Array.isArray(leaderboard) && leaderboard.length > 0) {
-          featuredArtists = leaderboard.slice(0, 3).map((item, index) => ({
-            id: item.id ?? `${index + 1}`,
-            name: item.artistName ?? 'Featured Artist',
-            genre: 'Top by Listens',
-            imageUrl: item.artworkUrl ?? null,
-          }));
-        }
+        }>
+      >(`${baseUrl}/api/leaderboard/songs?by=listens&limit=3&offset=0`);
+      if (Array.isArray(leaderboard) && leaderboard.length > 0) {
+        featuredArtists = leaderboard.slice(0, 3).map((item, index) => ({
+          id: item.id ?? `${index + 1}`,
+          name: item.artistName ?? 'Featured Artist',
+          genre: 'Top by Listens',
+          imageUrl: item.artworkUrl ?? null,
+        }));
       }
 
       return {

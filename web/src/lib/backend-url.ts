@@ -15,8 +15,12 @@ export function getBackendBaseUrls(): string[] {
   const candidates = [
     process.env.BACKEND_URL,
     process.env.NEXT_PUBLIC_API_URL,
-    'http://localhost:3000',
   ].filter((value): value is string => !!value && value.trim().length > 0);
+
+  // Local fallback is useful for dev, but breaks cloud builds/prerendering.
+  if (process.env.NODE_ENV === 'development') {
+    candidates.push('http://localhost:3000');
+  }
 
   const normalized: string[] = [];
   for (const candidate of candidates) {
