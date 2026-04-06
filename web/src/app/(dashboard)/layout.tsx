@@ -201,18 +201,34 @@ export default function DashboardLayout({
       setAdminRoleHint(true);
       return;
     }
-    usersApi
-      .checkAdmin()
-      .then((res) => {
-        if (!cancelled) setAdminRoleHint(!!res.data?.isAdmin);
-      })
-      .catch(() => {
-        if (!cancelled) setAdminRoleHint(false);
-      });
+    const check = async () => {
+      try {
+        const res = await usersApi.checkAdmin();
+        if (!cancelled && res.data?.isAdmin) setAdminRoleHint(true);
+      } catch {
+        // Keep previous hint value on transient auth/network failures.
+      }
+    };
+    void check();
+    const retry = setInterval(() => {
+      void check();
+    }, 10000);
     return () => {
       cancelled = true;
+      clearInterval(retry);
     };
   }, [user, profile?.role]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const cookieRole = document.cookie
+      .split('; ')
+      .find((c) => c.startsWith('user_role='))
+      ?.split('=')[1];
+    if (cookieRole?.toLowerCase() === 'admin') {
+      setAdminRoleHint(true);
+    }
+  }, []);
 
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);

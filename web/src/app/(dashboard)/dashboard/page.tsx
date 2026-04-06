@@ -104,16 +104,21 @@ export default function DashboardPage() {
       setAdminRoleHint(true);
       return;
     }
-    usersApi
-      .checkAdmin()
-      .then((res) => {
-        if (!cancelled) setAdminRoleHint(!!res.data?.isAdmin);
-      })
-      .catch(() => {
-        if (!cancelled) setAdminRoleHint(false);
-      });
+    const check = async () => {
+      try {
+        const res = await usersApi.checkAdmin();
+        if (!cancelled && res.data?.isAdmin) setAdminRoleHint(true);
+      } catch {
+        // Do not clear on transient failures.
+      }
+    };
+    void check();
+    const retry = setInterval(() => {
+      void check();
+    }, 10000);
     return () => {
       cancelled = true;
+      clearInterval(retry);
     };
   }, [profile?.role]);
 

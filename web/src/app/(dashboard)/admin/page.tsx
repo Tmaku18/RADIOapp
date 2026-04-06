@@ -33,6 +33,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     let cancelled = false;
+    let retry: NodeJS.Timeout | null = null;
     const resolveAdmin = async () => {
       // Explicit non-admin role: bounce immediately.
       if (profile && profile.role !== 'admin') {
@@ -52,16 +53,30 @@ export default function AdminDashboardPage() {
         const res = await usersApi.checkAdmin();
         const isAdmin = !!res.data?.isAdmin;
         if (cancelled) return;
-        setAdminRoleHint(isAdmin);
-        if (isAdmin) loadAnalytics();
-        else router.push('/dashboard');
+        if (isAdmin) {
+          setAdminRoleHint(true);
+          loadAnalytics();
+          return;
+        }
+        // When profile is still unresolved, do not prematurely redirect.
+        if (profile) {
+          router.push('/dashboard');
+          return;
+        }
+        retry = setTimeout(() => {
+          if (!cancelled) void resolveAdmin();
+        }, 10000);
       } catch {
-        if (!cancelled) router.push('/dashboard');
+        // Keep page alive and retry; transient auth/network errors are common here.
+        retry = setTimeout(() => {
+          if (!cancelled) void resolveAdmin();
+        }, 10000);
       }
     };
     resolveAdmin();
     return () => {
       cancelled = true;
+      if (retry) clearTimeout(retry);
     };
   }, [profile, router]);
 
