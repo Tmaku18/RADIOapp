@@ -144,6 +144,24 @@ export class UsersService {
     return this.getAdminEmails().includes(email.trim().toLowerCase());
   }
 
+  /**
+   * Returns true when the current user should be treated as admin.
+   * Prefers persisted DB role, with ADMIN_EMAILS as a fallback allowlist.
+   */
+  async isAdminUser(
+    firebaseUid: string,
+    email: string | null | undefined,
+  ): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('role')
+      .eq('firebase_uid', firebaseUid)
+      .maybeSingle();
+    if ((data?.role ?? '').toLowerCase() === 'admin') return true;
+    return this.isAdminEmail(email);
+  }
+
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {
     const supabase = getSupabaseClient();
 

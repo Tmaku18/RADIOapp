@@ -51,7 +51,9 @@ export class UsersController {
    */
   @Get('me/check-admin')
   async checkAdmin(@CurrentUser() user: FirebaseUser) {
-    return { isAdmin: this.usersService.isAdminEmail(user.email) };
+    return {
+      isAdmin: await this.usersService.isAdminUser(user.uid, user.email),
+    };
   }
 
   @Put('me')
