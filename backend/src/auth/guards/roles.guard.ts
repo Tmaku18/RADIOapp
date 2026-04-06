@@ -51,11 +51,14 @@ export class RolesGuard implements CanActivate {
     const defaultRole = isAdminEmail ? 'admin' : 'listener';
     const supabase = getSupabaseClient();
 
-    const { data: existingByUid } = await supabase
+    const { data: existingByUid, error: existingByUidError } = await supabase
       .from('users')
       .select('role, email')
       .eq('firebase_uid', firebaseUid)
       .single();
+    if (existingByUidError) {
+      return null;
+    }
 
     if (existingByUid) {
       let nextRole = existingByUid.role;
@@ -81,11 +84,14 @@ export class RolesGuard implements CanActivate {
     }
 
     if (normalizedEmail) {
-      const { data: existingByEmail } = await supabase
+      const { data: existingByEmail, error: existingByEmailError } = await supabase
         .from('users')
         .select('role')
         .eq('email', normalizedEmail)
         .single();
+      if (existingByEmailError) {
+        return null;
+      }
 
       if (existingByEmail) {
         const roleToKeep =
@@ -165,8 +171,13 @@ export class RolesGuard implements CanActivate {
       .single();
 
     let userRole: string | null = data?.role ?? null;
-    if (!userRole) {
+    if (!userRole && !error) {
       userRole = await this.ensureUserProfile(user.uid, user.email);
+    }
+    if (!userRole && error) {
+      // DB temporarily unavailable: fall back to email allowlist, otherwise safest base role.
+      const email = (user.email ?? '').trim().toLowerCase();
+      userRole = this.getAdminEmails().includes(email) ? 'admin' : 'listener';
     }
 
     if (!userRole) {

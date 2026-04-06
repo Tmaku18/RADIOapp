@@ -147,13 +147,17 @@ export class FirebaseAuthGuard implements CanActivate {
 
       // Check if user is banned in database
       const supabase = getSupabaseClient();
-      const { data: user } = await supabase
+      const { data: user, error: userLookupError } = await supabase
         .from('users')
         .select('id, is_banned, ban_reason')
         .eq('firebase_uid', decodedToken.uid)
         .single();
 
-      if (!user) {
+      if (userLookupError) {
+        this.logger.warn(
+          `User lookup failed for ${decodedToken.uid}: ${userLookupError.message}`,
+        );
+      } else if (!user) {
         await this.ensureUserProfile(decodedToken.uid, decodedToken.email);
       }
 

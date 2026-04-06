@@ -194,7 +194,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
-      } catch {
+      } catch (err) {
+        if (getHttpStatus(err) !== 404) {
+          setLoading(false);
+          return;
+        }
         // New user: create profile (backend defaults to listener)
         try {
           await createDefaultProfile(firebaseUser);
