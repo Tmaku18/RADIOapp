@@ -53,19 +53,24 @@ class _StationOption {
 const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(
     id: 'us-rap',
-    genre: 'Up & Coming Rap Radio',
+    genre: 'New School Rap Radio',
     city: 'New York',
+  ),
+  _StationOption(
+    id: 'us-old-school-rap',
+    genre: 'Old School Rap Radio',
+    city: 'Detroit',
   ),
   _StationOption(
     id: 'us-rap-clean',
     genre: 'Clean Rap Radio',
     city: 'Charlotte',
   ),
-  _StationOption(
-    id: 'us-ready-now-rap',
-    genre: 'Ready Now Rap Radio',
-    city: 'Houston',
-  ),
+  // _StationOption(
+  //   id: 'us-ready-now-rap',
+  //   genre: 'Ready Now Radio',
+  //   city: 'Houston',
+  // ),
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
   _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
   _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
@@ -148,7 +153,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
     return const _StationOption(
       id: 'us-rap',
-      genre: 'Up & Coming Rap Radio',
+      genre: 'New School Rap Radio',
       city: 'New York',
     );
   }
