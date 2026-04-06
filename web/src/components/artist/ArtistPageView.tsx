@@ -493,6 +493,35 @@ export function ArtistPageView({
         </Card>
       )}
 
+      {(data.artist.socials.instagramUrl ||
+        data.artist.socials.twitterUrl ||
+        data.artist.socials.youtubeUrl ||
+        data.artist.socials.tiktokUrl ||
+        data.artist.socials.websiteUrl ||
+        data.artist.socials.soundcloudUrl ||
+        data.artist.socials.spotifyUrl ||
+        data.artist.socials.appleMusicUrl ||
+        data.artist.socials.facebookUrl ||
+        data.artist.socials.snapchatUrl) && (
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="font-semibold mb-3">Social links</h2>
+            <div className="flex flex-wrap gap-3">
+              {data.artist.socials.instagramUrl && <a className="text-sm underline text-primary" href={data.artist.socials.instagramUrl} target="_blank" rel="noreferrer">Instagram</a>}
+              {data.artist.socials.twitterUrl && <a className="text-sm underline text-primary" href={data.artist.socials.twitterUrl} target="_blank" rel="noreferrer">X</a>}
+              {data.artist.socials.youtubeUrl && <a className="text-sm underline text-primary" href={data.artist.socials.youtubeUrl} target="_blank" rel="noreferrer">YouTube</a>}
+              {data.artist.socials.tiktokUrl && <a className="text-sm underline text-primary" href={data.artist.socials.tiktokUrl} target="_blank" rel="noreferrer">TikTok</a>}
+              {data.artist.socials.soundcloudUrl && <a className="text-sm underline text-primary" href={data.artist.socials.soundcloudUrl} target="_blank" rel="noreferrer">SoundCloud</a>}
+              {data.artist.socials.spotifyUrl && <a className="text-sm underline text-primary" href={data.artist.socials.spotifyUrl} target="_blank" rel="noreferrer">Spotify</a>}
+              {data.artist.socials.appleMusicUrl && <a className="text-sm underline text-primary" href={data.artist.socials.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music</a>}
+              {data.artist.socials.facebookUrl && <a className="text-sm underline text-primary" href={data.artist.socials.facebookUrl} target="_blank" rel="noreferrer">Facebook</a>}
+              {data.artist.socials.snapchatUrl && <a className="text-sm underline text-primary" href={data.artist.socials.snapchatUrl} target="_blank" rel="noreferrer">Snapchat</a>}
+              {data.artist.socials.websiteUrl && <a className="text-sm underline text-primary" href={data.artist.socials.websiteUrl} target="_blank" rel="noreferrer">Website</a>}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardContent className="pt-6">
           <h2 className="font-semibold text-xl mb-4">Popular</h2>
@@ -557,34 +586,6 @@ export function ArtistPageView({
         </CardContent>
       </Card>
 
-      {(data.artist.socials.instagramUrl ||
-        data.artist.socials.twitterUrl ||
-        data.artist.socials.youtubeUrl ||
-        data.artist.socials.tiktokUrl ||
-        data.artist.socials.websiteUrl ||
-        data.artist.socials.soundcloudUrl ||
-        data.artist.socials.spotifyUrl ||
-        data.artist.socials.appleMusicUrl ||
-        data.artist.socials.facebookUrl ||
-        data.artist.socials.snapchatUrl) && (
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="font-semibold mb-3">Social links</h2>
-            <div className="flex flex-wrap gap-3">
-              {data.artist.socials.instagramUrl && <a className="text-sm underline text-primary" href={data.artist.socials.instagramUrl} target="_blank" rel="noreferrer">Instagram</a>}
-              {data.artist.socials.twitterUrl && <a className="text-sm underline text-primary" href={data.artist.socials.twitterUrl} target="_blank" rel="noreferrer">X</a>}
-              {data.artist.socials.youtubeUrl && <a className="text-sm underline text-primary" href={data.artist.socials.youtubeUrl} target="_blank" rel="noreferrer">YouTube</a>}
-              {data.artist.socials.tiktokUrl && <a className="text-sm underline text-primary" href={data.artist.socials.tiktokUrl} target="_blank" rel="noreferrer">TikTok</a>}
-              {data.artist.socials.soundcloudUrl && <a className="text-sm underline text-primary" href={data.artist.socials.soundcloudUrl} target="_blank" rel="noreferrer">SoundCloud</a>}
-              {data.artist.socials.spotifyUrl && <a className="text-sm underline text-primary" href={data.artist.socials.spotifyUrl} target="_blank" rel="noreferrer">Spotify</a>}
-              {data.artist.socials.appleMusicUrl && <a className="text-sm underline text-primary" href={data.artist.socials.appleMusicUrl} target="_blank" rel="noreferrer">Apple Music</a>}
-              {data.artist.socials.facebookUrl && <a className="text-sm underline text-primary" href={data.artist.socials.facebookUrl} target="_blank" rel="noreferrer">Facebook</a>}
-              {data.artist.socials.snapchatUrl && <a className="text-sm underline text-primary" href={data.artist.socials.snapchatUrl} target="_blank" rel="noreferrer">Snapchat</a>}
-              {data.artist.socials.websiteUrl && <a className="text-sm underline text-primary" href={data.artist.socials.websiteUrl} target="_blank" rel="noreferrer">Website</a>}
-            </div>
-          </CardContent>
-        </Card>
-      )}
       <SongLikesDialog
         open={likesDialogOpen}
         onOpenChange={setLikesDialogOpen}
