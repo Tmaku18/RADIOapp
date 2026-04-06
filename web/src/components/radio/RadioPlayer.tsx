@@ -355,7 +355,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     if (!state.isPlaying) return;
 
     let cancelled = false;
-    const heartbeatIntervalMs = 12000;
+    const heartbeatIntervalMs = 30000;
     const send = async () => {
       try {
         await radioApi.sendPresence(
@@ -625,21 +625,20 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     // Initial fetch - don't auto-play (wait for user interaction)
     fetchCurrentTrack(true, false);
     
-    // Poll for track changes every 10 seconds
-    // Auto-play only if user has already started playing
-    const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), 10000);
+    // Poll for track changes every 30 seconds (reduced from 10s to ease DB pressure)
+    const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), 30000);
     
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted]);
 
-  // Re-sync every 30 seconds to handle drift (only when live)
+  // Re-sync every 60 seconds to handle drift (only when live)
   useEffect(() => {
     if (state.source !== 'radio') return;
     if (!state.isLive) return;
     
     const syncInterval = setInterval(() => {
-      fetchCurrentTrack(true, false); // Don't auto-play during sync, just update position
-    }, 30000);
+      fetchCurrentTrack(true, false);
+    }, 60000);
     
     return () => clearInterval(syncInterval);
   }, [state.source, state.isLive, fetchCurrentTrack]);

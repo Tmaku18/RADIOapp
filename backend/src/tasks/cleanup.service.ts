@@ -132,7 +132,7 @@ export class CleanupService {
    * Auto-quarantine radio entries that point to missing storage objects.
    * Prevents "Audio source not available" incidents caused by stale URLs.
    */
-  @Cron('*/30 * * * *')
+  @Cron('0 */3 * * *')
   async quarantineBrokenRadioAudioSources() {
     this.logger.log('Starting radio audio integrity check...');
     const supabase = getSupabaseClient();

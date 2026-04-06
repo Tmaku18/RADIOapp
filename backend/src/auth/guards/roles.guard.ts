@@ -163,21 +163,24 @@ export class RolesGuard implements CanActivate {
       return false;
     }
 
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('users')
-      .select('role')
-      .eq('firebase_uid', user.uid)
-      .single();
+    let userRole: string | null = user.dbRole ?? null;
 
-    let userRole: string | null = data?.role ?? null;
-    if (!userRole && !error) {
-      userRole = await this.ensureUserProfile(user.uid, user.email);
-    }
-    if (!userRole && error) {
-      // DB temporarily unavailable: fall back to email allowlist, otherwise safest base role.
-      const email = (user.email ?? '').trim().toLowerCase();
-      userRole = this.getAdminEmails().includes(email) ? 'admin' : 'listener';
+    if (!userRole) {
+      const supabase = getSupabaseClient();
+      const { data, error } = await supabase
+        .from('users')
+        .select('role')
+        .eq('firebase_uid', user.uid)
+        .single();
+
+      userRole = data?.role ?? null;
+      if (!userRole && !error) {
+        userRole = await this.ensureUserProfile(user.uid, user.email);
+      }
+      if (!userRole && error) {
+        const email = (user.email ?? '').trim().toLowerCase();
+        userRole = this.getAdminEmails().includes(email) ? 'admin' : 'listener';
+      }
     }
 
     if (!userRole) {

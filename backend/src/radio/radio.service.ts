@@ -202,9 +202,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private backgroundRotationTimer: ReturnType<typeof setInterval> | null = null;
   private backgroundTickInFlight = false;
   private readonly backgroundPollMs = parseInt(
-    process.env.RADIO_BACKGROUND_POLL_MS || '15000',
+    process.env.RADIO_BACKGROUND_POLL_MS || '45000',
     10,
   );
+  private cachedRadioIds: string[] | null = null;
+  private cachedRadioIdsAt = 0;
+  private readonly radioIdsCacheTtlMs = 5 * 60 * 1000;
+  private consecutiveBackgroundFailures = 0;
+  private readonly maxBackgroundBackoffMs = 5 * 60 * 1000;
 
   private isMissingStreamTokenColumn(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
@@ -510,6 +515,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async getBackgroundRadioIds(): Promise<string[]> {
+    if (
+      this.cachedRadioIds &&
+      Date.now() - this.cachedRadioIdsAt < this.radioIdsCacheTtlMs
+    ) {
+      return this.cachedRadioIds;
+    }
+
     const ids = new Set<string>([
       DEFAULT_RADIO_ID,
       RAP_STATION_ID,
@@ -534,23 +546,49 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       if (id) ids.add(id);
     }
 
-    return [...ids];
+    this.cachedRadioIds = [...ids];
+    this.cachedRadioIdsAt = Date.now();
+    return this.cachedRadioIds;
   }
 
   private async runBackgroundRotationTick(): Promise<void> {
     if (this.backgroundTickInFlight) return;
+
+    if (this.consecutiveBackgroundFailures > 0) {
+      const backoffMs = Math.min(
+        this.maxBackgroundBackoffMs,
+        this.backgroundPollMs * Math.pow(2, this.consecutiveBackgroundFailures),
+      );
+      this.logger.warn(
+        `Background rotation backing off (${this.consecutiveBackgroundFailures} failures, waiting ${Math.round(backoffMs / 1000)}s)`,
+      );
+      await new Promise((r) => setTimeout(r, backoffMs));
+    }
+
     this.backgroundTickInFlight = true;
+    let allFailed = true;
     try {
       const radioIds = await this.getBackgroundRadioIds();
       for (const radioId of radioIds) {
         try {
           await this.getCurrentTrack(radioId);
+          allFailed = false;
         } catch (e) {
           this.logger.warn(
             `Background rotation failed for radio "${radioId}": ${e?.message ?? e}`,
           );
         }
       }
+      if (allFailed && radioIds.length > 0) {
+        this.consecutiveBackgroundFailures++;
+      } else {
+        this.consecutiveBackgroundFailures = 0;
+      }
+    } catch (e) {
+      this.consecutiveBackgroundFailures++;
+      this.logger.warn(
+        `Background rotation tick error: ${e?.message ?? e}`,
+      );
     } finally {
       this.backgroundTickInFlight = false;
     }

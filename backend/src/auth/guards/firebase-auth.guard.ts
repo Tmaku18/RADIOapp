@@ -145,11 +145,10 @@ export class FirebaseAuthGuard implements CanActivate {
       const auth = getFirebaseAuth();
       const decodedToken = await auth.verifyIdToken(token);
 
-      // Check if user is banned in database
       const supabase = getSupabaseClient();
       const { data: user, error: userLookupError } = await supabase
         .from('users')
-        .select('id, is_banned, ban_reason')
+        .select('id, role, is_banned, ban_reason')
         .eq('firebase_uid', decodedToken.uid)
         .single();
 
@@ -174,6 +173,7 @@ export class FirebaseAuthGuard implements CanActivate {
         uid: decodedToken.uid,
         email: decodedToken.email,
         emailVerified: decodedToken.email_verified,
+        dbRole: user?.role ?? null,
       };
 
       return true;
