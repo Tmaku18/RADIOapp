@@ -530,7 +530,7 @@ export function ArtistPageView({
         <CardContent className="pt-6">
           <h2 className="font-semibold text-xl mb-4">Popular</h2>
           <div className="space-y-2">
-            {data.popularSongs.slice(0, 8).map((song, idx) => (
+            {data.popularSongs.slice(0, 5).map((song, idx) => (
               <div key={song.id} className="grid grid-cols-[24px_1fr_auto] sm:grid-cols-[24px_1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
                 <span className="text-sm text-muted-foreground">{idx + 1}</span>
                 <div className="min-w-0">
