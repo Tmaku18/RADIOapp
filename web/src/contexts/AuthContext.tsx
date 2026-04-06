@@ -57,6 +57,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const AUTH_BOOT_TIMEOUT_MS = 8000;
+
+  const withTimeout = useCallback(
+    async <T,>(promise: Promise<T>, timeoutMs = AUTH_BOOT_TIMEOUT_MS): Promise<T> => {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out')), timeoutMs),
+        ),
+      ]);
+    },
+    [],
+  );
 
   const deriveDisplayName = useCallback((firebaseUser: User) => {
     const fromProfile = firebaseUser.displayName?.trim();
@@ -70,13 +83,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Fetch user profile from backend
   const fetchProfile = useCallback(async () => {
     try {
-      const response = await usersApi.getMe();
+      const response = await withTimeout(usersApi.getMe());
       setProfile(response.data);
     } catch (err) {
       console.error('Failed to fetch profile:', err);
       setProfile(null);
     }
-  }, []);
+  }, [withTimeout]);
 
   // Set role cookie whenever profile has a role so middleware can allow /artist/* and /job-board
   useEffect(() => {
@@ -96,8 +109,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
+    const bootTimeout = setTimeout(() => {
+      setLoading(false);
+    }, AUTH_BOOT_TIMEOUT_MS);
+
     const unsubscribe = onAuthChange(async (firebaseUser) => {
+      clearTimeout(bootTimeout);
       setUser(firebaseUser);
+      // Never block the app shell on profile/session network calls.
+      setLoading(false);
       
       if (firebaseUser) {
         try {
@@ -114,7 +134,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
         try {
-          const response = await usersApi.getMe();
+          const response = await withTimeout(usersApi.getMe());
           if (response.data) {
             setProfile(response.data);
           } else {
@@ -133,12 +153,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
-      
-      setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [createDefaultProfile]);
+    return () => {
+      clearTimeout(bootTimeout);
+      unsubscribe();
+    };
+  }, [createDefaultProfile, withTimeout]);
 
   const handleSignInWithGoogle = async () => {
     setError(null);
