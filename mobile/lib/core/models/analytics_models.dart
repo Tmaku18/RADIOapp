@@ -17,6 +17,8 @@ class TopSong {
   final String title;
   final String? artworkUrl;
   final int totalPlays;
+  final int paidPlays;
+  final int freePlays;
   final int creditsUsed;
   final int creditsRemaining;
   final int likeCount;
@@ -26,6 +28,8 @@ class TopSong {
     required this.title,
     required this.artworkUrl,
     required this.totalPlays,
+    required this.paidPlays,
+    required this.freePlays,
     required this.creditsUsed,
     required this.creditsRemaining,
     required this.likeCount,
@@ -38,6 +42,8 @@ class TopSong {
       title: (json['title'] ?? '').toString(),
       artworkUrl: (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
+      paidPlays: toInt(json['paidPlays'] ?? json['paid_plays']),
+      freePlays: toInt(json['freePlays'] ?? json['free_plays']),
       creditsUsed: toInt(json['creditsUsed'] ?? json['credits_used']),
       creditsRemaining:
           toInt(json['creditsRemaining'] ?? json['credits_remaining']),
@@ -48,6 +54,8 @@ class TopSong {
 
 class ArtistAnalytics {
   final int totalPlays;
+  final int totalPaidPlays;
+  final int totalFreePlays;
   final int totalSongs;
   final int totalLikes;
   final int totalCreditsUsed;
@@ -57,6 +65,8 @@ class ArtistAnalytics {
 
   ArtistAnalytics({
     required this.totalPlays,
+    required this.totalPaidPlays,
+    required this.totalFreePlays,
     required this.totalSongs,
     required this.totalLikes,
     required this.totalCreditsUsed,
@@ -71,6 +81,10 @@ class ArtistAnalytics {
     final ts = (json['topSongs'] ?? json['top_songs']) as List? ?? const [];
     return ArtistAnalytics(
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
+      totalPaidPlays:
+          toInt(json['totalPaidPlays'] ?? json['total_paid_plays']),
+      totalFreePlays:
+          toInt(json['totalFreePlays'] ?? json['total_free_plays']),
       totalSongs: toInt(json['totalSongs'] ?? json['total_songs']),
       totalLikes: toInt(json['totalLikes'] ?? json['total_likes']),
       totalCreditsUsed:

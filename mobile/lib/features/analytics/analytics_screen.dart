@@ -155,6 +155,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         label: 'Credits Used',
                         value: _data!.totalCreditsUsed.toString(),
                       ),
+                      _StatCard(
+                        label: 'Paid Plays',
+                        value: _data!.totalPaidPlays.toString(),
+                      ),
+                      _StatCard(
+                        label: 'Free Plays',
+                        value: _data!.totalFreePlays.toString(),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -330,7 +338,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                   fontWeight: FontWeight.w600),
                                             ),
                                             Text(
-                                              '${s.totalPlays} discoveries · ${s.likeCount} likes',
+                                              '${s.totalPlays} discoveries · ${s.paidPlays} paid · ${s.freePlays} free · ${s.likeCount} likes',
                                               style: TextStyle(
                                                   color: surfaces.textSecondary,
                                                   fontSize: 12),

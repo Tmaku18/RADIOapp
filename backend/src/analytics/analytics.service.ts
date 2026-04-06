@@ -11,6 +11,8 @@ interface SongAnalytics {
   title: string;
   artworkUrl: string | null;
   totalPlays: number;
+  paidPlays: number;
+  freePlays: number;
   creditsUsed: number;
   creditsRemaining: number;
   likeCount: number;
@@ -37,6 +39,8 @@ export interface DiscoverSwipeAnalytics {
 
 export interface ArtistAnalytics {
   totalPlays: number;
+  totalPaidPlays: number;
+  totalFreePlays: number;
   totalSongs: number;
   totalLikes: number;
   totalCreditsUsed: number;
@@ -367,6 +371,8 @@ export class AnalyticsService {
     if (!songs || songs.length === 0) {
       return {
         totalPlays: 0,
+        totalPaidPlays: 0,
+        totalFreePlays: 0,
         totalSongs: 0,
         totalLikes: 0,
         totalCreditsUsed: 0,
@@ -378,6 +384,15 @@ export class AnalyticsService {
     }
 
     const songIds = songs.map((s) => s.id);
+    const totalPaidPlays = (songs || []).reduce(
+      (sum, song) => sum + (song.paid_play_count || 0),
+      0,
+    );
+    const totalSongPlayCount = (songs || []).reduce(
+      (sum, song) => sum + (song.play_count || 0),
+      0,
+    );
+    const totalFreePlays = Math.max(0, totalSongPlayCount - totalPaidPlays);
 
     // Get artist's credits
     const { data: credits } = await supabase
@@ -421,6 +436,11 @@ export class AnalyticsService {
         title: song.title,
         artworkUrl: song.artwork_url,
         totalPlays: song.play_count || 0,
+        paidPlays: song.paid_play_count || 0,
+        freePlays: Math.max(
+          0,
+          (song.play_count || 0) - (song.paid_play_count || 0),
+        ),
         creditsUsed:
           (song.play_count || 0) *
           Math.ceil((song.duration_seconds || 180) / 5),
@@ -451,6 +471,8 @@ export class AnalyticsService {
 
     return {
       totalPlays: totalPlays || 0,
+      totalPaidPlays,
+      totalFreePlays,
       totalSongs: songs.length,
       totalLikes: totalLikes || 0,
       totalCreditsUsed: credits?.total_used || 0,

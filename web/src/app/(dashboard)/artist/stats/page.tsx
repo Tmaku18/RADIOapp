@@ -16,6 +16,8 @@ interface TopSong {
   title: string;
   artworkUrl: string | null;
   totalPlays: number;
+  paidPlays: number;
+  freePlays: number;
   creditsUsed: number;
   creditsRemaining: number;
   likeCount: number;
@@ -23,6 +25,8 @@ interface TopSong {
 
 interface ArtistAnalytics {
   totalPlays: number;
+  totalPaidPlays: number;
+  totalFreePlays: number;
   totalSongs: number;
   totalLikes: number;
   totalCreditsUsed: number;
@@ -165,7 +169,7 @@ export default function StatsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Discoveries</div>
@@ -187,6 +191,22 @@ export default function StatsPage() {
             <div className="text-sm text-muted-foreground font-medium">This Month</div>
             <div className="text-3xl font-bold text-foreground mt-1">{thisMonthPlays.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Last 30 days</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Paid Plays</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalPaidPlays ?? 0).toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Credit-backed</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Free Plays</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{(analytics?.totalFreePlays ?? 0).toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Trial/opt-in/fallback</div>
           </CardContent>
         </Card>
 
@@ -331,7 +351,9 @@ export default function StatsPage() {
                   {song.artworkUrl && <img src={song.artworkUrl} alt="" className="w-10 h-10 rounded object-cover shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
-                    <p className="text-sm text-muted-foreground">{song.totalPlays.toLocaleString()} discoveries · {song.likeCount} ripples</p>
+                    <p className="text-sm text-muted-foreground">
+                      {song.totalPlays.toLocaleString()} discoveries · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
+                    </p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-sm text-muted-foreground">{song.creditsUsed.toLocaleString()} credits used</p>
