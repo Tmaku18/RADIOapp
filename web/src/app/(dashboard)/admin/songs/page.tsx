@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { TOWERS } from '@/data/station-map';
@@ -72,6 +72,13 @@ export default function AdminSongsPage() {
   const [trimmingSong, setTrimmingSong] = useState<Song | null>(null);
   const [trimStartSeconds, setTrimStartSeconds] = useState(0);
   const [trimEndSeconds, setTrimEndSeconds] = useState(0);
+  const [trimPreviewReady, setTrimPreviewReady] = useState(false);
+  const [trimPreviewTime, setTrimPreviewTime] = useState(0);
+  const [trimPreviewDuration, setTrimPreviewDuration] = useState(0);
+  const [trimPreviewPlaying, setTrimPreviewPlaying] = useState(false);
+  const trimPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const trimStartRef = useRef(0);
+  const trimEndRef = useRef(0);
   
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -233,16 +240,107 @@ export default function AdminSongsPage() {
     setTrimmingSong(song);
     setTrimStartSeconds(0);
     setTrimEndSeconds(duration);
+    setTrimPreviewTime(0);
+    setTrimPreviewDuration(duration);
+    setTrimPreviewReady(false);
+    setTrimPreviewPlaying(false);
   };
 
   const getTrimTotalSeconds = (song: Song) =>
-    Math.max(1, durationOverrides[song.id] ?? song.duration_seconds ?? 180);
+    Math.max(
+      1,
+      trimmingSong?.id === song.id && trimPreviewDuration > 0
+        ? Math.ceil(trimPreviewDuration)
+        : (durationOverrides[song.id] ?? song.duration_seconds ?? 180),
+    );
+
+  useEffect(() => {
+    trimStartRef.current = trimStartSeconds;
+  }, [trimStartSeconds]);
+
+  useEffect(() => {
+    trimEndRef.current = trimEndSeconds;
+  }, [trimEndSeconds]);
+
+  useEffect(() => {
+    if (!trimmingSong?.audio_url) return;
+    const preview = new Audio(trimmingSong.audio_url);
+    preview.preload = 'metadata';
+    trimPreviewRef.current = preview;
+    setTrimPreviewReady(false);
+    setTrimPreviewPlaying(false);
+    setTrimPreviewTime(0);
+
+    const handleLoadedMetadata = () => {
+      const duration = Number.isFinite(preview.duration) ? preview.duration : 0;
+      setTrimPreviewDuration(duration);
+      setTrimPreviewReady(duration > 0);
+    };
+    const handleTimeUpdate = () => {
+      const current = preview.currentTime || 0;
+      const start = trimStartRef.current;
+      const end = trimEndRef.current;
+      if (current >= end) {
+        preview.currentTime = start;
+        if (!preview.paused) {
+          void preview.play().catch(() => undefined);
+        }
+        setTrimPreviewTime(start);
+        return;
+      }
+      setTrimPreviewTime(current);
+    };
+    const handlePlay = () => setTrimPreviewPlaying(true);
+    const handlePause = () => setTrimPreviewPlaying(false);
+    const handleEnded = () => {
+      preview.currentTime = trimStartRef.current;
+      setTrimPreviewPlaying(false);
+      setTrimPreviewTime(trimStartRef.current);
+    };
+    const handleError = () => {
+      setTrimPreviewReady(false);
+      setTrimPreviewPlaying(false);
+    };
+
+    preview.addEventListener('loadedmetadata', handleLoadedMetadata);
+    preview.addEventListener('timeupdate', handleTimeUpdate);
+    preview.addEventListener('play', handlePlay);
+    preview.addEventListener('pause', handlePause);
+    preview.addEventListener('ended', handleEnded);
+    preview.addEventListener('error', handleError);
+
+    return () => {
+      preview.pause();
+      preview.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      preview.removeEventListener('timeupdate', handleTimeUpdate);
+      preview.removeEventListener('play', handlePlay);
+      preview.removeEventListener('pause', handlePause);
+      preview.removeEventListener('ended', handleEnded);
+      preview.removeEventListener('error', handleError);
+      preview.src = '';
+      if (trimPreviewRef.current === preview) {
+        trimPreviewRef.current = null;
+      }
+    };
+  }, [trimmingSong]);
+
+  useEffect(() => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    setTrimStartSeconds((prev) => Math.max(0, Math.min(prev, total - 1)));
+    setTrimEndSeconds((prev) => Math.min(total, Math.max(prev, trimStartRef.current + 1)));
+  }, [trimPreviewDuration, trimmingSong]);
 
   const handleTrimStartDrag = (value: number) => {
     if (!trimmingSong) return;
     const total = getTrimTotalSeconds(trimmingSong);
     const nextStart = Math.max(0, Math.min(Math.floor(value), trimEndSeconds - 1));
     setTrimStartSeconds(Math.min(nextStart, total - 1));
+    const preview = trimPreviewRef.current;
+    if (preview) {
+      preview.currentTime = Math.min(nextStart, Math.max(0, trimEndSeconds - 1));
+      setTrimPreviewTime(preview.currentTime);
+    }
   };
 
   const handleTrimEndDrag = (value: number) => {
@@ -250,6 +348,32 @@ export default function AdminSongsPage() {
     const total = getTrimTotalSeconds(trimmingSong);
     const nextEnd = Math.min(total, Math.max(Math.floor(value), trimStartSeconds + 1));
     setTrimEndSeconds(nextEnd);
+    const preview = trimPreviewRef.current;
+    if (preview && preview.currentTime > nextEnd) {
+      preview.currentTime = trimStartSeconds;
+      setTrimPreviewTime(trimStartSeconds);
+    }
+  };
+
+  const toggleTrimPreviewPlay = async () => {
+    const preview = trimPreviewRef.current;
+    if (!preview) return;
+    if (preview.paused) {
+      if (preview.currentTime < trimStartSeconds || preview.currentTime >= trimEndSeconds) {
+        preview.currentTime = trimStartSeconds;
+      }
+      await preview.play().catch(() => undefined);
+      return;
+    }
+    preview.pause();
+  };
+
+  const seekTrimPreview = (value: number) => {
+    const preview = trimPreviewRef.current;
+    if (!preview) return;
+    const next = Math.max(0, Math.min(value, getTrimTotalSeconds(trimmingSong!)));
+    preview.currentTime = next;
+    setTrimPreviewTime(next);
   };
 
   const handleTrimSave = async () => {
@@ -704,6 +828,46 @@ export default function AdminSongsPage() {
             <p className="text-gray-600 mb-4">
               Drag the handles to cut the section you want to keep. A new trimmed audio file will be generated and saved.
             </p>
+            <div className="rounded-lg border border-gray-200 p-4 mb-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => void toggleTrimPreviewPlay()}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {trimPreviewPlaying ? 'Pause Preview' : 'Play Preview'}
+                </button>
+                <button
+                  onClick={() => seekTrimPreview(trimStartSeconds)}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Seek to Start
+                </button>
+                <button
+                  onClick={() => seekTrimPreview(trimEndSeconds)}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Seek to End
+                </button>
+              </div>
+              <div>
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={0.1}
+                  value={Math.min(trimPreviewTime, getTrimTotalSeconds(trimmingSong))}
+                  onChange={(e) => seekTrimPreview(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Preview: {formatDuration(Math.floor(trimPreviewTime))}</span>
+                  <span>Total: {formatDuration(getTrimTotalSeconds(trimmingSong))}</span>
+                </div>
+              </div>
+            </div>
             <div className="rounded-lg border border-gray-200 p-4 mb-4">
               <div className="flex justify-between text-sm text-gray-700 mb-2">
                 <span>Start: <span className="font-mono">{formatDuration(trimStartSeconds)}</span></span>
@@ -741,31 +905,6 @@ export default function AdminSongsPage() {
               <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>0:00</span>
                 <span>{formatDuration(getTrimTotalSeconds(trimmingSong))}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Start (s)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={trimStartSeconds}
-                  onChange={(e) => handleTrimStartDrag(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
-                />
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">End (s)</label>
-                <input
-                  type="number"
-                  min={1}
-                  step={1}
-                  value={trimEndSeconds}
-                  onChange={(e) => handleTrimEndDrag(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
-                />
               </div>
             </div>
             <div className="mt-3 text-xs text-gray-500">

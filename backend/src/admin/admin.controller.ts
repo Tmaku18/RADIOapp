@@ -291,6 +291,12 @@ export class AdminController {
     return this.adminService.replaceRadioQueue(id, stackIds);
   }
 
+  @Post('radios/:id/queue/skip')
+  async skipRadioQueueTrack(@Param('id') radioId: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    return this.adminService.skipRadioQueueTrack(id);
+  }
+
   @Delete('radios/:id/queue')
   async removeRadioQueueEntry(
     @Param('id') radioId: string,

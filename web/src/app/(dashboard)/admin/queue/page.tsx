@@ -70,6 +70,7 @@ export default function AdminQueuePage() {
   const [selectedAddStackId, setSelectedAddStackId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -293,16 +294,41 @@ export default function AdminQueuePage() {
     setError(null);
   };
 
+  const skipCurrentTrack = async () => {
+    if (!selectedRadioId) return;
+    setSkipping(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await adminApi.skipRadioQueueTrack(selectedRadioId);
+      await loadQueue(selectedRadioId);
+      setSuccess('Skipped current track for this station.');
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, 'Failed to skip current track'));
+    } finally {
+      setSkipping(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className="text-2xl font-bold">Queue Manager</h2>
           <p className="text-sm text-muted-foreground">
-            Manage upcoming queue only. Current song keeps playing.
+            Manage upcoming queue and skip the current track when needed.
           </p>
         </div>
-        <div className="w-full">
+        <div className="w-full space-y-2">
+          <div className="flex justify-end">
+            <Button
+              variant="destructive"
+              onClick={() => void skipCurrentTrack()}
+              disabled={loading || saving || skipping || !selectedRadioId}
+            >
+              {skipping ? 'Skipping...' : 'Skip Current Track'}
+            </Button>
+          </div>
           <label className="mb-1 block text-xs font-medium text-muted-foreground">Stations</label>
           <div className="flex flex-wrap gap-2">
             {radios.map((radio) => (

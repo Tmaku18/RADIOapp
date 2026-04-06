@@ -1862,13 +1862,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     // Free rotation mode (or fallback from paid mode)
-    const freeRotationSong = await this.getNextFreeRotationSong(
-      radioId,
-      currentSongId ?? undefined,
-    );
-    if (freeRotationSong) {
+    // Skip over any queue entries that no longer have a playable audio URL.
+    const freeRotationAttempts = 50;
+    for (let attempt = 0; attempt < freeRotationAttempts; attempt += 1) {
+      const freeRotationSong = await this.getNextFreeRotationSong(
+        radioId,
+        currentSongId ?? undefined,
+      );
+      if (!freeRotationSong) break;
+
       this.logger.log(`Playing free rotation song: ${freeRotationSong.title}`);
       const result = await this.playFreeRotationSong(freeRotationSong, radioId);
+      if (!result) {
+        continue;
+      }
 
       const position =
         await this.radioStateService.getFallbackPosition(radioId);
@@ -2305,6 +2312,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
     const isFromAdminTable = song._source === 'admin_fallback';
     const stateSongId = isFromAdminTable ? `admin:${song.id}` : song.id;
+    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+
+    if (!audioUrl) {
+      this.logger.warn(
+        `Skipping free rotation song ${song.id} - no playable audio URL`,
+      );
+      return null;
+    }
 
     await this.radioStateService.setCurrentState(
       {
@@ -2383,7 +2398,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const pinnedCatalysts = isFromAdminTable
       ? []
       : await this.getPinnedCatalystsForSong(song.id);
-    const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     return {
       id: song.id,

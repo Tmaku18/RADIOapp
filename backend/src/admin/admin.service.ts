@@ -72,6 +72,10 @@ export class AdminService {
     return this.radioService.replaceAdminQueue(radioId, stackIds);
   }
 
+  async skipRadioQueueTrack(radioId: string) {
+    return this.radioService.getNextTrack(radioId, true);
+  }
+
   async removeRadioQueueEntry(
     radioId: string,
     params: {

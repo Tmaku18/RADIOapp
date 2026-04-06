@@ -925,6 +925,8 @@ export const adminApi = {
   ) => api.post(`/admin/radios/${radioId}/queue`, data),
   replaceRadioQueue: (radioId: string, stackIds: string[]) =>
     api.patch(`/admin/radios/${radioId}/queue`, { stackIds }),
+  skipRadioQueueTrack: (radioId: string) =>
+    api.post(`/admin/radios/${radioId}/queue/skip`),
   removeRadioQueueEntry: (
     radioId: string,
     params: { position?: number; stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' },
