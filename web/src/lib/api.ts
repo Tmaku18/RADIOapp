@@ -917,6 +917,8 @@ export const adminApi = {
         durationSeconds: number;
       }>;
       availableCount: number;
+      stale?: boolean;
+      stale_cached_at?: string;
     }>(`/admin/radios/${radioId}/queue`, { params: limit ? { limit } : undefined }),
   addRadioQueueEntries: (
     radioId: string,

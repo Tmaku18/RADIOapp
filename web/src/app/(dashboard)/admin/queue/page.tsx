@@ -21,6 +21,8 @@ type QueueState = {
   radioId: string;
   currentSong: { title: string | null; artistName: string | null } | null;
   upcoming: QueueEntry[];
+  stale?: boolean;
+  stale_cached_at?: string | null;
 };
 type Candidate = {
   stackId: string;
@@ -73,6 +75,7 @@ export default function AdminQueuePage() {
   const [skipping, setSkipping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [staleQueueNotice, setStaleQueueNotice] = useState<string | null>(null);
 
   const loadRadios = useCallback(async () => {
     const res = await adminApi.getRadios();
@@ -95,6 +98,11 @@ export default function AdminQueuePage() {
         radioId: res.data.radioId,
         currentSong: res.data.currentSong,
         upcoming: res.data.upcoming || [],
+        stale: !!res.data.stale,
+        stale_cached_at:
+          typeof res.data.stale_cached_at === 'string'
+            ? res.data.stale_cached_at
+            : null,
       };
       const stackIds = state.upcoming.map((row) => row.stackId);
       setQueueCache((prev) => ({ ...prev, [radioId]: state }));
@@ -104,6 +112,13 @@ export default function AdminQueuePage() {
         setQueueState(state);
         setDraftStackIds(stackIds);
         setOriginalStackIds(stackIds);
+        setStaleQueueNotice(
+          state.stale
+            ? state.stale_cached_at
+              ? `Showing cached queue from ${new Date(state.stale_cached_at).toLocaleTimeString()}.`
+              : 'Showing cached queue while reconnecting to the database.'
+            : null,
+        );
       }
     } catch (err: unknown) {
       if (applyToView) {
@@ -180,6 +195,13 @@ export default function AdminQueuePage() {
           cachedQueue.upcoming.map((row) => row.stackId),
       );
       setLoading(false);
+      setStaleQueueNotice(
+        cachedQueue.stale
+          ? cachedQueue.stale_cached_at
+            ? `Showing cached queue from ${new Date(cachedQueue.stale_cached_at).toLocaleTimeString()}.`
+            : 'Showing cached queue while reconnecting to the database.'
+          : null,
+      );
       // Background refresh once per station switch; do not couple effect to cache updates.
       void loadQueue(selectedRadioId, false);
     } else {
@@ -353,6 +375,11 @@ export default function AdminQueuePage() {
       {error && (
         <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
+        </div>
+      )}
+      {staleQueueNotice && (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+          {staleQueueNotice}
         </div>
       )}
       {success && (

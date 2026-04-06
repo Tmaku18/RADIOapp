@@ -27,6 +27,8 @@ interface Song {
     display_name: string;
     email: string;
   };
+  stale?: boolean;
+  stale_cached_at?: string;
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -56,6 +58,7 @@ export default function AdminSongsPage() {
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [staleSongsNotice, setStaleSongsNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   const [editingSong, setEditingSong] = useState<Song | null>(null);
@@ -152,10 +155,20 @@ export default function AdminSongsPage() {
         sortOrder,
         limit: 100,
       });
-      setSongs(response.data.songs || []);
+      const nextSongs = (response.data.songs || []) as Song[];
+      setSongs(nextSongs);
+      const staleRow = nextSongs.find((row) => row?.stale);
+      setStaleSongsNotice(
+        staleRow?.stale_cached_at
+          ? `Showing cached songs from ${new Date(staleRow.stale_cached_at).toLocaleTimeString()}.`
+          : staleRow
+            ? 'Showing cached songs while reconnecting to the database.'
+            : null,
+      );
     } catch (err) {
       console.error('Failed to load songs:', err);
       setError("Failed to load songs");
+      setStaleSongsNotice(null);
     } finally {
       setLoading(false);
     }
@@ -596,6 +609,11 @@ export default function AdminSongsPage() {
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
           {error}
+        </div>
+      )}
+      {staleSongsNotice && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
+          {staleSongsNotice}
         </div>
       )}
 
