@@ -385,14 +385,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Future<void> _openExternalUrl(String rawUrl) async {
-    final raw = rawUrl.trim();
-    if (raw.isEmpty) return;
-    final uri = Uri.tryParse(raw.startsWith('http') ? raw : 'https://$raw');
+  Uri? _normalizeSocialUri({
+    required String label,
+    required String value,
+  }) {
+    final raw = value.trim();
+    if (raw.isEmpty) return null;
+    final hasScheme =
+        raw.startsWith('http://') || raw.startsWith('https://');
+
+    if (label.toLowerCase() == 'instagram') {
+      if (hasScheme) return Uri.tryParse(raw);
+      if (raw.toLowerCase().startsWith('instagram.com') ||
+          raw.toLowerCase().startsWith('www.instagram.com')) {
+        return Uri.tryParse('https://$raw');
+      }
+      var handle = raw;
+      if (handle.startsWith('@')) {
+        handle = handle.substring(1);
+      }
+      handle = handle.trim();
+      if (handle.isEmpty || handle.contains(' ')) return null;
+      return Uri.tryParse('https://www.instagram.com/$handle/');
+    }
+
+    return Uri.tryParse(hasScheme ? raw : 'https://$raw');
+  }
+
+  Future<void> _openExternalUrl({
+    required String label,
+    required String rawUrl,
+  }) async {
+    final uri = _normalizeSocialUri(label: label, value: rawUrl);
     if (uri == null || !await canLaunchUrl(uri)) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not open link.')),
+        SnackBar(content: Text('Could not open $label link.')),
       );
       return;
     }
@@ -417,7 +445,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((s) => (s.value ?? '').trim().isNotEmpty)
         .map(
           (social) => TextButton.icon(
-            onPressed: () => _openExternalUrl(social.value!),
+            onPressed: () =>
+                _openExternalUrl(label: social.label, rawUrl: social.value!),
             icon: Icon(social.icon, size: 18),
             label: Text(social.label),
           ),
