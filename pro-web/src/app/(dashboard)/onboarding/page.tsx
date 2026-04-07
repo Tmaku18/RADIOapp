@@ -16,6 +16,16 @@ type ProMeProfile = {
   userId: string;
   availableForWork: boolean;
   skillsHeadline: string | null;
+  websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
   skills: Array<{ name: string; category: string }>;
 };
 
@@ -44,6 +54,16 @@ export default function OnboardingPage() {
 
   const [availableForWork, setAvailableForWork] = useState(true);
   const [skillsHeadline, setSkillsHeadline] = useState('');
+  const [websiteUrl, setWebsiteUrl] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [soundcloudUrl, setSoundcloudUrl] = useState('');
+  const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [appleMusicUrl, setAppleMusicUrl] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
+  const [snapchatUrl, setSnapchatUrl] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
 
@@ -62,12 +82,32 @@ export default function OnboardingPage() {
       setMe(data);
       setAvailableForWork(data.availableForWork ?? true);
       setSkillsHeadline(data.skillsHeadline ?? '');
+      setWebsiteUrl(data.websiteUrl ?? '');
+      setInstagramUrl(data.instagramUrl ?? '');
+      setTwitterUrl(data.twitterUrl ?? '');
+      setYoutubeUrl(data.youtubeUrl ?? '');
+      setTiktokUrl(data.tiktokUrl ?? '');
+      setSoundcloudUrl(data.soundcloudUrl ?? '');
+      setSpotifyUrl(data.spotifyUrl ?? '');
+      setAppleMusicUrl(data.appleMusicUrl ?? '');
+      setFacebookUrl(data.facebookUrl ?? '');
+      setSnapchatUrl(data.snapchatUrl ?? '');
       setSkills((data.skills ?? []).map((s) => s.name).filter(Boolean));
     } catch (e) {
       // No profile yet is fine; we will create on save
       setMe(null);
       setAvailableForWork(true);
       setSkillsHeadline('');
+      setWebsiteUrl('');
+      setInstagramUrl('');
+      setTwitterUrl('');
+      setYoutubeUrl('');
+      setTiktokUrl('');
+      setSoundcloudUrl('');
+      setSpotifyUrl('');
+      setAppleMusicUrl('');
+      setFacebookUrl('');
+      setSnapchatUrl('');
       setSkills([]);
     } finally {
       setLoadingMe(false);
@@ -105,6 +145,16 @@ export default function OnboardingPage() {
       await proNetworxApi.updateMeProfile({
         availableForWork,
         skillsHeadline: skillsHeadline.trim() || undefined,
+        websiteUrl: websiteUrl.trim() || undefined,
+        instagramUrl: instagramUrl.trim() || undefined,
+        twitterUrl: twitterUrl.trim() || undefined,
+        youtubeUrl: youtubeUrl.trim() || undefined,
+        tiktokUrl: tiktokUrl.trim() || undefined,
+        soundcloudUrl: soundcloudUrl.trim() || undefined,
+        spotifyUrl: spotifyUrl.trim() || undefined,
+        appleMusicUrl: appleMusicUrl.trim() || undefined,
+        facebookUrl: facebookUrl.trim() || undefined,
+        snapchatUrl: snapchatUrl.trim() || undefined,
         skillNames: skills,
       });
       router.push('/directory');
@@ -159,6 +209,20 @@ export default function OnboardingPage() {
                   placeholder="e.g. Producer + Mix Engineer • Atlanta • 48hr turnaround"
                   className="min-h-[90px]"
                 />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Social links</Label>
+                <Input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" />
+                <Input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL or @handle" />
+                <Input value={twitterUrl} onChange={(e) => setTwitterUrl(e.target.value)} placeholder="Twitter/X URL or @handle" />
+                <Input value={youtubeUrl} onChange={(e) => setYoutubeUrl(e.target.value)} placeholder="YouTube URL or @handle" />
+                <Input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL or @handle" />
+                <Input value={soundcloudUrl} onChange={(e) => setSoundcloudUrl(e.target.value)} placeholder="SoundCloud URL" />
+                <Input value={spotifyUrl} onChange={(e) => setSpotifyUrl(e.target.value)} placeholder="Spotify URL" />
+                <Input value={appleMusicUrl} onChange={(e) => setAppleMusicUrl(e.target.value)} placeholder="Apple Music URL" />
+                <Input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" />
+                <Input value={snapchatUrl} onChange={(e) => setSnapchatUrl(e.target.value)} placeholder="Snapchat URL" />
               </div>
 
               <div className="space-y-3">

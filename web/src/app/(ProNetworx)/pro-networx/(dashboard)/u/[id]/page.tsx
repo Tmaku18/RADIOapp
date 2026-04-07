@@ -42,6 +42,15 @@ type ProPublicProfile = {
   about?: string | null;
   locationRegion: string | null;
   websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
   availableForWork: boolean;
   skillsHeadline: string | null;
   skills: string[];
@@ -98,6 +107,22 @@ export default function ProNetworxProfilePage() {
 
   const loading = loadedId !== id;
   const activeListings = useMemo(() => (data?.listings ?? []).filter((l) => l.status === 'active'), [data?.listings]);
+  const socialLinks = useMemo(
+    () =>
+      [
+        { label: 'Website', url: data?.websiteUrl ?? null },
+        { label: 'Instagram', url: data?.instagramUrl ?? null },
+        { label: 'Twitter/X', url: data?.twitterUrl ?? null },
+        { label: 'YouTube', url: data?.youtubeUrl ?? null },
+        { label: 'TikTok', url: data?.tiktokUrl ?? null },
+        { label: 'SoundCloud', url: data?.soundcloudUrl ?? null },
+        { label: 'Spotify', url: data?.spotifyUrl ?? null },
+        { label: 'Apple Music', url: data?.appleMusicUrl ?? null },
+        { label: 'Facebook', url: data?.facebookUrl ?? null },
+        { label: 'Snapchat', url: data?.snapchatUrl ?? null },
+      ].filter((item) => !!item.url?.trim()),
+    [data],
+  );
   const experience = (data?.experience ?? []).filter((e) => e.title?.trim() || e.company?.trim());
   const education = (data?.education ?? []).filter((e) => e.school?.trim());
   const featured = (data?.featured ?? []).filter((f) => f.url?.trim() || f.title?.trim());
@@ -378,18 +403,23 @@ export default function ProNetworxProfilePage() {
                 </CardContent>
               </Card>
 
-              {data.websiteUrl && (
+              {socialLinks.length > 0 && (
                 <Card className="glass-panel border border-border">
                   <CardContent className="pt-6">
-                    <h2 className="text-lg font-semibold text-foreground mb-3">Contact</h2>
-                    <a
-                      href={data.websiteUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline text-sm break-all"
-                    >
-                      {data.websiteUrl}
-                    </a>
+                    <h2 className="text-lg font-semibold text-foreground mb-3">Social links</h2>
+                    <div className="space-y-2">
+                      {socialLinks.map((item) => (
+                        <a
+                          key={`${item.label}-${item.url}`}
+                          href={item.url as string}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block text-primary hover:underline text-sm break-all"
+                        >
+                          {item.label}: {item.url}
+                        </a>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
               )}

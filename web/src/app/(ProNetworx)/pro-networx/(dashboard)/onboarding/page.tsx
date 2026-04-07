@@ -87,6 +87,15 @@ export default function ProNetworxOnboardingPage() {
   const [skillsHeadline, setSkillsHeadline] = useState('');
   const [about, setAbout] = useState('');
   const [websiteUrl, setWebsiteUrl] = useState('');
+  const [instagramUrl, setInstagramUrl] = useState('');
+  const [twitterUrl, setTwitterUrl] = useState('');
+  const [youtubeUrl, setYoutubeUrl] = useState('');
+  const [tiktokUrl, setTiktokUrl] = useState('');
+  const [soundcloudUrl, setSoundcloudUrl] = useState('');
+  const [spotifyUrl, setSpotifyUrl] = useState('');
+  const [appleMusicUrl, setAppleMusicUrl] = useState('');
+  const [facebookUrl, setFacebookUrl] = useState('');
+  const [snapchatUrl, setSnapchatUrl] = useState('');
   const [skillQuery, setSkillQuery] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
   const [experience, setExperience] = useState<ExperienceItem[]>([emptyExperience()]);
@@ -114,6 +123,15 @@ export default function ProNetworxOnboardingPage() {
       setSkillsHeadline(data.skillsHeadline ?? '');
       setAbout(data.about ?? '');
       setWebsiteUrl(data.websiteUrl ?? '');
+      setInstagramUrl(data.instagramUrl ?? '');
+      setTwitterUrl(data.twitterUrl ?? '');
+      setYoutubeUrl(data.youtubeUrl ?? '');
+      setTiktokUrl(data.tiktokUrl ?? '');
+      setSoundcloudUrl(data.soundcloudUrl ?? '');
+      setSpotifyUrl(data.spotifyUrl ?? '');
+      setAppleMusicUrl(data.appleMusicUrl ?? '');
+      setFacebookUrl(data.facebookUrl ?? '');
+      setSnapchatUrl(data.snapchatUrl ?? '');
       setSkills((data.skills ?? []).map((s) => s.name).filter(Boolean));
       setExperience(
         (data.experience ?? []).length > 0
@@ -137,6 +155,15 @@ export default function ProNetworxOnboardingPage() {
       setSkillsHeadline('');
       setAbout('');
       setWebsiteUrl('');
+      setInstagramUrl('');
+      setTwitterUrl('');
+      setYoutubeUrl('');
+      setTiktokUrl('');
+      setSoundcloudUrl('');
+      setSpotifyUrl('');
+      setAppleMusicUrl('');
+      setFacebookUrl('');
+      setSnapchatUrl('');
       setSkills([]);
       setExperience([emptyExperience()]);
       setEducation([emptyEducation()]);
@@ -300,6 +327,15 @@ export default function ProNetworxOnboardingPage() {
         skillsHeadline: skillsHeadline.trim() || undefined,
         about: about.trim() || undefined,
         websiteUrl: websiteUrl.trim() || undefined,
+        instagramUrl: instagramUrl.trim() || undefined,
+        twitterUrl: twitterUrl.trim() || undefined,
+        youtubeUrl: youtubeUrl.trim() || undefined,
+        tiktokUrl: tiktokUrl.trim() || undefined,
+        soundcloudUrl: soundcloudUrl.trim() || undefined,
+        spotifyUrl: spotifyUrl.trim() || undefined,
+        appleMusicUrl: appleMusicUrl.trim() || undefined,
+        facebookUrl: facebookUrl.trim() || undefined,
+        snapchatUrl: snapchatUrl.trim() || undefined,
         experience: sanitizeExperience(experience),
         education: sanitizeEducation(education),
         featured: sanitizeFeatured(featured),
@@ -473,6 +509,96 @@ export default function ProNetworxOnboardingPage() {
                   onChange={(e) => setWebsiteUrl(e.target.value)}
                   placeholder="https://..."
                   type="url"
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Instagram</Label>
+                <Input
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder="@handle or https://instagram.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Twitter / X</Label>
+                <Input
+                  value={twitterUrl}
+                  onChange={(e) => setTwitterUrl(e.target.value)}
+                  placeholder="@handle or https://x.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">YouTube</Label>
+                <Input
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  placeholder="@channel or https://youtube.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">TikTok</Label>
+                <Input
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder="@handle or https://tiktok.com/@..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">SoundCloud</Label>
+                <Input
+                  value={soundcloudUrl}
+                  onChange={(e) => setSoundcloudUrl(e.target.value)}
+                  placeholder="https://soundcloud.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Spotify</Label>
+                <Input
+                  value={spotifyUrl}
+                  onChange={(e) => setSpotifyUrl(e.target.value)}
+                  placeholder="https://open.spotify.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Apple Music</Label>
+                <Input
+                  value={appleMusicUrl}
+                  onChange={(e) => setAppleMusicUrl(e.target.value)}
+                  placeholder="https://music.apple.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Facebook</Label>
+                <Input
+                  value={facebookUrl}
+                  onChange={(e) => setFacebookUrl(e.target.value)}
+                  placeholder="https://facebook.com/..."
+                  className="bg-background border-border"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-foreground">Snapchat</Label>
+                <Input
+                  value={snapchatUrl}
+                  onChange={(e) => setSnapchatUrl(e.target.value)}
+                  placeholder="https://snapchat.com/..."
                   className="bg-background border-border"
                 />
               </div>

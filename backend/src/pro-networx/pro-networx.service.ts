@@ -42,6 +42,15 @@ export type ProProfileResponse = {
   education: EducationItem[];
   featured: FeaturedItem[];
   skills: Array<{ name: string; category: string }>;
+  instagramUrl: string | null;
+  twitterUrl: string | null;
+  youtubeUrl: string | null;
+  tiktokUrl: string | null;
+  soundcloudUrl: string | null;
+  spotifyUrl: string | null;
+  appleMusicUrl: string | null;
+  facebookUrl: string | null;
+  snapchatUrl: string | null;
 };
 
 export type ProDirectoryItem = {
@@ -70,6 +79,15 @@ export type ProDirectoryItem = {
 export type ProPublicProfileResponse = ProDirectoryItem & {
   about?: string | null;
   websiteUrl?: string | null;
+  instagramUrl?: string | null;
+  twitterUrl?: string | null;
+  youtubeUrl?: string | null;
+  tiktokUrl?: string | null;
+  soundcloudUrl?: string | null;
+  spotifyUrl?: string | null;
+  appleMusicUrl?: string | null;
+  facebookUrl?: string | null;
+  snapchatUrl?: string | null;
   experience?: ExperienceItem[];
   education?: EducationItem[];
   featured?: FeaturedItem[];
@@ -95,7 +113,7 @@ export class ProNetworxService {
     const { data: u, error: userErr } = await supabase
       .from('users')
       .select(
-        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at',
+        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at, website_url, instagram_url, twitter_url, youtube_url, tiktok_url, soundcloud_url, spotify_url, apple_music_url, facebook_url, snapchat_url',
       )
       .eq('id', userId)
       .maybeSingle();
@@ -193,7 +211,17 @@ export class ProNetworxService {
       bio: (u as any).bio ?? null,
       about: (p as any)?.about ?? null,
       locationRegion: (u as any).location_region ?? null,
-      websiteUrl: (p as any)?.website_url ?? null,
+      websiteUrl:
+        (u as any)?.website_url ?? (p as any)?.website_url ?? null,
+      instagramUrl: (u as any)?.instagram_url ?? null,
+      twitterUrl: (u as any)?.twitter_url ?? null,
+      youtubeUrl: (u as any)?.youtube_url ?? null,
+      tiktokUrl: (u as any)?.tiktok_url ?? null,
+      soundcloudUrl: (u as any)?.soundcloud_url ?? null,
+      spotifyUrl: (u as any)?.spotify_url ?? null,
+      appleMusicUrl: (u as any)?.apple_music_url ?? null,
+      facebookUrl: (u as any)?.facebook_url ?? null,
+      snapchatUrl: (u as any)?.snapchat_url ?? null,
       availableForWork: p?.available_for_work ?? true,
       skillsHeadline: p?.skills_headline ?? null,
       skills,
@@ -248,7 +276,9 @@ export class ProNetworxService {
 
     const { data: user } = await supabase
       .from('users')
-      .select('avatar_url')
+      .select(
+        'avatar_url, website_url, instagram_url, twitter_url, youtube_url, tiktok_url, soundcloud_url, spotify_url, apple_music_url, facebook_url, snapchat_url',
+      )
       .eq('id', userId)
       .single();
 
@@ -291,11 +321,21 @@ export class ProNetworxService {
       skillsHeadline: profile?.skills_headline ?? null,
       currentTitle: (profile as any)?.current_title ?? null,
       about: (profile as any)?.about ?? null,
-      websiteUrl: (profile as any)?.website_url ?? null,
+      websiteUrl:
+        (user as any)?.website_url ?? (profile as any)?.website_url ?? null,
       experience: Array.isArray(experience) ? experience : [],
       education: Array.isArray(education) ? education : [],
       featured: Array.isArray(featured) ? featured : [],
       skills,
+      instagramUrl: (user as any)?.instagram_url ?? null,
+      twitterUrl: (user as any)?.twitter_url ?? null,
+      youtubeUrl: (user as any)?.youtube_url ?? null,
+      tiktokUrl: (user as any)?.tiktok_url ?? null,
+      soundcloudUrl: (user as any)?.soundcloud_url ?? null,
+      spotifyUrl: (user as any)?.spotify_url ?? null,
+      appleMusicUrl: (user as any)?.apple_music_url ?? null,
+      facebookUrl: (user as any)?.facebook_url ?? null,
+      snapchatUrl: (user as any)?.snapchat_url ?? null,
     };
   }
 
@@ -326,6 +366,34 @@ export class ProNetworxService {
     await supabase
       .from('pro_networx.profiles')
       .upsert(upsertPayload, { onConflict: 'user_id' });
+
+    const userUpdatePayload: Record<string, unknown> = {
+      updated_at: now,
+    };
+    if (dto.websiteUrl !== undefined)
+      userUpdatePayload.website_url = dto.websiteUrl?.trim() || null;
+    if (dto.instagramUrl !== undefined)
+      userUpdatePayload.instagram_url = dto.instagramUrl || null;
+    if (dto.twitterUrl !== undefined)
+      userUpdatePayload.twitter_url = dto.twitterUrl || null;
+    if (dto.youtubeUrl !== undefined)
+      userUpdatePayload.youtube_url = dto.youtubeUrl || null;
+    if (dto.tiktokUrl !== undefined)
+      userUpdatePayload.tiktok_url = dto.tiktokUrl || null;
+    if (dto.soundcloudUrl !== undefined)
+      userUpdatePayload.soundcloud_url = dto.soundcloudUrl || null;
+    if (dto.spotifyUrl !== undefined)
+      userUpdatePayload.spotify_url = dto.spotifyUrl || null;
+    if (dto.appleMusicUrl !== undefined)
+      userUpdatePayload.apple_music_url = dto.appleMusicUrl || null;
+    if (dto.facebookUrl !== undefined)
+      userUpdatePayload.facebook_url = dto.facebookUrl || null;
+    if (dto.snapchatUrl !== undefined)
+      userUpdatePayload.snapchat_url = dto.snapchatUrl || null;
+
+    if (Object.keys(userUpdatePayload).length > 1) {
+      await supabase.from('users').update(userUpdatePayload).eq('id', userId);
+    }
 
     // Replace skill set if provided
     if (dto.skillNames) {
