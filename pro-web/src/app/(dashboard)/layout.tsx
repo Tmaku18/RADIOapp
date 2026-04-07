@@ -13,14 +13,15 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const router = useRouter();
   const { user, loading } = useAuth();
+  const isPublicPath = pathname === '/directory' || pathname.startsWith('/u/');
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!loading && !user && !isPublicPath) {
       router.push('/login?redirect=' + encodeURIComponent(pathname));
     }
-  }, [loading, pathname, router, user]);
+  }, [isPublicPath, loading, pathname, router, user]);
 
-  if (!user) return null;
+  if (!user && !isPublicPath) return null;
 
   return (
     <div className="min-h-screen">

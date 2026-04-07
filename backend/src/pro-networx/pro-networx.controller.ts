@@ -10,6 +10,7 @@ import {
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { ProNetworxService } from './pro-networx.service';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
 import { ListProDirectoryDto } from './dto/list-pro-directory.dto';
@@ -67,6 +68,27 @@ export class ProNetworxController {
 
   @Get('profiles/:userId')
   async getProfile(@Param('userId') userId: string) {
+    return this.pro.getProfileByUserId(userId);
+  }
+
+  @Public()
+  @Get('public/directory')
+  async listPublic(@Query() q: ListProDirectoryDto) {
+    return this.pro.listDirectory({
+      skill: q.skill,
+      availableForWork:
+        q.availableForWork != null ? q.availableForWork === 'true' : undefined,
+      search: q.search,
+      location: q.location,
+      sort: q.sort,
+      mode: q.mode,
+      seed: q.seed,
+    });
+  }
+
+  @Public()
+  @Get('public/profiles/:userId')
+  async getPublicProfile(@Param('userId') userId: string) {
     return this.pro.getProfileByUserId(userId);
   }
 }

@@ -65,30 +65,10 @@ api.interceptors.request.use(
         const token = await getIdToken(false);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
-        } else if (typeof window !== 'undefined') {
-          if (!loginRedirectInProgress && !window.location.pathname.startsWith('/login')) {
-            loginRedirectInProgress = true;
-            const path = window.location.pathname || '/';
-            const search = window.location.search || '';
-            const redirect = encodeURIComponent(`${path}${search}`);
-            window.location.href = `/login?session_expired=true&redirect=${redirect}`;
-          }
-          throw new Error('Authentication required');
         }
       } catch (error) {
-        console.error('Failed to get ID token:', error);
-        if (
-          typeof window !== 'undefined' &&
-          !loginRedirectInProgress &&
-          !window.location.pathname.startsWith('/login')
-        ) {
-          loginRedirectInProgress = true;
-          const path = window.location.pathname || '/';
-          const search = window.location.search || '';
-          const redirect = encodeURIComponent(`${path}${search}`);
-          window.location.href = `/login?session_expired=true&redirect=${redirect}`;
-        }
-        throw error;
+        // Public marketing pages should stay accessible without forcing login.
+        console.warn('Proceeding without auth token:', error);
       }
     }
 
@@ -486,8 +466,8 @@ export const proNetworxApi = {
     skillNames?: string[];
   }) => api.put('/pro-networx/me/profile', data),
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
-    api.get('/pro-networx/directory', { params: params ?? {} }),
-  getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
+    api.get('/pro-networx/public/directory', { params: params ?? {} }),
+  getProfileByUserId: (userId: string) => api.get(`/pro-networx/public/profiles/${userId}`),
 };
 
 export type ExperienceItem = {

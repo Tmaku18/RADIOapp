@@ -5,36 +5,39 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
-  title: 'Pricing - RadioApp',
-  description: 'Simple, transparent pricing for gems. Listeners always free.',
+  title: 'Pricing - Pro Networx',
+  description:
+    'Simple pricing for creators and collaborators on Pro Networx.',
 };
 
 export const revalidate = 3600;
 
-const creditPackages = [
+const plans = [
   {
-    credits: 10,
-    price: 9.99,
+    name: 'Starter',
+    price: 'Free',
     popular: false,
-    description: 'Perfect for testing the waters',
+    description: 'Great for exploring the network and setting up your public profile.',
+    features: ['Browse directory', 'Public profile', 'Basic discovery access'],
   },
   {
-    credits: 25,
-    price: 19.99,
-    popular: false,
-    description: 'Great for single releases',
-  },
-  {
-    credits: 50,
-    price: 34.99,
+    name: 'Creator Network',
+    price: '$7.99/mo',
     popular: true,
-    description: 'Best value for regular promotion',
+    description: 'For active collaborators who want to network, message, and convert opportunities faster.',
+    features: [
+      'Everything in Starter',
+      'Messaging access',
+      'Priority profile visibility',
+      'Expanded collaboration tools',
+    ],
   },
   {
-    credits: 100,
-    price: 59.99,
+    name: 'Team / Studio',
+    price: 'Contact Sales',
     popular: false,
-    description: 'For serious campaigns',
+    description: 'For collectives, studios, and agencies onboarding multiple collaborators.',
+    features: ['Multi-user workflows', 'Custom onboarding support', 'Team-level growth strategy'],
   },
 ];
 
@@ -48,56 +51,57 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-muted-foreground">
-            Listening is always free. Gems pay only for promotion.
+            Pricing built for connection, collaboration, and long-term growth.
           </p>
         </div>
 
-        {/* Listener Section */}
+        {/* Why pricing exists */}
         <div className="mb-20">
           <Card className="bg-primary text-primary-foreground border-0">
             <CardContent className="pt-8 pb-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">For Listeners</h2>
-              <div className="text-5xl font-bold mb-2">Free</div>
-              <p className="text-primary-foreground/80 mb-6">Forever. No ads. No limits.</p>
+              <h2 className="text-2xl font-bold mb-4">Why we price this way</h2>
+              <div className="text-3xl font-bold mb-2">Community-first access</div>
+              <p className="text-primary-foreground/80 mb-6">
+                We keep entry simple so creators can start quickly, then scale into tools that help them collaborate better and grow faster.
+              </p>
               <ul className="text-left max-w-md mx-auto space-y-3 mb-8">
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Unlimited streaming
+                  Start free
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Send ripples (likes) and like tracks
+                  Upgrade only when you need more leverage
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Follow gems
+                  Keep focus on outcomes, not complexity
                 </li>
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
-                  Web and mobile access
+                  Designed to help people go further together
                 </li>
               </ul>
               <Button variant="secondary" size="lg" asChild>
-                <Link href="/signup?role=listener">Start Listening</Link>
+                <Link href="/signup">Get Started</Link>
               </Button>
             </CardContent>
           </Card>
         </div>
 
-        {/* Gems Section */}
+        {/* Plans */}
         <div>
           <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-            For Gems - Play Credits
+            Plans for every stage
           </h2>
           <p className="text-center text-muted-foreground mb-12 max-w-2xl mx-auto">
-            Credits are used to promote your tracks in our radio rotation. 
-            One credit = one play to a real listener. No bots, no fake streams.
+            Whether you are just getting started or building a full team, Pro Networx gives you a clear path to connect and execute.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {creditPackages.map((pkg) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {plans.map((pkg) => (
               <Card
-                key={pkg.credits}
+                key={pkg.name}
                 className={pkg.popular ? 'relative ring-2 ring-primary' : ''}
               >
                 {pkg.popular && (
@@ -106,15 +110,19 @@ export default function PricingPage() {
                   </div>
                 )}
                 <CardContent className="pt-6 text-center">
-                  <div className="text-4xl font-bold text-foreground mb-1">{pkg.credits}</div>
-                  <div className="text-sm text-muted-foreground mb-4">credits</div>
-                  <div className="text-3xl font-bold text-foreground mb-2">${pkg.price}</div>
-                  <div className="text-sm text-muted-foreground mb-6">
-                    ${(pkg.price / pkg.credits).toFixed(2)} per credit
-                  </div>
+                  <div className="text-lg font-semibold text-foreground mb-1">{pkg.name}</div>
+                  <div className="text-3xl font-bold text-foreground mb-4">{pkg.price}</div>
                   <p className="text-sm text-muted-foreground mb-6">{pkg.description}</p>
+                  <ul className="text-left text-sm text-muted-foreground mb-6 space-y-2">
+                    {pkg.features.map((feature) => (
+                      <li key={feature} className="flex items-start">
+                        <span className="mr-2">✓</span>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
                   <Button className="w-full" variant={pkg.popular ? 'default' : 'secondary'} asChild>
-                    <Link href="/signup?role=artist">Get Started</Link>
+                    <Link href="/signup">Get Started</Link>
                   </Button>
                 </CardContent>
               </Card>
