@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.mic),
-              label: 'Studio',
+              label: 'My Songs',
             ),
             NavigationDestination(
               icon: Icon(Icons.show_chart),
@@ -100,11 +100,11 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.how_to_vote_outlined),
-              label: 'Vote',
+              label: 'Competition',
             ),
             NavigationDestination(
               icon: Icon(Icons.science_outlined),
-              label: 'Refinery',
+              label: 'The Refinery',
             ),
             NavigationDestination(
               icon: Icon(Icons.redeem_outlined),
@@ -184,6 +184,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.sensors),
+                  title: const Text('Live'),
+                  subtitle: const Text('Watch artists streaming now'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.liveSessions);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.forum_outlined),
                   title: const Text('Room'),
                   onTap: () {
@@ -200,29 +209,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, AppRoutes.proDirectory);
                   },
                 ),
-                if (isArtist)
-                  ListTile(
-                    leading: const Icon(Icons.work_history_outlined),
-                    title: const Text('Job Board'),
-                    subtitle: const Text('Browse and apply to service requests'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.jobBoard);
-                    },
-                  ),
-                if (!isArtist)
-                  ListTile(
-                    leading: const Icon(Icons.place_outlined),
-                    title: const Text('Nearby People'),
-                    subtitle: const Text('Discover Catalysts (service providers) near you'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.nearbyPeople);
-                    },
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.work_history_outlined),
+                  title: const Text('Job Board'),
+                  subtitle: const Text('Exclusive service requests and collaborations'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.jobBoard);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.place_outlined),
+                  title: const Text('Nearby People'),
+                  subtitle: const Text('Discover Catalysts (service providers) near you'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.nearbyPeople);
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.badge_outlined),
-                  title: const Text('Build my Pro-Networx profile'),
+                  title: const Text('Build your PRO-NETWORX profile'),
                   subtitle: const Text('Skills, availability, headline'),
                   onTap: () {
                     Navigator.pop(context);
@@ -243,7 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ListTile(
                     leading: const Icon(Icons.redeem_outlined),
                     title: const Text('Rewards'),
-                    subtitle: const Text(r'Rewards Command Center ($5 / $10 Virtual Visa)'),
+                    subtitle: const Text(r'Rewards Command Center ($5 / $10 / $25 Virtual Visa)'),
                     onTap: () {
                       Navigator.pop(context);
                       Navigator.pushNamed(context, AppRoutes.yield);

@@ -132,7 +132,7 @@ class _ProNetworxMeProfileScreenState extends State<ProNetworxMeProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Build my Pro-Networx profile'),
+        title: const Text('Build your PRO-NETWORX profile'),
         actions: [
           IconButton(
             onPressed: _loading ? null : _load,

@@ -155,7 +155,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Clear all'),
+                : const Text('Clear notifications'),
           ),
           TextButton(
             onPressed: (_items.isEmpty || _markingAll) ? null : _markAllAsRead,
@@ -165,22 +165,58 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Mark all read'),
+                : const Text('Mark all as read'),
           ),
         ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    child: Text(
+                      () {
+                        final unread = _items.where((n) => !n.read).length;
+                        if (unread == 0) return 'You\'re all caught up!';
+                        return 'You have $unread unread notification${unread == 1 ? '' : 's'}';
+                      }(),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                Expanded(child: RefreshIndicator(
               onRefresh: _load,
               child: _items.isEmpty
                   ? ListView(
                       children: [
                         const SizedBox(height: 120),
                         Center(
-                          child: Text(
-                            _error ?? 'No notifications yet.',
-                            style: TextStyle(color: surfaces.textSecondary),
+                          child: Column(
+                            children: [
+                              Text(
+                                _error ?? 'No notifications yet',
+                                style: TextStyle(
+                                  color: surfaces.textSecondary,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              if (_error == null) ...[
+                                const SizedBox(height: 8),
+                                Text(
+                                  'We\'ll notify you when something important happens.',
+                                  style: TextStyle(
+                                    color: surfaces.textMuted,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
                         ),
                       ],
@@ -239,6 +275,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         );
                       },
                     ),
+            )),
+              ],
             ),
     );
   }

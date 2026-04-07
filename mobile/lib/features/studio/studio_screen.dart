@@ -148,7 +148,7 @@ class _StudioScreenState extends State<StudioScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Studio'),
+        title: const Text('My Songs'),
         actions: [
           IconButton(
             onPressed: _loading ? null : _load,
@@ -168,7 +168,7 @@ class _StudioScreenState extends State<StudioScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         Text(
-                          'Buy plays for each approved song. Flat \$1.99 per play. Tap a track to buy plays.',
+                          'Manage your uploaded songs and track performance',
                           style: TextStyle(
                             color: surfaces.textSecondary,
                             fontSize: 13,
@@ -186,7 +186,7 @@ class _StudioScreenState extends State<StudioScreen> {
                                     .then((_) => _load());
                               },
                               icon: const Icon(Icons.upload),
-                              label: const Text('Upload'),
+                              label: const Text('Upload New Song'),
                             ),
                             OutlinedButton.icon(
                               onPressed: () {
@@ -229,7 +229,7 @@ class _StudioScreenState extends State<StudioScreen> {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
                       child: Text(
-                        'No uploads yet. Add your first track to the rotation.',
+                        'No songs yet. Upload your first song to get on the radio.',
                         style: TextStyle(color: surfaces.textSecondary),
                         textAlign: TextAlign.center,
                       ),

@@ -61,9 +61,29 @@ class _MessagesScreenState extends State<MessagesScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _conversations.isEmpty
               ? Center(
-                  child: Text(
-                    'No conversations yet.',
-                    style: TextStyle(color: surfaces.textSecondary),
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'No conversations yet.',
+                          style: TextStyle(
+                            color: surfaces.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Message someone from Discover or an artist profile.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: surfaces.textMuted,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 )
               : ListView.separated(

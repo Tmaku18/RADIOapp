@@ -664,6 +664,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         label: const Text('Edit profile'),
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.artistProfile,
+                            arguments: _user!.id,
+                          );
+                        },
+                        child: const Text('View my public profile'),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     Center(
                       child: Text(
@@ -806,7 +819,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'Streaming requires admin approval. Request access and manage your stream in Stream settings.',
+                                        'Streaming requires admin approval. Request access, then manage your stream (title, category, start/stop) in Stream settings.',
                                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                                         ),
@@ -822,8 +835,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       ListTile(
                         leading: const Icon(Icons.mic_none),
-                        title: const Text('Studio'),
-                        subtitle: const Text('Your songs and rotation signals'),
+                        title: const Text('My Songs'),
+                        subtitle: const Text('Manage your songs'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
                           Navigator.pushNamed(context, AppRoutes.studio);
@@ -848,9 +861,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                     ],
+                    const Divider(),
                     ListTile(
-                      leading: const Icon(Icons.settings),
-                      title: const Text('Settings'),
+                      leading: const Icon(Icons.workspace_premium),
+                      title: const Text('Creator Network'),
+                      subtitle: const Text('Unlock direct messages — subscribe to send and receive DMs'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.pushNamed(context, AppRoutes.settings);
+                      },
+                    ),
+                    const Divider(),
+                    ListTile(
+                      leading: const Icon(Icons.tune),
+                      title: const Text('Settings and activity'),
+                      subtitle: const Text('Account, notifications, security, and more'),
                       trailing: const Icon(Icons.chevron_right),
                       onTap: () {
                         Navigator.pushNamed(context, AppRoutes.settings);

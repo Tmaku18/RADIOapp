@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/notification_settings_service.dart';
 import '../../core/services/push_notification_service.dart';
 import '../../core/services/users_service.dart';
@@ -490,7 +491,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       context,
                       icon: Icons.library_music_outlined,
                       title: 'Studio & Songs',
-                      subtitle: 'Upload, credits, rotation',
+                      subtitle: 'Upload and rotation',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.studio),
                     ),
                   ]),
@@ -500,8 +501,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _navTile(
                       context,
                       icon: Icons.admin_panel_settings_outlined,
-                      title: 'Admin tools',
-                      subtitle: 'Manage content and users',
+                      title: 'Admin dashboard',
+                      subtitle: 'Moderation, fallback, users',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.adminDashboard),
                     ),
                   ]),
@@ -510,15 +511,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   _navTile(
                     context,
                     icon: Icons.help_outline,
-                    title: 'FAQ',
-                    subtitle: 'Frequently asked questions',
+                    title: 'Help & FAQ',
+                    subtitle: 'Answers and support',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.discord,
+                    title: 'Discord Support',
+                    subtitle: 'Chat with support and community',
+                    onTap: () async {
+                      final uri = Uri.parse('https://discord.gg/networx');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      }
+                    },
                   ),
                   _navTile(
                     context,
                     icon: Icons.privacy_tip_outlined,
                     title: 'Privacy & Terms',
-                    subtitle: 'Privacy policy and terms of service',
+                    subtitle: 'Privacy policy, terms of service',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.about),
                   ),
                 ]),

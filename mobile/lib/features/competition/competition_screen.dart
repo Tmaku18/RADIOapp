@@ -165,7 +165,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Leaderboards, gems, and the weekly Top 7 vote.',
+                        'Leaderboards, diamonds, and vote for Top 7',
                         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: surfaces.textSecondary,
                         ),
@@ -381,7 +381,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                             Tab(text: 'Positive votes'),
                             Tab(text: 'Best ratio'),
                             Tab(text: 'Most saves'),
-                            Tab(text: 'Trial by Fire'),
+                            Tab(text: 'Votes/Minute'),
                           ],
                         ),
                         SizedBox(

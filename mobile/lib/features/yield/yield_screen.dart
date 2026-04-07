@@ -127,6 +127,7 @@ class _YieldScreenState extends State<YieldScreen> {
   Widget build(BuildContext context) {
     final canRedeem5 = _balanceCents >= 500;
     final canRedeem10 = _balanceCents >= 1000;
+    final canRedeem25 = _balanceCents >= 2500;
 
     final tierLabel = _tier.isEmpty
         ? 'Unranked'
@@ -201,20 +202,21 @@ class _YieldScreenState extends State<YieldScreen> {
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 10),
-                    Row(
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: (_loading || _redeeming || !canRedeem5) ? null : () => _redeem(500),
-                            child: Text(_redeeming ? 'Redeeming…' : 'Redeem \$5'),
-                          ),
+                        FilledButton(
+                          onPressed: (_loading || _redeeming || !canRedeem5) ? null : () => _redeem(500),
+                          child: Text(_redeeming ? 'Redeeming…' : 'Redeem \$5 (Virtual Visa)'),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: FilledButton(
-                            onPressed: (_loading || _redeeming || !canRedeem10) ? null : () => _redeem(1000),
-                            child: Text(_redeeming ? 'Redeeming…' : 'Redeem \$10'),
-                          ),
+                        FilledButton(
+                          onPressed: (_loading || _redeeming || !canRedeem10) ? null : () => _redeem(1000),
+                          child: Text(_redeeming ? 'Redeeming…' : 'Redeem \$10 (Virtual Visa)'),
+                        ),
+                        FilledButton(
+                          onPressed: (_loading || _redeeming || !canRedeem25) ? null : () => _redeem(2500),
+                          child: Text(_redeeming ? 'Redeeming…' : 'Redeem \$25 (Virtual Visa)'),
                         ),
                       ],
                     ),

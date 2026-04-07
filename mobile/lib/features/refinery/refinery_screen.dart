@@ -111,7 +111,7 @@ class _RefineryScreenState extends State<RefineryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Refinery'),
+        title: const Text('The Refinery'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -137,9 +137,23 @@ class _RefineryScreenState extends State<RefineryScreen> {
                 )
               : _songs.isEmpty
                   ? Center(
-                      child: Text(
-                        'No songs in Refinery right now.',
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              'No songs in The Refinery right now.',
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Listen to songs under review unlimited times, rank them, and earn rewards.',
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                          ],
+                        ),
                       ),
                     )
                   : RefreshIndicator(

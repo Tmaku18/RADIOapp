@@ -88,7 +88,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text((_session?['title'] ?? 'Live Session').toString(), style: Theme.of(context).textTheme.titleLarge),
+                      Text((_session?['title'] ?? 'Live stream').toString(), style: Theme.of(context).textTheme.titleLarge),
                       const SizedBox(height: 8),
                       Text('Viewers: ${_session?['current_viewers'] ?? 0}'),
                       const SizedBox(height: 12),

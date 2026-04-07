@@ -206,8 +206,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 4),
                         Text(
                           _isSignUp
-                              ? 'Create your account to join the network'
-                              : 'Welcome back. Sign in to continue.',
+                              ? 'Create your account'
+                              : 'Welcome back',
                           textAlign: TextAlign.center,
                           style: textTheme.bodyMedium?.copyWith(
                             color: NetworxTokens.cloudDancer.withValues(alpha: 0.74),
@@ -237,7 +237,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: const TextStyle(color: NetworxTokens.cloudDancer),
                             items: const [
                               DropdownMenuItem(value: 'listener', child: Text('Listener')),
-                              DropdownMenuItem(value: 'artist', child: Text('Artist')),
+                              DropdownMenuItem(value: 'artist', child: Text('Gem')),
+                              DropdownMenuItem(value: 'service_provider', child: Text('Catalyst')),
                             ],
                             onChanged: (value) {
                               setState(() {

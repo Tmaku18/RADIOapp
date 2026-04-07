@@ -9,6 +9,7 @@ import '../../features/credits/credits_screen.dart';
 import '../../features/discovery/discovery_screen.dart';
 import '../../features/job_board/job_board_screen.dart';
 import '../../features/livestream/go_live_screen.dart';
+import '../../features/livestream/live_sessions_screen.dart';
 import '../../features/livestream/stream_settings_screen.dart';
 import '../../features/livestream/watch_live_screen.dart';
 import '../../features/messages/messages_screen.dart';
@@ -120,6 +121,8 @@ class AppRouter {
           return _route(BuyPlaysScreen(song: args), settings);
         }
         return _unknown(settings);
+      case AppRoutes.liveSessions:
+        return _route(const LiveSessionsScreen(), settings);
       case AppRoutes.liveServices:
         return _route(
           const RequireGemCapability(child: LiveServicesScreen()),

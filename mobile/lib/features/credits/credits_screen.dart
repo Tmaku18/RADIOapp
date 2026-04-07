@@ -134,7 +134,7 @@ class _CreditsScreenState extends State<CreditsScreen> {
                         Padding(
                           padding: const EdgeInsets.all(16),
                           child: Text(
-                            'Plays are purchased per song from Studio at a flat \$1.99 per play. Buy plays from each approved track in Studio.',
+                            'Plays cost \$1.99 per play. There is no credit bank — go to My Songs, then tap Buy plays on any approved track.',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
                               fontSize: 14,
@@ -173,7 +173,7 @@ class _CreditsScreenState extends State<CreditsScreen> {
                                   ),
                                   SizedBox(height: 8),
                                   Text(
-                                    'Buy plays for an approved song in Studio to get started.',
+                                    'Buy plays for an approved song from My Songs to get started.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.grey,

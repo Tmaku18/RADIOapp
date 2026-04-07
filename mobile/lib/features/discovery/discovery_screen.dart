@@ -266,7 +266,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
             tabs: [
               Tab(text: 'Discover'),
               Tab(text: 'Discover List'),
-              Tab(text: 'Browse'),
+              Tab(text: 'Artists'),
               Tab(text: 'Map'),
               Tab(text: 'Feed'),
               Tab(text: 'Library'),
@@ -554,9 +554,20 @@ class _FeedTabState extends State<_FeedTab> {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_posts.isEmpty) {
       return Center(
-        child: Text(
-          'No feed posts yet.',
-          style: TextStyle(color: surfaces.textSecondary),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'No posts yet.',
+              style: TextStyle(color: surfaces.textSecondary),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Catalysts can share photos and short videos here — check back soon.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: surfaces.textMuted, fontSize: 13),
+            ),
+          ],
         ),
       );
     }
@@ -957,7 +968,7 @@ class _LibraryTabState extends State<_LibraryTab> {
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          'No songs saved yet. Like songs in radio to add them here.',
+          'No songs saved yet. Tap save on a song in radio to add it here.',
           style: TextStyle(color: surfaces.textSecondary),
         ),
       );

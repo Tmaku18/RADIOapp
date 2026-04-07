@@ -302,7 +302,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
             const SizedBox(height: 120),
             Center(
               child: Text(
-                'No more clips right now.',
+                'You\'ve reached the end of our content for now! Check back soon.',
                 style: TextStyle(color: surfaces.textSecondary),
               ),
             ),

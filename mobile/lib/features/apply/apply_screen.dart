@@ -44,19 +44,19 @@ class _ApplyScreenState extends State<ApplyScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      appBar: AppBar(title: const Text('Pro-Networx')),
+      appBar: AppBar(title: const Text('Pro-Network')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Tap In',
+              'Pro-Network',
               style: theme.textTheme.headlineMedium?.copyWith(fontFamily: 'Lora'),
             ),
             const SizedBox(height: 8),
             Text(
-              'The Pro-Networx is reserved for verified NETWORX artists. Join the rotation, get discovered, and unlock services + collabs.',
+              'Sign up to get full access: upload music, use the job board, and connect with other creators.',
               style: theme.textTheme.bodyMedium
                   ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
             ),
@@ -86,7 +86,7 @@ class _ApplyScreenState extends State<ApplyScreen> {
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Request Artist Access'),
+                    : const Text('Sign up'),
               ),
             ),
             const SizedBox(height: 10),

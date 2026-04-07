@@ -279,7 +279,7 @@ class _UploadScreenState extends State<UploadScreen> {
                         width: double.infinity,
                         child: FilledButton(
                           onPressed: () => Navigator.pop(context),
-                          child: const Text('Back to Studio'),
+                          child: const Text('Back to My Songs'),
                         ),
                       ),
                     ],
@@ -301,7 +301,7 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Calm, minimal steps. High-quality preview. No drama.',
+                    'Submit your track for review and radio rotation',
                     style: TextStyle(color: surfaces.textSecondary),
                   ),
                   const SizedBox(height: 14),

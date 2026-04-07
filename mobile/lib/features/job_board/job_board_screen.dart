@@ -110,7 +110,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Exclusive service requests and collaborations.',
+                        'Exclusive service requests and collaborations for creators.',
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall

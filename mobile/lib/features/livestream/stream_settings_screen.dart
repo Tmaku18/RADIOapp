@@ -191,7 +191,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Manage your livestream. Set title, description, and category, then start or end your stream.',
+              'Manage your livestream. Edit stream info and start or end your stream from here.',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
@@ -201,7 +201,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
               onPressed: () {
                 Navigator.pushNamed(context, AppRoutes.goLive);
               },
-              child: const Text('Open Stream Manager (Go Live)'),
+              child: const Text('Open Stream Manager'),
             ),
           ],
         ),
