@@ -138,7 +138,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
   const { state, actions, setOnRadioTrackEnded } = usePlayback();
-  const loadTrackRef = useRef<((t: PlaybackTrack) => void) | null>(null);
+  const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
   const playRef = useRef<(() => Promise<void>) | null>(null);
 
@@ -152,7 +152,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   }, []);
 
   useEffect(() => {
-    loadTrackRef.current = (t: PlaybackTrack) => actions.loadTrack(t, 'radio');
+    loadTrackRef.current = (t: PlaybackTrack, autoPlay?: boolean) => actions.loadTrack(t, 'radio', autoPlay);
     syncToPositionRef.current = actions.syncToPosition;
     playRef.current = actions.play;
   }, [actions]);
@@ -262,15 +262,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
 
-        if (loadTrackRef.current) loadTrackRef.current(track);
+        if (loadTrackRef.current) loadTrackRef.current(track, true);
         if (syncToPositionRef.current) syncToPositionRef.current(serverPosition);
-        if (playRef.current) {
-          try {
-            await playRef.current();
-          } catch (err) {
-            console.log('Failed to auto-play next track:', err);
-          }
-        }
       }
     } catch (error) {
       console.error('Failed to fetch next track:', error);
@@ -502,26 +495,17 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
         // Keep normal path strict to avoid duplicate advance from poll + ended.
         if (trackIdentityChanged || shouldReloadCurrentTrack) {
-          actions.loadTrack(track, 'radio');
-          actions.syncToPosition(serverPosition);
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
             state.source === 'radio' &&
             state.isPlaying &&
             (stationChanged || trackIdentityChanged);
-          if (
+          const shouldAutoPlay =
             (autoPlay && hasUserInteracted) ||
             (shouldReloadCurrentTrack && hasUserInteracted) ||
-            resumeAfterStationOrTrackSwitch
-          ) {
-            requestAnimationFrame(async () => {
-              try {
-                await actions.play();
-              } catch (err) {
-                console.log('Autoplay blocked by browser policy');
-              }
-            });
-          }
+            resumeAfterStationOrTrackSwitch;
+          actions.loadTrack(track, 'radio', shouldAutoPlay);
+          actions.syncToPosition(serverPosition);
         } else if (shouldSync && state.isLive) {
           actions.syncToPosition(serverPosition);
         }
@@ -1019,11 +1003,15 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
               </svg>
               <span className="font-semibold text-sm">Jump to Live</span>
             </Button>
-          ) : (
+          ) : state.isLoading ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-full">
+              <span className="font-semibold text-sm">Loading…</span>
+            </div>
+          ) : hasUserInteracted && !state.isPlaying ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-full">
               <span className="font-semibold text-sm">PAUSED</span>
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Song temperature meter */}

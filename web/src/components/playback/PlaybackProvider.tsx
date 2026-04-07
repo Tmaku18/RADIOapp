@@ -15,7 +15,7 @@ import { initialPlaybackState } from './types';
 
 type PlaybackActions = {
   /** Load and optionally play a track. Stops any current playback (single session rule). */
-  loadTrack: (track: PlaybackTrack, source: PlaybackSource) => void;
+  loadTrack: (track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => void;
   play: () => Promise<void>;
   pause: () => void;
   togglePlay: () => Promise<void>;
@@ -74,6 +74,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   /** One recovery attempt for same track before advancing on media error (avoid skip cascade). */
   const hasRetriedAfterErrorRef = useRef(false);
   const lastSyncSeekAtRef = useRef(0);
+  const autoPlayPendingRef = useRef(false);
+  const isLoadingTrackRef = useRef(false);
 
   useEffect(() => {
     sourceRef.current = state.source;
@@ -104,7 +106,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       setState((s) => ({ ...s, duration: audio.duration || 0 }));
     };
     const onPlay = () => setState((s) => ({ ...s, isPlaying: true }));
-    const onPause = () => setState((s) => ({ ...s, isPlaying: false }));
+    const onPause = () => {
+      if (isLoadingTrackRef.current) return;
+      setState((s) => ({ ...s, isPlaying: false }));
+    };
     const clearLoadTimeout = () => {
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
@@ -130,10 +135,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     };
     const onCanPlay = () => {
       clearLoadTimeout();
+      isLoadingTrackRef.current = false;
       setState((s) => ({ ...s, isLoading: false }));
+      if (autoPlayPendingRef.current) {
+        autoPlayPendingRef.current = false;
+        audio.play().catch(() => {});
+      }
     };
     const onError = () => {
       clearLoadTimeout();
+      isLoadingTrackRef.current = false;
+      autoPlayPendingRef.current = false;
       const mediaError = audio.error;
       const isUnsupported =
         mediaError?.code === 4 || mediaError?.message?.includes('supported source');
@@ -189,7 +201,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     };
   }, []);
 
-  const loadTrack = useCallback((track: PlaybackTrack, source: PlaybackSource) => {
+  const loadTrack = useCallback((track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => {
     const audio = audioRef.current;
     if (!audio) return;
 
@@ -199,9 +211,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     }
 
     hasRetriedAfterErrorRef.current = false;
+    autoPlayPendingRef.current = !!autoPlay;
+    isLoadingTrackRef.current = true;
 
     const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
     if (!url) {
+      isLoadingTrackRef.current = false;
+      autoPlayPendingRef.current = false;
       setState((s) => ({
         ...s,
         source,
@@ -238,7 +254,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         hls.loadSource(url);
         hls.attachMedia(audio);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          isLoadingTrackRef.current = false;
           setState((s) => ({ ...s, isLoading: false }));
+          if (autoPlayPendingRef.current) {
+            autoPlayPendingRef.current = false;
+            audio.play().catch(() => {});
+          }
         });
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (data.fatal) {
