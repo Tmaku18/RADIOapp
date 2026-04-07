@@ -274,7 +274,18 @@ class _StudioScreenState extends State<StudioScreen> {
                                       ],
                                     ),
                                     if (s.status == 'approved') ...[
-                                      const SizedBox(width: 8),
+                                      const SizedBox(width: 4),
+                                      OutlinedButton(
+                                        onPressed: () {
+                                          Navigator.pushNamed(
+                                            context,
+                                            AppRoutes.allocatePlays,
+                                            arguments: s,
+                                          ).then((_) => _load());
+                                        },
+                                        child: const Text('Allocate'),
+                                      ),
+                                      const SizedBox(width: 4),
                                       FilledButton(
                                         onPressed: () {
                                           Navigator.pushNamed(

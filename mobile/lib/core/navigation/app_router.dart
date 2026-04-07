@@ -24,9 +24,11 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/refinery/refinery_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/settings/settings_screen.dart';
+import '../../features/studio/allocate_plays_screen.dart';
 import '../../features/studio/buy_plays_screen.dart';
 import '../../features/studio/live_services_screen.dart';
 import '../../features/studio/studio_screen.dart';
+import '../../features/discovery/discover_create_video_screen.dart';
 import '../../features/upload/upload_screen.dart';
 import '../../features/yield/yield_screen.dart';
 import '../../widgets/home_screen.dart';
@@ -133,6 +135,13 @@ class AppRouter {
           const RequireAdmin(child: AdminDashboardScreen()),
           settings,
         );
+      case AppRoutes.allocatePlays:
+        if (args is Song) {
+          return _route(AllocatePlaysScreen(song: args), settings);
+        }
+        return _unknown(settings);
+      case AppRoutes.discoverCreateVideo:
+        return _route(const DiscoverCreateVideoScreen(), settings);
       default:
         return null;
     }

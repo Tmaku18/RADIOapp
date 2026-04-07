@@ -1,6 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http_parser/http_parser.dart' as http_parser;
+import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import '../../core/auth/auth_service.dart';
 import '../../core/models/browse_models.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/models/discovery_map_models.dart';
@@ -274,6 +280,16 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           ),
           actions: [
             IconButton(
+              onPressed: () {
+                Navigator.pushNamed(
+                  context,
+                  '/discover-create-video',
+                );
+              },
+              tooltip: 'Create Video',
+              icon: const Icon(Icons.video_call_outlined),
+            ),
+            IconButton(
               onPressed: () => _loadPage(append: false),
               tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
@@ -522,15 +538,25 @@ class _FeedTabState extends State<_FeedTab> {
   final ApiService _api = ApiService();
   bool _loading = true;
   List<Map<String, dynamic>> _posts = const [];
+  String? _role;
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadAll();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadAll() async {
     setState(() => _loading = true);
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      if (mounted) _role = profile?.role;
+    } catch (_) {}
+    await _loadFeed();
+  }
+
+  Future<void> _loadFeed() async {
     try {
       final res = await _api.get('discovery/feed?limit=20');
       List<Map<String, dynamic>> posts = const [];
@@ -548,12 +574,28 @@ class _FeedTabState extends State<_FeedTab> {
     }
   }
 
+  bool get _canPost =>
+      _role == 'service_provider' || _role == 'admin';
+
+  void _openComposer() {
+    showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => const _FeedPostComposer(),
+    ).then((posted) {
+      if (posted == true) _loadFeed();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     if (_loading) return const Center(child: CircularProgressIndicator());
+
+    Widget body;
     if (_posts.isEmpty) {
-      return Center(
+      body = Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -570,79 +612,348 @@ class _FeedTabState extends State<_FeedTab> {
           ],
         ),
       );
-    }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _posts.length,
-        itemBuilder: (context, idx) {
-          final post = _posts[idx];
-          final imageUrl = post['imageUrl']?.toString() ?? '';
-          final caption = post['caption']?.toString();
-          final author = post['authorDisplayName']?.toString() ?? 'Creator';
-          final createdAt = post['createdAt']?.toString();
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      author,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.titleMedium?.copyWith(fontFamily: 'Lora'),
-                    ),
-                    if (imageUrl.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(10),
-                        child: Image.network(
-                          imageUrl,
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                height: 180,
-                                alignment: Alignment.center,
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.surfaceContainer,
-                                child: const Icon(Icons.broken_image_outlined),
-                              ),
-                        ),
-                      ),
-                    ],
-                    if ((caption ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 8),
+    } else {
+      body = RefreshIndicator(
+        onRefresh: _loadFeed,
+        child: ListView.builder(
+          padding: const EdgeInsets.all(12),
+          itemCount: _posts.length,
+          itemBuilder: (context, idx) {
+            final post = _posts[idx];
+            final imageUrl = post['imageUrl']?.toString() ?? '';
+            final caption = post['caption']?.toString();
+            final author =
+                post['authorDisplayName']?.toString() ?? 'Creator';
+            final createdAt = post['createdAt']?.toString();
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        caption!,
-                        style: Theme.of(context).textTheme.bodyMedium,
+                        author,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontFamily: 'Lora'),
                       ),
-                    ],
-                    if ((createdAt ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        DateTime.tryParse(
-                              createdAt!,
-                            )?.toLocal().toString().split('.').first ??
-                            createdAt,
-                        style: TextStyle(
-                          color: surfaces.textMuted,
-                          fontSize: 12,
+                      if (imageUrl.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            imageUrl,
+                            height: 180,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                                  height: 180,
+                                  alignment: Alignment.center,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .surfaceContainer,
+                                  child: const Icon(
+                                      Icons.broken_image_outlined),
+                                ),
+                          ),
                         ),
-                      ),
+                      ],
+                      if ((caption ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          caption!,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
+                      if ((createdAt ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          DateTime.tryParse(createdAt!)
+                                  ?.toLocal()
+                                  .toString()
+                                  .split('.')
+                                  .first ??
+                              createdAt,
+                          style: TextStyle(
+                            color: surfaces.textMuted,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
+            );
+          },
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        body,
+        if (_canPost)
+          Positioned(
+            right: 16,
+            bottom: 16,
+            child: FloatingActionButton(
+              heroTag: 'feed_post_fab',
+              onPressed: _openComposer,
+              child: const Icon(Icons.add_photo_alternate_outlined),
             ),
-          );
-        },
+          ),
+      ],
+    );
+  }
+}
+
+/// Bottom-sheet composer for creating a new feed post (image or video + caption).
+class _FeedPostComposer extends StatefulWidget {
+  const _FeedPostComposer();
+  @override
+  State<_FeedPostComposer> createState() => _FeedPostComposerState();
+}
+
+class _FeedPostComposerState extends State<_FeedPostComposer> {
+  static const int _maxFileSizeBytes = 15 * 1024 * 1024; // 15 MB
+  static const int _maxVideoDurationSec = 15;
+
+  final ApiService _api = ApiService();
+  final _captionCtrl = TextEditingController();
+  File? _pickedFile;
+  bool _isVideo = false;
+  bool _uploading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _captionCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1920,
+      maxHeight: 1920,
+    );
+    if (picked == null) return;
+    final file = File(picked.path);
+    final size = await file.length();
+    if (size > _maxFileSizeBytes) {
+      setState(() => _error = 'File too large (max 15 MB)');
+      return;
+    }
+    setState(() {
+      _pickedFile = file;
+      _isVideo = false;
+      _error = null;
+    });
+  }
+
+  Future<void> _pickVideo() async {
+    final picked = await ImagePicker().pickVideo(
+      source: ImageSource.gallery,
+      maxDuration: const Duration(seconds: _maxVideoDurationSec),
+    );
+    if (picked == null) return;
+    final file = File(picked.path);
+    final size = await file.length();
+    if (size > _maxFileSizeBytes) {
+      setState(() => _error = 'File too large (max 15 MB)');
+      return;
+    }
+    setState(() {
+      _pickedFile = file;
+      _isVideo = true;
+      _error = null;
+    });
+  }
+
+  String _mimeForPath(String path) {
+    final ext = path.split('.').last.toLowerCase();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'webm':
+        return 'video/webm';
+      default:
+        return 'application/octet-stream';
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_pickedFile == null) {
+      setState(() => _error = 'Please select a photo or video');
+      return;
+    }
+    setState(() {
+      _uploading = true;
+      _error = null;
+    });
+    try {
+      final fields = <String, String>{};
+      final caption = _captionCtrl.text.trim();
+      if (caption.isNotEmpty) fields['caption'] = caption;
+
+      final mime = _mimeForPath(_pickedFile!.path);
+      final multipartFile = await http.MultipartFile.fromPath(
+        'file',
+        _pickedFile!.path,
+        contentType: _parseMediaType(mime),
+      );
+
+      await _api.postMultipart('discovery/feed', fields, [multipartFile]);
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _error = e.toString());
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  /// Simple MediaType parser from a mime string (e.g. "image/jpeg").
+  static http_parser.MediaType _parseMediaType(String mime) {
+    final parts = mime.split('/');
+    return http_parser.MediaType(
+      parts.first,
+      parts.length > 1 ? parts[1] : 'octet-stream',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = context.networxSurfaces;
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          8,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Create a post',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontFamily: 'Lora'),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Share a photo or short video with the community.',
+              style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _uploading ? null : _pickImage,
+                    icon: const Icon(Icons.image_outlined),
+                    label: const Text('Photo'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _uploading ? null : _pickVideo,
+                    icon: const Icon(Icons.videocam_outlined),
+                    label: const Text('Video'),
+                  ),
+                ),
+              ],
+            ),
+            if (_pickedFile != null) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: _isVideo
+                    ? Container(
+                        height: 140,
+                        alignment: Alignment.center,
+                        color: Theme.of(context).colorScheme.surfaceContainer,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.videocam, size: 36),
+                            const SizedBox(height: 4),
+                            Text(
+                              _pickedFile!.path.split('/').last,
+                              style: TextStyle(
+                                color: surfaces.textMuted,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      )
+                    : Image.file(
+                        _pickedFile!,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _captionCtrl,
+              decoration: const InputDecoration(
+                hintText: 'Write a caption (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 3,
+              maxLength: 280,
+              enabled: !_uploading,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            FilledButton(
+              onPressed: _uploading ? null : _submit,
+              child: _uploading
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Post'),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -225,6 +225,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Future<void> _openInApp(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.inAppWebView);
+    }
+  }
+
+  Future<void> _openExternal(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
@@ -513,26 +527,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     icon: Icons.help_outline,
                     title: 'Help & FAQ',
                     subtitle: 'Answers and support',
-                    onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+                    onTap: () => _openExternal('https://pro-networx.com/faq'),
                   ),
                   _navTile(
                     context,
                     icon: Icons.discord,
                     title: 'Discord Support',
                     subtitle: 'Chat with support and community',
-                    onTap: () async {
-                      final uri = Uri.parse('https://discord.gg/networx');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri, mode: LaunchMode.externalApplication);
-                      }
-                    },
+                    onTap: () => _openExternal('https://discord.gg/networx'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.mail_outline,
+                    title: 'Contact Us',
+                    subtitle: 'Get in touch',
+                    onTap: () => _openExternal('https://pro-networx.com/contact'),
                   ),
                   _navTile(
                     context,
                     icon: Icons.privacy_tip_outlined,
-                    title: 'Privacy & Terms',
-                    subtitle: 'Privacy policy, terms of service',
+                    title: 'Privacy Policy',
+                    subtitle: 'How we handle your data',
+                    onTap: () => _openInApp('https://pro-networx.com/privacy'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.description_outlined,
+                    title: 'Terms of Service',
+                    subtitle: 'Rules and agreements',
+                    onTap: () => _openInApp('https://pro-networx.com/terms'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.receipt_long_outlined,
+                    title: 'Refund Policy',
+                    subtitle: 'Returns and refunds',
+                    onTap: () => _openInApp('https://pro-networx.com/refunds'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.shield_outlined,
+                    title: 'DMCA Policy',
+                    subtitle: 'Copyright takedown process',
+                    onTap: () => _openInApp('https://pro-networx.com/dmca'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.groups_outlined,
+                    title: 'Community Guidelines',
+                    subtitle: 'Standards for the community',
+                    onTap: () => _openInApp('https://pro-networx.com/community-guidelines'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.copyright_outlined,
+                    title: 'Copyright Policy',
+                    subtitle: 'Intellectual property rules',
+                    onTap: () => _openInApp('https://pro-networx.com/copyright-policy'),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.info_outline,
+                    title: 'About Networx',
+                    subtitle: 'Our mission and story',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.about),
+                  ),
+                  _navTile(
+                    context,
+                    icon: Icons.attach_money,
+                    title: 'Pricing',
+                    subtitle: 'Plans and pricing',
+                    onTap: () => _openExternal('https://pro-networx.com/pricing'),
                   ),
                 ]),
 
