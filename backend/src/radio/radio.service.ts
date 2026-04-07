@@ -310,6 +310,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     };
   }
 
+  private static readonly TEMP_BASELINE = 50;
+
   private async getSongTemperature(args: {
     playId?: string | null;
     songId: string;
@@ -322,8 +324,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }> {
     const supabase = getSupabaseClient();
     const playId = args.playId?.trim();
+    const baseline = RadioService.TEMP_BASELINE;
 
-    // Lazily refresh persisted cache so temperature decays naturally over time.
     const refreshRes = await supabase.rpc('refresh_song_temperature', {
       p_song_id: args.songId,
     });
@@ -337,7 +339,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
     }
 
-    // Preferred source of truth: persisted global song temperature cache.
     const songTemperatureRes = await supabase
       .from('song_temperature')
       .select('fire_votes, shit_votes, total_votes, temperature_percent')
@@ -362,9 +363,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             0,
             Math.min(100, Math.round(Number(row.temperature_percent))),
           )
-        : totalVotes > 0
-          ? Math.round((fireVotes / totalVotes) * 100)
-          : 0;
+        : Math.max(0, Math.min(100, baseline + fireVotes - shitVotes));
       return { fireVotes, shitVotes, totalVotes, temperaturePercent };
     }
     if (
@@ -405,7 +404,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     if (error && this.isMissingLeaderboardReactionColumn(error)) {
-      // Older schema: leaderboard votes are all positive sentiment.
       if (playId) {
         const fallback = await supabase
           .from('leaderboard_likes')
@@ -416,7 +414,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           fireVotes,
           shitVotes: 0,
           totalVotes: fireVotes,
-          temperaturePercent: fireVotes > 0 ? 100 : 0,
+          temperaturePercent: Math.max(0, Math.min(100, baseline + fireVotes)),
         };
       }
       let fallbackQuery = supabase
@@ -432,7 +430,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         fireVotes,
         shitVotes: 0,
         totalVotes: fireVotes,
-        temperaturePercent: fireVotes > 0 ? 100 : 0,
+        temperaturePercent: Math.max(0, Math.min(100, baseline + fireVotes)),
       };
     }
 
@@ -442,7 +440,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         fireVotes: 0,
         shitVotes: 0,
         totalVotes: 0,
-        temperaturePercent: 0,
+        temperaturePercent: baseline,
       };
     }
 
@@ -453,8 +451,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       (row) => row.reaction === 'shit',
     ).length;
     const totalVotes = fireVotes + shitVotes;
-    const temperaturePercent =
-      totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 0;
+    const temperaturePercent = Math.max(
+      0,
+      Math.min(100, baseline + fireVotes - shitVotes),
+    );
     return { fireVotes, shitVotes, totalVotes, temperaturePercent };
   }
 
@@ -1075,7 +1075,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         songId: song.id,
         startedAtIso: queueState.playedAt ?? null,
       }),
-      { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: 0 },
+      { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: RadioService.TEMP_BASELINE },
       2000,
       `getSongTemperature(${song.id})`,
     );
@@ -1857,7 +1857,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
               songId: currentSong.id,
               startedAtIso: currentState.playedAt ?? null,
             }),
-            { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: 0 },
+            { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: RadioService.TEMP_BASELINE },
             2000,
             `getSongTemperature(${currentSong.id})`,
           );
@@ -2613,7 +2613,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       fire_votes: 0,
       shit_votes: 0,
       total_votes: 0,
-      temperature_percent: 0,
+      temperature_percent: RadioService.TEMP_BASELINE,
     };
   }
 

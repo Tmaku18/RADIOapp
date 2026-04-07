@@ -1899,7 +1899,7 @@ export class SongsService {
                   0,
                   Math.min(100, Math.round(Number(row.temperature_percent))),
                 )
-              : 0,
+              : 50,
           );
         }
       } else if (temperatureError && !missingSongTemperatureTable) {
@@ -1946,7 +1946,7 @@ export class SongsService {
         shitVotes,
         temperaturePercent:
           temperatureBySongId.get(song.id) ??
-          (totalVotes > 0 ? Math.round((fireVotes / totalVotes) * 100) : 0),
+          Math.max(0, Math.min(100, 50 + fireVotes - shitVotes)),
       };
     });
   }
