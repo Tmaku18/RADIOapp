@@ -28,7 +28,7 @@ const DEFAULT_DURATION_SECONDS = 180;
 // Buffer time before song ends to allow for network latency (2 seconds)
 const SONG_END_BUFFER_MS = 2000;
 const ACTIVE_LISTENER_WINDOW_SECONDS = parseInt(
-  process.env.LISTENER_HEARTBEAT_ACTIVE_WINDOW_SECONDS || '90',
+  process.env.LISTENER_HEARTBEAT_ACTIVE_WINDOW_SECONDS || '120',
   10,
 );
 
@@ -802,7 +802,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       Number.isFinite(ACTIVE_LISTENER_WINDOW_SECONDS) &&
       ACTIVE_LISTENER_WINDOW_SECONDS > 0
         ? ACTIVE_LISTENER_WINDOW_SECONDS
-        : 90;
+        : 120;
     const cutoffIso = new Date(Date.now() - windowSeconds * 1000).toISOString();
 
     type SessionRow = { user_id?: string | null; stream_token?: string | null };
@@ -837,12 +837,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return 0;
     }
 
-    const listeners = new Set<string>();
+    const knownStreamTokens = new Set<string>();
+    const userIds = new Set<string>();
     for (const row of data) {
       const userId = row.user_id?.trim();
       if (!userId) continue;
-      const streamToken = row.stream_token?.trim();
-      listeners.add(streamToken ? `${userId}:${streamToken}` : userId);
+      userIds.add(userId);
+      const rawToken = row.stream_token?.trim();
+      if (rawToken) {
+        const baseToken = rawToken.replace(/^npb-/, '');
+        knownStreamTokens.add(baseToken);
+      }
     }
 
     const presenceRows = await supabase
@@ -860,14 +865,19 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       );
     } else if (!presenceRows.error) {
       for (const row of presenceRows.data ?? []) {
-        const token = (
+        const rawToken = (
           row as { stream_token?: string | null }
         ).stream_token?.trim();
-        if (token) listeners.add(`presence:${token}`);
+        if (!rawToken) continue;
+        const baseToken = rawToken.replace(/^npb-/, '');
+        if (!knownStreamTokens.has(baseToken)) {
+          knownStreamTokens.add(baseToken);
+          userIds.add(`anon:${baseToken}`);
+        }
       }
     }
 
-    return listeners.size;
+    return userIds.size;
   }
 
   async recordListenerPresence(body: {
@@ -875,9 +885,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     songId: string;
     timestamp?: string;
   }): Promise<void> {
-    const streamToken = body.streamToken?.trim();
+    const rawToken = body.streamToken?.trim();
     const songId = body.songId?.trim();
-    if (!streamToken || !songId) return;
+    if (!rawToken || !songId) return;
+    const streamToken = rawToken.replace(/^npb-/, '');
 
     const supabase = getSupabaseClient();
     const nowIso = new Date().toISOString();

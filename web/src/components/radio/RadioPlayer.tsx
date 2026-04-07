@@ -70,7 +70,19 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [reactionError, setReactionError] = useState<string | null>(null);
   const [isHeartSaving, setIsHeartSaving] = useState(false);
   const [likedInLibrary, setLikedInLibrary] = useState(false);
-  const [listenerCount, setListenerCount] = useState(0);
+  const [listenerCount, setListenerCountRaw] = useState(0);
+  const listenerCountRef = useRef(0);
+  const setListenerCount = useCallback((next: number) => {
+    const prev = listenerCountRef.current;
+    if (prev === 0 || next === 0) {
+      listenerCountRef.current = next;
+      setListenerCountRaw(next);
+      return;
+    }
+    const smoothed = Math.round(prev * 0.4 + next * 0.6);
+    listenerCountRef.current = smoothed;
+    setListenerCountRaw(smoothed);
+  }, []);
   const [fireVotes, setFireVotes] = useState(0);
   const [shitVotes, setShitVotes] = useState(0);
   const [temperaturePercent, setTemperaturePercent] = useState(0);
