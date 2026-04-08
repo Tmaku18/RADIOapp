@@ -513,22 +513,53 @@ export class SongsController {
   @Get('station-counts')
   async getStationCounts() {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('songs')
-      .select('station_id')
-      .eq('status', 'approved')
-      .not('station_id', 'is', null);
 
-    if (error) {
-      this.logger.warn(`Failed to fetch station counts: ${error.message}`);
+    const { data: songs, error: songsErr } = await supabase
+      .from('songs')
+      .select('station_id, station_ids')
+      .eq('status', 'approved');
+
+    if (songsErr) {
+      this.logger.warn(`Failed to fetch station counts: ${songsErr.message}`);
       return { counts: {} };
     }
 
     const counts: Record<string, number> = {};
-    for (const row of data || []) {
-      const sid = (row as { station_id: string }).station_id;
-      if (sid) counts[sid] = (counts[sid] || 0) + 1;
+    const counted = new Map<string, Set<number>>();
+
+    for (let i = 0; i < (songs || []).length; i++) {
+      const row = songs[i] as {
+        station_id?: string | null;
+        station_ids?: string[] | null;
+      };
+
+      const stationSet = new Set<string>();
+      if (row.station_id) stationSet.add(row.station_id);
+      if (Array.isArray(row.station_ids)) {
+        for (const sid of row.station_ids) {
+          if (typeof sid === 'string' && sid) stationSet.add(sid);
+        }
+      }
+
+      for (const sid of stationSet) {
+        if (!counted.has(sid)) counted.set(sid, new Set());
+        if (!counted.get(sid)!.has(i)) {
+          counted.get(sid)!.add(i);
+          counts[sid] = (counts[sid] || 0) + 1;
+        }
+      }
     }
+
+    const { data: adminSongs } = await supabase
+      .from('admin_fallback_songs')
+      .select('radio_id')
+      .eq('is_active', true);
+
+    for (const row of adminSongs || []) {
+      const rid = (row as { radio_id?: string | null }).radio_id?.trim();
+      if (rid) counts[rid] = (counts[rid] || 0) + 1;
+    }
+
     return { counts };
   }
 
