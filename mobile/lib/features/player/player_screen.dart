@@ -25,6 +25,7 @@ import '../../core/env.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
+import 'widgets/synced_lyrics_panel.dart';
 
 const List<String> _radioBrandFallbackLogos = <String>[
   'assets/images/branding/logo_0.png',
@@ -1289,6 +1290,11 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
+              SyncedLyricsPanel(
+                songId: track.id,
+                positionStream: audioPlayer.positionStream,
+                currentPosition: () => audioPlayer.position,
+              ),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(

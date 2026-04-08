@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
+import { SyncedLyricsPanel } from './SyncedLyricsPanel';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
@@ -977,6 +978,13 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             <span>{formatTime(state.duration)}</span>
           </div>
         </div>
+
+        {/* Synced Lyrics */}
+        <SyncedLyricsPanel
+          songId={state.track?.id}
+          currentTimeMs={Math.round(state.currentTime * 1000)}
+          className="mb-4"
+        />
 
         {/* LIVE Indicator */}
         <div className="flex items-center justify-center mb-4">

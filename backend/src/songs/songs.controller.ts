@@ -829,10 +829,11 @@ export class SongsController {
     const songIds = songRows.map((song) => song.id as string);
     const listenCountBySongId = new Map<string, number>();
     if (songIds.length > 0) {
-      const { data: profileListenRows, error: profileListenError } = await supabase
-        .from('song_profile_listens')
-        .select('song_id, user_id')
-        .in('song_id', songIds);
+      const { data: profileListenRows, error: profileListenError } =
+        await supabase
+          .from('song_profile_listens')
+          .select('song_id, user_id')
+          .in('song_id', songIds);
       if (
         profileListenError &&
         !this.isMissingTableError(profileListenError, 'song_profile_listens')
@@ -848,7 +849,8 @@ export class SongsController {
           user_id: string | null;
         }>) {
           if (!row.song_id || !row.user_id) continue;
-          const listeners = listenersSetBySongId.get(row.song_id) ?? new Set<string>();
+          const listeners =
+            listenersSetBySongId.get(row.song_id) ?? new Set<string>();
           listeners.add(row.user_id);
           listenersSetBySongId.set(row.song_id, listeners);
         }
@@ -905,6 +907,96 @@ export class SongsController {
 
     return this.songsService.getLibrarySongs(userData.id);
   }
+
+  // ─── Lyrics ──────────────────────────────────────────────────────────
+
+  @Public()
+  @Get(':id/lyrics')
+  async getLyrics(@Param('id') songId: string) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('song_lyrics')
+      .select('plain_text, timed_lines, provider, updated_at')
+      .eq('song_id', songId)
+      .maybeSingle();
+
+    if (error) {
+      if (
+        (error as any).code === '42P01' ||
+        (error.message ?? '').toLowerCase().includes('song_lyrics')
+      ) {
+        return { plainText: null, timedLines: null };
+      }
+      throw new BadRequestException(`Failed to fetch lyrics: ${error.message}`);
+    }
+    if (!data) return { plainText: null, timedLines: null };
+    return {
+      plainText: data.plain_text ?? null,
+      timedLines: data.timed_lines ?? null,
+      provider: data.provider ?? null,
+      updatedAt: data.updated_at,
+    };
+  }
+
+  @Patch(':id/lyrics')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async upsertLyrics(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body()
+    body: {
+      plainText?: string;
+      timedLines?: Array<{ startMs: number; endMs?: number; text: string }>;
+    },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+
+    if (userData.role !== 'admin') {
+      const { data: song } = await supabase
+        .from('songs')
+        .select('artist_id')
+        .eq('id', songId)
+        .single();
+      if (!song) throw new BadRequestException('Song not found');
+      if (song.artist_id !== userData.id) {
+        throw new ForbiddenException(
+          'You can only edit lyrics for your own songs',
+        );
+      }
+    }
+
+    const now = new Date().toISOString();
+    const row: Record<string, unknown> = {
+      song_id: songId,
+      updated_at: now,
+    };
+    if (body.plainText !== undefined) row.plain_text = body.plainText;
+    if (body.timedLines !== undefined) row.timed_lines = body.timedLines;
+
+    const { data, error } = await supabase
+      .from('song_lyrics')
+      .upsert(row, { onConflict: 'song_id' })
+      .select()
+      .single();
+
+    if (error) {
+      throw new BadRequestException(`Failed to save lyrics: ${error.message}`);
+    }
+    return {
+      plainText: data.plain_text ?? null,
+      timedLines: data.timed_lines ?? null,
+      updatedAt: data.updated_at,
+    };
+  }
+
+  // ─── End Lyrics ────────────────────────────────────────────────────
 
   @Get(':id')
   async getSongById(@Param('id') id: string) {
