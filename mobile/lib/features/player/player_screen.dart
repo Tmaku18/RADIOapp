@@ -1463,7 +1463,7 @@ class _StationPickerSheet extends StatefulWidget {
 }
 
 class _StationPickerSheetState extends State<_StationPickerSheet> {
-  _StationSort _sort = _StationSort.alpha;
+  _StationSort _sort = _StationSort.songs;
   Set<String> _favs = {};
   Map<String, int> _counts = {};
   bool _loadingCounts = true;

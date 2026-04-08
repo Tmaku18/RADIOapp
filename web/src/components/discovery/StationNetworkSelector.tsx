@@ -33,7 +33,7 @@ export function StationNetworkSelector({
 }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState<ViewMode>('grid');
-  const [sort, setSort] = useState<SortMode>('alpha');
+  const [sort, setSort] = useState<SortMode>('songs');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number>>({});
 
