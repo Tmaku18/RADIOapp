@@ -37,4 +37,5 @@ export const TOWERS: Tower[] = [
   { id: 'us-ai-created', city: 'San Francisco', genre: 'AI Created Radio', lat: 37.7749, lng: -122.4194 },
   { id: 'us-beats', city: 'Miami', genre: 'Beats Radio', lat: 25.7617, lng: -80.1918 },
   { id: 'us-freestyle', city: 'Phoenix', genre: 'Freestyle Radio', lat: 33.4484, lng: -112.074 },
+  { id: 'us-afrobeats', city: 'Houston', genre: 'Afro-Beats Radio', lat: 29.7604, lng: -95.3698 },
 ];

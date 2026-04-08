@@ -23,6 +23,7 @@ export const LOFI_STATION_ID = 'us-lofi' as const;
 export const JAZZ_STATION_ID = 'us-jazz' as const;
 export const AUDIOBOOK_STATION_ID = 'us-audiobook' as const;
 export const SPANISH_STATION_ID = 'us-spanish' as const;
+export const AFROBEATS_STATION_ID = 'us-afrobeats' as const;
 
 export const STATION_IDS = [
   RAP_STATION_ID,
@@ -49,6 +50,7 @@ export const STATION_IDS = [
   JAZZ_STATION_ID,
   AUDIOBOOK_STATION_ID,
   SPANISH_STATION_ID,
+  AFROBEATS_STATION_ID,
 ] as const;
 
 export type StationId = (typeof STATION_IDS)[number];

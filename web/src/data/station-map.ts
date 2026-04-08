@@ -24,7 +24,8 @@ export type GenreId =
   | 'lofi'
   | 'jazz'
   | 'audiobook'
-  | 'spanish';
+  | 'spanish'
+  | 'afrobeats';
 
 export interface Tower {
   id: string;
@@ -283,6 +284,15 @@ export const TOWERS: Tower[] = [
     genreId: 'spanish',
     lat: 25.7617,
     lng: -80.1918,
+  },
+  {
+    id: 'us-afrobeats',
+    state: 'US',
+    city: 'Houston',
+    genre: 'Afro-Beats Radio',
+    genreId: 'afrobeats',
+    lat: 29.7604,
+    lng: -95.3698,
   },
 ];
 

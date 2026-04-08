@@ -970,6 +970,7 @@ export class AdminService {
       { id: 'us-jazz', state: 'US', label: 'Jazz Radio' },
       { id: 'us-audiobook', state: 'US', label: 'Audiobook Radio' },
       { id: 'us-spanish', state: 'US', label: 'Spanish Radio' },
+      { id: 'us-afrobeats', state: 'US', label: 'Afro-Beats Radio' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

@@ -107,6 +107,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
     city: 'Minneapolis',
   ),
   _StationOption(id: 'us-spanish', genre: 'Spanish Radio', city: 'Miami'),
+  _StationOption(id: 'us-afrobeats', genre: 'Afro-Beats Radio', city: 'Houston'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
