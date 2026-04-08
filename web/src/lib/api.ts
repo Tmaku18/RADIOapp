@@ -186,6 +186,7 @@ export const songsApi = {
   getById: (id: string) => api.get(`/songs/${id}`),
   delete: (id: string) => api.delete(`/songs/${id}`),
   getMine: () => api.get('/songs/mine'),
+  getStationCounts: () => api.get<{ counts: Record<string, number> }>('/songs/station-counts'),
   getLibrary: () =>
     api.get<
       Array<{

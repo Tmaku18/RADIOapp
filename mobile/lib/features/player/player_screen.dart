@@ -271,34 +271,12 @@ class _PlayerScreenState extends State<PlayerScreen>
   Future<void> _openStationPicker() async {
     final selected = await showModalBottomSheet<_StationOption>(
       context: context,
+      isScrollControlled: true,
       showDragHandle: true,
-      builder: (context) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              const ListTile(
-                title: Text('Change station'),
-                subtitle: Text('Pick a station like web radio'),
-              ),
-              ..._stationOptions.map((station) {
-                final active = station.id == _radioId;
-                return ListTile(
-                  leading: Icon(
-                    active
-                        ? Icons.radio_button_checked
-                        : Icons.radio_button_off,
-                  ),
-                  title: Text(station.genre),
-                  subtitle: Text('${station.city} (National)'),
-                  trailing: active ? const Icon(Icons.check) : null,
-                  onTap: () => Navigator.pop(context, station),
-                );
-              }),
-            ],
-          ),
-        );
-      },
+      builder: (context) => _StationPickerSheet(
+        currentId: _radioId,
+        api: ApiService(),
+      ),
     );
     if (selected != null) {
       await _changeStation(selected);
@@ -1459,4 +1437,195 @@ String _formatMmSs(Duration d) {
   final m = d.inMinutes;
   final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
   return '$m:$s';
+}
+
+// ---------------------------------------------------------------------------
+// Station picker bottom-sheet with sort & favorites
+// ---------------------------------------------------------------------------
+
+const String _favStationsPrefKey = 'favorite_station_ids';
+
+enum _StationSort { alpha, songs, favorites }
+
+class _StationPickerSheet extends StatefulWidget {
+  final String currentId;
+  final ApiService api;
+  const _StationPickerSheet({required this.currentId, required this.api});
+
+  @override
+  State<_StationPickerSheet> createState() => _StationPickerSheetState();
+}
+
+class _StationPickerSheetState extends State<_StationPickerSheet> {
+  _StationSort _sort = _StationSort.alpha;
+  Set<String> _favs = {};
+  Map<String, int> _counts = {};
+  bool _loadingCounts = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFavs();
+    _loadCounts();
+  }
+
+  Future<void> _loadFavs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getStringList(_favStationsPrefKey) ?? [];
+    if (mounted) setState(() => _favs = raw.toSet());
+  }
+
+  Future<void> _saveFavs() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_favStationsPrefKey, _favs.toList());
+  }
+
+  Future<void> _loadCounts() async {
+    try {
+      final res = await widget.api.get('songs/station-counts');
+      if (res is Map<String, dynamic>) {
+        final raw = (res['counts'] as Map?)?.cast<String, dynamic>() ?? {};
+        final parsed = <String, int>{};
+        for (final e in raw.entries) {
+          parsed[e.key] = (e.value is int) ? e.value as int : 0;
+        }
+        if (mounted) setState(() => _counts = parsed);
+      }
+    } catch (_) {}
+    if (mounted) setState(() => _loadingCounts = false);
+  }
+
+  void _toggleFav(String id) {
+    setState(() {
+      if (_favs.contains(id)) {
+        _favs.remove(id);
+      } else {
+        _favs.add(id);
+      }
+    });
+    _saveFavs();
+  }
+
+  List<_StationOption> get _sorted {
+    final list = List<_StationOption>.from(_stationOptions);
+    switch (_sort) {
+      case _StationSort.alpha:
+        list.sort((a, b) => a.genre.compareTo(b.genre));
+      case _StationSort.songs:
+        list.sort(
+            (a, b) => (_counts[b.id] ?? 0).compareTo(_counts[a.id] ?? 0));
+      case _StationSort.favorites:
+        list.sort((a, b) {
+          final af = _favs.contains(a.id) ? 1 : 0;
+          final bf = _favs.contains(b.id) ? 1 : 0;
+          if (af != bf) return bf - af;
+          return a.genre.compareTo(b.genre);
+        });
+    }
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final stations = _sorted;
+
+    return SafeArea(
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.75,
+        child: Column(
+          children: [
+            const ListTile(
+              title: Text('Change station'),
+              subtitle: Text('Pick a genre to tune into'),
+            ),
+            // Sort chips
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  Text(
+                    'Sort: ',
+                    style: TextStyle(
+                      color: scheme.outline,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  _sortChip('A–Z', _StationSort.alpha),
+                  const SizedBox(width: 6),
+                  _sortChip('Most Songs', _StationSort.songs),
+                  const SizedBox(width: 6),
+                  _sortChip('Favorites', _StationSort.favorites),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: stations.length,
+                itemBuilder: (context, idx) {
+                  final station = stations[idx];
+                  final active = station.id == widget.currentId;
+                  final isFav = _favs.contains(station.id);
+                  final count = _counts[station.id] ?? 0;
+                  return ListTile(
+                    leading: Icon(
+                      active
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: active ? scheme.primary : null,
+                    ),
+                    title: Text(station.genre),
+                    subtitle: Text(
+                      _loadingCounts
+                          ? '${station.city} (National)'
+                          : count > 0
+                              ? '$count song${count != 1 ? 's' : ''} · ${station.city}'
+                              : 'No songs yet · ${station.city}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            isFav ? Icons.star : Icons.star_border,
+                            color: isFav ? Colors.amber : scheme.outline,
+                          ),
+                          onPressed: () => _toggleFav(station.id),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        if (active)
+                          Icon(Icons.check, color: scheme.primary),
+                      ],
+                    ),
+                    onTap: () => Navigator.pop(context, station),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sortChip(String label, _StationSort value) {
+    final active = _sort == value;
+    return GestureDetector(
+      onTap: () => setState(() => _sort = value),
+      child: Chip(
+        label: Text(
+          label,
+          style: TextStyle(fontSize: 12, fontWeight: active ? FontWeight.w600 : null),
+        ),
+        backgroundColor: active
+            ? Theme.of(context).colorScheme.secondaryContainer
+            : null,
+        padding: EdgeInsets.zero,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.compact,
+      ),
+    );
+  }
 }

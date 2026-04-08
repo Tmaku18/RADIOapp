@@ -509,6 +509,29 @@ export class SongsController {
     return this.songsService.createSong(userData.id, createSongDto);
   }
 
+  @Public()
+  @Get('station-counts')
+  async getStationCounts() {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('songs')
+      .select('station_id')
+      .eq('status', 'approved')
+      .not('station_id', 'is', null);
+
+    if (error) {
+      this.logger.warn(`Failed to fetch station counts: ${error.message}`);
+      return { counts: {} };
+    }
+
+    const counts: Record<string, number> = {};
+    for (const row of data || []) {
+      const sid = (row as { station_id: string }).station_id;
+      if (sid) counts[sid] = (counts[sid] || 0) + 1;
+    }
+    return { counts };
+  }
+
   @Get()
   async getSongs(
     @Query('artistId') artistId?: string,
