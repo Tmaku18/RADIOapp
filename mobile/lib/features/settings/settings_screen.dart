@@ -280,6 +280,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: 'Display name, photo, bio, headline',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
                   ),
+                  _navTile(
+                    context,
+                    icon: Icons.delete_forever_outlined,
+                    title: 'Delete account',
+                    subtitle: 'Permanently delete your account and data',
+                    destructive: true,
+                    onTap: _confirmDeleteAccount,
+                  ),
                 ]),
 
                 _section('Preferences', [
@@ -672,18 +680,115 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    bool destructive = false,
   }) {
+    final scheme = Theme.of(context).colorScheme;
+    final color = destructive ? scheme.error : null;
     return ListTile(
-      leading: Icon(icon, size: 24),
-      title: Text(title),
+      leading: Icon(icon, size: 24, color: color),
+      title: Text(title, style: TextStyle(color: color)),
       subtitle: Text(
         subtitle,
         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              color: destructive
+                  ? scheme.error.withValues(alpha: 0.8)
+                  : scheme.onSurfaceVariant,
             ),
       ),
-      trailing: const Icon(Icons.chevron_right),
+      trailing: Icon(Icons.chevron_right, color: color),
       onTap: onTap,
     );
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final scheme = Theme.of(context).colorScheme;
+    final confirmCtrl = TextEditingController();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            final canConfirm = confirmCtrl.text.trim().toUpperCase() == 'DELETE';
+            return AlertDialog(
+              title: const Text('Delete account'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'This will permanently delete your account, profile, '
+                    'uploaded songs, library, chat messages, and notification '
+                    'preferences. This cannot be undone.',
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Type DELETE to confirm:'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: confirmCtrl,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'DELETE',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) => setLocal(() {}),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: scheme.error,
+                    foregroundColor: scheme.onError,
+                  ),
+                  onPressed: canConfirm
+                      ? () => Navigator.pop(dialogCtx, true)
+                      : null,
+                  child: const Text('Delete account'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != true || !mounted) return;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      await _usersService.deleteMyAccount();
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+
+      try {
+        final auth = Provider.of<AuthService>(context, listen: false);
+        await auth.signOut();
+      } catch (_) {}
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your account has been deleted.')),
+      );
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.login,
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete account: $e')),
+      );
+    }
   }
 }

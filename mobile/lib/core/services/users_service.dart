@@ -174,5 +174,11 @@ class UsersService {
   Future<void> unfollow(String userId) async {
     await _api.delete('users/$userId/follow');
   }
+
+  /// Self-service account deletion (Google Play / Apple App Store requirement).
+  /// Permanently deletes the current user's data and Firebase credentials.
+  Future<void> deleteMyAccount() async {
+    await _api.delete('users/me');
+  }
 }
 

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
+import { AdminService } from '../admin/admin.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
@@ -25,7 +26,10 @@ import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly adminService: AdminService,
+  ) {}
 
   /**
    * Create a new user in Supabase after Firebase authentication.
@@ -43,6 +47,25 @@ export class UsersController {
   @Get('me')
   async getCurrentUser(@CurrentUser() user: FirebaseUser) {
     return this.usersService.getUserByFirebaseUid(user.uid);
+  }
+
+  /**
+   * Self-service account deletion (Google Play / Apple App Store requirement).
+   * Removes the user's data and Firebase credentials. The user can sign up again afterwards.
+   */
+  @Delete('me')
+  async deleteCurrentUser(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (error || !data) {
+      throw new BadRequestException('User not found');
+    }
+    await this.adminService.deleteUserAccount(data.id);
+    return { deleted: true };
   }
 
   /**
