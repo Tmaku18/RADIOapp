@@ -7,6 +7,7 @@ const docs = [
   { href: '/dmca', title: 'DMCA Takedown Policy' },
   { href: '/community-guidelines', title: 'Community Guidelines' },
   { href: '/copyright-policy', title: 'Copyright Policy' },
+  { href: '/delete-account', title: 'Delete Your Account' },
 ];
 
 export default function LegalIndexPage() {
