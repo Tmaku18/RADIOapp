@@ -63,7 +63,9 @@ export class RadioController {
         err?.stack,
       );
       const message = err?.message || 'Radio unavailable';
-      const cached = this.radioService.getCachedCurrentTrack(id);
+      const cached =
+        this.radioService.getCachedCurrentTrack(id) ??
+        this.radioService.getAnyCachedCurrentTrack(id);
       if (cached) {
         return {
           ...cached,
@@ -96,7 +98,9 @@ export class RadioController {
         err?.stack,
       );
       const message = err?.message || 'Unable to advance radio queue';
-      const cached = this.radioService.getCachedCurrentTrack(id);
+      const cached =
+        this.radioService.getCachedCurrentTrack(id) ??
+        this.radioService.getAnyCachedCurrentTrack(id);
       if (cached) {
         return {
           ...cached,

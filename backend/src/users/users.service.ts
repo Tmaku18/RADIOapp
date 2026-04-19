@@ -152,14 +152,27 @@ export class UsersService {
     firebaseUid: string,
     email: string | null | undefined,
   ): Promise<boolean> {
+    // Always honour the env allowlist first so admin login still works when the
+    // DB is degraded/timing out. Otherwise the role lookup below could hang the
+    // entire admin sign-in flow.
+    if (this.isAdminEmail(email)) return true;
     const supabase = getSupabaseClient();
-    const { data } = await supabase
+    const lookup = supabase
       .from('users')
       .select('role')
       .eq('firebase_uid', firebaseUid)
       .maybeSingle();
-    if ((data?.role ?? '').toLowerCase() === 'admin') return true;
-    return this.isAdminEmail(email);
+    try {
+      const { data } = await Promise.race([
+        lookup,
+        new Promise<{ data: null }>((resolve) =>
+          setTimeout(() => resolve({ data: null }), 4000),
+        ),
+      ]);
+      return (data?.role ?? '').toLowerCase() === 'admin';
+    } catch {
+      return false;
+    }
   }
 
   async createUser(firebaseUid: string, createUserDto: CreateUserDto) {

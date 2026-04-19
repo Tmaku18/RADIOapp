@@ -198,7 +198,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     string,
     { payload: any; updatedAt: number }
   >();
-  private readonly cachedTrackTtlMs = 5 * 60 * 1000;
+  private readonly cachedTrackTtlMs = 60 * 60 * 1000;
+  private readonly freeRotationPoolCache = new Map<
+    string,
+    { items: { id: string; _stackId: string; artistId: string }[]; updatedAt: number }
+  >();
+  private readonly freeRotationPoolCacheTtlMs = 30 * 1000;
   private backgroundRotationTimer: ReturnType<typeof setInterval> | null = null;
   private backgroundTickInFlight = false;
   private readonly backgroundPollMs = parseInt(
@@ -303,6 +308,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       this.lastKnownTrackByRadio.delete(radioId);
       return null;
     }
+    return {
+      ...cached.payload,
+      stale: true,
+      stale_cached_at: new Date(cached.updatedAt).toISOString(),
+    };
+  }
+
+  /**
+   * Last-resort snapshot lookup that ignores TTL. Used by the controller when the
+   * upstream DB is unreachable and we still want to keep playback alive on the client.
+   */
+  getAnyCachedCurrentTrack(radioId: string = DEFAULT_RADIO_ID): any | null {
+    const cached = this.lastKnownTrackByRadio.get(radioId);
+    if (!cached) return null;
     return {
       ...cached.payload,
       stale: true,
@@ -577,15 +596,26 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     this.backgroundTickInFlight = true;
     let allFailed = true;
+    let attemptedAny = false;
     try {
       const radioIds = await this.getBackgroundRadioIds();
       const now = Date.now();
+      // Stations with a snapshot newer than this don't need a refresh tick --
+      // listeners are still being served from cache, so skip the DB hit.
+      const backgroundRefreshSkipMs = 90 * 1000;
       for (const radioId of radioIds) {
         const emptyAt = this.emptyStations.get(radioId);
         if (emptyAt && now - emptyAt < this.emptyStationRecheckMs) {
           continue;
         }
 
+        const snapshot = this.lastKnownTrackByRadio.get(radioId);
+        if (snapshot && now - snapshot.updatedAt < backgroundRefreshSkipMs) {
+          // Fresh enough; don't poke the DB.
+          continue;
+        }
+
+        attemptedAny = true;
         try {
           const result = await this.getCurrentTrack(radioId);
           allFailed = false;
@@ -602,6 +632,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             `Background rotation failed for radio "${radioId}": ${e?.message ?? e}`,
           );
         }
+        // Spread load: brief gap so we don't fire 24 station refreshes back-to-back.
+        await new Promise((r) => setTimeout(r, 250));
+      }
+      if (!attemptedAny) {
+        // Nothing was due for refresh -- treat as healthy.
+        allFailed = false;
       }
       if (allFailed && radioIds.length > 0) {
         this.consecutiveBackgroundFailures++;
@@ -1402,6 +1438,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async getAllFreeRotationSongs(
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<{ id: string; _stackId: string; artistId: string }[]> {
+    const cacheKey = radioId;
+    const cached = this.freeRotationPoolCache.get(cacheKey);
+    if (cached && Date.now() - cached.updatedAt < this.freeRotationPoolCacheTtlMs) {
+      return cached.items;
+    }
     const supabase = getSupabaseClient();
     const result: { id: string; _stackId: string; artistId: string }[] = [];
     const stationId = normalizeSongStationId(radioId);
@@ -1462,6 +1503,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         }
         result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
       }
+    }
+
+    // Only cache successful (non-error) snapshots so a transient DB blip doesn't
+    // get pinned for 30 seconds.
+    if (!adminError && !songsError) {
+      this.freeRotationPoolCache.set(cacheKey, {
+        items: result,
+        updatedAt: Date.now(),
+      });
+    } else if (cached) {
+      // DB returned errors -- prefer last good snapshot over an empty pool.
+      return cached.items;
     }
 
     return result;
@@ -2027,7 +2080,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Free rotation mode (or fallback from paid mode)
     // Skip over any queue entries that no longer have a playable audio URL.
-    const freeRotationAttempts = 50;
+    const freeRotationAttempts = 8;
     for (let attempt = 0; attempt < freeRotationAttempts; attempt += 1) {
       const freeRotationSong = await this.getNextFreeRotationSong(
         radioId,
