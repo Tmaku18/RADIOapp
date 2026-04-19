@@ -22,6 +22,7 @@ coverage/
 /deploy_log*.txt
 /live_log*.txt
 /radio_resp*.json
+/vars.json
 /r[0-9]*.json
 /rg[0-9]*.json
 
