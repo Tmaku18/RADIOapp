@@ -173,26 +173,31 @@ export class FirebaseAuthGuard implements CanActivate {
       );
 
       const supabase = getSupabaseClient();
-      let user: {
+      type UserRow = {
         id: string;
         role: string | null;
         is_banned: boolean | null;
         ban_reason: string | null;
-      } | null = null;
+      };
+      let user: UserRow | null = null;
       let userLookupError: { message: string } | null = null;
       try {
-        const { data, error } = await withDeadline(
-          'users lookup',
-          5000,
-          () =>
-            supabase
-              .from('users')
-              .select('id, role, is_banned, ban_reason')
-              .eq('firebase_uid', decodedToken.uid)
-              .single(),
-        );
-        user = data as typeof user;
-        userLookupError = error;
+        const result = await withDeadline<{
+          data: UserRow | null;
+          error: { message: string } | null;
+        }>('users lookup', 5000, async () => {
+          const { data, error } = await supabase
+            .from('users')
+            .select('id, role, is_banned, ban_reason')
+            .eq('firebase_uid', decodedToken.uid)
+            .single();
+          return {
+            data: (data as UserRow | null) ?? null,
+            error: error ? { message: error.message } : null,
+          };
+        });
+        user = result.data;
+        userLookupError = result.error;
       } catch (lookupError) {
         userLookupError = {
           message:
