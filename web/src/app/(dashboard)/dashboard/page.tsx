@@ -92,9 +92,20 @@ const ROLE_HOME: Record<
   },
 };
 
+function readAdminRoleCookie(): boolean {
+  if (typeof document === 'undefined') return false;
+  const cookieRole = document.cookie
+    .split('; ')
+    .find((c) => c.startsWith('user_role='))
+    ?.split('=')[1];
+  return cookieRole?.toLowerCase() === 'admin';
+}
+
 export default function DashboardPage() {
   const { profile, loading: authLoading } = useAuth();
-  const [adminRoleHint, setAdminRoleHint] = useState(false);
+  // Seed the hint synchronously from the cookie that the dashboard layout sets,
+  // so admin users land on Admin Home immediately instead of flashing artist UI.
+  const [adminRoleHint, setAdminRoleHint] = useState<boolean>(readAdminRoleCookie);
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
 
@@ -103,6 +114,10 @@ export default function DashboardPage() {
     if (profile?.role === 'admin') {
       setAdminRoleHint(true);
       return;
+    }
+    // Re-check the cookie too in case the layout populated it after first paint.
+    if (readAdminRoleCookie()) {
+      setAdminRoleHint(true);
     }
     const check = async () => {
       try {
