@@ -141,23 +141,78 @@ export class FirebaseAuthGuard implements CanActivate {
 
     const token = authHeader.substring(7);
 
+    // Hard upper bound on how long a single auth check can take. Without this,
+    // a flaky network between the API host and Firebase/Supabase can hang
+    // requests for several minutes, exhaust HTTP sockets, and starve unrelated
+    // public endpoints (e.g. /api/radio/current).
+    const withDeadline = async <T>(
+      label: string,
+      ms: number,
+      run: () => Promise<T>,
+    ): Promise<T> => {
+      let timer: NodeJS.Timeout | undefined;
+      try {
+        return await Promise.race([
+          run(),
+          new Promise<T>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`${label} timed out after ${ms}ms`)),
+              ms,
+            );
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    };
+
     try {
       const auth = getFirebaseAuth();
-      const decodedToken = await auth.verifyIdToken(token);
+      const decodedToken = await withDeadline('verifyIdToken', 6000, () =>
+        auth.verifyIdToken(token),
+      );
 
       const supabase = getSupabaseClient();
-      const { data: user, error: userLookupError } = await supabase
-        .from('users')
-        .select('id, role, is_banned, ban_reason')
-        .eq('firebase_uid', decodedToken.uid)
-        .single();
+      let user: {
+        id: string;
+        role: string | null;
+        is_banned: boolean | null;
+        ban_reason: string | null;
+      } | null = null;
+      let userLookupError: { message: string } | null = null;
+      try {
+        const { data, error } = await withDeadline(
+          'users lookup',
+          5000,
+          () =>
+            supabase
+              .from('users')
+              .select('id, role, is_banned, ban_reason')
+              .eq('firebase_uid', decodedToken.uid)
+              .single(),
+        );
+        user = data as typeof user;
+        userLookupError = error;
+      } catch (lookupError) {
+        userLookupError = {
+          message:
+            lookupError instanceof Error ? lookupError.message : 'lookup failed',
+        };
+      }
 
       if (userLookupError) {
         this.logger.warn(
           `User lookup failed for ${decodedToken.uid}: ${userLookupError.message}`,
         );
       } else if (!user) {
-        await this.ensureUserProfile(decodedToken.uid, decodedToken.email);
+        // Best-effort; never block the request on a slow profile bootstrap.
+        withDeadline('ensureUserProfile', 5000, () =>
+          this.ensureUserProfile(decodedToken.uid, decodedToken.email),
+        ).catch((err) => {
+          this.logger.warn(
+            `ensureUserProfile failed for ${decodedToken.uid}: ${err?.message ?? err}`,
+          );
+        });
       }
 
       if (user?.is_banned) {
