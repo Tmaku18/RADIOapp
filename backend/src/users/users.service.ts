@@ -247,17 +247,46 @@ export class UsersService {
   async getUserByFirebaseUid(firebaseUid: string): Promise<UserResponse> {
     const supabase = getSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('firebase_uid', firebaseUid)
-      .single();
+    // Hard timeout so a degraded Supabase doesn't hang /api/users/me for
+    // minutes and starve the rest of the API.
+    type Lookup = {
+      data: any;
+      error: { message: string } | null;
+    };
+    const timeoutMs = 8000;
+    const lookup = (async (): Promise<Lookup> => {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('firebase_uid', firebaseUid)
+        .single();
+      return {
+        data,
+        error: error ? { message: error.message } : null,
+      };
+    })();
 
-    if (error || !data) {
+    let result: Lookup;
+    try {
+      result = await Promise.race([
+        lookup,
+        new Promise<Lookup>((_, reject) =>
+          setTimeout(
+            () =>
+              reject(new Error(`getUserByFirebaseUid timed out after ${timeoutMs}ms`)),
+            timeoutMs,
+          ),
+        ),
+      ]);
+    } catch (err) {
       throw new NotFoundException('User not found');
     }
 
-    return transformUser(data);
+    if (result.error || !result.data) {
+      throw new NotFoundException('User not found');
+    }
+
+    return transformUser(result.data);
   }
 
   async getArtistLikeNotificationSettings(
