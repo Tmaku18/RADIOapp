@@ -8,6 +8,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { directQuery, getDirectPool } from '../config/postgres.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { EmojiService } from '../chat/emoji.service';
 import {
@@ -784,6 +785,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   /** Check if an admin live broadcast is currently active. */
   private async isLiveBroadcastActive(): Promise<boolean> {
+    if (getDirectPool()) {
+      try {
+        const rows = await directQuery<{ id: string }>(
+          "SELECT id FROM live_broadcast WHERE status = 'active' LIMIT 1",
+        );
+        return rows.length > 0;
+      } catch {
+        return false;
+      }
+    }
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('live_broadcast')
@@ -1005,6 +1016,24 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const songResult = await this.withTimeoutFallback(
       (async () => {
+        if (getDirectPool()) {
+          try {
+            if (isAdminSong) {
+              const rows = await directQuery(
+                'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
+                [actualSongId, radioId],
+              );
+              return rows[0] ?? null;
+            }
+            const rows = await directQuery(
+              'SELECT * FROM songs WHERE id = $1 LIMIT 1',
+              [actualSongId],
+            );
+            return rows[0] ?? null;
+          } catch (e: any) {
+            this.logger.warn(`[Direct] loadSong(${actualSongId}) failed: ${e.message}, falling back`);
+          }
+        }
         if (isAdminSong) {
           const { data } = await supabase
             .from('admin_fallback_songs')
@@ -1459,77 +1488,104 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     if (cached && Date.now() - cached.updatedAt < this.freeRotationPoolCacheTtlMs) {
       return cached.items;
     }
-    const supabase = getSupabaseClient();
     const result: { id: string; _stackId: string; artistId: string }[] = [];
     const stationId = normalizeSongStationId(radioId);
+    let hadError = false;
 
-    const { data: adminSongs, error: adminError } = await supabase
-      .from('admin_fallback_songs')
-      .select('id')
-      .eq('radio_id', radioId)
-      .eq('is_active', true);
+    // Prefer direct Postgres to avoid PostgREST schema-cache 503s.
+    const useDirect = !!getDirectPool();
 
-    if (adminError) {
-      this.logger.error(
-        `Failed to fetch admin fallback songs: ${adminError.message}`,
-      );
-    } else if (adminSongs?.length) {
-      for (const s of adminSongs) {
-        result.push({
-          id: s.id,
-          _stackId: `admin:${s.id}`,
-          artistId: `admin:${s.id}`,
-        });
-      }
-    }
-
-    const songsQuery = this.applyExplicitContentScope(
-      this.applySongStationScope(
-        supabase
-          .from('songs')
-          .select('id, artist_id, audio_url')
-          .eq('status', 'approved')
-          .eq('admin_free_rotation', true),
-        stationId,
-      ),
-      stationId,
-    );
-    const { data: songsData, error: songsError } = await songsQuery;
-
-    if (songsError) {
-      this.logger.error(
-        `Failed to fetch admin-free-rotation songs: ${songsError.message}`,
-      );
-    } else if (songsData?.length) {
-      const preferredForWeb = songsData.filter((s) =>
-        hasPreferredWebAudioExtension(
-          (s as { audio_url?: string | null }).audio_url ?? null,
-        ),
-      );
-      // Keep rotation web-playable to avoid "silent spinner / no audio" tracks.
-      const candidateSongs = preferredForWeb;
-      const candidateIds = new Set(
-        candidateSongs.map((candidate) => candidate.id),
-      );
-      for (const s of songsData) {
-        const artistId =
-          (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
-        if (!candidateIds.has(s.id)) {
-          continue;
+    if (useDirect) {
+      try {
+        const adminRows = await directQuery<{ id: string }>(
+          'SELECT id FROM admin_fallback_songs WHERE radio_id = $1 AND is_active = true',
+          [radioId],
+        );
+        for (const s of adminRows) {
+          result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
         }
-        result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
+      } catch (e: any) {
+        this.logger.error(`[Direct] Failed to fetch admin fallback songs: ${e.message}`);
+        hadError = true;
+      }
+
+      try {
+        const isClean = stationId === CLEAN_RAP_STATION_ID;
+        const explicitClause = isClean ? ' AND is_explicit = false' : '';
+        const songsRows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
+          `SELECT id, artist_id, audio_url FROM songs
+           WHERE status = 'approved' AND admin_free_rotation = true
+             AND (station_id = $1 OR $1 = ANY(station_ids))${explicitClause}`,
+          [stationId],
+        );
+        const preferred = songsRows.filter((s) =>
+          hasPreferredWebAudioExtension(s.audio_url ?? null),
+        );
+        const preferredIds = new Set(preferred.map((s) => s.id));
+        for (const s of songsRows) {
+          if (!preferredIds.has(s.id)) continue;
+          result.push({ id: s.id, _stackId: `song:${s.id}`, artistId: s.artist_id ?? `unknown:${s.id}` });
+        }
+      } catch (e: any) {
+        this.logger.error(`[Direct] Failed to fetch free-rotation songs: ${e.message}`);
+        hadError = true;
+      }
+    } else {
+      // Fallback: PostgREST via supabase-js
+      const supabase = getSupabaseClient();
+
+      const { data: adminSongs, error: adminError } = await supabase
+        .from('admin_fallback_songs')
+        .select('id')
+        .eq('radio_id', radioId)
+        .eq('is_active', true);
+
+      if (adminError) {
+        this.logger.error(`Failed to fetch admin fallback songs: ${adminError.message}`);
+        hadError = true;
+      } else if (adminSongs?.length) {
+        for (const s of adminSongs) {
+          result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
+        }
+      }
+
+      const songsQuery = this.applyExplicitContentScope(
+        this.applySongStationScope(
+          supabase
+            .from('songs')
+            .select('id, artist_id, audio_url')
+            .eq('status', 'approved')
+            .eq('admin_free_rotation', true),
+          stationId,
+        ),
+        stationId,
+      );
+      const { data: songsData, error: songsError } = await songsQuery;
+
+      if (songsError) {
+        this.logger.error(`Failed to fetch admin-free-rotation songs: ${songsError.message}`);
+        hadError = true;
+      } else if (songsData?.length) {
+        const preferredForWeb = songsData.filter((s) =>
+          hasPreferredWebAudioExtension(
+            (s as { audio_url?: string | null }).audio_url ?? null,
+          ),
+        );
+        const candidateIds = new Set(preferredForWeb.map((c) => c.id));
+        for (const s of songsData) {
+          if (!candidateIds.has(s.id)) continue;
+          const artistId = (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
+          result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
+        }
       }
     }
 
-    // Only cache successful (non-error) snapshots so a transient DB blip doesn't
-    // get pinned for 30 seconds.
-    if (!adminError && !songsError) {
+    if (!hadError) {
       this.freeRotationPoolCache.set(cacheKey, {
         items: result,
         updatedAt: Date.now(),
       });
     } else if (cached) {
-      // DB returned errors -- prefer last good snapshot over an empty pool.
       return cached.items;
     }
 
