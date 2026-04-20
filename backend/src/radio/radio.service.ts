@@ -987,10 +987,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   async getCurrentTrack(radioId: string = DEFAULT_RADIO_ID) {
     const supabase = getSupabaseClient();
     const now = Date.now();
-    const isLive = await this.isLiveBroadcastActive();
     const trial = isTrialByFireActiveAt(new Date(now));
 
-    const queueState = await this.getQueueState(radioId);
+    const [isLive, queueState] = await Promise.all([
+      this.withTimeoutFallback(this.isLiveBroadcastActive(), false, 4000, 'isLiveBroadcastActive'),
+      this.getQueueState(radioId),
+    ]);
 
     // If nothing is playing, start the next track
     if (!queueState || !queueState.songId) {
@@ -1001,29 +1003,34 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const isAdminSong = queueState.songId.startsWith('admin:');
     const actualSongId = queueState.songId.replace(/^admin:|^song:/, '');
 
-    let song: any | null = null;
-    if (isAdminSong) {
-      const { data } = await supabase
-        .from('admin_fallback_songs')
-        .select('*')
-        .eq('id', actualSongId)
-        .eq('radio_id', radioId)
-        .single();
-      song = data ?? null;
-    } else {
-      const { data } = await supabase
-        .from('songs')
-        .select('*')
-        .eq('id', actualSongId)
-        .single();
-      song = data ?? null;
-    }
+    const songResult = await this.withTimeoutFallback(
+      (async () => {
+        if (isAdminSong) {
+          const { data } = await supabase
+            .from('admin_fallback_songs')
+            .select('*')
+            .eq('id', actualSongId)
+            .eq('radio_id', radioId)
+            .maybeSingle();
+          return data ?? null;
+        }
+        const { data } = await supabase
+          .from('songs')
+          .select('*')
+          .eq('id', actualSongId)
+          .maybeSingle();
+        return data ?? null;
+      })(),
+      null,
+      5000,
+      `loadSong(${actualSongId})`,
+    );
 
-    if (!song) {
-      // Song was deleted, get next track
-      this.logger.log('Current song not found, auto-starting next track');
+    if (!songResult) {
+      this.logger.log('Current song not found or timed out, auto-starting next track');
       return this.getNextTrack(radioId);
     }
+    const song = songResult;
 
     const startedAt = queueState.startedAt;
     const durationMs =
@@ -1048,31 +1055,33 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return this.getNextTrack(radioId);
     }
 
-    // Resolve playId first (needed by temperature), then fan out independent calls.
-    let playId: string | null = null;
-    try {
-      const info = await this.radioStateService.getCurrentPlayInfo(radioId);
-      if (info?.playId) {
-        playId = info.playId;
-      } else if (!isAdminSong && queueState.playedAt) {
-        const startedAtMs = new Date(queueState.playedAt).getTime();
-        if (Number.isFinite(startedAtMs)) {
-          const lowerIso = new Date(startedAtMs - 5000).toISOString();
-          const upperIso = new Date(startedAtMs + 5000).toISOString();
-          const { data: playRows } = await supabase
-            .from('plays')
-            .select('id')
-            .eq('song_id', actualSongId)
-            .gte('played_at', lowerIso)
-            .lte('played_at', upperIso)
-            .order('played_at', { ascending: false })
-            .limit(1);
-          playId = (playRows ?? [])[0]?.id ?? null;
+    // Resolve playId (needed by temperature) with a timeout so it doesn't delay the response.
+    const playId: string | null = await this.withTimeoutFallback(
+      (async () => {
+        const info = await this.radioStateService.getCurrentPlayInfo(radioId);
+        if (info?.playId) return info.playId;
+        if (!isAdminSong && queueState.playedAt) {
+          const startedAtMs = new Date(queueState.playedAt).getTime();
+          if (Number.isFinite(startedAtMs)) {
+            const lowerIso = new Date(startedAtMs - 5000).toISOString();
+            const upperIso = new Date(startedAtMs + 5000).toISOString();
+            const { data: playRows } = await supabase
+              .from('plays')
+              .select('id')
+              .eq('song_id', actualSongId)
+              .gte('played_at', lowerIso)
+              .lte('played_at', upperIso)
+              .order('played_at', { ascending: false })
+              .limit(1);
+            return (playRows ?? [])[0]?.id ?? null;
+          }
         }
-      }
-    } catch {
-      playId = null;
-    }
+        return null;
+      })(),
+      null,
+      3000,
+      `resolvePlayId(${actualSongId})`,
+    );
 
     const [pinnedCatalysts, artistLiveNow, audioUrl, listenerCount, temperature] =
       await Promise.all([
@@ -1842,10 +1851,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   ): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
-    const isLive = await this.isLiveBroadcastActive();
     const trial = isTrialByFireActiveAt(new Date(now));
 
-    const currentState = await this.getQueueState(radioId);
+    const [isLive, currentState] = await Promise.all([
+      this.withTimeoutFallback(this.isLiveBroadcastActive(), false, 4000, 'isLiveBroadcastActive'),
+      this.getQueueState(radioId),
+    ]);
 
     // Check if song currently playing
     if (!forceAdvance && currentState?.songId && currentState?.startedAt) {
