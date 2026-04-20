@@ -200,11 +200,14 @@ class AuthService extends ChangeNotifier {
         try {
           await _getUserProfile();
         } catch (e) {
+          final email = credential.email ??
+              userCredential.user!.email ??
+              'private@apple.relay';
           await _apiService.post('users', {
-            'email': credential.email ?? userCredential.user!.email!,
+            'email': email,
             'displayName': _deriveDisplayName(
               credential.givenName,
-              credential.email ?? userCredential.user!.email,
+              email,
             ),
             'role': 'listener',
           });

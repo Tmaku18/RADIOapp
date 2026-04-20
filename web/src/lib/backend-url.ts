@@ -33,5 +33,11 @@ export function getBackendBaseUrls(): string[] {
 }
 
 export function getBackendBaseUrl(): string {
-  return getBackendBaseUrls()[0]!;
+  const urls = getBackendBaseUrls();
+  if (urls.length === 0) {
+    throw new Error(
+      'No backend URL configured. Set BACKEND_URL or NEXT_PUBLIC_API_URL.',
+    );
+  }
+  return urls[0];
 }

@@ -42,10 +42,13 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS
-  const corsOrigin = configService.get<string>('CORS_ORIGIN') || '*';
+  // Enable CORS -- wildcard + credentials is rejected by browsers, so when
+  // CORS_ORIGIN is unset we fall back to a known-good origin list.
+  const corsOrigin =
+    configService.get<string>('CORS_ORIGIN') ||
+    'https://www.networxradio.com,https://networxradio.com,https://www.pro-networx.com,https://pro-networx.com';
   app.enableCors({
-    origin: corsOrigin.split(','),
+    origin: corsOrigin.split(',').map((o) => o.trim()),
     credentials: true,
   });
 

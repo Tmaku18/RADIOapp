@@ -383,6 +383,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
         );
       },
     );
+
+    // Clean up controllers after the bottom sheet closes.
+    nameCtrl.dispose();
+    headlineCtrl.dispose();
+    bioCtrl.dispose();
+    locationCtrl.dispose();
+    instagramCtrl.dispose();
+    twitterCtrl.dispose();
+    tiktokCtrl.dispose();
+    youtubeCtrl.dispose();
+    websiteCtrl.dispose();
+    soundcloudCtrl.dispose();
+    spotifyCtrl.dispose();
+    appleMusicCtrl.dispose();
+    facebookCtrl.dispose();
+    snapchatCtrl.dispose();
   }
 
   Uri? _normalizeSocialUri({

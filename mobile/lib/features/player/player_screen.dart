@@ -254,6 +254,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       _isPlaying = false;
       _currentTrack = null;
       _selectedReaction = null;
+      _hasVoted = false;
+      _lastVotedPlayId = null;
+      _isVoting = false;
       _noContent = false;
       _noContentMessage = null;
     });
@@ -576,14 +579,13 @@ class _PlayerScreenState extends State<PlayerScreen>
         );
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isVoting = false;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 

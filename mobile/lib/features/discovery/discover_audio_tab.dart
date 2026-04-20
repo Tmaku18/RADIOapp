@@ -59,9 +59,13 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   void dispose() {
     _clipStopTimer?.cancel();
     _playerStateSub?.cancel();
-    // Keep the shared player alive globally, but stop discover clip playback
-    // when leaving this tab.
-    _player.stop();
+    // Only stop if we're the ones playing a discover clip (check the media tag).
+    // Calling _player.stop() unconditionally would kill radio playback when the
+    // user simply navigates away from the Social tab.
+    final currentTag = _player.sequenceState?.currentSource?.tag;
+    if (currentTag is MediaItem && currentTag.id.startsWith('discover:')) {
+      _player.stop();
+    }
     super.dispose();
   }
 

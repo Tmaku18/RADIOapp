@@ -37,8 +37,7 @@ function getClientBackendApiBases(): string[] {
     const host = window.location.hostname.toLowerCase();
     if (
       host.endsWith('pro-networx.com') ||
-      host.endsWith('networxradio.com') ||
-      host.endsWith('pro-networx.com')
+      host.endsWith('networxradio.com')
     ) {
       candidates.push('https://networxradio.com');
     }

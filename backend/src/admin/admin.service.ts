@@ -2187,7 +2187,7 @@ export class AdminService {
     const { data: rows, error } = await query.order('created_at', {
       ascending: false,
     });
-    if (error) throw new Error(`Failed to fetch feed media: ${error.message}`);
+    if (error) throw new BadRequestException(`Failed to fetch feed media: ${error.message}`);
     const items = (rows || []) as any[];
 
     if (items.length === 0) {
@@ -2264,7 +2264,7 @@ export class AdminService {
         feed_removed_by: adminId,
       })
       .eq('id', contentId);
-    if (error) throw new Error(`Failed to remove from feed: ${error.message}`);
+    if (error) throw new BadRequestException(`Failed to remove from feed: ${error.message}`);
   }
 
   private async safeDeleteByContentId(
@@ -2308,7 +2308,7 @@ export class AdminService {
       .delete()
       .eq('id', contentId);
     if (error)
-      throw new Error(`Failed to delete social card: ${error.message}`);
+      throw new BadRequestException(`Failed to delete social card: ${error.message}`);
 
     this.logger.log(`Deleted social card ${contentId} by admin ${adminId}`);
   }

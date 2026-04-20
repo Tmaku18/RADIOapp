@@ -13,6 +13,7 @@ import {
   ForbiddenException,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
   Logger,
   Headers,
 } from '@nestjs/common';
@@ -290,12 +291,12 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
     this.assertArtistProfileComplete(userData);
 
     if (!files || files.length === 0) {
-      throw new Error('No files uploaded');
+      throw new BadRequestException('No files uploaded');
     }
 
     // Find audio and artwork files by MIME type
@@ -303,14 +304,14 @@ export class SongsController {
     const artworkFile = files.find((f) => f.mimetype.startsWith('image/'));
 
     if (!audioFile) {
-      throw new Error('Audio file is required');
+      throw new BadRequestException('Audio file is required');
     }
 
     if (!body.stationId || !STATION_IDS.includes(body.stationId as any)) {
-      throw new Error('Valid stationId is required');
+      throw new BadRequestException('Valid stationId is required');
     }
     if (!body.artistOriginCity?.trim() || !body.artistOriginState?.trim()) {
-      throw new Error('Artist city and state are required');
+      throw new BadRequestException('Artist city and state are required');
     }
 
     // SECURITY: Extract real duration server-side to prevent spoofing
@@ -363,7 +364,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.uploadsService.getSignedUploadUrl(
@@ -393,7 +394,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
     this.assertArtistProfileComplete(userData);
 
@@ -828,7 +829,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     let songsQuery = supabase
@@ -850,7 +851,7 @@ export class SongsController {
     }
 
     if (error) {
-      throw new Error(`Failed to fetch songs: ${error.message}`);
+      throw new BadRequestException(`Failed to fetch songs: ${error.message}`);
     }
 
     const songRows = songs || [];
@@ -869,7 +870,7 @@ export class SongsController {
         profileListenError &&
         !this.isMissingTableError(profileListenError, 'song_profile_listens')
       ) {
-        throw new Error(
+        throw new BadRequestException(
           `Failed to load song listens: ${profileListenError.message}`,
         );
       }
@@ -933,7 +934,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.songsService.getLibrarySongs(userData.id);
@@ -1055,7 +1056,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     // Verify song ownership (unless admin)
@@ -1066,7 +1067,7 @@ export class SongsController {
       .single();
 
     if (!song) {
-      throw new Error('Song not found');
+      throw new NotFoundException('Song not found');
     }
 
     if (userData.role !== 'admin' && song.artist_id !== userData.id) {
@@ -1189,7 +1190,7 @@ export class SongsController {
     }
 
     if (updateResult.error) {
-      throw new Error(`Failed to update song: ${updateResult.error.message}`);
+      throw new BadRequestException(`Failed to update song: ${updateResult.error.message}`);
     }
     const updated = updateResult.data;
 
@@ -1247,7 +1248,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     const { data: song } = await supabase
@@ -1257,7 +1258,7 @@ export class SongsController {
       .single();
 
     if (!song) {
-      throw new Error('Song not found');
+      throw new NotFoundException('Song not found');
     }
 
     if (userData.role !== 'admin' && song.artist_id !== userData.id) {
@@ -1281,7 +1282,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.songsService.isLiked(userData.id, songId);
@@ -1313,7 +1314,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.songsService.toggleLike(userData.id, songId);
@@ -1332,7 +1333,7 @@ export class SongsController {
       .single();
 
     if (!userData) {
-      throw new Error('User not found');
+      throw new NotFoundException('User not found');
     }
 
     return this.songsService.unlikeSong(userData.id, songId);

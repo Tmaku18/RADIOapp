@@ -200,8 +200,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       },
     );
 
-    if (ok != true) return;
     final reason = controller.text.trim();
+    controller.dispose();
+    if (ok != true) return;
     if (reason.isEmpty) return;
     await _service.report(item.id, reason);
     if (!mounted) return;

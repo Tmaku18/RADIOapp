@@ -614,7 +614,7 @@ export class UsersService {
       .single();
 
     if (error) {
-      throw new Error(`Failed to update user: ${error.message}`);
+      throw new BadRequestException(`Failed to update user: ${error.message}`);
     }
 
     return transformUser(data);
@@ -694,7 +694,7 @@ export class UsersService {
       .single();
 
     if (updateError) {
-      throw new Error(`Failed to upgrade user: ${updateError.message}`);
+      throw new BadRequestException(`Failed to upgrade user: ${updateError.message}`);
     }
 
     // Initialize credits record for new artist

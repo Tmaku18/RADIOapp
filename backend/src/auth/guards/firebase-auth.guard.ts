@@ -190,7 +190,7 @@ export class FirebaseAuthGuard implements CanActivate {
             .from('users')
             .select('id, role, is_banned, ban_reason')
             .eq('firebase_uid', decodedToken.uid)
-            .single();
+            .maybeSingle();
           return {
             data: (data as UserRow | null) ?? null,
             error: error ? { message: error.message } : null,
