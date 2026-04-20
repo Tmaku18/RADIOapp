@@ -52,6 +52,18 @@ export class RadioController {
   @Get('current')
   async getCurrentTrack(@Query('radio') radioId?: string) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
+
+    // Stale-while-revalidate: if we have a cached snapshot, serve it
+    // immediately and refresh in the background. This prevents the user from
+    // waiting 25s for a response when PostgREST is slow.
+    const existing = this.radioService.getCachedCurrentTrack(id);
+    if (existing) {
+      this.radioService
+        .getCurrentTrack(id)
+        .catch((e) => this.logger.warn(`Background refresh for ${id} failed: ${e?.message}`));
+      return { ...existing, stale: true };
+    }
+
     try {
       return await this.withTimeout(
         this.radioService.getCurrentTrack(id),
@@ -63,9 +75,7 @@ export class RadioController {
         err?.stack,
       );
       const message = err?.message || 'Radio unavailable';
-      const cached =
-        this.radioService.getCachedCurrentTrack(id) ??
-        this.radioService.getAnyCachedCurrentTrack(id);
+      const cached = this.radioService.getAnyCachedCurrentTrack(id);
       if (cached) {
         return {
           ...cached,
