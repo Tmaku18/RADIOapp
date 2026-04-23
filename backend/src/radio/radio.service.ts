@@ -1491,11 +1491,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const result: { id: string; _stackId: string; artistId: string }[] = [];
     const stationId = normalizeSongStationId(radioId);
     let hadError = false;
+    let directWorked = false;
 
-    // Prefer direct Postgres to avoid PostgREST schema-cache 503s.
-    const useDirect = !!getDirectPool();
-
-    if (useDirect) {
+    // Try direct Postgres first (bypasses PostgREST schema-cache 503s).
+    if (getDirectPool()) {
       try {
         const adminRows = await directQuery<{ id: string }>(
           'SELECT id FROM admin_fallback_songs WHERE radio_id = $1 AND is_active = true',
@@ -1504,12 +1503,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         for (const s of adminRows) {
           result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
         }
-      } catch (e: any) {
-        this.logger.error(`[Direct] Failed to fetch admin fallback songs: ${e.message}`);
-        hadError = true;
-      }
 
-      try {
         const isClean = stationId === CLEAN_RAP_STATION_ID;
         const explicitClause = isClean ? ' AND is_explicit = false' : '';
         const songsRows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
@@ -1526,12 +1520,14 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           if (!preferredIds.has(s.id)) continue;
           result.push({ id: s.id, _stackId: `song:${s.id}`, artistId: s.artist_id ?? `unknown:${s.id}` });
         }
+        directWorked = true;
       } catch (e: any) {
-        this.logger.error(`[Direct] Failed to fetch free-rotation songs: ${e.message}`);
-        hadError = true;
+        this.logger.error(`[Direct] getAllFreeRotationSongs failed, falling back to PostgREST: ${e.message}`);
       }
-    } else {
-      // Fallback: PostgREST via supabase-js
+    }
+
+    // PostgREST fallback when direct Postgres is unavailable or failed.
+    if (!directWorked) {
       const supabase = getSupabaseClient();
 
       const { data: adminSongs, error: adminError } = await supabase
@@ -1668,11 +1664,65 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     stackId: string,
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<any | null> {
-    const supabase = getSupabaseClient();
     const stationId = normalizeSongStationId(radioId);
     const isAdmin = stackId.startsWith('admin:');
     const isSong = stackId.startsWith('song:');
     const actualId = stackId.replace(/^admin:|^song:/, '');
+
+    // Try direct Postgres first, fall back to PostgREST.
+    if (getDirectPool()) {
+      try {
+        if (isAdmin) {
+          const rows = await directQuery(
+            'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
+            [actualId, radioId],
+          );
+          if (rows[0]) return { ...rows[0], _source: 'admin_fallback' as const };
+          this.logger.warn(`[Direct] Admin fallback song ${actualId} not found`);
+          return null;
+        }
+        if (isSong) {
+          const rows = await directQuery(
+            'SELECT * FROM songs WHERE id = $1 LIMIT 1',
+            [actualId],
+          );
+          const data = rows[0] as any;
+          if (
+            !data ||
+            !this.songMatchesStationScope(data, stationId) ||
+            !this.songMatchesExplicitScope(data, stationId)
+          ) {
+            this.logger.warn(`[Direct] Free rotation song ${actualId} not eligible`);
+            return null;
+          }
+          return { ...data, _source: 'songs' as const };
+        }
+        // Legacy plain uuid
+        const adminRows = await directQuery(
+          'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
+          [stackId, radioId],
+        );
+        if (adminRows[0]) return { ...adminRows[0], _source: 'admin_fallback' as const };
+        const songRows = await directQuery(
+          "SELECT * FROM songs WHERE id = $1 AND status = 'approved' AND admin_free_rotation = true LIMIT 1",
+          [stackId],
+        );
+        const sData = songRows[0] as any;
+        if (
+          sData &&
+          this.songMatchesStationScope(sData, stationId) &&
+          this.songMatchesExplicitScope(sData, stationId)
+        ) {
+          return { ...sData, _source: 'songs' as const };
+        }
+        return null;
+      } catch (e: any) {
+        this.logger.warn(`[Direct] getFreeRotationSongById(${stackId}) failed, trying PostgREST: ${e.message}`);
+      }
+    }
+
+    // PostgREST fallback
+    const supabase = getSupabaseClient();
 
     if (isAdmin) {
       const { data, error } = await supabase
