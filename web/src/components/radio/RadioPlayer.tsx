@@ -494,7 +494,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
         const trackIdentityChanged = !state.track || state.track.id !== track.id;
 
-        // Keep normal path strict to avoid duplicate advance from poll + ended.
+        const isStaleResponse = !!trackData?.stale;
+
         if (trackIdentityChanged || shouldReloadCurrentTrack) {
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
@@ -507,7 +508,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             resumeAfterStationOrTrackSwitch;
           actions.loadTrack(track, 'radio', shouldAutoPlay);
           actions.syncToPosition(serverPosition);
-        } else if (shouldSync && state.isLive) {
+        } else if (shouldSync && state.isLive && !isStaleResponse) {
           actions.syncToPosition(serverPosition);
         }
       }
@@ -616,7 +617,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   // Initial fetch and periodic polling
   useEffect(() => {
-    // Initial fetch - don't auto-play (wait for user interaction)
     fetchCurrentTrack(true, false);
     
     const pollMs = noContent ? 8000 : 30000;
@@ -624,18 +624,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted, noContent]);
-
-  // Re-sync every 60 seconds to handle drift (only when live)
-  useEffect(() => {
-    if (state.source !== 'radio') return;
-    if (!state.isLive) return;
-    
-    const syncInterval = setInterval(() => {
-      fetchCurrentTrack(true, false);
-    }, 60000);
-    
-    return () => clearInterval(syncInterval);
-  }, [state.source, state.isLive, fetchCurrentTrack]);
 
   // Check for "Jump to Live" state when paused
   useEffect(() => {

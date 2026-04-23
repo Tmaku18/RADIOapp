@@ -145,6 +145,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
+  DateTime _lastSyncSeekAt = DateTime(2000);
   String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
   final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
@@ -378,7 +379,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _startTrackSyncTimer() {
     _trackSyncTimer?.cancel();
-    _trackSyncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+    _trackSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       _syncCurrentTrack();
     });
   }
@@ -426,7 +427,12 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       final localSeconds = _audioPlayer.position.inSeconds;
       final serverSeconds = serverTrack.positionSeconds;
-      if ((localSeconds - serverSeconds).abs() >= 3) {
+      final drift = (localSeconds - serverSeconds).abs();
+      final now = DateTime.now();
+      final cooldownOk =
+          now.difference(_lastSyncSeekAt).inSeconds >= 30;
+      if (drift >= 8 && cooldownOk) {
+        _lastSyncSeekAt = now;
         await _audioPlayer.seek(Duration(seconds: serverSeconds));
       }
       setState(() {

@@ -62,9 +62,9 @@ interface PlaybackProviderProps {
 }
 
 export function PlaybackProvider({ children }: PlaybackProviderProps) {
-  const LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC = 3;
-  const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 6;
-  const LIVE_SYNC_SEEK_COOLDOWN_MS = 15000;
+  const LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC = 8;
+  const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 12;
+  const LIVE_SYNC_SEEK_COOLDOWN_MS = 30000;
   const [state, setState] = useState<PlaybackState>(initialPlaybackState);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const hlsRef = useRef<Hls | null>(null);

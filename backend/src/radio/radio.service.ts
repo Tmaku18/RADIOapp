@@ -309,6 +309,31 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       this.lastKnownTrackByRadio.delete(radioId);
       return null;
     }
+
+    const now = Date.now();
+    const startedAtMs = cached.payload.started_at
+      ? new Date(cached.payload.started_at).getTime()
+      : 0;
+    const durationMs =
+      (cached.payload.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+
+    if (startedAtMs > 0) {
+      const endTime = startedAtMs + durationMs;
+      const timeRemainingMs = Math.max(0, endTime - now);
+      if (timeRemainingMs <= 0) {
+        this.lastKnownTrackByRadio.delete(radioId);
+        return null;
+      }
+      return {
+        ...cached.payload,
+        position_seconds: Math.floor((now - startedAtMs) / 1000),
+        time_remaining_ms: timeRemainingMs,
+        server_time: new Date(now).toISOString(),
+        stale: true,
+        stale_cached_at: new Date(cached.updatedAt).toISOString(),
+      };
+    }
+
     return {
       ...cached.payload,
       stale: true,
@@ -323,11 +348,26 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   getAnyCachedCurrentTrack(radioId: string = DEFAULT_RADIO_ID): any | null {
     const cached = this.lastKnownTrackByRadio.get(radioId);
     if (!cached) return null;
-    return {
+
+    const now = Date.now();
+    const startedAtMs = cached.payload.started_at
+      ? new Date(cached.payload.started_at).getTime()
+      : 0;
+    const durationMs =
+      (cached.payload.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+
+    const result: any = {
       ...cached.payload,
       stale: true,
       stale_cached_at: new Date(cached.updatedAt).toISOString(),
     };
+
+    if (startedAtMs > 0) {
+      result.position_seconds = Math.floor((now - startedAtMs) / 1000);
+      result.time_remaining_ms = Math.max(0, startedAtMs + durationMs - now);
+      result.server_time = new Date(now).toISOString();
+    }
+    return result;
   }
 
   private static readonly TEMP_BASELINE = 50;
