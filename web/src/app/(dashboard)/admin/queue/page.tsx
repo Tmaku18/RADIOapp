@@ -11,7 +11,7 @@ type QueueEntry = {
   position: number;
   stackId: string;
   normalizedSongId: string;
-  source: 'songs' | 'admin_fallback' | null;
+  source: 'songs' | null;
   title: string | null;
   artistName: string | null;
   artworkUrl: string | null;
@@ -28,7 +28,7 @@ type Candidate = {
   stackId: string;
   title: string;
   artistName: string;
-  source: 'songs' | 'admin_fallback';
+  source: 'songs';
 };
 
 function fmtDuration(seconds: number): string {
@@ -131,38 +131,23 @@ export default function AdminQueuePage() {
 
   const loadCandidates = useCallback(async (radioId: string) => {
     try {
-      const [songsRes, fallbackRes] = await Promise.all([
-        adminApi.getSongsInFreeRotation(radioId),
-        adminApi.getFallbackSongs(radioId),
-      ]);
+      const songsRes = await adminApi.getSongsInFreeRotation(radioId);
       const songsRaw = (songsRes.data.songs || []) as Array<{
         id: string;
         title?: string;
         artist_name?: string;
         users?: { display_name?: string };
       }>;
-      const fallbackRaw = (fallbackRes.data.songs || []) as Array<{
-        id: string;
-        title?: string;
-        artist_name?: string;
-      }>;
       const songs = songsRaw.map((song) => ({
-        stackId: `song:${song.id}`,
+        stackId: song.id,
         title: song.title || 'Untitled',
         artistName: song.users?.display_name || song.artist_name || 'Unknown Artist',
         source: 'songs' as const,
       }));
-      const fallback = fallbackRaw.map((song) => ({
-        stackId: `admin:${song.id}`,
-        title: song.title || 'Untitled',
-        artistName: song.artist_name || 'Unknown Artist',
-        source: 'admin_fallback' as const,
-      }));
       setSongCandidates(songs);
-      setFallbackCandidates(fallback);
+      setFallbackCandidates([]);
       setSelectedAddStackId((prev) => prev || songs[0]?.stackId || '');
     } catch {
-      // Non-blocking; queue view is still useful without candidate lists.
       setSongCandidates([]);
       setFallbackCandidates([]);
     }
@@ -261,7 +246,7 @@ export default function AdminQueuePage() {
           stackId,
           title: row?.title || stackId,
           artistName: row?.artistName || null,
-          source: row?.source || (stackId.startsWith('song:') ? 'songs' : 'admin_fallback'),
+          source: 'songs' as const,
           durationSeconds: row?.durationSeconds || 0,
         };
       }),

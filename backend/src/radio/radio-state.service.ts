@@ -49,7 +49,6 @@ export interface PlayDecision {
     | 'credits'
     | 'trial'
     | 'opt_in'
-    | 'admin_fallback'
     | 'fallback';
   tierAtSelection?: string;
   listenerCount?: number;

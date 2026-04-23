@@ -908,10 +908,10 @@ export const adminApi = {
       radioId: string;
       playlistType: 'free_rotation' | 'paid';
       fallbackPosition: number;
-      currentSong: { id: string | null; title: string | null; artistName: string | null; source: 'songs' | 'admin_fallback' | 'unknown' } | null;
+      currentSong: { id: string | null; title: string | null; artistName: string | null; source: 'songs' | 'unknown' } | null;
       queueLength: number;
       nextCount: number;
-      nextSongs: Array<{ stackId: string; normalizedSongId: string; title: string | null; artistName: string | null; source: 'songs' | 'admin_fallback' | null }>;
+      nextSongs: Array<{ stackId: string; normalizedSongId: string; title: string | null; artistName: string | null; source: 'songs' | null }>;
     }>(`/admin/radios/${radioId}/queue-debug`, { params: limit ? { limit } : undefined }),
   getRadioQueue: (radioId: string, limit?: number) =>
     api.get<{
@@ -922,7 +922,7 @@ export const adminApi = {
         id: string | null;
         title: string | null;
         artistName: string | null;
-        source: 'songs' | 'admin_fallback' | 'unknown';
+        source: 'songs' | 'unknown';
       } | null;
       queueLength: number;
       nextCount: number;
@@ -931,13 +931,13 @@ export const adminApi = {
         normalizedSongId: string;
         title: string | null;
         artistName: string | null;
-        source: 'songs' | 'admin_fallback' | null;
+        source: 'songs' | null;
       }>;
       upcoming: Array<{
         position: number;
         stackId: string;
         normalizedSongId: string;
-        source: 'songs' | 'admin_fallback' | null;
+        source: 'songs' | null;
         title: string | null;
         artistName: string | null;
         artworkUrl: string | null;
@@ -950,7 +950,7 @@ export const adminApi = {
   addRadioQueueEntries: (
     radioId: string,
     data: {
-      items: Array<{ stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' }>;
+      items: Array<{ stackId?: string; songId?: string; source?: 'songs' }>;
       position?: number;
       allowDuplicates?: boolean;
     },
@@ -961,7 +961,7 @@ export const adminApi = {
     api.post(`/admin/radios/${radioId}/queue/skip`),
   removeRadioQueueEntry: (
     radioId: string,
-    params: { position?: number; stackId?: string; songId?: string; source?: 'songs' | 'admin_fallback' },
+    params: { position?: number; stackId?: string; songId?: string; source?: 'songs' },
   ) => api.delete(`/admin/radios/${radioId}/queue`, { params }),
   // Fallback playlist management
   getFallbackSongs: (radio?: string) =>

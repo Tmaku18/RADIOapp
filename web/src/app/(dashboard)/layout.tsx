@@ -120,7 +120,6 @@ const adminSubNavigation = [
   { name: 'Queue', href: '/admin/queue', icon: '🧵' },
   { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
-  { name: 'Fallback', href: '/admin/fallback', icon: '📻' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
   { name: 'Listen', href: '/listen', icon: '🎵' },
 ];
@@ -134,7 +133,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin/queue')) return 'Queue';
   if (pathname.startsWith('/admin/streamers')) return 'Streamers';
   if (pathname.startsWith('/admin/feed')) return 'Feed';
-  if (pathname.startsWith('/admin/fallback')) return 'Fallback';
+  if (pathname.startsWith('/admin/fallback')) return 'Free Rotation';
   if (pathname.startsWith('/admin/free-rotation')) return 'Free Rotation';
   if (pathname.startsWith('/admin')) return 'Admin';
   if (pathname.startsWith('/browse')) return 'Discover';

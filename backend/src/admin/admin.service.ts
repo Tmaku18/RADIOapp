@@ -73,7 +73,7 @@ export class AdminService {
       items: Array<{
         stackId?: string;
         songId?: string;
-        source?: 'songs' | 'admin_fallback';
+        source?: 'songs';
       }>;
       position?: number;
       allowDuplicates?: boolean;
@@ -96,7 +96,7 @@ export class AdminService {
       position?: number;
       stackId?: string;
       songId?: string;
-      source?: 'songs' | 'admin_fallback';
+      source?: 'songs';
     },
   ) {
     return this.radioService.removeAdminQueueEntry(radioId, params);

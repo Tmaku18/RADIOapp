@@ -243,11 +243,11 @@ export class AdminController {
       items?: Array<{
         stackId?: string;
         songId?: string;
-        source?: 'songs' | 'admin_fallback';
+        source?: 'songs';
       }>;
       stackId?: string;
       songId?: string;
-      source?: 'songs' | 'admin_fallback';
+      source?: 'songs';
       position?: number;
       allowDuplicates?: boolean;
     },
@@ -303,7 +303,7 @@ export class AdminController {
     @Query('position') position?: string,
     @Query('stackId') stackId?: string,
     @Query('songId') songId?: string,
-    @Query('source') source?: 'songs' | 'admin_fallback',
+    @Query('source') source?: 'songs',
   ) {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
     const parsedPosition =

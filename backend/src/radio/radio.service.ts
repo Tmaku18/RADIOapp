@@ -42,7 +42,7 @@ type PinnedCatalystCredit = {
 
 type QueueCandidate = {
   stackId: string;
-  source: 'songs' | 'admin_fallback';
+  source: 'songs';
   id: string;
   title: string;
   artistName: string | null;
@@ -567,12 +567,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       if (id) ids.add(id);
     }
 
-    const { data: fallbackRows } = await supabase
-      .from('admin_fallback_songs')
-      .select('radio_id')
-      .eq('is_active', true);
-    for (const row of fallbackRows ?? []) {
-      const id = (row as { radio_id?: string | null }).radio_id?.trim();
+    const { data: freeRotationRows } = await supabase
+      .from('songs')
+      .select('station_id')
+      .eq('status', 'approved')
+      .eq('admin_free_rotation', true);
+    for (const row of freeRotationRows ?? []) {
+      const id = (row as { station_id?: string | null }).station_id?.trim();
       if (id) ids.add(id);
     }
 
@@ -765,7 +766,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     radioId: string,
     priorityScore: number = 0,
     isFallback: boolean = false,
-    isAdminFallback: boolean = false,
   ): Promise<void> {
     const now = Date.now();
     const playedAt = new Date(now).toISOString();
@@ -776,7 +776,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       durationMs: durationSeconds * 1000,
       priorityScore,
       isFallback,
-      isAdminFallback,
+      isAdminFallback: false,
       playedAt,
     };
 
@@ -1011,20 +1011,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return this.getNextTrack(radioId);
     }
 
-    const isAdminSong = queueState.songId.startsWith('admin:');
+    // Strip legacy admin:/song: prefixes from queued IDs.
     const actualSongId = queueState.songId.replace(/^admin:|^song:/, '');
 
     const songResult = await this.withTimeoutFallback(
       (async () => {
         if (getDirectPool()) {
           try {
-            if (isAdminSong) {
-              const rows = await directQuery(
-                'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
-                [actualSongId, radioId],
-              );
-              return rows[0] ?? null;
-            }
             const rows = await directQuery(
               'SELECT * FROM songs WHERE id = $1 LIMIT 1',
               [actualSongId],
@@ -1033,15 +1026,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
           } catch (e: any) {
             this.logger.warn(`[Direct] loadSong(${actualSongId}) failed: ${e.message}, falling back`);
           }
-        }
-        if (isAdminSong) {
-          const { data } = await supabase
-            .from('admin_fallback_songs')
-            .select('*')
-            .eq('id', actualSongId)
-            .eq('radio_id', radioId)
-            .maybeSingle();
-          return data ?? null;
         }
         const { data } = await supabase
           .from('songs')
@@ -1068,11 +1052,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
-    if (
-      !queueState.isAdminFallback &&
-      timeRemainingMs <= 60000 &&
-      timeRemainingMs > SONG_END_BUFFER_MS
-    ) {
+    if (timeRemainingMs <= 60000 && timeRemainingMs > SONG_END_BUFFER_MS) {
       this.checkAndScheduleUpNext(timeRemainingMs, song.id, radioId).catch(
         (e) => this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
       );
@@ -1089,7 +1069,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       (async () => {
         const info = await this.radioStateService.getCurrentPlayInfo(radioId);
         if (info?.playId) return info.playId;
-        if (!isAdminSong && queueState.playedAt) {
+        if (queueState.playedAt) {
           const startedAtMs = new Date(queueState.playedAt).getTime();
           if (Number.isFinite(startedAtMs)) {
             const lowerIso = new Date(startedAtMs - 5000).toISOString();
@@ -1114,22 +1094,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const [pinnedCatalysts, artistLiveNow, audioUrl, listenerCount, temperature] =
       await Promise.all([
-        isAdminSong
-          ? ([] as PinnedCatalystCredit[])
-          : this.withTimeoutFallback(
-              this.getPinnedCatalystsForSong(actualSongId),
-              [],
-              2000,
-              `getPinnedCatalystsForSong(${actualSongId})`,
-            ),
-        isAdminSong
-          ? null
-          : this.withTimeoutFallback(
-              this.getArtistLiveNow(song.artist_id ?? null),
-              null,
-              2000,
-              `getArtistLiveNow(${song.artist_id ?? 'unknown'})`,
-            ),
+        this.withTimeoutFallback(
+          this.getPinnedCatalystsForSong(actualSongId),
+          [],
+          2000,
+          `getPinnedCatalystsForSong(${actualSongId})`,
+        ),
+        this.withTimeoutFallback(
+          this.getArtistLiveNow(song.artist_id ?? null),
+          null,
+          2000,
+          `getArtistLiveNow(${song.artist_id ?? 'unknown'})`,
+        ),
         this.withTimeoutFallback(
           this.ensurePlayableAudioUrl(song.audio_url ?? null),
           song.audio_url ?? null,
@@ -1237,23 +1213,20 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Resolve a queue stack ID (song:uuid or admin:uuid) to the artist_id of the song.
+   * Resolve a queue stack ID to the artist_id of the song.
    * Used for artist spacing: we avoid playing the same artist back-to-back.
-   * Admin fallback songs have no artist_id; returns null so no artist filter is applied.
    */
   private async getArtistIdForStackId(
     stackId: string | undefined,
   ): Promise<string | null> {
     if (!stackId) return null;
     const supabase = getSupabaseClient();
-    const isAdmin = stackId.startsWith('admin:');
     const actualId = stackId.replace(/^admin:|^song:/, '');
-    if (isAdmin) return null; // Admin songs: no artist spacing filter
     const { data } = await supabase
       .from('songs')
       .select('artist_id')
       .eq('id', actualId)
-      .single();
+      .maybeSingle();
     return data?.artist_id ?? null;
   }
 
@@ -1477,7 +1450,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   // === Free Rotation Stack Methods ===
 
   /**
-   * Get all active songs from free rotation: admin_fallback_songs + songs table (admin_free_rotation).
+   * Get all active songs from free rotation (songs table with admin_free_rotation = true).
    * Returns artistId for artist-spaced shuffle: admin entries use unique id so they don't cluster.
    */
   private async getAllFreeRotationSongs(
@@ -1493,32 +1466,19 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     let hadError = false;
     let directWorked = false;
 
-    // Try direct Postgres first (bypasses PostgREST schema-cache 503s).
     if (getDirectPool()) {
       try {
-        const adminRows = await directQuery<{ id: string }>(
-          'SELECT id FROM admin_fallback_songs WHERE radio_id = $1 AND is_active = true',
-          [radioId],
-        );
-        for (const s of adminRows) {
-          result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
-        }
-
         const isClean = stationId === CLEAN_RAP_STATION_ID;
         const explicitClause = isClean ? ' AND is_explicit = false' : '';
-        const songsRows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
+        const rows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
           `SELECT id, artist_id, audio_url FROM songs
            WHERE status = 'approved' AND admin_free_rotation = true
              AND (station_id = $1 OR $1 = ANY(station_ids))${explicitClause}`,
           [stationId],
         );
-        const preferred = songsRows.filter((s) =>
-          hasPreferredWebAudioExtension(s.audio_url ?? null),
-        );
-        const preferredIds = new Set(preferred.map((s) => s.id));
-        for (const s of songsRows) {
-          if (!preferredIds.has(s.id)) continue;
-          result.push({ id: s.id, _stackId: `song:${s.id}`, artistId: s.artist_id ?? `unknown:${s.id}` });
+        for (const s of rows) {
+          if (!hasPreferredWebAudioExtension(s.audio_url ?? null)) continue;
+          result.push({ id: s.id, _stackId: s.id, artistId: s.artist_id ?? `unknown:${s.id}` });
         }
         directWorked = true;
       } catch (e: any) {
@@ -1526,25 +1486,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
-    // PostgREST fallback when direct Postgres is unavailable or failed.
     if (!directWorked) {
       const supabase = getSupabaseClient();
-
-      const { data: adminSongs, error: adminError } = await supabase
-        .from('admin_fallback_songs')
-        .select('id')
-        .eq('radio_id', radioId)
-        .eq('is_active', true);
-
-      if (adminError) {
-        this.logger.error(`Failed to fetch admin fallback songs: ${adminError.message}`);
-        hadError = true;
-      } else if (adminSongs?.length) {
-        for (const s of adminSongs) {
-          result.push({ id: s.id, _stackId: `admin:${s.id}`, artistId: `admin:${s.id}` });
-        }
-      }
-
       const songsQuery = this.applyExplicitContentScope(
         this.applySongStationScope(
           supabase
@@ -1559,19 +1502,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const { data: songsData, error: songsError } = await songsQuery;
 
       if (songsError) {
-        this.logger.error(`Failed to fetch admin-free-rotation songs: ${songsError.message}`);
+        this.logger.error(`Failed to fetch free-rotation songs: ${songsError.message}`);
         hadError = true;
       } else if (songsData?.length) {
-        const preferredForWeb = songsData.filter((s) =>
-          hasPreferredWebAudioExtension(
-            (s as { audio_url?: string | null }).audio_url ?? null,
-          ),
-        );
-        const candidateIds = new Set(preferredForWeb.map((c) => c.id));
         for (const s of songsData) {
-          if (!candidateIds.has(s.id)) continue;
+          if (!hasPreferredWebAudioExtension((s as any).audio_url ?? null)) continue;
           const artistId = (s as { artist_id?: string }).artist_id ?? `unknown:${s.id}`;
-          result.push({ id: s.id, _stackId: `song:${s.id}`, artistId });
+          result.push({ id: s.id, _stackId: s.id, artistId });
         }
       }
     }
@@ -1665,125 +1602,47 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<any | null> {
     const stationId = normalizeSongStationId(radioId);
-    const isAdmin = stackId.startsWith('admin:');
-    const isSong = stackId.startsWith('song:');
-    const actualId = stackId.replace(/^admin:|^song:/, '');
+    // Strip legacy prefixes so old stacks still resolve.
+    const songId = stackId.replace(/^admin:|^song:/, '');
 
-    // Try direct Postgres first, fall back to PostgREST.
     if (getDirectPool()) {
       try {
-        if (isAdmin) {
-          const rows = await directQuery(
-            'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
-            [actualId, radioId],
-          );
-          if (rows[0]) return { ...rows[0], _source: 'admin_fallback' as const };
-          this.logger.warn(`[Direct] Admin fallback song ${actualId} not found`);
+        const rows = await directQuery(
+          'SELECT * FROM songs WHERE id = $1 LIMIT 1',
+          [songId],
+        );
+        const data = rows[0] as any;
+        if (
+          !data ||
+          !this.songMatchesStationScope(data, stationId) ||
+          !this.songMatchesExplicitScope(data, stationId)
+        ) {
+          this.logger.warn(`[Direct] Free rotation song ${songId} not eligible`);
           return null;
         }
-        if (isSong) {
-          const rows = await directQuery(
-            'SELECT * FROM songs WHERE id = $1 LIMIT 1',
-            [actualId],
-          );
-          const data = rows[0] as any;
-          if (
-            !data ||
-            !this.songMatchesStationScope(data, stationId) ||
-            !this.songMatchesExplicitScope(data, stationId)
-          ) {
-            this.logger.warn(`[Direct] Free rotation song ${actualId} not eligible`);
-            return null;
-          }
-          return { ...data, _source: 'songs' as const };
-        }
-        // Legacy plain uuid
-        const adminRows = await directQuery(
-          'SELECT * FROM admin_fallback_songs WHERE id = $1 AND radio_id = $2 LIMIT 1',
-          [stackId, radioId],
-        );
-        if (adminRows[0]) return { ...adminRows[0], _source: 'admin_fallback' as const };
-        const songRows = await directQuery(
-          "SELECT * FROM songs WHERE id = $1 AND status = 'approved' AND admin_free_rotation = true LIMIT 1",
-          [stackId],
-        );
-        const sData = songRows[0] as any;
-        if (
-          sData &&
-          this.songMatchesStationScope(sData, stationId) &&
-          this.songMatchesExplicitScope(sData, stationId)
-        ) {
-          return { ...sData, _source: 'songs' as const };
-        }
-        return null;
+        return { ...data, _source: 'songs' as const };
       } catch (e: any) {
-        this.logger.warn(`[Direct] getFreeRotationSongById(${stackId}) failed, trying PostgREST: ${e.message}`);
+        this.logger.warn(`[Direct] getFreeRotationSongById(${songId}) failed, trying PostgREST: ${e.message}`);
       }
     }
 
-    // PostgREST fallback
     const supabase = getSupabaseClient();
-
-    if (isAdmin) {
-      const { data, error } = await supabase
-        .from('admin_fallback_songs')
-        .select('*')
-        .eq('id', actualId)
-        .eq('radio_id', radioId)
-        .single();
-      if (error || !data) {
-        this.logger.warn(`Admin fallback song ${actualId} not found`);
-        return null;
-      }
-      return { ...data, _source: 'admin_fallback' as const };
-    }
-
-    if (isSong) {
-      const { data, error } = await supabase
-        .from('songs')
-        .select('*')
-        .eq('id', actualId)
-        .maybeSingle();
-      if (
-        error ||
-        !data ||
-        !this.songMatchesStationScope(data, stationId) ||
-        !this.songMatchesExplicitScope(data, stationId)
-      ) {
-        this.logger.warn(`Free rotation song ${actualId} not found`);
-        return null;
-      }
-      return { ...data, _source: 'songs' as const };
-    }
-
-    // Legacy: plain uuid (try admin_fallback first, then songs)
-    const { data: adminData } = await supabase
-      .from('admin_fallback_songs')
+    const { data, error } = await supabase
+      .from('songs')
       .select('*')
-      .eq('id', stackId)
-      .eq('radio_id', radioId)
-      .single();
-    if (adminData) return { ...adminData, _source: 'admin_fallback' as const };
-
-    const songQuery = this.applyExplicitContentScope(
-      supabase
-        .from('songs')
-        .select('*')
-        .eq('id', stackId)
-        .eq('status', 'approved')
-        .eq('admin_free_rotation', true),
-      stationId,
-    );
-    const { data: songData } = await songQuery.single();
+      .eq('id', songId)
+      .maybeSingle();
     if (
-      songData &&
-      this.songMatchesStationScope(songData, stationId) &&
-      this.songMatchesExplicitScope(songData, stationId)
+      error ||
+      !data ||
+      !this.songMatchesStationScope(data, stationId) ||
+      !this.songMatchesExplicitScope(data, stationId)
     ) {
-      return { ...songData, _source: 'songs' as const };
+      this.logger.warn(`Free rotation song ${songId} not found or not eligible`);
+      return null;
     }
 
-    return null;
+    return { ...data, _source: 'songs' as const };
   }
 
   /**
@@ -1805,7 +1664,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Get the next song from the free rotation stack.
-   * If the stack is empty, fetches all songs from admin_fallback_songs,
+   * If the stack is empty, fetches all free-rotation songs,
    * shuffles them, and stores in the stack.
    * Uses stack_version_hash to only write full stack when content changes.
    * Returns null if no free rotation songs are available.
@@ -1825,7 +1684,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
       if (allSongs.length === 0) {
         this.logger.warn(
-          'No free rotation songs available (admin_fallback_songs or songs with admin_free_rotation)',
+          'No free rotation songs available (songs with admin_free_rotation)',
         );
         return null;
       }
@@ -1966,26 +1825,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Check if song currently playing
     if (!forceAdvance && currentState?.songId && currentState?.startedAt) {
-      const isAdminSong = currentState.songId.startsWith('admin:');
       const actualSongId = currentState.songId.replace(/^admin:|^song:/, '');
 
-      let currentSong;
-      if (isAdminSong) {
-        const { data } = await supabase
-          .from('admin_fallback_songs')
-          .select('*')
-          .eq('id', actualSongId)
-          .eq('radio_id', radioId)
-          .single();
-        currentSong = data;
-      } else {
-        const { data } = await supabase
-          .from('songs')
-          .select('*')
-          .eq('id', actualSongId)
-          .single();
-        currentSong = data;
-      }
+      const { data: currentSong } = await supabase
+        .from('songs')
+        .select('*')
+        .eq('id', actualSongId)
+        .maybeSingle();
 
       if (currentSong) {
         const startedAt = currentState.startedAt;
@@ -1997,30 +1843,25 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
         if (
           timeRemainingMs > SONG_END_BUFFER_MS &&
-          (isAdminSong ||
-            this.songMatchesExplicitScope(
-              currentSong,
-              normalizeSongStationId(radioId),
-            ))
+          this.songMatchesExplicitScope(
+            currentSong,
+            normalizeSongStationId(radioId),
+          )
         ) {
           const [pinnedCatalysts, artistLiveNow, audioUrl, listenerCount, temperature] =
             await Promise.all([
-              currentState.isAdminFallback
-                ? ([] as PinnedCatalystCredit[])
-                : this.withTimeoutFallback(
-                    this.getPinnedCatalystsForSong(actualSongId),
-                    [],
-                    2000,
-                    `getPinnedCatalystsForSong(${actualSongId})`,
-                  ),
-              currentState.isAdminFallback
-                ? null
-                : this.withTimeoutFallback(
-                    this.getArtistLiveNow(currentSong.artist_id ?? null),
-                    null,
-                    2000,
-                    `getArtistLiveNow(${currentSong.artist_id ?? 'unknown'})`,
-                  ),
+              this.withTimeoutFallback(
+                this.getPinnedCatalystsForSong(actualSongId),
+                [],
+                2000,
+                `getPinnedCatalystsForSong(${actualSongId})`,
+              ),
+              this.withTimeoutFallback(
+                this.getArtistLiveNow(currentSong.artist_id ?? null),
+                null,
+                2000,
+                `getArtistLiveNow(${currentSong.artist_id ?? 'unknown'})`,
+              ),
               this.withTimeoutFallback(
                 this.ensurePlayableAudioUrl(currentSong.audio_url ?? null),
                 currentSong.audio_url ?? null,
@@ -2053,7 +1894,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             time_remaining_ms: timeRemainingMs,
             position_seconds: Math.floor((now - startedAt) / 1000),
             is_fallback: currentState.isFallback,
-            is_admin_fallback: currentState.isAdminFallback,
+            is_admin_fallback: false,
             is_live: isLive,
             trial_by_fire_active: trial.active,
             pinned_catalysts: pinnedCatalysts,
@@ -2322,7 +2163,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       radioId,
       0,
       false,
-      false,
     );
 
     // Update emoji service with current song for aggregation
@@ -2434,7 +2274,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       durationSeconds,
       radioId,
       0,
-      false,
       false,
     );
 
@@ -2552,7 +2391,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       radioId,
       0,
       false,
-      false,
     );
 
     // Update emoji service with current song for aggregation
@@ -2645,7 +2483,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Play a song from the free rotation (admin_fallback_songs or songs table).
+   * Play a song from the free rotation (songs table).
    * Uses the shuffled stack pattern - songs are played in random order
    * and the stack is refilled when empty.
    */
@@ -2657,8 +2495,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const startedAt = new Date(now).toISOString();
     const durationSeconds = song.duration_seconds || DEFAULT_DURATION_SECONDS;
-    const isFromAdminTable = song._source === 'admin_fallback';
-    const stateSongId = isFromAdminTable ? `admin:${song.id}` : song.id;
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
 
     if (!audioUrl) {
@@ -2670,12 +2506,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     await this.radioStateService.setCurrentState(
       {
-        songId: stateSongId,
+        songId: song.id,
         startedAt: now,
         durationMs: durationSeconds * 1000,
         priorityScore: 0,
         isFallback: true,
-        isAdminFallback: true,
+        isAdminFallback: false,
         playedAt: startedAt,
       },
       radioId,
@@ -2686,65 +2522,51 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     await this.radioStateService.logPlayDecision({
       songId: song.id,
       selectedAt: startedAt,
-      selectionReason: 'admin_fallback',
+      selectionReason: 'fallback',
       listenerCount,
     });
 
-    if (isFromAdminTable) {
-      await supabase
-        .from('admin_fallback_songs')
-        .update({
-          play_count: (song.play_count || 0) + 1,
-          last_played_at: startedAt,
+    const { data: playRow } = await supabase
+      .from('plays')
+      .insert({
+        song_id: song.id,
+        played_at: startedAt,
+        listener_count: listenerCount,
+      })
+      .select('id')
+      .single();
+    if (playRow?.id && song.artist_id) {
+      await this.radioStateService.setCurrentPlayInfo(
+        playRow.id,
+        song.artist_id,
+        startedAt,
+        radioId,
+      );
+    }
+    await supabase
+      .from('songs')
+      .update({
+        play_count: (song.play_count || 0) + 1,
+        last_played_at: startedAt,
+      })
+      .eq('id', song.id);
+    if (song.artist_id) {
+      void this.pushNotificationService
+        .notifyFollowersArtistOnRadio({
+          artistId: song.artist_id,
+          artistName: song.artist_name ?? 'Artist',
+          songId: song.id,
+          songTitle: song.title ?? 'A song',
         })
-        .eq('id', song.id)
-        .eq('radio_id', radioId);
-    } else {
-      const { data: playRow } = await supabase
-        .from('plays')
-        .insert({
-          song_id: song.id,
-          played_at: startedAt,
-          listener_count: listenerCount,
-        })
-        .select('id')
-        .single();
-      if (playRow?.id && song.artist_id) {
-        await this.radioStateService.setCurrentPlayInfo(
-          playRow.id,
-          song.artist_id,
-          startedAt,
-          radioId,
+        .catch((e) =>
+          this.logger.warn(
+            `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+          ),
         );
-      }
-      // Update songs table play_count and last_played_at
-      await supabase
-        .from('songs')
-        .update({
-          play_count: (song.play_count || 0) + 1,
-          last_played_at: startedAt,
-        })
-        .eq('id', song.id);
-      if (song.artist_id) {
-        void this.pushNotificationService
-          .notifyFollowersArtistOnRadio({
-            artistId: song.artist_id,
-            artistName: song.artist_name ?? 'Artist',
-            songId: song.id,
-            songTitle: song.title ?? 'A song',
-          })
-          .catch((e) =>
-            this.logger.warn(
-              `Failed to notify followers for on-air song: ${e?.message ?? e}`,
-            ),
-          );
-      }
     }
 
     const durationMs = durationSeconds * 1000;
-    const pinnedCatalysts = isFromAdminTable
-      ? []
-      : await this.getPinnedCatalystsForSong(song.id);
+    const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
 
     return {
       id: song.id,
@@ -2759,7 +2581,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       time_remaining_ms: durationMs,
       position_seconds: 0,
       is_fallback: true,
-      is_admin_fallback: true,
+      is_admin_fallback: false,
       pinned_catalysts: pinnedCatalysts,
       play_id: null,
       fire_votes: 0,
@@ -2789,7 +2611,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       time_remaining_ms: 0,
       position_seconds: 0,
       is_fallback: true,
-      is_admin_fallback: true,
+      is_admin_fallback: false,
       no_content: true,
       message: 'Sorry for the inconvenience. No songs are currently available.',
       listener_count: 0,
@@ -2881,25 +2703,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       id: string | null;
       title: string | null;
       artistName: string | null;
-      source: 'songs' | 'admin_fallback' | 'unknown';
+      source: 'songs' | 'unknown';
     } | null = null;
     if (state?.songId) {
-      const stackId =
-        state.songId.startsWith('admin:') || state.songId.startsWith('song:')
-          ? state.songId
-          : `song:${state.songId}`;
-      const resolved = await this.getFreeRotationSongById(stackId, radioId);
+      const songId = state.songId.replace(/^admin:|^song:/, '');
+      const resolved = await this.getFreeRotationSongById(songId, radioId);
       if (resolved) {
         currentSong = {
           id: resolved.id ?? null,
           title: resolved.title ?? null,
           artistName: resolved.artist_name ?? null,
-          source:
-            resolved._source === 'admin_fallback' ? 'admin_fallback' : 'songs',
+          source: 'songs',
         };
       } else {
         currentSong = {
-          id: state.songId ?? null,
+          id: songId,
           title: null,
           artistName: null,
           source: 'unknown',
@@ -2939,56 +2757,24 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const items = await this.getAllFreeRotationSongs(radioId);
     if (items.length === 0) return [];
 
-    const songIds = items
-      .filter((item) => item._stackId.startsWith('song:'))
-      .map((item) => item.id);
-    const adminIds = items
-      .filter((item) => item._stackId.startsWith('admin:'))
-      .map((item) => item.id);
+    const songIds = items.map((item) => item.id);
 
-    const [songsRes, adminRes] = await Promise.all([
-      songIds.length
-        ? supabase
-            .from('songs')
-            .select('id, title, artist_name, artwork_url, duration_seconds')
-            .in('id', songIds)
-        : Promise.resolve({ data: [], error: null } as any),
-      adminIds.length
-        ? supabase
-            .from('admin_fallback_songs')
-            .select('id, title, artist_name, artwork_url, duration_seconds')
-            .eq('radio_id', radioId)
-            .in('id', adminIds)
-        : Promise.resolve({ data: [], error: null } as any),
-    ]);
+    const { data: songsData } = await supabase
+      .from('songs')
+      .select('id, title, artist_name, artwork_url, duration_seconds')
+      .in('id', songIds);
 
     const songMap = new Map(
-      ((songsRes.data ?? []) as any[]).map((row) => [row.id, row]),
-    );
-    const adminMap = new Map(
-      ((adminRes.data ?? []) as any[]).map((row) => [row.id, row]),
+      ((songsData ?? []) as any[]).map((row: any) => [row.id, row]),
     );
 
     return items
       .map((item) => {
-        if (item._stackId.startsWith('song:')) {
-          const row = songMap.get(item.id);
-          if (!row) return null;
-          return {
-            stackId: item._stackId,
-            source: 'songs' as const,
-            id: row.id,
-            title: row.title,
-            artistName: row.artist_name ?? null,
-            artworkUrl: row.artwork_url ?? null,
-            durationSeconds: row.duration_seconds ?? DEFAULT_DURATION_SECONDS,
-          };
-        }
-        const row = adminMap.get(item.id);
+        const row = songMap.get(item.id);
         if (!row) return null;
         return {
           stackId: item._stackId,
-          source: 'admin_fallback' as const,
+          source: 'songs' as const,
           id: row.id,
           title: row.title,
           artistName: row.artist_name ?? null,
@@ -3004,15 +2790,15 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     input: {
       stackId?: string;
       songId?: string;
-      source?: 'songs' | 'admin_fallback';
+      source?: 'songs';
     },
   ): Promise<string> {
     const candidates = await this.getQueueCandidates(radioId);
-    const candidateStackIds = new Set(candidates.map((c) => c.stackId));
+    const candidateIds = new Set(candidates.map((c) => c.stackId));
 
     if (input.stackId?.trim()) {
-      const id = input.stackId.trim();
-      if (!candidateStackIds.has(id)) {
+      const id = input.stackId.trim().replace(/^admin:|^song:/, '');
+      if (!candidateIds.has(id)) {
         throw new BadRequestException(
           `stackId "${id}" is not eligible for this station queue`,
         );
@@ -3025,23 +2811,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Provide stackId or songId');
     }
 
-    const preferredSource = input.source;
-    if (preferredSource) {
-      const resolved = `${preferredSource === 'songs' ? 'song' : 'admin'}:${songId}`;
-      if (candidateStackIds.has(resolved)) return resolved;
+    if (!candidateIds.has(songId)) {
       throw new BadRequestException(
-        `songId "${songId}" is not eligible in source "${preferredSource}"`,
+        `songId "${songId}" is not eligible for this station queue`,
       );
     }
-
-    const songCandidate = `song:${songId}`;
-    if (candidateStackIds.has(songCandidate)) return songCandidate;
-    const adminCandidate = `admin:${songId}`;
-    if (candidateStackIds.has(adminCandidate)) return adminCandidate;
-
-    throw new BadRequestException(
-      `songId "${songId}" is not eligible for this station queue`,
-    );
+    return songId;
   }
 
   async getAdminQueueState(
@@ -3081,7 +2856,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       items: Array<{
         stackId?: string;
         songId?: string;
-        source?: 'songs' | 'admin_fallback';
+        source?: 'songs';
       }>;
       position?: number;
       allowDuplicates?: boolean;
@@ -3153,7 +2928,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       position?: number;
       stackId?: string;
       songId?: string;
-      source?: 'songs' | 'admin_fallback';
+      source?: 'songs';
     },
   ) {
     const stack = await this.radioStateService.getFreeRotationStack(radioId);
