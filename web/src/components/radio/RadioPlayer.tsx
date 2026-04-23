@@ -502,10 +502,19 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
             state.source === 'radio' &&
             state.isPlaying &&
             (stationChanged || trackIdentityChanged);
+          // Auto-play a new radio track when the user hasn't explicitly paused.
+          // When a song ends naturally the browser fires pause→ended, setting
+          // isPlaying=false but leaving pausedAt null. Soft-pause sets pausedAt,
+          // so we use its absence to detect natural track transitions.
+          const naturalRadioTransition =
+            trackIdentityChanged &&
+            hasUserInteracted &&
+            !state.pausedAt;
           const shouldAutoPlay =
             (autoPlay && hasUserInteracted) ||
             (shouldReloadCurrentTrack && hasUserInteracted) ||
-            resumeAfterStationOrTrackSwitch;
+            resumeAfterStationOrTrackSwitch ||
+            naturalRadioTransition;
           actions.loadTrack(track, 'radio', shouldAutoPlay);
           actions.syncToPosition(serverPosition);
         } else if (shouldSync && state.isLive && !isStaleResponse) {
@@ -541,6 +550,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     state.isLive,
     state.error,
     state.isPlaying,
+    state.pausedAt,
     hasUserInteracted,
     effectiveRadioId,
     coerceListenerCount,
@@ -615,9 +625,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
     }
   }, [state.track, getVoteKey, readStoredReaction]);
 
-  // Initial fetch and periodic polling
+  // Initial fetch and periodic polling.
+  // Use hasUserInteracted for autoPlay on every call (including re-runs triggered
+  // by fetchCurrentTrack identity changes) so natural track transitions auto-play.
   useEffect(() => {
-    fetchCurrentTrack(true, false);
+    fetchCurrentTrack(true, hasUserInteracted);
     
     const pollMs = noContent ? 8000 : 30000;
     const interval = setInterval(() => fetchCurrentTrack(true, hasUserInteracted), pollMs);
