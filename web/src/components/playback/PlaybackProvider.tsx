@@ -76,6 +76,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const lastSyncSeekAtRef = useRef(0);
   const autoPlayPendingRef = useRef(false);
   const isLoadingTrackRef = useRef(false);
+  const pendingSeekRef = useRef<number | null>(null);
 
   useEffect(() => {
     sourceRef.current = state.source;
@@ -136,6 +137,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const onCanPlay = () => {
       clearLoadTimeout();
       isLoadingTrackRef.current = false;
+      const seekTo = pendingSeekRef.current;
+      if (seekTo !== null && seekTo > 0) {
+        pendingSeekRef.current = null;
+        audio.currentTime = seekTo;
+      }
       setState((s) => ({ ...s, isLoading: false }));
       if (autoPlayPendingRef.current) {
         autoPlayPendingRef.current = false;
@@ -213,6 +219,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     hasRetriedAfterErrorRef.current = false;
     autoPlayPendingRef.current = !!autoPlay;
     isLoadingTrackRef.current = true;
+    pendingSeekRef.current = null;
 
     const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
     if (!url) {
@@ -335,7 +342,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const syncToPosition = useCallback((positionSeconds: number) => {
     const audio = audioRef.current;
     if (!audio || positionSeconds <= 0) return;
-    if (audio.paused) return;
+
+    if (audio.paused || isLoadingTrackRef.current) {
+      pendingSeekRef.current = positionSeconds;
+      setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+      return;
+    }
 
     const delta = positionSeconds - audio.currentTime;
     const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;

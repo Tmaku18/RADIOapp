@@ -475,7 +475,10 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
 
-        const normalizeAudioSource = (url: string) => url.split('?')[0];
+        const normalizeAudioSource = (url: string) =>
+          url
+            .split('?')[0]
+            .replace('/storage/v1/object/sign/', '/storage/v1/object/public/');
         const sameTrackDifferentSourcePath =
           !!state.track &&
           state.track.id === track.id &&
@@ -497,7 +500,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
         const isStaleResponse = !!trackData?.stale;
 
-        if (trackIdentityChanged || shouldReloadCurrentTrack) {
+        if (trackIdentityChanged || (shouldReloadCurrentTrack && !isStaleResponse)) {
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
             state.source === 'radio' &&
