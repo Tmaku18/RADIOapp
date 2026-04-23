@@ -401,6 +401,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
     if (state.source && state.source !== 'radio') return;
+    if (isFetchingNextTrack.current) return;
     const nowMs = Date.now();
     if (nowMs < nextFetchAllowedAtRef.current) return;
     if (isFetchingCurrentTrackRef.current) return;

@@ -218,6 +218,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly maxBackgroundBackoffMs = 5 * 60 * 1000;
   private emptyStations = new Map<string, number>();
   private readonly emptyStationRecheckMs = 10 * 60 * 1000;
+  private readonly advanceLocks = new Map<string, Promise<any>>();
 
   clearEmptyStationCache(radioId?: string): void {
     if (radioId) {
@@ -1853,6 +1854,25 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   async getNextTrack(
     radioId: string = DEFAULT_RADIO_ID,
     forceAdvance: boolean = false,
+  ): Promise<any> {
+    // Serialise concurrent advances per radio to prevent double-popping the
+    // queue when getCurrentTrack and an explicit /next call race.
+    const inflight = this.advanceLocks.get(radioId);
+    if (inflight) {
+      return inflight;
+    }
+    const promise = this.doGetNextTrack(radioId, forceAdvance);
+    this.advanceLocks.set(radioId, promise);
+    try {
+      return await promise;
+    } finally {
+      this.advanceLocks.delete(radioId);
+    }
+  }
+
+  private async doGetNextTrack(
+    radioId: string,
+    forceAdvance: boolean,
   ): Promise<any> {
     const supabase = getSupabaseClient();
     const now = Date.now();
