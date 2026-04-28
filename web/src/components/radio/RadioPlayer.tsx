@@ -92,10 +92,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
-  const [staleTrackInfo, setStaleTrackInfo] = useState<{
-    cachedAt?: string | null;
-    reason?: string | null;
-  } | null>(null);
   const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
   const [artistLiveNow, setArtistLiveNow] = useState<{
     sessionId: string;
@@ -212,7 +208,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No songs are currently available.");
-        setStaleTrackInfo(null);
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
         setListenerCount(0);
@@ -222,20 +217,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       // Reset no_content state if we have content
       setNoContent(false);
       setNoContentMessage(null);
-      setStaleTrackInfo(
-        trackData?.stale
-          ? {
-              cachedAt:
-                typeof trackData?.stale_cached_at === 'string'
-                  ? trackData.stale_cached_at
-                  : null,
-              reason:
-                typeof trackData?.stale_reason === 'string'
-                  ? trackData.stale_reason
-                  : null,
-            }
-          : null,
-      );
       setIsLiveBroadcast(!!trackData?.is_live);
       setArtistLiveNow(trackData?.artist_live_now ?? null);
       setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
@@ -423,7 +404,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (trackData?.no_content) {
         setNoContent(true);
         setNoContentMessage(trackData.message || "No songs are currently available.");
-        setStaleTrackInfo(null);
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
         setListenerCount(0);
@@ -433,20 +413,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       // Reset no_content state if we have content
       setNoContent(false);
       setNoContentMessage(null);
-      setStaleTrackInfo(
-        trackData?.stale
-          ? {
-              cachedAt:
-                typeof trackData?.stale_cached_at === 'string'
-                  ? trackData.stale_cached_at
-                  : null,
-              reason:
-                typeof trackData?.stale_reason === 'string'
-                  ? trackData.stale_reason
-                  : null,
-            }
-          : null,
-      );
       setIsLiveBroadcast(!!trackData?.is_live);
       setArtistLiveNow(trackData?.artist_live_now ?? null);
       setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
@@ -539,7 +505,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       if (msg) setNoContentMessage(msg);
       else setNoContentMessage("No songs are currently available. Please try again later.");
       setNoContent(true);
-      setStaleTrackInfo(null);
       setArtistLiveNow(null);
       setPinnedCatalysts([]);
       setListenerCount(0);
@@ -868,15 +833,6 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         {state.error && (
           <Alert variant="destructive" className="mb-4">
             <AlertDescription>{state.error}</AlertDescription>
-          </Alert>
-        )}
-
-        {staleTrackInfo && (
-          <Alert className="mb-4 border-amber-200 bg-amber-50 text-amber-900">
-            <AlertDescription>
-              Showing cached track data while reconnecting.
-              {staleTrackInfo.reason ? ` (${staleTrackInfo.reason})` : ''}
-            </AlertDescription>
           </Alert>
         )}
 
