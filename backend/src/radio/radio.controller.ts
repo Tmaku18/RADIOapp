@@ -22,6 +22,14 @@ export class RadioController {
     1000,
     parseInt(process.env.RADIO_ENDPOINT_TIMEOUT_MS || '8000', 10),
   );
+  /**
+   * Throttles the stale-while-revalidate background refresh. Without this,
+   * every poll from every listener triggers a full getCurrentTrack DB pass.
+   * With this, at most one refresh per radio per SWR_REFRESH_MIN_MS runs.
+   */
+  private readonly swrLastRefreshAt = new Map<string, number>();
+  private readonly swrInFlight = new Set<string>();
+  private readonly SWR_REFRESH_MIN_MS = 30_000;
 
   constructor(
     private readonly radioService: RadioService,
@@ -54,13 +62,25 @@ export class RadioController {
     const id = radioId?.trim() || DEFAULT_RADIO_ID;
 
     // Stale-while-revalidate: if we have a cached snapshot, serve it
-    // immediately and refresh in the background. This prevents the user from
-    // waiting 25s for a response when PostgREST is slow.
+    // immediately. Background refresh is throttled per radio to prevent every
+    // listener poll from triggering a full DB pass.
     const existing = this.radioService.getCachedCurrentTrack(id);
     if (existing) {
-      this.radioService
-        .getCurrentTrack(id)
-        .catch((e) => this.logger.warn(`Background refresh for ${id} failed: ${e?.message}`));
+      const now = Date.now();
+      const lastRefresh = this.swrLastRefreshAt.get(id) ?? 0;
+      if (
+        now - lastRefresh >= this.SWR_REFRESH_MIN_MS &&
+        !this.swrInFlight.has(id)
+      ) {
+        this.swrInFlight.add(id);
+        this.swrLastRefreshAt.set(id, now);
+        this.radioService
+          .getCurrentTrack(id)
+          .catch((e) =>
+            this.logger.warn(`Background refresh for ${id} failed: ${e?.message}`),
+          )
+          .finally(() => this.swrInFlight.delete(id));
+      }
       return { ...existing, stale: true };
     }
 

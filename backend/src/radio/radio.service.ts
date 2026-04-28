@@ -220,6 +220,42 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly emptyStationRecheckMs = 10 * 60 * 1000;
   private readonly advanceLocks = new Map<string, Promise<any>>();
 
+  // Short-lived caches to reduce Supabase Disk IO. Each entry: { value, at }.
+  // Values are safe to return stale for TTL; no per-request freshness is required.
+  private readonly temperatureCache = new Map<
+    string,
+    { value: { fireVotes: number; shitVotes: number; totalVotes: number; temperaturePercent: number }; at: number }
+  >();
+  private readonly temperatureCacheTtlMs = 60 * 1000;
+
+  private readonly pinnedCatalystsCache = new Map<
+    string,
+    { value: PinnedCatalystCredit[]; at: number }
+  >();
+  private readonly pinnedCatalystsCacheTtlMs = 10 * 60 * 1000;
+
+  private readonly artistLiveCache = new Map<
+    string,
+    { value: any | null; at: number }
+  >();
+  private readonly artistLiveCacheTtlMs = 30 * 1000;
+
+  private liveBroadcastCache: { value: boolean; at: number } | null = null;
+  private readonly liveBroadcastCacheTtlMs = 30 * 1000;
+
+  private readonly signedUrlCache = new Map<
+    string,
+    { value: string; at: number }
+  >();
+  // Signed URLs issued for 60 min; refresh before expiry.
+  private readonly signedUrlCacheTtlMs = 50 * 60 * 1000;
+
+  private readonly listenerCountCache = new Map<
+    string,
+    { value: number; at: number }
+  >();
+  private readonly listenerCountCacheTtlMs = 30 * 1000;
+
   clearEmptyStationCache(radioId?: string): void {
     if (radioId) {
       this.emptyStations.delete(radioId);
@@ -374,6 +410,26 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private static readonly TEMP_BASELINE = 50;
 
   private async getSongTemperature(args: {
+    playId?: string | null;
+    songId: string;
+    startedAtIso?: string | null;
+  }): Promise<{
+    fireVotes: number;
+    shitVotes: number;
+    totalVotes: number;
+    temperaturePercent: number;
+  }> {
+    const cacheKey = `${args.songId}:${args.playId ?? ''}`;
+    const cached = this.temperatureCache.get(cacheKey);
+    if (cached && Date.now() - cached.at < this.temperatureCacheTtlMs) {
+      return cached.value;
+    }
+    const value = await this.getSongTemperatureUncached(args);
+    this.temperatureCache.set(cacheKey, { value, at: Date.now() });
+    return value;
+  }
+
+  private async getSongTemperatureUncached(args: {
     playId?: string | null;
     songId: string;
     startedAtIso?: string | null;
@@ -700,6 +756,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private async getPinnedCatalystsForSong(
     songId: string,
   ): Promise<PinnedCatalystCredit[]> {
+    const cached = this.pinnedCatalystsCache.get(songId);
+    if (cached && Date.now() - cached.at < this.pinnedCatalystsCacheTtlMs) {
+      return cached.value;
+    }
+    const value = await this.getPinnedCatalystsForSongUncached(songId);
+    this.pinnedCatalystsCache.set(songId, { value, at: Date.now() });
+    return value;
+  }
+
+  private async getPinnedCatalystsForSongUncached(
+    songId: string,
+  ): Promise<PinnedCatalystCredit[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('song_catalyst_credits')
@@ -745,20 +813,28 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         ? `https://${raw.slice('http://'.length)}`
         : raw;
 
+      const signAndCache = async (path: string): Promise<string | null> => {
+        const hit = this.signedUrlCache.get(path);
+        if (hit && Date.now() - hit.at < this.signedUrlCacheTtlMs) {
+          return hit.value;
+        }
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.storage
+          .from('songs')
+          .createSignedUrl(path, 60 * 60);
+        if (error || !data?.signedUrl) return null;
+        this.signedUrlCache.set(path, { value: data.signedUrl, at: Date.now() });
+        return data.signedUrl;
+      };
+
       // Legacy rows may store only storage path (not full URL).
-      // Convert those to a signed URL so browser playback works.
       if (!normalizedHttp.startsWith('https://')) {
         let path = normalizedHttp.replace(/^\/+/, '');
         if (path.startsWith('songs/')) {
           path = path.slice('songs/'.length);
         }
         if (!path) return null;
-        const supabase = getSupabaseClient();
-        const { data, error } = await supabase.storage
-          .from('songs')
-          .createSignedUrl(path, 60 * 60);
-        if (error || !data?.signedUrl) return null;
-        return data.signedUrl;
+        return await signAndCache(path);
       }
 
       const publicMarker = '/storage/v1/object/public/';
@@ -769,13 +845,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       const [bucket, ...rest] = after.split('/');
       if (bucket !== 'songs' || rest.length === 0) return normalizedHttp;
 
-      const path = rest.join('/');
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.storage
-        .from('songs')
-        .createSignedUrl(path, 60 * 60);
-      if (error || !data?.signedUrl) return null;
-      return data.signedUrl;
+      return await signAndCache(rest.join('/'));
     } catch {
       return null;
     }
@@ -826,23 +896,31 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   /** Check if an admin live broadcast is currently active. */
   private async isLiveBroadcastActive(): Promise<boolean> {
+    const cached = this.liveBroadcastCache;
+    if (cached && Date.now() - cached.at < this.liveBroadcastCacheTtlMs) {
+      return cached.value;
+    }
+    let value = false;
     if (getDirectPool()) {
       try {
         const rows = await directQuery<{ id: string }>(
           "SELECT id FROM live_broadcast WHERE status = 'active' LIMIT 1",
         );
-        return rows.length > 0;
+        value = rows.length > 0;
       } catch {
-        return false;
+        value = false;
       }
+    } else {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('live_broadcast')
+        .select('id')
+        .eq('status', 'active')
+        .maybeSingle();
+      value = !!data;
     }
-    const supabase = getSupabaseClient();
-    const { data } = await supabase
-      .from('live_broadcast')
-      .select('id')
-      .eq('status', 'active')
-      .maybeSingle();
-    return !!data;
+    this.liveBroadcastCache = { value, at: Date.now() };
+    return value;
   }
 
   /**
@@ -857,6 +935,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     currentViewers: number;
   } | null> {
     if (!artistId) return null;
+    const cached = this.artistLiveCache.get(artistId);
+    if (cached && Date.now() - cached.at < this.artistLiveCacheTtlMs) {
+      return cached.value;
+    }
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('artist_live_sessions')
@@ -866,15 +948,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (!data) return null;
-    return {
-      sessionId: data.id,
-      status: data.status as 'starting' | 'live',
-      title: data.title ?? null,
-      watchUrl: data.watch_url ?? null,
-      playbackHlsUrl: data.playback_hls_url ?? null,
-      currentViewers: data.current_viewers ?? 0,
-    };
+    const value = !data
+      ? null
+      : {
+          sessionId: data.id,
+          status: data.status as 'starting' | 'live',
+          title: data.title ?? null,
+          watchUrl: data.watch_url ?? null,
+          playbackHlsUrl: data.playback_hls_url ?? null,
+          currentViewers: data.current_viewers ?? 0,
+        };
+    this.artistLiveCache.set(artistId, { value, at: Date.now() });
+    return value;
   }
 
   /**
@@ -885,6 +970,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     songId?: string | null,
   ): Promise<number> {
     if (!songId) return 0;
+    const cached = this.listenerCountCache.get(songId);
+    if (cached && Date.now() - cached.at < this.listenerCountCacheTtlMs) {
+      return cached.value;
+    }
+    const value = await this.getActiveListenerCountForSongUncached(songId);
+    this.listenerCountCache.set(songId, { value, at: Date.now() });
+    return value;
+  }
+
+  private async getActiveListenerCountForSongUncached(
+    songId: string,
+  ): Promise<number> {
     const supabase = getSupabaseClient();
     const windowSeconds =
       Number.isFinite(ACTIVE_LISTENER_WINDOW_SECONDS) &&
