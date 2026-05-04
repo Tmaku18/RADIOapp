@@ -4,6 +4,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 export interface DailyPlayCount {
   date: string;
   plays: number;
+  listens: number;
 }
 
 interface SongAnalytics {
@@ -387,35 +388,38 @@ export class AnalyticsService {
     }
 
     const songIds = songs.map((s) => s.id);
-    let profileListenRows: Array<{ song_id: string; user_id: string | null }> = [];
-    const listensRes = await supabase
-      .from('song_profile_listens')
-      .select('song_id, user_id')
-      .in('song_id', songIds);
-    if (
-      listensRes.error &&
-      !this.isMissingTableError(listensRes.error, 'song_profile_listens')
-    ) {
-      throw new Error(
-        `Failed to load profile listens: ${listensRes.error.message}`,
-      );
-    }
-    if (!listensRes.error) {
-      profileListenRows = (listensRes.data || []) as Array<{
-        song_id: string;
-        user_id: string | null;
-      }>;
-    }
-    const listenerSetsBySongId = new Map<string, Set<string>>();
-    for (const row of profileListenRows) {
-      if (!row?.song_id || !row?.user_id) continue;
-      const listeners = listenerSetsBySongId.get(row.song_id) ?? new Set<string>();
-      listeners.add(row.user_id);
-      listenerSetsBySongId.set(row.song_id, listeners);
-    }
+
+    // Real per-song stats: aggregate from `plays` and `likes` via RPC so the
+    // numbers reflect actual activity (cached counters on `songs` can drift,
+    // and `song_profile_listens` does not exist in all environments).
+    const playsCountBySongId = new Map<string, number>();
     const listenCountBySongId = new Map<string, number>();
-    for (const [songId, listeners] of listenerSetsBySongId.entries()) {
-      listenCountBySongId.set(songId, listeners.size);
+    const likeCountBySongId = new Map<string, number>();
+    {
+      const { data: statsRows, error: statsError } = await supabase.rpc(
+        'get_artist_song_stats',
+        { p_song_ids: songIds },
+      );
+      if (statsError) {
+        this.logger.warn(
+          `get_artist_song_stats RPC unavailable: ${statsError.message}`,
+        );
+      } else {
+        for (const row of (statsRows ?? []) as Array<{
+          song_id: string;
+          plays_count: number | string | null;
+          listener_count_sum: number | string | null;
+          like_count: number | string | null;
+        }>) {
+          if (!row.song_id) continue;
+          playsCountBySongId.set(row.song_id, Number(row.plays_count) || 0);
+          listenCountBySongId.set(
+            row.song_id,
+            Number(row.listener_count_sum) || 0,
+          );
+          likeCountBySongId.set(row.song_id, Number(row.like_count) || 0);
+        }
+      }
     }
     const totalListenCount = [...listenCountBySongId.values()].reduce(
       (sum, value) => sum + value,
@@ -426,7 +430,8 @@ export class AnalyticsService {
       0,
     );
     const totalSongPlayCount = (songs || []).reduce(
-      (sum, song) => sum + (song.play_count || 0),
+      (sum, song) =>
+        sum + (playsCountBySongId.get(song.id) ?? song.play_count ?? 0),
       0,
     );
     const totalFreePlays = Math.max(0, totalSongPlayCount - totalPaidPlays);
@@ -438,58 +443,69 @@ export class AnalyticsService {
       .eq('artist_id', artistId)
       .single();
 
-    // Get total plays for artist's songs
-    const { count: totalPlays } = await supabase
-      .from('plays')
-      .select('*', { count: 'exact', head: true })
-      .in('song_id', songIds);
+    // Total plays = sum of real per-song plays (RPC); fall back to a count query
+    // when the RPC is unavailable.
+    let totalPlays = 0;
+    if (playsCountBySongId.size > 0) {
+      totalPlays = totalSongPlayCount;
+    } else {
+      const { count } = await supabase
+        .from('plays')
+        .select('*', { count: 'exact', head: true })
+        .in('song_id', songIds);
+      totalPlays = count || 0;
+    }
 
-    // Get total likes for artist's songs
-    const { count: totalLikes } = await supabase
-      .from('likes')
-      .select('*', { count: 'exact', head: true })
-      .in('song_id', songIds);
+    // Total likes = sum of real per-song likes (RPC).
+    const totalLikes = [...likeCountBySongId.values()].reduce(
+      (sum, value) => sum + value,
+      0,
+    );
 
-    // Get daily play breakdown for the last N days
+    // Daily breakdown for the last N days. Aggregated server-side via RPC so
+    // we get accurate counts even when there are tens of thousands of plays
+    // (a plain `select('played_at')` is silently capped at 1000 rows).
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
+    const dailyPlays = await this.getDailyStatsForArtist(
+      songIds,
+      startDate,
+      days,
+    );
 
-    const { data: dailyPlaysRaw } = await supabase
-      .from('plays')
-      .select('played_at')
-      .in('song_id', songIds)
-      .gte('played_at', startDate.toISOString())
-      .order('played_at', { ascending: true });
-
-    // Group plays by date
-    const dailyPlays = this.groupPlaysByDate(dailyPlaysRaw || [], days);
-
-    // Get top songs by play count
+    // Top songs ranked by real listens, then plays, with real likes.
     const topSongs: SongAnalytics[] = songs
-      .sort(
-        (a, b) =>
-          (listenCountBySongId.get(b.id) ?? 0) - (listenCountBySongId.get(a.id) ?? 0),
-      )
+      .slice()
+      .sort((a, b) => {
+        const listenDelta =
+          (listenCountBySongId.get(b.id) ?? 0) -
+          (listenCountBySongId.get(a.id) ?? 0);
+        if (listenDelta !== 0) return listenDelta;
+        return (
+          (playsCountBySongId.get(b.id) ?? b.play_count ?? 0) -
+          (playsCountBySongId.get(a.id) ?? a.play_count ?? 0)
+        );
+      })
       .slice(0, 5)
-      .map((song) => ({
-        songId: song.id,
-        title: song.title,
-        artworkUrl: song.artwork_url,
-        totalPlays: song.play_count || 0,
-        totalListens: listenCountBySongId.get(song.id) ?? 0,
-        paidPlays: song.paid_play_count || 0,
-        freePlays: Math.max(
-          0,
-          (song.play_count || 0) - (song.paid_play_count || 0),
-        ),
-        creditsUsed:
-          (song.play_count || 0) *
-          Math.ceil((song.duration_seconds || 180) / 5),
-        creditsRemaining: song.credits_remaining || 0,
-        likeCount: song.like_count || 0,
-        trialPlaysUsed: song.trial_plays_used || 0,
-        lastPlayedAt: song.last_played_at,
-      }));
+      .map((song) => {
+        const realPlays =
+          playsCountBySongId.get(song.id) ?? (song.play_count || 0);
+        return {
+          songId: song.id,
+          title: song.title,
+          artworkUrl: song.artwork_url,
+          totalPlays: realPlays,
+          totalListens: listenCountBySongId.get(song.id) ?? 0,
+          paidPlays: song.paid_play_count || 0,
+          freePlays: Math.max(0, realPlays - (song.paid_play_count || 0)),
+          creditsUsed:
+            realPlays * Math.ceil((song.duration_seconds || 180) / 5),
+          creditsRemaining: song.credits_remaining || 0,
+          likeCount: likeCountBySongId.get(song.id) ?? (song.like_count || 0),
+          trialPlaysUsed: song.trial_plays_used || 0,
+          lastPlayedAt: song.last_played_at,
+        };
+      });
 
     // Get recent plays
     const { data: recentPlays } = await supabase
@@ -511,12 +527,12 @@ export class AnalyticsService {
       .limit(10);
 
     return {
-      totalPlays: totalPlays || 0,
+      totalPlays,
       totalListenCount,
       totalPaidPlays,
       totalFreePlays,
       totalSongs: songs.length,
-      totalLikes: totalLikes || 0,
+      totalLikes,
       totalCreditsUsed: credits?.total_used || 0,
       creditsRemaining: credits?.balance || 0,
       dailyPlays,
@@ -651,7 +667,8 @@ export class AnalyticsService {
   }
 
   /**
-   * Group plays by date for chart data.
+   * Group plays by UTC date for chart data. Used by single-song analytics
+   * where the dataset is small enough to scan rows directly.
    */
   private groupPlaysByDate(
     plays: { played_at: string }[],
@@ -659,26 +676,83 @@ export class AnalyticsService {
   ): DailyPlayCount[] {
     const result: DailyPlayCount[] = [];
     const now = new Date();
-
-    // Initialize all days with 0 plays
     for (let i = days - 1; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
       result.push({
         date: date.toISOString().split('T')[0],
         plays: 0,
+        listens: 0,
       });
     }
-
-    // Count plays per day
     plays.forEach((play) => {
       const playDate = play.played_at.split('T')[0];
       const dayEntry = result.find((d) => d.date === playDate);
-      if (dayEntry) {
-        dayEntry.plays++;
-      }
+      if (dayEntry) dayEntry.plays += 1;
     });
+    return result;
+  }
 
+  /**
+   * Aggregated daily stats for an artist's catalog (plays + listener
+   * impressions per UTC day) sourced from the `get_artist_daily_stats` RPC.
+   * Always returns one entry per day in the window so the chart aligns even
+   * when there is no activity on some days.
+   */
+  private async getDailyStatsForArtist(
+    songIds: string[],
+    startDate: Date,
+    days: number,
+  ): Promise<DailyPlayCount[]> {
+    const result: DailyPlayCount[] = [];
+    const now = new Date();
+    for (let i = days - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      result.push({
+        date: date.toISOString().split('T')[0],
+        plays: 0,
+        listens: 0,
+      });
+    }
+
+    if (songIds.length === 0) return result;
+
+    const supabase = getSupabaseClient();
+    const { data: rows, error } = await supabase.rpc(
+      'get_artist_daily_stats',
+      { p_song_ids: songIds, p_since: startDate.toISOString() },
+    );
+    if (error) {
+      this.logger.warn(
+        `get_artist_daily_stats RPC failed, falling back to row scan: ${error.message}`,
+      );
+      // Best-effort fallback for older environments. Capped at 1000 rows by
+      // the REST layer; only used when the RPC is unavailable.
+      const { data: dailyPlaysRaw } = await supabase
+        .from('plays')
+        .select('played_at')
+        .in('song_id', songIds)
+        .gte('played_at', startDate.toISOString());
+      for (const play of (dailyPlaysRaw || []) as { played_at: string }[]) {
+        const day = play.played_at.split('T')[0];
+        const entry = result.find((d) => d.date === day);
+        if (entry) entry.plays += 1;
+      }
+      return result;
+    }
+
+    for (const row of (rows ?? []) as Array<{
+      day: string;
+      plays_count: number | string | null;
+      listener_count_sum: number | string | null;
+    }>) {
+      if (!row?.day) continue;
+      const entry = result.find((d) => d.date === row.day);
+      if (!entry) continue;
+      entry.plays = Number(row.plays_count) || 0;
+      entry.listens = Number(row.listener_count_sum) || 0;
+    }
     return result;
   }
 

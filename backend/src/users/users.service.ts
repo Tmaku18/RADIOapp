@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -87,6 +88,8 @@ function transformUser(data: any): UserResponse {
 
 @Injectable()
 export class UsersService {
+  private readonly logger = new Logger(UsersService.name);
+
   constructor(
     private readonly uploadsService: UploadsService,
     private readonly configService: ConfigService,
@@ -909,48 +912,45 @@ export class UsersService {
       }
     }
 
-    let profileListenRows: Array<{ song_id: string; user_id: string | null }> =
-      [];
+    // Real per-song stats sourced from `plays` and `likes` so the values
+    // displayed on the public artist profile reflect actual activity.
+    const realPlaysBySongId = new Map<string, number>();
+    const realListenersBySongId = new Map<string, number>();
+    const realLikesBySongId = new Map<string, number>();
     if (songIds.length > 0) {
-      const { data: listensData, error: listensError } = await supabase
-        .from('song_profile_listens')
-        .select('song_id, user_id')
-        .in('song_id', songIds);
-      if (
-        listensError &&
-        !this.isMissingSongProfileListensTable(listensError)
-      ) {
-        throw new BadRequestException(
-          `Failed to load profile listens: ${listensError.message}`,
+      const { data: statsRows, error: statsError } = await supabase.rpc(
+        'get_artist_song_stats',
+        { p_song_ids: songIds },
+      );
+      if (statsError) {
+        this.logger.warn(
+          `get_artist_song_stats RPC unavailable on artist profile: ${statsError.message}`,
         );
-      }
-      if (!listensError) {
-        profileListenRows = (listensData || []) as Array<{
+      } else {
+        for (const row of (statsRows ?? []) as Array<{
           song_id: string;
-          user_id: string | null;
-        }>;
-      }
-    }
-    const activeListenersBySongId = new Map<string, number>();
-    if (profileListenRows.length > 0) {
-      const listenersSetBySongId = new Map<string, Set<string>>();
-      for (const row of profileListenRows) {
-        if (!row?.song_id || !row?.user_id) continue;
-        const listeners = listenersSetBySongId.get(row.song_id) ?? new Set();
-        listeners.add(row.user_id);
-        listenersSetBySongId.set(row.song_id, listeners);
-      }
-      for (const [songId, listeners] of listenersSetBySongId.entries()) {
-        activeListenersBySongId.set(songId, listeners.size);
+          plays_count: number | string | null;
+          listener_count_sum: number | string | null;
+          like_count: number | string | null;
+        }>) {
+          if (!row.song_id) continue;
+          realPlaysBySongId.set(row.song_id, Number(row.plays_count) || 0);
+          realListenersBySongId.set(
+            row.song_id,
+            Number(row.listener_count_sum) || 0,
+          );
+          realLikesBySongId.set(row.song_id, Number(row.like_count) || 0);
+        }
       }
     }
 
     const mappedSongs = songRows.map((song) => {
-      const playCount = song.play_count || 0;
+      const playCount = realPlaysBySongId.get(song.id) ?? song.play_count ?? 0;
       const profilePlayCount = song.profile_play_count || 0;
-      const likeCount = song.like_count || 0;
-      const listenCount = activeListenersBySongId.get(song.id) ?? 0;
-      const popularityScore = listenCount + likeCount * 3;
+      const likeCount =
+        realLikesBySongId.get(song.id) ?? (song.like_count || 0);
+      const listenCount = realListenersBySongId.get(song.id) ?? 0;
+      const popularityScore = listenCount + likeCount * 3 + playCount;
       return {
         id: song.id,
         title: song.title,
@@ -994,30 +994,34 @@ export class UsersService {
       legacyFollowerCount ?? 0,
     );
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const { data: monthlyListenerRows, error: monthlyListenerError } =
-      await supabase
-        .from('song_profile_listens')
-        .select('user_id')
-        .eq('artist_id', resolvedUserId)
-        .gte('created_at', thirtyDaysAgo.toISOString());
-    if (
-      monthlyListenerError &&
-      !this.isMissingSongProfileListensTable(monthlyListenerError)
-    ) {
-      throw new BadRequestException(
-        `Failed to load monthly listener count: ${monthlyListenerError.message}`,
+    // Monthly listeners proxy: SUM of listener_count snapshots from radio plays
+    // in the last 30 days. We don't track per-user radio listens individually,
+    // so this reports total person-listen impressions over the window.
+    let monthlyListenerCount = 0;
+    if (songIds.length > 0) {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data: monthlyRows, error: monthlyError } = await supabase.rpc(
+        'get_artist_song_stats',
+        {
+          p_song_ids: songIds,
+          p_since: thirtyDaysAgo.toISOString(),
+        },
       );
+      if (monthlyError) {
+        this.logger.warn(
+          `Monthly listener RPC failed: ${monthlyError.message}`,
+        );
+      } else {
+        for (const row of (monthlyRows ?? []) as Array<{
+          listener_count_sum: number | string | null;
+        }>) {
+          monthlyListenerCount += Number(row.listener_count_sum) || 0;
+        }
+      }
     }
-    const monthlyListenerCount = monthlyListenerError
-      ? 0
-      : new Set(
-          (monthlyListenerRows ?? [])
-            .map((row: any) => row.user_id as string | null)
-            .filter((userId): userId is string => !!userId),
-        ).size;
 
+    const totalPlays = mappedSongs.reduce((sum, s) => sum + s.playCount, 0);
     const totalListens = mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
 
     const userRow = user;
@@ -1047,7 +1051,7 @@ export class UsersService {
         totalSongs: mappedSongs.length,
         followerCount: mergedFollowerCount,
         monthlyListenerCount: monthlyListenerCount ?? 0,
-        totalPlayCount: totalListens,
+        totalPlayCount: totalPlays,
         totalListenCount: totalListens,
       },
       popularSongs,

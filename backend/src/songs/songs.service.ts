@@ -993,6 +993,10 @@ export class SongsService {
     const songIds = pageRows.map((r: any) => r.id);
     const artistIds = [...new Set(pageRows.map((r: any) => r.artist_id))];
 
+    // Displayed "X likes" comes from the global `likes` table (single source of
+    // truth). The user's own swipe-like state still comes from
+    // `discover_song_likes` so we keep their swipe history when that table is
+    // present; if it isn't deployed we fall back to global `likes` below.
     const [artistsRawRes, likesRawRes, myLikesRawRes] = await Promise.all([
       artistIds.length > 0
         ? supabase
@@ -1001,10 +1005,7 @@ export class SongsService {
             .in('id', artistIds)
         : Promise.resolve({ data: [] as any[] }),
       songIds.length > 0
-        ? supabase
-            .from('discover_song_likes')
-            .select('song_id')
-            .in('song_id', songIds)
+        ? supabase.from('likes').select('song_id').in('song_id', songIds)
         : Promise.resolve({ data: [] as any[] }),
       songIds.length > 0
         ? supabase
@@ -1045,45 +1046,40 @@ export class SongsService {
 
     const likesError = (likesRawRes as any).error;
     const myLikesError = (myLikesRawRes as any).error;
-    const discoverLikesTableMissing =
-      this.isMissingTableError(likesError, 'discover_song_likes') ||
-      this.isMissingTableError(myLikesError, 'discover_song_likes');
+    const myLikesTableMissing = this.isMissingTableError(
+      myLikesError,
+      'discover_song_likes',
+    );
 
-    if (
-      (likesError && !discoverLikesTableMissing) ||
-      (myLikesError && !discoverLikesTableMissing)
-    ) {
-      const errMessage = likesError?.message || myLikesError?.message;
-      throw new Error(`Failed to load discover likes: ${errMessage}`);
+    if (likesError) {
+      throw new Error(`Failed to load song likes: ${likesError.message}`);
+    }
+    if (myLikesError && !myLikesTableMissing) {
+      throw new Error(
+        `Failed to load discover swipe likes: ${myLikesError.message}`,
+      );
     }
 
-    let likesData: any[] = [];
-    let myLikesData: any[] = [];
-    if (discoverLikesTableMissing) {
-      const [likesFallbackRes, myLikesFallbackRes] = await Promise.all([
+    let likesData: any[] = (likesRawRes as any).data || [];
+    let myLikesData: any[] = (myLikesRawRes as any).data || [];
+    if (myLikesTableMissing) {
+      // Fallback: when the discover-specific likes table doesn't exist, treat a
+      // global `likes` row as a swipe-like for the purposes of de-duplicating
+      // the feed.
+      const myLikesFallbackRes =
         songIds.length > 0
-          ? supabase.from('likes').select('song_id').in('song_id', songIds)
-          : Promise.resolve({ data: [] as any[], error: null } as any),
-        songIds.length > 0
-          ? supabase
+          ? await supabase
               .from('likes')
               .select('song_id')
               .eq('user_id', userId)
               .in('song_id', songIds)
-          : Promise.resolve({ data: [] as any[], error: null } as any),
-      ]);
-      if (likesFallbackRes.error || myLikesFallbackRes.error) {
+          : ({ data: [] as any[], error: null } as any);
+      if (myLikesFallbackRes.error) {
         throw new Error(
-          `Failed to load discover likes fallback: ${
-            likesFallbackRes.error?.message || myLikesFallbackRes.error?.message
-          }`,
+          `Failed to load discover likes fallback: ${myLikesFallbackRes.error.message}`,
         );
       }
-      likesData = (likesFallbackRes.data || []) as any[];
       myLikesData = (myLikesFallbackRes.data || []) as any[];
-    } else {
-      likesData = likesRawRes.data || [];
-      myLikesData = myLikesRawRes.data || [];
     }
 
     const artistById = new Map(artistsData.map((u: any) => [u.id, u]));
@@ -1524,6 +1520,23 @@ export class SongsService {
     const artistIds = [
       ...new Set((songs || []).map((s: any) => s.artist_id as string)),
     ];
+    // Use the global `likes` table as the source of truth for the displayed
+    // "X likes" count so the social feed agrees with the rest of the site.
+    // Falls back to the discover-specific table only if `likes` is unavailable.
+    const fetchLikeCounts = async () => {
+      if (songIds.length === 0) return { data: [] as any[], error: null } as any;
+      const res = await supabase
+        .from('likes')
+        .select('song_id')
+        .in('song_id', songIds);
+      if (!res.error) return res;
+      const fallback = await supabase
+        .from('discover_song_likes')
+        .select('song_id')
+        .in('song_id', songIds);
+      return fallback;
+    };
+
     const [artistsRawRes, likeCountsRes] = await Promise.all([
       artistIds.length > 0
         ? supabase
@@ -1531,12 +1544,7 @@ export class SongsService {
             .select('id, display_name, avatar_url, headline')
             .in('id', artistIds)
         : Promise.resolve({ data: [] as any[], error: null } as any),
-      songIds.length > 0
-        ? supabase
-            .from('discover_song_likes')
-            .select('song_id')
-            .in('song_id', songIds)
-        : Promise.resolve({ data: [] as any[], error: null } as any),
+      fetchLikeCounts(),
     ]);
 
     let artistsRes = artistsRawRes;

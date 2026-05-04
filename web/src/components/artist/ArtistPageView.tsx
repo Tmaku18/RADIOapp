@@ -530,47 +530,74 @@ export function ArtistPageView({
         <CardContent className="pt-6">
           <h2 className="font-semibold text-xl mb-4">Popular</h2>
           <div className="space-y-2">
-            {data.popularSongs.slice(0, 5).map((song, idx) => (
-              <div key={song.id} className="grid grid-cols-[24px_1fr_auto] sm:grid-cols-[24px_1fr_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
-                <span className="text-sm text-muted-foreground">{idx + 1}</span>
-                <div className="min-w-0">
-                  <p className="font-medium truncate">{song.title}</p>
-                  {(song.featuredArtists?.length ?? 0) > 0 && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      Feat:{' '}
-                      {song.featuredArtists?.map((artist, index) => (
-                        <span key={artist.id}>
-                          {index > 0 ? ', ' : ''}
-                          <Link
-                            href={`/artist/${artist.id}`}
-                            className="text-primary hover:underline"
-                          >
-                            {artist.displayName || 'Artist'}
-                          </Link>
-                        </span>
-                      ))}
+            {data.popularSongs.slice(0, 5).map((song, idx) => {
+              const isLiked = !!likedBySongId[song.id];
+              return (
+                <div
+                  key={song.id}
+                  className="grid grid-cols-[24px_1fr_auto] sm:grid-cols-[24px_1fr_auto_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
+                >
+                  <span className="text-sm text-muted-foreground">{idx + 1}</span>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{song.title}</p>
+                    {(song.featuredArtists?.length ?? 0) > 0 && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        Feat:{' '}
+                        {song.featuredArtists?.map((artist, index) => (
+                          <span key={artist.id}>
+                            {index > 0 ? ', ' : ''}
+                            <Link
+                              href={`/artist/${artist.id}`}
+                              className="text-primary hover:underline"
+                            >
+                              {artist.displayName || 'Artist'}
+                            </Link>
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {formatNumber(song.listenCount ?? song.profilePlayCount)} listens
+                      {' · '}
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => {
+                          setLikesDialogSongId(song.id);
+                          setLikesDialogSongTitle(song.title);
+                          setLikesDialogOpen(true);
+                        }}
+                      >
+                        {formatNumber(song.likeCount)} likes
+                      </button>
                     </p>
+                  </div>
+                  <span className="hidden sm:block text-xs text-muted-foreground">
+                    {formatDuration(song.durationSeconds)}
+                  </span>
+                  {profile?.id ? (
+                    <Button
+                      size="sm"
+                      variant={isLiked ? 'default' : 'outline'}
+                      onClick={() => void handleToggleLike(song.id, !isLiked)}
+                      aria-pressed={isLiked}
+                      title={isLiked ? 'Unlike' : 'Like'}
+                    >
+                      {isLiked ? '♥ Liked' : '♡ Like'}
+                    </Button>
+                  ) : (
+                    <span className="hidden sm:block" />
                   )}
-                  <p className="text-xs text-muted-foreground">{formatNumber(song.listenCount ?? song.profilePlayCount)} listens</p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatNumber(song.likeCount)} likes
-                  </p>
-                  <button
-                    type="button"
-                    className="text-xs text-primary hover:underline mt-1"
-                    onClick={() => {
-                      setLikesDialogSongId(song.id);
-                      setLikesDialogSongTitle(song.title);
-                      setLikesDialogOpen(true);
-                    }}
+                  <Button
+                    size="sm"
+                    onClick={() => void handlePlayPopular(song)}
+                    disabled={!song.audioUrl}
                   >
-                    View likes
-                  </button>
+                    Play
+                  </Button>
                 </div>
-                <span className="hidden sm:block text-xs text-muted-foreground">{formatDuration(song.durationSeconds)}</span>
-                <Button size="sm" onClick={() => void handlePlayPopular(song)} disabled={!song.audioUrl}>Play</Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

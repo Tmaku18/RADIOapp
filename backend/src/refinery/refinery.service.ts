@@ -350,6 +350,7 @@ export class RefineryService {
 
     const songIds = (rows ?? []).map((r: { id: string }) => r.id);
     const customMap = new Map<string, boolean>();
+    const realLikesBySongId = new Map<string, number>();
     if (songIds.length > 0) {
       const { data: customQs } = await supabase
         .from('refinery_custom_questions')
@@ -357,6 +358,18 @@ export class RefineryService {
         .in('song_id', songIds);
       for (const q of customQs ?? []) {
         customMap.set((q as { song_id: string }).song_id, true);
+      }
+      // Real likes count from the global `likes` table.
+      const { data: statsRows } = await supabase.rpc(
+        'get_artist_song_stats',
+        { p_song_ids: songIds },
+      );
+      for (const row of (statsRows ?? []) as Array<{
+        song_id: string;
+        like_count: number | string | null;
+      }>) {
+        if (!row.song_id) continue;
+        realLikesBySongId.set(row.song_id, Number(row.like_count) || 0);
       }
     }
 
@@ -400,7 +413,7 @@ export class RefineryService {
       audioUrl: row.audio_url,
       durationSeconds: row.duration_seconds,
       reviewCount: row.refinery_review_count ?? 0,
-      likeCount: row.like_count ?? 0,
+      likeCount: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
       hasCustomQuestions: customMap.has(row.id),
       submittedAt: row.refinery_submitted_at,
     }));

@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 interface DailyPlayCount {
   date: string;
   plays: number;
+  listens?: number;
 }
 
 interface TopSong {
@@ -112,14 +113,21 @@ export default function StatsPage() {
   };
 
   const last7Days = analytics?.dailyPlays?.slice(-7) ?? [];
-  const thisWeekListens = last7Days.reduce((sum, d) => sum + d.plays, 0);
-  const thisMonthListens = analytics?.dailyPlays?.reduce((sum, d) => sum + d.plays, 0) ?? 0;
-  const totalListens = analytics?.totalListenCount ?? analytics?.totalPlays ?? 0;
-  const playsByDayForChart = last7Days.map((d) => {
+  const thisWeekListens = last7Days.reduce(
+    (sum, d) => sum + (d.listens ?? d.plays ?? 0),
+    0,
+  );
+  const thisMonthListens =
+    analytics?.dailyPlays?.reduce(
+      (sum, d) => sum + (d.listens ?? d.plays ?? 0),
+      0,
+    ) ?? 0;
+  const totalListens = analytics?.totalListenCount ?? 0;
+  const listensByDayForChart = last7Days.map((d) => {
     const day = new Date(d.date).getDay();
-    return { day: DAY_NAMES[day], plays: d.plays };
+    return { day: DAY_NAMES[day], listens: d.listens ?? d.plays ?? 0 };
   });
-  const maxPlays = Math.max(1, ...playsByDayForChart.map((d) => d.plays));
+  const maxListens = Math.max(1, ...listensByDayForChart.map((d) => d.listens));
 
   if (loading) {
     return (
@@ -299,12 +307,15 @@ export default function StatsPage() {
         <CardContent className="pt-6">
           <h2 className="text-xl font-semibold text-foreground mb-6">Listens This Week</h2>
           <div className="flex items-end justify-between h-48 gap-2 artist-chart-plays">
-            {playsByDayForChart.length > 0 ? (
-              playsByDayForChart.map((day, i) => (
+            {listensByDayForChart.length > 0 ? (
+              listensByDayForChart.map((day, i) => (
                 <div key={`${day.day}-${i}`} className="flex-1 flex flex-col items-center">
-                  <div className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary/80" style={{ height: `${(day.plays / maxPlays) * 100}%` }} />
+                  <div
+                    className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary/80"
+                    style={{ height: `${(day.listens / maxListens) * 100}%` }}
+                  />
                   <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
-                  <div className="text-xs text-muted-foreground">{day.plays}</div>
+                  <div className="text-xs text-muted-foreground">{day.listens}</div>
                 </div>
               ))
             ) : (
