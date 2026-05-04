@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, forwardRef } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
 import { GooglePlayBillingService } from './google-play-billing.service';
 import { CreatorNetworkService } from '../creator-network/creator-network.service';
+import { RefineryService } from '../refinery/refinery.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ALLOWED_PLAYS_LIST, BuySongPlaysDto } from './dto/buy-song-plays.dto';
@@ -29,6 +30,8 @@ export class PaymentsService {
     private configService: ConfigService,
     private creatorNetwork: CreatorNetworkService,
     private googlePlayBillingService: GooglePlayBillingService,
+    @Inject(forwardRef(() => RefineryService))
+    private readonly refineryService: RefineryService,
   ) {}
 
   private getGooglePlayCatalog(): Record<string, GooglePlayCatalogEntry> {
@@ -274,6 +277,14 @@ export class PaymentsService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
+
+    if (transaction.purpose === 'refinery_submission' && transaction.song_id) {
+      await this.refineryService.fulfillSubmission({
+        songId: transaction.song_id,
+        artistUserId: transaction.user_id,
+      });
+      return;
+    }
 
     if (transaction.song_id != null && transaction.plays_purchased != null) {
       await this.addPlaysToSong(
@@ -709,6 +720,14 @@ export class PaymentsService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
+
+    if (transaction.purpose === 'refinery_submission' && transaction.song_id) {
+      await this.refineryService.fulfillSubmission({
+        songId: transaction.song_id,
+        artistUserId: transaction.user_id,
+      });
+      return;
+    }
 
     if (transaction.song_id != null && transaction.plays_purchased != null) {
       await this.addPlaysToSong(

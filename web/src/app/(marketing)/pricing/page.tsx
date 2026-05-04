@@ -128,6 +128,36 @@ export default function PricingPage() {
         <div className="mt-16">
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="pt-8 text-center">
+              <h3 className="text-2xl font-semibold text-foreground mb-3">
+                The Refinery Review — $4.99 per song
+              </h3>
+              <p className="text-muted-foreground mb-3 max-w-2xl mx-auto">
+                Get an in-depth review of your track from <strong>at least 100 verified
+                reviewers</strong>. Every reviewer rates your song on 7 different dimensions
+                (1-10) plus answers a 12-question survey, and you can add up to 10 of
+                your own custom questions.
+              </p>
+              <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
+                You see real-time analytics — mean and median scores, response
+                distributions, flagged outliers, and every individual review.
+              </p>
+              <div className="flex flex-wrap gap-3 justify-center">
+                <Button size="lg" asChild>
+                  <Link href="/login?redirect=/artist/songs">
+                    Submit a song to The Refinery
+                  </Link>
+                </Button>
+                <Button variant="outline" size="lg" asChild>
+                  <Link href="/refinery">Sign up as a reviewer</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-8 text-center">
               <h3 className="text-2xl font-semibold text-foreground mb-3">ProNetworx Access</h3>
               <p className="text-muted-foreground mb-6 max-w-2xl mx-auto">
                 Need collaborators, producers, photographers, or mentors? ProNetworx helps artists connect with trusted professionals and build momentum beyond plays.

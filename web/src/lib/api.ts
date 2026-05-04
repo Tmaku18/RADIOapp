@@ -165,14 +165,180 @@ export const prospectorApi = {
     api.post('/yield/redeem', data),
 };
 
+export type RefineryQueueSong = {
+  songId: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  audioUrl: string;
+  durationSeconds: number | null;
+  reviewCount: number;
+  likeCount: number;
+  hasCustomQuestions: boolean;
+  submittedAt: string | null;
+};
+
+export type RefineryRatingQuestion = { key: string; question: string };
+export type RefinerySurveyQuestion = {
+  key: string;
+  question: string;
+  options: string[];
+};
+export type RefineryCustomQuestion = {
+  id: string;
+  questionText: string;
+  displayOrder: number;
+};
+
+export type RefineryReviewFormPayload = {
+  song: {
+    id: string;
+    title: string;
+    artistId: string;
+    artistName: string;
+    artworkUrl: string | null;
+    audioUrl: string;
+    durationSeconds: number | null;
+    likeCount: number;
+  };
+  ratingQuestions: RefineryRatingQuestion[];
+  surveyQuestions: RefinerySurveyQuestion[];
+  customQuestions: RefineryCustomQuestion[];
+  reviewRewardCents: number;
+};
+
+export type RefinerySubmitReviewPayload = {
+  overallRating: number;
+  beatRating: number;
+  lyricsRating: number;
+  lyricsBeatMatchRating: number;
+  pacingRating: number;
+  chorusRating: number;
+  openingEndingRating: number;
+  surveyResponses: Record<string, string>;
+  customResponses?: Record<string, string>;
+  comment?: string;
+};
+
+export type RefineryRatingStats = {
+  count: number;
+  mean: number | null;
+  median: number | null;
+  stddev: number | null;
+  min: number | null;
+  max: number | null;
+};
+
+export type RefineryAnalyticsPayload = {
+  song: {
+    id: string;
+    title: string;
+    artistName: string;
+    artworkUrl: string | null;
+    inRefinery: boolean;
+    reviewCount: number;
+    minReviews: number;
+    submittedAt: string | null;
+  };
+  summary: {
+    totalReviews: number;
+    ratingStats: Record<string, RefineryRatingStats>;
+    surveyDistributions: Record<string, Record<string, number>>;
+    customQuestions: Array<{
+      id: string;
+      questionText: string;
+      displayOrder: number;
+      totalResponses: number;
+      recentResponses: string[];
+    }>;
+    outlierCount: number;
+  };
+  reviews: Array<{
+    id: string;
+    createdAt: string;
+    overallRating: number;
+    beatRating: number;
+    lyricsRating: number;
+    lyricsBeatMatchRating: number;
+    pacingRating: number;
+    chorusRating: number;
+    openingEndingRating: number;
+    surveyResponses: Record<string, string>;
+    customResponses: Record<string, string>;
+    comment: string | null;
+    isOutlier: boolean;
+  }>;
+  pagination: { limit: number; offset: number; total: number };
+};
+
 export const refineryApi = {
+  // Standard questions (shown publicly so artists can preview what's asked)
+  getStandardQuestions: () =>
+    api.get<{
+      ratingQuestions: RefineryRatingQuestion[];
+      surveyQuestions: RefinerySurveyQuestion[];
+      submissionPriceCents: number;
+      reviewRewardCents: number;
+      defaultMinReviews: number;
+      maxCustomQuestions: number;
+    }>('/refinery/standard-questions'),
+
+  // Reviewer signup / status
+  signUpReviewer: () =>
+    api.post<{ isReviewer: boolean; signedUpAt: string; totalReviews: number }>(
+      '/refinery/reviewer/signup',
+    ),
+  getReviewerStatus: () =>
+    api.get<{
+      isReviewer: boolean;
+      signedUpAt: string | null;
+      totalReviews: number;
+    }>('/refinery/reviewer/status'),
+
+  // Reviewer queue + form
   listSongs: (params?: { limit?: number; offset?: number }) =>
-    api.get<{ songs: Array<{ id: string; title: string; artist_name: string; artwork_url: string | null; audio_url: string; duration_seconds: number | null; created_at: string }>; limit: number; offset: number }>('/refinery/songs', { params: params ?? {} }),
-  addSong: (songId: string) => api.post(`/refinery/songs/${songId}/add`),
-  removeSong: (songId: string) => api.post(`/refinery/songs/${songId}/remove`),
+    api.get<{
+      songs: RefineryQueueSong[];
+      limit: number;
+      offset: number;
+    }>('/refinery/songs', { params: params ?? {} }),
+  getReviewForm: (songId: string) =>
+    api.get<RefineryReviewFormPayload>(
+      `/refinery/songs/${songId}/review-form`,
+    ),
+  submitReview: (songId: string, payload: RefinerySubmitReviewPayload) =>
+    api.post<{
+      reviewId: string;
+      createdAt: string;
+      rewardCents: number;
+    }>(`/refinery/songs/${songId}/review`, payload),
+
+  // Artist submission ($4.99 Stripe Checkout)
+  submitToRefinery: (songId: string, customQuestions: string[]) =>
+    api.post<{ sessionId: string; url: string; transactionId: string }>(
+      `/refinery/songs/${songId}/submit`,
+      { customQuestions },
+    ),
+  /** Legacy: remove a song from the refinery without refund (artist withdraws). */
+  removeSong: (songId: string) =>
+    api.post(`/refinery/songs/${songId}/remove`),
+
+  // Artist analytics
+  getAnalytics: (
+    songId: string,
+    params?: { limit?: number; offset?: number },
+  ) =>
+    api.get<RefineryAnalyticsPayload>(
+      `/refinery/songs/${songId}/analytics`,
+      { params: params ?? {} },
+    ),
+
+  // Legacy comments (kept for backward compatibility)
   getComments: (songId: string, params?: { limit?: number; offset?: number }) =>
     api.get<{ comments: Array<{ id: string; body: string; created_at: string; users?: { display_name: string | null } }> }>(`/refinery/songs/${songId}/comments`, { params: params ?? {} }),
-  addComment: (songId: string, body: string) => api.post(`/refinery/songs/${songId}/comments`, { body }),
+  addComment: (songId: string, body: string) =>
+    api.post(`/refinery/songs/${songId}/comments`, { body }),
 };
 
 export const venueAdsApi = {
@@ -259,8 +425,11 @@ export const songsApi = {
       discoverClipEndSeconds?: number;
       featuredArtistIds?: string[];
       isExplicit?: boolean;
+      isPublic?: boolean;
     },
   ) => api.patch(`/songs/${id}`, data),
+  updateVisibility: (id: string, isPublic: boolean) =>
+    api.patch(`/songs/${id}`, { isPublic }),
   publishDiscoverFromLibrary: (
     id: string,
     data: {

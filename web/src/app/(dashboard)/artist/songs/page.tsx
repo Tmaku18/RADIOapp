@@ -12,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
+import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
+import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
 
 type ApiError = { response?: { status?: number; data?: { message?: string } } };
 
@@ -45,6 +47,9 @@ interface Song {
   discoverClipDurationSeconds?: number | null;
   optInFreePlay: boolean;
   inRefinery?: boolean;
+  isPublic?: boolean;
+  refineryReviewCount?: number;
+  refineryMinReviews?: number;
   rejectionReason?: string;
   rejectedAt?: string;
   createdAt: string;
@@ -111,6 +116,8 @@ export default function MySongsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refineryToggling, setRefineryToggling] = useState<string | null>(null);
+  const [refinerySubmitSong, setRefinerySubmitSong] = useState<Song | null>(null);
+  const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editStationId, setEditStationId] = useState('');
@@ -175,19 +182,39 @@ export default function MySongsPage() {
     };
   }, [featuredSearchQuery, editingSong, editFeaturedArtists]);
 
-  const toggleRefinery = async (songId: string, currentlyInRefinery: boolean) => {
+  const withdrawFromRefinery = async (songId: string) => {
     setRefineryToggling(songId);
     try {
-      if (currentlyInRefinery) {
-        await refineryApi.removeSong(songId);
-      } else {
-        await refineryApi.addSong(songId);
-      }
+      await refineryApi.removeSong(songId);
       await loadSongs();
     } catch {
-      setError('Failed to update Refinery');
+      setError('Failed to withdraw song from Refinery');
     } finally {
       setRefineryToggling(null);
+    }
+  };
+
+  const handleRefinerySubmit = async (
+    songId: string,
+    customQuestions: string[],
+  ): Promise<{ url?: string }> => {
+    const res = await refineryApi.submitToRefinery(songId, customQuestions);
+    const data = res.data as { url?: string; sessionId?: string };
+    if (data?.url) {
+      window.location.href = data.url;
+    }
+    return { url: data?.url };
+  };
+
+  const toggleVisibility = async (songId: string, nextPublic: boolean) => {
+    setVisibilityToggling(songId);
+    try {
+      await songsApi.updateVisibility(songId, nextPublic);
+      await loadSongs();
+    } catch {
+      setError('Failed to update song visibility');
+    } finally {
+      setVisibilityToggling(null);
     }
   };
 
@@ -565,6 +592,7 @@ export default function MySongsPage() {
               <TableRow>
                 <TableHead>Song</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Visibility</TableHead>
                 <TableHead>Discover</TableHead>
                 <TableHead>Refinery</TableHead>
                 <TableHead>Duration</TableHead>
@@ -621,6 +649,27 @@ export default function MySongsPage() {
                     )}
                   </TableCell>
                   <TableCell>
+                    <div className="space-y-2">
+                      <Badge variant={song.isPublic === false ? 'secondary' : 'default'}>
+                        {song.isPublic === false ? 'Private' : 'Public'}
+                      </Badge>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full"
+                        disabled={visibilityToggling === song.id}
+                        onClick={() => toggleVisibility(song.id, song.isPublic === false)}
+                        title="Private songs do not play on radio. They can still be submitted to The Refinery."
+                      >
+                        {visibilityToggling === song.id
+                          ? '…'
+                          : song.isPublic === false
+                            ? 'Make public'
+                            : 'Make private'}
+                      </Button>
+                    </div>
+                  </TableCell>
+                  <TableCell>
                     {song.discoverEnabled ? (
                       <div className="text-xs text-muted-foreground space-y-2">
                         <p className="font-medium text-foreground">Enabled</p>
@@ -655,14 +704,37 @@ export default function MySongsPage() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Button
-                      variant={song.inRefinery ? 'secondary' : 'outline'}
-                      size="sm"
-                      disabled={refineryToggling === song.id}
-                      onClick={() => toggleRefinery(song.id, !!song.inRefinery)}
-                    >
-                      {refineryToggling === song.id ? '…' : song.inRefinery ? 'Remove from Refinery' : 'Add to Refinery'}
-                    </Button>
+                    {song.inRefinery ? (
+                      <div className="space-y-2">
+                        <div className="text-xs text-muted-foreground">
+                          {song.refineryReviewCount ?? 0} / {song.refineryMinReviews ?? 100} reviews
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Button asChild size="sm" variant="default">
+                            <Link href={`/refinery/analytics/${song.id}`}>
+                              View reviews
+                            </Link>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={refineryToggling === song.id}
+                            onClick={() => withdrawFromRefinery(song.id)}
+                          >
+                            {refineryToggling === song.id ? '…' : 'Withdraw'}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setRefinerySubmitSong(song)}
+                        title={`Pay $${REFINERY_SUBMISSION_PRICE_USD} to get an in-depth review`}
+                      >
+                        Submit (${REFINERY_SUBMISSION_PRICE_USD})
+                      </Button>
+                    )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
                   <TableCell>
@@ -1008,6 +1080,18 @@ export default function MySongsPage() {
         onOpenChange={setLikesDialogOpen}
         songId={likesDialogSongId}
         songTitle={likesDialogSongTitle}
+      />
+      <RefinerySubmitDialog
+        open={refinerySubmitSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefinerySubmitSong(null);
+        }}
+        song={
+          refinerySubmitSong
+            ? { id: refinerySubmitSong.id, title: refinerySubmitSong.title }
+            : null
+        }
+        onSubmit={handleRefinerySubmit}
       />
     </div>
   );

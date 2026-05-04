@@ -1,155 +1,272 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import { refineryApi, prospectorApi } from '@/lib/api';
-import { hasListenerCapability } from '@/lib/roles';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasArtistCapability } from '@/lib/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { RefineryRewardsDialog } from '@/components/refinery/RefineryRewardsDialog';
+import {
+  REFINERY_RATING_QUESTIONS,
+  REFINERY_REVIEW_REWARD_CENTS,
+  REFINERY_SUBMISSION_PRICE_USD,
+  REFINERY_SURVEY_QUESTIONS,
+} from '@/data/refinery-questions';
+import type { RefineryQueueSong } from '@/lib/api';
 
-type RefinerySong = {
-  id: string;
-  title: string;
-  artist_name: string;
-  artwork_url: string | null;
-  audio_url: string;
-  duration_seconds: number | null;
-  created_at: string;
+type ReviewerStatus = {
+  isReviewer: boolean;
+  signedUpAt: string | null;
+  totalReviews: number;
 };
 
-type Comment = {
-  id: string;
-  body: string;
-  created_at: string;
-  users?: { display_name: string | null } | null;
+type YieldStatus = {
+  balanceCents: number;
+  totalEarnedCents?: number;
+  totalRedeemedCents?: number;
+  songsRefinedCount: number;
+  tier: 'none' | 'copper' | 'silver' | 'gold' | 'diamond';
 };
 
 export default function RefineryPage() {
   const { profile } = useAuth();
-  const isProspector = hasListenerCapability(profile?.role);
+  const isArtist = hasArtistCapability(profile?.role);
 
-  const [songs, setSongs] = useState<RefinerySong[]>([]);
+  const [reviewer, setReviewer] = useState<ReviewerStatus | null>(null);
+  const [songs, setSongs] = useState<RefineryQueueSong[]>([]);
+  const [yieldStatus, setYieldStatus] = useState<YieldStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
-  const [rankBySong, setRankBySong] = useState<Record<string, number>>({});
-  const [surveyBySong, setSurveyBySong] = useState<Record<string, { genre?: string; mood?: string; wouldPlay?: string }>>({});
-  const [commentsBySong, setCommentsBySong] = useState<Record<string, Comment[]>>({});
-  const [newCommentBySong, setNewCommentBySong] = useState<Record<string, string>>({});
-  const [submitting, setSubmitting] = useState<Record<string, string>>({}); // songId -> 'rank'|'survey'|'comment'
+  const [signingUp, setSigningUp] = useState(false);
+  const [rewardsOpen, setRewardsOpen] = useState(false);
 
-  const loadSongs = useCallback(async () => {
-    setLoading(true);
+  const loadStatus = useCallback(async () => {
     setError(null);
     try {
-      const res = await refineryApi.listSongs();
-      const data = res.data as { songs: RefinerySong[] };
-      setSongs(data?.songs ?? []);
+      const res = await refineryApi.getReviewerStatus();
+      setReviewer(res.data);
     } catch {
-      setError('Failed to load The Refinery.');
-    } finally {
-      setLoading(false);
+      setReviewer({ isReviewer: false, signedUpAt: null, totalReviews: 0 });
     }
   }, []);
 
-  const loadComments = useCallback(async (songId: string) => {
+  const loadQueue = useCallback(async () => {
     try {
-      const res = await refineryApi.getComments(songId);
-      const data = res.data as { comments: Comment[] };
-      setCommentsBySong((prev) => ({ ...prev, [songId]: data?.comments ?? [] }));
+      const res = await refineryApi.listSongs({ limit: 100 });
+      const data = res.data as { songs: RefineryQueueSong[] };
+      setSongs(data?.songs ?? []);
     } catch {
-      // ignore
+      setError('Failed to load The Refinery queue.');
+    }
+  }, []);
+
+  const loadYield = useCallback(async () => {
+    try {
+      const res = await prospectorApi.getYield();
+      setYieldStatus(res.data as YieldStatus);
+    } catch {
+      // non-fatal
     }
   }, []);
 
   useEffect(() => {
-    if (isProspector) loadSongs();
-  }, [isProspector, loadSongs]);
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      await loadStatus();
+      if (cancelled) return;
+      setLoading(false);
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadStatus]);
 
-  const handlePlay = (song: RefinerySong) => {
-    if (playingId === song.id) {
-      setPlayingId(null);
-      return;
+  useEffect(() => {
+    if (reviewer?.isReviewer) {
+      void loadQueue();
+      void loadYield();
     }
-    setPlayingId(song.id);
-    const audio = document.getElementById(`refinery-audio-${song.id}`) as HTMLAudioElement;
-    if (audio) {
-      audio.src = song.audio_url;
-      audio.play().catch(() => setPlayingId(null));
-    }
-  };
+  }, [reviewer?.isReviewer, loadQueue, loadYield]);
 
-  const submitRank = async (songId: string) => {
-    const score = rankBySong[songId];
-    if (score == null || score < 1 || score > 10) return;
-    setSubmitting((s) => ({ ...s, [songId]: 'rank' }));
+  const handleSignup = async () => {
+    setSigningUp(true);
+    setError(null);
     try {
-      await prospectorApi.submitRefinement({ songId, score });
-      setSubmitting((s) => ({ ...s, [songId]: '' }));
+      await refineryApi.signUpReviewer();
+      await loadStatus();
     } catch {
-      setSubmitting((s) => ({ ...s, [songId]: '' }));
-    }
-  };
-
-  const submitSurvey = async (songId: string) => {
-    const survey = surveyBySong[songId];
-    if (!survey) return;
-    setSubmitting((s) => ({ ...s, [songId]: 'survey' }));
-    try {
-      await prospectorApi.submitSurvey({ songId, responses: survey });
-      setSubmitting((s) => ({ ...s, [songId]: '' }));
-    } catch {
-      setSubmitting((s) => ({ ...s, [songId]: '' }));
-    }
-  };
-
-  const submitComment = async (songId: string) => {
-    const body = (newCommentBySong[songId] ?? '').trim();
-    if (!body) return;
-    setSubmitting((s) => ({ ...s, [songId]: 'comment' }));
-    try {
-      await refineryApi.addComment(songId, body);
-      setNewCommentBySong((s) => ({ ...s, [songId]: '' }));
-      await loadComments(songId);
-    } catch {
-      // ignore
+      setError('Could not sign you up. Please try again.');
     } finally {
-      setSubmitting((s) => ({ ...s, [songId]: '' }));
+      setSigningUp(false);
     }
   };
 
-  if (!isProspector) {
+  if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>The Refinery</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            The Refinery is only available to Prospectors. Sign up as a Prospector to hear songs under review, answer survey questions, rank, and leave comments for rewards.
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold tracking-tight">The Refinery</h1>
+        <p className="text-muted-foreground">Loading…</p>
+      </div>
+    );
+  }
+
+  if (!reviewer?.isReviewer) {
+    return (
+      <div className="space-y-6 max-w-4xl">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">The Refinery</h1>
+          <p className="text-muted-foreground mt-1">
+            In-depth, paid song reviews. Artists get real, structured feedback;
+            reviewers earn rewards.
           </p>
-          <div className="mt-4">
-            <Button asChild variant="outline">
-              <Link href="/dashboard">Back to dashboard</Link>
+        </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        <Card>
+          <CardHeader>
+            <CardTitle>How it works</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-sm">
+            <div>
+              <h3 className="font-medium text-foreground mb-1">For artists</h3>
+              <ul className="text-muted-foreground list-disc pl-5 space-y-1">
+                <li>
+                  Submit any of your songs to The Refinery for $
+                  {REFINERY_SUBMISSION_PRICE_USD}.
+                </li>
+                <li>
+                  Add up to 10 of your own custom questions to ask reviewers.
+                </li>
+                <li>
+                  Get a guaranteed minimum of 100 in-depth reviews from
+                  verified reviewers.
+                </li>
+                <li>
+                  See real-time analytics: mean &amp; median ratings, response
+                  distributions, outliers flagged, and every individual review.
+                </li>
+                <li>
+                  Private songs are eligible too — reviewers can hear them
+                  even though they&apos;re hidden from the radio.
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-medium text-foreground mb-1">
+                For reviewers
+              </h3>
+              <ul className="text-muted-foreground list-disc pl-5 space-y-1">
+                <li>Sign up below — you&apos;re accepted automatically.</li>
+                <li>
+                  Listen to songs in the queue and answer 7 rating questions
+                  (1-10), 12 standard survey questions, plus the artist&apos;s
+                  custom questions.
+                </li>
+                <li>
+                  Earn ${(REFINERY_REVIEW_REWARD_CENTS / 100).toFixed(2)} per
+                  completed review, redeemable for Visa gift cards.
+                </li>
+                <li>
+                  Songs are shuffled fairly — every artist gets reviews over
+                  time.
+                </li>
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>What every review covers</CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-6 sm:grid-cols-2 text-sm">
+            <div>
+              <h3 className="font-medium text-foreground mb-2">
+                1-10 rating questions
+              </h3>
+              <ul className="text-muted-foreground list-disc pl-5 space-y-1">
+                {REFINERY_RATING_QUESTIONS.map((q) => (
+                  <li key={q.key}>{q.question}</li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-medium text-foreground mb-2">
+                Survey questions
+              </h3>
+              <ul className="text-muted-foreground list-disc pl-5 space-y-1">
+                {REFINERY_SURVEY_QUESTIONS.map((q) => (
+                  <li key={q.key}>{q.question}</li>
+                ))}
+              </ul>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="pt-6 text-center space-y-4">
+            <h2 className="text-xl font-semibold">Become a reviewer</h2>
+            <p className="text-muted-foreground">
+              Earn rewards while helping artists improve their music.
+            </p>
+            <Button onClick={handleSignup} disabled={signingUp} size="lg">
+              {signingUp ? 'Signing up…' : 'Sign up as a reviewer'}
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+            {isArtist && (
+              <p className="text-sm text-muted-foreground">
+                You&apos;re an artist — head to{' '}
+                <Link href="/artist/songs" className="text-primary underline">
+                  My Songs
+                </Link>{' '}
+                to submit a track for review.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground tracking-tight">The Refinery</h1>
-        <p className="text-muted-foreground mt-1">
-          Listen to songs under review unlimited times. Rank, answer surveys, and leave comments to earn rewards.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">The Refinery</h1>
+          <p className="text-muted-foreground mt-1">
+            Listen, answer the survey, and earn $
+            {(REFINERY_REVIEW_REWARD_CENTS / 100).toFixed(2)} per review.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setRewardsOpen(true)}>
+            Rewards
+          </Button>
+          {isArtist && (
+            <Button asChild variant="outline">
+              <Link href="/artist/songs">Submit a song</Link>
+            </Button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -158,159 +275,107 @@ export default function RefineryPage() {
         </Alert>
       )}
 
-      {loading ? (
-        <p className="text-muted-foreground">Loading…</p>
-      ) : songs.length === 0 ? (
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Reviews you&apos;ve done</p>
+            <p className="text-2xl font-bold">{reviewer.totalReviews}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Songs in queue</p>
+            <p className="text-2xl font-bold">{songs.length}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4">
+            <p className="text-xs text-muted-foreground">Yield balance</p>
+            <p className="text-2xl font-bold">
+              ${((yieldStatus?.balanceCents ?? 0) / 100).toFixed(2)}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {songs.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-muted-foreground">No songs in The Refinery right now. Artists add their songs here for Prospector review.</p>
+            <p className="text-muted-foreground">
+              No songs waiting for review right now. Check back soon!
+            </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
-          {songs.map((song) => (
-            <Card key={song.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-3">
-                  <ArtworkImage
-                    src={song.artwork_url}
-                    alt={song.title}
-                    className="h-14 w-14 rounded object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg truncate">{song.title}</CardTitle>
-                    <p className="text-sm text-muted-foreground truncate">{song.artist_name}</p>
-                  </div>
-                  <Button
-                    variant={playingId === song.id ? 'secondary' : 'default'}
-                    size="sm"
-                    onClick={() => handlePlay(song)}
-                  >
-                    {playingId === song.id ? 'Pause' : 'Play'}
-                  </Button>
-                </div>
-                <audio
-                  id={`refinery-audio-${song.id}`}
-                  onEnded={() => setPlayingId((id) => (id === song.id ? null : id))}
-                  onPause={() => setPlayingId((id) => (id === song.id ? null : id))}
-                  className="hidden"
-                />
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Rank 1–10 */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Label className="w-24">Rank (1–10)</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={10}
-                    className="w-16"
-                    value={rankBySong[song.id] ?? ''}
-                    onChange={(e) => setRankBySong((r) => ({ ...r, [song.id]: parseInt(e.target.value, 10) || 0 }))}
-                  />
-                  <Button
-                    size="sm"
-                    disabled={submitting[song.id] === 'rank'}
-                    onClick={() => submitRank(song.id)}
-                  >
-                    {submitting[song.id] === 'rank' ? 'Submitting…' : 'Submit rank'}
-                  </Button>
-                </div>
-
-                {/* Survey (simple) */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div>
-                    <Label className="text-xs">Genre</Label>
-                    <Input
-                      placeholder="e.g. Hip Hop"
-                      value={surveyBySong[song.id]?.genre ?? ''}
-                      onChange={(e) =>
-                        setSurveyBySong((s) => ({
-                          ...s,
-                          [song.id]: { ...(s[song.id] ?? {}), genre: e.target.value },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Mood</Label>
-                    <Input
-                      placeholder="e.g. Chill"
-                      value={surveyBySong[song.id]?.mood ?? ''}
-                      onChange={(e) =>
-                        setSurveyBySong((s) => ({
-                          ...s,
-                          [song.id]: { ...(s[song.id] ?? {}), mood: e.target.value },
-                        }))
-                      }
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Would add to rotation?</Label>
-                    <Input
-                      placeholder="Yes / No / Maybe"
-                      value={surveyBySong[song.id]?.wouldPlay ?? ''}
-                      onChange={(e) =>
-                        setSurveyBySong((s) => ({
-                          ...s,
-                          [song.id]: { ...(s[song.id] ?? {}), wouldPlay: e.target.value },
-                        }))
-                      }
-                    />
-                  </div>
-                </div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={submitting[song.id] === 'survey'}
-                  onClick={() => submitSurvey(song.id)}
-                >
-                  {submitting[song.id] === 'survey' ? 'Submitting…' : 'Submit survey'}
-                </Button>
-
-                {/* Comments */}
-                <div>
-                  <Label className="text-sm">Comments</Label>
-                  <div className="mt-1 flex gap-2">
-                    <Input
-                      placeholder="Leave a comment…"
-                      value={newCommentBySong[song.id] ?? ''}
-                      onChange={(e) => setNewCommentBySong((c) => ({ ...c, [song.id]: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && submitComment(song.id)}
-                    />
-                    <Button
-                      size="sm"
-                      disabled={submitting[song.id] === 'comment'}
-                      onClick={() => submitComment(song.id)}
-                    >
-                      Post
-                    </Button>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {commentsBySong[song.id]?.length ? (
-                      commentsBySong[song.id].map((c) => (
-                        <div key={c.id} className="text-sm py-1 border-b border-border/50">
-                          <span className="font-medium">{c.users?.display_name ?? 'Prospector'}</span>
-                          <span className="text-muted-foreground"> · {new Date(c.created_at).toLocaleString()}</span>
-                          <p className="text-foreground mt-0.5">{c.body}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground hover:underline"
-                        onClick={() => loadComments(song.id)}
+        <Card>
+          <CardHeader>
+            <CardTitle>Songs to review</CardTitle>
+          </CardHeader>
+          <CardContent className="px-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Artist</TableHead>
+                  <TableHead>Song</TableHead>
+                  <TableHead className="text-right">Reviews</TableHead>
+                  <TableHead className="text-right">Likes</TableHead>
+                  <TableHead>Custom questions</TableHead>
+                  <TableHead></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {songs.map((song) => (
+                  <TableRow key={song.songId}>
+                    <TableCell className="font-medium">
+                      {song.artistName}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <ArtworkImage
+                          src={song.artworkUrl}
+                          alt={song.title}
+                          className="h-8 w-8 rounded object-cover"
+                        />
+                        <span className="truncate">{song.title}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {song.reviewCount}
+                    </TableCell>
+                    <TableCell className="text-right text-muted-foreground">
+                      {song.likeCount}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={song.hasCustomQuestions ? 'default' : 'outline'}
                       >
-                        Load comments
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                        {song.hasCustomQuestions ? 'Yes' : 'No'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Button asChild size="sm">
+                        <Link href={`/refinery/review/${song.songId}`}>
+                          Review
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
+
+      <RefineryRewardsDialog
+        open={rewardsOpen}
+        onOpenChange={setRewardsOpen}
+        balanceCents={yieldStatus?.balanceCents ?? 0}
+        totalReviews={reviewer.totalReviews}
+        onChange={() => {
+          void loadYield();
+        }}
+      />
     </div>
   );
 }

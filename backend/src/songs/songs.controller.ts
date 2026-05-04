@@ -913,6 +913,11 @@ export class SongsController {
       discoverClipDurationSeconds: song.discover_clip_duration_seconds ?? null,
       optInFreePlay: song.opt_in_free_play || false,
       inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
+      isPublic: (song as { is_public?: boolean }).is_public !== false,
+      refineryReviewCount:
+        (song as { refinery_review_count?: number }).refinery_review_count ?? 0,
+      refineryMinReviews:
+        (song as { refinery_min_reviews?: number }).refinery_min_reviews ?? 100,
       rejectionReason: song.rejection_reason,
       rejectedAt: song.rejected_at,
       isExplicit: song.is_explicit === true,
@@ -1112,6 +1117,9 @@ export class SongsController {
     }
     if (body.isExplicit !== undefined) {
       updateData.is_explicit = body.isExplicit;
+    }
+    if (body.isPublic !== undefined) {
+      updateData.is_public = body.isPublic;
     }
     if (
       updateData.discover_clip_start_seconds != null &&

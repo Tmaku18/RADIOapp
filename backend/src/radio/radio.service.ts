@@ -1470,6 +1470,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .from('songs')
         .select('*')
         .eq('status', 'approved')
+        .eq('is_public', true)
         .gt('credits_remaining', 0),
       stationId,
     );
@@ -1520,6 +1521,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .from('songs')
         .select('*')
         .eq('status', 'approved')
+        .eq('is_public', true)
         .gt('trial_plays_remaining', 0)
         .lte('credits_remaining', 0),
       stationId,
@@ -1561,6 +1563,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         .from('songs')
         .select('*')
         .eq('status', 'approved')
+        .eq('is_public', true)
         .eq('admin_free_rotation', true)
         .lte('trial_plays_remaining', 0)
         .lte('credits_remaining', 0),
@@ -1610,7 +1613,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         const explicitClause = isClean ? ' AND is_explicit = false' : '';
         const rows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
           `SELECT id, artist_id, audio_url FROM songs
-           WHERE status = 'approved' AND admin_free_rotation = true
+           WHERE status = 'approved' AND is_public = true AND admin_free_rotation = true
              AND (station_id = $1 OR $1 = ANY(station_ids))${explicitClause}`,
           [stationId],
         );
@@ -1632,6 +1635,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
             .from('songs')
             .select('id, artist_id, audio_url')
             .eq('status', 'approved')
+            .eq('is_public', true)
             .eq('admin_free_rotation', true),
           stationId,
         ),
@@ -2823,6 +2827,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         'id, title, artist_name, artwork_url, credits_remaining, play_count, like_count, duration_seconds',
       )
       .eq('status', 'approved')
+      .eq('is_public', true)
       .gt('credits_remaining', 0);
 
     // Filter eligible songs

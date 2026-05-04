@@ -59,4 +59,9 @@ export class UpdateSongDto {
   @IsBoolean()
   @IsOptional()
   isExplicit?: boolean;
+
+  /** Public songs play on radio rotation; private songs are hidden from radio but can still go to The Refinery. */
+  @IsBoolean()
+  @IsOptional()
+  isPublic?: boolean;
 }
