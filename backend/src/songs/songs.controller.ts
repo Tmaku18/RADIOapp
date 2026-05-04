@@ -859,35 +859,37 @@ export class SongsController {
       songRows.map((song) => song.id as string),
     );
     const songIds = songRows.map((song) => song.id as string);
+
+    // Real per-song stats aggregated from `plays` and `likes` so the numbers
+    // reflect actual activity. Uses an RPC to keep aggregation server-side; if
+    // the function is missing in older environments we fall back to the cached
+    // counters on the songs row.
     const listenCountBySongId = new Map<string, number>();
+    const likeCountBySongId = new Map<string, number>();
+    const playsCountBySongId = new Map<string, number>();
     if (songIds.length > 0) {
-      const { data: profileListenRows, error: profileListenError } =
-        await supabase
-          .from('song_profile_listens')
-          .select('song_id, user_id')
-          .in('song_id', songIds);
-      if (
-        profileListenError &&
-        !this.isMissingTableError(profileListenError, 'song_profile_listens')
-      ) {
-        throw new BadRequestException(
-          `Failed to load song listens: ${profileListenError.message}`,
+      const { data: statsRows, error: statsError } = await supabase.rpc(
+        'get_artist_song_stats',
+        { p_song_ids: songIds },
+      );
+      if (statsError) {
+        this.logger.warn(
+          `get_artist_song_stats RPC unavailable: ${statsError.message}`,
         );
-      }
-      if (!profileListenError) {
-        const listenersSetBySongId = new Map<string, Set<string>>();
-        for (const row of (profileListenRows || []) as Array<{
+      } else {
+        for (const row of (statsRows ?? []) as Array<{
           song_id: string;
-          user_id: string | null;
+          plays_count: number | string | null;
+          listener_count_sum: number | string | null;
+          like_count: number | string | null;
         }>) {
-          if (!row.song_id || !row.user_id) continue;
-          const listeners =
-            listenersSetBySongId.get(row.song_id) ?? new Set<string>();
-          listeners.add(row.user_id);
-          listenersSetBySongId.set(row.song_id, listeners);
-        }
-        for (const [songId, listeners] of listenersSetBySongId.entries()) {
-          listenCountBySongId.set(songId, listeners.size);
+          if (!row.song_id) continue;
+          playsCountBySongId.set(row.song_id, Number(row.plays_count) || 0);
+          listenCountBySongId.set(
+            row.song_id,
+            Number(row.listener_count_sum) || 0,
+          );
+          likeCountBySongId.set(row.song_id, Number(row.like_count) || 0);
         }
       }
     }
@@ -900,14 +902,17 @@ export class SongsController {
       artworkUrl: song.artwork_url,
       durationSeconds: song.duration_seconds,
       creditsRemaining: song.credits_remaining || 0,
-      playCount: song.play_count || 0,
+      // Prefer the real plays-table count; fall back to the cached counter.
+      playCount:
+        playsCountBySongId.get(song.id) ?? (song.play_count || 0),
       paidPlayCount: song.paid_play_count || 0,
       freePlayCount: Math.max(
         0,
-        (song.play_count || 0) - (song.paid_play_count || 0),
+        (playsCountBySongId.get(song.id) ?? song.play_count ?? 0) -
+          (song.paid_play_count || 0),
       ),
       listenCount: listenCountBySongId.get(song.id) ?? 0,
-      likeCount: song.like_count || 0,
+      likeCount: likeCountBySongId.get(song.id) ?? (song.like_count || 0),
       lastPlayedAt: song.last_played_at ?? null,
       trialPlaysUsed: song.trial_plays_used || 0,
       status: song.status,

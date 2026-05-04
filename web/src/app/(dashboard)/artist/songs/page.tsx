@@ -679,7 +679,7 @@ export default function MySongsPage() {
                           <span className="text-muted-foreground">plays</span>
                         </div>
                         <div className="text-muted-foreground">
-                          {formatNumber(song.listenCount ?? 0)} listeners
+                          {formatNumber(song.listenCount ?? 0)} listens
                           {' · '}
                           <button
                             type="button"
