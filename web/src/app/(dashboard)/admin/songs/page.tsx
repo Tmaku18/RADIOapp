@@ -19,6 +19,9 @@ interface Song {
   opt_in_free_play?: boolean;
   admin_free_rotation?: boolean;
   paid_play_count?: number;
+  play_count_real?: number;
+  listen_count?: number;
+  like_count?: number;
   status: 'pending' | 'approved' | 'rejected';
   is_explicit?: boolean;
   rejection_reason?: string;
@@ -29,6 +32,13 @@ interface Song {
   };
   stale?: boolean;
   stale_cached_at?: string;
+}
+
+function formatCount(n?: number): string {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toString();
 }
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -726,6 +736,8 @@ export default function AdminSongsPage() {
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
                 <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Listens</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Likes</th>
                 <th 
                   className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
                   onClick={() => handleSort('status')}
@@ -781,6 +793,21 @@ export default function AdminSongsPage() {
                       (song.credits_remaining || 0) > 0 ? 'text-green-600' : 'text-gray-400'
                     }`}>
                       {song.credits_remaining || 0}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 font-medium">
+                      {formatCount(song.listen_count)}
+                    </div>
+                    {(song.play_count_real ?? 0) > 0 && (
+                      <div className="text-xs text-gray-500">
+                        {formatCount(song.play_count_real)} plays
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm text-gray-900 font-medium">
+                      {formatCount(song.like_count)}
                     </span>
                   </td>
                   <td className="px-6 py-4">

@@ -228,8 +228,52 @@ export class AdminService {
       throw new BadRequestException(`Failed to fetch songs: ${error.message}`);
     }
     const rows = data ?? [];
-    this.songsCache.set(cacheKey, { data: rows, updatedAt: Date.now() });
-    return rows;
+
+    // Enrich each row with real listens / likes from the global tables so the
+    // admin dashboard reflects actual engagement rather than stale counters.
+    const songIds = rows
+      .map((r: { id?: string }) => r?.id)
+      .filter((id): id is string => !!id);
+    const realListensBySongId = new Map<string, number>();
+    const realLikesBySongId = new Map<string, number>();
+    const realPlaysBySongId = new Map<string, number>();
+    if (songIds.length > 0) {
+      const { data: statsRows, error: statsError } = await supabase.rpc(
+        'get_artist_song_stats',
+        { p_song_ids: songIds },
+      );
+      if (statsError) {
+        // Non-fatal: leave the columns blank-with-fallback rather than failing
+        // the whole admin page.
+      } else {
+        for (const row of (statsRows ?? []) as Array<{
+          song_id: string;
+          plays_count: number | string | null;
+          listener_count_sum: number | string | null;
+          like_count: number | string | null;
+        }>) {
+          if (!row?.song_id) continue;
+          realPlaysBySongId.set(row.song_id, Number(row.plays_count) || 0);
+          realListensBySongId.set(
+            row.song_id,
+            Number(row.listener_count_sum) || 0,
+          );
+          realLikesBySongId.set(row.song_id, Number(row.like_count) || 0);
+        }
+      }
+    }
+    const enrichedRows = rows.map((row: any) => ({
+      ...row,
+      listen_count: realListensBySongId.get(row.id) ?? 0,
+      like_count: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
+      play_count_real: realPlaysBySongId.get(row.id) ?? row.play_count ?? 0,
+    }));
+
+    this.songsCache.set(cacheKey, {
+      data: enrichedRows,
+      updatedAt: Date.now(),
+    });
+    return enrichedRows;
   }
 
   async updateSongStatus(
