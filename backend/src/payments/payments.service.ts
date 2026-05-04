@@ -4,6 +4,8 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
 import { GooglePlayBillingService } from './google-play-billing.service';
 import { CreatorNetworkService } from '../creator-network/creator-network.service';
+import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
+import type { ProNetworkSubStatus } from '../pro-network-subscription/pro-network-subscription.service';
 import { RefineryService } from '../refinery/refinery.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
@@ -29,6 +31,7 @@ export class PaymentsService {
     private stripeService: StripeService,
     private configService: ConfigService,
     private creatorNetwork: CreatorNetworkService,
+    private proNetworkSub: ProNetworkSubscriptionService,
     private googlePlayBillingService: GooglePlayBillingService,
     @Inject(forwardRef(() => RefineryService))
     private readonly refineryService: RefineryService,
@@ -464,6 +467,193 @@ export class PaymentsService {
       stripeSubscriptionId: subscriptionId,
       status: 'canceled',
       currentPeriodEnd: null,
+    });
+  }
+
+  // ---------------------------------------------------------------------------
+  // Pro Networks subscription
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Create a Stripe Checkout Session for Pro Networks subscription. Applies
+   * the duration:once intro coupon iff the user has never had a Pro Networks
+   * subscription before.
+   */
+  async createProNetworxCheckoutSession(
+    userId: string,
+    successUrl: string,
+    cancelUrl: string,
+  ) {
+    const applyIntroCoupon =
+      await this.proNetworkSub.hasNeverSubscribed(userId);
+    const session = await this.stripeService.createProNetworxCheckoutSession({
+      userId,
+      successUrl,
+      cancelUrl,
+      applyIntroCoupon,
+    });
+    return {
+      sessionId: session.id,
+      url: session.url,
+      introCouponApplied: applyIntroCoupon,
+    };
+  }
+
+  /**
+   * Build the Stripe Payment Sheet payload for the mobile app to subscribe.
+   * The actual subscription is created when the SetupIntent succeeds; the
+   * webhook (setup_intent.succeeded) wires up the subscription using the
+   * customer + payment method that the sheet collected.
+   */
+  async createProNetworxPaymentSheet(args: {
+    userId: string;
+    customerEmail?: string | null;
+  }) {
+    const applyIntroCoupon = await this.proNetworkSub.hasNeverSubscribed(
+      args.userId,
+    );
+    return this.stripeService.createProNetworxPaymentSheet({
+      userId: args.userId,
+      customerEmail: args.customerEmail ?? null,
+      applyIntroCoupon,
+    });
+  }
+
+  private isProNetworxSubscription(subscription: {
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): boolean {
+    const priceId = this.stripeService.getProNetworxPriceId();
+    if (!priceId) return false;
+    const itemPriceId = subscription.items?.data?.[0]?.price?.id;
+    return itemPriceId === priceId;
+  }
+
+  private mapStripeStatusFull(stripeStatus: string): ProNetworkSubStatus {
+    const allowed: ProNetworkSubStatus[] = [
+      'active',
+      'trialing',
+      'past_due',
+      'canceled',
+      'incomplete',
+      'incomplete_expired',
+      'unpaid',
+      'paused',
+    ];
+    return allowed.includes(stripeStatus as ProNetworkSubStatus)
+      ? (stripeStatus as ProNetworkSubStatus)
+      : 'incomplete';
+  }
+
+  async handleProNetworxCheckoutCompleted(
+    subscriptionId: string,
+    userId: string,
+  ): Promise<void> {
+    const priceId = this.stripeService.getProNetworxPriceId();
+    if (!priceId) return;
+    const subscription =
+      await this.stripeService.getSubscription(subscriptionId);
+    if (!this.isProNetworxSubscription(subscription)) return;
+    const status = this.mapStripeStatusFull(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const customerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id ?? null;
+    const introRedeemed = (subscription.discounts ?? []).length > 0;
+    await this.proNetworkSub.setSubscription({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscriptionId,
+      status,
+      currentPeriodEnd,
+      introCouponRedeemed: introRedeemed,
+    });
+  }
+
+  async handleProNetworxSubscriptionUpdated(subscription: {
+    id: string;
+    status: string;
+    current_period_end?: number;
+    customer?: string | { id: string };
+    items?: { data?: Array<{ price?: { id?: string } }> };
+  }): Promise<void> {
+    const userId = await this.proNetworkSub.getUserIdByStripeSubscriptionId(
+      subscription.id,
+    );
+    if (!userId) return;
+    if (!this.isProNetworxSubscription(subscription)) return;
+    const status = this.mapStripeStatusFull(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    const customerId =
+      typeof subscription.customer === 'string'
+        ? subscription.customer
+        : subscription.customer?.id ?? null;
+    await this.proNetworkSub.setSubscription({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status,
+      currentPeriodEnd,
+    });
+  }
+
+  async handleProNetworxSubscriptionDeleted(
+    subscriptionId: string,
+  ): Promise<void> {
+    const userId =
+      await this.proNetworkSub.getUserIdByStripeSubscriptionId(subscriptionId);
+    if (!userId) return;
+    await this.proNetworkSub.setSubscription({
+      userId,
+      stripeSubscriptionId: subscriptionId,
+      status: 'canceled',
+      currentPeriodEnd: null,
+    });
+  }
+
+  /**
+   * Mobile flow: when the SetupIntent succeeds we create the subscription on
+   * the customer using the saved payment method.
+   */
+  async handleProNetworxSetupIntentSucceeded(setupIntent: {
+    id: string;
+    customer?: string | { id: string };
+    metadata?: Record<string, string>;
+  }): Promise<void> {
+    const customerId =
+      typeof setupIntent.customer === 'string'
+        ? setupIntent.customer
+        : setupIntent.customer?.id ?? null;
+    const userId = setupIntent.metadata?.userId ?? null;
+    const priceId =
+      setupIntent.metadata?.priceId ??
+      this.stripeService.getProNetworxPriceId();
+    const couponId = setupIntent.metadata?.couponId || null;
+    if (!customerId || !userId || !priceId) return;
+    if (setupIntent.metadata?.productKey !== 'pro_networx_subscription') return;
+
+    const subscription =
+      await this.stripeService.createProNetworxSubscriptionOnCustomer({
+        customerId,
+        priceId,
+        couponId: couponId ?? undefined,
+      });
+
+    const status = this.mapStripeStatusFull(subscription.status);
+    const currentPeriodEnd = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null;
+    await this.proNetworkSub.setSubscription({
+      userId,
+      stripeCustomerId: customerId,
+      stripeSubscriptionId: subscription.id,
+      status,
+      currentPeriodEnd,
+      introCouponRedeemed: !!couponId,
     });
   }
 

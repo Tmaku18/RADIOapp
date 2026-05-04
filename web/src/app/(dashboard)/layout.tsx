@@ -47,9 +47,7 @@ import {
   ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
 
-const PRO_NETWORX_EXTERNAL_URL =
-  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
-  'https://www.pro-networx.com/directory';
+const PRO_NETWORX_INTERNAL_URL = '/pro-networx/home';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
 
@@ -59,6 +57,7 @@ const listenerNavigation: MainNavItem[] = [
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Vote', href: '/competition', icon: '📢' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
   { name: 'Rewards', href: '/yield', icon: '⛏️' },
 ];
 
@@ -69,7 +68,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
-  { name: 'Pro-Networx', href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', external: true },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
   { name: 'Rewards', href: '/yield', icon: '⛏️' },
 ];
 

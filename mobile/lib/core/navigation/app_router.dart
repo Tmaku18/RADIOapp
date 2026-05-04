@@ -18,8 +18,13 @@ import '../../features/notifications/notifications_screen.dart';
 import '../../features/payment/payment_screen.dart';
 import '../../features/player/player_screen.dart';
 import '../../features/pro_networx/pro_directory_screen.dart';
+import '../../features/pro_networx/pro_explore_detail_screen.dart';
 import '../../features/pro_networx/pro_me_profile_screen.dart';
+import '../../features/pro_networx/pro_my_services_screen.dart';
+import '../../features/pro_networx/pro_networx_landing_screen.dart';
+import '../../features/pro_networx/pro_networx_shell_screen.dart';
 import '../../features/pro_networx/pro_profile_screen.dart';
+import '../../features/pro_networx/pro_service_detail_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/refinery/refinery_screen.dart';
 import '../../features/room/room_screen.dart';
@@ -94,6 +99,30 @@ class AppRouter {
         final userId = args?.toString();
         if (userId == null || userId.isEmpty) return _unknown(settings);
         return _route(ProNetworxProfileScreen(userId: userId), settings);
+      case AppRoutes.proNetworxLanding:
+        return _route(const ProNetworxLandingScreen(), settings);
+      case AppRoutes.proNetworxShell:
+        final initialTab = args is int ? args : 0;
+        return _route(
+          ProNetworxShellScreen(initialTab: initialTab),
+          settings,
+        );
+      case AppRoutes.proNetworxExploreDetail:
+        final postId = args?.toString();
+        if (postId == null || postId.isEmpty) return _unknown(settings);
+        return _route(
+          ProExploreDetailScreen(anchorPostId: postId),
+          settings,
+        );
+      case AppRoutes.proNetworxServiceDetail:
+        final serviceId = args?.toString();
+        if (serviceId == null || serviceId.isEmpty) return _unknown(settings);
+        return _route(
+          ProServiceDetailScreen(serviceId: serviceId),
+          settings,
+        );
+      case AppRoutes.proNetworxMyServices:
+        return _route(const ProMyServicesScreen(), settings);
       case AppRoutes.nearbyPeople:
         return _route(const NearbyPeopleScreen(), settings);
       case AppRoutes.refinery:

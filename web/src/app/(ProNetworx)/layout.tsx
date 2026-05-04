@@ -15,15 +15,14 @@ export default function ProNetworxLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, profile, loading } = useAuth();
-  const radioHref = '/listen';
+  const { user, loading } = useAuth();
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <header className="border-b border-border bg-card">
         <nav className="max-w-7xl mx-auto pl-0 pr-4 sm:pl-0 sm:pr-6 lg:pl-0 lg:pr-8">
           <div className="flex justify-between items-center h-16">
-            <Link href="/pro-networx" className="flex items-center shrink-0 gap-3">
+            <Link href={user ? '/pro-networx/home' : '/pro-networx'} className="flex items-center shrink-0 gap-3">
               <Image
                 src={LOGO_SRC}
                 alt="Networx Radio — The Butterfly Effect"
@@ -39,36 +38,21 @@ export default function ProNetworxLayout({
             </Link>
             <div className="flex items-center gap-2">
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/pro-networx">Home</Link>
+                <Link href="/listen">Networks Radio</Link>
               </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/pro-networx/feed">Discover</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/pro-networx/directory">Directory</Link>
-              </Button>
-              <Button variant="ghost" size="sm" asChild>
-                <Link href={radioHref}>Radio</Link>
-              </Button>
-              {!loading && (
-                user ? (
+              {!loading && !user && (
+                <>
                   <Button variant="ghost" size="sm" asChild>
-                    <Link href="/pro-networx/onboarding">My profile</Link>
+                    <Link href={`/login?redirect=${encodeURIComponent(pathname || '/pro-networx/home')}`}>
+                      Login
+                    </Link>
                   </Button>
-                ) : (
-                  <>
-                    <Button variant="ghost" size="sm" asChild>
-                      <Link href={`/login?redirect=${encodeURIComponent(pathname || '/pro-networx/directory')}`}>
-                        Login
-                      </Link>
-                    </Button>
-                    <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
-                      <Link href={`/signup?redirect=${encodeURIComponent('/pro-networx/directory')}`}>
-                        Sign up
-                      </Link>
-                    </Button>
-                  </>
-                )
+                  <Button size="sm" asChild className="bg-primary text-primary-foreground hover:opacity-90">
+                    <Link href={`/signup?redirect=${encodeURIComponent('/pro-networx/home')}`}>
+                      Join free
+                    </Link>
+                  </Button>
+                </>
               )}
             </div>
           </div>

@@ -74,12 +74,16 @@ export default function ProNetworxOnboardingPage() {
   const { user, profile, loading, refreshProfile } = useAuth();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const resumeInputRef = useRef<HTMLInputElement>(null);
 
   const [me, setMe] = useState<ProNetworxMeProfile | null>(null);
   const [loadingMe, setLoadingMe] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const [resumeUrl, setResumeUrl] = useState<string | null>(null);
+  const [resumeFilename, setResumeFilename] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const [availableForWork, setAvailableForWork] = useState(true);
@@ -174,7 +178,10 @@ export default function ProNetworxOnboardingPage() {
   };
 
   useEffect(() => {
-    if (!loading && user) loadMe();
+    if (!loading && user) {
+      void loadMe();
+      void loadResume();
+    }
   }, [loading, user?.uid]);
 
   const toggleSkill = (name: string) => {
@@ -254,6 +261,54 @@ export default function ProNetworxOnboardingPage() {
       setError(normalizedMessage ?? (err as Error)?.message ?? 'Failed to upload profile photo');
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const loadResume = async () => {
+    try {
+      const res = await proNetworxApi.getMyResume();
+      setResumeUrl(res.data?.url ?? null);
+      setResumeFilename(res.data?.filename ?? null);
+    } catch {
+      setResumeUrl(null);
+      setResumeFilename(null);
+    }
+  };
+
+  const handleResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.type !== 'application/pdf') {
+      setError('Resume must be a PDF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError('Resume must be 10MB or smaller.');
+      return;
+    }
+    setError(null);
+    setUploadingResume(true);
+    try {
+      const res = await proNetworxApi.uploadResume(file);
+      setResumeUrl(res.data.url);
+      setResumeFilename(res.data.filename);
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to upload resume.');
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleResumeDelete = async () => {
+    if (!resumeUrl) return;
+    if (!window.confirm('Remove your resume?')) return;
+    try {
+      await proNetworxApi.deleteResume();
+      setResumeUrl(null);
+      setResumeFilename(null);
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to remove resume.');
     }
   };
 
@@ -451,6 +506,59 @@ export default function ProNetworxOnboardingPage() {
                     <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 15MB</p>
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm text-foreground">Resume (PDF)</Label>
+                {resumeUrl ? (
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                    <a
+                      href={resumeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline text-sm break-all"
+                    >
+                      {resumeFilename || 'View resume'}
+                    </a>
+                    <div className="flex gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingResume}
+                        onClick={() => resumeInputRef.current?.click()}
+                      >
+                        {uploadingResume ? 'Uploading…' : 'Replace'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleResumeDelete}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={uploadingResume}
+                    onClick={() => resumeInputRef.current?.click()}
+                  >
+                    {uploadingResume ? 'Uploading…' : 'Upload resume PDF'}
+                  </Button>
+                )}
+                <input
+                  ref={resumeInputRef}
+                  type="file"
+                  accept="application/pdf"
+                  className="sr-only"
+                  onChange={handleResumeUpload}
+                />
+                <p className="text-xs text-muted-foreground">PDF only, max 10MB</p>
               </div>
 
               <button

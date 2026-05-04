@@ -30,6 +30,7 @@ import { ServiceProvidersModule } from './service-providers/service-providers.mo
 import { VenueAdsModule } from './venue-ads/venue-ads.module';
 import { RefineryModule } from './refinery/refinery.module';
 import { ProNetworxModule } from './pro-networx/pro-networx.module';
+import { ProNetworkSubscriptionModule } from './pro-network-subscription/pro-network-subscription.module';
 import { YieldModule } from './yield/yield.module';
 import { ArtistLiveModule } from './artist-live/artist-live.module';
 import { LoggerModule } from './common/logger';
@@ -69,6 +70,7 @@ import { RequestIdMiddleware } from './common/middleware';
     VenueAdsModule,
     RefineryModule,
     ProNetworxModule,
+    ProNetworkSubscriptionModule,
     YieldModule,
     ArtistLiveModule,
   ],

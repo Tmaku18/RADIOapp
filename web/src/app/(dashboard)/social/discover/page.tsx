@@ -832,21 +832,22 @@ export default function SocialDiscoverSwipePage() {
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-foreground">Scroll Feed</h2>
             <Button asChild variant="outline">
-              <Link href="/discover?tab=feed">Open full feed</Link>
+              <Link href="/pro-networx/home">Open in Pro Networks</Link>
             </Button>
           </div>
           {feedLoading ? (
             <p className="text-sm text-muted-foreground">Loading feed...</p>
           ) : feedPosts.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No feed posts yet. Upload from the Discover feed to start posting.
+              No feed posts yet. Pro-Networx creators will show up here.
             </p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {feedPosts.map((post) => (
-                <div
+                <Link
                   key={post.id}
-                  className="rounded-lg border border-border/70 bg-card/50 p-3"
+                  href={`/pro-networx/explore/${post.id}`}
+                  className="rounded-lg border border-border/70 bg-card/50 p-3 hover:bg-muted/40 transition-colors"
                 >
                   <p className="text-sm font-medium text-foreground truncate">
                     {post.authorDisplayName ?? 'Creator'}
@@ -859,7 +860,7 @@ export default function SocialDiscoverSwipePage() {
                   <p className="mt-2 text-xs text-muted-foreground">
                     {new Date(post.createdAt).toLocaleDateString()}
                   </p>
-                </div>
+                </Link>
               ))}
             </div>
           )}

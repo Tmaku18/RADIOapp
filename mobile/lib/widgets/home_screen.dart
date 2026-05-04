@@ -6,7 +6,7 @@ import '../features/discovery/discovery_screen.dart';
 import '../features/competition/competition_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/analytics/analytics_screen.dart';
-import '../features/pro_networx/pro_directory_screen.dart';
+import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../features/refinery/refinery_screen.dart';
 import '../features/yield/yield_screen.dart';
 import '../core/auth/auth_service.dart';
@@ -203,10 +203,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ListTile(
                   leading: const Icon(Icons.handshake_outlined),
                   title: const Text('Pro-Networx'),
-                  subtitle: const Text('Directory, profiles, and inbox'),
+                  subtitle: const Text('Network, hire, post, and message'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.proDirectory);
+                    Navigator.pushNamed(context, AppRoutes.proNetworxShell);
                   },
                 ),
                 ListTile(
@@ -304,7 +304,7 @@ class _HomeScreenState extends State<HomeScreen> {
           case 3:
             return const AnalyticsScreen();
           case 4:
-            return const ProNetworxDirectoryScreen();
+            return const ProNetworxShellScreen();
           case 5:
             return const YieldScreen();
           default:

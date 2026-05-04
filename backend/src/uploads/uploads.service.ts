@@ -492,6 +492,65 @@ export class UploadsService {
   }
 
   /**
+   * Upload a Pro Networks resume PDF. The resumes bucket is private; the
+   * caller persists `path` and generates a signed download URL on demand.
+   */
+  async uploadResume(
+    file: Express.Multer.File,
+    userId: string,
+  ): Promise<{ path: string; signedUrl: string }> {
+    if (!file) {
+      throw new BadRequestException('Resume file is required');
+    }
+    if (file.mimetype !== 'application/pdf') {
+      throw new BadRequestException('Resume must be a PDF');
+    }
+    const maxBytes = 10 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      throw new BadRequestException('Resume must be 10MB or smaller');
+    }
+    const supabase = getSupabaseClient();
+    const fileName = `${userId}/${crypto.randomUUID()}.pdf`;
+    const { data, error } = await supabase.storage
+      .from('resumes')
+      .upload(fileName, file.buffer, {
+        contentType: 'application/pdf',
+        upsert: false,
+      });
+    if (error || !data) {
+      throw new BadRequestException(
+        `Failed to upload resume: ${error?.message ?? 'unknown error'}`,
+      );
+    }
+    const signed = await supabase.storage
+      .from('resumes')
+      .createSignedUrl(data.path, 60 * 60 * 24 * 7);
+    return {
+      path: data.path,
+      signedUrl: signed.data?.signedUrl ?? '',
+    };
+  }
+
+  /** Refresh the signed URL for an existing resume path. */
+  async getResumeSignedUrl(
+    path: string,
+    expiresInSeconds = 60 * 60 * 24 * 7,
+  ): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase.storage
+      .from('resumes')
+      .createSignedUrl(path, expiresInSeconds);
+    if (error || !data) return null;
+    return data.signedUrl;
+  }
+
+  /** Delete a resume by storage path. */
+  async deleteResume(path: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    await supabase.storage.from('resumes').remove([path]);
+  }
+
+  /**
    * Generate a signed upload URL for direct client-to-Supabase uploads.
    * This bypasses the server, reducing bandwidth and memory usage.
    *

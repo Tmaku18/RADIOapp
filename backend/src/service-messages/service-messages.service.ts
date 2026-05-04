@@ -7,6 +7,8 @@ import {
 import { getSupabaseClient } from '../config/supabase.config';
 import { NotificationService } from '../notifications/notification.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
+import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
+import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-network-subscription.constants';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 
@@ -76,6 +78,7 @@ export class ServiceMessagesService {
     private readonly configService: ConfigService,
     private readonly notificationService: NotificationService,
     private readonly pushNotification: PushNotificationService,
+    private readonly proNetworkSubscription: ProNetworkSubscriptionService,
   ) {}
 
   private isMissingUserFollowsTable(error: unknown): boolean {
@@ -209,22 +212,13 @@ export class ServiceMessagesService {
       .in('id', [...otherIds]);
 
     const userMap = new Map((users || []).map((u: any) => [u.id, u]));
-    const { data: followRows, error: followError } = await supabase
-      .from('user_follows')
-      .select('followed_user_id')
-      .eq('follower_user_id', userId);
-    let followedUserIds = new Set(
-      (followRows || []).map((r: any) => r.followed_user_id as string),
-    );
-    if (followError && this.isMissingUserFollowsTable(followError)) {
-      const { data: legacyFollows } = await supabase
-        .from('artist_follows')
-        .select('artist_id')
-        .eq('user_id', userId);
-      followedUserIds = new Set(
-        (legacyFollows || []).map((r: any) => r.artist_id as string),
-      );
-    }
+
+    // The DM gate is now subscription-based: anyone with an active Pro
+    // Networks subscription can DM anyone else. Conversations always show as
+    // dm-able for the viewer when they have access. Prior versions used a
+    // follow-graph here.
+    const access = await this.proNetworkSubscription.getAccess(userId);
+    const canDmGlobally = access.hasAccess;
 
     const { data: readRows, error: readError } = await supabase
       .from('message_reads')
@@ -285,7 +279,7 @@ export class ServiceMessagesService {
         unreadCount: unreadCountByOther.get(otherId) ?? 0,
         lastMessageType: last.message_type,
         lastMessageStatus: lastStatus,
-        canDm: followedUserIds.has(otherId),
+        canDm: canDmGlobally,
       });
     }
     summaries.sort(
@@ -423,9 +417,9 @@ export class ServiceMessagesService {
       throw new BadRequestException('Cannot message yourself');
     }
 
-    const canDm = await this.canSendDm(input.senderId, input.recipientId);
-    if (!canDm) {
-      throw new ForbiddenException('Follow this user to send a DM');
+    const access = await this.proNetworkSubscription.getAccess(input.senderId);
+    if (!access.hasAccess) {
+      throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
     }
 
     const supabase = getSupabaseClient();
@@ -794,31 +788,13 @@ export class ServiceMessagesService {
     return data?.display_name ?? null;
   }
 
-  private async canSendDm(
-    senderId: string,
-    recipientId: string,
-  ): Promise<boolean> {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('user_follows')
-      .select('follower_user_id')
-      .eq('follower_user_id', senderId)
-      .eq('followed_user_id', recipientId)
-      .maybeSingle();
-    if (error && !this.isMissingUserFollowsTable(error)) {
-      throw new BadRequestException(
-        `Failed to verify DM follow gate: ${error.message}`,
-      );
-    }
-    if (!error && data) return true;
-
-    const { data: legacyData } = await supabase
-      .from('artist_follows')
-      .select('user_id')
-      .eq('user_id', senderId)
-      .eq('artist_id', recipientId)
-      .maybeSingle();
-    if (legacyData) return true;
-    return Boolean(data);
+  /**
+   * Subscription-based DM gate. Replaces the previous follow-graph check; the
+   * legacy helper is kept as a thin wrapper for any caller that imported it.
+   */
+  async canSendDm(senderId: string, _recipientId: string): Promise<boolean> {
+    void _recipientId;
+    const access = await this.proNetworkSubscription.getAccess(senderId);
+    return access.hasAccess;
   }
 }

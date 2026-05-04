@@ -669,8 +669,56 @@ export const discoveryApi = {
     mode?: 'default' | 'random';
     seed?: string;
   }) => api.get('/discovery/people', { params }),
-  listFeed: (params?: { limit?: number; cursor?: string }) =>
-    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>('/discovery/feed', { params }),
+  listFeed: (params?: {
+    limit?: number;
+    cursor?: string;
+    scope?: 'all' | 'following';
+  }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed',
+      { params },
+    ),
+  likePost: (postId: string) =>
+    api.post<{ ok: true }>(`/discovery/feed/posts/${postId}/like`),
+  unlikePost: (postId: string) =>
+    api.delete<{ ok: true }>(`/discovery/feed/posts/${postId}/like`),
+  listComments: (postId: string, params?: { limit?: number; before?: string }) =>
+    api.get<{ items: DiscoverFeedComment[] }>(
+      `/discovery/feed/posts/${postId}/comments`,
+      { params },
+    ),
+  createComment: (postId: string, body: string) =>
+    api.post<DiscoverFeedComment>(
+      `/discovery/feed/posts/${postId}/comments`,
+      { body },
+    ),
+  deleteComment: (commentId: string) =>
+    api.delete<{ ok: true }>(`/discovery/feed/comments/${commentId}`),
+  searchFeed: (q: string) =>
+    api.get<DiscoverFeedSearchResult>('/discovery/feed/search', {
+      params: { q },
+    }),
+  exploreTiles: (params?: { limit?: number; seed?: string }) =>
+    api.get<{ items: DiscoverFeedPost[] }>('/discovery/feed/explore', {
+      params,
+    }),
+  exploreStream: (params?: {
+    cursor?: string | null;
+    anchorPostId?: string | null;
+    limit?: number;
+  }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/explore-stream',
+      { params },
+    ),
+  listUserPosts: (
+    userId: string,
+    params?: { limit?: number; cursor?: string },
+  ) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      `/discovery/feed/users/${userId}/posts`,
+      { params },
+    ),
   createFeedPost: (file: File, caption?: string) => {
     const form = new FormData();
     form.append('file', file);
@@ -757,6 +805,30 @@ export interface DiscoverFeedPost {
   mediaType: 'image' | 'video';
   caption: string | null;
   createdAt: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+}
+
+export interface DiscoverFeedComment {
+  id: string;
+  postId: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorAvatarUrl: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface DiscoverFeedSearchResult {
+  people: Array<{
+    userId: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    headline: string | null;
+    role: string | null;
+  }>;
+  posts: DiscoverFeedPost[];
 }
 
 export interface DiscoveryMapHeatBucket {
@@ -931,6 +1003,29 @@ export type ProNetworxMeProfile = {
   skills: Array<{ name: string; category: string }>;
 };
 
+export interface ProServiceListing {
+  id: string;
+  ownerUserId: string;
+  ownerDisplayName: string | null;
+  ownerAvatarUrl: string | null;
+  ownerHeadline: string | null;
+  serviceType: string;
+  title: string;
+  description: string | null;
+  priceCents: number | null;
+  rateType: 'hourly' | 'fixed';
+  currency: string;
+  status: 'active' | 'paused';
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+  contact: {
+    email: string | null;
+    phone: string | null;
+    link: string | null;
+  } | null;
+}
+
 export const proNetworxApi = {
   getMeProfile: () => api.get<ProNetworxMeProfile>('/pro-networx/me/profile'),
   updateMeProfile: (data: {
@@ -956,6 +1051,94 @@ export const proNetworxApi = {
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
     api.get('/pro-networx/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
+
+  // Resume PDF
+  getMyResume: () =>
+    api.get<{ url: string | null; filename: string | null }>(
+      '/pro-networx/me/resume',
+    ),
+  uploadResume: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post<{ url: string; filename: string }>(
+      '/pro-networx/me/resume',
+      form,
+    );
+  },
+  deleteResume: () =>
+    api.delete<{ ok: true }>('/pro-networx/me/resume'),
+
+  // Services marketplace
+  listServices: (params?: {
+    serviceType?: string;
+    search?: string;
+    minPriceCents?: number;
+    maxPriceCents?: number;
+    limit?: number;
+    offset?: number;
+  }) =>
+    api.get<{ items: ProServiceListing[]; total: number }>(
+      '/pro-networx/services',
+      { params },
+    ),
+  getService: (id: string) =>
+    api.get<ProServiceListing>(`/pro-networx/services/${id}`),
+  listServicesForUser: (userId: string) =>
+    api.get<{ items: ProServiceListing[] }>(
+      `/pro-networx/users/${userId}/services`,
+    ),
+  listMyServices: () =>
+    api.get<{ items: ProServiceListing[] }>('/pro-networx/me/services'),
+  createService: (data: {
+    serviceType: string;
+    title: string;
+    description?: string;
+    priceCents?: number;
+    rateType?: 'hourly' | 'fixed';
+    currency?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    contactLink?: string;
+    isPublished?: boolean;
+  }) => api.post<ProServiceListing>('/pro-networx/me/services', data),
+  updateService: (
+    id: string,
+    data: Partial<{
+      serviceType: string;
+      title: string;
+      description: string;
+      priceCents: number;
+      rateType: 'hourly' | 'fixed';
+      currency: string;
+      contactEmail: string;
+      contactPhone: string;
+      contactLink: string;
+      isPublished: boolean;
+    }>,
+  ) => api.patch<ProServiceListing>(`/pro-networx/me/services/${id}`, data),
+  deleteService: (id: string) =>
+    api.delete<{ ok: true }>(`/pro-networx/me/services/${id}`),
+};
+
+export interface ProNetworkAccess {
+  hasAccess: boolean;
+  status:
+    | 'active'
+    | 'trialing'
+    | 'past_due'
+    | 'canceled'
+    | 'incomplete'
+    | 'incomplete_expired'
+    | 'unpaid'
+    | 'paused'
+    | null;
+  currentPeriodEnd: string | null;
+  pricing: { regularCents: number; introCents: number };
+}
+
+export const proNetworkSubscriptionApi = {
+  getAccess: () =>
+    api.get<ProNetworkAccess>('/pro-network-subscription/access'),
 };
 
 export const browseApi = {
@@ -997,6 +1180,11 @@ export const paymentsApi = {
     api.post('/payments/create-checkout-session', data),
   createCreatorNetworkCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
     api.post<{ url: string; sessionId: string }>('/payments/create-creator-network-checkout-session', data ?? {}),
+  createProNetworxCheckoutSession: (data?: { successUrl?: string; cancelUrl?: string }) =>
+    api.post<{ url: string; sessionId: string; introCouponApplied: boolean }>(
+      '/payments/create-pro-networx-checkout-session',
+      data ?? {},
+    ),
   getTransactions: () => api.get('/payments/transactions'),
   getSongPlayPrice: (songId: string) =>
     api.get<{

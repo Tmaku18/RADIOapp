@@ -28,6 +28,30 @@ export interface DiscoverFeedPost {
   mediaType: 'image' | 'video';
   caption: string | null;
   createdAt: string;
+  likeCount: number;
+  commentCount: number;
+  likedByMe: boolean;
+}
+
+export interface DiscoverFeedComment {
+  id: string;
+  postId: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorAvatarUrl: string | null;
+  body: string;
+  createdAt: string;
+}
+
+export interface DiscoverFeedSearchResult {
+  people: Array<{
+    userId: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    headline: string | null;
+    role: string | null;
+  }>;
+  posts: DiscoverFeedPost[];
 }
 
 export interface DiscoveryMapHeatBucket {
@@ -723,11 +747,81 @@ export class DiscoveryService {
   }
 
   /**
+   * Hydrate raw discover_feed_posts rows with author + engagement totals so
+   * every surface (Pro Networks Home, Search, Networks Radio Social) returns
+   * the same shape.
+   */
+  private async hydrateFeedPosts(
+    rows: any[],
+    viewerUserId?: string | null,
+  ): Promise<DiscoverFeedPost[]> {
+    if (!rows.length) return [];
+    const supabase = getSupabaseClient();
+    const postIds = rows.map((r) => r.id as string);
+
+    const [likeAgg, commentAgg, viewerLikes] = await Promise.all([
+      supabase
+        .from('discover_feed_post_likes')
+        .select('post_id')
+        .in('post_id', postIds),
+      supabase
+        .from('discover_feed_post_comments')
+        .select('post_id, deleted_at')
+        .in('post_id', postIds)
+        .is('deleted_at', null),
+      viewerUserId
+        ? supabase
+            .from('discover_feed_post_likes')
+            .select('post_id')
+            .eq('user_id', viewerUserId)
+            .in('post_id', postIds)
+        : Promise.resolve({ data: [] as Array<{ post_id: string }> }),
+    ]);
+
+    const likeCounts = new Map<string, number>();
+    for (const row of (likeAgg.data ?? []) as Array<{ post_id: string }>) {
+      likeCounts.set(row.post_id, (likeCounts.get(row.post_id) ?? 0) + 1);
+    }
+    const commentCounts = new Map<string, number>();
+    for (const row of (commentAgg.data ?? []) as Array<{ post_id: string }>) {
+      commentCounts.set(row.post_id, (commentCounts.get(row.post_id) ?? 0) + 1);
+    }
+    const viewerLikedSet = new Set<string>(
+      ((viewerLikes.data ?? []) as Array<{ post_id: string }>).map(
+        (r) => r.post_id,
+      ),
+    );
+
+    return rows.map((r) => {
+      const u = r.users;
+      const imageUrl = r.image_url as string;
+      return {
+        id: r.id,
+        authorUserId: r.author_user_id,
+        authorDisplayName: u?.display_name ?? null,
+        authorAvatarUrl: u?.avatar_url ?? null,
+        authorHeadline: u?.headline ?? null,
+        imageUrl,
+        mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
+        caption: r.caption ?? null,
+        createdAt: r.created_at,
+        likeCount: likeCounts.get(r.id) ?? 0,
+        commentCount: commentCounts.get(r.id) ?? 0,
+        likedByMe: viewerLikedSet.has(r.id),
+      };
+    });
+  }
+
+  /**
    * List discover feed posts (endless scroll). Cursor is created_at of last item.
+   * scope='following' returns only posts authored by users the viewer follows
+   * (per user_follows). scope='all' returns the global feed.
    */
   async listFeedPosts(params: {
     limit?: number;
     cursor?: string; // ISO date string, exclusive (posts before this)
+    viewerUserId?: string | null;
+    scope?: 'all' | 'following';
   }): Promise<{ items: DiscoverFeedPost[]; nextCursor: string | null }> {
     const limit = Math.min(params.limit ?? 20, 50);
     const supabase = getSupabaseClient();
@@ -751,6 +845,20 @@ export class DiscoveryService {
       query = query.lt('created_at', params.cursor);
     }
 
+    if (params.scope === 'following' && params.viewerUserId) {
+      const { data: follows } = await supabase
+        .from('user_follows')
+        .select('followed_user_id')
+        .eq('follower_user_id', params.viewerUserId);
+      const followedIds = (follows ?? []).map(
+        (r: any) => r.followed_user_id as string,
+      );
+      if (!followedIds.length) {
+        return { items: [], nextCursor: null };
+      }
+      query = query.in('author_user_id', followedIds);
+    }
+
     const { data: rows, error } = await query;
     if (error)
       throw new Error(`Failed to fetch discover feed: ${error.message}`);
@@ -761,22 +869,364 @@ export class DiscoveryService {
     const nextCursor =
       hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
 
-    const items: DiscoverFeedPost[] = slice.map((r) => {
-      const u = r.users;
-      const imageUrl = r.image_url;
+    const items = await this.hydrateFeedPosts(
+      slice,
+      params.viewerUserId ?? null,
+    );
+
+    return { items, nextCursor };
+  }
+
+  /**
+   * List a single user's discover feed posts, newest first. Used for the
+   * Instagram-style portfolio grid on Pro-Networx profiles.
+   */
+  async listPostsByAuthor(params: {
+    authorUserId: string;
+    limit?: number;
+    cursor?: string;
+    viewerUserId?: string | null;
+  }): Promise<{ items: DiscoverFeedPost[]; nextCursor: string | null }> {
+    const limit = Math.min(params.limit ?? 24, 60);
+    const supabase = getSupabaseClient();
+
+    let query = supabase
+      .from('discover_feed_posts')
+      .select(
+        `
+        id,
+        author_user_id,
+        image_url,
+        caption,
+        created_at,
+        users(display_name, avatar_url, headline)
+      `,
+      )
+      .eq('author_user_id', params.authorUserId)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+
+    if (params.cursor) {
+      query = query.lt('created_at', params.cursor);
+    }
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(`Failed to fetch user posts: ${error.message}`);
+
+    const list = (rows || []) as any[];
+    const hasMore = list.length > limit;
+    const slice = hasMore ? list.slice(0, limit) : list;
+    const nextCursor =
+      hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
+    const items = await this.hydrateFeedPosts(
+      slice,
+      params.viewerUserId ?? null,
+    );
+    return { items, nextCursor };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Engagement: likes + comments
+  // ---------------------------------------------------------------------------
+  async likePost(viewerUserId: string, postId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_feed_post_likes')
+      .upsert(
+        { post_id: postId, user_id: viewerUserId },
+        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
+      );
+    if (error) throw new Error(`Failed to like post: ${error.message}`);
+  }
+
+  async unlikePost(viewerUserId: string, postId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_feed_post_likes')
+      .delete()
+      .eq('post_id', postId)
+      .eq('user_id', viewerUserId);
+    if (error) throw new Error(`Failed to unlike post: ${error.message}`);
+  }
+
+  async listComments(
+    postId: string,
+    limit = 50,
+    before?: string,
+  ): Promise<DiscoverFeedComment[]> {
+    const supabase = getSupabaseClient();
+    let query = supabase
+      .from('discover_feed_post_comments')
+      .select(
+        `
+          id,
+          post_id,
+          author_user_id,
+          body,
+          created_at,
+          users(display_name, avatar_url)
+        `,
+      )
+      .eq('post_id', postId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .limit(Math.min(limit, 100));
+    if (before) query = query.lt('created_at', before);
+    const { data, error } = await query;
+    if (error) throw new Error(`Failed to load comments: ${error.message}`);
+    return ((data ?? []) as any[]).map((row) => {
+      const u = row.users;
       return {
-        id: r.id,
-        authorUserId: r.author_user_id,
+        id: row.id,
+        postId: row.post_id,
+        authorUserId: row.author_user_id,
         authorDisplayName: u?.display_name ?? null,
         authorAvatarUrl: u?.avatar_url ?? null,
-        authorHeadline: u?.headline ?? null,
-        imageUrl,
-        mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
-        caption: r.caption ?? null,
-        createdAt: r.created_at,
+        body: row.body,
+        createdAt: row.created_at,
       };
     });
+  }
 
+  async createComment(
+    viewerUserId: string,
+    postId: string,
+    body: string,
+  ): Promise<DiscoverFeedComment> {
+    const supabase = getSupabaseClient();
+    const trimmed = body.trim();
+    if (!trimmed) {
+      throw new Error('Comment body required');
+    }
+    const { data, error } = await supabase
+      .from('discover_feed_post_comments')
+      .insert({
+        post_id: postId,
+        author_user_id: viewerUserId,
+        body: trimmed,
+      })
+      .select(
+        `
+          id,
+          post_id,
+          author_user_id,
+          body,
+          created_at,
+          users(display_name, avatar_url)
+        `,
+      )
+      .single();
+    if (error) throw new Error(`Failed to create comment: ${error.message}`);
+    const row = data as any;
+    const u = row.users;
+    return {
+      id: row.id,
+      postId: row.post_id,
+      authorUserId: row.author_user_id,
+      authorDisplayName: u?.display_name ?? null,
+      authorAvatarUrl: u?.avatar_url ?? null,
+      body: row.body,
+      createdAt: row.created_at,
+    };
+  }
+
+  async deleteComment(
+    viewerUserId: string,
+    commentId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_feed_post_comments')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', commentId)
+      .eq('author_user_id', viewerUserId);
+    if (error) throw new Error(`Failed to delete comment: ${error.message}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Search + explore
+  // ---------------------------------------------------------------------------
+  async searchTop(
+    query: string,
+    viewerUserId?: string | null,
+  ): Promise<DiscoverFeedSearchResult> {
+    const term = query.trim();
+    if (!term) return { people: [], posts: [] };
+    const supabase = getSupabaseClient();
+    const ilike = `%${term.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+    const [peopleRes, postsRes] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, display_name, avatar_url, headline, role')
+        .or(
+          `display_name.ilike.${ilike},headline.ilike.${ilike},bio.ilike.${ilike}`,
+        )
+        .eq('is_banned', false)
+        .eq('discoverable', true)
+        .limit(10),
+      supabase
+        .from('discover_feed_posts')
+        .select(
+          `
+            id,
+            author_user_id,
+            image_url,
+            caption,
+            created_at,
+            users(display_name, avatar_url, headline)
+          `,
+        )
+        .ilike('caption', ilike)
+        .order('created_at', { ascending: false })
+        .limit(20),
+    ]);
+
+    const people = ((peopleRes.data ?? []) as any[]).map((u) => ({
+      userId: u.id,
+      displayName: u.display_name ?? null,
+      avatarUrl: u.avatar_url ?? null,
+      headline: u.headline ?? null,
+      role: u.role ?? null,
+    }));
+    const posts = await this.hydrateFeedPosts(
+      (postsRes.data ?? []) as any[],
+      viewerUserId ?? null,
+    );
+
+    return { people, posts };
+  }
+
+  /**
+   * Default-state Search tab tile grid: a small, randomized batch of recent
+   * top posts. Uses likeCount * recency as a soft "top" signal, then
+   * deterministically shuffles by a daily seed so two users see different
+   * orderings without hammering the DB.
+   */
+  async listExploreTiles(params: {
+    viewerUserId?: string | null;
+    limit?: number;
+    seed?: string;
+  }): Promise<{ items: DiscoverFeedPost[] }> {
+    const limit = Math.min(params.limit ?? 60, 120);
+    const supabase = getSupabaseClient();
+    const sinceCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString();
+    const { data, error } = await supabase
+      .from('discover_feed_posts')
+      .select(
+        `
+          id,
+          author_user_id,
+          image_url,
+          caption,
+          created_at,
+          users(display_name, avatar_url, headline)
+        `,
+      )
+      .gte('created_at', sinceCutoff)
+      .order('created_at', { ascending: false })
+      .limit(Math.max(limit * 3, 60));
+    if (error) throw new Error(`Failed to load explore: ${error.message}`);
+
+    const seed =
+      (params.seed ?? '').trim() || new Date().toISOString().slice(0, 10);
+    const ranked = ((data ?? []) as any[]).slice().sort(
+      (a, b) =>
+        this.deterministicSeededRank(a.id, seed) -
+        this.deterministicSeededRank(b.id, seed),
+    );
+
+    const items = await this.hydrateFeedPosts(
+      ranked.slice(0, limit),
+      params.viewerUserId ?? null,
+    );
+    return { items };
+  }
+
+  /**
+   * Endless vertical scroll on the Search tab once a user taps a tile.
+   * Anchors to the tapped post on first request, then returns more random top
+   * posts across users. We simulate "infinite" by paging on a randomized
+   * order keyed off the seed.
+   */
+  async streamExplore(params: {
+    viewerUserId?: string | null;
+    cursor?: string | null; // base64 JSON {seed, offset}
+    limit?: number;
+    anchorPostId?: string | null;
+  }): Promise<{
+    items: DiscoverFeedPost[];
+    nextCursor: string | null;
+  }> {
+    const limit = Math.min(params.limit ?? 12, 30);
+    let seed: string;
+    let offset = 0;
+    if (params.cursor) {
+      try {
+        const parsed = JSON.parse(
+          Buffer.from(params.cursor, 'base64').toString('utf8'),
+        ) as { seed?: string; offset?: number };
+        seed = (parsed.seed ?? '').toString();
+        offset = Math.max(0, Number(parsed.offset ?? 0));
+      } catch {
+        seed = new Date().toISOString();
+      }
+    } else {
+      seed = `${Date.now()}-${Math.random()}`;
+    }
+    const supabase = getSupabaseClient();
+    const sinceCutoff = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
+      .toISOString();
+    const { data, error } = await supabase
+      .from('discover_feed_posts')
+      .select(
+        `
+          id,
+          author_user_id,
+          image_url,
+          caption,
+          created_at,
+          users(display_name, avatar_url, headline)
+        `,
+      )
+      .gte('created_at', sinceCutoff)
+      .order('created_at', { ascending: false })
+      .limit(600);
+    if (error) {
+      throw new Error(`Failed to load explore stream: ${error.message}`);
+    }
+
+    let ranked = ((data ?? []) as any[]).slice().sort(
+      (a, b) =>
+        this.deterministicSeededRank(a.id, seed) -
+        this.deterministicSeededRank(b.id, seed),
+    );
+
+    if (params.anchorPostId && offset === 0) {
+      const idx = ranked.findIndex((r) => r.id === params.anchorPostId);
+      if (idx > 0) {
+        ranked = [
+          ranked[idx],
+          ...ranked.slice(0, idx),
+          ...ranked.slice(idx + 1),
+        ];
+      }
+    }
+
+    const slice = ranked.slice(offset, offset + limit);
+    const items = await this.hydrateFeedPosts(
+      slice,
+      params.viewerUserId ?? null,
+    );
+    const nextOffset = offset + slice.length;
+    const hasMore = nextOffset < ranked.length;
+    const nextCursor = hasMore
+      ? Buffer.from(
+          JSON.stringify({ seed, offset: nextOffset }),
+          'utf8',
+        ).toString('base64')
+      : null;
     return { items, nextCursor };
   }
 
@@ -822,6 +1272,9 @@ export class DiscoveryService {
       mediaType: params.mediaType,
       caption: r.caption ?? null,
       createdAt: r.created_at,
+      likeCount: 0,
+      commentCount: 0,
+      likedByMe: false,
     };
   }
 }

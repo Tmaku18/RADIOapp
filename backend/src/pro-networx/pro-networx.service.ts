@@ -93,6 +93,11 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
   featured?: FeaturedItem[];
   listings?: any[];
   portfolio?: any[];
+  /** Banner image (service_providers.hero_image_url) — used for LinkedIn-style cover. */
+  heroImageUrl?: string | null;
+  /** Resume PDF (mirrored from public.users.resume_url). */
+  resumeUrl?: string | null;
+  resumeFilename?: string | null;
 };
 
 @Injectable()
@@ -113,7 +118,7 @@ export class ProNetworxService {
     const { data: u, error: userErr } = await supabase
       .from('users')
       .select(
-        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at, website_url, instagram_url, twitter_url, youtube_url, tiktok_url, soundcloud_url, spotify_url, apple_music_url, facebook_url, snapchat_url',
+        'id, display_name, avatar_url, headline, bio, location_region, role, is_banned, created_at, website_url, instagram_url, twitter_url, youtube_url, tiktok_url, soundcloud_url, spotify_url, apple_music_url, facebook_url, snapchat_url, resume_url, resume_filename',
       )
       .eq('id', userId)
       .maybeSingle();
@@ -232,6 +237,9 @@ export class ProNetworxService {
       startingAtRateType: best?.rate_type ?? null,
       verifiedCatalyst: (u as any).role === 'service_provider',
       mentorOptIn: (provider as any)?.mentor_opt_in ?? false,
+      heroImageUrl: (provider as any)?.hero_image_url ?? null,
+      resumeUrl: (u as any).resume_url ?? null,
+      resumeFilename: (u as any).resume_filename ?? null,
       updatedAt: p?.updated_at ?? null,
       experience: Array.isArray(experience) ? experience : [],
       education: Array.isArray(education) ? education : [],
@@ -270,9 +278,26 @@ export class ProNetworxService {
     return data.id;
   }
 
+  /**
+   * Idempotent: makes sure pro_networx.profiles has a row for this user,
+   * seeded from the user's radio profile fields. Migration 064 creates a
+   * trigger that does this on insert + a one-time backfill, but we also call
+   * this lazily so older flows (e.g. legacy users created before the trigger)
+   * still get a profile.
+   */
+  async ensureProfileForUser(userId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    try {
+      await supabase.rpc('seed_profile_from_user', { p_user_id: userId });
+    } catch {
+      // Non-fatal: legacy DBs may not have the RPC yet.
+    }
+  }
+
   async getMyProfile(firebaseUid: string): Promise<ProProfileResponse> {
     const supabase = getSupabaseClient();
     const userId = await this.getUserId(firebaseUid);
+    await this.ensureProfileForUser(userId);
 
     const { data: user } = await supabase
       .from('users')

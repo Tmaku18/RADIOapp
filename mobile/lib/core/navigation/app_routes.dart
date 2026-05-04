@@ -18,6 +18,12 @@ class AppRoutes {
   static const proDirectory = '/pro-directory';
   static const proMeProfile = '/pro-me-profile';
   static const proProfile = '/pro-profile';
+  // New Pro Networks app shell.
+  static const proNetworxLanding = '/pro-networx';
+  static const proNetworxShell = '/pro-networx/shell';
+  static const proNetworxExploreDetail = '/pro-networx/explore-detail';
+  static const proNetworxServiceDetail = '/pro-networx/service-detail';
+  static const proNetworxMyServices = '/pro-networx/my-services';
   static const nearbyPeople = '/nearby-people';
   static const refinery = '/refinery';
   static const yield = '/yield';

@@ -214,6 +214,54 @@ export class PaymentsController {
   }
 
   /**
+   * Create a Stripe Checkout Session for Pro Networks subscription
+   * ($9.99/mo, $4.99 first month via duration:once coupon).
+   */
+  @Post('create-pro-networx-checkout-session')
+  @UseGuards(FirebaseAuthGuard)
+  async createProNetworxCheckoutSession(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { successUrl?: string; cancelUrl?: string },
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    const webUrl = process.env.WEB_URL || 'http://localhost:3001';
+    const successUrl =
+      body.successUrl || `${webUrl}/pro-networx/home?pro_networx=success`;
+    const cancelUrl =
+      body.cancelUrl || `${webUrl}/pro-networx?pro_networx=canceled`;
+    return this.paymentsService.createProNetworxCheckoutSession(
+      userData.id,
+      successUrl,
+      cancelUrl,
+    );
+  }
+
+  /**
+   * Build Stripe Payment Sheet payload for the mobile app.
+   */
+  @Post('create-pro-networx-payment-sheet')
+  @UseGuards(FirebaseAuthGuard)
+  async createProNetworxPaymentSheet(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new Error('User not found');
+    return this.paymentsService.createProNetworxPaymentSheet({
+      userId: userData.id,
+      customerEmail: (userData as { email?: string }).email ?? null,
+    });
+  }
+
+  /**
    * Stripe webhook handler for payment events.
    *
    * Events handled:
@@ -265,10 +313,21 @@ export class PaymentsController {
             session.subscription &&
             session.client_reference_id
           ) {
-            await this.paymentsService.handleCreatorNetworkCheckoutCompleted(
+            const sub = await this.stripeService.getSubscription(
               session.subscription,
-              session.client_reference_id,
             );
+            const priceId = sub.items?.data?.[0]?.price?.id ?? '';
+            if (priceId === this.stripeService.getProNetworxPriceId()) {
+              await this.paymentsService.handleProNetworxCheckoutCompleted(
+                session.subscription,
+                session.client_reference_id,
+              );
+            } else {
+              await this.paymentsService.handleCreatorNetworkCheckoutCompleted(
+                session.subscription,
+                session.client_reference_id,
+              );
+            }
           } else if (session.payment_status === 'paid') {
             await this.paymentsService.handleCheckoutSessionCompleted(
               session.id,
@@ -295,19 +354,53 @@ export class PaymentsController {
             id: string;
             status: string;
             current_period_end?: number;
+            customer?: string | { id: string };
             items?: { data?: Array<{ price?: { id?: string } }> };
           };
-          await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(
-            subscription,
-          );
+          const priceId =
+            subscription.items?.data?.[0]?.price?.id ?? '';
+          if (priceId === this.stripeService.getProNetworxPriceId()) {
+            await this.paymentsService.handleProNetworxSubscriptionUpdated(
+              subscription,
+            );
+          } else {
+            await this.paymentsService.handleCreatorNetworkSubscriptionUpdated(
+              subscription,
+            );
+          }
           break;
         }
 
         case 'customer.subscription.deleted': {
-          const subscription = event.data.object as { id: string };
-          await this.paymentsService.handleCreatorNetworkSubscriptionDeleted(
-            subscription.id,
-          );
+          const subscription = event.data.object as {
+            id: string;
+            items?: { data?: Array<{ price?: { id?: string } }> };
+          };
+          const priceId =
+            subscription.items?.data?.[0]?.price?.id ?? '';
+          if (priceId === this.stripeService.getProNetworxPriceId()) {
+            await this.paymentsService.handleProNetworxSubscriptionDeleted(
+              subscription.id,
+            );
+          } else {
+            await this.paymentsService.handleCreatorNetworkSubscriptionDeleted(
+              subscription.id,
+            );
+          }
+          break;
+        }
+
+        case 'setup_intent.succeeded': {
+          const intent = event.data.object as {
+            id: string;
+            customer?: string | { id: string };
+            metadata?: Record<string, string>;
+          };
+          if (intent.metadata?.productKey === 'pro_networx_subscription') {
+            await this.paymentsService.handleProNetworxSetupIntentSucceeded(
+              intent,
+            );
+          }
           break;
         }
 

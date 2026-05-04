@@ -1,13 +1,23 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { proNetworxApi, type ExperienceItem, type EducationItem, type FeaturedItem } from '@/lib/api';
+import { FileText, MessageSquare, Briefcase } from 'lucide-react';
+import {
+  discoveryApi,
+  proNetworxApi,
+  type DiscoverFeedPost,
+  type EducationItem,
+  type ExperienceItem,
+  type FeaturedItem,
+  type ProServiceListing,
+} from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 type ProviderListing = {
   id: string;
@@ -61,6 +71,9 @@ type ProPublicProfile = {
   startingAtRateType?: 'hourly' | 'fixed' | null;
   verifiedCatalyst?: boolean;
   mentorOptIn?: boolean;
+  heroImageUrl?: string | null;
+  resumeUrl?: string | null;
+  resumeFilename?: string | null;
   updatedAt: string | null;
   experience?: ExperienceItem[];
   education?: EducationItem[];
@@ -69,44 +82,77 @@ type ProPublicProfile = {
   portfolio?: PortfolioItem[];
 };
 
-function shouldUnoptimizeImage(url?: string | null): boolean {
+function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
 }
 
-function formatRate(rateCents: number | null, rateType: 'hourly' | 'fixed'): string {
-  if (rateCents == null) return 'Contact for pricing';
-  const dollars = (rateCents / 100).toFixed(2);
-  return rateType === 'hourly' ? `$${dollars}/hr` : `$${dollars}`;
+function formatPriceCents(
+  cents: number | null,
+  rateType: 'hourly' | 'fixed' | null | undefined,
+): string {
+  if (cents == null) return 'Contact for pricing';
+  return `$${(cents / 100).toFixed(2)}${rateType === 'hourly' ? '/hr' : ''}`;
 }
 
 export default function ProNetworxProfilePage() {
   const params = useParams();
   const id = params.id as string;
+  const { user } = useAuth();
+  const isMe = !!user && user.uid === id;
 
   const [data, setData] = useState<ProPublicProfile | null>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [services, setServices] = useState<ProServiceListing[]>([]);
+  const [portfolioPosts, setPortfolioPosts] = useState<DiscoverFeedPost[]>([]);
 
   useEffect(() => {
     let alive = true;
-    proNetworxApi.getProfileByUserId(id).then((res) => {
-      if (!alive) return;
-      setData(res.data as ProPublicProfile);
-      setLoadError(false);
-      setLoadedId(id);
-    }).catch((e) => {
-      console.error('Failed to load profile:', e);
-      if (alive) {
-        setData(null);
-        setLoadError(true);
+    proNetworxApi
+      .getProfileByUserId(id)
+      .then((res) => {
+        if (!alive) return;
+        setData(res.data as ProPublicProfile);
+        setLoadError(false);
         setLoadedId(id);
-      }
-    });
-    return () => { alive = false; };
+      })
+      .catch((e) => {
+        console.error('Failed to load profile:', e);
+        if (alive) {
+          setData(null);
+          setLoadError(true);
+          setLoadedId(id);
+        }
+      });
+    return () => {
+      alive = false;
+    };
   }, [id]);
 
+  const loadServices = useCallback(async () => {
+    try {
+      const res = await proNetworxApi.listServicesForUser(id);
+      setServices(res.data.items);
+    } catch {
+      setServices([]);
+    }
+  }, [id]);
+
+  const loadPortfolioPosts = useCallback(async () => {
+    try {
+      const res = await discoveryApi.listUserPosts(id, { limit: 24 });
+      setPortfolioPosts(res.data.items);
+    } catch {
+      setPortfolioPosts([]);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void loadServices();
+    void loadPortfolioPosts();
+  }, [loadServices, loadPortfolioPosts]);
+
   const loading = loadedId !== id;
-  const activeListings = useMemo(() => (data?.listings ?? []).filter((l) => l.status === 'active'), [data?.listings]);
   const socialLinks = useMemo(
     () =>
       [
@@ -123,11 +169,16 @@ export default function ProNetworxProfilePage() {
       ].filter((item) => !!item.url?.trim()),
     [data],
   );
-  const experience = (data?.experience ?? []).filter((e) => e.title?.trim() || e.company?.trim());
+  const experience = (data?.experience ?? []).filter(
+    (e) => e.title?.trim() || e.company?.trim(),
+  );
   const education = (data?.education ?? []).filter((e) => e.school?.trim());
-  const featured = (data?.featured ?? []).filter((f) => f.url?.trim() || f.title?.trim());
+  const featured = (data?.featured ?? []).filter(
+    (f) => f.url?.trim() || f.title?.trim(),
+  );
   const aboutText = (data?.about ?? data?.bio ?? '').trim();
-  const headlineText = data?.currentTitle ?? data?.skillsHeadline ?? data?.headline ?? '—';
+  const headlineText =
+    data?.currentTitle ?? data?.skillsHeadline ?? data?.headline ?? '—';
 
   return (
     <div className="container max-w-6xl py-6 sm:py-8">
@@ -143,19 +194,29 @@ export default function ProNetworxProfilePage() {
         </Card>
       ) : (
         <>
-          {/* Hero / top profile card (LinkedIn®-style) */}
+          {/* Hero / banner card */}
           <Card className="glass-panel border border-border overflow-hidden mb-6">
-            <div className="relative w-full h-32 sm:h-40 bg-muted/50">
-              {data.mediaPreviewUrl && data.mediaPreviewType === 'image' && (
+            <div className="relative w-full h-32 sm:h-44 bg-muted/50">
+              {data.heroImageUrl ? (
+                <Image
+                  src={data.heroImageUrl}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  unoptimized={shouldUnoptimize(data.heroImageUrl)}
+                />
+              ) : data.mediaPreviewUrl && data.mediaPreviewType === 'image' ? (
                 <Image
                   src={data.mediaPreviewUrl}
                   alt=""
                   fill
                   className="object-cover opacity-80"
-                  unoptimized={shouldUnoptimizeImage(data.mediaPreviewUrl)}
+                  unoptimized={shouldUnoptimize(data.mediaPreviewUrl)}
                 />
+              ) : (
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/30 via-primary/10 to-transparent" />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
             </div>
             <CardContent className="relative px-4 sm:px-6 pb-6 -mt-16 sm:-mt-20">
               <div className="flex flex-col sm:flex-row sm:items-end gap-4">
@@ -167,7 +228,7 @@ export default function ProNetworxProfilePage() {
                       width={128}
                       height={128}
                       className="rounded-full object-cover border-4 border-background shadow-lg size-24 sm:size-32 shrink-0"
-                      unoptimized={shouldUnoptimizeImage(data.avatarUrl)}
+                      unoptimized={shouldUnoptimize(data.avatarUrl)}
                     />
                   ) : (
                     <div className="size-24 sm:size-32 rounded-full bg-muted border-4 border-background flex items-center justify-center text-4xl shrink-0">
@@ -178,44 +239,60 @@ export default function ProNetworxProfilePage() {
                     <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
                       {data.displayName || 'Unnamed'}
                     </h1>
-                    <p className="text-muted-foreground mt-0.5">
-                      {headlineText}
-                    </p>
+                    <p className="text-muted-foreground mt-0.5">{headlineText}</p>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-sm text-muted-foreground">
                       {data.locationRegion && <span>📍 {data.locationRegion}</span>}
-                      {data.websiteUrl && (
-                        <a href={data.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate max-w-[200px]">
-                          Contact info
-                        </a>
-                      )}
                     </div>
                     <div className="flex flex-wrap gap-2 mt-3">
                       {data.verifiedCatalyst && (
-                        <Badge className="bg-[color:var(--brand-verified)] text-primary-foreground border-0">Verified Catalyst</Badge>
+                        <Badge className="bg-[color:var(--brand-verified)] text-primary-foreground border-0">
+                          Verified Catalyst
+                        </Badge>
                       )}
                       {data.availableForWork && (
                         <Badge variant="secondary">Open to work</Badge>
                       )}
                       {data.mentorOptIn && (
-                        <Badge variant="outline" className="border-primary/30">Mentor</Badge>
+                        <Badge variant="outline" className="border-primary/30">
+                          Mentor
+                        </Badge>
                       )}
                     </div>
                   </div>
                 </div>
                 <div className="hidden sm:flex gap-2 shrink-0 ml-auto">
-                  <Button asChild className="bg-primary text-primary-foreground hover:opacity-90">
-                    <Link href={`/messages?with=${data.userId}`}>Message</Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link href="/pro-networx/directory">Back to directory</Link>
-                  </Button>
+                  {isMe ? (
+                    <Button asChild>
+                      <Link href="/pro-networx/me">Edit profile</Link>
+                    </Button>
+                  ) : (
+                    <Button asChild className="bg-primary text-primary-foreground hover:opacity-90">
+                      <Link
+                        href={`/messages?to=${data.userId}`}
+                        className="inline-flex items-center gap-1"
+                      >
+                        <MessageSquare className="h-4 w-4" /> Message
+                      </Link>
+                    </Button>
+                  )}
+                  {data.resumeUrl && (
+                    <Button variant="outline" asChild>
+                      <a
+                        href={data.resumeUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1"
+                      >
+                        <FileText className="h-4 w-4" /> Resume
+                      </a>
+                    </Button>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-            {/* Main column: About, Featured, Experience, Education, Portfolio */}
             <div className="space-y-6">
               {aboutText && (
                 <Card className="glass-panel border border-border">
@@ -276,7 +353,10 @@ export default function ProNetworxProfilePage() {
                     <h2 className="text-lg font-semibold text-foreground">Experience</h2>
                     <ul className="space-y-5">
                       {experience.map((exp, i) => (
-                        <li key={i} className="border-b border-border last:border-0 last:pb-0 pb-5 last:pb-0">
+                        <li
+                          key={i}
+                          className="border-b border-border last:border-0 pb-5 last:pb-0"
+                        >
                           <div className="font-semibold text-foreground">{exp.title}</div>
                           <div className="text-sm text-muted-foreground">
                             {exp.company}
@@ -284,10 +364,14 @@ export default function ProNetworxProfilePage() {
                           </div>
                           <div className="text-xs text-muted-foreground mt-0.5">
                             {exp.startDate}
-                            {exp.endDate || exp.current ? ` – ${exp.current ? 'Present' : exp.endDate}` : ''}
+                            {exp.endDate || exp.current
+                              ? ` – ${exp.current ? 'Present' : exp.endDate}`
+                              : ''}
                           </div>
                           {exp.description && (
-                            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{exp.description}</p>
+                            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
+                              {exp.description}
+                            </p>
                           )}
                         </li>
                       ))}
@@ -302,7 +386,10 @@ export default function ProNetworxProfilePage() {
                     <h2 className="text-lg font-semibold text-foreground">Education</h2>
                     <ul className="space-y-5">
                       {education.map((edu, i) => (
-                        <li key={i} className="border-b border-border last:border-0 last:pb-0 pb-5 last:pb-0">
+                        <li
+                          key={i}
+                          className="border-b border-border last:border-0 pb-5 last:pb-0"
+                        >
                           <div className="font-semibold text-foreground">{edu.school}</div>
                           <div className="text-sm text-muted-foreground">
                             {[edu.degree, edu.field].filter(Boolean).join(' · ')}
@@ -312,7 +399,9 @@ export default function ProNetworxProfilePage() {
                             {edu.endYear ? ` – ${edu.endYear}` : ''}
                           </div>
                           {edu.description && (
-                            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">{edu.description}</p>
+                            <p className="text-sm text-muted-foreground mt-2 whitespace-pre-wrap">
+                              {edu.description}
+                            </p>
                           )}
                         </li>
                       ))}
@@ -321,85 +410,175 @@ export default function ProNetworxProfilePage() {
                 </Card>
               )}
 
+              {/* Instagram-style portfolio grid (Pro-Networx feed posts) */}
               <Card className="glass-panel border border-border">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <h2 className="text-lg font-semibold text-foreground">Portfolio</h2>
-                    <span className="text-xs text-muted-foreground">{(data.portfolio ?? []).length} items</span>
+                    <span className="text-xs text-muted-foreground">
+                      {portfolioPosts.length} posts
+                    </span>
                   </div>
-                  {(data.portfolio ?? []).length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No portfolio items yet.</p>
+                  {portfolioPosts.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No posts yet. Posts on Pro-Networx show up here as a portfolio.
+                    </p>
                   ) : (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {(data.portfolio ?? []).slice(0, 6).map((p) => (
-                        <Card key={p.id} className="overflow-hidden border border-border bg-card">
-                          <CardContent className="p-0">
-                            {p.type === 'image' && (
-                               
-                              <img src={p.fileUrl} alt={p.title ?? 'Portfolio'} className="w-full h-36 object-cover" />
-                            )}
-                            {p.type === 'video' && (
-                              <div className="w-full aspect-video bg-muted">
-                                <video src={p.fileUrl} controls className="w-full h-full object-contain" title={p.title ?? 'Video'} />
-                              </div>
-                            )}
-                            {p.type === 'audio' && <audio controls src={p.fileUrl} className="w-full" />}
-                            <div className="p-3 space-y-1">
-                              {p.title && <p className="font-medium text-foreground text-sm">{p.title}</p>}
-                              {p.description && <p className="text-xs text-muted-foreground line-clamp-2">{p.description}</p>}
-                            </div>
-                          </CardContent>
-                        </Card>
+                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                      {portfolioPosts.map((post) => (
+                        <Link
+                          key={post.id}
+                          href={`/pro-networx/explore/${post.id}`}
+                          className="relative aspect-square overflow-hidden rounded-md bg-muted group"
+                        >
+                          {post.mediaType === 'video' ? (
+                            <video
+                              src={post.imageUrl}
+                              muted
+                              playsInline
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Image
+                              src={post.imageUrl}
+                              alt={post.caption || 'Post'}
+                              fill
+                              sizes="(max-width: 640px) 33vw, 200px"
+                              className="object-cover transition-transform duration-200 group-hover:scale-105"
+                              unoptimized={shouldUnoptimize(post.imageUrl)}
+                            />
+                          )}
+                        </Link>
                       ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
+
+              {/* Legacy provider portfolio (audio / video / images) */}
+              {(data.portfolio ?? []).length > 0 && (
+                <Card className="glass-panel border border-border">
+                  <CardContent className="pt-6 space-y-4">
+                    <h2 className="text-lg font-semibold text-foreground">Featured work</h2>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {(data.portfolio ?? []).slice(0, 6).map((p) => (
+                        <Card key={p.id} className="overflow-hidden border border-border bg-card">
+                          <CardContent className="p-0">
+                            {p.type === 'image' && (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={p.fileUrl}
+                                alt={p.title ?? 'Portfolio'}
+                                className="w-full h-36 object-cover"
+                              />
+                            )}
+                            {p.type === 'video' && (
+                              <div className="w-full aspect-video bg-muted">
+                                <video
+                                  src={p.fileUrl}
+                                  controls
+                                  className="w-full h-full object-contain"
+                                  title={p.title ?? 'Video'}
+                                />
+                              </div>
+                            )}
+                            {p.type === 'audio' && (
+                              <audio controls src={p.fileUrl} className="w-full" />
+                            )}
+                            <div className="p-3 space-y-1">
+                              {p.title && (
+                                <p className="font-medium text-foreground text-sm">{p.title}</p>
+                              )}
+                              {p.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2">
+                                  {p.description}
+                                </p>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
-            {/* Side rail: Services, Contact / links */}
+            {/* Side rail: Services + Resume + Social */}
             <div className="space-y-6">
-              <Card className="glass-panel border border-border sticky top-4">
+              {data.resumeUrl && (
+                <Card className="glass-panel border border-border">
+                  <CardContent className="pt-6 space-y-2">
+                    <h2 className="text-lg font-semibold text-foreground inline-flex items-center gap-2">
+                      <FileText className="h-4 w-4" /> Resume
+                    </h2>
+                    <a
+                      href={data.resumeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block text-primary hover:underline text-sm break-all"
+                    >
+                      {data.resumeFilename || 'View resume'}
+                    </a>
+                  </CardContent>
+                </Card>
+              )}
+
+              <Card className="glass-panel border border-border sticky top-20">
                 <CardContent className="pt-6 space-y-4">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-lg font-semibold text-foreground">Services</h2>
-                    <Badge variant="outline" className="border-primary/30 shrink-0">{activeListings.length} active</Badge>
+                    <h2 className="text-lg font-semibold text-foreground inline-flex items-center gap-2">
+                      <Briefcase className="h-4 w-4" /> Services
+                    </h2>
+                    <Badge variant="outline" className="border-primary/30 shrink-0">
+                      {services.length}
+                    </Badge>
                   </div>
-                  {activeListings.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">No active listings yet.</p>
+                  {services.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">No services listed.</p>
                   ) : (
                     <div className="space-y-3">
-                      {activeListings.map((l) => (
-                        <div key={l.id} className="rounded-lg border border-border p-3 space-y-2">
+                      {services.map((l) => (
+                        <Link
+                          key={l.id}
+                          href={`/pro-networx/services/${l.id}`}
+                          className="block rounded-lg border border-border p-3 space-y-1 hover:bg-muted/40 transition-colors"
+                        >
                           <div className="flex justify-between gap-2">
-                            <p className="font-medium text-foreground text-sm truncate">{l.title}</p>
-                            <span className="text-xs font-mono text-foreground shrink-0">{formatRate(l.rateCents, l.rateType)}</span>
+                            <p className="font-medium text-foreground text-sm truncate">
+                              {l.title}
+                            </p>
+                            <span className="text-xs font-mono text-foreground shrink-0">
+                              {formatPriceCents(l.priceCents, l.rateType)}
+                            </span>
                           </div>
-                          <p className="text-xs text-muted-foreground capitalize">{l.serviceType.replace(/_/g, ' ')}</p>
+                          <p className="text-xs text-muted-foreground capitalize">
+                            {l.serviceType.replace(/_/g, ' ')}
+                          </p>
                           {l.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{l.description}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">
+                              {l.description}
+                            </p>
                           )}
-                          <Button asChild size="sm" className="w-full bg-primary text-primary-foreground hover:opacity-90">
-                            <Link href={`/messages?with=${data.userId}`}>Message</Link>
-                          </Button>
-                        </div>
+                        </Link>
                       ))}
                     </div>
                   )}
-
-                  <div className="pt-4 border-t border-border space-y-2">
-                    <p className="text-sm text-muted-foreground">
-                      {data.startingAtCents != null
-                        ? `Starting at $${(data.startingAtCents / 100).toFixed(2)}${data.startingAtRateType === 'hourly' ? '/hr' : ''}`
-                        : 'Contact for pricing'}
-                    </p>
-                    <Button asChild className="w-full bg-primary text-primary-foreground hover:opacity-90">
-                      <Link href={`/messages?with=${data.userId}`}>Message</Link>
-                    </Button>
-                    <Button variant="outline" asChild className="w-full">
-                      <Link href="/pro-networx/directory">Back to directory</Link>
-                    </Button>
-                  </div>
+                  {!isMe && (
+                    <div className="pt-4 border-t border-border space-y-2">
+                      <Button
+                        asChild
+                        className="w-full bg-primary text-primary-foreground hover:opacity-90"
+                      >
+                        <Link
+                          href={`/messages?to=${data.userId}`}
+                          className="inline-flex items-center gap-1 justify-center"
+                        >
+                          <MessageSquare className="h-4 w-4" /> Message
+                        </Link>
+                      </Button>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -427,12 +606,18 @@ export default function ProNetworxProfilePage() {
           </div>
 
           <div className="mt-6 flex sm:hidden gap-2">
-            <Button asChild className="flex-1 bg-primary text-primary-foreground hover:opacity-90">
-              <Link href={`/messages?with=${data.userId}`}>Message</Link>
-            </Button>
-            <Button variant="outline" asChild className="flex-1">
-              <Link href="/pro-networx/directory">Back to directory</Link>
-            </Button>
+            {isMe ? (
+              <Button asChild className="flex-1">
+                <Link href="/pro-networx/me">Edit profile</Link>
+              </Button>
+            ) : (
+              <Button
+                asChild
+                className="flex-1 bg-primary text-primary-foreground hover:opacity-90"
+              >
+                <Link href={`/messages?to=${data.userId}`}>Message</Link>
+              </Button>
+            )}
           </div>
         </>
       )}
