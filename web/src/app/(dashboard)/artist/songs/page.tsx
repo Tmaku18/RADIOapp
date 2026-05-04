@@ -140,9 +140,6 @@ export default function MySongsPage() {
   const [featuredSearchLoading, setFeaturedSearchLoading] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
-  const [discoverActionSongId, setDiscoverActionSongId] = useState<string | null>(
-    null,
-  );
   const [likesDialogOpen, setLikesDialogOpen] = useState(false);
   const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
   const [likesDialogSongTitle, setLikesDialogSongTitle] = useState<string>('');
@@ -319,80 +316,6 @@ export default function MySongsPage() {
       setError(errorMessage(err, 'Failed to delete song'));
     } finally {
       setDeletingSongId(null);
-    }
-  };
-
-  const unpublishDiscoverForSong = async (song: Song) => {
-    setDiscoverActionSongId(song.id);
-    setError(null);
-    try {
-      await songsApi.unpublishDiscoverFromLibrary(song.id);
-      setSongs((prev) =>
-        prev.map((row) =>
-          row.id === song.id
-            ? {
-                ...row,
-                discoverEnabled: false,
-                discoverClipUrl: null,
-                discoverBackgroundUrl: null,
-                discoverClipStartSeconds: null,
-                discoverClipEndSeconds: null,
-                discoverClipDurationSeconds: null,
-              }
-            : row,
-        ),
-      );
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to delete Discover swipe clip'));
-    } finally {
-      setDiscoverActionSongId(null);
-    }
-  };
-
-  const repostDiscoverForSong = async (song: Song) => {
-    setDiscoverActionSongId(song.id);
-    setError(null);
-    try {
-      const clipStartSeconds = song.discoverClipStartSeconds ?? 0;
-      const clipEndSeconds = song.discoverClipEndSeconds ?? 15;
-      const publishResponse = await songsApi.publishDiscoverFromLibrary(song.id, {
-        clipStartSeconds,
-        clipEndSeconds,
-        discoverBackgroundUrl:
-          song.discoverBackgroundUrl || song.artworkUrl || undefined,
-      });
-      const updated = publishResponse.data as {
-        discoverEnabled?: boolean;
-        discoverClipUrl?: string | null;
-        discoverBackgroundUrl?: string | null;
-        discoverClipStartSeconds?: number | null;
-        discoverClipEndSeconds?: number | null;
-        discoverClipDurationSeconds?: number | null;
-      };
-      setSongs((prev) =>
-        prev.map((row) =>
-          row.id === song.id
-            ? {
-                ...row,
-                discoverEnabled: updated.discoverEnabled ?? true,
-                discoverClipUrl: updated.discoverClipUrl ?? row.discoverClipUrl,
-                discoverBackgroundUrl:
-                  updated.discoverBackgroundUrl ?? row.discoverBackgroundUrl,
-                discoverClipStartSeconds:
-                  updated.discoverClipStartSeconds ?? clipStartSeconds,
-                discoverClipEndSeconds:
-                  updated.discoverClipEndSeconds ?? clipEndSeconds,
-                discoverClipDurationSeconds:
-                  updated.discoverClipDurationSeconds ??
-                  clipEndSeconds - clipStartSeconds,
-              }
-            : row,
-        ),
-      );
-    } catch (err) {
-      setError(errorMessage(err, 'Failed to repost Discover swipe clip'));
-    } finally {
-      setDiscoverActionSongId(null);
     }
   };
 
@@ -593,221 +516,166 @@ export default function MySongsPage() {
                 <TableHead>Song</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Visibility</TableHead>
-                <TableHead>Discover</TableHead>
-                <TableHead>Refinery</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Availability</TableHead>
                 <TableHead>Stats</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {songs.map((song) => (
-                <TableRow key={song.id}>
-                  <TableCell>
-                    <div className="flex items-center">
-                      <div className="h-10 w-10 flex-shrink-0">
+              {songs.map((song) => {
+                const isApproved = song.status === 'approved';
+                return (
+                  <TableRow key={song.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
                         <ArtworkImage
                           src={song.artworkUrl}
                           alt={song.title}
-                          className="h-10 w-10 rounded-lg object-cover"
+                          className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
                         />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-foreground">{song.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {song.isExplicit ? 'Explicit' : 'Clean'}
-                        </div>
-                        <div className="text-sm text-muted-foreground">{song.artistName}</div>
-                        {(song.featuredArtists?.length ?? 0) > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            Feat:{' '}
-                            {song.featuredArtists?.map((artist, index) => (
-                              <React.Fragment key={artist.id}>
-                                {index > 0 ? ', ' : null}
-                                <Link
-                                  href={`/artist/${artist.id}`}
-                                  className="text-primary hover:underline"
-                                >
-                                  {artist.displayName || 'Artist'}
-                                </Link>
-                              </React.Fragment>
-                            ))}
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">
+                            {song.title}
                           </div>
-                        )}
+                          <div className="text-xs text-muted-foreground truncate">
+                            {song.artistName}
+                            <span className="mx-1">·</span>
+                            {song.isExplicit ? 'Explicit' : 'Clean'}
+                            {song.durationSeconds ? (
+                              <>
+                                <span className="mx-1">·</span>
+                                {formatDuration(song.durationSeconds)}
+                              </>
+                            ) : null}
+                          </div>
+                          {(song.featuredArtists?.length ?? 0) > 0 && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              Feat:{' '}
+                              {song.featuredArtists?.map((artist, index) => (
+                                <React.Fragment key={artist.id}>
+                                  {index > 0 ? ', ' : null}
+                                  <Link
+                                    href={`/artist/${artist.id}`}
+                                    className="text-primary hover:underline"
+                                  >
+                                    {artist.displayName || 'Artist'}
+                                  </Link>
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusVariant(song.status)}>
-                      {song.status === 'pending' ? 'Awaiting Review' : song.status.charAt(0).toUpperCase() + song.status.slice(1)}
-                    </Badge>
-                    {song.status === 'rejected' && song.rejectionReason && (
-                      <div className="text-xs text-destructive mt-1" title={song.rejectionReason}>
-                        {song.rejectionReason.substring(0, 30)}...
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-2">
-                      <Badge variant={song.isPublic === false ? 'secondary' : 'default'}>
-                        {song.isPublic === false ? 'Private' : 'Public'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(song.status)}>
+                        {song.status === 'pending'
+                          ? 'Awaiting Review'
+                          : song.status.charAt(0).toUpperCase() + song.status.slice(1)}
                       </Badge>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="w-full"
+                      {song.status === 'rejected' && song.rejectionReason && (
+                        <div
+                          className="text-xs text-destructive mt-1 max-w-[160px] truncate"
+                          title={song.rejectionReason}
+                        >
+                          {song.rejectionReason}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2"
                         disabled={visibilityToggling === song.id}
                         onClick={() => toggleVisibility(song.id, song.isPublic === false)}
                         title="Private songs do not play on radio. They can still be submitted to The Refinery."
                       >
-                        {visibilityToggling === song.id
-                          ? '…'
-                          : song.isPublic === false
-                            ? 'Make public'
-                            : 'Make private'}
-                      </Button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {song.discoverEnabled ? (
-                      <div className="text-xs text-muted-foreground space-y-2">
-                        <p className="font-medium text-foreground">Enabled</p>
-                        <p>
-                          {(song.discoverClipDurationSeconds ?? 15).toString()}s clip
-                        </p>
+                        <Badge
+                          variant={song.isPublic === false ? 'secondary' : 'default'}
+                        >
+                          {song.isPublic === false ? 'Private' : 'Public'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground hover:text-foreground">
+                          {visibilityToggling === song.id
+                            ? '…'
+                            : song.isPublic === false
+                              ? 'Make public'
+                              : 'Make private'}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-foreground">
+                        {song.listenCount ?? song.playCount} listens
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <span>{song.likeCount} likes</span>
+                        <button
+                          type="button"
+                          className="text-primary hover:underline"
+                          onClick={() => {
+                            setLikesDialogSongId(song.id);
+                            setLikesDialogSongTitle(song.title);
+                            setLikesDialogOpen(true);
+                          }}
+                        >
+                          View
+                        </button>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {isApproved && (
+                          <>
+                            {song.inRefinery ? (
+                              <Button asChild size="sm">
+                                <Link href={`/refinery/analytics/${song.id}`}>
+                                  Reviews ({song.refineryReviewCount ?? 0}/
+                                  {song.refineryMinReviews ?? 100})
+                                </Link>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setRefinerySubmitSong(song)}
+                                title={`Pay $${REFINERY_SUBMISSION_PRICE_USD} to get an in-depth review`}
+                              >
+                                Submit to Refinery (${REFINERY_SUBMISSION_PRICE_USD})
+                              </Button>
+                            )}
+                          </>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
-                          disabled={discoverActionSongId === song.id}
-                          onClick={() => void unpublishDiscoverForSong(song)}
+                          onClick={() => openEditModal(song)}
                         >
-                          {discoverActionSongId === song.id
-                            ? 'Deleting...'
-                            : 'Delete Swipe'}
+                          Edit
                         </Button>
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        <span className="text-xs text-muted-foreground block">Off</span>
                         <Button
-                          variant="outline"
+                          variant="destructive"
                           size="sm"
-                          disabled={discoverActionSongId === song.id}
-                          onClick={() => void repostDiscoverForSong(song)}
+                          disabled={deletingSongId === song.id}
+                          onClick={() => void handleDeleteSong(song)}
                         >
-                          {discoverActionSongId === song.id
-                            ? 'Reposting...'
-                            : 'Repost Swipe'}
+                          {deletingSongId === song.id ? 'Deleting…' : 'Delete'}
                         </Button>
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {song.inRefinery ? (
-                      <div className="space-y-2">
-                        <div className="text-xs text-muted-foreground">
-                          {song.refineryReviewCount ?? 0} / {song.refineryMinReviews ?? 100} reviews
-                        </div>
-                        <div className="flex flex-col gap-1">
-                          <Button asChild size="sm" variant="default">
-                            <Link href={`/refinery/analytics/${song.id}`}>
-                              View reviews
-                            </Link>
-                          </Button>
+                        {isApproved && song.inRefinery && (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             disabled={refineryToggling === song.id}
                             onClick={() => withdrawFromRefinery(song.id)}
+                            title="Remove from The Refinery (no refund)"
                           >
                             {refineryToggling === song.id ? '…' : 'Withdraw'}
                           </Button>
-                        </div>
+                        )}
                       </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setRefinerySubmitSong(song)}
-                        title={`Pay $${REFINERY_SUBMISSION_PRICE_USD} to get an in-depth review`}
-                      >
-                        Submit (${REFINERY_SUBMISSION_PRICE_USD})
-                      </Button>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{formatDuration(song.durationSeconds)}</TableCell>
-                  <TableCell>
-                    <div className="text-sm text-foreground">
-                      {song.status === 'approved' ? 'Active' : 'Pending review'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm text-foreground">{song.listenCount ?? song.playCount} listens</div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">{song.likeCount} likes</span>
-                      <button
-                        type="button"
-                        className="text-xs text-primary hover:underline"
-                        onClick={() => {
-                          setLikesDialogSongId(song.id);
-                          setLikesDialogSongTitle(song.title);
-                          setLikesDialogOpen(true);
-                        }}
-                      >
-                        View
-                      </button>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {song.status === 'approved' ? (
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
-                          Edit
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingSongId === song.id}
-                          onClick={() => void handleDeleteSong(song)}
-                        >
-                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
-                        </Button>
-                      </div>
-                    ) : song.status === 'pending' ? (
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
-                          Edit
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingSongId === song.id}
-                          onClick={() => void handleDeleteSong(song)}
-                        >
-                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
-                        </Button>
-                        <span className="text-muted-foreground">Pending review</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEditModal(song)}>
-                          Edit
-                        </Button>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingSongId === song.id}
-                          onClick={() => void handleDeleteSong(song)}
-                        >
-                          {deletingSongId === song.id ? 'Deleting...' : 'Delete song'}
-                        </Button>
-                        <span className="text-muted-foreground">N/A</span>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </Card>

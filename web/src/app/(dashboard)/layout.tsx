@@ -68,6 +68,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'Social', href: '/social', icon: '📱' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
+  { name: 'The Refinery', href: '/refinery', icon: '🔬' },
   { name: 'Pro-Networx', href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', external: true },
   { name: 'Rewards', href: '/yield', icon: '⛏️' },
 ];
