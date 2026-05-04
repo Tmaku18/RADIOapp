@@ -901,8 +901,15 @@ export class SongsController {
       durationSeconds: song.duration_seconds,
       creditsRemaining: song.credits_remaining || 0,
       playCount: song.play_count || 0,
+      paidPlayCount: song.paid_play_count || 0,
+      freePlayCount: Math.max(
+        0,
+        (song.play_count || 0) - (song.paid_play_count || 0),
+      ),
       listenCount: listenCountBySongId.get(song.id) ?? 0,
       likeCount: song.like_count || 0,
+      lastPlayedAt: song.last_played_at ?? null,
+      trialPlaysUsed: song.trial_plays_used || 0,
       status: song.status,
       stationId: song.station_id || null,
       discoverEnabled: song.discover_enabled || false,
@@ -1275,6 +1282,106 @@ export class SongsController {
 
     await this.adminService.deleteSong(targetSongId);
     return { success: true };
+  }
+
+  /**
+   * Backfill duration for a song that was uploaded before duration extraction
+   * was reliable. Re-extracts the real duration server-side from the stored audio
+   * file. Only updates the row when current duration is missing (NULL or 0) so
+   * artists cannot retroactively shorten a song to lower credit cost.
+   */
+  @Post(':id/backfill-duration')
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async backfillDuration(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const targetSongId = songId.trim();
+    if (!targetSongId) {
+      throw new BadRequestException('Song id is required');
+    }
+
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { data: song } = await supabase
+      .from('songs')
+      .select('artist_id, audio_url, duration_seconds')
+      .eq('id', targetSongId)
+      .single();
+    if (!song) {
+      throw new NotFoundException('Song not found');
+    }
+    if (userData.role !== 'admin' && song.artist_id !== userData.id) {
+      throw new ForbiddenException('You can only backfill your own songs');
+    }
+    if (song.duration_seconds && Number(song.duration_seconds) > 0) {
+      return {
+        durationSeconds: Number(song.duration_seconds),
+        backfilled: false,
+      };
+    }
+    if (!song.audio_url) {
+      throw new BadRequestException('Song has no audio file to inspect');
+    }
+
+    let durationSeconds = 0;
+    try {
+      const abortController = new AbortController();
+      const timeout = setTimeout(() => abortController.abort(), 15000);
+      const res = await fetch(song.audio_url as string, {
+        signal: abortController.signal,
+      });
+      clearTimeout(timeout);
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
+      const contentLength = res.headers.get('content-length');
+      const bytes = contentLength ? Number(contentLength) : 0;
+      if (Number.isFinite(bytes) && bytes > 105 * 1024 * 1024) {
+        throw new Error(`Audio too large to inspect (${bytes} bytes)`);
+      }
+      const buf = Buffer.from(await res.arrayBuffer());
+      const mimeType = res.headers.get('content-type') ?? undefined;
+      durationSeconds = await this.durationService.extractDuration(
+        buf,
+        mimeType,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `Duration backfill failed for song ${targetSongId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+      throw new BadRequestException(
+        'Could not extract duration from audio file',
+      );
+    }
+
+    if (!durationSeconds || durationSeconds <= 0) {
+      throw new BadRequestException('Extracted duration was invalid');
+    }
+
+    const { error: updateError } = await supabase
+      .from('songs')
+      .update({ duration_seconds: durationSeconds })
+      .eq('id', targetSongId)
+      .is('duration_seconds', null);
+    if (updateError) {
+      this.logger.warn(
+        `Failed to persist backfilled duration for ${targetSongId}: ${updateError.message}`,
+      );
+    }
+
+    return { durationSeconds, backfilled: !updateError };
   }
 
   @Get(':id/like')

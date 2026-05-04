@@ -31,12 +31,17 @@ interface Song {
   id: string;
   title: string;
   artistName: string;
+  audioUrl?: string;
   artworkUrl?: string;
   durationSeconds?: number;
   creditsRemaining: number;
   playCount: number;
+  paidPlayCount?: number;
+  freePlayCount?: number;
   listenCount?: number;
   likeCount: number;
+  lastPlayedAt?: string | null;
+  trialPlaysUsed?: number;
   status: 'pending' | 'approved' | 'rejected';
   stationId?: string;
   discoverEnabled?: boolean;
@@ -97,9 +102,36 @@ function formatSecondsForTrimInput(seconds?: number | null): string {
 
 function formatDuration(seconds?: number): string {
   if (!seconds) return '--:--';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatRelativeTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return null;
+  const diffMs = Date.now() - then;
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  const mo = Math.round(day / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  const yr = Math.round(mo / 12);
+  return `${yr}y ago`;
+}
+
+function formatNumber(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
 }
 
 function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
@@ -147,6 +179,41 @@ export default function MySongsPage() {
   useEffect(() => {
     loadSongs();
   }, []);
+
+  // Backfill missing durations: ask the server to re-extract from the stored audio
+  // file for any approved song whose duration is unset. Runs at most once per row id.
+  const durationBackfilledRef = React.useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const missing = songs.filter(
+      (s) =>
+        s.status === 'approved' &&
+        (!s.durationSeconds || s.durationSeconds <= 0) &&
+        !durationBackfilledRef.current.has(s.id),
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const song of missing) {
+        durationBackfilledRef.current.add(song.id);
+        try {
+          const res = await songsApi.backfillDuration(song.id);
+          const next = (res.data as { durationSeconds?: number })
+            ?.durationSeconds;
+          if (cancelled || !next || next <= 0) continue;
+          setSongs((prev) =>
+            prev.map((row) =>
+              row.id === song.id ? { ...row, durationSeconds: next } : row,
+            ),
+          );
+        } catch {
+          // Non-fatal: row will continue showing --:-- and we move on.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [songs]);
 
   useEffect(() => {
     const query = featuredSearchQuery.trim();
@@ -604,22 +671,39 @@ export default function MySongsPage() {
                       </button>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm text-foreground">
-                        {song.listenCount ?? song.playCount} listens
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <span>{song.likeCount} likes</span>
-                        <button
-                          type="button"
-                          className="text-primary hover:underline"
-                          onClick={() => {
-                            setLikesDialogSongId(song.id);
-                            setLikesDialogSongTitle(song.title);
-                            setLikesDialogOpen(true);
-                          }}
-                        >
-                          View
-                        </button>
+                      <div className="space-y-0.5 text-xs">
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-sm font-semibold text-foreground">
+                            {formatNumber(song.playCount)}
+                          </span>
+                          <span className="text-muted-foreground">plays</span>
+                        </div>
+                        <div className="text-muted-foreground">
+                          {formatNumber(song.listenCount ?? 0)} listeners
+                          {' · '}
+                          <button
+                            type="button"
+                            className="text-primary hover:underline"
+                            onClick={() => {
+                              setLikesDialogSongId(song.id);
+                              setLikesDialogSongTitle(song.title);
+                              setLikesDialogOpen(true);
+                            }}
+                          >
+                            {formatNumber(song.likeCount)} likes
+                          </button>
+                        </div>
+                        {(song.paidPlayCount ?? 0) > 0 && (
+                          <div className="text-muted-foreground">
+                            {formatNumber(song.paidPlayCount ?? 0)} paid /{' '}
+                            {formatNumber(song.freePlayCount ?? 0)} free
+                          </div>
+                        )}
+                        {song.lastPlayedAt && (
+                          <div className="text-muted-foreground">
+                            Last played {formatRelativeTime(song.lastPlayedAt)}
+                          </div>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>

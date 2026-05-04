@@ -430,6 +430,10 @@ export const songsApi = {
   ) => api.patch(`/songs/${id}`, data),
   updateVisibility: (id: string, isPublic: boolean) =>
     api.patch(`/songs/${id}`, { isPublic }),
+  backfillDuration: (id: string) =>
+    api.post<{ durationSeconds: number; backfilled: boolean }>(
+      `/songs/${id}/backfill-duration`,
+    ),
   publishDiscoverFromLibrary: (
     id: string,
     data: {
