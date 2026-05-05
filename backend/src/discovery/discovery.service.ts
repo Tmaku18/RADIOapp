@@ -835,7 +835,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users(display_name, avatar_url, headline)
+        users!author_user_id(display_name, avatar_url, headline)
       `,
       )
       .order('created_at', { ascending: false })
@@ -899,7 +899,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users(display_name, avatar_url, headline)
+        users!author_user_id(display_name, avatar_url, headline)
       `,
       )
       .eq('author_user_id', params.authorUserId)
@@ -964,7 +964,7 @@ export class DiscoveryService {
           author_user_id,
           body,
           created_at,
-          users(display_name, avatar_url)
+          users!author_user_id(display_name, avatar_url)
         `,
       )
       .eq('post_id', postId)
@@ -1012,7 +1012,7 @@ export class DiscoveryService {
           author_user_id,
           body,
           created_at,
-          users(display_name, avatar_url)
+          users!author_user_id(display_name, avatar_url)
         `,
       )
       .single();
@@ -1074,7 +1074,7 @@ export class DiscoveryService {
             image_url,
             caption,
             created_at,
-            users(display_name, avatar_url, headline)
+            users!author_user_id(display_name, avatar_url, headline)
           `,
         )
         .ilike('caption', ilike)
@@ -1121,7 +1121,7 @@ export class DiscoveryService {
           image_url,
           caption,
           created_at,
-          users(display_name, avatar_url, headline)
+          users!author_user_id(display_name, avatar_url, headline)
         `,
       )
       .gte('created_at', sinceCutoff)
@@ -1187,7 +1187,7 @@ export class DiscoveryService {
           image_url,
           caption,
           created_at,
-          users(display_name, avatar_url, headline)
+          users!author_user_id(display_name, avatar_url, headline)
         `,
       )
       .gte('created_at', sinceCutoff)
@@ -1254,7 +1254,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users(display_name, avatar_url, headline)
+        users!author_user_id(display_name, avatar_url, headline)
       `,
       )
       .single();
