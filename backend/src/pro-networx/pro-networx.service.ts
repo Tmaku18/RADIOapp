@@ -128,7 +128,8 @@ export class ProNetworxService {
 
     // Pro profile (including LinkedIn-style fields)
     const { data: p } = await supabase
-      .from('pro_networx.profiles')
+      .schema('pro_networx')
+      .from('profiles')
       .select(
         'user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured, updated_at',
       )
@@ -136,8 +137,9 @@ export class ProNetworxService {
       .maybeSingle();
 
     const { data: skillRows } = await supabase
-      .from('pro_networx.profile_skills')
-      .select('skills:pro_networx.skills!inner(name)')
+      .schema('pro_networx')
+      .from('profile_skills')
+      .select('skills:skills!inner(name)')
       .eq('user_id', userId);
     const skills = (skillRows || [])
       .map((r: any) => r?.skills?.name)
@@ -288,7 +290,9 @@ export class ProNetworxService {
   async ensureProfileForUser(userId: string): Promise<void> {
     const supabase = getSupabaseClient();
     try {
-      await supabase.rpc('seed_profile_from_user', { p_user_id: userId });
+      await supabase
+        .schema('pro_networx')
+        .rpc('seed_profile_from_user', { p_user_id: userId });
     } catch {
       // Non-fatal: legacy DBs may not have the RPC yet.
     }
@@ -308,7 +312,8 @@ export class ProNetworxService {
       .single();
 
     const { data: profile } = await supabase
-      .from('pro_networx.profiles')
+      .schema('pro_networx')
+      .from('profiles')
       .select(
         'user_id, available_for_work, skills_headline, current_title, about, website_url, experience, education, featured',
       )
@@ -322,8 +327,9 @@ export class ProNetworxService {
       .maybeSingle();
 
     const { data: skillRows } = await supabase
-      .from('pro_networx.profile_skills')
-      .select('skill_id, skills:pro_networx.skills!inner(name, category)')
+      .schema('pro_networx')
+      .from('profile_skills')
+      .select('skill_id, skills:skills!inner(name, category)')
       .eq('user_id', userId);
 
     const skills = (skillRows || [])
@@ -388,9 +394,15 @@ export class ProNetworxService {
     if (dto.education !== undefined) upsertPayload.education = dto.education;
     if (dto.featured !== undefined) upsertPayload.featured = dto.featured;
 
-    await supabase
-      .from('pro_networx.profiles')
+    const { error: upsertProfileError } = await supabase
+      .schema('pro_networx')
+      .from('profiles')
       .upsert(upsertPayload, { onConflict: 'user_id' });
+    if (upsertProfileError) {
+      throw new Error(
+        `Failed to save profile: ${upsertProfileError.message}`,
+      );
+    }
 
     const userUpdatePayload: Record<string, unknown> = {
       updated_at: now,
@@ -417,7 +429,15 @@ export class ProNetworxService {
       userUpdatePayload.snapchat_url = dto.snapchatUrl || null;
 
     if (Object.keys(userUpdatePayload).length > 1) {
-      await supabase.from('users').update(userUpdatePayload).eq('id', userId);
+      const { error: userUpdateError } = await supabase
+        .from('users')
+        .update(userUpdatePayload)
+        .eq('id', userId);
+      if (userUpdateError) {
+        throw new Error(
+          `Failed to update user identity: ${userUpdateError.message}`,
+        );
+      }
     }
 
     // Replace skill set if provided
@@ -429,31 +449,59 @@ export class ProNetworxService {
 
       // Ensure skills exist
       if (skillNames.length > 0) {
-        await supabase.from('pro_networx.skills').upsert(
-          skillNames.map((name) => ({ name, category: 'general' })),
-          { onConflict: 'name' },
-        );
+        const { error: skillsUpsertError } = await supabase
+          .schema('pro_networx')
+          .from('skills')
+          .upsert(
+            skillNames.map((name) => ({ name, category: 'general' })),
+            { onConflict: 'name' },
+          );
+        if (skillsUpsertError) {
+          throw new Error(
+            `Failed to upsert skills: ${skillsUpsertError.message}`,
+          );
+        }
       }
 
       // Delete old mappings
-      await supabase
-        .from('pro_networx.profile_skills')
+      const { error: skillsDeleteError } = await supabase
+        .schema('pro_networx')
+        .from('profile_skills')
         .delete()
         .eq('user_id', userId);
+      if (skillsDeleteError) {
+        throw new Error(
+          `Failed to clear existing skills: ${skillsDeleteError.message}`,
+        );
+      }
 
       // Insert new mappings
       if (skillNames.length > 0) {
-        const { data: skills } = await supabase
-          .from('pro_networx.skills')
+        const { data: skills, error: skillsLookupError } = await supabase
+          .schema('pro_networx')
+          .from('skills')
           .select('id, name')
           .in('name', skillNames);
+        if (skillsLookupError) {
+          throw new Error(
+            `Failed to look up skills: ${skillsLookupError.message}`,
+          );
+        }
 
         const rows = (skills || []).map((s: any) => ({
           user_id: userId,
           skill_id: s.id,
         }));
         if (rows.length > 0) {
-          await supabase.from('pro_networx.profile_skills').insert(rows);
+          const { error: skillsInsertError } = await supabase
+            .schema('pro_networx')
+            .from('profile_skills')
+            .insert(rows);
+          if (skillsInsertError) {
+            throw new Error(
+              `Failed to attach skills: ${skillsInsertError.message}`,
+            );
+          }
         }
       }
     }
@@ -479,7 +527,8 @@ export class ProNetworxService {
 
     // Get pro profiles (include current_title for directory card display)
     let q = supabase
-      .from('pro_networx.profiles')
+      .schema('pro_networx')
+      .from('profiles')
       .select(
         'user_id, available_for_work, skills_headline, current_title, updated_at',
         { count: 'exact' },
@@ -520,8 +569,9 @@ export class ProNetworxService {
 
     // Skills mapping: for all userIds
     const { data: skillRows } = await supabase
-      .from('pro_networx.profile_skills')
-      .select('user_id, skills:pro_networx.skills!inner(name)')
+      .schema('pro_networx')
+      .from('profile_skills')
+      .select('user_id, skills:skills!inner(name)')
       .in('user_id', userIds);
 
     const skillsByUserId = new Map<string, string[]>();

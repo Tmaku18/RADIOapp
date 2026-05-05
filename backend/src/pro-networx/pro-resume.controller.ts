@@ -85,7 +85,9 @@ export class ProResumeController {
       .eq('id', me.id);
     // Mirror onto pro_networx.profiles too via the seed function (fire and forget).
     try {
-      await supabase.rpc('seed_profile_from_user', { p_user_id: me.id });
+      await supabase
+        .schema('pro_networx')
+        .rpc('seed_profile_from_user', { p_user_id: me.id });
     } catch {
       // Non-fatal: legacy databases may not yet have the seed RPC.
     }
