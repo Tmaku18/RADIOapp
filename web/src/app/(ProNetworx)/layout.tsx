@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { ArrowLeft, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -37,8 +38,18 @@ export default function ProNetworxLayout({
               </span>
             </Link>
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" asChild>
-                <Link href="/listen">Networks Radio</Link>
+              <Button
+                variant="outline"
+                size="sm"
+                asChild
+                className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+              >
+                <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-1.5">
+                  <ArrowLeft className="h-4 w-4" />
+                  <Radio className="h-4 w-4" />
+                  <span className="hidden sm:inline">Back to Networks Radio</span>
+                  <span className="sm:hidden">Radio</span>
+                </Link>
               </Button>
               {!loading && !user && (
                 <>

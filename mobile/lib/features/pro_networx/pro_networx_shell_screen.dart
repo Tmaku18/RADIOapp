@@ -32,6 +32,20 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          tooltip: 'Back to Networks Radio',
+          icon: const Icon(Icons.radio),
+          onPressed: () {
+            if (Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            } else {
+              Navigator.of(context).pushNamedAndRemoveUntil(
+                AppRoutes.home,
+                (route) => false,
+              );
+            }
+          },
+        ),
         title: const Text('Pro-Networx'),
         actions: [
           IconButton(
