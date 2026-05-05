@@ -36,10 +36,24 @@ export const initializeFirebase = (configService: ConfigService): App => {
       );
     }
 
-    privateKey = privateKey.replace(/\\n/g, '\n');
-    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    privateKey = privateKey.trim();
+    if (
+      (privateKey.startsWith('"') && privateKey.endsWith('"')) ||
+      (privateKey.startsWith("'") && privateKey.endsWith("'"))
+    ) {
+      privateKey = privateKey.slice(1, -1);
+    }
+    privateKey = privateKey.replace(/\\n/g, '\n').replace(/\r\n?/g, '\n');
+    privateKey = privateKey.trim();
+    if (!privateKey.endsWith('\n')) {
+      privateKey = `${privateKey}\n`;
+    }
+    if (
+      !privateKey.startsWith('-----BEGIN PRIVATE KEY-----') ||
+      !privateKey.includes('-----END PRIVATE KEY-----')
+    ) {
       throw new Error(
-        'FIREBASE_PRIVATE_KEY appears to be invalid. It should start with "-----BEGIN PRIVATE KEY-----"',
+        'FIREBASE_PRIVATE_KEY appears to be invalid. It must be a PEM-formatted PKCS#8 key starting with "-----BEGIN PRIVATE KEY-----" and ending with "-----END PRIVATE KEY-----". Remove any surrounding quotes from the env value.',
       );
     }
 

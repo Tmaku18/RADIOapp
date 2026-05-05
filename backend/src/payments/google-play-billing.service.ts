@@ -9,6 +9,19 @@ type GooglePlayProductPurchase = {
   acknowledgementState: number | null;
 };
 
+function normalizeServiceAccountPrivateKey(raw: string): string {
+  let key = raw.trim();
+  if (
+    (key.startsWith('"') && key.endsWith('"')) ||
+    (key.startsWith("'") && key.endsWith("'"))
+  ) {
+    key = key.slice(1, -1);
+  }
+  key = key.replace(/\\n/g, '\n').replace(/\r\n?/g, '\n').trim();
+  if (!key.endsWith('\n')) key = `${key}\n`;
+  return key;
+}
+
 @Injectable()
 export class GooglePlayBillingService {
   constructor(private readonly configService: ConfigService) {}
@@ -38,7 +51,7 @@ export class GooglePlayBillingService {
       if (parsed.client_email && parsed.private_key) {
         return {
           client_email: parsed.client_email,
-          private_key: parsed.private_key.replace(/\\n/g, '\n'),
+          private_key: normalizeServiceAccountPrivateKey(parsed.private_key),
         };
       }
     }
@@ -50,7 +63,7 @@ export class GooglePlayBillingService {
     if (fallbackEmail && fallbackKey) {
       return {
         client_email: fallbackEmail,
-        private_key: fallbackKey.replace(/\\n/g, '\n'),
+        private_key: normalizeServiceAccountPrivateKey(fallbackKey),
       };
     }
 
