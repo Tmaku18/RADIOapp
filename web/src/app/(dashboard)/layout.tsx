@@ -55,6 +55,7 @@ const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Social', href: '/social', icon: '📱' },
+  { name: 'Discover', href: '/social/discover', icon: '🔥' },
   { name: 'Vote', href: '/competition', icon: '📢' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
   { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
@@ -65,6 +66,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Social', href: '/social', icon: '📱' },
+  { name: 'Discover', href: '/social/discover', icon: '🔥' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
@@ -138,6 +140,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/admin')) return 'Admin';
   if (pathname.startsWith('/browse')) return 'Discover';
   if (pathname.startsWith('/discover')) return 'Discover';
+  if (pathname.startsWith('/social/discover')) return 'Discover';
   if (pathname.startsWith('/social')) return 'Social';
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
@@ -305,33 +308,50 @@ export default function DashboardLayout({
         <SidebarContent>
           <SidebarGroup>
             <SidebarMenu>
-              {(isArtistMode ? artistNavigation : listenerNavigation).map((item) => {
-                const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
-                return (
-                  <SidebarMenuItem key={item.name}>
-                    {item.external ? (
-                      <SidebarMenuButton asChild isActive={false}>
-                        <a
-                          href={item.href}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center"
-                        >
-                          <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
-                          <span>{item.name}</span>
-                        </a>
-                      </SidebarMenuButton>
-                    ) : (
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <Link href={item.href} className="flex items-center">
-                          <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
-                          <span>{item.name}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    )}
-                  </SidebarMenuItem>
-                );
-              })}
+              {(() => {
+                const navItems = isArtistMode ? artistNavigation : listenerNavigation;
+                // Pick the *longest* href that matches so nested routes like
+                // /social/discover don't double-activate the parent (/social).
+                const activeHref = navItems
+                  .filter(
+                    (it) =>
+                      pathname === it.href ||
+                      (it.href !== '/dashboard' &&
+                        pathname.startsWith(`${it.href}/`)),
+                  )
+                  .reduce<string | null>(
+                    (best, it) =>
+                      best && best.length >= it.href.length ? best : it.href,
+                    null,
+                  );
+                return navItems.map((item) => {
+                  const isActive = activeHref === item.href;
+                  return (
+                    <SidebarMenuItem key={item.name}>
+                      {item.external ? (
+                        <SidebarMenuButton asChild isActive={false}>
+                          <a
+                            href={item.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center"
+                          >
+                            <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
+                            <span>{item.name}</span>
+                          </a>
+                        </SidebarMenuButton>
+                      ) : (
+                        <SidebarMenuButton asChild isActive={isActive}>
+                          <Link href={item.href} className="flex items-center">
+                            <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
+                            <span>{item.name}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      )}
+                    </SidebarMenuItem>
+                  );
+                });
+              })()}
 
               <Collapsible defaultOpen={false} className="group/collapsible">
                 <SidebarMenuItem>

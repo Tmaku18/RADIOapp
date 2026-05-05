@@ -7,11 +7,9 @@ import Link from 'next/link';
 import Image from 'next/image';
 import {
   discoverAudioApi,
-  discoveryApi,
   songsApi,
   usersApi,
   type DiscoverAudioSongCard,
-  type DiscoverFeedPost,
 } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -77,8 +75,6 @@ export default function SocialDiscoverSwipePage() {
   const [shownAt, setShownAt] = useState<number>(Date.now());
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [feedPosts, setFeedPosts] = useState<DiscoverFeedPost[]>([]);
-  const [feedLoading, setFeedLoading] = useState(true);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [librarySongs, setLibrarySongs] = useState<
     Array<{
@@ -153,27 +149,6 @@ export default function SocialDiscoverSwipePage() {
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
-
-  useEffect(() => {
-    let alive = true;
-    const loadSocialFeed = async () => {
-      setFeedLoading(true);
-      try {
-        const res = await discoveryApi.listFeed({ limit: 6 });
-        if (!alive) return;
-        setFeedPosts(res.data.items ?? []);
-      } catch {
-        if (!alive) return;
-        setFeedPosts([]);
-      } finally {
-        if (alive) setFeedLoading(false);
-      }
-    };
-    void loadSocialFeed();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   useEffect(() => {
     setShownAt(Date.now());
@@ -431,7 +406,8 @@ export default function SocialDiscoverSwipePage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Discover</h1>
           <p className="text-sm text-muted-foreground">
-            Swipe right to like, left to skip. Clip playback is capped at 15 seconds.
+            Swipe right to like, left to skip. Clip playback is capped at 15
+            seconds.
           </p>
         </div>
         <div className="flex gap-2">
@@ -443,7 +419,7 @@ export default function SocialDiscoverSwipePage() {
             {forgiveBusy ? 'Resetting...' : 'Forget my swipes'}
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/social">Back to Social</Link>
+            <Link href="/social">Open Social feed</Link>
           </Button>
           <Dialog
             open={libraryOpen}
@@ -827,45 +803,6 @@ export default function SocialDiscoverSwipePage() {
         </CardContent>
       </Card>
 
-      <Card className="border-border/80">
-        <CardContent className="pt-4 space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-foreground">Scroll Feed</h2>
-            <Button asChild variant="outline">
-              <Link href="/pro-networx/home">Open in Pro Networks</Link>
-            </Button>
-          </div>
-          {feedLoading ? (
-            <p className="text-sm text-muted-foreground">Loading feed...</p>
-          ) : feedPosts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              No feed posts yet. Pro-Networx creators will show up here.
-            </p>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {feedPosts.map((post) => (
-                <Link
-                  key={post.id}
-                  href={`/pro-networx/explore/${post.id}`}
-                  className="rounded-lg border border-border/70 bg-card/50 p-3 hover:bg-muted/40 transition-colors"
-                >
-                  <p className="text-sm font-medium text-foreground truncate">
-                    {post.authorDisplayName ?? 'Creator'}
-                  </p>
-                  {post.caption ? (
-                    <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                      {post.caption}
-                    </p>
-                  ) : null}
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    {new Date(post.createdAt).toLocaleDateString()}
-                  </p>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }
