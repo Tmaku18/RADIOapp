@@ -3,12 +3,11 @@ import 'package:provider/provider.dart';
 import '../core/navigation/app_routes.dart';
 import '../features/player/player_screen.dart';
 import '../features/discovery/discovery_screen.dart';
+import '../features/social/social_feed_screen.dart';
 import '../features/competition/competition_screen.dart';
 import '../features/studio/studio_screen.dart';
-import '../features/analytics/analytics_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../features/refinery/refinery_screen.dart';
-import '../features/yield/yield_screen.dart';
 import '../core/auth/auth_service.dart';
 import 'mini_player_bar.dart';
 import '../core/models/user.dart' as app_user;
@@ -69,20 +68,16 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Social',
             ),
             NavigationDestination(
+              icon: Icon(Icons.local_fire_department_outlined),
+              label: 'Discover',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.mic),
               label: 'My Songs',
             ),
             NavigationDestination(
-              icon: Icon(Icons.show_chart),
-              label: 'Analytics',
-            ),
-            NavigationDestination(
               icon: Icon(Icons.work_outline),
               label: 'Pro-Networx',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.redeem_outlined),
-              label: 'Rewards',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz),
@@ -99,16 +94,16 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Social',
             ),
             NavigationDestination(
+              icon: Icon(Icons.local_fire_department_outlined),
+              label: 'Discover',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.how_to_vote_outlined),
               label: 'Competition',
             ),
             NavigationDestination(
               icon: Icon(Icons.science_outlined),
-              label: 'The Refinery',
-            ),
-            NavigationDestination(
-              icon: Icon(Icons.redeem_outlined),
-              label: 'Rewards',
+              label: 'Refinery',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz),
@@ -138,6 +133,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 if (isArtist) ...[
+                  ListTile(
+                    leading: const Icon(Icons.show_chart),
+                    title: const Text('Analytics'),
+                    subtitle: const Text('Listens, likes, audience insights'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.analytics);
+                    },
+                  ),
                   ListTile(
                     leading: const Icon(Icons.library_music_outlined),
                     title: const Text('Credits'),
@@ -246,16 +250,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       Navigator.pushNamed(context, AppRoutes.refinery);
                     },
                   ),
-                if (!isArtist)
-                  ListTile(
-                    leading: const Icon(Icons.redeem_outlined),
-                    title: const Text('Rewards'),
-                    subtitle: const Text(r'Rewards Command Center ($5 / $10 / $25 Virtual Visa)'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.yield);
-                    },
-                  ),
+                ListTile(
+                  leading: const Icon(Icons.redeem_outlined),
+                  title: const Text('Rewards'),
+                  subtitle: const Text(r'Rewards Command Center ($5 / $10 / $25 Virtual Visa)'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.yield);
+                  },
+                ),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('Settings'),
@@ -291,22 +294,23 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Map indices based on role
+    // Map indices based on role.
+    //
+    // Artist nav:   Radio[0], Social[1], Discover[2], My Songs[3], Pro-Networx[4], More[5]
+    // Listener nav: Radio[0], Social[1], Discover[2], Competition[3], Refinery[4],   More[5]
     Widget getCurrentScreen() {
       if (isArtist) {
         switch (_currentIndex) {
           case 0:
             return const PlayerScreen();
           case 1:
-            return const DiscoveryScreen();
+            return const SocialFeedScreen();
           case 2:
-            return const StudioScreen();
+            return const DiscoveryScreen();
           case 3:
-            return const AnalyticsScreen();
+            return const StudioScreen();
           case 4:
             return const ProNetworxShellScreen();
-          case 5:
-            return const YieldScreen();
           default:
             return const PlayerScreen();
         }
@@ -315,13 +319,13 @@ class _HomeScreenState extends State<HomeScreen> {
           case 0:
             return const PlayerScreen();
           case 1:
-            return const DiscoveryScreen();
+            return const SocialFeedScreen();
           case 2:
-            return const CompetitionScreen();
+            return const DiscoveryScreen();
           case 3:
-            return const RefineryScreen();
+            return const CompetitionScreen();
           case 4:
-            return const YieldScreen();
+            return const RefineryScreen();
           default:
             return const PlayerScreen();
         }
