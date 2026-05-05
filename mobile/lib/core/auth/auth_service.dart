@@ -140,9 +140,11 @@ class AuthService extends ChangeNotifier {
         _apiService.setAuthToken(token);
         final firebaseUser = userCredential.user!;
 
-        // Check if user exists in backend, create if not
+        // Check if user exists in backend, create if not.
+        // Use a 10s budget per call so a slow Railway cold-start still has a
+        // chance to succeed before we fall back to a Firebase-only profile.
         try {
-          return await _getUserProfile().timeout(const Duration(seconds: 6));
+          return await _getUserProfile().timeout(const Duration(seconds: 10));
         } on TimeoutException {
           debugPrint('Backend profile lookup timed out after Google sign-in.');
           return _buildFallbackUser(firebaseUser);
@@ -155,8 +157,8 @@ class AuthService extends ChangeNotifier {
                 firebaseUser.email,
               ),
               'role': 'listener',
-            });
-            return await _getUserProfile().timeout(const Duration(seconds: 6));
+            }).timeout(const Duration(seconds: 10));
+            return await _getUserProfile().timeout(const Duration(seconds: 10));
           } on TimeoutException {
             debugPrint('Backend user sync timed out after Google sign-in.');
             return _buildFallbackUser(firebaseUser);
@@ -170,7 +172,9 @@ class AuthService extends ChangeNotifier {
       return null;
     } on TimeoutException {
       throw Exception('Google sign in timed out. Please try again.');
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[GoogleSignIn] failed: type=${e.runtimeType} message=$e');
+      debugPrint('[GoogleSignIn] stack: $st');
       throw Exception('Google sign in failed: $e');
     }
   }
@@ -257,13 +261,19 @@ class AuthService extends ChangeNotifier {
 
   Future<app_user.User?> getUserProfile() async {
     if (_auth == null || _auth!.currentUser == null) return null;
+    final firebaseUser = _auth!.currentUser!;
     try {
-      final token = await _auth!.currentUser!.getIdToken();
+      final token = await firebaseUser.getIdToken();
       _apiService.setAuthToken(token);
-      return await _getUserProfile();
+      // Cap the call so the UI never hangs on a slow/cold backend; fall back to
+      // a Firebase-only profile if the backend is unreachable in time.
+      return await _getUserProfile().timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      debugPrint('getUserProfile: backend timed out, using fallback user.');
+      return _buildFallbackUser(firebaseUser);
     } catch (e) {
       debugPrint('Error getting user profile: $e');
-      return null;
+      return _buildFallbackUser(firebaseUser);
     }
   }
 
