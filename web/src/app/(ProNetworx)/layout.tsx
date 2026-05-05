@@ -9,6 +9,9 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const LOGO_SRC = '/networx-logo.png';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
+const NETWORX_RADIO_ORIGIN = 'https://www.networxradio.com';
+const NETWORX_RADIO_DASHBOARD = `${NETWORX_RADIO_ORIGIN}/dashboard`;
+const NETWORX_RADIO_HOME = `${NETWORX_RADIO_ORIGIN}/`;
 
 export default function ProNetworxLayout({
   children,
@@ -44,12 +47,19 @@ export default function ProNetworxLayout({
                 asChild
                 className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
               >
-                <Link href={user ? '/dashboard' : '/'} className="flex items-center gap-1.5">
+                <a
+                  href={
+                    user
+                      ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_DASHBOARD)}`
+                      : NETWORX_RADIO_HOME
+                  }
+                  className="flex items-center gap-1.5"
+                >
                   <ArrowLeft className="h-4 w-4" />
                   <Radio className="h-4 w-4" />
                   <span className="hidden sm:inline">Back to Networks Radio</span>
                   <span className="sm:hidden">Radio</span>
-                </Link>
+                </a>
               </Button>
               {!loading && !user && (
                 <>
@@ -74,7 +84,7 @@ export default function ProNetworxLayout({
       </main>
       <footer className="border-t border-border py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">Networx Radio</Link>
+          <a href={user ? `/auth-handoff?return_url=${encodeURIComponent(NETWORX_RADIO_DASHBOARD)}` : NETWORX_RADIO_HOME} className="hover:text-foreground transition-colors">Networx Radio</a>
           {' · '}
           <Link href="/pro-directory" className="hover:text-foreground transition-colors">Pro-Directory</Link>
           {' · '}
