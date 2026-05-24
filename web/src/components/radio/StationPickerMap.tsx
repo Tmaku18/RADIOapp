@@ -22,6 +22,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   'hip-hop': '🎧',
   country: '🤠',
   rock: '🎸',
+  metal: '🤘',
   pop: '🌟',
   edm: '⚡',
   rnb: '♪',

@@ -25,6 +25,13 @@ export const TOWERS: Tower[] = [
   { id: 'us-hip-hop', city: 'Atlanta', genre: 'Hip Hop', lat: 33.749, lng: -84.388 },
   { id: 'us-country', city: 'Nashville', genre: 'Country', lat: 36.1627, lng: -86.7816 },
   { id: 'us-rock', city: 'Chicago', genre: 'Rock', lat: 41.8781, lng: -87.6298 },
+  {
+    id: 'us-metal',
+    city: 'Cleveland',
+    genre: 'Metal Radio',
+    lat: 41.4993,
+    lng: -81.6944,
+  },
   { id: 'us-pop', city: 'Los Angeles', genre: 'Pop', lat: 34.0522, lng: -118.2437 },
   { id: 'us-edm', city: 'Las Vegas', genre: 'EDM', lat: 36.1699, lng: -115.1398 },
   { id: 'us-rnb', city: 'New Orleans', genre: 'R&B', lat: 29.9511, lng: -90.0715 },

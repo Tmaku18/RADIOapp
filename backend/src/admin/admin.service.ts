@@ -997,6 +997,7 @@ export class AdminService {
       { id: 'us-hip-hop', state: 'US', label: 'Hip Hop' },
       { id: 'us-country', state: 'US', label: 'Country' },
       { id: 'us-rock', state: 'US', label: 'Rock' },
+      { id: 'us-metal', state: 'US', label: 'Metal Radio' },
       { id: 'us-pop', state: 'US', label: 'Pop' },
       { id: 'us-edm', state: 'US', label: 'EDM' },
       { id: 'us-rnb', state: 'US', label: 'R&B' },

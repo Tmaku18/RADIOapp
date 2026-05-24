@@ -75,6 +75,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
   _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
   _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
+  _StationOption(id: 'us-metal', genre: 'Metal Radio', city: 'Cleveland'),
   _StationOption(id: 'us-pop', genre: 'Pop', city: 'Los Angeles'),
   _StationOption(id: 'us-edm', genre: 'EDM', city: 'Las Vegas'),
   _StationOption(id: 'us-rnb', genre: 'R&B', city: 'New Orleans'),
