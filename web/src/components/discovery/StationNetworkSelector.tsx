@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 
 type ViewMode = 'grid' | 'list';
 type SortMode = 'alpha' | 'songs' | 'favorites';
+type CountsState = 'idle' | 'loading' | 'ok' | 'error';
 
 const FAV_KEY = 'networx_favorite_stations';
 
@@ -36,13 +37,23 @@ export function StationNetworkSelector({
   const [sort, setSort] = useState<SortMode>('songs');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [counts, setCounts] = useState<Record<string, number>>({});
+  const [countsState, setCountsState] = useState<CountsState>('idle');
+
+  const loadCounts = useCallback(async () => {
+    setCountsState('loading');
+    try {
+      const res = await songsApi.getStationCounts();
+      setCounts(res.data?.counts ?? {});
+      setCountsState('ok');
+    } catch {
+      setCountsState('error');
+    }
+  }, []);
 
   useEffect(() => {
     setFavorites(loadFavorites());
-    songsApi.getStationCounts().then((res) => {
-      setCounts(res.data?.counts ?? {});
-    }).catch(() => {});
-  }, []);
+    void loadCounts();
+  }, [loadCounts]);
 
   const toggleFavorite = useCallback(
     (id: string, e: React.MouseEvent) => {
@@ -93,6 +104,21 @@ export function StationNetworkSelector({
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card/40 p-4 space-y-3">
+        {countsState === 'error' && (
+          <div className="flex items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <span>
+              Couldn’t load station song counts. The backend may be restarting.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7"
+              onClick={() => void loadCounts()}
+            >
+              Retry
+            </Button>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2 justify-between items-center">
           <Input
             value={query}
@@ -167,7 +193,13 @@ export function StationNetworkSelector({
                   </button>
                   <p className="font-medium pr-6">{tower.genre}</p>
                   <p className="text-xs text-muted-foreground">
-                    {songCount > 0 ? `${songCount} song${songCount !== 1 ? 's' : ''}` : 'No songs yet'}
+                    {countsState === 'loading'
+                      ? 'Loading…'
+                      : countsState === 'error'
+                        ? '—'
+                        : songCount > 0
+                          ? `${songCount} song${songCount !== 1 ? 's' : ''}`
+                          : 'No songs yet'}
                   </p>
                 </button>
               );
@@ -202,7 +234,13 @@ export function StationNetworkSelector({
                     <span className="font-medium">{tower.genre}</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {songCount > 0 ? `${songCount} song${songCount !== 1 ? 's' : ''}` : '—'}
+                    {countsState === 'loading'
+                      ? 'Loading…'
+                      : countsState === 'error'
+                        ? '—'
+                        : songCount > 0
+                          ? `${songCount} song${songCount !== 1 ? 's' : ''}`
+                          : '—'}
                   </span>
                 </button>
               );
