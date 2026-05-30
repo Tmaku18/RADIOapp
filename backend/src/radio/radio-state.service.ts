@@ -17,6 +17,7 @@ function redisKeys(radioId: string) {
     PRIME_TIME_ACTIVE: prefix + 'prime_time',
     PLAYLIST_STATE: prefix + 'playlist',
     FREE_ROTATION_STACK: prefix + 'free_rotation_stack',
+    FREE_ROTATION_PLAYED: prefix + 'free_rotation_played',
     PLAYLIST_TYPE: prefix + 'playlist_type',
     FALLBACK_POSITION: prefix + 'fallback_position',
     SONGS_SINCE_CHECKPOINT: prefix + 'songs_since_checkpoint',
@@ -442,6 +443,70 @@ export class RadioStateService implements OnModuleInit {
     const keys = redisKeys(radioId);
     await redis.del(keys.FREE_ROTATION_STACK);
     this.logger.log(`Free rotation stack cleared for radio ${radioId}`);
+  }
+
+  // === Free Rotation "Played This Cycle" Tracking ===
+  // Records which stack IDs have already played in the current pass through the
+  // station so that (a) reconcile doesn't re-add them mid-cycle and (b) we only
+  // reshuffle into a new random order once every song has played. Redis-only;
+  // in the degraded DB-only mode these no-op and the legacy behavior applies.
+
+  /**
+   * Get the stack IDs that have already played in the current rotation cycle.
+   */
+  async getPlayedFreeRotation(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<string[]> {
+    if (!this.redisAvailable) return [];
+
+    const redis = getRedisClient();
+    const keys = redisKeys(radioId);
+    const data = await redis.get(keys.FREE_ROTATION_PLAYED);
+
+    if (!data) return [];
+
+    try {
+      return JSON.parse(data) as string[];
+    } catch (e) {
+      this.logger.error(`Failed to parse played free rotation set: ${e.message}`);
+      return [];
+    }
+  }
+
+  /**
+   * Mark a stack ID as played in the current rotation cycle.
+   */
+  async addPlayedFreeRotation(
+    stackId: string,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+
+    const played = await this.getPlayedFreeRotation(radioId);
+    if (played.includes(stackId)) return;
+    played.push(stackId);
+
+    const redis = getRedisClient();
+    const keys = redisKeys(radioId);
+    // Same 24h TTL as the stack; refreshed each time a song is recorded.
+    await redis.setex(
+      keys.FREE_ROTATION_PLAYED,
+      86400,
+      JSON.stringify(played),
+    );
+  }
+
+  /**
+   * Reset the played set at the start of a new rotation cycle.
+   */
+  async clearPlayedFreeRotation(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+
+    const redis = getRedisClient();
+    const keys = redisKeys(radioId);
+    await redis.del(keys.FREE_ROTATION_PLAYED);
   }
 
   // === Playlist Type & Position Persistence ===

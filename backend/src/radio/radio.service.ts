@@ -1678,12 +1678,18 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const eligible = await this.getAllFreeRotationSongs(radioId);
     const eligibleIds = new Set(eligible.map((item) => item._stackId));
     const existing = await this.radioStateService.getFreeRotationStack(radioId);
+    // Songs already played in the current cycle must NOT be re-added to the
+    // stack here, otherwise they'd repeat before the full station has played
+    // and the queue would never cleanly drain to trigger a fresh reshuffle.
+    const played = new Set(
+      await this.radioStateService.getPlayedFreeRotation(radioId),
+    );
 
     const kept = existing.filter((stackId) => eligibleIds.has(stackId));
     const existingSet = new Set(kept);
     const missing = eligible
       .map((item) => item._stackId)
-      .filter((stackId) => !existingSet.has(stackId));
+      .filter((stackId) => !existingSet.has(stackId) && !played.has(stackId));
 
     if (missing.length === 0 && kept.length === existing.length) {
       return existing;
@@ -1805,10 +1811,36 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Begin a fresh rotation cycle: reset the "played this cycle" record and
+   * reshuffle every eligible song into a brand-new random order. Called when the
+   * station has played through all of its songs so each full pass is a new order.
+   * Returns the new shuffled stack (empty if the station has no songs).
+   */
+  private async startNewFreeRotationCycle(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<string[]> {
+    const allSongs = await this.getAllFreeRotationSongs(radioId);
+    if (allSongs.length === 0) {
+      return [];
+    }
+
+    await this.radioStateService.clearPlayedFreeRotation(radioId);
+    const shuffledIds = this.shuffleWithArtistSpacing(allSongs);
+    await this.radioStateService.setFreeRotationStack(shuffledIds, radioId);
+    await this.saveStackIfChanged(shuffledIds, radioId);
+    await this.radioStateService.setFallbackPosition(0, radioId);
+
+    this.logger.log(
+      `Reshuffled free rotation into a new random order: ${shuffledIds.length} songs for radio ${radioId}`,
+    );
+
+    return shuffledIds;
+  }
+
+  /**
    * Get the next song from the free rotation stack.
-   * If the stack is empty, fetches all free-rotation songs,
-   * shuffles them, and stores in the stack.
-   * Uses stack_version_hash to only write full stack when content changes.
+   * Songs play through once in a shuffled order; when the stack drains (the whole
+   * station has played) we reshuffle into a new random order for the next pass.
    * Returns null if no free rotation songs are available.
    */
   private async getNextFreeRotationSong(
@@ -1822,26 +1854,16 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     let songId = await this.radioStateService.popFreeRotationSong(radioId);
 
     if (!songId) {
-      const allSongs = await this.getAllFreeRotationSongs(radioId);
+      // Stack is empty => we've played through every song this cycle. Start a
+      // fresh cycle with a new random order.
+      const shuffledIds = await this.startNewFreeRotationCycle(radioId);
 
-      if (allSongs.length === 0) {
+      if (shuffledIds.length === 0) {
         this.logger.warn(
           'No free rotation songs available (songs with admin_free_rotation)',
         );
         return null;
       }
-
-      const shuffledIds = this.shuffleWithArtistSpacing(allSongs);
-
-      await this.radioStateService.setFreeRotationStack(shuffledIds, radioId);
-
-      await this.saveStackIfChanged(shuffledIds, radioId);
-
-      await this.radioStateService.setFallbackPosition(0, radioId);
-
-      this.logger.log(
-        `Refilled free rotation stack with ${shuffledIds.length} shuffled songs`,
-      );
 
       songId = await this.radioStateService.popFreeRotationSong(radioId);
     }
@@ -1870,6 +1892,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       }
     }
 
+    // Record the song actually selected so it isn't replayed until the next
+    // full reshuffle, and so the stack can drain to a clean cycle boundary.
+    await this.radioStateService.addPlayedFreeRotation(songId, radioId);
+
     return this.getFreeRotationSongById(songId, radioId);
   }
 
@@ -1882,13 +1908,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   ): Promise<any | null> {
     let stack = await this.radioStateService.getFreeRotationStack(radioId);
     if (stack.length === 0) {
-      const allSongs = await this.getAllFreeRotationSongs(radioId);
-      if (allSongs.length === 0) return null;
-      const shuffledIds = this.shuffleWithArtistSpacing(allSongs);
-      await this.radioStateService.setFreeRotationStack(shuffledIds, radioId);
-      await this.saveStackIfChanged(shuffledIds, radioId);
-      await this.radioStateService.setFallbackPosition(0, radioId);
-      stack = shuffledIds;
+      // Reached a cycle boundary: reshuffle into a new random order (does not
+      // consume the queue; the real selection happens in getNextFreeRotationSong).
+      stack = await this.startNewFreeRotationCycle(radioId);
+      if (stack.length === 0) return null;
     }
 
     const excludedComparable = excludeSongId
