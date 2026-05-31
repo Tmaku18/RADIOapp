@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { jobBoardApi } from '@/lib/api';
+import { jobBoardApi, proNetworkSubscriptionApi } from '@/lib/api';
+import { PaywallCard } from '@/components/pro-networx/PaywallCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -71,6 +72,9 @@ export default function JobBoardPage() {
   const [applying, setApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
 
+  const [hasSubscription, setHasSubscription] = useState<boolean | null>(null);
+  const [paywalled, setPaywalled] = useState(false);
+
   const canPost = hasArtistCapability(profile?.role);
   const [createOpen, setCreateOpen] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -108,6 +112,22 @@ export default function JobBoardPage() {
     if (profile) loadRequests(tab === 'mine');
   }, [tab, loadRequests, profile]);
 
+  useEffect(() => {
+    if (!profile) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await proNetworkSubscriptionApi.getAccess();
+        if (alive) setHasSubscription(!!res.data?.hasAccess);
+      } catch {
+        if (alive) setHasSubscription(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [profile]);
+
   const loadDetail = useCallback(async (requestId: string, currentUserId: string | undefined) => {
     setLoadingDetail(true);
     try {
@@ -130,7 +150,10 @@ export default function JobBoardPage() {
   }, []);
 
   useEffect(() => {
-    if (selectedRequest?.id) loadDetail(selectedRequest.id, myId ?? undefined);
+    if (selectedRequest?.id) {
+      setPaywalled(false);
+      loadDetail(selectedRequest.id, myId ?? undefined);
+    }
   }, [selectedRequest?.id, myId, loadDetail]);
 
   const handleApply = async () => {
@@ -142,8 +165,19 @@ export default function JobBoardPage() {
       setApplyMessage('');
       setApplyOpen(false);
       loadDetail(selectedRequest.id, myId ?? undefined);
-    } catch (e) {
-      console.error('Apply failed:', e);
+    } catch (e: unknown) {
+      const data =
+        e && typeof e === 'object'
+          ? (e as { response?: { data?: { requiresSubscription?: boolean } } })
+              .response?.data
+          : undefined;
+      if (data?.requiresSubscription) {
+        setHasSubscription(false);
+        setApplyOpen(false);
+        setPaywalled(true);
+      } else {
+        console.error('Apply failed:', e);
+      }
     } finally {
       setApplying(false);
     }
@@ -350,9 +384,23 @@ export default function JobBoardPage() {
               ) : (
                 <>
                   {requestDetail.status === 'open' && (
-                    <Button onClick={() => setApplyOpen(true)} className="w-full mt-2">
-                      Apply to this request
-                    </Button>
+                    <>
+                      {hasSubscription === false || paywalled ? (
+                        <PaywallCard
+                          variant="dm"
+                          className="mt-2"
+                          caption="Applying and messaging creators on the Pro-Network unlocks with a subscription. Browsing is always free."
+                        />
+                      ) : (
+                        <Button
+                          onClick={() => setApplyOpen(true)}
+                          className="w-full mt-2"
+                          disabled={hasSubscription === null}
+                        >
+                          Apply to this request
+                        </Button>
+                      )}
+                    </>
                   )}
                 </>
               )}

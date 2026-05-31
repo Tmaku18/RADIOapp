@@ -4,8 +4,10 @@ import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_router.dart';
 import '../../core/models/job_board_models.dart';
 import '../../core/models/user.dart' as app_user;
+import '../../core/services/api_service.dart';
 import '../../core/services/job_board_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class JobBoardScreen extends StatefulWidget {
   const JobBoardScreen({super.key});
@@ -465,13 +467,37 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       },
     );
     if (ok != true) return;
-    await _service.apply(widget.request.id,
-        message: controller.text.trim().isEmpty ? null : controller.text.trim());
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Application sent.')),
-    );
-    _load();
+    try {
+      await _service.apply(widget.request.id,
+          message:
+              controller.text.trim().isEmpty ? null : controller.text.trim());
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Application sent.')),
+      );
+      _load();
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      final requiresSub = e.statusCode == 403 &&
+          (e.responseBody?.contains('PRO_NETWORK_SUBSCRIPTION_REQUIRED') ??
+              false);
+      if (requiresSub) {
+        final subscribed = await ProNetworkPaywallSheet.show(
+          context,
+          title: 'Subscribe to apply',
+          description:
+              'Browsing requests is free. Applying and messaging creators '
+              'unlocks with a Pro-Networx subscription. Cancel anytime.',
+        );
+        if (subscribed == true && mounted) {
+          await _apply();
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send application.')),
+        );
+      }
+    }
   }
 
   @override
