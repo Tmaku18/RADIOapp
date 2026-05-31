@@ -429,6 +429,34 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return value;
   }
 
+  /**
+   * Loads the persistent (vote-based) temperature for a song that is starting a
+   * fresh play. Temperature is global per song, so a new play must reflect the
+   * accumulated fire/shit votes rather than resetting to the baseline.
+   */
+  private async resolveStartTemperature(
+    songId: string,
+    playId: string | null,
+    startedAtIso: string | null,
+  ): Promise<{
+    fireVotes: number;
+    shitVotes: number;
+    totalVotes: number;
+    temperaturePercent: number;
+  }> {
+    return this.withTimeoutFallback(
+      this.getSongTemperature({ playId, songId, startedAtIso }),
+      {
+        fireVotes: 0,
+        shitVotes: 0,
+        totalVotes: 0,
+        temperaturePercent: RadioService.TEMP_BASELINE,
+      },
+      2000,
+      `resolveStartTemperature(${songId})`,
+    );
+  }
+
   private async getSongTemperatureUncached(args: {
     playId?: string | null;
     songId: string;
@@ -2421,6 +2449,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+    const temperature = await this.resolveStartTemperature(
+      song.id,
+      playRow?.id ?? null,
+      startedAt,
+    );
 
     return {
       ...song,
@@ -2433,10 +2466,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       credits_deducted: creditsToDeduct,
       pinned_catalysts: pinnedCatalysts,
       play_id: playRow?.id ?? null,
-      fire_votes: 0,
-      shit_votes: 0,
-      total_votes: 0,
-      temperature_percent: 0,
+      fire_votes: temperature.fireVotes,
+      shit_votes: temperature.shitVotes,
+      total_votes: temperature.totalVotes,
+      temperature_percent: temperature.temperaturePercent,
     };
   }
 
@@ -2536,6 +2569,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+    const temperature = await this.resolveStartTemperature(
+      song.id,
+      playRow?.id ?? null,
+      startedAt,
+    );
 
     return {
       ...song,
@@ -2549,10 +2587,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       trial_plays_used: used,
       pinned_catalysts: pinnedCatalysts,
       play_id: playRow?.id ?? null,
-      fire_votes: 0,
-      shit_votes: 0,
-      total_votes: 0,
-      temperature_percent: 0,
+      fire_votes: temperature.fireVotes,
+      shit_votes: temperature.shitVotes,
+      total_votes: temperature.totalVotes,
+      temperature_percent: temperature.temperaturePercent,
     };
   }
 
@@ -2648,6 +2686,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
     const audioUrl = await this.ensurePlayableAudioUrl(song.audio_url ?? null);
+    const temperature = await this.resolveStartTemperature(
+      song.id,
+      playRow?.id ?? null,
+      startedAt,
+    );
 
     return {
       ...song,
@@ -2659,10 +2702,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       position_seconds: 0,
       pinned_catalysts: pinnedCatalysts,
       play_id: playRow?.id ?? null,
-      fire_votes: 0,
-      shit_votes: 0,
-      total_votes: 0,
-      temperature_percent: 0,
+      fire_votes: temperature.fireVotes,
+      shit_votes: temperature.shitVotes,
+      total_votes: temperature.totalVotes,
+      temperature_percent: temperature.temperaturePercent,
     };
   }
 
@@ -2751,6 +2794,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
+    const temperature = await this.resolveStartTemperature(
+      song.id,
+      playRow?.id ?? null,
+      startedAt,
+    );
 
     return {
       id: song.id,
@@ -2768,10 +2816,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       is_admin_fallback: false,
       pinned_catalysts: pinnedCatalysts,
       play_id: null,
-      fire_votes: 0,
-      shit_votes: 0,
-      total_votes: 0,
-      temperature_percent: 0,
+      fire_votes: temperature.fireVotes,
+      shit_votes: temperature.shitVotes,
+      total_votes: temperature.totalVotes,
+      temperature_percent: temperature.temperaturePercent,
     };
   }
 
