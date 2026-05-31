@@ -645,7 +645,8 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
       station_id: createSongDto.stationId,
-      is_explicit: createSongDto.isExplicit === true,
+      // All uploads are marked explicit by default.
+      is_explicit: true,
       ...statusFields,
     };
     const legacyBaseInsertPayload = {
