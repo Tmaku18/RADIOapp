@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
 
 type LibrarySong = {
   id: string;
@@ -39,8 +40,8 @@ export default function BrowseSavedPage() {
   const [pendingRemove, setPendingRemove] = useState<LibrarySong | null>(null);
   const [removing, setRemoving] = useState(false);
   const [sortBy, setSortBy] = useState<
-    'artist' | 'title' | 'likes' | 'plays' | 'temperature'
-  >('likes');
+    'recent' | 'oldest' | 'artist' | 'title' | 'likes' | 'plays' | 'temperature'
+  >('recent');
 
   useEffect(() => {
     let cancelled = false;
@@ -70,6 +71,8 @@ export default function BrowseSavedPage() {
   const sortedSongs = useMemo(() => {
     const list = [...songs];
     list.sort((a, b) => {
+      if (sortBy === 'recent') return (b.likedAt ?? '').localeCompare(a.likedAt ?? '');
+      if (sortBy === 'oldest') return (a.likedAt ?? '').localeCompare(b.likedAt ?? '');
       if (sortBy === 'artist') return a.artistName.localeCompare(b.artistName);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'temperature') return b.temperaturePercent - a.temperaturePercent;
@@ -103,6 +106,8 @@ export default function BrowseSavedPage() {
           onChange={(e) =>
             setSortBy(
               e.target.value as
+                | 'recent'
+                | 'oldest'
                 | 'artist'
                 | 'title'
                 | 'likes'
@@ -112,6 +117,8 @@ export default function BrowseSavedPage() {
           }
           className="h-9 rounded-md border border-border bg-background px-2 text-sm"
         >
+          <option value="recent">Recently added</option>
+          <option value="oldest">Oldest added</option>
           <option value="artist">Artist</option>
           <option value="title">Song title</option>
           <option value="likes">Likes</option>
@@ -138,14 +145,21 @@ export default function BrowseSavedPage() {
                 className="rounded-lg border border-border/70 bg-card px-3 py-2"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{song.title}</p>
-                    <Link
-                      href={artistProfilePath(song.artistId)}
-                      className="truncate text-sm text-muted-foreground hover:underline"
-                    >
-                      {song.artistName}
-                    </Link>
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <ArtworkImage
+                      src={song.artworkUrl}
+                      alt={`${song.title} album cover`}
+                      className="h-11 w-11 shrink-0 rounded-md object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{song.title}</p>
+                      <Link
+                        href={artistProfilePath(song.artistId)}
+                        className="block truncate text-sm text-muted-foreground hover:underline"
+                      >
+                        {song.artistName}
+                      </Link>
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     <div className="text-xs text-muted-foreground flex items-center gap-2 sm:gap-3">
