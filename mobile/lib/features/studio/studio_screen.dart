@@ -319,6 +319,16 @@ class _StudioScreenState extends State<StudioScreen> {
                                             color: scheme.primary,
                                           ),
                                         ),
+                                      if (s.inRefinery)
+                                        TextButton.icon(
+                                          onPressed: () => Navigator.pushNamed(
+                                            context,
+                                            AppRoutes.refineryAnalytics,
+                                            arguments: s.id,
+                                          ),
+                                          icon: const Icon(Icons.bar_chart),
+                                          label: const Text('View reviews'),
+                                        ),
                                       TextButton.icon(
                                         onPressed: () => _showLikesSheet(s),
                                         icon: const Icon(Icons.favorite_border),

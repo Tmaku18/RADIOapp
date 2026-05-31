@@ -27,6 +27,7 @@ import '../../features/pro_networx/pro_profile_screen.dart';
 import '../../features/pro_networx/pro_service_detail_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/refinery/refinery_screen.dart';
+import '../../features/refinery/refinery_analytics_screen.dart';
 import '../../features/room/room_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/studio/allocate_plays_screen.dart';
@@ -127,6 +128,10 @@ class AppRouter {
         return _route(const NearbyPeopleScreen(), settings);
       case AppRoutes.refinery:
         return _route(const RefineryScreen(), settings);
+      case AppRoutes.refineryAnalytics:
+        final songId = args?.toString();
+        if (songId == null || songId.isEmpty) return _unknown(settings);
+        return _route(RefineryAnalyticsScreen(songId: songId), settings);
       case AppRoutes.yield:
         return _route(const YieldScreen(), settings);
       case AppRoutes.about:

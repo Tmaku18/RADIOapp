@@ -26,6 +26,7 @@ class AppRoutes {
   static const proNetworxMyServices = '/pro-networx/my-services';
   static const nearbyPeople = '/nearby-people';
   static const refinery = '/refinery';
+  static const refineryAnalytics = '/refinery-analytics';
   static const yield = '/yield';
   static const about = '/about';
   static const studio = '/studio';

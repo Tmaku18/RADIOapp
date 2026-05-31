@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../widgets/require_gem_capability.dart';
+import 'pro_create_post_screen.dart';
 import 'widgets/pro_feed_post_card.dart';
 
 class ProHomeFeedScreen extends StatefulWidget {
@@ -19,12 +23,35 @@ class _ProHomeFeedScreenState extends State<ProHomeFeedScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   String? _error;
+  bool _canPost = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_onScroll);
     _load();
+    _loadCanPost();
+  }
+
+  Future<void> _loadCanPost() async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      if (!mounted) return;
+      setState(() =>
+          _canPost = RequireGemCapability.allowsRole(profile?.role));
+    } catch (_) {
+      // Leave posting hidden if role can't be resolved.
+    }
+  }
+
+  Future<void> _openComposer() async {
+    final created = await Navigator.of(context).push<ProFeedPost>(
+      MaterialPageRoute(builder: (_) => const ProCreatePostScreen()),
+    );
+    if (created != null && mounted) {
+      setState(() => _posts.insert(0, created));
+    }
   }
 
   @override
@@ -89,6 +116,20 @@ class _ProHomeFeedScreenState extends State<ProHomeFeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: _buildBody(context),
+      floatingActionButton: _canPost
+          ? FloatingActionButton.extended(
+              onPressed: _openComposer,
+              icon: const Icon(Icons.add),
+              label: const Text('New post'),
+            )
+          : null,
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     if (_loading && _posts.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
