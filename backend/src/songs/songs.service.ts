@@ -54,6 +54,12 @@ interface ArtistLikeNotificationSettings {
 export class SongsService {
   private readonly discoverMaxClipSeconds = 15;
   private readonly ffmpegConfigured: boolean;
+  // Beta: every upload lands directly in free rotation (approved + public +
+  // admin_free_rotation) so the radio queue is populated without manual review.
+  // Set BETA_AUTO_FREE_ROTATION=false once beta ends to restore the
+  // review-gated flow where free rotation is toggled by the artist/admin.
+  private readonly betaAutoFreeRotation =
+    (process.env.BETA_AUTO_FREE_ROTATION ?? 'true').toLowerCase() !== 'false';
   private readonly defaultArtistLikeNotificationSettings: ArtistLikeNotificationSettings =
     {
       muted: false,
@@ -550,6 +556,18 @@ export class SongsService {
     }
   }
 
+  /**
+   * Status/visibility fields applied to a freshly uploaded song.
+   * During beta the song is auto-approved and placed in free rotation so the
+   * radio queue stays populated; otherwise it goes to pending review.
+   */
+  private uploadStatusFields(): Record<string, unknown> {
+    if (this.betaAutoFreeRotation) {
+      return { status: 'approved', is_public: true, admin_free_rotation: true };
+    }
+    return { status: 'pending' };
+  }
+
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
 
@@ -616,6 +634,7 @@ export class SongsService {
       );
     }
 
+    const statusFields = this.uploadStatusFields();
     const baseInsertPayload = {
       artist_id: userId,
       title: createSongDto.title,
@@ -627,7 +646,7 @@ export class SongsService {
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
       station_id: createSongDto.stationId,
       is_explicit: createSongDto.isExplicit === true,
-      status: 'pending',
+      ...statusFields,
     };
     const legacyBaseInsertPayload = {
       artist_id: userId,
@@ -637,7 +656,7 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180,
       station_id: createSongDto.stationId,
-      status: 'pending',
+      ...statusFields,
     };
 
     const discoverInsertPayload = {
