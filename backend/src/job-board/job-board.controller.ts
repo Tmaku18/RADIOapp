@@ -62,6 +62,25 @@ export class JobBoardController {
     });
   }
 
+  @Post('requests')
+  async createRequest(
+    @CurrentUser() user: FirebaseUser,
+    @Body()
+    body: {
+      title?: string;
+      description?: string | null;
+      serviceType?: string | null;
+    },
+  ) {
+    const userId = await this.getUserId(user.uid);
+    return this.jobBoard.createRequest({
+      artistId: userId,
+      title: body?.title ?? '',
+      description: body?.description ?? null,
+      serviceType: body?.serviceType ?? null,
+    });
+  }
+
   @Get('requests/:requestId')
   async getRequest(@Param('requestId') requestId: string) {
     const req = await this.jobBoard.getRequest(requestId);

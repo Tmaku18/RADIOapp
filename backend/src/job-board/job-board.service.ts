@@ -2,6 +2,7 @@ import {
   Injectable,
   ForbiddenException,
   NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { NotificationService } from '../notifications/notification.service';
@@ -87,6 +88,49 @@ export class JobBoardService {
     }));
 
     return { items, total: count ?? items.length };
+  }
+
+  async createRequest(params: {
+    artistId: string;
+    title: string;
+    description?: string | null;
+    serviceType?: string | null;
+  }): Promise<ServiceRequestRow> {
+    const title = params.title?.trim();
+    if (!title) throw new BadRequestException('Title is required');
+    if (title.length > 120)
+      throw new BadRequestException('Title must be 120 characters or fewer');
+
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('service_requests')
+      .insert({
+        artist_id: params.artistId,
+        title,
+        description: params.description?.trim() || null,
+        service_type: params.serviceType?.trim() || null,
+        status: 'open',
+      })
+      .select(
+        'id, artist_id, title, description, service_type, status, created_at, updated_at',
+      )
+      .single();
+
+    if (error || !data)
+      throw new Error(`Failed to create request: ${error?.message}`);
+
+    const displayName = await this.getDisplayName(params.artistId);
+    return {
+      id: data.id,
+      artistId: data.artist_id,
+      title: data.title,
+      description: data.description ?? null,
+      serviceType: data.service_type ?? null,
+      status: data.status,
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
+      artistDisplayName: displayName,
+    };
   }
 
   async getRequest(requestId: string): Promise<ServiceRequestRow | null> {

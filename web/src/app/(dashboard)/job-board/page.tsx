@@ -15,7 +15,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { hasArtistCapability } from '@/lib/roles';
 import {
   Select,
   SelectContent,
@@ -68,6 +70,14 @@ export default function JobBoardPage() {
   const [applyMessage, setApplyMessage] = useState('');
   const [applying, setApplying] = useState(false);
   const [applySuccess, setApplySuccess] = useState(false);
+
+  const canPost = hasArtistCapability(profile?.role);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [newServiceType, setNewServiceType] = useState<string>('none');
+  const [newDescription, setNewDescription] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const loadRequests = useCallback(
     async (mine: boolean) => {
@@ -139,6 +149,38 @@ export default function JobBoardPage() {
     }
   };
 
+  const handleCreate = async () => {
+    const title = newTitle.trim();
+    if (!title || creating) {
+      if (!title) setCreateError('A title is required.');
+      return;
+    }
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await jobBoardApi.createRequest({
+        title,
+        description: newDescription.trim() || null,
+        serviceType: newServiceType === 'none' ? null : newServiceType,
+      });
+      setCreateOpen(false);
+      setNewTitle('');
+      setNewServiceType('none');
+      setNewDescription('');
+      setTab('mine');
+      loadRequests(true);
+    } catch (e: unknown) {
+      const msg =
+        e && typeof e === 'object'
+          ? ((e as { response?: { data?: { message?: unknown } } }).response
+              ?.data?.message as string | undefined)
+          : undefined;
+      setCreateError(msg ?? 'Could not post your request.');
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const isOwner = myId && requestDetail && requestDetail.artistId === myId;
 
   return (
@@ -148,7 +190,21 @@ export default function JobBoardPage() {
         <div className="relative">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <h1 className="text-2xl font-semibold text-white">Pro-Network</h1>
-            <Badge className="badge-verified border border-black/10">Verified</Badge>
+            <div className="flex items-center gap-2">
+              {canPost && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    setCreateError(null);
+                    setCreateOpen(true);
+                  }}
+                >
+                  Post a request
+                </Button>
+              )}
+              <Badge className="badge-verified border border-black/10">Verified</Badge>
+            </div>
           </div>
           <p className="text-white/80 text-sm mt-1">
             Exclusive service requests and collaborations for creators.
@@ -234,9 +290,21 @@ export default function JobBoardPage() {
                 </Card>
               ))}
               {items.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">
-                  You haven&apos;t posted any requests. Create one from your artist Services page.
-                </p>
+                <div className="text-center py-8 space-y-3">
+                  <p className="text-muted-foreground">
+                    You haven&apos;t posted any requests yet.
+                  </p>
+                  {canPost && (
+                    <Button
+                      onClick={() => {
+                        setCreateError(null);
+                        setCreateOpen(true);
+                      }}
+                    >
+                      Post a request
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -328,6 +396,61 @@ export default function JobBoardPage() {
       {applySuccess && (
         <p className="text-sm text-green-600 text-center">Application submitted. The artist will see it in their &quot;My requests&quot; tab.</p>
       )}
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Post a service request</DialogTitle>
+            <DialogDescription>
+              Tell Catalysts what you need. Open requests appear in Browse for
+              providers to apply.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="req-title">Title</Label>
+              <Input
+                id="req-title"
+                placeholder="e.g. Need a mix engineer for a 3-track EP"
+                value={newTitle}
+                maxLength={120}
+                onChange={(e) => setNewTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Service type</Label>
+              <Select value={newServiceType} onValueChange={setNewServiceType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">General</SelectItem>
+                  {SERVICE_TYPES.map((st) => (
+                    <SelectItem key={st} value={st}>{st}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="req-desc">Details (optional)</Label>
+              <Textarea
+                id="req-desc"
+                placeholder="Describe the work, budget, timeline, references..."
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                rows={4}
+              />
+            </div>
+            {createError && <p className="text-sm text-destructive">{createError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={creating || !newTitle.trim()}>
+              {creating ? 'Posting…' : 'Post request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -946,6 +946,8 @@ export const serviceProvidersApi = {
 export const jobBoardApi = {
   listRequests: (params?: { serviceType?: string; status?: 'open' | 'closed' | 'all'; mine?: boolean; limit?: number; offset?: number }) =>
     api.get('/job-board/requests', { params }),
+  createRequest: (data: { title: string; description?: string | null; serviceType?: string | null }) =>
+    api.post('/job-board/requests', data),
   getRequest: (requestId: string) => api.get(`/job-board/requests/${requestId}`),
   apply: (requestId: string, message?: string | null) =>
     api.post(`/job-board/requests/${requestId}/applications`, { message }),

@@ -70,12 +70,146 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
     }
   }
 
+  bool get _canPost {
+    final role = _me?.role;
+    return role == 'artist' || role == 'admin';
+  }
+
+  Future<void> _showCreateDialog() async {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    String selectedType = 'none';
+
+    final created = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        bool submitting = false;
+        String? error;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            Future<void> submit() async {
+              final title = titleController.text.trim();
+              if (title.isEmpty) {
+                setSheetState(() => error = 'A title is required.');
+                return;
+              }
+              setSheetState(() {
+                submitting = true;
+                error = null;
+              });
+              try {
+                await _service.createRequest(
+                  title: title,
+                  description: descController.text,
+                  serviceType: selectedType == 'none' ? null : selectedType,
+                );
+                if (sheetContext.mounted) Navigator.pop(sheetContext, true);
+              } catch (_) {
+                setSheetState(() {
+                  submitting = false;
+                  error = 'Could not post your request. Try again.';
+                });
+              }
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Post a service request',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge
+                        ?.copyWith(fontFamily: 'Lora'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: titleController,
+                    maxLength: 120,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      hintText: 'e.g. Need a mix engineer for a 3-track EP',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedType,
+                    decoration: const InputDecoration(labelText: 'Service type'),
+                    items: [
+                      const DropdownMenuItem(
+                          value: 'none', child: Text('General')),
+                      ...serviceTypes.map(
+                        (s) => DropdownMenuItem(value: s, child: Text(s)),
+                      ),
+                    ],
+                    onChanged: (v) =>
+                        setSheetState(() => selectedType = v ?? 'none'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: descController,
+                    maxLines: 4,
+                    decoration: const InputDecoration(
+                      labelText: 'Details (optional)',
+                      hintText: 'Budget, timeline, references…',
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(error!,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.error)),
+                  ],
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: submitting ? null : submit,
+                      child: Text(submitting ? 'Posting…' : 'Post request'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    if (created == true && mounted) {
+      setState(() => _tab = 'mine');
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Request posted.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      floatingActionButton: _canPost
+          ? FloatingActionButton.extended(
+              onPressed: _showCreateDialog,
+              icon: const Icon(Icons.add),
+              label: const Text('Post a request'),
+            )
+          : null,
       appBar: AppBar(
         title: const Text('Pro-Networx'),
         actions: [

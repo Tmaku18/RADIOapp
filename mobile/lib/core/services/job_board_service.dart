@@ -23,6 +23,22 @@ class JobBoardService {
     return const RequestsPage(items: [], total: 0);
   }
 
+  Future<ServiceRequestRow?> createRequest({
+    required String title,
+    String? description,
+    String? serviceType,
+  }) async {
+    final res = await _api.post('job-board/requests', {
+      'title': title,
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      if (serviceType != null && serviceType.trim().isNotEmpty)
+        'serviceType': serviceType.trim(),
+    });
+    if (res is Map<String, dynamic>) return ServiceRequestRow.fromJson(res);
+    return null;
+  }
+
   Future<ServiceRequestRow?> getRequest(String requestId) async {
     final res = await _api.get('job-board/requests/$requestId');
     if (res is Map<String, dynamic>) return ServiceRequestRow.fromJson(res);
