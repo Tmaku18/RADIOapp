@@ -812,6 +812,17 @@ class _LibraryTabState extends State<_LibraryTab> {
   final SongsService _songs = SongsService();
   bool _loading = true;
   List<LibrarySong> _items = const [];
+  String _sortBy = 'recent';
+
+  static const List<DropdownMenuItem<String>> _sortOptions = [
+    DropdownMenuItem(value: 'recent', child: Text('Recently added')),
+    DropdownMenuItem(value: 'oldest', child: Text('Oldest added')),
+    DropdownMenuItem(value: 'artist', child: Text('Artist')),
+    DropdownMenuItem(value: 'title', child: Text('Song title')),
+    DropdownMenuItem(value: 'likes', child: Text('Likes')),
+    DropdownMenuItem(value: 'plays', child: Text('Plays')),
+    DropdownMenuItem(value: 'temperature', child: Text('Temperature')),
+  ];
 
   @override
   void initState() {
@@ -836,6 +847,51 @@ class _LibraryTabState extends State<_LibraryTab> {
     setState(() => _items = _items.where((i) => i.id != item.id).toList());
   }
 
+  List<LibrarySong> get _sortedItems {
+    final list = [..._items];
+    int byDateDesc(LibrarySong a, LibrarySong b) {
+      final av = a.likedAt;
+      final bv = b.likedAt;
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return bv.compareTo(av);
+    }
+
+    switch (_sortBy) {
+      case 'oldest':
+        list.sort((a, b) => -byDateDesc(a, b));
+        break;
+      case 'artist':
+        list.sort(
+          (a, b) =>
+              a.artistName.toLowerCase().compareTo(b.artistName.toLowerCase()),
+        );
+        break;
+      case 'title':
+        list.sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
+        break;
+      case 'likes':
+        list.sort((a, b) => b.likeCount.compareTo(a.likeCount));
+        break;
+      case 'plays':
+        list.sort((a, b) => b.playCount.compareTo(a.playCount));
+        break;
+      case 'temperature':
+        list.sort(
+          (a, b) => b.temperaturePercent.compareTo(a.temperaturePercent),
+        );
+        break;
+      case 'recent':
+      default:
+        list.sort(byDateDesc);
+        break;
+    }
+    return list;
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -848,30 +904,79 @@ class _LibraryTabState extends State<_LibraryTab> {
         ),
       );
     }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(12),
-        itemCount: _items.length,
-        separatorBuilder: (_, index) => const SizedBox(height: 8),
-        itemBuilder: (context, i) {
-          final item = _items[i];
-          return Card(
-            child: ListTile(
-              title: Text(item.title),
-              subtitle: Text(
-                item.artistName,
-                style: TextStyle(color: surfaces.textSecondary),
+    final items = _sortedItems;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Text('Sort by', style: TextStyle(color: surfaces.textSecondary)),
+              const SizedBox(width: 8),
+              DropdownButton<String>(
+                value: _sortBy,
+                items: _sortOptions,
+                onChanged: (value) {
+                  if (value != null) setState(() => _sortBy = value);
+                },
               ),
-              trailing: IconButton(
-                tooltip: 'Remove',
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _remove(item),
-              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _load,
+            child: ListView.separated(
+              padding: const EdgeInsets.all(12),
+              itemCount: items.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                final item = items[i];
+                return Card(
+                  child: ListTile(
+                    leading: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child:
+                          (item.artworkUrl != null &&
+                              item.artworkUrl!.isNotEmpty)
+                          ? Image.network(
+                              item.artworkUrl!,
+                              width: 44,
+                              height: 44,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) =>
+                                  _artworkFallback(surfaces),
+                            )
+                          : _artworkFallback(surfaces),
+                    ),
+                    title: Text(item.title),
+                    subtitle: Text(
+                      item.artistName,
+                      style: TextStyle(color: surfaces.textSecondary),
+                    ),
+                    trailing: IconButton(
+                      tooltip: 'Remove',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _remove(item),
+                    ),
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _artworkFallback(NetworxSurfaces surfaces) {
+    return Container(
+      width: 44,
+      height: 44,
+      color: surfaces.textSecondary.withValues(alpha: 0.12),
+      child: const Icon(Icons.music_note, size: 22),
     );
   }
 }
