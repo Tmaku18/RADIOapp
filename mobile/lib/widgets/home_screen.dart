@@ -214,6 +214,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.groups_outlined),
+                  title: const Text('Pro Directory'),
+                  subtitle: const Text('Browse Catalysts by skill and location'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.proDirectory);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.work_history_outlined),
                   title: const Text('Job Board'),
                   subtitle: const Text('Exclusive service requests and collaborations'),

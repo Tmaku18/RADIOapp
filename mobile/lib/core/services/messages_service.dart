@@ -62,21 +62,32 @@ class MessagesService {
     });
   }
 
+  Future<void> editMessage({
+    required String messageId,
+    required String body,
+  }) async {
+    await _api.patch('messages/messages/$messageId', {'body': body});
+  }
+
+  Future<void> unsendMessage(String messageId) async {
+    await _api.post('messages/messages/$messageId/unsend', {});
+  }
+
   Future<void> addReaction({
     required String messageId,
-    required String reaction,
+    required String emoji,
   }) async {
-    await _api.post('messages/$messageId/reactions', {
-      'reaction': reaction,
+    await _api.post('messages/messages/$messageId/reactions', {
+      'emoji': emoji,
     });
   }
 
   Future<void> removeReaction({
     required String messageId,
-    required String reaction,
+    required String emoji,
   }) async {
     await _api.delete(
-      'messages/$messageId/reactions/${Uri.encodeComponent(reaction)}',
+      'messages/messages/$messageId/reactions?emoji=${Uri.encodeComponent(emoji)}',
     );
   }
 

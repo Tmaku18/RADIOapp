@@ -242,6 +242,312 @@ class _ThreadScreenState extends State<ThreadScreen> {
     }
   }
 
+  static const List<String> _reactionEmojis = [
+    '👍',
+    '❤️',
+    '😂',
+    '🔥',
+    '😮',
+    '😢',
+  ];
+
+  Future<void> _refreshSilently() async {
+    try {
+      final msgs = await _service.getThread(widget.otherUserId, limit: 100);
+      if (mounted) setState(() => _messages = msgs);
+    } catch (_) {
+      // keep current state on failure
+    }
+  }
+
+  void _showMessageActions(MessageRow m) {
+    if (m.isUnsent) return;
+    final isMine = m.senderId == widget.myUserId;
+    final canEdit = isMine && m.messageType == 'text';
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: _reactionEmojis.map((emoji) {
+                  return InkWell(
+                    onTap: () {
+                      Navigator.pop(ctx);
+                      _toggleReaction(m, emoji);
+                    },
+                    borderRadius: BorderRadius.circular(20),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(emoji, style: const TextStyle(fontSize: 24)),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+            const Divider(height: 1),
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('Edit'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _editMessage(m);
+                },
+              ),
+            if (isMine)
+              ListTile(
+                leading: const Icon(Icons.undo),
+                title: const Text('Unsend'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _unsendMessage(m);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _toggleReaction(MessageRow m, String emoji) async {
+    final mine = m.reactions
+        .any((r) => r.userId == widget.myUserId && r.emoji == emoji);
+    try {
+      if (mine) {
+        await _service.removeReaction(messageId: m.id, emoji: emoji);
+      } else {
+        await _service.addReaction(messageId: m.id, emoji: emoji);
+      }
+      await _refreshSilently();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update reaction.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _editMessage(MessageRow m) async {
+    final controller = TextEditingController(text: m.body);
+    final newBody = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Edit message'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 1,
+          maxLines: 5,
+          decoration: const InputDecoration(hintText: 'Message'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (newBody == null || newBody.isEmpty || newBody == m.body) return;
+    try {
+      await _service.editMessage(messageId: m.id, body: newBody);
+      await _refreshSilently();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not edit message.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _unsendMessage(MessageRow m) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Unsend message?'),
+        content: const Text(
+          'This removes the message for everyone in the conversation.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Unsend'),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    try {
+      await _service.unsendMessage(m.id);
+      await _refreshSilently();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not unsend message.')),
+        );
+      }
+    }
+  }
+
+  Widget _buildMessage(
+    MessageRow m,
+    bool isMine,
+    NetworxSurfaces surfaces,
+    ColorScheme scheme,
+  ) {
+    final fg = isMine ? scheme.onPrimary : scheme.onSurface;
+    final mutedFg = (isMine ? scheme.onPrimary : scheme.onSurface)
+        .withValues(alpha: 0.7);
+
+    Widget content;
+    if (m.isUnsent) {
+      content = Text(
+        'Message removed',
+        style: TextStyle(
+          color: mutedFg,
+          fontStyle: FontStyle.italic,
+        ),
+      );
+    } else {
+      final children = <Widget>[];
+      final hasMedia = m.messageType != 'text' &&
+          m.mediaUrl != null &&
+          m.mediaUrl!.isNotEmpty;
+      if (hasMedia) {
+        if (m.messageType == 'image') {
+          children.add(
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.network(
+                m.mediaUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) =>
+                    Icon(Icons.broken_image_outlined, color: mutedFg),
+              ),
+            ),
+          );
+        } else {
+          children.add(Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                m.messageType == 'video' ? Icons.videocam : Icons.mic,
+                size: 18,
+                color: fg,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                m.messageType == 'video' ? 'Video' : 'Voice message',
+                style: TextStyle(color: fg),
+              ),
+            ],
+          ));
+        }
+      }
+      if (m.body.isNotEmpty) {
+        if (children.isNotEmpty) children.add(const SizedBox(height: 6));
+        children.add(Text(m.body, style: TextStyle(color: fg)));
+      }
+      if (m.isEdited) {
+        children.add(Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(
+            'edited',
+            style: TextStyle(color: mutedFg, fontSize: 11),
+          ),
+        ));
+      }
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children.isEmpty ? [Text('', style: TextStyle(color: fg))] : children,
+      );
+    }
+
+    return Align(
+      alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment:
+            isMine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onLongPress: m.isUnsent ? null : () => _showMessageActions(m),
+            child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 4),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              constraints: const BoxConstraints(maxWidth: 320),
+              decoration: BoxDecoration(
+                color: isMine ? scheme.primary : surfaces.elevated,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: content,
+            ),
+          ),
+          if (m.reactions.isNotEmpty)
+            _buildReactions(m, surfaces, scheme),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReactions(
+    MessageRow m,
+    NetworxSurfaces surfaces,
+    ColorScheme scheme,
+  ) {
+    final counts = <String, int>{};
+    final mineEmojis = <String>{};
+    for (final r in m.reactions) {
+      counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+      if (r.userId == widget.myUserId) mineEmojis.add(r.emoji);
+    }
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Wrap(
+        spacing: 4,
+        children: counts.entries.map((e) {
+          final mine = mineEmojis.contains(e.key);
+          return GestureDetector(
+            onTap: () => _toggleReaction(m, e.key),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: mine
+                    ? scheme.primary.withValues(alpha: 0.18)
+                    : surfaces.elevated,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: mine ? scheme.primary : surfaces.border,
+                ),
+              ),
+              child: Text(
+                '${e.key} ${e.value}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -302,26 +608,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                     itemBuilder: (context, i) {
                       final m = _messages[i];
                       final isMine = m.senderId == widget.myUserId;
-                      return Align(
-                        alignment:
-                            isMine ? Alignment.centerRight : Alignment.centerLeft,
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          decoration: BoxDecoration(
-                            color: isMine ? scheme.primary : surfaces.elevated,
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Text(
-                            m.body,
-                            style: TextStyle(
-                              color: isMine ? scheme.onPrimary : scheme.onSurface,
-                            ),
-                          ),
-                        ),
-                      );
+                      return _buildMessage(m, isMine, surfaces, scheme);
                     },
                   ),
           ),
