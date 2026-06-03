@@ -171,8 +171,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="py-16 bg-muted/50">
+      {/* Stats Section — black/white slot in the teal↔dark alternation */}
+      <section className="py-16 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
             {[
@@ -193,14 +193,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Prospectors */}
-      <section className="py-20">
+      {/* How It Works - Prospectors — teal slot */}
+      <section className="py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
+            <h2 className="text-3xl font-bold text-primary-foreground mb-4">
               For Prospectors
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-primary-foreground/80">
               Discover your next favorite gem in real time
             </p>
           </div>
@@ -226,8 +226,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Gems (underground artists) */}
-      <section className="py-20 bg-muted/50">
+      {/* How It Works - Gems (underground artists) — black/white slot */}
+      <section className="py-20 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold text-foreground mb-4">
@@ -259,14 +259,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Diamonds (featured underground talent) */}
-      <section className="py-20">
+      {/* Diamonds (featured underground talent) — teal slot */}
+      <section className="py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
+            <h2 className="text-3xl font-bold text-primary-foreground mb-4">
               Diamonds
             </h2>
-            <p className="text-xl text-muted-foreground">
+            <p className="text-xl text-primary-foreground/80">
               Undiscovered talent in the spotlight
             </p>
           </div>
@@ -294,8 +294,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-16 bg-muted/50">
+      {/* Final CTA — closing black/white slot */}
+      <section className="py-16 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
