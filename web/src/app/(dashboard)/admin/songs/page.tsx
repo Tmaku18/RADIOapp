@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
+import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import {
@@ -35,6 +36,9 @@ interface Song {
   is_explicit?: boolean;
   sample_start_seconds?: number | null;
   sample_end_seconds?: number | null;
+  discover_enabled?: boolean | null;
+  discover_clip_start_seconds?: number | null;
+  discover_clip_end_seconds?: number | null;
   rejection_reason?: string;
   rejected_at?: string | null;
   copyright_status?:
@@ -180,6 +184,7 @@ export default function AdminSongsPage() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [trimmingSong, setTrimmingSong] = useState<Song | null>(null);
   const [sampleSong, setSampleSong] = useState<Song | null>(null);
+  const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
   const [trimStartSeconds, setTrimStartSeconds] = useState(0);
   const [trimEndSeconds, setTrimEndSeconds] = useState(0);
   const [trimPreviewReady, setTrimPreviewReady] = useState(false);
@@ -1083,6 +1088,15 @@ export default function AdminSongsPage() {
                             Sample
                           </DropdownMenuItem>
                           <DropdownMenuItem
+                            disabled={!song.audio_url}
+                            onSelect={() => setDiscoverClipSong(song)}
+                          >
+                            {song.discover_enabled ||
+                            song.discover_clip_start_seconds != null
+                              ? 'Edit Discover clip'
+                              : 'Set Discover clip'}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
                             disabled={editSaving && editingSong?.id === song.id}
                             onSelect={() => openEditModal(song)}
                           >
@@ -1366,6 +1380,45 @@ export default function AdminSongsPage() {
               }
             : null
         }
+      />
+
+      <DiscoverClipDialog
+        open={discoverClipSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setDiscoverClipSong(null);
+        }}
+        song={
+          discoverClipSong
+            ? {
+                id: discoverClipSong.id,
+                title: discoverClipSong.title,
+                audioUrl: discoverClipSong.audio_url ?? null,
+                durationSeconds:
+                  durationOverrides[discoverClipSong.id] ??
+                  discoverClipSong.duration_seconds ??
+                  null,
+                discoverEnabled: discoverClipSong.discover_enabled === true,
+                discoverClipStartSeconds:
+                  discoverClipSong.discover_clip_start_seconds ?? null,
+                discoverClipEndSeconds:
+                  discoverClipSong.discover_clip_end_seconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === discoverClipSong?.id
+                ? {
+                    ...s,
+                    discover_enabled: result.discoverEnabled,
+                    discover_clip_start_seconds: result.discoverClipStartSeconds,
+                    discover_clip_end_seconds: result.discoverClipEndSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
       />
     </div>
   );
