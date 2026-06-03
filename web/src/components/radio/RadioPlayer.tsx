@@ -613,6 +613,46 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted, noContent]);
 
+  // Lightweight near-real-time refresh of reaction counts + temperature so the
+  // gauge moves as fire/shit votes come in from other listeners, independent of
+  // the slower 30s track poll. Only touches counts — never playback/track state.
+  useEffect(() => {
+    if (state.source && state.source !== 'radio') return;
+    if (noContent) return;
+    let cancelled = false;
+    const refreshReactions = async () => {
+      if (isFetchingNextTrack.current || isFetchingCurrentTrackRef.current) return;
+      try {
+        const res = await radioApi.getCurrentTrack(effectiveRadioId);
+        if (cancelled) return;
+        const data = res.data;
+        if (!data || data.no_content) return;
+        setListenerCount(coerceListenerCount(data?.listener_count));
+        const f = coerceListenerCount(data?.fire_votes);
+        const s = coerceListenerCount(data?.shit_votes);
+        updateTemperatureFromCounts(f, s);
+        const t = Number(data?.temperature_percent);
+        if (Number.isFinite(t)) {
+          setTemperaturePercent(Math.max(0, Math.min(100, Math.round(t))));
+        }
+      } catch {
+        // Count refresh failures should not affect playback.
+      }
+    };
+    const interval = setInterval(refreshReactions, 7000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [
+    effectiveRadioId,
+    state.source,
+    noContent,
+    coerceListenerCount,
+    updateTemperatureFromCounts,
+    setListenerCount,
+  ]);
+
   // Check for "Jump to Live" state when paused
   useEffect(() => {
     if (!state.pausedAt) {
