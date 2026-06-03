@@ -34,43 +34,170 @@ function getViewerToken(): string {
   return token;
 }
 
-/** Cross-browser HLS player: uses hls.js where MSE is supported, native HLS otherwise. */
+/**
+ * Cross-browser HLS player: uses hls.js where MSE is supported, native HLS
+ * otherwise. Built to tolerate a *just-started* live stream where the HLS
+ * manifest/segments aren't ready for the first several seconds — it keeps
+ * retrying instead of getting stuck. Starts muted so browser autoplay policies
+ * don't silently block playback (viewers can unmute via the controls).
+ */
 function HlsPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [status, setStatus] = useState<'connecting' | 'playing' | 'error'>(
+    'connecting',
+  );
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
+    let destroyed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+    const tryPlay = () => {
+      video.play().catch(() => undefined);
+    };
+
+    // Safari / iOS play HLS natively; let the browser retry the live edge.
+    if (!Hls.isSupported()) {
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = src;
+        const onLoaded = () => {
+          setStatus('playing');
+          tryPlay();
+        };
+        const onPlaying = () => setStatus('playing');
+        const onError = () => {
+          if (destroyed) return;
+          // Live edge may not be ready yet — reload shortly.
+          retryTimer = setTimeout(() => {
+            if (!destroyed) video.load();
+          }, 4000);
+        };
+        video.addEventListener('loadedmetadata', onLoaded);
+        video.addEventListener('playing', onPlaying);
+        video.addEventListener('error', onError);
+        return () => {
+          destroyed = true;
+          if (retryTimer) clearTimeout(retryTimer);
+          video.removeEventListener('loadedmetadata', onLoaded);
+          video.removeEventListener('playing', onPlaying);
+          video.removeEventListener('error', onError);
+        };
+      }
+      setStatus('error');
+      return;
+    }
+
+    let hls: Hls | null = null;
+
+    const create = () => {
+      hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        liveDurationInfinity: true,
+        manifestLoadingMaxRetry: 8,
+        manifestLoadingRetryDelay: 1000,
+        levelLoadingMaxRetry: 8,
+        fragLoadingMaxRetry: 8,
+      });
       hls.loadSource(src);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(() => undefined);
+        setStatus('playing');
+        tryPlay();
       });
-      return () => {
-        hls.destroy();
-      };
-    }
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        if (!destroyed) setStatus('playing');
+      });
+      hls.on(Hls.Events.ERROR, (_evt, data) => {
+        if (!data?.fatal) return;
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          setStatus('connecting');
+          // Manifest/segment not ready yet on a fresh stream → keep retrying,
+          // and fully recreate if the manifest itself can't be loaded.
+          const manifestMissing =
+            data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR ||
+            data.details === Hls.ErrorDetails.MANIFEST_LOAD_TIMEOUT ||
+            data.details === Hls.ErrorDetails.MANIFEST_PARSING_ERROR;
+          if (manifestMissing) {
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => {
+              if (destroyed) return;
+              try {
+                hls?.destroy();
+              } catch {
+                // ignore
+              }
+              create();
+            }, 4000);
+          } else {
+            try {
+              hls?.startLoad();
+            } catch {
+              // ignore — recreate path below handles persistent failures
+            }
+          }
+        } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          setStatus('connecting');
+          try {
+            hls?.recoverMediaError();
+          } catch {
+            try {
+              hls?.destroy();
+            } catch {
+              // ignore
+            }
+            if (!destroyed) create();
+          }
+        } else {
+          try {
+            hls?.destroy();
+          } catch {
+            // ignore
+          }
+          if (!destroyed) {
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => {
+              if (!destroyed) create();
+            }, 4000);
+          }
+        }
+      });
+    };
 
-    // Safari / iOS can play HLS natively.
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = src;
-      const onLoaded = () => video.play().catch(() => undefined);
-      video.addEventListener('loadedmetadata', onLoaded);
-      return () => video.removeEventListener('loadedmetadata', onLoaded);
-    }
+    create();
+
+    return () => {
+      destroyed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      try {
+        hls?.destroy();
+      } catch {
+        // ignore
+      }
+    };
   }, [src]);
 
   return (
-    <video
-      ref={videoRef}
-      className="w-full rounded-lg border border-border bg-black"
-      controls
-      autoPlay
-      playsInline
-    />
+    <div className="relative">
+      <video
+        ref={videoRef}
+        className="w-full rounded-lg border border-border bg-black"
+        controls
+        autoPlay
+        muted
+        playsInline
+      />
+      {status !== 'playing' && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="rounded-full bg-black/70 px-3 py-1.5 text-xs text-white">
+            {status === 'error'
+              ? 'Playback not supported in this browser'
+              : 'Connecting to live stream…'}
+          </span>
+        </div>
+      )}
+    </div>
   );
 }
 
