@@ -127,6 +127,8 @@ class RefineryReviewItem {
   final int openingEndingRating;
   final String? comment;
   final bool isOutlier;
+  final bool favorited;
+  final int? qualityRating;
 
   RefineryReviewItem({
     required this.id,
@@ -138,10 +140,29 @@ class RefineryReviewItem {
     required this.openingEndingRating,
     required this.comment,
     required this.isOutlier,
+    required this.favorited,
+    required this.qualityRating,
   });
+
+  RefineryReviewItem copyWith({bool? favorited, int? qualityRating, bool clearQuality = false}) {
+    return RefineryReviewItem(
+      id: id,
+      createdAt: createdAt,
+      overallRating: overallRating,
+      beatRating: beatRating,
+      lyricsRating: lyricsRating,
+      chorusRating: chorusRating,
+      openingEndingRating: openingEndingRating,
+      comment: comment,
+      isOutlier: isOutlier,
+      favorited: favorited ?? this.favorited,
+      qualityRating: clearQuality ? null : (qualityRating ?? this.qualityRating),
+    );
+  }
 
   factory RefineryReviewItem.fromJson(Map<String, dynamic> json) {
     final c = json['comment']?.toString();
+    final q = json['qualityRating'];
     return RefineryReviewItem(
       id: json['id']?.toString() ?? '',
       createdAt: json['createdAt']?.toString() ?? '',
@@ -152,6 +173,8 @@ class RefineryReviewItem {
       openingEndingRating: _toInt(json['openingEndingRating']),
       comment: (c == null || c.isEmpty) ? null : c,
       isOutlier: json['isOutlier'] == true,
+      favorited: json['favorited'] == true,
+      qualityRating: q == null ? null : _toInt(q),
     );
   }
 }
@@ -297,5 +320,29 @@ class RefineryService {
         await _api.get('refinery/songs/$songId/analytics?limit=$limit&offset=$offset');
     if (res is Map<String, dynamic>) return RefineryAnalytics.fromJson(res);
     throw Exception('Failed to load refinery analytics');
+  }
+
+  /// Artist favorites / unfavorites a review (favorites sort to the top).
+  Future<void> favoriteReview(
+    String songId,
+    String reviewId,
+    bool favorited,
+  ) async {
+    await _api.post(
+      'refinery/songs/$songId/reviews/$reviewId/favorite',
+      {'favorited': favorited},
+    );
+  }
+
+  /// Artist rates the quality of the feedback (1-5, or null to clear).
+  Future<void> rateReviewQuality(
+    String songId,
+    String reviewId,
+    int? rating,
+  ) async {
+    await _api.post(
+      'refinery/songs/$songId/reviews/$reviewId/quality',
+      {'rating': rating},
+    );
   }
 }

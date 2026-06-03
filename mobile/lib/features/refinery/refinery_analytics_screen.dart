@@ -70,6 +70,60 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
   String _fmt(double? v) =>
       v == null ? '—' : (v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1));
 
+  void _applyReviewUpdate(RefineryReviewItem updated) {
+    final data = _data;
+    if (data == null) return;
+    final idx = data.reviews.indexWhere((x) => x.id == updated.id);
+    if (idx < 0) return;
+    setState(() {
+      data.reviews[idx] = updated;
+      // Favorited reviews float to the top (newest-first within each group).
+      data.reviews.sort((a, b) {
+        final af = a.favorited ? 1 : 0;
+        final bf = b.favorited ? 1 : 0;
+        if (af != bf) return bf - af;
+        return b.createdAt.compareTo(a.createdAt);
+      });
+    });
+  }
+
+  Future<void> _toggleFavorite(RefineryReviewItem r) async {
+    final next = !r.favorited;
+    _applyReviewUpdate(r.copyWith(favorited: next));
+    try {
+      await _service.favoriteReview(widget.songId, r.id, next);
+    } catch (_) {
+      _applyReviewUpdate(r.copyWith(favorited: !next));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update favorite.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _rateQuality(RefineryReviewItem r, int n) async {
+    // Tapping the current rating again clears it.
+    final next = r.qualityRating == n ? null : n;
+    _applyReviewUpdate(
+      next == null ? r.copyWith(clearQuality: true) : r.copyWith(qualityRating: next),
+    );
+    try {
+      await _service.rateReviewQuality(widget.songId, r.id, next);
+    } catch (_) {
+      _applyReviewUpdate(
+        r.qualityRating == null
+            ? r.copyWith(clearQuality: true)
+            : r.copyWith(qualityRating: r.qualityRating),
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update rating.')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -379,8 +433,15 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
       (label: 'chorus', value: r.chorusRating),
       (label: 'intro/outro', value: r.openingEndingRating),
     ];
+    const amber = Color(0xFFF59E0B);
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
+      shape: r.favorited
+          ? RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: amber, width: 1.5),
+            )
+          : null,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -389,15 +450,26 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(r.createdAt,
-                    style: TextStyle(
-                        color: surfaces.textMuted, fontSize: 12)),
+                Expanded(
+                  child: Text(r.createdAt,
+                      style: TextStyle(
+                          color: surfaces.textMuted, fontSize: 12)),
+                ),
                 if (r.isOutlier)
                   Chip(
                     label: const Text('Outlier'),
                     visualDensity: VisualDensity.compact,
                     backgroundColor: scheme.errorContainer,
                   ),
+                IconButton(
+                  tooltip: r.favorited ? 'Remove favorite' : 'Favorite',
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    r.favorited ? Icons.star : Icons.star_border,
+                    color: r.favorited ? amber : surfaces.textMuted,
+                  ),
+                  onPressed: () => _toggleFavorite(r),
+                ),
               ],
             ),
             const SizedBox(height: 8),
@@ -422,6 +494,36 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
               Text('“${r.comment}”',
                   style: const TextStyle(fontStyle: FontStyle.italic)),
             ],
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text('Feedback quality:',
+                    style: TextStyle(
+                        color: surfaces.textSecondary, fontSize: 12)),
+                const SizedBox(width: 4),
+                ...List.generate(5, (i) {
+                  final n = i + 1;
+                  final filled = (r.qualityRating ?? 0) >= n;
+                  return GestureDetector(
+                    onTap: () => _rateQuality(r, n),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: Icon(
+                        filled ? Icons.star : Icons.star_border,
+                        size: 20,
+                        color: filled ? amber : surfaces.textMuted,
+                      ),
+                    ),
+                  );
+                }),
+                if (r.qualityRating != null) ...[
+                  const SizedBox(width: 4),
+                  Text('${r.qualityRating}/5',
+                      style: TextStyle(
+                          color: surfaces.textSecondary, fontSize: 12)),
+                ],
+              ],
+            ),
           ],
         ),
       ),

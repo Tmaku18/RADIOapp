@@ -251,6 +251,7 @@ export type RefineryAnalyticsPayload = {
       recentResponses: string[];
     }>;
     outlierCount: number;
+    favoritedCount: number;
   };
   reviews: Array<{
     id: string;
@@ -264,6 +265,8 @@ export type RefineryAnalyticsPayload = {
     customResponses: Record<string, string>;
     comment: string | null;
     isOutlier: boolean;
+    favorited: boolean;
+    qualityRating: number | null;
   }>;
   pagination: { limit: number; offset: number; total: number };
 };
@@ -328,6 +331,22 @@ export const refineryApi = {
     api.get<RefineryAnalyticsPayload>(
       `/refinery/songs/${songId}/analytics`,
       { params: params ?? {} },
+    ),
+  /** Artist favorites / unfavorites a review (favorites sort to the top). */
+  favoriteReview: (songId: string, reviewId: string, favorited: boolean) =>
+    api.post<{ id: string; favorited: boolean }>(
+      `/refinery/songs/${songId}/reviews/${reviewId}/favorite`,
+      { favorited },
+    ),
+  /** Artist rates the quality of the feedback (1-5, or null to clear). */
+  rateReviewQuality: (
+    songId: string,
+    reviewId: string,
+    rating: number | null,
+  ) =>
+    api.post<{ id: string; qualityRating: number | null }>(
+      `/refinery/songs/${songId}/reviews/${reviewId}/quality`,
+      { rating },
     ),
 
   // Legacy comments (kept for backward compatibility)

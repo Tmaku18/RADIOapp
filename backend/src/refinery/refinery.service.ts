@@ -670,7 +670,7 @@ export class RefineryService {
     const { data: allReviews, error: reviewsErr } = await supabase
       .from('refinery_reviews')
       .select(
-        'id, overall_rating, beat_rating, lyrics_rating, chorus_rating, opening_ending_rating, survey_responses, custom_responses, comment, created_at, reviewer_id',
+        'id, overall_rating, beat_rating, lyrics_rating, chorus_rating, opening_ending_rating, survey_responses, custom_responses, comment, created_at, reviewer_id, artist_favorited, artist_quality_rating',
       )
       .eq('song_id', songId)
       .order('created_at', { ascending: false });
@@ -691,6 +691,8 @@ export class RefineryService {
       comment: string | null;
       created_at: string;
       reviewer_id: string;
+      artist_favorited: boolean | null;
+      artist_quality_rating: number | null;
     };
     const reviews: ReviewRow[] = (allReviews ?? []) as ReviewRow[];
 
@@ -761,7 +763,15 @@ export class RefineryService {
     }
 
     const totalReviews = reviews.length;
-    const paged = reviews.slice(offset, offset + limit).map((r) => ({
+    // Favorited reviews float to the top (newest-first within each group) so the
+    // artist always sees the feedback they bookmarked first.
+    const orderedReviews = [...reviews].sort((a, b) => {
+      const af = a.artist_favorited ? 1 : 0;
+      const bf = b.artist_favorited ? 1 : 0;
+      if (af !== bf) return bf - af;
+      return (b.created_at ?? '').localeCompare(a.created_at ?? '');
+    });
+    const paged = orderedReviews.slice(offset, offset + limit).map((r) => ({
       id: r.id,
       createdAt: r.created_at,
       overallRating: r.overall_rating,
@@ -773,6 +783,8 @@ export class RefineryService {
       customResponses: r.custom_responses ?? {},
       comment: r.comment,
       isOutlier: outlierIds.has(r.id),
+      favorited: !!r.artist_favorited,
+      qualityRating: r.artist_quality_rating ?? null,
     }));
 
     return {
@@ -792,10 +804,85 @@ export class RefineryService {
         surveyDistributions,
         customQuestions: customQuestionStats,
         outlierCount: outlierIds.size,
+        favoritedCount: reviews.filter((r) => r.artist_favorited).length,
       },
       reviews: paged,
       pagination: { limit, offset, total: totalReviews },
     };
+  }
+
+  /**
+   * Verify the given song belongs to the artist (by firebase uid) and that the
+   * review belongs to that song. Returns the internal user id. Throws otherwise.
+   */
+  private async assertOwnsReview(
+    firebaseUid: string,
+    songId: string,
+    reviewId: string,
+  ): Promise<void> {
+    const userId = await this.getUserIdFromFirebase(firebaseUid);
+    const supabase = getSupabaseClient();
+    const { data: song, error: songErr } = await supabase
+      .from('songs')
+      .select('id, artist_id')
+      .eq('id', songId)
+      .single();
+    if (songErr || !song) throw new NotFoundException('Song not found');
+    if (song.artist_id !== userId) {
+      throw new ForbiddenException('Only the artist can manage these reviews');
+    }
+    const { data: review, error: reviewErr } = await supabase
+      .from('refinery_reviews')
+      .select('id, song_id')
+      .eq('id', reviewId)
+      .single();
+    if (reviewErr || !review || review.song_id !== songId) {
+      throw new NotFoundException('Review not found');
+    }
+  }
+
+  /** Artist favorites / unfavorites a review on their song. */
+  async setReviewFavorite(
+    firebaseUid: string,
+    songId: string,
+    reviewId: string,
+    favorited: boolean,
+  ): Promise<{ id: string; favorited: boolean }> {
+    await this.assertOwnsReview(firebaseUid, songId, reviewId);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('refinery_reviews')
+      .update({ artist_favorited: favorited })
+      .eq('id', reviewId);
+    if (error) {
+      throw new BadRequestException('Failed to update favorite');
+    }
+    return { id: reviewId, favorited };
+  }
+
+  /**
+   * Artist rates the quality of the feedback (1-5). Pass null to clear the
+   * rating.
+   */
+  async setReviewQuality(
+    firebaseUid: string,
+    songId: string,
+    reviewId: string,
+    rating: number | null,
+  ): Promise<{ id: string; qualityRating: number | null }> {
+    if (rating !== null && (!Number.isInteger(rating) || rating < 1 || rating > 5)) {
+      throw new BadRequestException('Quality rating must be an integer 1-5');
+    }
+    await this.assertOwnsReview(firebaseUid, songId, reviewId);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('refinery_reviews')
+      .update({ artist_quality_rating: rating })
+      .eq('id', reviewId);
+    if (error) {
+      throw new BadRequestException('Failed to update quality rating');
+    }
+    return { id: reviewId, qualityRating: rating };
   }
 
   // ---------------------------------------------------------------------------

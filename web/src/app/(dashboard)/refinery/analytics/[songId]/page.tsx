@@ -17,6 +17,17 @@ import {
 
 const REFRESH_INTERVAL_MS = 30_000;
 
+type ReviewItem = RefineryAnalyticsPayload['reviews'][number];
+
+function sortReviews(reviews: ReviewItem[]): ReviewItem[] {
+  return [...reviews].sort((a, b) => {
+    const af = a.favorited ? 1 : 0;
+    const bf = b.favorited ? 1 : 0;
+    if (af !== bf) return bf - af;
+    return (b.createdAt ?? '').localeCompare(a.createdAt ?? '');
+  });
+}
+
 export default function RefineryAnalyticsPage() {
   const params = useParams<{ songId: string }>();
   const search = useSearchParams();
@@ -57,6 +68,52 @@ export default function RefineryAnalyticsPage() {
     }, REFRESH_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [load]);
+
+  const patchReview = useCallback(
+    (reviewId: string, patch: Partial<ReviewItem>) => {
+      setData((prev) => {
+        if (!prev) return prev;
+        const reviews = sortReviews(
+          prev.reviews.map((r) =>
+            r.id === reviewId ? { ...r, ...patch } : r,
+          ),
+        );
+        const favoritedCount = reviews.filter((r) => r.favorited).length;
+        return { ...prev, reviews, summary: { ...prev.summary, favoritedCount } };
+      });
+    },
+    [],
+  );
+
+  const toggleFavorite = useCallback(
+    async (r: ReviewItem) => {
+      if (!songId) return;
+      const next = !r.favorited;
+      patchReview(r.id, { favorited: next });
+      try {
+        await refineryApi.favoriteReview(songId, r.id, next);
+      } catch {
+        patchReview(r.id, { favorited: !next });
+      }
+    },
+    [songId, patchReview],
+  );
+
+  const rateQuality = useCallback(
+    async (r: ReviewItem, rating: number) => {
+      if (!songId) return;
+      // Tapping the current rating again clears it.
+      const next = r.qualityRating === rating ? null : rating;
+      const prevRating = r.qualityRating;
+      patchReview(r.id, { qualityRating: next });
+      try {
+        await refineryApi.rateReviewQuality(songId, r.id, next);
+      } catch {
+        patchReview(r.id, { qualityRating: prevRating });
+      }
+    },
+    [songId, patchReview],
+  );
 
   useEffect(() => {
     const onFocus = () => void load();
@@ -262,7 +319,14 @@ export default function RefineryAnalyticsPage() {
 
       <Card id="reviews">
         <CardHeader>
-          <CardTitle>Individual reviews ({data.summary.totalReviews})</CardTitle>
+          <CardTitle>
+            Individual reviews ({data.summary.totalReviews})
+            {data.summary.favoritedCount > 0 && (
+              <span className="ml-2 text-sm font-normal text-amber-500">
+                ★ {data.summary.favoritedCount} favorited
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {data.reviews.length === 0 ? (
@@ -273,12 +337,35 @@ export default function RefineryAnalyticsPage() {
           ) : (
             <ul className="space-y-4 divide-y">
               {data.reviews.map((r) => (
-                <li key={r.id} className="pt-4 first:pt-0 first:border-t-0">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                    <span>{new Date(r.createdAt).toLocaleString()}</span>
-                    {r.isOutlier && (
-                      <Badge variant="destructive">Outlier</Badge>
-                    )}
+                <li
+                  key={r.id}
+                  className={`pt-4 first:pt-0 first:border-t-0 ${
+                    r.favorited
+                      ? '-mx-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3'
+                      : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground mb-2">
+                    <div className="flex items-center gap-2">
+                      <span>{new Date(r.createdAt).toLocaleString()}</span>
+                      {r.isOutlier && (
+                        <Badge variant="destructive">Outlier</Badge>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void toggleFavorite(r)}
+                      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium transition-colors ${
+                        r.favorited
+                          ? 'border-amber-500/50 text-amber-500'
+                          : 'border-border text-muted-foreground hover:text-foreground'
+                      }`}
+                      aria-pressed={r.favorited}
+                      title={r.favorited ? 'Remove favorite' : 'Favorite this review'}
+                    >
+                      <span>{r.favorited ? '★' : '☆'}</span>
+                      <span>{r.favorited ? 'Favorited' : 'Favorite'}</span>
+                    </button>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs mb-2">
                     {(
@@ -306,6 +393,36 @@ export default function RefineryAnalyticsPage() {
                       “{r.comment}”
                     </p>
                   )}
+                  <div className="mt-3 flex items-center gap-1.5">
+                    <span className="text-xs text-muted-foreground mr-1">
+                      Feedback quality:
+                    </span>
+                    {[1, 2, 3, 4, 5].map((n) => (
+                      <button
+                        key={n}
+                        type="button"
+                        onClick={() => void rateQuality(r, n)}
+                        className="text-lg leading-none transition-colors"
+                        aria-label={`Rate feedback ${n} of 5`}
+                        title={`${n} star${n > 1 ? 's' : ''}`}
+                      >
+                        <span
+                          className={
+                            (r.qualityRating ?? 0) >= n
+                              ? 'text-amber-500'
+                              : 'text-muted-foreground/40 hover:text-amber-500/60'
+                          }
+                        >
+                          ★
+                        </span>
+                      </button>
+                    ))}
+                    {r.qualityRating != null && (
+                      <span className="ml-1 text-xs text-muted-foreground">
+                        {r.qualityRating}/5
+                      </span>
+                    )}
+                  </div>
                 </li>
               ))}
             </ul>

@@ -136,6 +136,48 @@ export class RefineryController {
     );
   }
 
+  /** Artist favorites / unfavorites a review on their song. */
+  @Post('songs/:id/reviews/:reviewId/favorite')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async favoriteReview(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: { favorited?: boolean },
+  ) {
+    return this.refineryService.setReviewFavorite(
+      user.uid,
+      songId,
+      reviewId,
+      body?.favorited === true,
+    );
+  }
+
+  /** Artist rates the quality of the feedback (1-5, or null to clear). */
+  @Post('songs/:id/reviews/:reviewId/quality')
+  @HttpCode(200)
+  @UseGuards(RolesGuard)
+  @Roles('artist', 'admin')
+  async rateReviewQuality(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Param('reviewId') reviewId: string,
+    @Body() body: { rating?: number | null },
+  ) {
+    const rating =
+      body?.rating === null || body?.rating === undefined
+        ? null
+        : Number(body.rating);
+    return this.refineryService.setReviewQuality(
+      user.uid,
+      songId,
+      reviewId,
+      rating,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Comments (legacy free-text comment surface)
   // ---------------------------------------------------------------------------
