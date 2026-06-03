@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { artistLiveApi } from '@/lib/api';
 import { hasArtistCapability, hasDjCapability } from '@/lib/roles';
-import { GoLiveSheet } from '@/components/stream/GoLiveSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,7 +22,6 @@ export default function StreamSettingsPage() {
   const [status, setStatus] = useState<StreamerStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   const canApply =
     hasArtistCapability(profile?.role) || hasDjCapability(profile?.role);
@@ -149,13 +147,14 @@ export default function StreamSettingsPage() {
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4">
             <Button
-              onClick={() => setSheetOpen(true)}
+              asChild
               className="w-full bg-primary text-primary-foreground hover:opacity-90"
             >
-              Open Stream Manager
+              <Link href="/go-live">Open broadcaster studio</Link>
             </Button>
             <p className="text-xs text-muted-foreground">
-              Set title, description, and category, then start or end your stream.
+              Set title, description, and category, then start broadcasting from
+              your camera and mic.
             </p>
           </div>
         </CardContent>
@@ -173,11 +172,6 @@ export default function StreamSettingsPage() {
         </CardContent>
       </Card>
 
-      <GoLiveSheet
-        open={sheetOpen}
-        onOpenChange={setSheetOpen}
-        artistId={profile?.id ?? null}
-      />
     </div>
   );
 }

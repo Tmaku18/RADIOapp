@@ -8,7 +8,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { hasDjCapability } from '@/lib/roles';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { GoLiveSheet } from '@/components/stream/GoLiveSheet';
 
 type LiveSession = {
   sessionId: string;
@@ -28,7 +27,6 @@ export default function LiveDjPage() {
   const canHost = hasDjCapability(profile?.role);
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sheetOpen, setSheetOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -76,10 +74,10 @@ export default function LiveDjPage() {
         </div>
         {canHost && (
           <Button
-            onClick={() => setSheetOpen(true)}
+            asChild
             className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
           >
-            🔴 Go live as DJ
+            <Link href="/go-live">🔴 Go live as DJ</Link>
           </Button>
         )}
       </div>
@@ -98,8 +96,8 @@ export default function LiveDjPage() {
               {canHost ? ' Want to spin? Hit “Go live as DJ”.' : ''}
             </p>
             {canHost && (
-              <Button variant="outline" onClick={() => setSheetOpen(true)}>
-                Go live as DJ
+              <Button variant="outline" asChild>
+                <Link href="/go-live">Go live as DJ</Link>
               </Button>
             )}
           </CardContent>
@@ -138,15 +136,6 @@ export default function LiveDjPage() {
           ))}
         </div>
       )}
-
-      <GoLiveSheet
-        open={sheetOpen}
-        onOpenChange={(open) => {
-          setSheetOpen(open);
-          if (!open) void load();
-        }}
-        artistId={profile?.id ?? null}
-      />
     </div>
   );
 }
