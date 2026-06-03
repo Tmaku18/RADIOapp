@@ -319,12 +319,18 @@ export class SongsService {
     }
     const limit = Math.min(Math.max(options?.limit ?? 1000, 1), 5000);
     const supabase = getSupabaseClient();
+    // Only target songs that have NO sample yet. We skip anything with a
+    // rendered sample (sample_url) AND anything where a sample window was
+    // explicitly chosen (sample_end_seconds is set when a sample is configured).
+    // This guarantees the backfill never overwrites or deletes a sample an
+    // artist or admin has already set — it only fills in truly-missing ones.
     const { data, error } = await supabase
       .from('songs')
       .select('id')
       .eq('status', 'approved')
       .not('audio_url', 'is', null)
       .is('sample_url', null)
+      .is('sample_end_seconds', null)
       .limit(limit);
     if (error) {
       throw new BadRequestException(
