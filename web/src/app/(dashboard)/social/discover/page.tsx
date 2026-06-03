@@ -22,6 +22,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
 
 const PAGE_SIZE = 12;
 const SWIPE_THRESHOLD_PX = 90;
@@ -30,30 +31,11 @@ function generateDiscoverSeed(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function parseTimeToSeconds(value: string): number | null {
-  const raw = value.trim();
-  if (!raw) return null;
-  if (raw.includes(':')) {
-    const parts = raw.split(':').map((part) => part.trim());
-    if (
-      parts.length < 2 ||
-      parts.length > 3 ||
-      parts.some((part) => part.length === 0)
-    ) {
-      return null;
-    }
-    let total = 0;
-    for (let i = 0; i < parts.length; i += 1) {
-      const part = parts[i];
-      const parsed =
-        i === parts.length - 1 ? Number(part) : Number.parseInt(part, 10);
-      if (!Number.isFinite(parsed) || parsed < 0) return null;
-      total = total * 60 + parsed;
-    }
-    return total;
-  }
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+const DISCOVER_MIN_CLIP = 5;
+const DISCOVER_MAX_CLIP = 15;
+
+function roundHalf(n: number): number {
+  return Math.round(n * 2) / 2;
 }
 
 function shuffleCards(items: DiscoverAudioSongCard[]): DiscoverAudioSongCard[] {
@@ -96,8 +78,8 @@ export default function SocialDiscoverSwipePage() {
   const [forgiveBusy, setForgiveBusy] = useState(false);
   const [libraryScopeLabel, setLibraryScopeLabel] = useState('your saved library');
   const [selectedSongId, setSelectedSongId] = useState('');
-  const [clipStartSeconds, setClipStartSeconds] = useState('0:00');
-  const [clipEndSeconds, setClipEndSeconds] = useState('0:15');
+  const [clipStart, setClipStart] = useState(0);
+  const [clipEnd, setClipEnd] = useState(DISCOVER_MAX_CLIP);
   const [audioPositionSeconds, setAudioPositionSeconds] = useState(0);
   const [audioIsPlaying, setAudioIsPlaying] = useState(false);
 
@@ -348,6 +330,24 @@ export default function SocialDiscoverSwipePage() {
     void loadLibrarySongs();
   }, [libraryOpen, loadLibrarySongs]);
 
+  // Seed the trim window from the selected song's existing Discover clip (or
+  // default to the first 15s) whenever the selection changes.
+  useEffect(() => {
+    const song = librarySongs.find((s) => s.id === selectedSongId);
+    if (!song) return;
+    const s =
+      typeof song.discoverClipStartSeconds === 'number'
+        ? song.discoverClipStartSeconds
+        : 0;
+    const e =
+      typeof song.discoverClipEndSeconds === 'number' &&
+      song.discoverClipEndSeconds > s
+        ? song.discoverClipEndSeconds
+        : s + DISCOVER_MAX_CLIP;
+    setClipStart(s);
+    setClipEnd(e);
+  }, [selectedSongId, librarySongs]);
+
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
       if (!currentCard || busySwipe) return;
@@ -469,50 +469,44 @@ export default function SocialDiscoverSwipePage() {
                         ))}
                       </select>
                     </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <Label htmlFor="clip-start">Clip start (mm:ss or seconds)</Label>
-                        <Input
-                          id="clip-start"
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0:00"
-                          value={clipStartSeconds}
-                          onChange={(e) => setClipStartSeconds(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <Label htmlFor="clip-end">Clip end (mm:ss or seconds)</Label>
-                        <Input
-                          id="clip-end"
-                          type="text"
-                          inputMode="decimal"
-                          placeholder="0:15"
-                          value={clipEndSeconds}
-                          onChange={(e) => setClipEndSeconds(e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Use `mm:ss` (recommended) or plain seconds. Example: `0:30` for
-                      30 seconds.
-                    </p>
+                    <ClipWindowEditor
+                      audioUrl={
+                        librarySongs.find((song) => song.id === selectedSongId)
+                          ?.audioUrl ?? null
+                      }
+                      durationSeconds={null}
+                      minLength={DISCOVER_MIN_CLIP}
+                      maxLength={DISCOVER_MAX_CLIP}
+                      startSeconds={clipStart}
+                      endSeconds={clipEnd}
+                      disabled={publishBusy || !selectedSongId}
+                      onChange={(s, e) => {
+                        setClipStart(s);
+                        setClipEnd(e);
+                      }}
+                    />
                     {publishError && (
                       <p className="text-sm text-destructive">{publishError}</p>
                     )}
                     <Button
                       disabled={publishBusy || !selectedSongId}
                       onClick={async () => {
-                        const start = parseTimeToSeconds(clipStartSeconds);
-                        const end = parseTimeToSeconds(clipEndSeconds);
-                        if (start == null || end == null || end <= start) {
+                        const start = roundHalf(clipStart);
+                        const end = roundHalf(clipEnd);
+                        if (end <= start) {
+                          setPublishError('Clip end must be greater than start.');
+                          return;
+                        }
+                        if (end - start > DISCOVER_MAX_CLIP) {
                           setPublishError(
-                            'Clip start/end must be valid (mm:ss or seconds) and end > start.',
+                            `Clip range must be ${DISCOVER_MAX_CLIP} seconds or less.`,
                           );
                           return;
                         }
-                        if (end - start > 15) {
-                          setPublishError('Clip range must be 15 seconds or less.');
+                        if (end - start < DISCOVER_MIN_CLIP) {
+                          setPublishError(
+                            `Clip must be at least ${DISCOVER_MIN_CLIP} seconds.`,
+                          );
                           return;
                         }
                         setPublishBusy(true);
@@ -523,8 +517,6 @@ export default function SocialDiscoverSwipePage() {
                             clipEndSeconds: end,
                           });
                           setLibraryOpen(false);
-                          setClipStartSeconds('0:00');
-                          setClipEndSeconds('0:15');
                           await loadFeed();
                         } catch (e) {
                           const apiMessage =
