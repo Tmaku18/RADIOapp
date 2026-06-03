@@ -35,6 +35,9 @@ export function CameraBroadcaster({ whipUrl }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  // Mirror the self-preview for the front camera (natural "mirror" feel). The
+  // outgoing WHIP stream is unaffected — viewers see the unmirrored video.
+  const [facing, setFacing] = useState<'user' | 'environment'>('user');
 
   const teardown = useCallback(async () => {
     try {
@@ -163,6 +166,7 @@ export function CameraBroadcaster({ whipUrl }: Props) {
 
   const flipCamera = async () => {
     facingRef.current = facingRef.current === 'user' ? 'environment' : 'user';
+    setFacing(facingRef.current);
     try {
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: facingRef.current },
@@ -209,7 +213,9 @@ export function CameraBroadcaster({ whipUrl }: Props) {
           autoPlay
           muted
           playsInline
-          className="h-full w-full object-cover"
+          className={`h-full w-full object-cover ${
+            facing === 'user' ? '-scale-x-100' : ''
+          }`}
         />
         {(state === 'requesting' || state === 'connecting') && (
           <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 text-sm text-white">

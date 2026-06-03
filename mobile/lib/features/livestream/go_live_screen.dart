@@ -28,6 +28,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   bool _live2 = false;
   bool _micOn = true;
   bool _camOn = true;
+  bool _mirror = true;
   String? _statusText;
   Map<String, dynamic>? _ingest;
 
@@ -199,7 +200,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                     _renderer,
                     objectFit:
                         RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
-                    mirror: true,
+                    mirror: _mirror,
                   )
                 else
                   Center(
@@ -261,7 +262,12 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                     icon: Icons.cameraswitch,
                     label: 'Flip',
                     active: true,
-                    onTap: () => _broadcaster.switchCamera(),
+                    onTap: () async {
+                      await _broadcaster.switchCamera();
+                      if (mounted) {
+                        setState(() => _mirror = _broadcaster.isFrontCamera);
+                      }
+                    },
                   ),
                 ],
               ),

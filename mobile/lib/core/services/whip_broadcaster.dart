@@ -12,6 +12,10 @@ class WhipBroadcaster {
   String _facingMode = 'user';
 
   MediaStream? get localStream => _localStream;
+
+  /// True when the front (selfie) camera is active — used to mirror the local
+  /// self-preview without affecting the outgoing stream.
+  bool get isFrontCamera => _facingMode == 'user';
   bool get isPublishing => _pc != null;
 
   /// Acquire camera/mic, then negotiate a WHIP session with Cloudflare.
