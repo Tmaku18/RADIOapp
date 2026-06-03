@@ -1215,7 +1215,7 @@ class _PlayerBody extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Live listeners: ${track.listenerCount}',
+                    'Live listeners: ${isPlaying && track.listenerCount < 1 ? 1 : track.listenerCount}',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: surfaces.textSecondary,
                     ),

@@ -153,7 +153,13 @@ export class RadioController {
     @CurrentUser() user: FirebaseUser,
     @Body() body: { streamToken?: string; songId: string; timestamp?: string },
   ) {
-    return this.prospectorYieldService.recordHeartbeat(user.uid, body);
+    const result = await this.prospectorYieldService.recordHeartbeat(
+      user.uid,
+      body,
+    );
+    // Reflect this listener in the live count without waiting out the cache TTL.
+    if (body.songId) this.radioService.invalidateListenerCount(body.songId);
+    return result;
   }
 
   @Public()

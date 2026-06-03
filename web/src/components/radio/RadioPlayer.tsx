@@ -863,7 +863,10 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
             </span>
           )}
           <div className="mb-2 text-xs text-muted-foreground">
-            Live listeners: {listenerCount}
+            Live listeners:{' '}
+            {state.isPlaying && state.source === 'radio'
+              ? Math.max(listenerCount, 1)
+              : listenerCount}
           </div>
           <h2 className="text-xl font-bold text-foreground truncate">
             {state.track?.title || 'No track playing'}

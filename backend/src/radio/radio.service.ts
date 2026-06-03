@@ -264,6 +264,19 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  /**
+   * Drop the cached active-listener count for a song so the next read recomputes
+   * it. Called when a listener heartbeats/records presence so a freshly-joined
+   * listener (e.g. the user themselves) is reflected without waiting out the TTL.
+   */
+  invalidateListenerCount(songId?: string): void {
+    if (!songId) {
+      this.listenerCountCache.clear();
+      return;
+    }
+    this.listenerCountCache.delete(songId.trim());
+  }
+
   private isMissingStreamTokenColumn(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
     const message = (maybeError?.message ?? '').toLowerCase();
@@ -1135,6 +1148,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         `Failed to record listener presence for song ${songId}: ${error.message}`,
       );
     }
+
+    // Refresh the cached count so this listener shows up on the next read.
+    this.invalidateListenerCount(songId);
   }
 
   /**
