@@ -78,8 +78,10 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     final rejectedAt = _status?['rejectedAt'];
     final role = _status?['role'] as String?;
 
-    final canApply =
-        role == 'artist' || role == 'service_provider' || role == 'dj';
+    final canApply = role == 'artist' ||
+        role == 'service_provider' ||
+        role == 'dj' ||
+        role == 'admin';
 
     if (!canApply) {
       return Scaffold(

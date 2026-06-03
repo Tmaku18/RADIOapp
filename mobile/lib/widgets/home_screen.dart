@@ -54,10 +54,11 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // Determine which navigation items to show based on user role
     final isArtist = _user?.role == 'artist';
+    final isAdmin = _user?.role == 'admin';
     final isStreamerRole = _user?.role == 'artist' ||
         _user?.role == 'service_provider' ||
-        _user?.role == 'dj';
-    final isAdmin = _user?.role == 'admin';
+        _user?.role == 'dj' ||
+        isAdmin;
 
     final List<NavigationDestination> destinations = isArtist
         ? const [
