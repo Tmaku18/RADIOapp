@@ -19,13 +19,14 @@ class Song {
   final bool inRefinery;
   /// Public 30s preview URL (null until rendered).
   final String? sampleUrl;
-  final int sampleStartSeconds;
-  final int? sampleEndSeconds;
+  // Sample/clip points support half-second precision (0.5s nudges).
+  final double sampleStartSeconds;
+  final double? sampleEndSeconds;
   final int priceCents;
   final bool forSale;
   final bool discoverEnabled;
-  final int? discoverClipStartSeconds;
-  final int? discoverClipEndSeconds;
+  final double? discoverClipStartSeconds;
+  final double? discoverClipEndSeconds;
 
   Song({
     required this.id,
@@ -62,6 +63,17 @@ class Song {
       return int.tryParse(value?.toString() ?? '') ?? fallback;
     }
 
+    double parseDoubleOr(dynamic value, double fallback) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    double? parseDoubleOrNull(dynamic value) {
+      if (value == null) return null;
+      if (value is num) return value.toDouble();
+      return double.tryParse(value.toString());
+    }
+
     final id = json['id']?.toString() ?? '';
     final artistId = (json['artist_id'] ?? json['artistId'])?.toString() ?? '';
     return Song(
@@ -82,14 +94,13 @@ class Song {
       status: json['status']?.toString() ?? 'pending',
       inRefinery: json['inRefinery'] == true || json['in_refinery'] == true,
       sampleUrl: (json['sample_url'] ?? json['sampleUrl'])?.toString(),
-      sampleStartSeconds: parseIntOr(
+      sampleStartSeconds: parseDoubleOr(
         json['sample_start_seconds'] ?? json['sampleStartSeconds'],
         0,
       ),
-      sampleEndSeconds: (json['sample_end_seconds'] ?? json['sampleEndSeconds'])
-          is num
-          ? parseIntOr(json['sample_end_seconds'] ?? json['sampleEndSeconds'], 0)
-          : null,
+      sampleEndSeconds: parseDoubleOrNull(
+        json['sample_end_seconds'] ?? json['sampleEndSeconds'],
+      ),
       priceCents: parseIntOr(
         json['price_cents'] ?? json['priceCents'],
         99,
@@ -97,23 +108,12 @@ class Song {
       forSale: (json['is_for_sale'] ?? json['forSale']) != false,
       discoverEnabled:
           (json['discover_enabled'] ?? json['discoverEnabled']) == true,
-      discoverClipStartSeconds:
-          (json['discover_clip_start_seconds'] ?? json['discoverClipStartSeconds'])
-              is num
-          ? parseIntOr(
-              json['discover_clip_start_seconds'] ??
-                  json['discoverClipStartSeconds'],
-              0,
-            )
-          : null,
-      discoverClipEndSeconds:
-          (json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'])
-              is num
-          ? parseIntOr(
-              json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'],
-              0,
-            )
-          : null,
+      discoverClipStartSeconds: parseDoubleOrNull(
+        json['discover_clip_start_seconds'] ?? json['discoverClipStartSeconds'],
+      ),
+      discoverClipEndSeconds: parseDoubleOrNull(
+        json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'],
+      ),
       createdAt: DateTime.parse(
         (json['created_at'] ?? json['createdAt']).toString(),
       ),

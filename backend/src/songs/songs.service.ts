@@ -428,8 +428,10 @@ export class SongsService {
       throw new BadRequestException('Song has no audio source');
     }
 
+    // Round to the nearest half-second so the 0.5s nudges in the editor persist.
+    const roundHalf = (n: number) => Math.round(n * 2) / 2;
     const duration = Math.max(0, Number(song.duration_seconds ?? 0) || 0);
-    let start = Math.max(0, Math.floor(Number(startSeconds) || 0));
+    let start = Math.max(0, roundHalf(Number(startSeconds) || 0));
     if (duration > 0 && start >= duration) start = Math.max(0, duration - 1);
 
     // Determine the sample length. The window may be 5–30s; when no explicit
@@ -438,7 +440,7 @@ export class SongsService {
     const requestedEnd = Number(endSeconds);
     let length: number;
     if (Number.isFinite(requestedEnd) && requestedEnd > start) {
-      length = Math.round(requestedEnd) - start;
+      length = roundHalf(requestedEnd) - start;
     } else {
       length = SONG_SAMPLE_MAX_SECONDS;
     }
@@ -1254,8 +1256,10 @@ export class SongsService {
       throw new BadRequestException('Song has no audio source');
     }
 
-    const start = Number(params.clipStartSeconds);
-    const end = Number(params.clipEndSeconds);
+    // Round to the nearest half-second so the 0.5s nudges in the editor persist.
+    const roundHalf = (n: number) => Math.round(n * 2) / 2;
+    const start = roundHalf(Number(params.clipStartSeconds));
+    const end = roundHalf(Number(params.clipEndSeconds));
     if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
       throw new BadRequestException(
         'clipStartSeconds and clipEndSeconds must be valid and end must be greater than start',

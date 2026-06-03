@@ -106,8 +106,10 @@ export function resolveSampleWindow(song: {
   duration_seconds?: number | null;
 }): { startSeconds: number; endSeconds: number } {
   const SAMPLE_MAX = 30;
+  // Preserve half-second precision (0.5s nudges) in the served sample window.
+  const roundHalf = (n: number) => Math.round(n * 2) / 2;
   const duration = Math.max(0, Number(song.duration_seconds ?? 0) || 0);
-  let start = Math.max(0, Math.floor(Number(song.sample_start_seconds ?? 0) || 0));
+  let start = Math.max(0, roundHalf(Number(song.sample_start_seconds ?? 0) || 0));
   if (duration > 0 && start > duration) start = 0;
 
   const storedEnd = Number(song.sample_end_seconds ?? 0) || 0;

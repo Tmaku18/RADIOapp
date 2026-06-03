@@ -14,10 +14,26 @@ import { songsApi } from '@/lib/api';
 
 const MAX_SAMPLE = 30;
 const MIN_SAMPLE = 5;
+const STEP = 0.5;
 
+/** Round to the nearest half-second. */
+function roundHalf(n: number): number {
+  return Math.round(n * 2) / 2;
+}
+
+/** Format seconds as m:ss, appending .5 for half-second values. */
 function fmt(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const r = Math.max(0, roundHalf(seconds));
+  const m = Math.floor(r / 60);
+  const rem = r - m * 60;
+  const whole = Math.floor(rem);
+  const ss = whole.toString().padStart(2, '0');
+  return rem - whole >= 0.5 ? `${m}:${ss}.5` : `${m}:${ss}`;
+}
+
+/** Format a duration in seconds, showing .5 when fractional (e.g. "12.5s"). */
+function fmtLen(seconds: number): string {
+  return `${roundHalf(Math.max(0, seconds))}s`;
 }
 
 /** Parse "m:ss" or a plain seconds string into seconds. Returns null if invalid. */
@@ -92,9 +108,9 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     (nextStart: number, nextEnd: number, opts?: { keepLength?: boolean }) => {
       const dur = duration || 0;
       const upperStart = dur > 0 ? Math.max(0, dur - MIN_SAMPLE) : Infinity;
-      let s = Math.max(0, Math.min(Math.round(nextStart), upperStart));
+      let s = Math.max(0, Math.min(roundHalf(nextStart), upperStart));
 
-      let e = Math.round(nextEnd);
+      let e = roundHalf(nextEnd);
       if (opts?.keepLength) {
         const length = Math.min(MAX_SAMPLE, Math.max(MIN_SAMPLE, endRef.current - startRef.current));
         e = s + length;
@@ -223,14 +239,14 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     try {
       const res = await songsApi.setSample(
         song.id,
-        Math.round(start),
-        Math.round(end),
+        roundHalf(start),
+        roundHalf(end),
       );
       toast.success('Sample updated');
       onSaved?.({
         sampleUrl: res.data?.sampleUrl ?? null,
-        sampleStartSeconds: res.data?.sampleStartSeconds ?? Math.round(start),
-        sampleEndSeconds: res.data?.sampleEndSeconds ?? Math.round(end),
+        sampleStartSeconds: res.data?.sampleStartSeconds ?? roundHalf(start),
+        sampleEndSeconds: res.data?.sampleEndSeconds ?? roundHalf(end),
       });
       onOpenChange(false);
     } catch (e) {
@@ -277,7 +293,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
             {/* Visual track with highlighted sample window */}
             <div className="relative h-10 w-full rounded-md bg-muted">
               <div
-                className="absolute top-0 h-full rounded-md bg-primary/30"
+                className="absolute top-0 h-full rounded-md bg-green-500/30"
                 style={{
                   left: `${(start / total) * 100}%`,
                   width: `${(Math.min(sampleLength, total) / total) * 100}%`,
@@ -292,7 +308,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
             {/* Fine-tuning: start / end text inputs */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
+                <label className="text-xs font-medium text-green-600 dark:text-green-400">
                   Start time (m:ss)
                 </label>
                 <div className="flex items-center gap-1">
@@ -300,38 +316,38 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="px-2"
-                    onClick={() => nudgeStart(-1)}
-                    title="Nudge start back 1 second"
+                    className="px-2 border-green-500/50 text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400"
+                    onClick={() => nudgeStart(-STEP)}
+                    title="Nudge start back 0.5 second"
                   >
-                    -1s
+                    -0.5s
                   </Button>
                   <input
                     type="text"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     value={startText}
                     onChange={(e) => setStartText(e.target.value)}
                     onBlur={commitStartText}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') commitStartText();
                     }}
-                    className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
+                    className="w-full rounded-md border border-green-500/50 bg-background px-2 py-1 text-center text-sm font-mono font-semibold text-green-600 dark:text-green-400"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="px-2"
-                    onClick={() => nudgeStart(1)}
-                    title="Nudge start forward 1 second"
+                    className="px-2 border-green-500/50 text-green-600 hover:bg-green-500/10 hover:text-green-600 dark:text-green-400"
+                    onClick={() => nudgeStart(STEP)}
+                    title="Nudge start forward 0.5 second"
                   >
-                    +1s
+                    +0.5s
                   </Button>
                 </div>
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-muted-foreground">
+                <label className="text-xs font-medium text-red-600 dark:text-red-400">
                   End time (m:ss)
                 </label>
                 <div className="flex items-center gap-1">
@@ -339,32 +355,32 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="px-2"
-                    onClick={() => nudgeEnd(-1)}
-                    title="Nudge end back 1 second"
+                    className="px-2 border-red-500/50 text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
+                    onClick={() => nudgeEnd(-STEP)}
+                    title="Nudge end back 0.5 second"
                   >
-                    -1s
+                    -0.5s
                   </Button>
                   <input
                     type="text"
-                    inputMode="numeric"
+                    inputMode="decimal"
                     value={endText}
                     onChange={(e) => setEndText(e.target.value)}
                     onBlur={commitEndText}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') commitEndText();
                     }}
-                    className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
+                    className="w-full rounded-md border border-red-500/50 bg-background px-2 py-1 text-center text-sm font-mono font-semibold text-red-600 dark:text-red-400"
                   />
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="px-2"
-                    onClick={() => nudgeEnd(1)}
-                    title="Nudge end forward 1 second"
+                    className="px-2 border-red-500/50 text-red-600 hover:bg-red-500/10 hover:text-red-600 dark:text-red-400"
+                    onClick={() => nudgeEnd(STEP)}
+                    title="Nudge end forward 0.5 second"
                   >
-                    +1s
+                    +0.5s
                   </Button>
                 </div>
               </div>
@@ -372,17 +388,17 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
 
             {/* Coarse start scrubber */}
             <div>
-              <label className="text-xs text-muted-foreground">
+              <label className="text-xs font-medium text-green-600 dark:text-green-400">
                 Drag start ({fmt(start)})
               </label>
               <input
                 type="range"
                 min={0}
                 max={maxStart}
-                step={1}
+                step={STEP}
                 value={start}
                 onChange={(e) => applyWindow(Number(e.target.value), end, { keepLength: true })}
-                className="w-full"
+                className="w-full accent-green-500"
               />
             </div>
 
@@ -393,13 +409,13 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 size="sm"
                 onClick={() => (playing ? pause() : previewWindow())}
               >
-                {playing ? 'Pause' : `Preview ${Math.round(sampleLength)}s`}
+                {playing ? 'Pause' : `Preview ${fmtLen(sampleLength)}`}
               </Button>
               <span className="text-xs font-mono text-muted-foreground">
                 {fmt(current)} / {fmt(total)}
               </span>
               <span className="ml-auto text-xs font-mono text-muted-foreground">
-                Length {Math.round(sampleLength)}s
+                Length {fmtLen(sampleLength)}
               </span>
             </div>
 

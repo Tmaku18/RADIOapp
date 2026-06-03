@@ -312,8 +312,8 @@ class SongsService {
 
   Future<Map<String, dynamic>?> setSample(
     String songId,
-    int startSeconds, {
-    int? endSeconds,
+    num startSeconds, {
+    num? endSeconds,
   }) async {
     final res = await _api.post('songs/$songId/sample', {
       'startSeconds': startSeconds,
@@ -326,8 +326,8 @@ class SongsService {
   /// Render + publish a discover clip from the song's own audio.
   Future<Map<String, dynamic>?> publishDiscover(
     String songId, {
-    required int clipStartSeconds,
-    required int clipEndSeconds,
+    required num clipStartSeconds,
+    required num clipEndSeconds,
     String? discoverBackgroundUrl,
   }) async {
     final res = await _api.post('songs/$songId/discover/publish', {

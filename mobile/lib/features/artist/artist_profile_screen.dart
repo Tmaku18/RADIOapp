@@ -228,7 +228,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     // and stop after 30 seconds so non-buyers can't hear the full track.
     if (usingFallbackSample) {
       if (s.sampleStartSeconds > 0) {
-        await _player.seek(Duration(seconds: s.sampleStartSeconds));
+        await _player.seek(
+          Duration(milliseconds: (s.sampleStartSeconds * 1000).round()),
+        );
       }
       _sampleStopTimer = Timer(const Duration(seconds: 30), () async {
         try {

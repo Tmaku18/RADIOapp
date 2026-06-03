@@ -16,9 +16,17 @@ import { songsApi } from '@/lib/api';
 const MIN_LEN = 5;
 const MAX_LEN = 15;
 
+function roundHalf(n: number): number {
+  return Math.round(n * 2) / 2;
+}
+
 function fmt(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const r = Math.max(0, roundHalf(seconds));
+  const m = Math.floor(r / 60);
+  const rem = r - m * 60;
+  const whole = Math.floor(rem);
+  const ss = whole.toString().padStart(2, '0');
+  return rem - whole >= 0.5 ? `${m}:${ss}.5` : `${m}:${ss}`;
 }
 
 type Props = {
@@ -70,8 +78,8 @@ export function DiscoverClipDialog({ open, onOpenChange, song, onSaved }: Props)
     setSaving(true);
     try {
       const res = await songsApi.publishDiscoverFromLibrary(song.id, {
-        clipStartSeconds: Math.round(start),
-        clipEndSeconds: Math.round(end),
+        clipStartSeconds: roundHalf(start),
+        clipEndSeconds: roundHalf(end),
       });
       const data = (res.data ?? {}) as {
         discoverEnabled?: boolean;
@@ -84,8 +92,8 @@ export function DiscoverClipDialog({ open, onOpenChange, song, onSaved }: Props)
         discoverEnabled: data.discoverEnabled ?? true,
         discoverClipUrl: data.discoverClipUrl ?? null,
         discoverClipStartSeconds:
-          data.discoverClipStartSeconds ?? Math.round(start),
-        discoverClipEndSeconds: data.discoverClipEndSeconds ?? Math.round(end),
+          data.discoverClipStartSeconds ?? roundHalf(start),
+        discoverClipEndSeconds: data.discoverClipEndSeconds ?? roundHalf(end),
       });
       onOpenChange(false);
     } catch (e) {

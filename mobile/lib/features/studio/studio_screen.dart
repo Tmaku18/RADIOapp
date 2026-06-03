@@ -154,10 +154,11 @@ class _StudioScreenState extends State<StudioScreen> {
   }
 
   Future<void> _openSampleTrim(Song song) async {
-    final start = song.sampleStartSeconds;
-    final end = (song.sampleEndSeconds != null && song.sampleEndSeconds! > start)
-        ? song.sampleEndSeconds!
-        : start + _kSampleLengthSeconds;
+    final double start = song.sampleStartSeconds;
+    final double end =
+        (song.sampleEndSeconds != null && song.sampleEndSeconds! > start)
+            ? song.sampleEndSeconds!
+            : start + _kSampleLengthSeconds;
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -184,9 +185,9 @@ class _StudioScreenState extends State<StudioScreen> {
   }
 
   Future<void> _openDiscoverClip(Song song) async {
-    final start = song.discoverClipStartSeconds ?? 0;
-    final storedEnd = song.discoverClipEndSeconds;
-    final end = (storedEnd != null && storedEnd > start)
+    final double start = song.discoverClipStartSeconds ?? 0;
+    final double? storedEnd = song.discoverClipEndSeconds;
+    final double end = (storedEnd != null && storedEnd > start)
         ? storedEnd
         : start + _kDiscoverClipMaxSeconds;
     final updated = await showModalBottomSheet<bool>(

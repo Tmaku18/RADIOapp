@@ -49,10 +49,13 @@ function parseTimeToSeconds(value: string): number | null {
 
 function formatSecondsForTrimInput(seconds?: number | null): string {
   if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
-  const whole = Math.round(seconds);
-  const mins = Math.floor(whole / 60);
-  const secs = whole % 60;
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // Preserve half-second precision (0.5s nudges) in the trim inputs.
+  const r = Math.round(seconds * 2) / 2;
+  const mins = Math.floor(r / 60);
+  const rem = r - mins * 60;
+  const whole = Math.floor(rem);
+  const ss = whole.toString().padStart(2, '0');
+  return rem - whole >= 0.5 ? `${mins}:${ss}.5` : `${mins}:${ss}`;
 }
 
 function errorMessage(err: unknown, fallback: string): string {

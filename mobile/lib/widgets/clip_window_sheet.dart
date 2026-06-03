@@ -2,34 +2,52 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../core/theme/networx_extensions.dart';
 
-String clipFmtTime(int totalSeconds) {
-  final s = totalSeconds < 0 ? 0 : totalSeconds;
-  final m = s ~/ 60;
-  final rem = s % 60;
-  return '$m:${rem.toString().padLeft(2, '0')}';
+/// Nudge / scrub granularity in seconds.
+const double kClipStep = 0.5;
+
+/// Colors used to distinguish the start (green) and end (red) of the window.
+const Color kClipStartColor = Color(0xFF22C55E); // green-500
+const Color kClipEndColor = Color(0xFFEF4444); // red-500
+
+/// Round to the nearest half-second.
+double clipRoundHalf(num n) => (n * 2).round() / 2;
+
+/// Format seconds as m:ss, appending .5 for half-second values.
+String clipFmtTime(num totalSeconds) {
+  final r = clipRoundHalf(totalSeconds < 0 ? 0 : totalSeconds);
+  final m = (r ~/ 60);
+  final rem = r - m * 60;
+  final whole = rem.floor();
+  final ss = whole.toString().padLeft(2, '0');
+  return (rem - whole) >= 0.5 ? '$m:$ss.5' : '$m:$ss';
 }
 
-/// Parse "m:ss" or a plain seconds string into whole seconds. Null if invalid.
-int? clipParseTime(String value) {
+/// Format a duration in seconds, showing .5 when fractional (e.g. "12.5s").
+String clipFmtLen(num seconds) {
+  final r = clipRoundHalf(seconds < 0 ? 0 : seconds);
+  return r == r.roundToDouble() ? '${r.toInt()}s' : '${r}s';
+}
+
+/// Parse "m:ss" or a plain seconds string into seconds. Null if invalid.
+double? clipParseTime(String value) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return null;
   if (trimmed.contains(':')) {
     final parts = trimmed.split(':');
     if (parts.length != 2) return null;
     final m = int.tryParse(parts[0].trim());
-    final s = int.tryParse(parts[1].trim());
+    final s = double.tryParse(parts[1].trim());
     if (m == null || s == null || s < 0 || s >= 60) return null;
     return m * 60 + s;
   }
-  final n = int.tryParse(trimmed);
-  return n;
+  return double.tryParse(trimmed);
 }
 
 /// Generic window picker for trimming a clip from an audio source: start/end
-/// time fields, ±1s nudge buttons, a start scrubber, and a looping preview of
-/// just the selected window. Works with a remote [audioUrl] or local
-/// [audioFilePath]. Used for the paid-preview sample (5–30s) and the Discover
-/// swipe clip (5–15s), at both upload time and post-upload editing.
+/// time fields (green start, red end), ±0.5s nudge buttons, a start scrubber,
+/// and a looping preview of just the selected window. Works with a remote
+/// [audioUrl] or local [audioFilePath]. Used for the paid-preview sample
+/// (5–30s) and the Discover swipe clip (5–15s), at upload and post-upload.
 class ClipWindowSheet extends StatefulWidget {
   /// Remote audio URL to preview (signed full-track URL, etc.).
   final String? audioUrl;
@@ -45,9 +63,9 @@ class ClipWindowSheet extends StatefulWidget {
   final int? durationSeconds;
   final int minLength;
   final int maxLength;
-  final int initialStart;
-  final int initialEnd;
-  final Future<void> Function(int startSeconds, int endSeconds) onSave;
+  final double initialStart;
+  final double initialEnd;
+  final Future<void> Function(double startSeconds, double endSeconds) onSave;
 
   /// When true, show a banner warning that saving overwrites the existing
   /// sample/clip (each song has exactly one of each).
@@ -82,9 +100,9 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   final AudioPlayer _player = AudioPlayer();
   final TextEditingController _startCtrl = TextEditingController();
   final TextEditingController _endCtrl = TextEditingController();
-  int _duration = 0;
-  int _start = 0;
-  int _end = 0;
+  double _duration = 0;
+  double _start = 0;
+  double _end = 0;
   bool _saving = false;
   bool _previewing = false;
 
@@ -94,9 +112,11 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   @override
   void initState() {
     super.initState();
-    _duration = widget.durationSeconds ?? 0;
-    _start = widget.initialStart;
-    _end = widget.initialEnd > _start ? widget.initialEnd : _start + _maxLen;
+    _duration = (widget.durationSeconds ?? 0).toDouble();
+    _start = clipRoundHalf(widget.initialStart);
+    _end = widget.initialEnd > _start
+        ? clipRoundHalf(widget.initialEnd)
+        : _start + _maxLen;
     _syncText();
     _prepare();
   }
@@ -121,7 +141,7 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
       if (!mounted) return;
       if (dur != null && dur.inSeconds > 0) {
         setState(() {
-          if (_duration <= 0) _duration = dur!.inSeconds;
+          if (_duration <= 0) _duration = dur!.inSeconds.toDouble();
           _applyWindow(_start, _end, keepLength: true);
         });
       }
@@ -130,30 +150,33 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     }
   }
 
-  int get _maxStart {
-    final d = _duration > 0 ? _duration : _maxLen;
+  double get _maxStart {
+    final d = _duration > 0 ? _duration : _maxLen.toDouble();
     final m = d - _minLen;
-    return m < 0 ? 0 : m;
+    return m < 0 ? 0.0 : m;
   }
 
-  int get _windowLength => (_end - _start).clamp(0, _maxLen);
+  double get _windowLength {
+    final l = _end - _start;
+    return l.clamp(0, _maxLen.toDouble()).toDouble();
+  }
 
   /// Clamp the start/end pair so the window stays min–max and inside the track.
-  void _applyWindow(int nextStart, int nextEnd, {bool keepLength = false}) {
+  void _applyWindow(double nextStart, double nextEnd, {bool keepLength = false}) {
     final dur = _duration;
-    final upperStart = dur > 0 ? (dur - _minLen).clamp(0, dur) : 1 << 30;
-    var s = nextStart.clamp(0, upperStart);
+    final upperStart = dur > 0 ? (dur - _minLen).clamp(0, dur).toDouble() : 1e9;
+    var s = clipRoundHalf(nextStart).clamp(0, upperStart).toDouble();
 
-    var e = nextEnd;
+    var e = clipRoundHalf(nextEnd);
     if (keepLength) {
-      final length = (_end - _start).clamp(_minLen, _maxLen);
+      final length = (_end - _start).clamp(_minLen.toDouble(), _maxLen.toDouble());
       e = s + length;
     }
     if (e < s + _minLen) e = s + _minLen;
     if (e > s + _maxLen) e = s + _maxLen;
     if (dur > 0 && e > dur) {
       e = dur;
-      if (e - s < _minLen) s = (e - _minLen).clamp(0, e);
+      if (e - s < _minLen) s = (e - _minLen).clamp(0, e).toDouble();
       if (e - s > _maxLen) s = e - _maxLen;
     }
     _start = s;
@@ -161,12 +184,12 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     _syncText();
   }
 
-  void _nudgeStart(int delta) {
+  void _nudgeStart(double delta) {
     _stopPreview();
     setState(() => _applyWindow(_start + delta, _end, keepLength: true));
   }
 
-  void _nudgeEnd(int delta) {
+  void _nudgeEnd(double delta) {
     _stopPreview();
     setState(() => _applyWindow(_start, _end + delta));
   }
@@ -199,8 +222,8 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     try {
       // Clip + loop-one plays only the selected window, repeating it.
       await _player.setClip(
-        start: Duration(seconds: _start),
-        end: Duration(seconds: _end),
+        start: Duration(milliseconds: (_start * 1000).round()),
+        end: Duration(milliseconds: (_end * 1000).round()),
       );
       await _player.setLoopMode(LoopMode.one);
       await _player.play();
@@ -245,6 +268,62 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     _endCtrl.dispose();
     _player.dispose();
     super.dispose();
+  }
+
+  Widget _timeField({
+    required TextEditingController controller,
+    required String label,
+    required Color color,
+    required VoidCallback onCommit,
+    required VoidCallback onMinus,
+    required VoidCallback onPlus,
+    String? minusTooltip,
+    String? plusTooltip,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: TextField(
+            controller: controller,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            style: TextStyle(color: color, fontWeight: FontWeight.w600),
+            decoration: InputDecoration(
+              labelText: label,
+              labelStyle: TextStyle(color: color),
+              isDense: true,
+              enabledBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: color.withValues(alpha: 0.6)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderSide: BorderSide(color: color, width: 2),
+              ),
+            ),
+            onEditingComplete: onCommit,
+            onSubmitted: (_) => onCommit(),
+          ),
+        ),
+        const SizedBox(width: 8),
+        IconButton.outlined(
+          tooltip: minusTooltip,
+          onPressed: onMinus,
+          style: IconButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color.withValues(alpha: 0.6)),
+          ),
+          icon: const Icon(Icons.remove),
+        ),
+        IconButton.outlined(
+          tooltip: plusTooltip,
+          onPressed: onPlus,
+          style: IconButton.styleFrom(
+            foregroundColor: color,
+            side: BorderSide(color: color.withValues(alpha: 0.6)),
+          ),
+          icon: const Icon(Icons.add),
+        ),
+      ],
+    );
   }
 
   @override
@@ -304,82 +383,73 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
               ),
             ],
             const SizedBox(height: 16),
-            // Start time with -1s / +1s nudge buttons and a text field.
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _startCtrl,
-                    keyboardType: TextInputType.text,
-                    decoration: const InputDecoration(
-                      labelText: 'Start (m:ss)',
-                      isDense: true,
-                      border: OutlineInputBorder(),
-                    ),
-                    onEditingComplete: _commitStartText,
-                    onSubmitted: (_) => _commitStartText(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: 'Nudge start back 1s',
-                  onPressed: () => _nudgeStart(-1),
-                  icon: const Icon(Icons.remove),
-                ),
-                IconButton.outlined(
-                  tooltip: 'Nudge start forward 1s',
-                  onPressed: () => _nudgeStart(1),
-                  icon: const Icon(Icons.add),
-                ),
-              ],
+            // Start time (green) with -0.5s / +0.5s nudge buttons.
+            _timeField(
+              controller: _startCtrl,
+              label: 'Start (m:ss)',
+              color: kClipStartColor,
+              onCommit: _commitStartText,
+              onMinus: () => _nudgeStart(-kClipStep),
+              onPlus: () => _nudgeStart(kClipStep),
+              minusTooltip: 'Nudge start back 0.5s',
+              plusTooltip: 'Nudge start forward 0.5s',
             ),
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _endCtrl,
-                    keyboardType: TextInputType.text,
-                    decoration: InputDecoration(
-                      labelText: 'End (m:ss) — $_minLen to ${_maxLen}s window',
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                    onEditingComplete: _commitEndText,
-                    onSubmitted: (_) => _commitEndText(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton.outlined(
-                  tooltip: 'Nudge end back 1s',
-                  onPressed: () => _nudgeEnd(-1),
-                  icon: const Icon(Icons.remove),
-                ),
-                IconButton.outlined(
-                  tooltip: 'Nudge end forward 1s',
-                  onPressed: () => _nudgeEnd(1),
-                  icon: const Icon(Icons.add),
-                ),
-              ],
+            // End time (red) with -0.5s / +0.5s nudge buttons.
+            _timeField(
+              controller: _endCtrl,
+              label: 'End (m:ss) — $_minLen to ${_maxLen}s window',
+              color: kClipEndColor,
+              onCommit: _commitEndText,
+              onMinus: () => _nudgeEnd(-kClipStep),
+              onPlus: () => _nudgeEnd(kClipStep),
+              minusTooltip: 'Nudge end back 0.5s',
+              plusTooltip: 'Nudge end forward 0.5s',
             ),
             const SizedBox(height: 16),
-            Text(
-              'Window: ${clipFmtTime(_start)} – ${clipFmtTime(_end)}  ·  ${_windowLength}s',
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'Window: '),
+                  TextSpan(
+                    text: clipFmtTime(_start),
+                    style: const TextStyle(
+                      color: kClipStartColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const TextSpan(text: ' – '),
+                  TextSpan(
+                    text: clipFmtTime(_end),
+                    style: const TextStyle(
+                      color: kClipEndColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  TextSpan(text: '  ·  ${clipFmtLen(_windowLength)}'),
+                ],
+              ),
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-            Slider(
-              value: _start.toDouble().clamp(0, _maxStart.toDouble()),
-              min: 0,
-              max: _maxStart.toDouble() <= 0 ? 1 : _maxStart.toDouble(),
-              divisions: _maxStart > 0 ? _maxStart : null,
-              label: clipFmtTime(_start),
-              onChanged: _maxStart <= 0
-                  ? null
-                  : (v) {
-                      _stopPreview();
-                      setState(
-                          () => _applyWindow(v.round(), _end, keepLength: true));
-                    },
+            SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                activeTrackColor: kClipStartColor,
+                thumbColor: kClipStartColor,
+              ),
+              child: Slider(
+                value: _start.clamp(0, _maxStart).toDouble(),
+                min: 0,
+                max: _maxStart <= 0 ? 1.0 : _maxStart,
+                divisions: _maxStart > 0 ? (_maxStart / kClipStep).round() : null,
+                label: clipFmtTime(_start),
+                onChanged: _maxStart <= 0
+                    ? null
+                    : (v) {
+                        _stopPreview();
+                        setState(
+                            () => _applyWindow(v, _end, keepLength: true));
+                      },
+              ),
             ),
             Text(
               _duration > 0
@@ -393,8 +463,8 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
                 OutlinedButton.icon(
                   onPressed: _previewing ? _stopPreview : _preview,
                   icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
-                  label:
-                      Text(_previewing ? 'Stop' : 'Preview ${_windowLength}s'),
+                  label: Text(
+                      _previewing ? 'Stop' : 'Preview ${clipFmtLen(_windowLength)}'),
                 ),
                 const Spacer(),
                 FilledButton(

@@ -29,8 +29,8 @@ class _UploadScreenState extends State<UploadScreen> {
   int? _durationSeconds;
   bool _isExplicit = false;
   bool _discoverEnabled = false;
-  int? _discoverClipStart;
-  int? _discoverClipEnd;
+  double? _discoverClipStart;
+  double? _discoverClipEnd;
 
   static const int _kDiscoverClipMin = 5;
   static const int _kDiscoverClipMax = 15;
@@ -78,8 +78,8 @@ class _UploadScreenState extends State<UploadScreen> {
 
   Future<void> _openDiscoverClipWindow() async {
     if (_audioFile == null) return;
-    final start = _discoverClipStart ?? 0;
-    final end = (_discoverClipEnd != null && _discoverClipEnd! > start)
+    final double start = _discoverClipStart ?? 0;
+    final double end = (_discoverClipEnd != null && _discoverClipEnd! > start)
         ? _discoverClipEnd!
         : start + _kDiscoverClipMax;
     await showModalBottomSheet<bool>(
@@ -473,7 +473,7 @@ class _UploadScreenState extends State<UploadScreen> {
                               Padding(
                                 padding: const EdgeInsets.only(top: 4),
                                 child: Text(
-                                  'Length: ${_discoverClipEnd! - _discoverClipStart!}s',
+                                  'Length: ${clipFmtLen(_discoverClipEnd! - _discoverClipStart!)}',
                                   style: TextStyle(
                                       color: surfaces.textMuted, fontSize: 12),
                                 ),
