@@ -390,15 +390,23 @@ export default function WatchArtistLivePage() {
             <p className="text-sm text-muted-foreground">{error}</p>
           ) : (
             <div className="space-y-3">
-              {session?.playback_hls_url ? (
+              {session?.watch_url ? (
+                // Cloudflare's own player handles the live startup window (WHIP →
+                // HLS) and low-latency playback far more reliably than a custom
+                // hls.js setup, so it's the primary viewer.
+                <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-black">
+                  <iframe
+                    className="absolute inset-0 h-full w-full"
+                    src={`${session.watch_url}${
+                      session.watch_url.includes('?') ? '&' : '?'
+                    }autoplay=true&muted=true`}
+                    allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+                    allowFullScreen
+                    title={isDj ? 'Live DJ set' : 'Artist livestream'}
+                  />
+                </div>
+              ) : session?.playback_hls_url ? (
                 <HlsPlayer src={session.playback_hls_url} />
-              ) : session?.watch_url ? (
-                <iframe
-                  className="w-full min-h-[420px] rounded-lg border border-border bg-black"
-                  src={session.watch_url}
-                  allow="autoplay; fullscreen"
-                  title={isDj ? 'Live DJ set' : 'Artist livestream'}
-                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Stream is initializing. Refresh in a few seconds.
