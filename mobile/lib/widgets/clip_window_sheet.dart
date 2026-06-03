@@ -157,6 +157,11 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
     setState(() => _applyWindow(_start + delta, _end, keepLength: true));
   }
 
+  void _nudgeEnd(int delta) {
+    _stopPreview();
+    setState(() => _applyWindow(_start, _end + delta));
+  }
+
   void _commitStartText() {
     final parsed = clipParseTime(_startCtrl.text);
     _stopPreview();
@@ -290,16 +295,33 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
               ],
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _endCtrl,
-              keyboardType: TextInputType.text,
-              decoration: InputDecoration(
-                labelText: 'End (m:ss) — $_minLen to ${_maxLen}s window',
-                isDense: true,
-                border: const OutlineInputBorder(),
-              ),
-              onEditingComplete: _commitEndText,
-              onSubmitted: (_) => _commitEndText(),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _endCtrl,
+                    keyboardType: TextInputType.text,
+                    decoration: InputDecoration(
+                      labelText: 'End (m:ss) — $_minLen to ${_maxLen}s window',
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                    onEditingComplete: _commitEndText,
+                    onSubmitted: (_) => _commitEndText(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Nudge end back 1s',
+                  onPressed: () => _nudgeEnd(-1),
+                  icon: const Icon(Icons.remove),
+                ),
+                IconButton.outlined(
+                  tooltip: 'Nudge end forward 1s',
+                  onPressed: () => _nudgeEnd(1),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             Text(

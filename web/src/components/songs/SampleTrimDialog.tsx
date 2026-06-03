@@ -190,6 +190,10 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     applyWindow(start + delta, end, { keepLength: true });
   };
 
+  const nudgeEnd = (delta: number) => {
+    applyWindow(start, end + delta);
+  };
+
   const commitStartText = () => {
     const parsed = parseTime(startText);
     if (parsed == null) {
@@ -319,17 +323,39 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 <label className="text-xs text-muted-foreground">
                   End time (m:ss)
                 </label>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={endText}
-                  onChange={(e) => setEndText(e.target.value)}
-                  onBlur={commitEndText}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') commitEndText();
-                  }}
-                  className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
-                />
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="px-2"
+                    onClick={() => nudgeEnd(-1)}
+                    title="Nudge end back 1 second"
+                  >
+                    -1s
+                  </Button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={endText}
+                    onChange={(e) => setEndText(e.target.value)}
+                    onBlur={commitEndText}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitEndText();
+                    }}
+                    className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="px-2"
+                    onClick={() => nudgeEnd(1)}
+                    title="Nudge end forward 1 second"
+                  >
+                    +1s
+                  </Button>
+                </div>
               </div>
             </div>
 

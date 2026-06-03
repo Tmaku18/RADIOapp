@@ -159,6 +159,11 @@ export function ClipWindowEditor({
     applyWindow(startSeconds + delta, endSeconds, { keepLength: true });
   };
 
+  const nudgeEnd = (delta: number) => {
+    pause();
+    applyWindow(startSeconds, endSeconds + delta);
+  };
+
   const commitStartText = () => {
     const parsed = parseTime(startText);
     if (parsed == null) {
@@ -242,18 +247,42 @@ export function ClipWindowEditor({
           <label className="text-xs text-muted-foreground">
             End time (m:ss)
           </label>
-          <input
-            type="text"
-            inputMode="numeric"
-            value={endText}
-            disabled={disabled}
-            onChange={(e) => setEndText(e.target.value)}
-            onBlur={commitEndText}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitEndText();
-            }}
-            className="w-full rounded-md border border-input bg-background px-2 py-1 text-center text-sm font-mono"
-          />
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="px-2"
+              disabled={disabled}
+              onClick={() => nudgeEnd(-1)}
+              title="Nudge end back 1 second"
+            >
+              -1s
+            </Button>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={endText}
+              disabled={disabled}
+              onChange={(e) => setEndText(e.target.value)}
+              onBlur={commitEndText}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitEndText();
+              }}
+              className="w-full rounded-md border border-input bg-background px-2 py-1 text-center text-sm font-mono"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="px-2"
+              disabled={disabled}
+              onClick={() => nudgeEnd(1)}
+              title="Nudge end forward 1 second"
+            >
+              +1s
+            </Button>
+          </div>
         </div>
       </div>
 
