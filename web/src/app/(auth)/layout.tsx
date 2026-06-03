@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const LOGO_SRC = '/networx-logo.png';
 
@@ -45,7 +46,7 @@ export default function AuthLayout({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
-      <header className="p-4">
+      <header className="p-4 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-3 text-primary-foreground">
           <Image
             src={LOGO_SRC}
@@ -58,6 +59,7 @@ export default function AuthLayout({
           />
           <span className="text-xl font-bold">Networx</span>
         </Link>
+        <ThemeToggle triggerClassName="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" />
       </header>
 
       <main className="flex-1 flex items-center justify-center p-4">

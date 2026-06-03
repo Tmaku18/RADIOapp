@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const LOGO_SRC = '/networx-logo.png';
 const EXTERNAL_PRO_NETWORX_URL =
@@ -70,6 +71,7 @@ export default function MarketingLayout({
 
             {/* Auth + ProNetworx: one blue CTA, ProNetworx far right */}
             <div className="flex items-center space-x-2">
+              <ThemeToggle />
               <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
