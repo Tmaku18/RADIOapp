@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
-import { songsApi } from '@/lib/api';
+import { songsApi, songSalesApi } from '@/lib/api';
 import { usePlayback } from '@/components/playback';
 import { artistProfilePath } from '@/lib/artist-links';
 import {
@@ -27,9 +27,17 @@ type LibrarySong = {
   artistId: string;
   artworkUrl: string | null;
   audioUrl: string | null;
+  sampleUrl: string | null;
   durationSeconds: number;
   likeCount: number;
   playCount: number;
+  priceCents: number;
+  forSale: boolean;
+  owned: boolean;
+  discoverEnabled: boolean;
+  discoverClipUrl: string | null;
+  discoverClipStartSeconds: number | null;
+  discoverClipEndSeconds: number | null;
   fireVotes: number;
   shitVotes: number;
   temperaturePercent: number;
@@ -152,6 +160,83 @@ export default function BrowseSavedPage() {
     }
   };
 
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const loadAndPlay = async (
+    song: LibrarySong,
+    url: string,
+    label: string,
+  ) => {
+    try {
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: label ? `${song.title} (${label})` : song.title,
+          artistName: song.artistName,
+          artistId: song.artistId,
+          artworkUrl: song.artworkUrl,
+          audioUrl: url,
+          durationSeconds: song.durationSeconds,
+        },
+        'discography',
+      );
+      await actions.play();
+    } catch {
+      toast.error('Could not play this track.');
+    }
+  };
+
+  const playSample = (song: LibrarySong) => {
+    const url = song.sampleUrl ?? song.audioUrl;
+    if (!url) {
+      toast.error('No sample available for this song yet.');
+      return;
+    }
+    void loadAndPlay(song, url, 'sample');
+  };
+
+  const playDiscoverClip = (song: LibrarySong) => {
+    if (!song.discoverEnabled || !song.discoverClipUrl) {
+      toast.error('This song has no discover clip.');
+      return;
+    }
+    void loadAndPlay(song, song.discoverClipUrl, 'discover clip');
+  };
+
+  const playFull = async (song: LibrarySong) => {
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) {
+        toast.error('Could not play the full song.');
+        return;
+      }
+      await loadAndPlay(song, url, '');
+    } catch {
+      toast.error('Could not play the full song.');
+    }
+  };
+
+  const buySong = async (song: LibrarySong) => {
+    setBuyingId(song.id);
+    try {
+      const res = await songSalesApi.buySong(song.id);
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error('Could not start checkout. Try again.');
+      }
+    } catch {
+      toast.error('Could not start checkout. Try again.');
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const formatPrice = (cents: number) =>
+    `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+
   const sortedSongs = useMemo(() => {
     const list = [...songs];
     list.sort((a, b) => {
@@ -207,7 +292,7 @@ export default function BrowseSavedPage() {
           <option value="artist">Artist</option>
           <option value="title">Song title</option>
           <option value="likes">Likes</option>
-          <option value="plays">Plays</option>
+          <option value="plays">Listens</option>
           <option value="temperature">Temperature</option>
         </select>
         )}
@@ -339,7 +424,7 @@ export default function BrowseSavedPage() {
                   <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     <div className="text-xs text-muted-foreground flex items-center gap-2 sm:gap-3">
                       <span title="Likes">♥ {song.likeCount}</span>
-                      <span title="Plays">▶ {song.playCount}</span>
+                      <span title="Listens">🎧 {song.playCount}</span>
                       <span title="Temperature">🌡 {song.temperaturePercent}%</span>
                     </div>
                     <Button
@@ -352,6 +437,50 @@ export default function BrowseSavedPage() {
                       Remove
                     </Button>
                   </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 pl-14">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => playSample(song)}
+                  >
+                    ▶ Sample
+                  </Button>
+                  {song.discoverEnabled && song.discoverClipUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => playDiscoverClip(song)}
+                    >
+                      ✨ Discover clip
+                    </Button>
+                  )}
+                  {song.owned ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => void playFull(song)}
+                    >
+                      ▶ Play full
+                    </Button>
+                  ) : song.forSale ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      disabled={buyingId === song.id}
+                      onClick={() => void buySong(song)}
+                    >
+                      {buyingId === song.id
+                        ? 'Starting…'
+                        : `Buy ${formatPrice(song.priceCents)}`}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ))

@@ -368,9 +368,17 @@ export const songsApi = {
         artistId: string;
         artworkUrl: string | null;
         audioUrl: string | null;
+        sampleUrl: string | null;
         durationSeconds: number;
         likeCount: number;
         playCount: number;
+        priceCents: number;
+        forSale: boolean;
+        owned: boolean;
+        discoverEnabled: boolean;
+        discoverClipUrl: string | null;
+        discoverClipStartSeconds: number | null;
+        discoverClipEndSeconds: number | null;
         fireVotes: number;
         shitVotes: number;
         temperaturePercent: number;

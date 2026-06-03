@@ -2278,6 +2278,12 @@ export class SongsService {
       like_count: number | null;
       play_count: number | null;
       status: string | null;
+      price_cents: number | null;
+      for_sale: boolean | null;
+      discover_enabled: boolean | null;
+      discover_clip_url: string | null;
+      discover_clip_start_seconds: number | null;
+      discover_clip_end_seconds: number | null;
     };
 
     const rows = (likesRows ?? []) as Array<{
@@ -2313,7 +2319,7 @@ export class SongsService {
       const { data: songRows, error: songsError } = await supabase
         .from('songs')
         .select(
-          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, status',
+          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, status, price_cents, for_sale, discover_enabled, discover_clip_url, discover_clip_start_seconds, discover_clip_end_seconds',
         )
         .in('id', uniqueSongIds);
       if (songsError) {
@@ -2347,6 +2353,25 @@ export class SongsService {
       }
     }
 
+    // Which of these songs has the listener already purchased (full ownership)?
+    const ownedSongIds = new Set<string>();
+    if (uniqueSongIds.length > 0) {
+      const { data: purchaseRows, error: purchaseError } = await supabase
+        .from('song_purchases')
+        .select('song_id')
+        .eq('user_id', userId)
+        .eq('status', 'completed')
+        .in('song_id', uniqueSongIds);
+      if (purchaseError && !this.isMissingTableError(purchaseError, 'song_purchases')) {
+        throw new Error(
+          `Failed to load library purchases: ${purchaseError.message}`,
+        );
+      }
+      for (const row of (purchaseRows ?? []) as Array<{ song_id: string }>) {
+        ownedSongIds.add(row.song_id);
+      }
+    }
+
     const librarySongs = (
       await Promise.all(
         rows.map(async (r) => {
@@ -2361,21 +2386,40 @@ export class SongsService {
             ? (await signSongAudioUrl(song.sample_url ?? null)) ?? null
             : (await signSongAudioUrl(fallback!.audio_url)) ??
               fallback!.audio_url;
+          // Discover clip (signed) is available only for real songs that have
+          // discover enabled with a rendered clip.
+          const discoverEnabled = !!song?.discover_enabled;
+          const discoverClipUrl =
+            song && discoverEnabled
+              ? (await signSongAudioUrl(song.discover_clip_url ?? null)) ?? null
+              : null;
+          const id = song?.id ?? fallback!.id;
           return {
-            id: song?.id ?? fallback!.id,
+            id,
             title: song?.title ?? fallback!.title,
             artistName:
               song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
             artistId: song?.artist_id ?? '',
             artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
             audioUrl,
+            // Explicit sample url (same signed 30s sample as audioUrl for real
+            // songs; admin/radio fallback has no sample).
+            sampleUrl: song ? audioUrl : null,
             durationSeconds:
               song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
             likeCount: song?.like_count ?? 0,
             playCount: song?.play_count ?? 0,
+            // Sales + ownership so the library can offer Buy / full playback.
+            priceCents: song?.price_cents ?? 99,
+            forSale: song ? song.for_sale !== false : false,
+            owned: ownedSongIds.has(id),
+            // Discover clip for in-library preview.
+            discoverEnabled,
+            discoverClipUrl,
+            discoverClipStartSeconds: song?.discover_clip_start_seconds ?? null,
+            discoverClipEndSeconds: song?.discover_clip_end_seconds ?? null,
             likedAt:
-              likedAtBySongId.get(song?.id ?? fallback!.id) ??
-              new Date().toISOString(),
+              likedAtBySongId.get(id) ?? new Date().toISOString(),
           };
         }),
       )

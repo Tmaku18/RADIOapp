@@ -40,9 +40,15 @@ class LibrarySong {
   final String artistId;
   final String? artworkUrl;
   final String? audioUrl;
+  final String? sampleUrl;
   final int durationSeconds;
   final int likeCount;
   final int playCount;
+  final int priceCents;
+  final bool forSale;
+  final bool owned;
+  final bool discoverEnabled;
+  final String? discoverClipUrl;
   final int fireVotes;
   final int shitVotes;
   final int temperaturePercent;
@@ -55,9 +61,15 @@ class LibrarySong {
     required this.artistId,
     required this.artworkUrl,
     required this.audioUrl,
+    required this.sampleUrl,
     required this.durationSeconds,
     required this.likeCount,
     required this.playCount,
+    required this.priceCents,
+    required this.forSale,
+    required this.owned,
+    required this.discoverEnabled,
+    required this.discoverClipUrl,
     required this.fireVotes,
     required this.shitVotes,
     required this.temperaturePercent,
@@ -78,9 +90,15 @@ class LibrarySong {
       artistId: (json['artistId'] ?? '').toString(),
       artworkUrl: json['artworkUrl']?.toString(),
       audioUrl: json['audioUrl']?.toString(),
+      sampleUrl: json['sampleUrl']?.toString(),
       durationSeconds: parseInt(json['durationSeconds']),
       likeCount: parseInt(json['likeCount']),
       playCount: parseInt(json['playCount']),
+      priceCents: parseInt(json['priceCents'], fallback: 99),
+      forSale: json['forSale'] == true,
+      owned: json['owned'] == true,
+      discoverEnabled: json['discoverEnabled'] == true,
+      discoverClipUrl: json['discoverClipUrl']?.toString(),
       fireVotes: parseInt(json['fireVotes']),
       shitVotes: parseInt(json['shitVotes']),
       temperaturePercent: parseInt(json['temperaturePercent']),

@@ -10,6 +10,7 @@ import '../../core/services/browse_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/discovery_map_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'discover_audio_tab.dart';
@@ -812,9 +813,11 @@ class _LibraryTab extends StatefulWidget {
 
 class _LibraryTabState extends State<_LibraryTab> {
   final SongsService _songs = SongsService();
+  final PaymentsService _payments = PaymentsService();
   bool _loading = true;
   List<LibrarySong> _items = const [];
   String _sortBy = 'recent';
+  String? _busyLikedId;
 
   // 'liked' = saved/liked songs (30s sample only).
   // 'music' = purchased songs (full play + download).
@@ -829,7 +832,7 @@ class _LibraryTabState extends State<_LibraryTab> {
     DropdownMenuItem(value: 'artist', child: Text('Artist')),
     DropdownMenuItem(value: 'title', child: Text('Song title')),
     DropdownMenuItem(value: 'likes', child: Text('Likes')),
-    DropdownMenuItem(value: 'plays', child: Text('Plays')),
+    DropdownMenuItem(value: 'plays', child: Text('Listens')),
     DropdownMenuItem(value: 'temperature', child: Text('Temperature')),
   ];
 
@@ -909,6 +912,78 @@ class _LibraryTabState extends State<_LibraryTab> {
     await _songs.unlike(item.id);
     if (!mounted) return;
     setState(() => _items = _items.where((i) => i.id != item.id).toList());
+  }
+
+  Future<void> _playUrl(String? url, String missingMessage) async {
+    if (url == null || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(missingMessage)));
+      return;
+    }
+    try {
+      final player = AudioPlayerService().player;
+      await player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await player.play();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not play: $e')));
+    }
+  }
+
+  Future<void> _playSample(LibrarySong item) =>
+      _playUrl(item.sampleUrl ?? item.audioUrl, 'No sample available yet.');
+
+  Future<void> _playClip(LibrarySong item) =>
+      _playUrl(item.discoverClipUrl, 'This song has no discover clip.');
+
+  Future<void> _playFull(LibrarySong item) async {
+    setState(() => _busyLikedId = item.id);
+    try {
+      final url = await _songs.getStreamUrl(item.id);
+      await _playUrl(url, 'Could not play the full song.');
+    } finally {
+      if (mounted) setState(() => _busyLikedId = null);
+    }
+  }
+
+  Future<void> _buyLiked(LibrarySong item) async {
+    setState(() => _busyLikedId = item.id);
+    try {
+      final res = await _payments.buySong(songId: item.id);
+      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception('Could not start checkout.');
+      }
+      final uri = Uri.tryParse(url);
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete your purchase in the browser, then pull to refresh.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busyLikedId = null);
+    }
+  }
+
+  String _formatPrice(int cents) {
+    final dollars = cents / 100;
+    final text = dollars.toStringAsFixed(2);
+    return '\$${text.endsWith('.00') ? text.substring(0, text.length - 3) : text}';
   }
 
   List<LibrarySong> get _sortedItems {
@@ -1035,32 +1110,119 @@ class _LibraryTabState extends State<_LibraryTab> {
               separatorBuilder: (_, index) => const SizedBox(height: 8),
               itemBuilder: (context, i) {
                 final item = items[i];
+                final busy = _busyLikedId == item.id;
                 return Card(
-                  child: ListTile(
-                    leading: ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child:
-                          (item.artworkUrl != null &&
-                              item.artworkUrl!.isNotEmpty)
-                          ? Image.network(
-                              item.artworkUrl!,
-                              width: 44,
-                              height: 44,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
-                                  _artworkFallback(surfaces),
-                            )
-                          : _artworkFallback(surfaces),
-                    ),
-                    title: Text(item.title),
-                    subtitle: Text(
-                      '${item.artistName} · Sample',
-                      style: TextStyle(color: surfaces.textSecondary),
-                    ),
-                    trailing: IconButton(
-                      tooltip: 'Remove',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _remove(item),
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child:
+                                  (item.artworkUrl != null &&
+                                      item.artworkUrl!.isNotEmpty)
+                                  ? Image.network(
+                                      item.artworkUrl!,
+                                      width: 44,
+                                      height: 44,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) =>
+                                          _artworkFallback(surfaces),
+                                    )
+                                  : _artworkFallback(surfaces),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    item.artistName,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: surfaces.textSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _remove(item),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '♥ ${item.likeCount}   🎧 ${item.playCount} listens   🌡 ${item.temperaturePercent}%',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: surfaces.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 4,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => _playSample(item),
+                              icon: const Icon(Icons.play_arrow, size: 18),
+                              label: const Text('Sample'),
+                            ),
+                            if (item.discoverEnabled &&
+                                item.discoverClipUrl != null)
+                              OutlinedButton.icon(
+                                onPressed: () => _playClip(item),
+                                icon: const Icon(
+                                  Icons.auto_awesome,
+                                  size: 18,
+                                ),
+                                label: const Text('Discover clip'),
+                              ),
+                            if (item.owned)
+                              FilledButton.icon(
+                                onPressed: busy ? null : () => _playFull(item),
+                                icon: busy
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.play_arrow, size: 18),
+                                label: const Text('Play full'),
+                              )
+                            else if (item.forSale)
+                              FilledButton(
+                                onPressed: busy ? null : () => _buyLiked(item),
+                                child: busy
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : Text('Buy ${_formatPrice(item.priceCents)}'),
+                              ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 );
