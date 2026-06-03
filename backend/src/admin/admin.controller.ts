@@ -201,7 +201,13 @@ export class AdminController {
   async updateUserRole(
     @Param('id') userId: string,
     @Body('role')
-    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
+    role:
+      | 'listener'
+      | 'artist'
+      | 'admin'
+      | 'service_provider'
+      | 'dj'
+      | 'musician',
   ) {
     const user = await this.adminService.updateUserRole(userId, role);
     return { user };

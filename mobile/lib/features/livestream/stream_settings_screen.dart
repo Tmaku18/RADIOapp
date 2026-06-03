@@ -81,6 +81,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     final canApply = role == 'artist' ||
         role == 'service_provider' ||
         role == 'dj' ||
+        role == 'musician' ||
         role == 'admin';
 
     if (!canApply) {

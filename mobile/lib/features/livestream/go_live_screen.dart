@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/whip_broadcaster.dart';
+import 'widgets/live_chat_panel.dart';
 
 class GoLiveScreen extends StatefulWidget {
-  /// When true, the session is tagged as a DJ set so it surfaces on the Live DJ
-  /// page regardless of the broadcaster's account role.
-  final bool djMode;
+  /// Optional host intent ('dj' or 'musician') so the session surfaces on the
+  /// matching Live tab regardless of the broadcaster's account role. Null for a
+  /// regular artist stream.
+  final String? hostType;
 
-  const GoLiveScreen({super.key, this.djMode = false});
+  const GoLiveScreen({super.key, this.hostType});
 
   @override
   State<GoLiveScreen> createState() => _GoLiveScreenState();
@@ -31,6 +33,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   bool _mirror = true;
   String? _statusText;
   Map<String, dynamic>? _ingest;
+  String? _sessionId;
 
   @override
   void initState() {
@@ -61,11 +64,15 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         description:
             _description.text.trim().isEmpty ? null : _description.text.trim(),
         category: _category.text.trim().isEmpty ? null : _category.text.trim(),
-        hostType: widget.djMode ? 'dj' : null,
+        hostType: widget.hostType,
       );
       _ingest = data?['ingest'] is Map<String, dynamic>
           ? data!['ingest'] as Map<String, dynamic>
           : null;
+      final session = data?['session'] is Map<String, dynamic>
+          ? data!['session'] as Map<String, dynamic>
+          : null;
+      _sessionId = session?['id']?.toString();
       final whipUrl = _ingest?['webRtcUrl'] as String?;
 
       if (whipUrl == null || whipUrl.isEmpty) {
@@ -122,7 +129,15 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Go Live')),
+      appBar: AppBar(
+        title: Text(
+          widget.hostType == 'dj'
+              ? 'Go Live as DJ'
+              : widget.hostType == 'musician'
+                  ? 'Go Live as Musician'
+                  : 'Go Live',
+        ),
+      ),
       body: _live2 ? _buildLiveView() : _buildSetupView(),
     );
   }

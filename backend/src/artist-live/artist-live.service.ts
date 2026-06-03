@@ -81,7 +81,7 @@ export class ArtistLiveService {
   }
 
   private async cloudflareRequest<T>(
-    method: 'GET' | 'POST' | 'PUT',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     path: string,
     body?: Record<string, unknown>,
   ): Promise<T> {
@@ -103,7 +103,9 @@ export class ArtistLiveService {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const json = await res.json();
+    // DELETE (and some other responses) can return an empty body; tolerate it.
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : null;
     if (!res.ok || json?.success === false) {
       const message =
         json?.errors?.[0]?.message ||
@@ -112,6 +114,40 @@ export class ArtistLiveService {
     }
 
     return json?.result as T;
+  }
+
+  /**
+   * Hard-disconnect a broadcaster by deleting their Cloudflare live input and
+   * clearing the stored UID so the next go-live provisions a fresh input. This
+   * severs any in-progress RTMP/WHIP push. Failures are logged but non-fatal so
+   * the DB-level stop always succeeds.
+   */
+  private async cutCloudflareIngest(
+    artistId: string,
+    inputUid?: string | null,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    let uid = inputUid ?? null;
+    if (!uid) {
+      const { data: profile } = await supabase
+        .from('artist_live_profiles')
+        .select('cloudflare_live_input_uid')
+        .eq('user_id', artistId)
+        .maybeSingle();
+      uid = (profile?.cloudflare_live_input_uid as string | undefined) ?? null;
+    }
+    if (!uid) return;
+    try {
+      await this.cloudflareRequest('DELETE', `/stream/live_inputs/${uid}`);
+    } catch (e) {
+      this.logger.warn(
+        `Failed to delete Cloudflare input ${uid}: ${(e as Error)?.message ?? e}`,
+      );
+    }
+    await supabase
+      .from('artist_live_profiles')
+      .update({ cloudflare_live_input_uid: null })
+      .eq('user_id', artistId);
   }
 
   private async ensureArtistProfile(userId: string) {
@@ -256,7 +292,7 @@ export class ArtistLiveService {
       title?: string;
       description?: string;
       category?: string;
-      hostType?: 'dj' | 'artist';
+      hostType?: 'dj' | 'artist' | 'musician';
     },
   ) {
     this.ensureLiveEnabled();
@@ -269,11 +305,27 @@ export class ArtistLiveService {
       dbUser.role !== 'artist' &&
       dbUser.role !== 'admin' &&
       dbUser.role !== 'service_provider' &&
-      dbUser.role !== 'dj'
+      dbUser.role !== 'dj' &&
+      dbUser.role !== 'musician'
     ) {
-      throw new ForbiddenException('Only artists, Catalysts, or DJs can go live');
+      throw new ForbiddenException(
+        'Only artists, Catalysts, DJs, or musicians can go live',
+      );
     }
-    // Admins can always go live; others need streaming approval.
+    // Live Performances are gated: only approved musicians (or admins) may
+    // broadcast as a musician.
+    if (
+      payload.hostType === 'musician' &&
+      dbUser.role !== 'musician' &&
+      dbUser.role !== 'admin'
+    ) {
+      throw new ForbiddenException(
+        'Live Performances require musician approval. Ask an admin to grant you the musician role.',
+      );
+    }
+    // Admins and musicians can always go live (the musician role is itself the
+    // approval to host Live Performances); everyone else needs streaming
+    // approval. The live-ban check still applies to non-admins.
     if (dbUser.role !== 'admin') {
       const { data: profile } = await supabase
         .from('artist_live_profiles')
@@ -285,7 +337,7 @@ export class ArtistLiveService {
           'You are currently banned from livestreaming',
         );
       }
-      if (!profile?.streaming_approved_at) {
+      if (dbUser.role !== 'musician' && !profile?.streaming_approved_at) {
         throw new ForbiddenException(
           'Streaming access requires admin approval. Request access from your profile or Stream settings.',
         );
@@ -304,9 +356,17 @@ export class ArtistLiveService {
 
     const cf = await this.ensureCloudflareInput(dbUser.id);
     const playback = this.buildPlaybackUrls(cf.inputUid);
-    // Honor explicit host intent (e.g. launched from "Go live as DJ"), falling
-    // back to the account role so a `dj` user always gets a DJ set.
-    const isDj = payload.hostType === 'dj' || dbUser.role === 'dj';
+    // Honor explicit host intent (e.g. launched from "Go live as DJ" or
+    // "Go live as musician"), falling back to the account role so a `dj` or
+    // `musician` user always gets the right kind of session.
+    let hostType: 'dj' | 'artist' | 'musician';
+    if (payload.hostType === 'musician' || dbUser.role === 'musician') {
+      hostType = 'musician';
+    } else if (payload.hostType === 'dj' || dbUser.role === 'dj') {
+      hostType = 'dj';
+    } else {
+      hostType = 'artist';
+    }
 
     const { data: session, error } = await supabase
       .from('artist_live_sessions')
@@ -324,7 +384,7 @@ export class ArtistLiveService {
         metadata: {
           description: payload.description || null,
           category: payload.category || null,
-          hostType: isDj ? 'dj' : 'artist',
+          hostType,
         },
       })
       .select(
@@ -444,10 +504,11 @@ export class ArtistLiveService {
     if (
       dbUser.role !== 'artist' &&
       dbUser.role !== 'service_provider' &&
-      dbUser.role !== 'dj'
+      dbUser.role !== 'dj' &&
+      dbUser.role !== 'musician'
     ) {
       throw new ForbiddenException(
-        'Only artists, Catalysts, or DJs can apply to stream',
+        'Only artists, Catalysts, DJs, or musicians can apply to stream',
       );
     }
     const supabase = getSupabaseClient();
@@ -534,12 +595,17 @@ export class ArtistLiveService {
         metadata?: { hostType?: string } | null;
       }) => {
         const u = userMap.get(r.artist_id);
-        // Prefer the host's current role, but honor the snapshot taken when the
-        // session started (metadata.hostType) so a DJ session stays a DJ session.
-        const hostRole =
-          r.metadata?.hostType === 'dj' || u?.role === 'dj'
-            ? 'dj'
-            : u?.role ?? 'artist';
+        // Prefer the snapshot taken when the session started (metadata.hostType)
+        // so a DJ/musician session keeps its kind, then fall back to the host's
+        // current role.
+        let hostRole: string;
+        if (r.metadata?.hostType === 'musician' || u?.role === 'musician') {
+          hostRole = 'musician';
+        } else if (r.metadata?.hostType === 'dj' || u?.role === 'dj') {
+          hostRole = 'dj';
+        } else {
+          hostRole = u?.role ?? 'artist';
+        }
         return {
           sessionId: r.id,
           artistId: r.artist_id,
@@ -603,10 +669,14 @@ export class ArtistLiveService {
       );
     }
 
-    const hostRole =
-      session?.metadata?.hostType === 'dj' || artist.role === 'dj'
-        ? 'dj'
-        : artist.role ?? 'artist';
+    let hostRole: string;
+    if (session?.metadata?.hostType === 'musician' || artist.role === 'musician') {
+      hostRole = 'musician';
+    } else if (session?.metadata?.hostType === 'dj' || artist.role === 'dj') {
+      hostRole = 'dj';
+    } else {
+      hostRole = artist.role ?? 'artist';
+    }
 
     return {
       artist,
@@ -1048,11 +1118,13 @@ export class ArtistLiveService {
         current_viewers: 0,
       })
       .eq('id', sessionId)
-      .select('id, artist_id')
+      .select('id, artist_id, provider_input_uid')
       .single();
     if (error || !data) {
       throw new NotFoundException('Session not found');
     }
+    // Cut the broadcaster off at Cloudflare too so they can't keep pushing.
+    await this.cutCloudflareIngest(data.artist_id, data.provider_input_uid);
     return {
       stopped: true,
       sessionId: data.id,

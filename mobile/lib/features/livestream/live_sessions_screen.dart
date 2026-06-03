@@ -51,7 +51,15 @@ class LiveSessionsScreen extends StatefulWidget {
   /// When true, show only DJ-hosted sets and surface a "Go live as DJ" action.
   final bool djMode;
 
-  const LiveSessionsScreen({super.key, this.djMode = false});
+  /// When true, show only musician performances and a "Go live as musician"
+  /// action (gated behind the musician role).
+  final bool performanceMode;
+
+  const LiveSessionsScreen({
+    super.key,
+    this.djMode = false,
+    this.performanceMode = false,
+  });
 
   @override
   State<LiveSessionsScreen> createState() => _LiveSessionsScreenState();
@@ -62,13 +70,22 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
   bool _loading = true;
   List<LiveSession> _sessions = [];
   _SortOption _sort = _SortOption.viewersHigh;
-  bool _canHostDj = false;
+  bool _canHost = false;
+
+  /// The host role this tab focuses on: 'dj', 'musician', or null (all artists).
+  String? get _targetRole => widget.djMode
+      ? 'dj'
+      : widget.performanceMode
+          ? 'musician'
+          : null;
+
+  bool get _special => widget.djMode || widget.performanceMode;
 
   @override
   void initState() {
     super.initState();
     _load();
-    if (widget.djMode) _loadRole();
+    if (_special) _loadRole();
   }
 
   Future<void> _loadRole() async {
@@ -77,7 +94,10 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
       final user = await authService.getUserProfile();
       if (!mounted) return;
       final role = user?.role;
-      setState(() => _canHostDj = role == 'dj' || role == 'admin');
+      final canHost = widget.djMode
+          ? (role == 'dj' || role == 'admin')
+          : (role == 'musician' || role == 'admin');
+      setState(() => _canHost = canHost);
     } catch (_) {
       // Leave hosting controls hidden if the profile can't be loaded.
     }
@@ -89,13 +109,15 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
       final res = await _api.get('artist-live/sessions');
       if (!mounted) return;
       if (res is Map<String, dynamic> && res['sessions'] is List) {
+        final target = _targetRole;
         final list = (res['sessions'] as List)
             .whereType<Map<String, dynamic>>()
             .map(LiveSession.fromJson)
-            // DJ sets live in the dedicated Live DJ tab; the artist Live
-            // directory excludes them.
-            .where((s) =>
-                widget.djMode ? s.hostRole == 'dj' : s.hostRole != 'dj')
+            // DJ sets and musician performances have dedicated tabs; the artist
+            // Live directory excludes them.
+            .where((s) => target != null
+                ? s.hostRole == target
+                : (s.hostRole != 'dj' && s.hostRole != 'musician'))
             .toList();
         setState(() => _sessions = list);
       }
@@ -148,7 +170,13 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.djMode ? 'Live DJ' : 'Live'),
+        title: Text(
+          widget.djMode
+              ? 'Live DJ'
+              : widget.performanceMode
+                  ? 'Live Performances'
+                  : 'Live',
+        ),
         actions: [
           IconButton(
             tooltip: 'Refresh',
@@ -157,18 +185,20 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
           ),
         ],
       ),
-      floatingActionButton: widget.djMode && _canHostDj
+      floatingActionButton: _special && _canHost
           ? FloatingActionButton.extended(
               onPressed: () async {
                 await Navigator.pushNamed(
                   context,
                   AppRoutes.goLive,
-                  arguments: true,
+                  arguments: widget.djMode ? 'dj' : 'musician',
                 );
                 if (mounted) _load();
               },
-              icon: const Icon(Icons.podcasts),
-              label: const Text('Go live as DJ'),
+              icon: Icon(widget.djMode ? Icons.podcasts : Icons.mic),
+              label: Text(
+                widget.djMode ? 'Go live as DJ' : 'Go live as musician',
+              ),
             )
           : null,
       body: Column(
@@ -212,7 +242,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                               Text(
                                 widget.djMode
                                     ? 'No DJ is live right now.'
-                                    : 'No one is live right now.',
+                                    : widget.performanceMode
+                                        ? 'No live performance right now.'
+                                        : 'No one is live right now.',
                                 style: theme.textTheme.bodyLarge?.copyWith(
                                     color:
                                         theme.colorScheme.onSurfaceVariant),
@@ -221,7 +253,9 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
                               Text(
                                 widget.djMode
                                     ? 'The booth is quiet. When a DJ goes live, their set will appear here.'
-                                    : 'When artists go live, they\'ll show up here and on the Listen page.',
+                                    : widget.performanceMode
+                                        ? 'The stage is empty. When a musician goes live, their performance will appear here.'
+                                        : 'When artists go live, they\'ll show up here and on the Listen page.',
                                 textAlign: TextAlign.center,
                                 style: theme.textTheme.bodySmall?.copyWith(
                                     color:

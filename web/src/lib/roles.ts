@@ -10,18 +10,25 @@ export type AppRole =
   | 'artist'
   | 'admin'
   | 'service_provider'
-  | 'dj';
+  | 'dj'
+  | 'musician';
 
 /** User has Prospector (listener) capabilities: listen, vote, follow, yield, refinery. */
 export function hasListenerCapability(role: AppRole | null | undefined): boolean {
   if (!role) return false;
-  return ['listener', 'artist', 'service_provider', 'admin', 'dj'].includes(role);
+  return ['listener', 'artist', 'service_provider', 'admin', 'dj', 'musician'].includes(role);
 }
 
 /** User can host a Live DJ broadcast (DJ role, or admin acting as DJ). */
 export function hasDjCapability(role: AppRole | null | undefined): boolean {
   if (!role) return false;
   return role === 'dj' || role === 'admin';
+}
+
+/** User can host a Live Performance (musician role, or admin acting as musician). */
+export function hasMusicianCapability(role: AppRole | null | undefined): boolean {
+  if (!role) return false;
+  return role === 'musician' || role === 'admin';
 }
 
 /** User has Gem (artist) capabilities: upload, credits, The Wake, live services, artist profile. */

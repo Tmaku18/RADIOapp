@@ -58,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final isStreamerRole = _user?.role == 'artist' ||
         _user?.role == 'service_provider' ||
         _user?.role == 'dj' ||
+        _user?.role == 'musician' ||
         isAdmin;
 
     final List<NavigationDestination> destinations = isArtist
@@ -206,6 +207,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.liveDj);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.mic_external_on),
+                  title: const Text('Live Performances'),
+                  subtitle: const Text('Watch a musician performing live'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.livePerformances);
                   },
                 ),
                 ListTile(

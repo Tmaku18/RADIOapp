@@ -17,10 +17,17 @@ function roleSatisfies(userRole: string, requiredRole: string): boolean {
   if (requiredRole === 'artist')
     return ['artist', 'service_provider', 'admin'].includes(userRole);
   if (requiredRole === 'dj') return userRole === 'dj' || userRole === 'admin';
+  if (requiredRole === 'musician')
+    return userRole === 'musician' || userRole === 'admin';
   if (requiredRole === 'listener')
-    return ['listener', 'artist', 'service_provider', 'admin', 'dj'].includes(
-      userRole,
-    );
+    return [
+      'listener',
+      'artist',
+      'service_provider',
+      'admin',
+      'dj',
+      'musician',
+    ].includes(userRole);
   return userRole === requiredRole;
 }
 

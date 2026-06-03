@@ -16,9 +16,10 @@ export class StartLiveDto {
   @MaxLength(64)
   category?: string;
 
-  // Explicit host intent so a stream launched from the "Go live as DJ" flow is
-  // classified as a DJ set even when the account role isn't literally `dj`.
+  // Explicit host intent so a stream launched from the "Go live as DJ" or
+  // "Go live as musician" flow is classified correctly even when the account
+  // role isn't literally `dj`/`musician`.
   @IsOptional()
-  @IsIn(['dj', 'artist'])
-  hostType?: 'dj' | 'artist';
+  @IsIn(['dj', 'artist', 'musician'])
+  hostType?: 'dj' | 'artist' | 'musician';
 }

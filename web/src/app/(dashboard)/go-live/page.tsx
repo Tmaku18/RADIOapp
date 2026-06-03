@@ -26,7 +26,7 @@ export default function GoLiveStudioPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
-  const [asDj, setAsDj] = useState(false);
+  const [hostKind, setHostKind] = useState<'dj' | 'musician' | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ingest, setIngest] = useState<Ingest | null>(null);
@@ -36,11 +36,12 @@ export default function GoLiveStudioPage() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    // `?as=dj` (set by the "Go live as DJ" entry points) tags the session as a
-    // DJ set so it appears on the Live DJ page regardless of account role.
+    // `?as=dj` / `?as=musician` (set by the go-live entry points) tags the
+    // session so it appears on the matching Live tab regardless of account role.
     if (typeof window !== 'undefined') {
       const as = new URLSearchParams(window.location.search).get('as');
-      if (as === 'dj') setAsDj(true);
+      if (as === 'dj') setHostKind('dj');
+      else if (as === 'musician') setHostKind('musician');
     }
   }, []);
 
@@ -75,7 +76,7 @@ export default function GoLiveStudioPage() {
         title: title.trim() || undefined,
         description: description.trim() || undefined,
         category: category.trim() || undefined,
-        hostType: asDj ? 'dj' : undefined,
+        hostType: hostKind ?? undefined,
       });
       const resData = res.data as {
         ingest?: Ingest;
@@ -119,7 +120,12 @@ export default function GoLiveStudioPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <span>{asDj ? '🎧' : '🔴'}</span> {asDj ? 'Go Live as DJ' : 'Go Live'}
+            <span>{hostKind === 'dj' ? '🎧' : hostKind === 'musician' ? '🎤' : '🔴'}</span>{' '}
+            {hostKind === 'dj'
+              ? 'Go Live as DJ'
+              : hostKind === 'musician'
+                ? 'Go Live as Musician'
+                : 'Go Live'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Broadcast straight from your camera and mic — no extra software
@@ -127,7 +133,9 @@ export default function GoLiveStudioPage() {
           </p>
         </div>
         <Button variant="outline" asChild>
-          <Link href="/dj">Back</Link>
+          <Link href={hostKind === 'musician' ? '/performances' : '/dj'}>
+            Back
+          </Link>
         </Button>
       </div>
 
@@ -151,7 +159,12 @@ export default function GoLiveStudioPage() {
           </Alert>
 
           {ingest?.webRtcUrl ? (
-            <CameraBroadcaster whipUrl={ingest.webRtcUrl} />
+            // DJ sets default to audio-only (camera off) unless the DJ turns the
+            // camera on. Musician performances start with the camera on.
+            <CameraBroadcaster
+              whipUrl={ingest.webRtcUrl}
+              startCameraOff={hostKind === 'dj'}
+            />
           ) : (
             <Card>
               <CardContent className="py-8 text-center text-sm text-muted-foreground">

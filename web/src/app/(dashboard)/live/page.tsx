@@ -34,8 +34,13 @@ export default function LivePage() {
         const res = await artistLiveApi.listSessions();
         const data = res.data as { sessions?: LiveSession[] };
         if (!cancelled && Array.isArray(data?.sessions)) {
-          // DJ sets live in the dedicated Live DJ tab; keep this directory artists-only.
-          setSessions(data.sessions.filter((s) => s.hostRole !== 'dj'));
+          // DJ sets and musician performances have dedicated tabs; keep this
+          // directory for regular artist streams only.
+          setSessions(
+            data.sessions.filter(
+              (s) => s.hostRole !== 'dj' && s.hostRole !== 'musician',
+            ),
+          );
         }
       } catch {
         if (!cancelled) setSessions([]);

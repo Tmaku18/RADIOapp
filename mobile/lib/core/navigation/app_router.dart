@@ -87,7 +87,12 @@ class AppRouter {
       case AppRoutes.streamSettings:
         return _route(const StreamSettingsScreen(), settings);
       case AppRoutes.goLive:
-        return _route(GoLiveScreen(djMode: args == true), settings);
+        // Accept a host-type string ('dj'/'musician'); tolerate the legacy
+        // `true` arg that meant DJ mode.
+        final hostType = args is String
+            ? args
+            : (args == true ? 'dj' : null);
+        return _route(GoLiveScreen(hostType: hostType), settings);
       case AppRoutes.watchLive:
         final artistId = args?.toString();
         if (artistId == null || artistId.isEmpty) return _unknown(settings);
@@ -161,6 +166,11 @@ class AppRouter {
         return _route(const LiveSessionsScreen(), settings);
       case AppRoutes.liveDj:
         return _route(const LiveSessionsScreen(djMode: true), settings);
+      case AppRoutes.livePerformances:
+        return _route(
+          const LiveSessionsScreen(performanceMode: true),
+          settings,
+        );
       case AppRoutes.liveServices:
         return _route(
           const RequireGemCapability(child: LiveServicesScreen()),

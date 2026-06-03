@@ -1601,7 +1601,13 @@ export class AdminService {
 
   async updateUserRole(
     userId: string,
-    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
+    role:
+      | 'listener'
+      | 'artist'
+      | 'admin'
+      | 'service_provider'
+      | 'dj'
+      | 'musician',
   ) {
     const supabase = getSupabaseClient();
 
