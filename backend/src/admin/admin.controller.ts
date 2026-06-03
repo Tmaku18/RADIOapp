@@ -200,7 +200,8 @@ export class AdminController {
   @Patch('users/:id/role')
   async updateUserRole(
     @Param('id') userId: string,
-    @Body('role') role: 'listener' | 'artist' | 'admin',
+    @Body('role')
+    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
   ) {
     const user = await this.adminService.updateUserRole(userId, role);
     return { user };

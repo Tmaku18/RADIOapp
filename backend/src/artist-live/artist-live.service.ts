@@ -36,6 +36,33 @@ export class ArtistLiveService {
     }
   }
 
+  /**
+   * Build Cloudflare Stream playback URLs from a live-input (or video) UID.
+   * Cloudflare's customer subdomain code is required; if it's not configured we
+   * return nulls and callers fall back to the iframe/initializing state.
+   * HLS format: https://customer-<CODE>.cloudflarestream.com/<UID>/manifest/video.m3u8
+   */
+  private buildPlaybackUrls(uid?: string | null): {
+    hlsUrl: string | null;
+    dashUrl: string | null;
+    watchUrl: string | null;
+  } {
+    const code = (
+      process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE ||
+      process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN ||
+      ''
+    ).trim();
+    if (!uid || !code) {
+      return { hlsUrl: null, dashUrl: null, watchUrl: null };
+    }
+    const base = `https://customer-${code}.cloudflarestream.com/${uid}`;
+    return {
+      hlsUrl: `${base}/manifest/video.m3u8`,
+      dashUrl: `${base}/manifest/video.mpd`,
+      watchUrl: `${base}/iframe`,
+    };
+  }
+
   private async getDbUser(firebaseUid: string): Promise<{
     id: string;
     role: string | null;
@@ -209,9 +236,10 @@ export class ArtistLiveService {
     if (
       dbUser.role !== 'artist' &&
       dbUser.role !== 'admin' &&
-      dbUser.role !== 'service_provider'
+      dbUser.role !== 'service_provider' &&
+      dbUser.role !== 'dj'
     ) {
-      throw new ForbiddenException('Only artists or Catalysts can go live');
+      throw new ForbiddenException('Only artists, Catalysts, or DJs can go live');
     }
     // Admins can always go live; others need streaming approval.
     if (dbUser.role !== 'admin') {
@@ -243,6 +271,8 @@ export class ArtistLiveService {
     }
 
     const cf = await this.ensureCloudflareInput(dbUser.id);
+    const playback = this.buildPlaybackUrls(cf.inputUid);
+    const isDj = dbUser.role === 'dj';
 
     const { data: session, error } = await supabase
       .from('artist_live_sessions')
@@ -253,10 +283,14 @@ export class ArtistLiveService {
         provider_input_uid: cf.inputUid,
         rtmp_url: cf.rtmpUrl,
         stream_key: cf.streamKey,
+        playback_hls_url: playback.hlsUrl,
+        playback_dash_url: playback.dashUrl,
+        watch_url: playback.watchUrl || cf.watchUrl,
         title: payload.title || null,
         metadata: {
           description: payload.description || null,
           category: payload.category || null,
+          hostType: isDj ? 'dj' : 'artist',
         },
       })
       .select(
@@ -372,9 +406,13 @@ export class ArtistLiveService {
   /** Apply to become a streamer (artist or Catalyst). Admin must approve. */
   async applyToStream(firebaseUid: string) {
     const dbUser = await this.getDbUser(firebaseUid);
-    if (dbUser.role !== 'artist' && dbUser.role !== 'service_provider') {
+    if (
+      dbUser.role !== 'artist' &&
+      dbUser.role !== 'service_provider' &&
+      dbUser.role !== 'dj'
+    ) {
       throw new ForbiddenException(
-        'Only artists or Catalysts (service providers) can apply to stream',
+        'Only artists, Catalysts, or DJs can apply to stream',
       );
     }
     const supabase = getSupabaseClient();
@@ -410,6 +448,7 @@ export class ArtistLiveService {
       peakViewers: number;
       startedAt: string;
       status: string;
+      hostRole: string;
     }>;
   }> {
     this.ensureLiveEnabled();
@@ -417,7 +456,7 @@ export class ArtistLiveService {
     const { data: rows, error } = await supabase
       .from('artist_live_sessions')
       .select(
-        'id, artist_id, title, current_viewers, peak_viewers, started_at, status',
+        'id, artist_id, title, current_viewers, peak_viewers, started_at, status, metadata',
       )
       .in('status', ['starting', 'live'])
       .order('started_at', { ascending: false });
@@ -429,7 +468,7 @@ export class ArtistLiveService {
     ];
     const { data: users } = await supabase
       .from('users')
-      .select('id, display_name, avatar_url')
+      .select('id, display_name, avatar_url, role')
       .in('id', artistIds);
     const userMap = new Map(
       (users || []).map(
@@ -437,6 +476,7 @@ export class ArtistLiveService {
           id: string;
           display_name?: string;
           avatar_url?: string | null;
+          role?: string | null;
         }) => [u.id, u],
       ),
     );
@@ -449,8 +489,15 @@ export class ArtistLiveService {
         peak_viewers?: number;
         started_at?: string;
         status?: string;
+        metadata?: { hostType?: string } | null;
       }) => {
         const u = userMap.get(r.artist_id);
+        // Prefer the host's current role, but honor the snapshot taken when the
+        // session started (metadata.hostType) so a DJ session stays a DJ session.
+        const hostRole =
+          r.metadata?.hostType === 'dj' || u?.role === 'dj'
+            ? 'dj'
+            : u?.role ?? 'artist';
         return {
           sessionId: r.id,
           artistId: r.artist_id,
@@ -461,6 +508,7 @@ export class ArtistLiveService {
           peakViewers: r.peak_viewers ?? 0,
           startedAt: r.started_at ?? new Date().toISOString(),
           status: r.status ?? 'live',
+          hostRole,
         };
       },
     );
@@ -472,7 +520,7 @@ export class ArtistLiveService {
     const supabase = getSupabaseClient();
     const { data: artist } = await supabase
       .from('users')
-      .select('id, display_name, avatar_url')
+      .select('id, display_name, avatar_url, role')
       .eq('id', artistId)
       .maybeSingle();
     if (!artist) {
@@ -490,21 +538,43 @@ export class ArtistLiveService {
       .limit(1)
       .maybeSingle();
 
+    // Backfill playback URLs at read-time when they weren't persisted (e.g.
+    // sessions created before HLS support, or when only the video UID is known).
+    if (session && !session.playback_hls_url) {
+      const playback = this.buildPlaybackUrls(
+        session.provider_video_uid || session.provider_input_uid,
+      );
+      if (playback.hlsUrl) {
+        session.playback_hls_url = playback.hlsUrl;
+        session.playback_dash_url =
+          session.playback_dash_url || playback.dashUrl;
+        session.watch_url = session.watch_url || playback.watchUrl;
+      }
+    }
+
+    const hostRole =
+      session?.metadata?.hostType === 'dj' || artist.role === 'dj'
+        ? 'dj'
+        : artist.role ?? 'artist';
+
     return {
       artist,
       live: !!session,
       session: session || null,
+      hostRole,
     };
   }
 
   async getWatchInfo(artistId: string) {
     const status = await this.getArtistStatus(artistId);
     if (!status.session) {
-      return { live: false, session: null };
+      return { live: false, session: null, hostRole: status.hostRole };
     }
     return {
       live: true,
       session: status.session,
+      hostRole: status.hostRole,
+      artist: status.artist,
       chatRoomId: `artist-live:${status.session.id}`,
     };
   }
@@ -593,7 +663,7 @@ export class ArtistLiveService {
 
     const { data: activeSession } = await supabase
       .from('artist_live_sessions')
-      .select('id, status, metadata')
+      .select('id, status, metadata, playback_hls_url')
       .eq('provider_input_uid', payload.inputId)
       .in('status', ['starting', 'live'])
       .order('created_at', { ascending: false })
@@ -605,12 +675,24 @@ export class ArtistLiveService {
 
     const nowIso = new Date().toISOString();
     if (payload.eventType === 'live_input.connected') {
+      // Prefer live-input UID for the manifest (stable across reconnects);
+      // only set if not already persisted at session start.
+      const playback = activeSession.playback_hls_url
+        ? null
+        : this.buildPlaybackUrls(payload.inputId);
       await supabase
         .from('artist_live_sessions')
         .update({
           status: 'live',
           started_at: nowIso,
           provider_video_uid: payload.videoUid || null,
+          ...(playback?.hlsUrl
+            ? {
+                playback_hls_url: playback.hlsUrl,
+                playback_dash_url: playback.dashUrl,
+                watch_url: playback.watchUrl,
+              }
+            : {}),
           metadata: {
             ...(activeSession.metadata || {}),
             lastWebhook: payload.eventType,

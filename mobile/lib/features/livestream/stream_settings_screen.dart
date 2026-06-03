@@ -78,7 +78,8 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     final rejectedAt = _status?['rejectedAt'];
     final role = _status?['role'] as String?;
 
-    final canApply = role == 'artist' || role == 'service_provider';
+    final canApply =
+        role == 'artist' || role == 'service_provider' || role == 'dj';
 
     if (!canApply) {
       return Scaffold(
@@ -89,7 +90,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Only artists and Catalysts (service providers) can request streaming access.',
+                'Only artists, Catalysts (service providers), or DJs can request streaming access.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],

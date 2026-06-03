@@ -9,15 +9,16 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 import { getSupabaseClient } from '../../config/supabase.config';
 import { ConfigService } from '@nestjs/config';
 
-/** Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst). User satisfies required role if their role inherits it. */
+/** Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst). User satisfies required role if their role inherits it. "dj" is a standalone broadcaster role (admin can also act as a DJ). */
 function roleSatisfies(userRole: string, requiredRole: string): boolean {
   if (requiredRole === 'admin') return userRole === 'admin';
   if (requiredRole === 'service_provider')
     return userRole === 'service_provider' || userRole === 'admin';
   if (requiredRole === 'artist')
     return ['artist', 'service_provider', 'admin'].includes(userRole);
+  if (requiredRole === 'dj') return userRole === 'dj' || userRole === 'admin';
   if (requiredRole === 'listener')
-    return ['listener', 'artist', 'service_provider', 'admin'].includes(
+    return ['listener', 'artist', 'service_provider', 'admin', 'dj'].includes(
       userRole,
     );
   return userRole === requiredRole;

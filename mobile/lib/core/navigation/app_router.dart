@@ -159,6 +159,8 @@ class AppRouter {
         return _unknown(settings);
       case AppRoutes.liveSessions:
         return _route(const LiveSessionsScreen(), settings);
+      case AppRoutes.liveDj:
+        return _route(const LiveSessionsScreen(djMode: true), settings);
       case AppRoutes.liveServices:
         return _route(
           const RequireGemCapability(child: LiveServicesScreen()),

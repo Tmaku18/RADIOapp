@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { artistLiveApi } from '@/lib/api';
-import { hasArtistCapability } from '@/lib/roles';
+import { hasArtistCapability, hasDjCapability } from '@/lib/roles';
 import { GoLiveSheet } from '@/components/stream/GoLiveSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ export default function StreamSettingsPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const canApply =
-    hasArtistCapability(profile?.role);
+    hasArtistCapability(profile?.role) || hasDjCapability(profile?.role);
 
   useEffect(() => {
     let cancelled = false;
@@ -72,7 +72,7 @@ export default function StreamSettingsPage() {
         <h1 className="text-2xl font-bold text-foreground">Stream settings</h1>
         <Alert>
           <AlertDescription>
-            Only artists and Catalysts (service providers) can request streaming access. Upgrade your account or switch role in profile settings.
+            Only artists, Catalysts (service providers), or DJs can request streaming access. Upgrade your account or switch role in profile settings.
           </AlertDescription>
         </Alert>
       </div>

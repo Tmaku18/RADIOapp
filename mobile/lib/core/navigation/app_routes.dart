@@ -39,6 +39,7 @@ class AppRoutes {
   static const buyPlays = '/buy-plays';
   static const liveServices = '/live-services';
   static const liveSessions = '/live';
+  static const liveDj = '/live-dj';
   static const adminDashboard = '/admin';
   static const allocatePlays = '/allocate-plays';
   static const discoverCreateVideo = '/discover-create-video';

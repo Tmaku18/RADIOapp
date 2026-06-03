@@ -24,6 +24,11 @@ type LiveStatus = {
   status?: string;
 };
 
+type Ingest = {
+  rtmpUrl: string | null;
+  streamKey: string | null;
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,6 +44,7 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
   const [startLoading, setStartLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ingest, setIngest] = useState<Ingest | null>(null);
 
   useEffect(() => {
     if (!open || !artistId) return;
@@ -66,11 +72,13 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
     setError(null);
     setStartLoading(true);
     try {
-      await artistLiveApi.start({
+      const res = await artistLiveApi.start({
         title: title.trim() || undefined,
         description: description.trim() || undefined,
         category: category.trim() || undefined,
       });
+      const ing = (res.data as { ingest?: Ingest })?.ingest ?? null;
+      if (ing) setIngest(ing);
       setStatus({ isLive: true, title: title.trim() || null });
     } catch (err: unknown) {
       const msg =
@@ -88,6 +96,7 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
     try {
       await artistLiveApi.stop();
       setStatus({ isLive: false });
+      setIngest(null);
       onOpenChange(false);
     } catch (err: unknown) {
       const msg =
@@ -130,6 +139,46 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
               <p className="text-sm text-muted-foreground">
                 Title: {status.title || 'Untitled stream'}
               </p>
+              {ingest && (ingest.rtmpUrl || ingest.streamKey) && (
+                <div className="space-y-3 rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium">Encoder setup (OBS / RTMP)</p>
+                  {ingest.rtmpUrl && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Server (RTMP URL)</Label>
+                      <div className="flex items-center gap-2">
+                        <Input readOnly value={ingest.rtmpUrl} className="font-mono text-xs" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigator.clipboard?.writeText(ingest.rtmpUrl ?? '')}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  {ingest.streamKey && (
+                    <div className="space-y-1">
+                      <Label className="text-xs">Stream key</Label>
+                      <div className="flex items-center gap-2">
+                        <Input readOnly type="password" value={ingest.streamKey} className="font-mono text-xs" />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigator.clipboard?.writeText(ingest.streamKey ?? '')}
+                        >
+                          Copy
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Paste these into your broadcaster (OBS, Streamlabs). Audio-only is fine — just disable video in your encoder.
+                  </p>
+                </div>
+              )}
               <div className="flex flex-col gap-2">
                 <Button
                   variant="destructive"

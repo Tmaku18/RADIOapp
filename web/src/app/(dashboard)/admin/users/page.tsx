@@ -26,7 +26,7 @@ interface User {
   id: string;
   email: string;
   display_name: string | null;
-  role: 'listener' | 'artist' | 'admin';
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj';
   created_at: string;
 }
 
@@ -93,7 +93,7 @@ export default function AdminUsersPage() {
     return <span className="text-primary ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
   };
 
-  const handleRoleChange = async (userId: string, newRole: 'listener' | 'artist' | 'admin') => {
+  const handleRoleChange = async (userId: string, newRole: 'listener' | 'artist' | 'admin' | 'dj') => {
     setActionLoading(userId);
     try {
       await adminApi.updateUserRole(userId, newRole);
@@ -299,6 +299,12 @@ export default function AdminUsersPage() {
                           className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer"
                         >
                           Set as Artist
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleRoleChange(user.id, 'dj')}
+                          className="text-foreground focus:text-foreground focus:bg-accent cursor-pointer"
+                        >
+                          Set as DJ
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleRoleChange(user.id, 'admin')}

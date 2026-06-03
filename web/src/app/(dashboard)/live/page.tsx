@@ -17,6 +17,7 @@ type LiveSession = {
   peakViewers: number;
   startedAt: string;
   status: string;
+  hostRole?: string;
 };
 
 type SortOption = 'recommended' | 'viewers_high' | 'viewers_low' | 'recent';
@@ -33,7 +34,8 @@ export default function LivePage() {
         const res = await artistLiveApi.listSessions();
         const data = res.data as { sessions?: LiveSession[] };
         if (!cancelled && Array.isArray(data?.sessions)) {
-          setSessions(data.sessions);
+          // DJ sets live in the dedicated Live DJ tab; keep this directory artists-only.
+          setSessions(data.sessions.filter((s) => s.hostRole !== 'dj'));
         }
       } catch {
         if (!cancelled) setSessions([]);

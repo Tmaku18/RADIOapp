@@ -54,7 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     // Determine which navigation items to show based on user role
     final isArtist = _user?.role == 'artist';
-    final isStreamerRole = _user?.role == 'artist' || _user?.role == 'service_provider';
+    final isStreamerRole = _user?.role == 'artist' ||
+        _user?.role == 'service_provider' ||
+        _user?.role == 'dj';
     final isAdmin = _user?.role == 'admin';
 
     final List<NavigationDestination> destinations = isArtist
@@ -194,6 +196,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.liveSessions);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.headphones),
+                  title: const Text('Live DJ'),
+                  subtitle: const Text('Tune into a DJ broadcasting live'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.liveDj);
                   },
                 ),
                 ListTile(

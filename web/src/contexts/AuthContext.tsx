@@ -17,7 +17,7 @@ interface UserProfile {
   id: string;
   email: string;
   displayName: string | null;
-  role: 'listener' | 'artist' | 'admin' | 'service_provider';
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj';
   avatarUrl: string | null;
   createdAt: string;
   region?: string | null;

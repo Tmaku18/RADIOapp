@@ -53,6 +53,7 @@ type MainNavItem = { name: string; href: string; icon: string; external?: boolea
 
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
+  { name: 'Live DJ', href: '/dj', icon: '🎧' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Feed', href: '/social', icon: '📱' },
   { name: 'Discover', href: '/social/discover', icon: '🔥' },
@@ -64,6 +65,7 @@ const listenerNavigation: MainNavItem[] = [
 
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
+  { name: 'Live DJ', href: '/dj', icon: '🎧' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Feed', href: '/social', icon: '📱' },
   { name: 'Discover', href: '/social/discover', icon: '🔥' },
@@ -145,6 +147,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';
+  if (pathname.startsWith('/dj')) return 'Live DJ';
   if (pathname.startsWith('/yield')) return 'Rewards';
   if (pathname.startsWith('/refinery')) return 'The Refinery';
   if (pathname.startsWith('/profile')) return 'Profile';

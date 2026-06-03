@@ -1599,7 +1599,10 @@ export class AdminService {
     return data;
   }
 
-  async updateUserRole(userId: string, role: 'listener' | 'artist' | 'admin') {
+  async updateUserRole(
+    userId: string,
+    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
+  ) {
     const supabase = getSupabaseClient();
 
     const { data, error } = await supabase

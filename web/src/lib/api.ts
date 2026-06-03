@@ -710,7 +710,7 @@ export const artistLiveApi = {
   start: (data?: { title?: string; description?: string; category?: string }) =>
     api.post('/artist-live/start', data ?? {}),
   stop: () => api.post('/artist-live/stop'),
-  listSessions: () => api.get<{ sessions: Array<{ sessionId: string; artistId: string; displayName: string; avatarUrl: string | null; title: string | null; currentViewers: number; peakViewers: number; startedAt: string; status: string }> }>('/artist-live/sessions'),
+  listSessions: () => api.get<{ sessions: Array<{ sessionId: string; artistId: string; displayName: string; avatarUrl: string | null; title: string | null; currentViewers: number; peakViewers: number; startedAt: string; status: string; hostRole?: string }> }>('/artist-live/sessions'),
   getStreamerStatus: () =>
     api.get<{ canStream: boolean; appliedAt: string | null; approvedAt: string | null; rejectedAt: string | null; role: string }>('/artist-live/streamer-status'),
   applyToStream: () => api.post<{ applied: boolean; appliedAt: string; message: string }>('/artist-live/apply'),
@@ -1334,8 +1334,10 @@ export const adminApi = {
       total: number;
     }>('/admin/swipe', { params }),
   deleteSwipeClip: (songId: string) => api.delete(`/admin/swipe/${songId}/clip`),
-  updateUserRole: (id: string, role: 'listener' | 'artist' | 'admin') =>
-    api.patch(`/admin/users/${id}/role`, { role }),
+  updateUserRole: (
+    id: string,
+    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
+  ) => api.patch(`/admin/users/${id}/role`, { role }),
   lifetimeBanUser: (id: string, reason?: string) =>
     api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
   deleteUserAccount: (id: string) => api.delete(`/admin/users/${id}`),
