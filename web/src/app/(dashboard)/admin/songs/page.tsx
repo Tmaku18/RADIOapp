@@ -849,7 +849,18 @@ export default function AdminSongsPage() {
                       <div>
                         <p className="font-medium text-gray-900">{song.title}</p>
                         {song.audio_url && (
-                          <audio controls className="h-6 mt-1">
+                          <audio
+                            controls
+                            className="h-6 mt-1"
+                            onPlay={(e) => {
+                              const current = e.currentTarget;
+                              document
+                                .querySelectorAll('audio')
+                                .forEach((el) => {
+                                  if (el !== current) el.pause();
+                                });
+                            }}
+                          >
                             <source src={song.audio_url} type="audio/mpeg" />
                           </audio>
                         )}
