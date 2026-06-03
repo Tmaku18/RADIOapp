@@ -34,6 +34,7 @@ import {
   SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
@@ -86,6 +87,20 @@ const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '
 
 const DASHBOARD_LOGO_PRIMARY = '/networx-logo.png';
 const DASHBOARD_LOGO_FALLBACK = '/icons/icon.svg';
+
+/**
+ * Auto-collapse the mobile sidebar overlay whenever the route changes, so
+ * tapping a tab takes you straight to the page instead of leaving the menu
+ * covering the screen. (Must live inside SidebarProvider to read its context.)
+ */
+function AutoCollapseSidebarOnNavigate() {
+  const pathname = usePathname();
+  const { isMobile, setOpenMobile } = useSidebar();
+  useEffect(() => {
+    if (isMobile) setOpenMobile(false);
+  }, [pathname, isMobile, setOpenMobile]);
+  return null;
+}
 
 function DashboardSidebarLogo() {
   const [useFallback, setUseFallback] = useState(false);
@@ -294,6 +309,7 @@ export default function DashboardLayout({
       className={isListenPage ? 'h-svh overflow-hidden' : 'min-h-screen'}
     >
       <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden' : undefined}>
+        <AutoCollapseSidebarOnNavigate />
         <Sidebar>
         <SidebarHeader>
           <SidebarMenu>
