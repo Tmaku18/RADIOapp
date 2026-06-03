@@ -1090,8 +1090,8 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
       station_id: createSongDto.stationId,
-      // All uploads are marked explicit by default.
-      is_explicit: true,
+      // Songs are explicit by default; uploaders opt out by unchecking the box.
+      is_explicit: createSongDto.isExplicit !== false,
       ...statusFields,
     };
     const legacyBaseInsertPayload = {

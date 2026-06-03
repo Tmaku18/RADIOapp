@@ -96,7 +96,7 @@ export default function UploadPage() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [readyForRotation, setReadyForRotation] = useState(false);
-  const [isExplicit, setIsExplicit] = useState(false);
+  const [isExplicit, setIsExplicit] = useState(true);
 
   useEffect(() => {
     const source = discoverClipFile ?? audioFile;
@@ -660,7 +660,8 @@ export default function UploadPage() {
                 <div>
                   <Label htmlFor="isExplicit">Mark as explicit</Label>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Enable this if lyrics or audio include explicit language/content.
+                    Songs are marked explicit by default. Uncheck only if this
+                    track has no explicit language/content.
                   </p>
                 </div>
                 <input

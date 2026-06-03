@@ -339,7 +339,8 @@ export class SongsController {
       artworkUrl,
       durationSeconds, // Server-validated duration
       stationId: body.stationId,
-      isExplicit: body.isExplicit === true,
+      // Explicit by default; only clean when the uploader explicitly opts out.
+      isExplicit: body.isExplicit !== false,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -492,7 +493,8 @@ export class SongsController {
       discoverBackgroundUrl,
       discoverClipStartSeconds: dto.discoverClipStartSeconds,
       discoverClipEndSeconds: dto.discoverClipEndSeconds,
-      isExplicit: dto.isExplicit === true,
+      // Explicit by default; only clean when the uploader explicitly opts out.
+      isExplicit: dto.isExplicit !== false,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&

@@ -27,7 +27,7 @@ class _UploadScreenState extends State<UploadScreen> {
   String? _error;
   bool _readyForRotation = false;
   int? _durationSeconds;
-  bool _isExplicit = false;
+  bool _isExplicit = true;
   bool _discoverEnabled = false;
   double? _discoverClipStart;
   double? _discoverClipEnd;
@@ -424,7 +424,7 @@ class _UploadScreenState extends State<UploadScreen> {
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Mark as explicit'),
                     subtitle: const Text(
-                      'Enable when lyrics/audio include explicit language/content.',
+                      'Songs are explicit by default. Turn off only if this track has no explicit language/content.',
                     ),
                     value: _isExplicit,
                     onChanged: _isUploading
