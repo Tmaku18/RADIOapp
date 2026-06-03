@@ -69,7 +69,7 @@ const artistNavigation: MainNavItem[] = [
   { name: 'Library', href: '/browse/saved', icon: '💿' },
   { name: 'Feed', href: '/social', icon: '📱' },
   { name: 'Discover', href: '/social/discover', icon: '🔥' },
-  { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
+  { name: 'My Uploaded Songs', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
   { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
@@ -154,7 +154,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/live')) return 'Live';
   if (pathname.startsWith('/stream-settings')) return 'Stream settings';
   if (pathname.startsWith('/settings')) return 'Settings';
-  if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Songs';
+  if (pathname === '/artist' || pathname.startsWith('/artist/songs')) return 'My Uploaded Songs';
   if (pathname.startsWith('/artist/upload')) return 'Upload';
   if (pathname.startsWith('/artist/stats')) return 'Analytics';
   if (pathname.startsWith('/artist/live-services')) return 'Live services';
@@ -389,7 +389,7 @@ export default function DashboardLayout({
                         <>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/songs')}>
-                              <Link href="/artist/songs">My Songs</Link>
+                              <Link href="/artist/songs">My Uploaded Songs</Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                           <SidebarMenuSubItem>
