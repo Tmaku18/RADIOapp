@@ -261,6 +261,13 @@ export class PaymentsService {
   async handlePaymentSuccess(paymentIntentId: string) {
     const supabase = getSupabaseClient();
 
+    // Live-stream donations live in stream_donations (mobile PaymentSheet flow).
+    const fulfilledDonation = await this.fulfillDonationByStripeRef(
+      'stripe_payment_intent_id',
+      paymentIntentId,
+    );
+    if (fulfilledDonation) return;
+
     // Find transaction
     const { data: transaction } = await supabase
       .from('transactions')
@@ -892,6 +899,13 @@ export class PaymentsService {
   async handleCheckoutSessionCompleted(sessionId: string) {
     const supabase = getSupabaseClient();
 
+    // Live-stream donations (web Checkout flow) are tracked in stream_donations.
+    const fulfilledDonation = await this.fulfillDonationByStripeRef(
+      'stripe_checkout_session_id',
+      sessionId,
+    );
+    if (fulfilledDonation) return;
+
     // Song purchases are tracked in song_purchases (not transactions). Fulfill
     // those first and short-circuit if this session was a song purchase.
     const fulfilledSongPurchase =
@@ -1279,6 +1293,29 @@ export class PaymentsService {
       .from('song_purchases')
       .update({ status: 'completed' })
       .eq('id', purchase.id);
+    return true;
+  }
+
+  /**
+   * Mark a pending live-stream donation as succeeded. Returns true if a donation
+   * matched the given Stripe reference (so the caller can short-circuit).
+   */
+  async fulfillDonationByStripeRef(
+    column: 'stripe_payment_intent_id' | 'stripe_checkout_session_id',
+    value: string,
+  ): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data: donation, error } = await supabase
+      .from('stream_donations')
+      .select('id, status')
+      .eq(column, value)
+      .maybeSingle();
+    if (error || !donation) return false;
+    if (donation.status === 'succeeded') return true;
+    await supabase
+      .from('stream_donations')
+      .update({ status: 'succeeded' })
+      .eq('id', donation.id);
     return true;
   }
 }

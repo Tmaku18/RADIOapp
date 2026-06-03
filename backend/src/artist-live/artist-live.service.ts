@@ -515,6 +515,13 @@ export class ArtistLiveService {
         }) => [u.id, u],
       ),
     );
+    // Compute true concurrent viewers per session from presence rows.
+    const liveCounts = new Map<string, number>();
+    await Promise.all(
+      (rows as Array<{ id: string; artist_id: string }>).map(async (r) => {
+        liveCounts.set(r.id, await this.countLiveViewers(r.id, r.artist_id));
+      }),
+    );
     const sessions = rows.map(
       (r: {
         id: string;
@@ -539,7 +546,7 @@ export class ArtistLiveService {
           displayName: u?.display_name ?? 'Artist',
           avatarUrl: u?.avatar_url ?? null,
           title: r.title ?? null,
-          currentViewers: r.current_viewers ?? 0,
+          currentViewers: liveCounts.get(r.id) ?? 0,
           peakViewers: r.peak_viewers ?? 0,
           startedAt: r.started_at ?? new Date().toISOString(),
           status: r.status ?? 'live',
@@ -587,6 +594,15 @@ export class ArtistLiveService {
       }
     }
 
+    // Reflect true concurrent viewers (presence-based) rather than the cached
+    // counter, so the watch page shows an accurate "N watching".
+    if (session) {
+      session.current_viewers = await this.countLiveViewers(
+        session.id,
+        artistId,
+      );
+    }
+
     const hostRole =
       session?.metadata?.hostType === 'dj' || artist.role === 'dj'
         ? 'dj'
@@ -614,10 +630,66 @@ export class ArtistLiveService {
     };
   }
 
+  // A viewer is "present" if they haven't left and we've heard a heartbeat
+  // within this window. Clients beat every ~15s; 45s tolerates a missed beat.
+  private static readonly VIEWER_PRESENCE_WINDOW_MS = 45_000;
+
+  /**
+   * Count distinct concurrent viewers for a session from presence rows, not a
+   * cumulative join counter. The host's own views (authenticated as the artist)
+   * are excluded; refreshes/reconnects dedupe by user id, else by viewer token.
+   */
+  private async countLiveViewers(
+    sessionId: string,
+    artistId: string,
+  ): Promise<number> {
+    const supabase = getSupabaseClient();
+    const cutoff = new Date(
+      Date.now() - ArtistLiveService.VIEWER_PRESENCE_WINDOW_MS,
+    ).toISOString();
+    const { data } = await supabase
+      .from('artist_live_viewers')
+      .select('id, user_id, join_token')
+      .eq('session_id', sessionId)
+      .is('left_at', null)
+      .gte('last_seen_at', cutoff);
+    if (!data?.length) return 0;
+    const keys = new Set<string>();
+    for (const row of data as Array<{
+      id: string;
+      user_id: string | null;
+      join_token: string | null;
+    }>) {
+      if (row.user_id && row.user_id === artistId) continue; // exclude host
+      keys.add(row.user_id || row.join_token || row.id);
+    }
+    return keys.size;
+  }
+
+  /** Persist the freshly-computed concurrent count (and bump peak). */
+  private async syncViewerCounters(
+    sessionId: string,
+    artistId: string,
+    knownPeak?: number,
+  ): Promise<number> {
+    const supabase = getSupabaseClient();
+    const current = await this.countLiveViewers(sessionId, artistId);
+    const update: Record<string, unknown> = { current_viewers: current };
+    if (knownPeak !== undefined && current > knownPeak) {
+      update.peak_viewers = current;
+    }
+    await supabase
+      .from('artist_live_sessions')
+      .update(update)
+      .eq('id', sessionId);
+    return current;
+  }
+
   async joinSession(
     sessionId: string,
     source?: string,
     firebaseUid?: string,
+    viewerToken?: string,
   ): Promise<{
     joined: boolean;
     viewerId: string;
@@ -628,7 +700,7 @@ export class ArtistLiveService {
 
     const { data: session, error: sessionError } = await supabase
       .from('artist_live_sessions')
-      .select('id, status, current_viewers, peak_viewers')
+      .select('id, artist_id, status, peak_viewers')
       .eq('id', sessionId)
       .single();
     if (sessionError || !session) {
@@ -650,6 +722,8 @@ export class ArtistLiveService {
         session_id: sessionId,
         user_id: userId,
         source: source || null,
+        join_token: viewerToken || null,
+        last_seen_at: new Date().toISOString(),
       })
       .select('id')
       .single();
@@ -659,29 +733,72 @@ export class ArtistLiveService {
       );
     }
 
-    const nextCurrent = (session.current_viewers || 0) + 1;
-    const nextPeak = Math.max(session.peak_viewers || 0, nextCurrent);
-    const { error: updateErr } = await supabase
-      .from('artist_live_sessions')
-      .update({
-        current_viewers: nextCurrent,
-        peak_viewers: nextPeak,
-      })
-      .eq('id', sessionId);
-    if (updateErr) {
-      this.logger.warn(
-        `Failed to update viewer counters for session ${sessionId}: ${updateErr.message}`,
-      );
-    }
+    const current = await this.syncViewerCounters(
+      sessionId,
+      session.artist_id,
+      session.peak_viewers || 0,
+    );
 
     return {
       joined: true,
       viewerId: viewerRow.id,
       viewers: {
-        current: nextCurrent,
-        peak: nextPeak,
+        current,
+        peak: Math.max(session.peak_viewers || 0, current),
       },
     };
+  }
+
+  /** Keep a viewer "present" — called periodically by watch clients. */
+  async heartbeat(
+    sessionId: string,
+    viewerId: string,
+  ): Promise<{ viewers: number }> {
+    this.ensureLiveEnabled();
+    const supabase = getSupabaseClient();
+    const { data: session } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id, status')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!session) {
+      throw new NotFoundException('Live session not found');
+    }
+    if (viewerId) {
+      await supabase
+        .from('artist_live_viewers')
+        .update({ last_seen_at: new Date().toISOString() })
+        .eq('id', viewerId)
+        .eq('session_id', sessionId)
+        .is('left_at', null);
+    }
+    const current = await this.syncViewerCounters(sessionId, session.artist_id);
+    return { viewers: current };
+  }
+
+  /** Mark a viewer as gone — called on unmount / page close. */
+  async leaveSession(
+    sessionId: string,
+    viewerId: string,
+  ): Promise<{ left: boolean; viewers: number }> {
+    const supabase = getSupabaseClient();
+    const { data: session } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (!session) {
+      return { left: false, viewers: 0 };
+    }
+    if (viewerId) {
+      await supabase
+        .from('artist_live_viewers')
+        .update({ left_at: new Date().toISOString() })
+        .eq('id', viewerId)
+        .eq('session_id', sessionId);
+    }
+    const current = await this.syncViewerCounters(sessionId, session.artist_id);
+    return { left: true, viewers: current };
   }
 
   async processCloudflareWebhook(payload: {
@@ -823,6 +940,98 @@ export class ArtistLiveService {
     return {
       donationId: donationRow.id,
       clientSecret: intent.client_secret,
+      amountCents,
+      currency: 'usd',
+    };
+  }
+
+  /**
+   * Web donation flow: create a pending donation and a Stripe Checkout session,
+   * then return the hosted-checkout URL to redirect to. The payments webhook
+   * marks the donation succeeded on checkout.session.completed.
+   */
+  async createDonationCheckout(
+    firebaseUid: string,
+    sessionId: string,
+    payload: { amountCents: number; message?: string },
+  ) {
+    if (
+      (process.env.STREAM_DONATIONS_ENABLED || 'false').toLowerCase() !== 'true'
+    ) {
+      throw new BadRequestException('Stream donations are disabled');
+    }
+    const supabase = getSupabaseClient();
+    const donor = await this.getDbUser(firebaseUid);
+    const amountCents = Math.floor(payload.amountCents || 0);
+    if (!Number.isFinite(amountCents) || amountCents < 100) {
+      throw new BadRequestException('Minimum donation is $1.00');
+    }
+    if (amountCents > 25000) {
+      throw new BadRequestException('Donation exceeds per-transaction limit');
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id, status')
+      .eq('id', sessionId)
+      .single();
+    if (sessionError || !session) {
+      throw new NotFoundException('Live session not found');
+    }
+    if (!['starting', 'live'].includes(session.status)) {
+      throw new BadRequestException('Session is not accepting donations');
+    }
+
+    const { data: artist } = await supabase
+      .from('users')
+      .select('display_name')
+      .eq('id', session.artist_id)
+      .maybeSingle();
+    const artistName = artist?.display_name || 'this stream';
+
+    const { data: donationRow, error: donationError } = await supabase
+      .from('stream_donations')
+      .insert({
+        session_id: session.id,
+        artist_id: session.artist_id,
+        donor_user_id: donor.id,
+        amount_cents: amountCents,
+        currency: 'usd',
+        status: 'pending',
+        message: payload.message?.trim() || null,
+      })
+      .select('id')
+      .single();
+    if (donationError || !donationRow) {
+      throw new BadRequestException(
+        `Failed to create donation request: ${donationError?.message}`,
+      );
+    }
+
+    const webUrl = process.env.WEB_URL || 'http://localhost:3001';
+    const checkout = await this.stripeService.createCheckoutSessionSongPlays(
+      amountCents,
+      `Donation to ${artistName}`,
+      `$${(amountCents / 100).toFixed(2)} tip for the live stream`,
+      {
+        kind: 'stream_donation',
+        donationId: donationRow.id,
+        sessionId: session.id,
+        artistId: session.artist_id,
+        donorId: donor.id,
+      },
+      `${webUrl}/watch/${session.artist_id}?donation=success`,
+      `${webUrl}/watch/${session.artist_id}?donation=canceled`,
+    );
+
+    await supabase
+      .from('stream_donations')
+      .update({ stripe_checkout_session_id: checkout.id })
+      .eq('id', donationRow.id);
+
+    return {
+      donationId: donationRow.id,
+      url: checkout.url,
       amountCents,
       currency: 'usd',
     };

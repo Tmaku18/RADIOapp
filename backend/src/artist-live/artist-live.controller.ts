@@ -14,7 +14,7 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { ArtistLiveService } from './artist-live.service';
 import { StartLiveDto } from './dto/start-live.dto';
-import { JoinLiveDto } from './dto/join-live.dto';
+import { JoinLiveDto, ViewerPresenceDto } from './dto/join-live.dto';
 import { CloudflareWebhookDto } from './dto/cloudflare-webhook.dto';
 
 @Controller('artist-live')
@@ -79,7 +79,30 @@ export class ArtistLiveController {
         throw new UnauthorizedException('Invalid token');
       }
     }
-    return this.artistLive.joinSession(sessionId, dto.source, firebaseUid);
+    return this.artistLive.joinSession(
+      sessionId,
+      dto.source,
+      firebaseUid,
+      dto.viewerToken,
+    );
+  }
+
+  @Public()
+  @Post(':sessionId/heartbeat')
+  async heartbeat(
+    @Param('sessionId') sessionId: string,
+    @Body() dto: ViewerPresenceDto,
+  ) {
+    return this.artistLive.heartbeat(sessionId, dto.viewerId);
+  }
+
+  @Public()
+  @Post(':sessionId/leave')
+  async leave(
+    @Param('sessionId') sessionId: string,
+    @Body() dto: ViewerPresenceDto,
+  ) {
+    return this.artistLive.leaveSession(sessionId, dto.viewerId);
   }
 
   @Public()
@@ -117,6 +140,15 @@ export class ArtistLiveController {
     @Body() body: { amountCents: number; message?: string },
   ) {
     return this.artistLive.createDonationIntent(user.uid, sessionId, body);
+  }
+
+  @Post(':sessionId/donations/checkout')
+  async createDonationCheckout(
+    @CurrentUser() user: FirebaseUser,
+    @Param('sessionId') sessionId: string,
+    @Body() body: { amountCents: number; message?: string },
+  ) {
+    return this.artistLive.createDonationCheckout(user.uid, sessionId, body);
   }
 
   @Post(':sessionId/report')

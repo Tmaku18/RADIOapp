@@ -720,10 +720,16 @@ export const artistLiveApi = {
   applyToStream: () => api.post<{ applied: boolean; appliedAt: string; message: string }>('/artist-live/apply'),
   getStatus: (artistId: string) => api.get(`/artist-live/${artistId}/status`),
   getWatch: (artistId: string) => api.get(`/artist-live/${artistId}/watch`),
-  join: (sessionId: string, data?: { source?: string }) =>
-    api.post(`/artist-live/${sessionId}/join`, data ?? {}),
+  join: (sessionId: string, data?: { source?: string; viewerToken?: string }) =>
+    api.post<{ joined: boolean; viewerId: string; viewers: { current: number; peak: number } }>(`/artist-live/${sessionId}/join`, data ?? {}),
+  heartbeat: (sessionId: string, viewerId: string) =>
+    api.post<{ viewers: number }>(`/artist-live/${sessionId}/heartbeat`, { viewerId }),
+  leave: (sessionId: string, viewerId: string) =>
+    api.post<{ left: boolean; viewers: number }>(`/artist-live/${sessionId}/leave`, { viewerId }),
   createDonationIntent: (sessionId: string, data: { amountCents: number; message?: string }) =>
     api.post(`/artist-live/${sessionId}/donations/intent`, data),
+  createDonationCheckout: (sessionId: string, data: { amountCents: number; message?: string }) =>
+    api.post<{ donationId: string; url: string | null; amountCents: number; currency: string }>(`/artist-live/${sessionId}/donations/checkout`, data),
   reportStream: (sessionId: string, reason: string) =>
     api.post(`/artist-live/${sessionId}/report`, { reason }),
 };

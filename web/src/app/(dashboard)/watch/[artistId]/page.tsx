@@ -18,6 +18,22 @@ type WatchSession = {
   current_viewers?: number;
 };
 
+const DONATION_PRESETS = [1, 5, 10, 20, 50];
+
+/** Stable per-browser token so refreshes/reconnects don't inflate viewer counts. */
+function getViewerToken(): string {
+  if (typeof window === 'undefined') return '';
+  const key = 'networx_viewer_token';
+  let token = window.localStorage.getItem(key);
+  if (!token) {
+    token =
+      (window.crypto?.randomUUID?.() as string | undefined) ||
+      `vt_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    window.localStorage.setItem(key, token);
+  }
+  return token;
+}
+
 /** Cross-browser HLS player: uses hls.js where MSE is supported, native HLS otherwise. */
 function HlsPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -60,33 +76,94 @@ function HlsPlayer({ src }: { src: string }) {
 
 export default function WatchArtistLivePage() {
   const params = useParams<{ artistId: string }>();
-  const artistId = useMemo(() => (typeof params?.artistId === 'string' ? params.artistId : ''), [params]);
+  const artistId = useMemo(
+    () => (typeof params?.artistId === 'string' ? params.artistId : ''),
+    [params],
+  );
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<WatchSession | null>(null);
   const [hostRole, setHostRole] = useState<string>('artist');
   const [error, setError] = useState<string | null>(null);
-  const [donationAmount, setDonationAmount] = useState('5');
+  const [viewers, setViewers] = useState(0);
+
+  // Donation UI state
+  const [presetAmount, setPresetAmount] = useState<number | 'custom'>(5);
+  const [customAmount, setCustomAmount] = useState('');
+  const [donationMessage, setDonationMessage] = useState('');
   const [donating, setDonating] = useState(false);
+  const [donationError, setDonationError] = useState<string | null>(null);
+  const [donationNotice, setDonationNotice] = useState<string | null>(null);
 
   const isDj = hostRole === 'dj';
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const status = new URLSearchParams(window.location.search).get('donation');
+    if (status === 'success') {
+      setDonationNotice('Thanks for the tip! Your donation went through. 🎉');
+    } else if (status === 'canceled') {
+      setDonationNotice('Donation canceled — no charge was made.');
+    }
+  }, []);
+
+  useEffect(() => {
     if (!artistId) return;
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
+    let beatTimer: ReturnType<typeof setInterval> | null = null;
+    let viewerId: string | null = null;
+    let joinedSessionId: string | null = null;
+    const viewerToken = getViewerToken();
+
+    const startHeartbeat = (sessionId: string) => {
+      if (beatTimer) clearInterval(beatTimer);
+      beatTimer = setInterval(async () => {
+        if (!viewerId) return;
+        try {
+          const hb = await artistLiveApi.heartbeat(sessionId, viewerId);
+          if (!cancelled && typeof hb.data?.viewers === 'number') {
+            setViewers(hb.data.viewers);
+          }
+        } catch {
+          // Ignore — the periodic refresh will resync the count.
+        }
+      }, 15000);
+    };
 
     const load = async () => {
       try {
         const watchRes = await artistLiveApi.getWatch(artistId);
-        const watchSession = watchRes.data?.session ?? null;
+        const watchSession =
+          (watchRes.data?.session as WatchSession | null) ?? null;
         if (!cancelled) {
           setSession(watchSession);
           setHostRole((watchRes.data?.hostRole as string) || 'artist');
-          setError(watchSession ? null : `This ${watchRes.data?.hostRole === 'dj' ? 'DJ' : 'artist'} is not live right now.`);
+          setError(
+            watchSession
+              ? null
+              : `This ${watchRes.data?.hostRole === 'dj' ? 'DJ' : 'artist'} is not live right now.`,
+          );
           setLoading(false);
+          if (typeof watchSession?.current_viewers === 'number') {
+            setViewers(watchSession.current_viewers);
+          }
         }
-        if (watchSession?.id) {
-          artistLiveApi.join(watchSession.id, { source: 'watch_page' }).catch(() => undefined);
+        // Join exactly once per session, then keep presence via heartbeats.
+        if (watchSession?.id && joinedSessionId !== watchSession.id) {
+          joinedSessionId = watchSession.id;
+          try {
+            const jr = await artistLiveApi.join(watchSession.id, {
+              source: 'watch_page',
+              viewerToken,
+            });
+            viewerId = jr.data?.viewerId ?? null;
+            if (!cancelled && typeof jr.data?.viewers?.current === 'number') {
+              setViewers(jr.data.viewers.current);
+            }
+          } catch {
+            // Non-fatal: still show the stream even if presence fails.
+          }
+          startHeartbeat(watchSession.id);
         }
       } catch {
         if (!cancelled) {
@@ -94,16 +171,57 @@ export default function WatchArtistLivePage() {
           setLoading(false);
         }
       } finally {
-        if (!cancelled) timer = setTimeout(load, 15000);
+        if (!cancelled) pollTimer = setTimeout(load, 15000);
       }
     };
 
     load();
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      if (pollTimer) clearTimeout(pollTimer);
+      if (beatTimer) clearInterval(beatTimer);
+      if (joinedSessionId && viewerId) {
+        artistLiveApi.leave(joinedSessionId, viewerId).catch(() => undefined);
+      }
     };
   }, [artistId]);
+
+  const resolvedAmountDollars =
+    presetAmount === 'custom' ? Number(customAmount) || 0 : presetAmount;
+
+  const handleDonate = async () => {
+    if (!session?.id) return;
+    const cents = Math.round(resolvedAmountDollars * 100);
+    if (!Number.isFinite(cents) || cents < 100) {
+      setDonationError('Minimum donation is $1.00.');
+      return;
+    }
+    if (cents > 25000) {
+      setDonationError('Maximum donation is $250.00.');
+      return;
+    }
+    setDonationError(null);
+    setDonating(true);
+    try {
+      const res = await artistLiveApi.createDonationCheckout(session.id, {
+        amountCents: cents,
+        message: donationMessage.trim() || undefined,
+      });
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      setDonationError('Could not start checkout. Please try again.');
+    } catch (err: unknown) {
+      setDonationError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Donations are unavailable right now.',
+      );
+    } finally {
+      setDonating(false);
+    }
+  };
 
   if (!artistId) {
     return (
@@ -116,15 +234,27 @@ export default function WatchArtistLivePage() {
   return (
     <div className="space-y-6 p-4 md:p-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl md:text-2xl font-semibold">{isDj ? 'Live DJ set' : 'Watch artist live'}</h1>
+        <h1 className="text-xl md:text-2xl font-semibold">
+          {isDj ? 'Live DJ set' : 'Watch artist live'}
+        </h1>
         <Link href={isDj ? '/dj' : `/artist/${artistId}`}>
-          <Button variant="outline" size="sm">{isDj ? 'Back to Live DJ' : 'Back to artist'}</Button>
+          <Button variant="outline" size="sm">
+            {isDj ? 'Back to Live DJ' : 'Back to artist'}
+          </Button>
         </Link>
       </div>
 
+      {donationNotice && (
+        <div className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          {donationNotice}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
-          <CardTitle>{session?.title || (isDj ? 'Live DJ set' : 'Live session')}</CardTitle>
+          <CardTitle>
+            {session?.title || (isDj ? 'Live DJ set' : 'Live session')}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -148,39 +278,84 @@ export default function WatchArtistLivePage() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground">
-                {session?.current_viewers ?? 0} watching
+                {viewers} watching now
               </p>
+
               {session?.id && (
-                <div className="mt-4 rounded-lg border border-border p-3 space-y-2">
-                  <p className="text-sm font-medium">Support this stream</p>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={donationAmount}
-                      onChange={(e) => setDonationAmount(e.target.value)}
-                    />
+                <div className="mt-4 rounded-lg border border-border p-4 space-y-3">
+                  <div>
+                    <p className="text-sm font-medium">Support this stream</p>
+                    <p className="text-xs text-muted-foreground">
+                      Send a tip to the {isDj ? 'DJ' : 'artist'}. Pick an amount
+                      or enter your own.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {DONATION_PRESETS.map((amt) => (
+                      <Button
+                        key={amt}
+                        type="button"
+                        size="sm"
+                        variant={presetAmount === amt ? 'default' : 'outline'}
+                        onClick={() => {
+                          setPresetAmount(amt);
+                          setDonationError(null);
+                        }}
+                      >
+                        ${amt}
+                      </Button>
+                    ))}
                     <Button
-                      disabled={donating}
-                      onClick={async () => {
-                        if (!session?.id) return;
-                        const cents = Math.max(100, Math.round((Number(donationAmount) || 0) * 100));
-                        setDonating(true);
-                        try {
-                          const res = await artistLiveApi.createDonationIntent(session.id, { amountCents: cents });
-                          const clientSecret = res.data?.clientSecret;
-                          if (clientSecret) {
-                            alert('Donation intent created. Mobile/web Stripe confirmation wiring is next.');
-                          }
-                        } finally {
-                          setDonating(false);
-                        }
+                      type="button"
+                      size="sm"
+                      variant={presetAmount === 'custom' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setPresetAmount('custom');
+                        setDonationError(null);
                       }}
                     >
-                      {donating ? 'Processing…' : 'Donate'}
+                      Custom
                     </Button>
                   </div>
+
+                  {presetAmount === 'custom' && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-muted-foreground">$</span>
+                      <Input
+                        type="number"
+                        min={1}
+                        max={250}
+                        step={1}
+                        placeholder="Amount (USD)"
+                        value={customAmount}
+                        onChange={(e) => setCustomAmount(e.target.value)}
+                        className="max-w-[160px]"
+                      />
+                    </div>
+                  )}
+
+                  <Input
+                    type="text"
+                    maxLength={140}
+                    placeholder="Add a message (optional)"
+                    value={donationMessage}
+                    onChange={(e) => setDonationMessage(e.target.value)}
+                  />
+
+                  {donationError && (
+                    <p className="text-xs text-destructive">{donationError}</p>
+                  )}
+
+                  <Button
+                    className="w-full sm:w-auto"
+                    disabled={donating}
+                    onClick={handleDonate}
+                  >
+                    {donating
+                      ? 'Redirecting…'
+                      : `Donate $${resolvedAmountDollars > 0 ? resolvedAmountDollars : 0}`}
+                  </Button>
                 </div>
               )}
             </div>

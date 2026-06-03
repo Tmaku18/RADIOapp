@@ -38,8 +38,21 @@ class LivestreamService {
     return data is Map<String, dynamic> ? data : null;
   }
 
-  Future<Map<String, dynamic>?> join(String sessionId, {String source = 'mobile_watch'}) async {
-    final data = await _api.post('artist-live/$sessionId/join', {'source': source});
+  Future<Map<String, dynamic>?> join(String sessionId, {String source = 'mobile_watch', String? viewerToken}) async {
+    final data = await _api.post('artist-live/$sessionId/join', {
+      'source': source,
+      if (viewerToken != null) 'viewerToken': viewerToken,
+    });
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  Future<Map<String, dynamic>?> heartbeat(String sessionId, String viewerId) async {
+    final data = await _api.post('artist-live/$sessionId/heartbeat', {'viewerId': viewerId});
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  Future<Map<String, dynamic>?> leave(String sessionId, String viewerId) async {
+    final data = await _api.post('artist-live/$sessionId/leave', {'viewerId': viewerId});
     return data is Map<String, dynamic> ? data : null;
   }
 
