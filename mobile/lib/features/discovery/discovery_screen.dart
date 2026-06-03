@@ -1073,7 +1073,7 @@ class _LibraryTabState extends State<_LibraryTab> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'No liked songs yet. Like a song to save its 30-second sample here.',
+            'No liked songs yet. Give a song 🔥 on the radio to save its 30-second sample here.',
             textAlign: TextAlign.center,
             style: TextStyle(color: surfaces.textSecondary),
           ),

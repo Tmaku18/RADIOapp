@@ -394,9 +394,9 @@ export default function BrowseSavedPage() {
             <p className="text-sm text-muted-foreground">Loading library...</p>
           ) : sortedSongs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No liked songs yet. Tap the heart on a song in radio to add it
-              here. Liked songs play a 30-second sample — buy a song to own the
-              full track.
+              No liked songs yet. Give a song 🔥 on the radio to add it here.
+              Liked songs play a 30-second sample — buy a song to own the full
+              track.
             </p>
           ) : (
             sortedSongs.map((song) => (
