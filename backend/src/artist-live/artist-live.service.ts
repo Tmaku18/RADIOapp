@@ -154,6 +154,7 @@ export class ArtistLiveService {
     inputUid: string;
     rtmpUrl: string | null;
     streamKey: string | null;
+    webRtcUrl: string | null;
     watchUrl: string | null;
   }> {
     const supabase = getSupabaseClient();
@@ -161,12 +162,35 @@ export class ArtistLiveService {
 
     if (profile.cloudflare_live_input_uid) {
       const liveInputUid = profile.cloudflare_live_input_uid as string;
-      return {
-        inputUid: liveInputUid,
-        rtmpUrl: 'rtmps://live.cloudflare.com:443/live/',
-        streamKey: null,
-        watchUrl: null,
-      };
+      // Fetch the current ingest details so the broadcaster gets a fresh RTMP
+      // key and the WebRTC/WHIP publish URL (for in-app camera broadcasting).
+      try {
+        const details =
+          await this.cloudflareRequest<CloudflareCreateInputResult>(
+            'GET',
+            `/stream/live_inputs/${liveInputUid}`,
+          );
+        return {
+          inputUid: liveInputUid,
+          rtmpUrl: details.rtmps?.url || 'rtmps://live.cloudflare.com:443/live/',
+          streamKey: details.rtmps?.streamKey || null,
+          webRtcUrl: details.webRTC?.url || null,
+          watchUrl: null,
+        };
+      } catch (e) {
+        this.logger.warn(
+          `Failed to fetch Cloudflare input ${liveInputUid}: ${
+            (e as Error)?.message ?? e
+          }`,
+        );
+        return {
+          inputUid: liveInputUid,
+          rtmpUrl: 'rtmps://live.cloudflare.com:443/live/',
+          streamKey: null,
+          webRtcUrl: null,
+          watchUrl: null,
+        };
+      }
     }
 
     const created = await this.cloudflareRequest<CloudflareCreateInputResult>(
@@ -181,7 +205,10 @@ export class ArtistLiveService {
     const inputUid = created.uid;
     const rtmpUrl = created.rtmps?.url || null;
     const streamKey = created.rtmps?.streamKey || null;
-    const watchUrl = created.webRTC?.url || null;
+    const webRtcUrl = created.webRTC?.url || null;
+    // The webRTC URL is a publish endpoint, not a viewer URL — viewer playback
+    // URLs are derived from buildPlaybackUrls(). Don't expose it as watchUrl.
+    const watchUrl = null;
 
     const { error } = await supabase
       .from('artist_live_profiles')
@@ -193,7 +220,7 @@ export class ArtistLiveService {
       );
     }
 
-    return { inputUid, rtmpUrl, streamKey, watchUrl };
+    return { inputUid, rtmpUrl, streamKey, webRtcUrl, watchUrl };
   }
 
   private async getOnAirSongForArtist(
@@ -330,6 +357,7 @@ export class ArtistLiveService {
         inputUid: cf.inputUid,
         rtmpUrl: cf.rtmpUrl,
         streamKey: cf.streamKey,
+        webRtcUrl: cf.webRtcUrl,
       },
       featureFlags: {
         donationsEnabled:

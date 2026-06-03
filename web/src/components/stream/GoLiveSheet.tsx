@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CameraBroadcaster } from '@/components/stream/CameraBroadcaster';
 
 type LiveStatus = {
   isLive: boolean;
@@ -27,6 +28,7 @@ type LiveStatus = {
 type Ingest = {
   rtmpUrl: string | null;
   streamKey: string | null;
+  webRtcUrl?: string | null;
 };
 
 type Props = {
@@ -139,9 +141,23 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
               <p className="text-sm text-muted-foreground">
                 Title: {status.title || 'Untitled stream'}
               </p>
+
+              {ingest?.webRtcUrl ? (
+                <CameraBroadcaster whipUrl={ingest.webRtcUrl} />
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  In-app camera broadcasting isn&apos;t available for this
+                  session. Use the encoder setup below, or end and restart the
+                  stream.
+                </p>
+              )}
+
               {ingest && (ingest.rtmpUrl || ingest.streamKey) && (
-                <div className="space-y-3 rounded-lg border border-border p-3">
-                  <p className="text-sm font-medium">Encoder setup (OBS / RTMP)</p>
+                <details className="rounded-lg border border-border p-3">
+                  <summary className="cursor-pointer text-sm font-medium">
+                    Prefer OBS / an encoder? (RTMP setup)
+                  </summary>
+                  <div className="space-y-3 pt-3">
                   {ingest.rtmpUrl && (
                     <div className="space-y-1">
                       <Label className="text-xs">Server (RTMP URL)</Label>
@@ -177,7 +193,8 @@ export function GoLiveSheet({ open, onOpenChange, artistId }: Props) {
                   <p className="text-xs text-muted-foreground">
                     Paste these into your broadcaster (OBS, Streamlabs). Audio-only is fine — just disable video in your encoder.
                   </p>
-                </div>
+                  </div>
+                </details>
               )}
               <div className="flex flex-col gap-2">
                 <Button
