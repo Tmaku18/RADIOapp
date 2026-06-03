@@ -1,12 +1,26 @@
-import { Controller, Get, Post, Param, Query, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Query,
+  Body,
+  Inject,
+  forwardRef,
+} from '@nestjs/common';
 import { LeaderboardService } from './leaderboard.service';
+import { RadioService } from '../radio/radio.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('leaderboard')
 export class LeaderboardController {
-  constructor(private readonly leaderboardService: LeaderboardService) {}
+  constructor(
+    private readonly leaderboardService: LeaderboardService,
+    @Inject(forwardRef(() => RadioService))
+    private readonly radioService: RadioService,
+  ) {}
 
   @Get('songs')
   async getSongs(
@@ -64,11 +78,14 @@ export class LeaderboardController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.leaderboardService.addLeaderboardLike(
+    const result = await this.leaderboardService.addLeaderboardLike(
       userData.id,
       songId,
       body?.playId ?? null,
       body?.reaction ?? 'fire',
     );
+    // Drop the cached temperature so the immediate read-back reflects this vote.
+    this.radioService.invalidateSongTemperatureCache(songId);
+    return result;
   }
 }

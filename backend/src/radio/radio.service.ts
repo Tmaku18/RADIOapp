@@ -409,6 +409,21 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
   private static readonly TEMP_BASELINE = 50;
 
+  /**
+   * Drops any cached temperature for a song so the next read recomputes from
+   * fresh vote counts. Call this right after a vote is recorded; otherwise the
+   * 60s cache makes a just-cast vote appear to "not update".
+   */
+  invalidateSongTemperatureCache(songId: string): void {
+    if (!songId) return;
+    const prefix = `${songId}:`;
+    for (const key of Array.from(this.temperatureCache.keys())) {
+      if (key.startsWith(prefix)) {
+        this.temperatureCache.delete(key);
+      }
+    }
+  }
+
   private async getSongTemperature(args: {
     playId?: string | null;
     songId: string;
