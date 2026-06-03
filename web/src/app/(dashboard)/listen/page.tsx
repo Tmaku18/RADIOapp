@@ -82,9 +82,9 @@ export default function ListenPage() {
       <ButterflyPulseOverlay active={pulseActive} />
       <div className="flex-1 min-h-0 overflow-hidden p-2 sm:p-3 lg:p-4 [overflow-anchor:none]">
         <div className="h-full flex flex-col items-center">
-        <div className="max-w-xl w-full h-full overflow-y-auto overscroll-contain pr-1 [overflow-anchor:none]">
+        <div className="max-w-xl w-full h-full min-h-0 flex flex-col overscroll-contain pr-1 [overflow-anchor:none]">
           {currentStation && (
-            <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="mb-1 flex items-center justify-between gap-2 shrink-0">
               <p className="text-sm text-muted-foreground">
                 {currentStation.genre}
               </p>
@@ -94,21 +94,24 @@ export default function ListenPage() {
             </div>
           )}
           {risingStar && (
-            <div className="mb-2 rounded-xl border border-primary/30 bg-primary/10 px-3 py-2">
+            <div className="mb-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 shrink-0">
               <div className="text-xs uppercase tracking-widest text-primary/90">Butterfly Ripple</div>
-              <div className="text-sm font-semibold text-foreground mt-1">{risingStar.title}</div>
-              <div className="text-sm text-muted-foreground mt-1">{risingStar.body}</div>
+              <div className="text-sm font-semibold text-foreground mt-0.5">{risingStar.title}</div>
+              <div className="text-sm text-muted-foreground mt-0.5">{risingStar.body}</div>
             </div>
           )}
-          <div className="text-center mb-2">
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground mb-1">Now Playing</h1>
+          <div className="text-center mb-1 shrink-0">
+            <h1 className="text-base sm:text-lg font-bold text-foreground">Now Playing</h1>
           </div>
 
-          <div className="relative">
+          <div className="relative flex-1 min-h-0 w-full flex items-start justify-center">
             <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
-            <Card className="relative now-playing-deck">
-              <CardContent className="pt-3 sm:pt-4">
-                <RadioPlayer radioId={resolvedStationId} />
+            <Card className="relative now-playing-deck w-full max-h-full overflow-hidden py-0 gap-0">
+              <CardContent className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
+                <RadioPlayer
+                  radioId={resolvedStationId}
+                  cardClassName="py-0 gap-2"
+                />
               </CardContent>
             </Card>
           </div>

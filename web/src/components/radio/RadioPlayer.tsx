@@ -11,6 +11,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -55,6 +56,8 @@ function formatArtistOrigin(
 interface RadioPlayerProps {
   /** Station/radio id (e.g. us-rap). When set, track and heartbeat use this radio. */
   radioId?: string;
+  /** Extra classes applied to the player's root Card (e.g. to trim padding). */
+  cardClassName?: string;
 }
 
 const DEFAULT_RADIO_ID = 'global';
@@ -62,7 +65,7 @@ const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
 
 type StoredReactions = Record<string, 'fire' | 'shit'>;
 
-export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
+export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
   const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
@@ -772,8 +775,8 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
 
   if (noContent) {
     return (
-      <Card className="overflow-hidden">
-        <div className="h-[clamp(170px,30vh,320px)] sm:h-[clamp(210px,34vh,360px)] bg-gradient-to-br from-gray-800 to-gray-900 relative overflow-hidden">
+      <Card className={cn('overflow-hidden', cardClassName)}>
+        <div className="h-[clamp(110px,20vh,240px)] sm:h-[clamp(130px,24vh,280px)] bg-gradient-to-br from-gray-800 to-gray-900 relative overflow-hidden">
           <div className="absolute inset-0 flex items-center justify-center flex-col gap-3 p-8">
             <div className="relative">
               <span className="text-6xl">📻</span>
@@ -810,9 +813,9 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
   }
 
   return (
-    <Card className="overflow-hidden glass-panel border-border/80">
+    <Card className={cn('overflow-hidden glass-panel border-border/80', cardClassName)}>
       {/* Album Art — subtle signature gradient behind */}
-      <div className="h-[clamp(170px,30vh,320px)] sm:h-[clamp(210px,34vh,360px)] bg-signature relative overflow-hidden">
+      <div className="h-[clamp(110px,20vh,240px)] sm:h-[clamp(130px,24vh,280px)] bg-signature relative overflow-hidden shrink-0">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-primary/10" aria-hidden />
         <ArtworkImage
           src={state.track?.artworkUrl}
@@ -829,15 +832,15 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
       </div>
 
       {/* Track Info */}
-      <div className="p-4 sm:p-5">
+      <div className="p-3 sm:p-4">
         {state.error && (
-          <Alert variant="destructive" className="mb-4">
+          <Alert variant="destructive" className="mb-3">
             <AlertDescription>{state.error}</AlertDescription>
           </Alert>
         )}
 
         {isProspector && showCheckInPrompt && (
-          <Alert className="mb-4">
+          <Alert className="mb-3">
             <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <span>
                 Tap the Ripple check-in to keep earning <span className="font-semibold">rewards</span>.
@@ -849,7 +852,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           </Alert>
         )}
 
-        <div className="text-center mb-4">
+        <div className="text-center mb-3">
           {isLiveBroadcast && (
             <span className="badge-live inline-flex items-center gap-1.5 mb-2">
               <span className="relative flex h-2 w-2">
@@ -924,7 +927,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
           )}
         </div>
 
-        <div className="mb-4">
+        <div className="mb-3">
           <div className="h-1 bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary transition-all duration-300"
@@ -943,11 +946,11 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         <SyncedLyricsPanel
           songId={state.track?.id}
           currentTimeMs={Math.round(state.currentTime * 1000)}
-          className="mb-4"
+          className="mb-3"
         />
 
         {/* LIVE Indicator */}
-        <div className="flex items-center justify-center mb-4">
+        <div className="flex items-center justify-center mb-3">
           {state.source === 'discography' ? (
             <Button
               onClick={() => void handleBackToLiveRadio()}
@@ -983,7 +986,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {/* Song temperature meter */}
-        <div className="mb-4 rounded-lg border border-border/70 bg-muted/30 p-3">
+        <div className="mb-3 rounded-lg border border-border/70 bg-muted/30 p-2.5">
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>Song Temperature</span>
             <span>{temperaturePercent}%</span>
@@ -1083,7 +1086,7 @@ export function RadioPlayer({ radioId }: RadioPlayerProps = {}) {
         </div>
 
         {/* Volume Control */}
-        <div className="mt-4 flex items-center justify-center space-x-3">
+        <div className="mt-3 flex items-center justify-center space-x-3">
           <svg
             className="w-5 h-5 text-gray-400"
             fill="currentColor"
