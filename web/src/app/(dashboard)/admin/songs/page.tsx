@@ -1017,9 +1017,9 @@ export default function AdminSongsPage() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-8 w-8 border-border text-foreground hover:bg-accent"
                             title="Actions"
                             aria-label={`Actions for ${song.title}`}
                           >
@@ -1036,7 +1036,10 @@ export default function AdminSongsPage() {
                             </svg>
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-56 border border-border shadow-xl ring-1 ring-border"
+                        >
                           {song.status === 'pending' && (
                             <>
                               <DropdownMenuItem
