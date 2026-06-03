@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { CameraBroadcaster } from '@/components/stream/CameraBroadcaster';
+import { LiveChat } from '@/components/stream/LiveChat';
 
 type Ingest = {
   rtmpUrl: string | null;
@@ -27,6 +28,7 @@ export default function GoLiveStudioPage() {
   const [category, setCategory] = useState('');
   const [asDj, setAsDj] = useState(false);
   const [isLive, setIsLive] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [ingest, setIngest] = useState<Ingest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startLoading, setStartLoading] = useState(false);
@@ -52,10 +54,11 @@ export default function GoLiveStudioPage() {
       .then((res) => {
         const data = res.data as {
           live?: boolean;
-          session?: { title?: string | null } | null;
+          session?: { id?: string; title?: string | null } | null;
         };
         if (data?.live && data.session) {
           setIsLive(true);
+          if (data.session.id) setSessionId(data.session.id);
           if (data.session.title) setTitle(data.session.title);
         }
       })
@@ -74,8 +77,12 @@ export default function GoLiveStudioPage() {
         category: category.trim() || undefined,
         hostType: asDj ? 'dj' : undefined,
       });
-      const ing = (res.data as { ingest?: Ingest })?.ingest ?? null;
-      setIngest(ing);
+      const resData = res.data as {
+        ingest?: Ingest;
+        session?: { id?: string } | null;
+      };
+      setIngest(resData?.ingest ?? null);
+      if (resData?.session?.id) setSessionId(resData.session.id);
       setIsLive(true);
     } catch (err: unknown) {
       setError(
@@ -95,6 +102,7 @@ export default function GoLiveStudioPage() {
       await artistLiveApi.stop();
       setIsLive(false);
       setIngest(null);
+      setSessionId(null);
     } catch (err: unknown) {
       setError(
         (err as { response?: { data?: { message?: string } } })?.response?.data
@@ -152,6 +160,10 @@ export default function GoLiveStudioPage() {
                 (RTMP) below.
               </CardContent>
             </Card>
+          )}
+
+          {sessionId && artistId && (
+            <LiveChat sessionId={sessionId} artistId={artistId} />
           )}
 
           {ingest && (ingest.rtmpUrl || ingest.streamKey) && (

@@ -8,6 +8,7 @@ import { artistLiveApi } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { LiveChat } from '@/components/stream/LiveChat';
 
 type WatchSession = {
   id: string;
@@ -389,7 +390,8 @@ export default function WatchArtistLivePage() {
           ) : error ? (
             <p className="text-sm text-muted-foreground">{error}</p>
           ) : (
-            <div className="space-y-3">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="space-y-3">
               {session?.watch_url ? (
                 // Cloudflare's own player handles the live startup window (WHIP →
                 // HLS) and low-latency playback far more reliably than a custom
@@ -492,6 +494,11 @@ export default function WatchArtistLivePage() {
                       : `Donate $${resolvedAmountDollars > 0 ? resolvedAmountDollars : 0}`}
                   </Button>
                 </div>
+              )}
+              </div>
+
+              {session?.id && (
+                <LiveChat sessionId={session.id} artistId={artistId} />
               )}
             </div>
           )}

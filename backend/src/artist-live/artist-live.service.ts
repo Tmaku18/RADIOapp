@@ -1127,4 +1127,162 @@ export class ArtistLiveService {
     }
     return { tracked: true };
   }
+
+  // ---------------------------------------------------------------------------
+  // Live chat (Twitch-style)
+  // ---------------------------------------------------------------------------
+
+  private mapChatRow(row: {
+    id: string;
+    user_id: string | null;
+    display_name: string;
+    avatar_url: string | null;
+    message: string;
+    is_host: boolean;
+    created_at: string;
+  }) {
+    return {
+      id: row.id,
+      userId: row.user_id,
+      displayName: row.display_name,
+      avatarUrl: row.avatar_url,
+      message: row.message,
+      isHost: row.is_host === true,
+      createdAt: row.created_at,
+    };
+  }
+
+  /** Recent chat messages for a session. `after` = ISO timestamp for polling. */
+  async listChatMessages(
+    sessionId: string,
+    options?: { after?: string; limit?: number },
+  ) {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(options?.limit ?? 50, 1), 100);
+    let query = supabase
+      .from('stream_chat_messages')
+      .select(
+        'id, user_id, display_name, avatar_url, message, is_host, created_at',
+      )
+      .eq('session_id', sessionId)
+      .eq('is_deleted', false);
+
+    if (options?.after) {
+      query = query.gt('created_at', options.after);
+      query = query.order('created_at', { ascending: true }).limit(limit);
+      const { data, error } = await query;
+      if (error) {
+        throw new BadRequestException(
+          `Failed to load chat: ${error.message}`,
+        );
+      }
+      return { messages: (data || []).map((r) => this.mapChatRow(r)) };
+    }
+
+    // Initial load: newest `limit`, returned oldest→newest for display.
+    const { data, error } = await query
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) {
+      throw new BadRequestException(`Failed to load chat: ${error.message}`);
+    }
+    const rows = (data || []).map((r) => this.mapChatRow(r)).reverse();
+    return { messages: rows };
+  }
+
+  /** Post a chat message to a live session (must be signed in, session live). */
+  async postChatMessage(
+    firebaseUid: string,
+    sessionId: string,
+    rawMessage: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const text = (rawMessage || '').trim();
+    if (!text) {
+      throw new BadRequestException('Message cannot be empty');
+    }
+    if (text.length > 500) {
+      throw new BadRequestException('Message is too long (max 500 characters)');
+    }
+
+    const sender = await this.getDbUser(firebaseUid);
+    if (sender.is_banned) {
+      throw new ForbiddenException('You are not allowed to chat');
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id, status')
+      .eq('id', sessionId)
+      .single();
+    if (sessionError || !session) {
+      throw new NotFoundException('Live session not found');
+    }
+    if (!['starting', 'live'].includes(session.status)) {
+      throw new BadRequestException('Chat is closed for this session');
+    }
+
+    const { data: profile } = await supabase
+      .from('users')
+      .select('display_name, avatar_url')
+      .eq('id', sender.id)
+      .maybeSingle();
+
+    const { data: inserted, error: insertError } = await supabase
+      .from('stream_chat_messages')
+      .insert({
+        session_id: session.id,
+        user_id: sender.id,
+        display_name: profile?.display_name || 'Listener',
+        avatar_url: profile?.avatar_url || null,
+        message: text,
+        is_host: session.artist_id === sender.id,
+      })
+      .select(
+        'id, user_id, display_name, avatar_url, message, is_host, created_at',
+      )
+      .single();
+    if (insertError || !inserted) {
+      throw new BadRequestException(
+        `Failed to send message: ${insertError?.message}`,
+      );
+    }
+    return this.mapChatRow(inserted);
+  }
+
+  /** Soft-delete a chat message. Allowed for the stream host or an admin. */
+  async deleteChatMessage(
+    firebaseUid: string,
+    sessionId: string,
+    messageId: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const requester = await this.getDbUser(firebaseUid);
+
+    const { data: session } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id')
+      .eq('id', sessionId)
+      .single();
+    if (!session) {
+      throw new NotFoundException('Live session not found');
+    }
+    const isHost = session.artist_id === requester.id;
+    const isAdmin = requester.role === 'admin';
+    if (!isHost && !isAdmin) {
+      throw new ForbiddenException('Only the host or an admin can moderate chat');
+    }
+
+    const { error } = await supabase
+      .from('stream_chat_messages')
+      .update({ is_deleted: true })
+      .eq('id', messageId)
+      .eq('session_id', sessionId);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to delete message: ${error.message}`,
+      );
+    }
+    return { deleted: true };
+  }
 }

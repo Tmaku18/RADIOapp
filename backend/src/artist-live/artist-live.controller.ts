@@ -5,6 +5,7 @@ import {
   Headers,
   Param,
   Post,
+  Query,
   UnauthorizedException,
 } from '@nestjs/common';
 import { Public } from '../auth/decorators/public.decorator';
@@ -162,6 +163,39 @@ export class ArtistLiveController {
       sessionId,
       body.reason || 'unspecified',
     );
+  }
+
+  @Public()
+  @Get(':sessionId/chat')
+  async listChat(
+    @Param('sessionId') sessionId: string,
+    @Query('after') after?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedLimit = limit ? Number(limit) : undefined;
+    return this.artistLive.listChatMessages(sessionId, {
+      after: after || undefined,
+      limit:
+        parsedLimit && Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    });
+  }
+
+  @Post(':sessionId/chat')
+  async postChat(
+    @CurrentUser() user: FirebaseUser,
+    @Param('sessionId') sessionId: string,
+    @Body() body: { message: string },
+  ) {
+    return this.artistLive.postChatMessage(user.uid, sessionId, body.message);
+  }
+
+  @Post(':sessionId/chat/:messageId/delete')
+  async deleteChat(
+    @CurrentUser() user: FirebaseUser,
+    @Param('sessionId') sessionId: string,
+    @Param('messageId') messageId: string,
+  ) {
+    return this.artistLive.deleteChatMessage(user.uid, sessionId, messageId);
   }
 
   @Post('admin/sessions/:sessionId/force-stop')

@@ -63,5 +63,42 @@ class LivestreamService {
     });
     return data is Map<String, dynamic> ? data : null;
   }
+
+  /// Recent live-chat messages. Pass [after] (ISO timestamp) to fetch only
+  /// messages newer than the last one you've seen (polling).
+  Future<List<Map<String, dynamic>>> listChat(
+    String sessionId, {
+    String? after,
+    int? limit,
+  }) async {
+    final params = <String>[];
+    if (after != null && after.isNotEmpty) {
+      params.add('after=${Uri.encodeQueryComponent(after)}');
+    }
+    if (limit != null) params.add('limit=$limit');
+    final query = params.isEmpty ? '' : '?${params.join('&')}';
+    final data = await _api.get('artist-live/$sessionId/chat$query');
+    final messages = data is Map<String, dynamic> ? data['messages'] : null;
+    if (messages is List) {
+      return messages
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+    }
+    return const [];
+  }
+
+  Future<Map<String, dynamic>?> postChat(
+      String sessionId, String message) async {
+    final data = await _api.post('artist-live/$sessionId/chat', {
+      'message': message,
+    });
+    return data is Map<String, dynamic> ? data : null;
+  }
+
+  Future<bool> deleteChat(String sessionId, String messageId) async {
+    final data =
+        await _api.post('artist-live/$sessionId/chat/$messageId/delete', {});
+    return data is Map<String, dynamic> && data['deleted'] == true;
+  }
 }
 
