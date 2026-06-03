@@ -102,6 +102,8 @@ export const REFINERY_SURVEY_QUESTIONS: ReadonlyArray<SurveyQuestion> = [
 /** Pricing + program economics constants for The Refinery (kept centralized to avoid drift). */
 export const REFINERY_SUBMISSION_PRICE_CENTS = 499;
 export const REFINERY_SUBMISSION_PRICE_USD = '4.99';
+// Regular price, shown struck-through next to the current discount price.
+export const REFINERY_SUBMISSION_ORIGINAL_PRICE_USD = '9.99';
 export const REFINERY_DEFAULT_MIN_REVIEWS = 100;
-export const REFINERY_REVIEW_REWARD_CENTS = 2;
+export const REFINERY_REVIEW_REWARD_CENTS = 10;
 export const REFINERY_MAX_CUSTOM_QUESTIONS = 10;

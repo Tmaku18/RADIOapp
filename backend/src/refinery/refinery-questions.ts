@@ -120,7 +120,9 @@ export const REFINERY_SURVEY_KEYS: ReadonlyArray<string> =
   REFINERY_SURVEY_QUESTIONS.map((q) => q.key);
 
 /** Pricing + program economics constants for The Refinery. */
+// Regular price is $9.99; currently discounted to $4.99 (the amount charged).
+export const REFINERY_SUBMISSION_ORIGINAL_PRICE_CENTS = 999;
 export const REFINERY_SUBMISSION_PRICE_CENTS = 499;
 export const REFINERY_DEFAULT_MIN_REVIEWS = 100;
-export const REFINERY_REVIEW_REWARD_CENTS = 2;
+export const REFINERY_REVIEW_REWARD_CENTS = 10;
 export const REFINERY_MAX_CUSTOM_QUESTIONS = 10;

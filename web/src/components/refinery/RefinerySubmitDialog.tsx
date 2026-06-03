@@ -17,6 +17,7 @@ import {
   REFINERY_DEFAULT_MIN_REVIEWS,
   REFINERY_MAX_CUSTOM_QUESTIONS,
   REFINERY_RATING_QUESTIONS,
+  REFINERY_SUBMISSION_ORIGINAL_PRICE_USD,
   REFINERY_SUBMISSION_PRICE_USD,
   REFINERY_SURVEY_QUESTIONS,
 } from '@/data/refinery-questions';
@@ -101,10 +102,16 @@ export function RefinerySubmitDialog({
             Submit &quot;{song.title}&quot; to The Refinery
           </DialogTitle>
           <DialogDescription>
-            Pay ${REFINERY_SUBMISSION_PRICE_USD} for an in-depth review by at
-            least {REFINERY_DEFAULT_MIN_REVIEWS} verified reviewers. You&apos;ll
-            see real-time analytics as reviews come in, plus every individual
-            review.
+            Pay{' '}
+            <span className="text-muted-foreground line-through">
+              ${REFINERY_SUBMISSION_ORIGINAL_PRICE_USD}
+            </span>{' '}
+            <span className="font-semibold text-foreground">
+              ${REFINERY_SUBMISSION_PRICE_USD}
+            </span>{' '}
+            for an in-depth review by at least {REFINERY_DEFAULT_MIN_REVIEWS}{' '}
+            verified reviewers. You&apos;ll see real-time analytics as reviews
+            come in, plus every individual review.
           </DialogDescription>
         </DialogHeader>
 

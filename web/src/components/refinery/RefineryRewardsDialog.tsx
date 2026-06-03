@@ -147,9 +147,9 @@ export function RefineryRewardsDialog({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Note: Refinery submissions cost artists $4.99 per song with a minimum
-          of 100 reviews ($2.00 in reviewer rewards). The remainder funds
-          payouts and platform operations.
+          Note: Refinery submissions are $9.99 per song (currently $4.99 on a
+          launch discount) for a minimum of 100 reviews. Reviewers earn $0.10
+          per completed review.
         </p>
       </DialogContent>
     </Dialog>

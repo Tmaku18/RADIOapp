@@ -22,6 +22,7 @@ import { RefineryRewardsDialog } from '@/components/refinery/RefineryRewardsDial
 import {
   REFINERY_RATING_QUESTIONS,
   REFINERY_REVIEW_REWARD_CENTS,
+  REFINERY_SUBMISSION_ORIGINAL_PRICE_USD,
   REFINERY_SUBMISSION_PRICE_USD,
   REFINERY_SURVEY_QUESTIONS,
 } from '@/data/refinery-questions';
@@ -151,8 +152,14 @@ export default function RefineryPage() {
               <h3 className="font-medium text-foreground mb-1">For artists</h3>
               <ul className="text-muted-foreground list-disc pl-5 space-y-1">
                 <li>
-                  Submit any of your songs to The Refinery for $
-                  {REFINERY_SUBMISSION_PRICE_USD}.
+                  Submit any of your songs to The Refinery for{' '}
+                  <span className="line-through">
+                    ${REFINERY_SUBMISSION_ORIGINAL_PRICE_USD}
+                  </span>{' '}
+                  <span className="font-semibold text-foreground">
+                    ${REFINERY_SUBMISSION_PRICE_USD}
+                  </span>
+                  .
                 </li>
                 <li>
                   Add up to 10 of your own custom questions to ask reviewers.

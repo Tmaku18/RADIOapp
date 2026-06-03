@@ -129,7 +129,9 @@ export default function PricingPage() {
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="pt-8 text-center">
               <h3 className="text-2xl font-semibold text-foreground mb-3">
-                The Refinery Review — $4.99 per song
+                The Refinery Review —{' '}
+                <span className="text-muted-foreground line-through">$9.99</span>{' '}
+                <span className="text-primary">$4.99</span> per song
               </h3>
               <p className="text-muted-foreground mb-3 max-w-2xl mx-auto">
                 Get an in-depth review of your track from <strong>at least 100 verified
