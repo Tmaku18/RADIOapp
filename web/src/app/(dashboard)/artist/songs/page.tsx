@@ -695,7 +695,7 @@ export default function MySongsPage() {
                       <div className="space-y-1.5">
                         <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-2xl font-bold leading-none text-foreground">
+                            <span className="text-2xl font-bold leading-none text-primary">
                               {formatNumber(song.playCount)}
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -703,7 +703,7 @@ export default function MySongsPage() {
                             </span>
                           </div>
                           <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-semibold leading-none text-foreground">
+                            <span className="text-lg font-semibold leading-none text-primary">
                               {formatNumber(song.listenCount ?? 0)}
                             </span>
                             <span className="text-xs text-muted-foreground">
