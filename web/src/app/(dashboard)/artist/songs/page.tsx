@@ -606,6 +606,11 @@ export default function MySongsPage() {
             <TableBody>
               {songs.map((song) => {
                 const isApproved = song.status === 'approved';
+                const hasSample =
+                  !!song.sampleUrl || song.sampleStartSeconds != null;
+                const hasDiscoverClip =
+                  song.discoverEnabled === true ||
+                  song.discoverClipStartSeconds != null;
                 return (
                   <TableRow key={song.id}>
                     <TableCell>
@@ -784,14 +789,26 @@ export default function MySongsPage() {
                               disabled={!song.audioUrl}
                               onSelect={() => setSampleSong(song)}
                             >
-                              Set sample
+                              {hasSample ? 'Edit sample' : 'Set sample'}
+                              {hasSample && (
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  Set
+                                </span>
+                              )}
                             </DropdownMenuItem>
                             {isApproved && (
                               <DropdownMenuItem
                                 disabled={!song.audioUrl}
                                 onSelect={() => setDiscoverClipSong(song)}
                               >
-                                Set Discover clip
+                                {hasDiscoverClip
+                                  ? 'Edit Discover clip'
+                                  : 'Set Discover clip'}
+                                {hasDiscoverClip && (
+                                  <span className="ml-auto text-xs text-muted-foreground">
+                                    Set
+                                  </span>
+                                )}
                               </DropdownMenuItem>
                             )}
                             {isApproved && song.inRefinery && (
@@ -1092,6 +1109,7 @@ export default function MySongsPage() {
                 title: sampleSong.title,
                 audioUrl: sampleSong.audioUrl ?? null,
                 durationSeconds: sampleSong.durationSeconds ?? null,
+                sampleUrl: sampleSong.sampleUrl ?? null,
                 sampleStartSeconds: sampleSong.sampleStartSeconds ?? null,
                 sampleEndSeconds: sampleSong.sampleEndSeconds ?? null,
               }
@@ -1124,6 +1142,7 @@ export default function MySongsPage() {
                 title: discoverClipSong.title,
                 audioUrl: discoverClipSong.audioUrl ?? null,
                 durationSeconds: discoverClipSong.durationSeconds ?? null,
+                discoverEnabled: discoverClipSong.discoverEnabled === true,
                 discoverClipStartSeconds:
                   discoverClipSong.discoverClipStartSeconds ?? null,
                 discoverClipEndSeconds:

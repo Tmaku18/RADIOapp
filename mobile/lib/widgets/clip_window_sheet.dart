@@ -49,6 +49,13 @@ class ClipWindowSheet extends StatefulWidget {
   final int initialEnd;
   final Future<void> Function(int startSeconds, int endSeconds) onSave;
 
+  /// When true, show a banner warning that saving overwrites the existing
+  /// sample/clip (each song has exactly one of each).
+  final bool alreadySet;
+
+  /// Optional custom overwrite warning text shown when [alreadySet] is true.
+  final String? overwriteWarning;
+
   const ClipWindowSheet({
     super.key,
     this.audioUrl,
@@ -63,6 +70,8 @@ class ClipWindowSheet extends StatefulWidget {
     required this.initialStart,
     required this.initialEnd,
     required this.onSave,
+    this.alreadySet = false,
+    this.overwriteWarning,
   });
 
   @override
@@ -264,6 +273,36 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
               overflow: TextOverflow.ellipsis,
               style: TextStyle(color: surfaces.textSecondary),
             ),
+            if (widget.alreadySet) ...[
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(Icons.info_outline,
+                        size: 16, color: Colors.amber),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        widget.overwriteWarning ??
+                            'Already set (${clipFmtTime(widget.initialStart)} – ${clipFmtTime(widget.initialEnd)}). Saving overwrites it.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             // Start time with -1s / +1s nudge buttons and a text field.
             Row(

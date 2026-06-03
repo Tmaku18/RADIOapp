@@ -46,6 +46,7 @@ type Props = {
     /** Full-track URL used to preview/select the sample window. */
     audioUrl: string | null;
     durationSeconds?: number | null;
+    sampleUrl?: string | null;
     sampleStartSeconds?: number | null;
     sampleEndSeconds?: number | null;
   } | null;
@@ -83,6 +84,8 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
 
   const maxStart = Math.max(0, (duration || MAX_SAMPLE) - MIN_SAMPLE);
   const total = duration || end || start + MAX_SAMPLE;
+  const alreadySet =
+    !!song?.sampleUrl || song?.sampleStartSeconds != null;
 
   /** Clamp the start/end pair so the window stays 5–30s and inside the track. */
   const applyWindow = useCallback(
@@ -250,12 +253,20 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Set preview sample</DialogTitle>
+          <DialogTitle>{alreadySet ? 'Edit preview sample' : 'Set preview sample'}</DialogTitle>
           <DialogDescription>
             Choose the {MIN_SAMPLE}–{MAX_SAMPLE}s window listeners hear on your
-            artist page until they buy the song.
+            artist page until they buy the song. Each song has one sample.
           </DialogDescription>
         </DialogHeader>
+
+        {alreadySet && song?.audioUrl && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            A sample is already set ({fmt(song.sampleStartSeconds ?? start)}–
+            {fmt(song.sampleEndSeconds ?? end)}). Saving will overwrite the
+            existing sample.
+          </div>
+        )}
 
         {!song?.audioUrl ? (
           <p className="text-sm text-muted-foreground">
@@ -409,7 +420,11 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 onClick={() => void handleSave()}
                 disabled={saving}
               >
-                {saving ? 'Saving…' : 'Save sample'}
+                {saving
+                  ? 'Saving…'
+                  : alreadySet
+                    ? 'Overwrite sample'
+                    : 'Save sample'}
               </Button>
             </div>
           </div>

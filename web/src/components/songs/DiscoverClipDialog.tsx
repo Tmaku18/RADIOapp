@@ -16,6 +16,11 @@ import { songsApi } from '@/lib/api';
 const MIN_LEN = 5;
 const MAX_LEN = 15;
 
+function fmt(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds));
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -25,6 +30,7 @@ type Props = {
     /** Full-track URL used to preview/select the clip window. */
     audioUrl: string | null;
     durationSeconds?: number | null;
+    discoverEnabled?: boolean;
     discoverClipStartSeconds?: number | null;
     discoverClipEndSeconds?: number | null;
   } | null;
@@ -45,6 +51,8 @@ export function DiscoverClipDialog({ open, onOpenChange, song, onSaved }: Props)
   const [start, setStart] = useState(0);
   const [end, setEnd] = useState(MAX_LEN);
   const [saving, setSaving] = useState(false);
+  const alreadySet =
+    song?.discoverEnabled === true || song?.discoverClipStartSeconds != null;
 
   useEffect(() => {
     if (!open) return;
@@ -94,12 +102,21 @@ export function DiscoverClipDialog({ open, onOpenChange, song, onSaved }: Props)
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Set Discover clip</DialogTitle>
+          <DialogTitle>{alreadySet ? 'Edit Discover clip' : 'Set Discover clip'}</DialogTitle>
           <DialogDescription>
             Choose the {MIN_LEN}–{MAX_LEN}s clip from this track for the Discover
-            swipe feed. Preview the looping window, then publish.
+            swipe feed. Each song has one Discover clip. Preview the looping
+            window, then publish.
           </DialogDescription>
         </DialogHeader>
+
+        {alreadySet && song?.audioUrl && (
+          <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            A Discover clip is already set ({fmt(song.discoverClipStartSeconds ?? start)}–
+            {fmt(song.discoverClipEndSeconds ?? end)}). Saving will overwrite the
+            existing clip.
+          </div>
+        )}
 
         {!song?.audioUrl ? (
           <p className="text-sm text-muted-foreground">
@@ -134,7 +151,11 @@ export function DiscoverClipDialog({ open, onOpenChange, song, onSaved }: Props)
                 onClick={() => void handleSave()}
                 disabled={saving}
               >
-                {saving ? 'Saving…' : 'Publish to Discover'}
+                {saving
+                  ? 'Saving…'
+                  : alreadySet
+                    ? 'Overwrite clip'
+                    : 'Publish to Discover'}
               </Button>
             </div>
           </div>

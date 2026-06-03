@@ -173,6 +173,9 @@ class _StudioScreenState extends State<StudioScreen> {
         maxLength: _kSampleLengthSeconds,
         initialStart: start,
         initialEnd: end,
+        alreadySet: song.sampleUrl != null || song.sampleStartSeconds > 0,
+        overwriteWarning:
+            'A sample is already set (${clipFmtTime(start)} – ${clipFmtTime(end)}). Saving overwrites it.',
         onSave: (s, e) =>
             _songs.setSample(song.id, s, endSeconds: e),
       ),
@@ -201,6 +204,10 @@ class _StudioScreenState extends State<StudioScreen> {
         maxLength: _kDiscoverClipMaxSeconds,
         initialStart: start,
         initialEnd: end,
+        alreadySet:
+            song.discoverEnabled || song.discoverClipStartSeconds != null,
+        overwriteWarning:
+            'A Discover clip is already set (${clipFmtTime(start)} – ${clipFmtTime(end)}). Saving overwrites it.',
         onSave: (s, e) => _songs.publishDiscover(
           song.id,
           clipStartSeconds: s,
@@ -411,14 +418,35 @@ class _StudioScreenState extends State<StudioScreen> {
                                       ),
                                       TextButton.icon(
                                         onPressed: () => _openSampleTrim(s),
-                                        icon: const Icon(Icons.cut),
-                                        label: const Text('Set sample'),
+                                        icon: Icon(
+                                          (s.sampleUrl != null ||
+                                                  s.sampleStartSeconds > 0)
+                                              ? Icons.check_circle_outline
+                                              : Icons.cut,
+                                        ),
+                                        label: Text(
+                                          (s.sampleUrl != null ||
+                                                  s.sampleStartSeconds > 0)
+                                              ? 'Edit sample'
+                                              : 'Set sample',
+                                        ),
                                       ),
                                       TextButton.icon(
                                         onPressed: () => _openDiscoverClip(s),
-                                        icon: const Icon(
-                                            Icons.swipe_outlined),
-                                        label: const Text('Set Discover clip'),
+                                        icon: Icon(
+                                          (s.discoverEnabled ||
+                                                  s.discoverClipStartSeconds !=
+                                                      null)
+                                              ? Icons.check_circle_outline
+                                              : Icons.swipe_outlined,
+                                        ),
+                                        label: Text(
+                                          (s.discoverEnabled ||
+                                                  s.discoverClipStartSeconds !=
+                                                      null)
+                                              ? 'Edit Discover clip'
+                                              : 'Set Discover clip',
+                                        ),
                                       ),
                                       TextButton.icon(
                                         onPressed: s.inRefinery
