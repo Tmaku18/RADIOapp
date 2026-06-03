@@ -152,7 +152,7 @@ export default async function HomePage() {
           <h2 className="text-4xl sm:text-5xl font-bold mb-6 text-center">
             Our Story: The 4 AM Catalyst
           </h2>
-          <div className="space-y-4 text-primary-foreground/90 font-story text-2xl leading-relaxed">
+          <div className="space-y-4 text-primary-foreground/90 text-lg leading-relaxed">
             <p>
               Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.
             </p>
