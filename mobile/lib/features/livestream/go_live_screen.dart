@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/whip_broadcaster.dart';
@@ -34,6 +35,10 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   String? _statusText;
   Map<String, dynamic>? _ingest;
   String? _sessionId;
+  // 'device' = broadcast from this phone (WHIP); 'obs' = external encoder via
+  // RTMP. Only one publishes to Cloudflare at a time — switching to 'obs'
+  // releases the phone camera/mic so the encoder can take over.
+  String _streamSource = 'device';
 
   @override
   void initState() {
@@ -80,6 +85,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         // the RTMP details so the user can broadcast with an encoder.
         setState(() {
           _live2 = true;
+          _streamSource = 'obs';
           _statusText = 'Live session created. Use the RTMP details below.';
         });
         return;
@@ -91,6 +97,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       if (!mounted) return;
       setState(() {
         _live2 = true;
+        _streamSource = 'device';
         _micOn = true;
         _camOn = true;
         _statusText = null;
@@ -99,6 +106,53 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Start failed: $e')));
+      setState(() => _statusText = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Switch the publishing source while live. Only one source may publish to
+  /// the Cloudflare input at a time, so switching to OBS releases the phone
+  /// camera/mic, and switching back re-acquires them and renegotiates WHIP.
+  Future<void> _setSource(String source) async {
+    if (source == _streamSource || _loading) return;
+    final whipUrl = _ingest?['webRtcUrl'] as String?;
+    if (source == 'device' && (whipUrl == null || whipUrl.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('In-app broadcasting is unavailable for this session.'),
+        ),
+      );
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      if (source == 'obs') {
+        await _broadcaster.dispose();
+        _renderer.srcObject = null;
+        if (!mounted) return;
+        setState(() {
+          _streamSource = 'obs';
+          _camOn = false;
+          _statusText = null;
+        });
+      } else {
+        setState(() => _statusText = 'Requesting camera & mic…');
+        final stream = await _broadcaster.start(whipUrl!);
+        _renderer.srcObject = stream;
+        if (!mounted) return;
+        setState(() {
+          _streamSource = 'device';
+          _micOn = true;
+          _camOn = true;
+          _statusText = null;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Switch failed: $e')));
       setState(() => _statusText = null);
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -115,6 +169,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       setState(() {
         _live2 = false;
         _ingest = null;
+        _sessionId = null;
         _statusText = null;
       });
     } catch (e) {
@@ -204,6 +259,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     return Column(
       children: [
         Expanded(
+          flex: 2,
           child: Container(
             color: Colors.black,
             width: double.infinity,
@@ -220,7 +276,11 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                 else
                   Center(
                     child: Text(
-                      hasVideo ? 'Camera off' : (_statusText ?? 'Connecting…'),
+                      _streamSource == 'obs'
+                          ? 'Streaming via OBS / encoder'
+                          : (hasVideo
+                              ? 'Camera off'
+                              : (_statusText ?? 'Connecting…')),
                       style: const TextStyle(color: Colors.white70),
                     ),
                   ),
@@ -248,58 +308,149 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              if (_ingest?['webRtcUrl'] == null) ...[
-                Text('RTMP URL: ${_ingest?['rtmpUrl'] ?? ''}'),
-                Text('Stream key: ${_ingest?['streamKey'] ?? ''}'),
+        Expanded(
+          flex: 3,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              children: [
+                _buildSourceToggle(),
                 const SizedBox(height: 12),
-              ],
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _controlButton(
-                    icon: _micOn ? Icons.mic : Icons.mic_off,
-                    label: _micOn ? 'Mic on' : 'Mic off',
-                    active: _micOn,
-                    onTap: () => setState(() => _micOn = _broadcaster.toggleMic()),
+                if (_streamSource == 'obs') ...[
+                  _buildRtmpDetails(),
+                  const SizedBox(height: 12),
+                ] else
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _controlButton(
+                        icon: _micOn ? Icons.mic : Icons.mic_off,
+                        label: _micOn ? 'Mic on' : 'Mic off',
+                        active: _micOn,
+                        onTap: () =>
+                            setState(() => _micOn = _broadcaster.toggleMic()),
+                      ),
+                      _controlButton(
+                        icon: _camOn ? Icons.videocam : Icons.videocam_off,
+                        label: _camOn ? 'Camera' : 'Cam off',
+                        active: _camOn,
+                        onTap: () => setState(
+                            () => _camOn = _broadcaster.toggleCamera()),
+                      ),
+                      _controlButton(
+                        icon: Icons.cameraswitch,
+                        label: 'Flip',
+                        active: true,
+                        onTap: () async {
+                          await _broadcaster.switchCamera();
+                          if (mounted) {
+                            setState(
+                                () => _mirror = _broadcaster.isFrontCamera);
+                          }
+                        },
+                      ),
+                    ],
                   ),
-                  _controlButton(
-                    icon: _camOn ? Icons.videocam : Icons.videocam_off,
-                    label: _camOn ? 'Camera' : 'Cam off',
-                    active: _camOn,
-                    onTap: () =>
-                        setState(() => _camOn = _broadcaster.toggleCamera()),
+                const SizedBox(height: 12),
+                // Streamers see and respond to the live chat right here while
+                // broadcasting; their messages are tagged HOST and they can
+                // long-press any message to remove it.
+                if (_sessionId != null)
+                  Expanded(
+                    child: LiveChatPanel(
+                      sessionId: _sessionId!,
+                      canModerate: true,
+                    ),
+                  )
+                else
+                  const Expanded(child: SizedBox.shrink()),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    onPressed: _loading ? null : _stop,
+                    icon: const Icon(Icons.stop),
+                    label: Text(_loading ? 'Ending…' : 'End live'),
                   ),
-                  _controlButton(
-                    icon: Icons.cameraswitch,
-                    label: 'Flip',
-                    active: true,
-                    onTap: () async {
-                      await _broadcaster.switchCamera();
-                      if (mounted) {
-                        setState(() => _mirror = _broadcaster.isFrontCamera);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.red,
-                  ),
-                  onPressed: _loading ? null : _stop,
-                  icon: const Icon(Icons.stop),
-                  label: Text(_loading ? 'Ending…' : 'End live'),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+        ),
+      ],
+    );
+  }
+
+  /// Lets the host pick where the broadcast comes from: this phone (WHIP) or an
+  /// external encoder such as OBS (RTMP). Hidden when in-app broadcasting isn't
+  /// available for the session, since OBS is then the only option.
+  Widget _buildSourceToggle() {
+    final whipUrl = _ingest?['webRtcUrl'] as String?;
+    final canUseDevice = whipUrl != null && whipUrl.isNotEmpty;
+    if (!canUseDevice) return const SizedBox.shrink();
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(
+          value: 'device',
+          label: Text('This phone'),
+          icon: Icon(Icons.smartphone),
+        ),
+        ButtonSegment(
+          value: 'obs',
+          label: Text('OBS / encoder'),
+          icon: Icon(Icons.dvr),
+        ),
+      ],
+      selected: {_streamSource},
+      onSelectionChanged: _loading
+          ? null
+          : (selection) => _setSource(selection.first),
+    );
+  }
+
+  Widget _buildRtmpDetails() {
+    final rtmpUrl = _ingest?['rtmpUrl']?.toString() ?? '';
+    final streamKey = _ingest?['streamKey']?.toString() ?? '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Point your encoder at these and start streaming:',
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+        const SizedBox(height: 8),
+        _copyRow('RTMP URL', rtmpUrl),
+        const SizedBox(height: 4),
+        _copyRow('Stream key', streamKey),
+      ],
+    );
+  }
+
+  Widget _copyRow(String label, String value) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            '$label: $value',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        IconButton(
+          visualDensity: VisualDensity.compact,
+          icon: const Icon(Icons.copy, size: 18),
+          onPressed: value.isEmpty
+              ? null
+              : () {
+                  Clipboard.setData(ClipboardData(text: value));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$label copied')),
+                  );
+                },
         ),
       ],
     );

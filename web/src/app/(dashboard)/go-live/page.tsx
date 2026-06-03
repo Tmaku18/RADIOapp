@@ -30,6 +30,11 @@ export default function GoLiveStudioPage() {
   const [isLive, setIsLive] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [ingest, setIngest] = useState<Ingest | null>(null);
+  // Where the broadcast comes from. Only one source may publish to the
+  // Cloudflare input at a time: 'device' runs the in-app WebRTC broadcaster
+  // (uses this computer's camera/mic); 'obs' stops it so an external encoder
+  // (OBS) can stream via RTMP without conflicting.
+  const [source, setSource] = useState<'device' | 'obs'>('device');
   const [error, setError] = useState<string | null>(null);
   const [startLoading, setStartLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
@@ -83,6 +88,9 @@ export default function GoLiveStudioPage() {
         session?: { id?: string } | null;
       };
       setIngest(resData?.ingest ?? null);
+      // If the backend didn't return a WebRTC URL, in-app broadcasting isn't
+      // possible — default to the OBS/RTMP source.
+      setSource(resData?.ingest?.webRtcUrl ? 'device' : 'obs');
       if (resData?.session?.id) setSessionId(resData.session.id);
       setIsLive(true);
     } catch (err: unknown) {
@@ -158,80 +166,128 @@ export default function GoLiveStudioPage() {
             </AlertDescription>
           </Alert>
 
-          {ingest?.webRtcUrl ? (
-            // DJ sets default to audio-only (camera off) unless the DJ turns the
-            // camera on. Musician performances start with the camera on.
-            <CameraBroadcaster
-              whipUrl={ingest.webRtcUrl}
-              startCameraOff={hostKind === 'dj'}
-            />
+          {/* Broadcast source toggle. Only ONE source streams to Cloudflare at
+              a time — switching to OBS unmounts the in-app broadcaster so this
+              computer's camera/mic stop being used. */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs text-muted-foreground">
+              Broadcast source
+            </Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={source === 'device' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setSource('device')}
+                disabled={!ingest?.webRtcUrl}
+              >
+                This device (camera &amp; mic)
+              </Button>
+              <Button
+                type="button"
+                variant={source === 'obs' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setSource('obs')}
+              >
+                OBS / encoder (RTMP)
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {source === 'device'
+                ? 'Streaming from this browser — your computer camera/mic are in use.'
+                : 'Streaming from OBS or another encoder. This browser is NOT capturing your camera/mic.'}
+            </p>
+          </div>
+
+          {source === 'device' ? (
+            ingest?.webRtcUrl ? (
+              // DJ sets default to audio-only (camera off) unless the DJ turns
+              // the camera on. Musician performances start with the camera on.
+              <CameraBroadcaster
+                whipUrl={ingest.webRtcUrl}
+                startCameraOff={hostKind === 'dj'}
+              />
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                  In-app broadcasting isn&apos;t available for this session.
+                  Switch to OBS / encoder (RTMP) above, or end the stream and
+                  start again.
+                </CardContent>
+              </Card>
+            )
           ) : (
             <Card>
-              <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                In-app camera broadcasting isn&apos;t available for this
-                session. End the stream and start again, or use an encoder
-                (RTMP) below.
+              <CardContent className="space-y-3 py-4">
+                <p className="text-sm font-medium">OBS / encoder setup</p>
+                {ingest?.rtmpUrl || ingest?.streamKey ? (
+                  <>
+                    {ingest.rtmpUrl && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Server (RTMP URL)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={ingest.rtmpUrl}
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              navigator.clipboard?.writeText(
+                                ingest.rtmpUrl ?? '',
+                              )
+                            }
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    {ingest.streamKey && (
+                      <div className="space-y-1">
+                        <Label className="text-xs">Stream key</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            type="password"
+                            value={ingest.streamKey}
+                            className="font-mono text-xs"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() =>
+                              navigator.clipboard?.writeText(
+                                ingest.streamKey ?? '',
+                              )
+                            }
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      In OBS: Settings → Stream → Service &quot;Custom&quot;,
+                      paste the Server and Stream Key, set keyframe interval to
+                      2s, then Start Streaming.
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    RTMP details aren&apos;t available for this session.
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}
 
           {sessionId && artistId && (
             <LiveChat sessionId={sessionId} artistId={artistId} />
-          )}
-
-          {ingest && (ingest.rtmpUrl || ingest.streamKey) && (
-            <details className="rounded-lg border border-border p-4">
-              <summary className="cursor-pointer text-sm font-medium">
-                Prefer OBS / an encoder? (RTMP setup)
-              </summary>
-              <div className="space-y-3 pt-3">
-                {ingest.rtmpUrl && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Server (RTMP URL)</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        readOnly
-                        value={ingest.rtmpUrl}
-                        className="font-mono text-xs"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          navigator.clipboard?.writeText(ingest.rtmpUrl ?? '')
-                        }
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                )}
-                {ingest.streamKey && (
-                  <div className="space-y-1">
-                    <Label className="text-xs">Stream key</Label>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        readOnly
-                        type="password"
-                        value={ingest.streamKey}
-                        className="font-mono text-xs"
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() =>
-                          navigator.clipboard?.writeText(ingest.streamKey ?? '')
-                        }
-                      >
-                        Copy
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </details>
           )}
 
           <div className="flex flex-col gap-2 sm:flex-row">

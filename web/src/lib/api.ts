@@ -1394,7 +1394,13 @@ export const adminApi = {
   deleteSwipeClip: (songId: string) => api.delete(`/admin/swipe/${songId}/clip`),
   updateUserRole: (
     id: string,
-    role: 'listener' | 'artist' | 'admin' | 'service_provider' | 'dj',
+    role:
+      | 'listener'
+      | 'artist'
+      | 'admin'
+      | 'service_provider'
+      | 'dj'
+      | 'musician',
   ) => api.patch(`/admin/users/${id}/role`, { role }),
   lifetimeBanUser: (id: string, reason?: string) =>
     api.post(`/admin/users/${id}/lifetime-ban`, { reason }),
