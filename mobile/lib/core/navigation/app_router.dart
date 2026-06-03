@@ -87,7 +87,7 @@ class AppRouter {
       case AppRoutes.streamSettings:
         return _route(const StreamSettingsScreen(), settings);
       case AppRoutes.goLive:
-        return _route(const GoLiveScreen(), settings);
+        return _route(GoLiveScreen(djMode: args == true), settings);
       case AppRoutes.watchLive:
         final artistId = args?.toString();
         if (artistId == null || artistId.isEmpty) return _unknown(settings);

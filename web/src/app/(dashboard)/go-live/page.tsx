@@ -25,12 +25,22 @@ export default function GoLiveStudioPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('');
+  const [asDj, setAsDj] = useState(false);
   const [isLive, setIsLive] = useState(false);
   const [ingest, setIngest] = useState<Ingest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [startLoading, setStartLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
   const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    // `?as=dj` (set by the "Go live as DJ" entry points) tags the session as a
+    // DJ set so it appears on the Live DJ page regardless of account role.
+    if (typeof window !== 'undefined') {
+      const as = new URLSearchParams(window.location.search).get('as');
+      if (as === 'dj') setAsDj(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!artistId) {
@@ -62,6 +72,7 @@ export default function GoLiveStudioPage() {
         title: title.trim() || undefined,
         description: description.trim() || undefined,
         category: category.trim() || undefined,
+        hostType: asDj ? 'dj' : undefined,
       });
       const ing = (res.data as { ingest?: Ingest })?.ingest ?? null;
       setIngest(ing);
@@ -100,7 +111,7 @@ export default function GoLiveStudioPage() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <span>🔴</span> Go Live
+            <span>{asDj ? '🎧' : '🔴'}</span> {asDj ? 'Go Live as DJ' : 'Go Live'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Broadcast straight from your camera and mic — no extra software

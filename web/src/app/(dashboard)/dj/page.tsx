@@ -77,7 +77,7 @@ export default function LiveDjPage() {
             asChild
             className="bg-primary text-primary-foreground hover:opacity-90 shrink-0"
           >
-            <Link href="/go-live">🔴 Go live as DJ</Link>
+            <Link href="/go-live?as=dj">🔴 Go live as DJ</Link>
           </Button>
         )}
       </div>
@@ -97,7 +97,7 @@ export default function LiveDjPage() {
             </p>
             {canHost && (
               <Button variant="outline" asChild>
-                <Link href="/go-live">Go live as DJ</Link>
+                <Link href="/go-live?as=dj">Go live as DJ</Link>
               </Button>
             )}
           </CardContent>

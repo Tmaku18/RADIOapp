@@ -252,7 +252,12 @@ export class ArtistLiveService {
 
   async startLive(
     firebaseUid: string,
-    payload: { title?: string; description?: string; category?: string },
+    payload: {
+      title?: string;
+      description?: string;
+      category?: string;
+      hostType?: 'dj' | 'artist';
+    },
   ) {
     this.ensureLiveEnabled();
     const supabase = getSupabaseClient();
@@ -299,7 +304,9 @@ export class ArtistLiveService {
 
     const cf = await this.ensureCloudflareInput(dbUser.id);
     const playback = this.buildPlaybackUrls(cf.inputUid);
-    const isDj = dbUser.role === 'dj';
+    // Honor explicit host intent (e.g. launched from "Go live as DJ"), falling
+    // back to the account role so a `dj` user always gets a DJ set.
+    const isDj = payload.hostType === 'dj' || dbUser.role === 'dj';
 
     const { data: session, error } = await supabase
       .from('artist_live_sessions')

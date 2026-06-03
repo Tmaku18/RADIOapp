@@ -160,7 +160,11 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
       floatingActionButton: widget.djMode && _canHostDj
           ? FloatingActionButton.extended(
               onPressed: () async {
-                await Navigator.pushNamed(context, AppRoutes.goLive);
+                await Navigator.pushNamed(
+                  context,
+                  AppRoutes.goLive,
+                  arguments: true,
+                );
                 if (mounted) _load();
               },
               icon: const Icon(Icons.podcasts),

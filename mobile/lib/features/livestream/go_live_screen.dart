@@ -4,7 +4,11 @@ import '../../core/services/livestream_service.dart';
 import '../../core/services/whip_broadcaster.dart';
 
 class GoLiveScreen extends StatefulWidget {
-  const GoLiveScreen({super.key});
+  /// When true, the session is tagged as a DJ set so it surfaces on the Live DJ
+  /// page regardless of the broadcaster's account role.
+  final bool djMode;
+
+  const GoLiveScreen({super.key, this.djMode = false});
 
   @override
   State<GoLiveScreen> createState() => _GoLiveScreenState();
@@ -56,6 +60,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         description:
             _description.text.trim().isEmpty ? null : _description.text.trim(),
         category: _category.text.trim().isEmpty ? null : _category.text.trim(),
+        hostType: widget.djMode ? 'dj' : null,
       );
       _ingest = data?['ingest'] is Map<String, dynamic>
           ? data!['ingest'] as Map<String, dynamic>

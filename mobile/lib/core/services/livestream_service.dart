@@ -23,11 +23,12 @@ class LivestreamService {
     return data is Map<String, dynamic> ? data : null;
   }
 
-  Future<Map<String, dynamic>?> start({String? title, String? description, String? category}) async {
+  Future<Map<String, dynamic>?> start({String? title, String? description, String? category, String? hostType}) async {
     final data = await _api.post('artist-live/start', {
       if (title != null) 'title': title,
       if (description != null) 'description': description,
       if (category != null) 'category': category,
+      if (hostType != null) 'hostType': hostType,
     });
     return data is Map<String, dynamic> ? data : null;
   }
