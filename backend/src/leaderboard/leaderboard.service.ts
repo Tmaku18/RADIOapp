@@ -891,6 +891,9 @@ export class LeaderboardService {
                 existingReaction = 'fire';
               }
             }
+            if (existingReaction === 'fire') {
+              await ensureSongLiked();
+            }
             await this.refreshSongTemperatureCache(songId);
             return {
               liked: true,
@@ -925,6 +928,9 @@ export class LeaderboardService {
           } else {
             existingReaction = 'fire';
           }
+        }
+        if (existingReaction === 'fire') {
+          await ensureSongLiked();
         }
         await this.refreshSongTemperatureCache(songId);
         return {
