@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
-import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi } from '@/lib/api';
+import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
@@ -72,8 +72,12 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
   const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
   const [isVoting, setIsVoting] = useState(false);
   const [reactionError, setReactionError] = useState<string | null>(null);
-  const [isHeartSaving, setIsHeartSaving] = useState(false);
-  const [likedInLibrary, setLikedInLibrary] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
+  const [songAccess, setSongAccess] = useState<{
+    owned: boolean;
+    forSale: boolean;
+    priceCents: number;
+  } | null>(null);
   const [listenerCount, setListenerCountRaw] = useState(0);
   const listenerCountRef = useRef(0);
   const setListenerCount = useCallback((next: number) => {
@@ -721,45 +725,49 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
   useEffect(() => {
     const trackId = state.track?.id;
     if (!trackId) {
-      setLikedInLibrary(false);
+      setSongAccess(null);
       return;
     }
     let cancelled = false;
-    const loadLikeStatus = async () => {
+    const loadAccess = async () => {
       try {
-        const res = await songsApi.getLikeStatus(trackId);
-        if (!cancelled) {
-          setLikedInLibrary(!!res.data?.liked);
+        const res = await songsApi.getAccess(trackId);
+        if (!cancelled && res.data) {
+          setSongAccess({
+            owned: !!res.data.owned,
+            forSale: res.data.forSale !== false,
+            priceCents: res.data.priceCents ?? 99,
+          });
         }
       } catch {
         if (!cancelled) {
-          setLikedInLibrary(false);
+          setSongAccess(null);
         }
       }
     };
-    void loadLikeStatus();
+    void loadAccess();
     return () => {
       cancelled = true;
     };
   }, [state.track?.id]);
 
-  const handleToggleLibraryLike = async () => {
+  const handleBuy = async () => {
     const trackId = state.track?.id;
-    if (!trackId || isHeartSaving) return;
-    const nextLiked = !likedInLibrary;
-    setIsHeartSaving(true);
-    setLikedInLibrary(nextLiked);
+    if (!trackId || isBuying) return;
+    setIsBuying(true);
     try {
-      if (nextLiked) {
-        await songsApi.like(trackId);
+      const res = await songSalesApi.buySong(trackId);
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url;
       } else {
-        await songsApi.unlike(trackId);
+        setReactionError('Could not start checkout. Try again.');
+        setIsBuying(false);
       }
     } catch (error) {
-      setLikedInLibrary(!nextLiked);
-      console.error('Failed to toggle library like:', error);
-    } finally {
-      setIsHeartSaving(false);
+      console.error('Failed to start song checkout:', error);
+      setReactionError('Could not start checkout. Try again.');
+      setIsBuying(false);
     }
   };
 
@@ -1011,19 +1019,28 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
 
         {/* Library actions */}
         <div className="mb-3 flex justify-center gap-2">
-          <button
-            onClick={() => void handleToggleLibraryLike()}
-            disabled={!state.track || isHeartSaving}
-            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50 ${
-              likedInLibrary
-                ? 'border-pink-500/50 bg-pink-500/10 text-pink-300'
-                : 'border-border/70 bg-muted/30 text-muted-foreground hover:text-foreground'
-            }`}
-            title={likedInLibrary ? 'Remove from your library' : 'Save to your library'}
-          >
-            <span className="text-base leading-none">{likedInLibrary ? '♥' : '♡'}</span>
-            <span>{isHeartSaving ? 'Saving…' : likedInLibrary ? 'Saved' : 'Save'}</span>
-          </button>
+          {songAccess?.owned ? (
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/50 bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-300">
+              <span className="text-base leading-none">✓</span>
+              <span>Owned</span>
+            </span>
+          ) : (
+            <button
+              onClick={() => void handleBuy()}
+              disabled={!state.track || isBuying || songAccess?.forSale === false}
+              className="inline-flex items-center gap-2 rounded-full border border-primary/50 bg-primary/10 px-3 py-1.5 text-sm text-foreground transition hover:bg-primary/20 disabled:opacity-50"
+              title="Buy this song"
+            >
+              <span className="text-base leading-none">🛒</span>
+              <span>
+                {isBuying
+                  ? 'Starting…'
+                  : songAccess
+                    ? `Buy $${(songAccess.priceCents / 100).toFixed(2).replace(/\.00$/, '')}`
+                    : 'Buy'}
+              </span>
+            </button>
+          )}
           <Button
             asChild
             type="button"
