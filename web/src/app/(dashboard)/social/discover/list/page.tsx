@@ -83,7 +83,7 @@ export default function DiscoverListPage() {
             {clearing ? 'Clearing...' : 'Clear list'}
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/social">Back to Social</Link>
+            <Link href="/social">Back to Feed</Link>
           </Button>
           <Button asChild>
             <Link href="/social/discover">Open Discover swipe</Link>

@@ -419,7 +419,7 @@ export default function SocialDiscoverSwipePage() {
             {forgiveBusy ? 'Resetting...' : 'Forget my swipes'}
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/social">Open Social feed</Link>
+            <Link href="/social">Open Feed</Link>
           </Button>
           <Dialog
             open={libraryOpen}

@@ -97,8 +97,8 @@ export default function MarketingLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
-            <div className="space-y-4">
-              <Link href="/" className="inline-flex items-center gap-3">
+            <div className="space-y-4 min-w-0">
+              <Link href="/" className="flex flex-col items-start gap-3 max-w-xs">
                 {!footerLogoError ? (
                   <>
                     <Image
@@ -110,14 +110,14 @@ export default function MarketingLayout({
                       unoptimized
                       onError={() => setFooterLogoError(true)}
                     />
-                    <span className="text-networx font-bold text-base whitespace-nowrap">
+                    <span className="text-networx font-bold text-base leading-snug">
                       NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
                     </span>
                   </>
                 ) : (
                   <>
                     <span className="text-2xl">🎧</span>
-                    <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                    <span className="text-lg font-bold text-networx leading-snug">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
                   </>
                 )}
               </Link>

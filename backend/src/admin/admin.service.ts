@@ -5,6 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
@@ -262,12 +263,22 @@ export class AdminService {
         }
       }
     }
-    const enrichedRows = rows.map((row: any) => ({
-      ...row,
-      listen_count: realListensBySongId.get(row.id) ?? 0,
-      like_count: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
-      play_count_real: realPlaysBySongId.get(row.id) ?? row.play_count ?? 0,
-    }));
+    // Sign audio + sample URLs so admin playback / trim / sample tools keep
+    // working now that the `songs` bucket is private. Signed URLs (1h) outlive
+    // this cache (5m).
+    const enrichedRows = await Promise.all(
+      rows.map(async (row: any) => ({
+        ...row,
+        audio_url: (await signSongAudioUrl(row.audio_url)) ?? row.audio_url,
+        sample_url:
+          (await signSongAudioUrl(row.sample_url ?? null)) ??
+          row.sample_url ??
+          null,
+        listen_count: realListensBySongId.get(row.id) ?? 0,
+        like_count: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
+        play_count_real: realPlaysBySongId.get(row.id) ?? row.play_count ?? 0,
+      })),
+    );
 
     this.songsCache.set(cacheKey, {
       data: enrichedRows,
@@ -557,8 +568,9 @@ export class AdminService {
       );
     }
 
-    // Download source audio from existing URL.
-    const sourceResponse = await fetch(song.audio_url);
+    // Download source audio (full track lives in the private `songs` bucket).
+    const signedSource = (await signSongAudioUrl(song.audio_url)) ?? song.audio_url;
+    const sourceResponse = await fetch(signedSource);
     if (!sourceResponse.ok) {
       throw new BadRequestException(
         `Failed to fetch source audio: ${sourceResponse.status} ${sourceResponse.statusText}`,
@@ -788,22 +800,25 @@ export class AdminService {
     const artistNameById = new Map(users.map((u) => [u.id, u.display_name]));
 
     return {
-      items: rows.map((row) => ({
-        songId: row.id,
-        title: row.title,
-        artistId: row.artist_id,
-        artistName: row.artist_name,
-        artistDisplayName: artistNameById.get(row.artist_id) ?? null,
-        status: row.status ?? null,
-        discoverEnabled: row.discover_enabled === true,
-        clipUrl: row.discover_clip_url,
-        backgroundUrl: row.discover_background_url,
-        clipStartSeconds: row.discover_clip_start_seconds,
-        clipEndSeconds: row.discover_clip_end_seconds,
-        clipDurationSeconds: row.discover_clip_duration_seconds,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-      })),
+      items: await Promise.all(
+        rows.map(async (row) => ({
+          songId: row.id,
+          title: row.title,
+          artistId: row.artist_id,
+          artistName: row.artist_name,
+          artistDisplayName: artistNameById.get(row.artist_id) ?? null,
+          status: row.status ?? null,
+          discoverEnabled: row.discover_enabled === true,
+          clipUrl:
+            (await signSongAudioUrl(row.discover_clip_url ?? null)) ?? null,
+          backgroundUrl: row.discover_background_url,
+          clipStartSeconds: row.discover_clip_start_seconds,
+          clipEndSeconds: row.discover_clip_end_seconds,
+          clipDurationSeconds: row.discover_clip_duration_seconds,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at,
+        })),
+      ),
       total: count ?? rows.length,
     };
   }

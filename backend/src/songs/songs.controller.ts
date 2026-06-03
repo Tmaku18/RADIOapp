@@ -29,6 +29,7 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -894,11 +895,19 @@ export class SongsController {
       }
     }
 
-    return songRows.map((song) => ({
+    return Promise.all(
+      songRows.map(async (song) => ({
       id: song.id,
       title: song.title,
       artistName: song.artist_name,
-      audioUrl: song.audio_url,
+      // Artist owns these tracks; sign the full URL from the private bucket so
+      // their Studio playback + sample-trim preview keeps working.
+      audioUrl: (await signSongAudioUrl(song.audio_url)) ?? song.audio_url,
+      sampleUrl: (await signSongAudioUrl(song.sample_url ?? null)) ?? null,
+      sampleStartSeconds: song.sample_start_seconds ?? 0,
+      sampleEndSeconds: song.sample_end_seconds ?? null,
+      priceCents: song.price_cents ?? 99,
+      forSale: song.is_for_sale !== false,
       artworkUrl: song.artwork_url,
       durationSeconds: song.duration_seconds,
       creditsRemaining: song.credits_remaining || 0,
@@ -918,7 +927,8 @@ export class SongsController {
       status: song.status,
       stationId: song.station_id || null,
       discoverEnabled: song.discover_enabled || false,
-      discoverClipUrl: song.discover_clip_url || null,
+      discoverClipUrl:
+        (await signSongAudioUrl(song.discover_clip_url ?? null)) ?? null,
       discoverBackgroundUrl: song.discover_background_url || null,
       discoverClipStartSeconds: song.discover_clip_start_seconds ?? null,
       discoverClipEndSeconds: song.discover_clip_end_seconds ?? null,
@@ -936,7 +946,8 @@ export class SongsController {
       createdAt: song.created_at,
       updatedAt: song.updated_at,
       featuredArtists: featuredBySongId.get(song.id) ?? [],
-    }));
+      })),
+    );
   }
 
   @Get('library')
@@ -1004,7 +1015,7 @@ export class SongsController {
       isOwner: song.artist_id === id,
       priceCents: song.price_cents ?? 99,
       forSale: song.is_for_sale !== false,
-      sampleUrl: song.sample_url ?? null,
+      sampleUrl: (await signSongAudioUrl(song.sample_url ?? null)) ?? null,
     };
   }
 
@@ -1333,7 +1344,8 @@ export class SongsController {
       artworkUrl: updated.artwork_url,
       stationId: updated.station_id,
       discoverEnabled: updated.discover_enabled,
-      discoverClipUrl: updated.discover_clip_url,
+      discoverClipUrl:
+        (await signSongAudioUrl(updated.discover_clip_url ?? null)) ?? null,
       discoverBackgroundUrl: updated.discover_background_url,
       discoverClipStartSeconds: updated.discover_clip_start_seconds,
       discoverClipEndSeconds: updated.discover_clip_end_seconds,

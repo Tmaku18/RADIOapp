@@ -94,7 +94,11 @@ export class SongsService {
     endSeconds: number;
   }): Promise<string> {
     const supabase = getSupabaseClient();
-    const sourceResponse = await fetch(params.sourceUrl);
+    // The full track lives in the private `songs` bucket, so sign the source
+    // before fetching it for trimming.
+    const signedSource =
+      (await signSongAudioUrl(params.sourceUrl)) ?? params.sourceUrl;
+    const sourceResponse = await fetch(signedSource);
     if (!sourceResponse.ok) {
       throw new BadRequestException(
         `Failed to fetch source discover audio: ${sourceResponse.status} ${sourceResponse.statusText}`,
@@ -755,6 +759,21 @@ export class SongsService {
     return list;
   }
 
+  /**
+   * Discover clips live in the private `songs` bucket; sign each card's clipUrl
+   * so clients can play the preview without the bucket being public.
+   */
+  private async signDiscoverClipUrls<T extends { clipUrl?: string | null }>(
+    items: T[],
+  ): Promise<T[]> {
+    return Promise.all(
+      items.map(async (item) => ({
+        ...item,
+        clipUrl: (await signSongAudioUrl(item.clipUrl ?? null)) ?? item.clipUrl,
+      })),
+    );
+  }
+
   private toDiscoverCard(
     song: any,
     artist: any,
@@ -1172,7 +1191,8 @@ export class SongsService {
       id: updated.id,
       title: updated.title,
       discoverEnabled: updated.discover_enabled ?? false,
-      discoverClipUrl: updated.discover_clip_url ?? null,
+      discoverClipUrl:
+        (await signSongAudioUrl(updated.discover_clip_url ?? null)) ?? null,
       discoverBackgroundUrl: updated.discover_background_url ?? null,
       discoverClipStartSeconds: updated.discover_clip_start_seconds ?? null,
       discoverClipEndSeconds: updated.discover_clip_end_seconds ?? null,
@@ -1194,7 +1214,17 @@ export class SongsService {
       throw new NotFoundException('Song not found');
     }
 
-    return data;
+    // Sign the freely previewable assets (30s sample + discover clip). The full
+    // `audio_url` is intentionally left unsigned so it stays gated behind the
+    // purchase-checked /songs/:id/stream and /download endpoints.
+    return {
+      ...data,
+      sample_url:
+        (await signSongAudioUrl((data as any).sample_url ?? null)) ?? null,
+      discover_clip_url:
+        (await signSongAudioUrl((data as any).discover_clip_url ?? null)) ??
+        null,
+    };
   }
 
   async getSongs(filters: {
@@ -1233,7 +1263,17 @@ export class SongsService {
       throw new Error(`Failed to fetch songs: ${error.message}`);
     }
 
-    return data;
+    // Sign previewable assets (sample + discover clip) so artist-page previews
+    // work with the private bucket; leave the full `audio_url` unsigned so it
+    // stays gated behind the purchase-checked stream/download endpoints.
+    return Promise.all(
+      (data ?? []).map(async (row: any) => ({
+        ...row,
+        sample_url: (await signSongAudioUrl(row.sample_url ?? null)) ?? null,
+        discover_clip_url:
+          (await signSongAudioUrl(row.discover_clip_url ?? null)) ?? null,
+      })),
+    );
   }
 
   async getDiscoverFeed(
@@ -1436,12 +1476,14 @@ export class SongsService {
       myLikesData.map((row: any) => row.song_id as string),
     );
 
-    const items = pageRows.map((song: any) =>
-      this.toDiscoverCard(
-        song,
-        artistById.get(song.artist_id),
-        likeCountBySongId,
-        likedSongIds,
+    const items = await this.signDiscoverClipUrls(
+      pageRows.map((song: any) =>
+        this.toDiscoverCard(
+          song,
+          artistById.get(song.artist_id),
+          likeCountBySongId,
+          likedSongIds,
+        ),
       ),
     );
 
@@ -1930,18 +1972,20 @@ export class SongsService {
     const likedSongIds = new Set(songIds);
     const songById = new Map((songs || []).map((s: any) => [s.id, s]));
 
-    const ordered = songIds
-      .map((songId) => songById.get(songId))
-      .filter(Boolean)
-      .map((song: any) => ({
-        ...this.toDiscoverCard(
-          song,
-          artistById.get(song.artist_id),
-          likeCountBySongId,
-          likedSongIds,
-        ),
-        likedAt: likedAtBySongId.get(song.id) ?? new Date().toISOString(),
-      }));
+    const ordered = await this.signDiscoverClipUrls(
+      songIds
+        .map((songId) => songById.get(songId))
+        .filter(Boolean)
+        .map((song: any) => ({
+          ...this.toDiscoverCard(
+            song,
+            artistById.get(song.artist_id),
+            likeCountBySongId,
+            likedSongIds,
+          ),
+          likedAt: likedAtBySongId.get(song.id) ?? new Date().toISOString(),
+        })),
+    );
 
     return { items: ordered, total: count ?? ordered.length };
   }
@@ -2106,6 +2150,7 @@ export class SongsService {
       artist_id: string;
       artwork_url: string | null;
       audio_url: string | null;
+      sample_url: string | null;
       duration_seconds: number | null;
       like_count: number | null;
       play_count: number | null;
@@ -2145,7 +2190,7 @@ export class SongsService {
       const { data: songRows, error: songsError } = await supabase
         .from('songs')
         .select(
-          'id, title, artist_name, artist_id, artwork_url, audio_url, duration_seconds, like_count, play_count, status',
+          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, status',
         )
         .in('id', uniqueSongIds);
       if (songsError) {
@@ -2179,30 +2224,39 @@ export class SongsService {
       }
     }
 
-    const librarySongs = rows
-      .map((r) => {
-        const song = songsById.get(r.song_id) ?? null;
-        const fallback = adminFallbackById.get(r.song_id) ?? null;
-        if (song && song.status !== 'approved') return null;
-        if (!song && !fallback) return null;
-        return {
-          id: song?.id ?? fallback!.id,
-          title: song?.title ?? fallback!.title,
-          artistName:
-            song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
-          artistId: song?.artist_id ?? '',
-          artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
-          audioUrl: song?.audio_url ?? fallback?.audio_url ?? null,
-          durationSeconds:
-            song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
-          likeCount: song?.like_count ?? 0,
-          playCount: song?.play_count ?? 0,
-          likedAt:
-            likedAtBySongId.get(song?.id ?? fallback!.id) ??
-            new Date().toISOString(),
-        };
-      })
-      .filter((song): song is NonNullable<typeof song> => song !== null);
+    const librarySongs = (
+      await Promise.all(
+        rows.map(async (r) => {
+          const song = songsById.get(r.song_id) ?? null;
+          const fallback = adminFallbackById.get(r.song_id) ?? null;
+          if (song && song.status !== 'approved') return null;
+          if (!song && !fallback) return null;
+          // Liked = 30-second sample only. Real songs play their signed sample
+          // (null until rendered, so the full track never leaks); admin
+          // fallback/radio content has no sample, so sign its full audio.
+          const audioUrl = song
+            ? (await signSongAudioUrl(song.sample_url ?? null)) ?? null
+            : (await signSongAudioUrl(fallback!.audio_url)) ??
+              fallback!.audio_url;
+          return {
+            id: song?.id ?? fallback!.id,
+            title: song?.title ?? fallback!.title,
+            artistName:
+              song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
+            artistId: song?.artist_id ?? '',
+            artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
+            audioUrl,
+            durationSeconds:
+              song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
+            likeCount: song?.like_count ?? 0,
+            playCount: song?.play_count ?? 0,
+            likedAt:
+              likedAtBySongId.get(song?.id ?? fallback!.id) ??
+              new Date().toISOString(),
+          };
+        }),
+      )
+    ).filter((song): song is NonNullable<typeof song> => song !== null);
 
     const songIds = [...new Set(librarySongs.map((s) => s.id))];
     const likeCountsBySongId = new Map<string, number>();

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { AdminService } from '../admin/admin.service';
 import {
   AcrCloudProvider,
@@ -125,7 +126,9 @@ export class CopyrightService {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20_000);
     try {
-      const res = await fetch(audioUrl, { signal: controller.signal });
+      // The full track lives in the private `songs` bucket; sign before fetch.
+      const signedUrl = (await signSongAudioUrl(audioUrl)) ?? audioUrl;
+      const res = await fetch(signedUrl, { signal: controller.signal });
       if (!res.ok) {
         throw new Error(
           `Failed to download audio: ${res.status} ${res.statusText}`,

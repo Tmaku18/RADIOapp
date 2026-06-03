@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -949,42 +950,67 @@ export class UsersService {
       }
     }
 
-    const mappedSongs = songRows.map((song) => {
-      const playCount = realPlaysBySongId.get(song.id) ?? song.play_count ?? 0;
-      const profilePlayCount = song.profile_play_count || 0;
-      const likeCount =
-        realLikesBySongId.get(song.id) ?? (song.like_count || 0);
-      const listenCount = realListenersBySongId.get(song.id) ?? 0;
-      const popularityScore = listenCount + likeCount * 3 + playCount;
-      const sampleUrl = song.sample_url ?? null;
-      // Clients preview the 30-second sample on the artist page; full playback +
-      // download unlock after purchase via the gated /songs/:id/stream and
-      // /songs/:id/download endpoints. `audioUrl` stays populated for backward
-      // compatibility during rollout; true protection comes from the private
-      // bucket hardening + entitlement-gated signed URLs.
-      return {
-        id: song.id,
-        title: song.title,
-        artistId: song.artist_id,
-        artistName: song.artist_name,
-        audioUrl: song.audio_url,
-        sampleUrl,
-        previewUrl: sampleUrl,
-        priceCents: song.price_cents ?? 99,
-        forSale: song.is_for_sale !== false,
-        owned: requestingOwnProfile,
-        locked: !requestingOwnProfile,
-        artworkUrl: song.artwork_url,
-        durationSeconds: song.duration_seconds || 0,
-        playCount,
-        profilePlayCount,
-        listenCount,
-        likeCount,
-        popularityScore,
-        createdAt: song.created_at,
-        featuredArtists: featuredBySongId.get(song.id) ?? [],
-      };
-    });
+    // Which of these songs has the viewer already purchased? Owners/admins see
+    // all of their own tracks as owned; everyone else only the ones they bought.
+    const purchasedSongIds = new Set<string>();
+    if (viewerUserId && !requestingOwnProfile && songRows.length > 0) {
+      const { data: purchaseRows } = await supabase
+        .from('song_purchases')
+        .select('song_id')
+        .eq('user_id', viewerUserId)
+        .eq('status', 'completed')
+        .in(
+          'song_id',
+          songRows.map((s) => s.id),
+        );
+      for (const row of (purchaseRows ?? []) as Array<{ song_id: string }>) {
+        if (row.song_id) purchasedSongIds.add(row.song_id);
+      }
+    }
+
+    const mappedSongs = await Promise.all(
+      songRows.map(async (song) => {
+        const playCount =
+          realPlaysBySongId.get(song.id) ?? song.play_count ?? 0;
+        const profilePlayCount = song.profile_play_count || 0;
+        const likeCount =
+          realLikesBySongId.get(song.id) ?? (song.like_count || 0);
+        const listenCount = realListenersBySongId.get(song.id) ?? 0;
+        const popularityScore = listenCount + likeCount * 3 + playCount;
+        const owned =
+          requestingOwnProfile || purchasedSongIds.has(song.id);
+        // The full track lives in a private bucket. Preview = signed 30s sample
+        // for everyone; the full file is only signed for owners/buyers. We also
+        // back-fill `audioUrl` with the sample for non-owners so legacy clients
+        // that still read `audioUrl` only ever get the 30-second preview.
+        const sampleUrl = (await signSongAudioUrl(song.sample_url ?? null)) ?? null;
+        const fullUrl = owned
+          ? (await signSongAudioUrl(song.audio_url ?? null)) ?? null
+          : null;
+        return {
+          id: song.id,
+          title: song.title,
+          artistId: song.artist_id,
+          artistName: song.artist_name,
+          audioUrl: fullUrl ?? sampleUrl,
+          sampleUrl,
+          previewUrl: sampleUrl,
+          priceCents: song.price_cents ?? 99,
+          forSale: song.is_for_sale !== false,
+          owned,
+          locked: !owned,
+          artworkUrl: song.artwork_url,
+          durationSeconds: song.duration_seconds || 0,
+          playCount,
+          profilePlayCount,
+          listenCount,
+          likeCount,
+          popularityScore,
+          createdAt: song.created_at,
+          featuredArtists: featuredBySongId.get(song.id) ?? [],
+        };
+      }),
+    );
 
     const popularSongs = [...mappedSongs]
       .sort((a, b) => b.popularityScore - a.popularityScore)

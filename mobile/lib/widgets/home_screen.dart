@@ -65,7 +65,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.people_alt_outlined),
-              label: 'Social',
+              label: 'Feed',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_fire_department_outlined),
@@ -91,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             NavigationDestination(
               icon: Icon(Icons.people_alt_outlined),
-              label: 'Social',
+              label: 'Feed',
             ),
             NavigationDestination(
               icon: Icon(Icons.local_fire_department_outlined),
@@ -305,8 +305,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Map indices based on role.
     //
-    // Artist nav:   Radio[0], Social[1], Discover[2], My Songs[3], Pro-Networx[4], More[5]
-    // Listener nav: Radio[0], Social[1], Discover[2], Competition[3], Refinery[4],   More[5]
+    // Artist nav:   Radio[0], Feed[1], Discover[2], My Songs[3], Pro-Networx[4], More[5]
+    // Listener nav: Radio[0], Feed[1], Discover[2], Competition[3], Refinery[4],   More[5]
     Widget getCurrentScreen() {
       if (isArtist) {
         switch (_currentIndex) {

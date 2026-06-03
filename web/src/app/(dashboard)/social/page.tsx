@@ -89,7 +89,7 @@ export default function SocialFeedPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">Social</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Feed</h1>
           <p className="text-sm text-muted-foreground">
             Posts from creatives across Pro-Networx. Like and comment here. To
             share your own work, post from Pro-Networx.

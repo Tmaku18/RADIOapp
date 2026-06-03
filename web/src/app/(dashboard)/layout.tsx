@@ -54,7 +54,7 @@ type MainNavItem = { name: string; href: string; icon: string; external?: boolea
 const listenerNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
-  { name: 'Social', href: '/social', icon: '📱' },
+  { name: 'Feed', href: '/social', icon: '📱' },
   { name: 'Discover', href: '/social/discover', icon: '🔥' },
   { name: 'Vote', href: '/competition', icon: '📢' },
   { name: 'The Refinery', href: '/refinery', icon: '🔬' },
@@ -65,7 +65,7 @@ const listenerNavigation: MainNavItem[] = [
 const artistNavigation: MainNavItem[] = [
   { name: 'Radio', href: '/listen', icon: '🎵' },
   { name: 'Library', href: '/browse/saved', icon: '💿' },
-  { name: 'Social', href: '/social', icon: '📱' },
+  { name: 'Feed', href: '/social', icon: '📱' },
   { name: 'Discover', href: '/social/discover', icon: '🔥' },
   { name: 'Studio', href: '/artist/songs', icon: '🎙️' },
   { name: 'Analytics', href: '/artist/stats', icon: '📈' },
@@ -141,7 +141,7 @@ function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/browse')) return 'Discover';
   if (pathname.startsWith('/discover')) return 'Discover';
   if (pathname.startsWith('/social/discover')) return 'Discover';
-  if (pathname.startsWith('/social')) return 'Social';
+  if (pathname.startsWith('/social')) return 'Feed';
   if (pathname.startsWith('/messages')) return 'Messages';
   if (pathname.startsWith('/dashboard')) return 'Dashboard';
   if (pathname.startsWith('/listen')) return 'Radio';

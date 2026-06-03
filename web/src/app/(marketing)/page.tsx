@@ -14,10 +14,8 @@ function formatDiscoveries(n: number): string {
   return `${n.toLocaleString()}+`;
 }
 
-function formatListens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
-  return `${n.toLocaleString()}+`;
+function formatLiveListeners(n: number): string {
+  return n.toLocaleString();
 }
 
 // Fetch platform stats from the API
@@ -56,9 +54,13 @@ async function getHomepageData() {
         totalArtists?: number;
         totalSongs?: number;
         totalProfileClicks?: number;
-        totalPlays?: number;
       }>(`${baseUrl}/api/analytics/platform`);
       if (!stats) continue;
+
+      const currentRadio = await fetchJsonWithTimeout<{
+        listener_count?: number;
+      }>(`${baseUrl}/api/radio/current`);
+      const liveListeners = currentRadio?.listener_count ?? 0;
 
       let featuredArtists: FeaturedArtist[] = featuredArtistsFallback;
       const leaderboard = await fetchJsonWithTimeout<
@@ -83,7 +85,7 @@ async function getHomepageData() {
           totalArtists: stats.totalArtists ?? 0,
           totalSongs: stats.totalSongs ?? 0,
           totalProfileClicks: stats.totalProfileClicks ?? 0,
-          totalPlays: stats.totalPlays ?? 0,
+          liveListeners,
         },
       };
     }
@@ -98,7 +100,7 @@ async function getHomepageData() {
       totalArtists: 0,
       totalSongs: 0,
       totalProfileClicks: 0,
-      totalPlays: 0,
+      liveListeners: 0,
     },
   };
 }
@@ -177,7 +179,7 @@ export default async function HomePage() {
               { value: data.stats.totalArtists.toLocaleString(), label: 'Gems', sub: '(artists)' },
               { value: data.stats.totalSongs.toLocaleString(), label: 'Tracks', sub: '(songs)' },
               { value: formatDiscoveries(data.stats.totalProfileClicks), label: 'Discoveries', sub: '(profile clicks)' },
-              { value: formatListens(data.stats.totalPlays), label: 'Total listens', sub: '(songs heard)' },
+              { value: formatLiveListeners(data.stats.liveListeners), label: 'Live listeners', sub: '(tuned in now)' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
                 <CardContent className="pt-6">

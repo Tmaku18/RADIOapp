@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { signSongAudioUrl } from '../common/song-audio.util';
 import { StripeService } from '../payments/stripe.service';
 import { NotificationService } from '../notifications/notification.service';
 import {
@@ -404,19 +405,22 @@ export class RefineryService {
 
     const paged = enriched.slice(offset, offset + limit);
 
-    const result: ReviewQueueRow[] = paged.map(({ row }) => ({
-      songId: row.id,
-      title: row.title,
-      artistName: row.artist_name,
-      artistId: row.artist_id,
-      artworkUrl: row.artwork_url,
-      audioUrl: row.audio_url,
-      durationSeconds: row.duration_seconds,
-      reviewCount: row.refinery_review_count ?? 0,
-      likeCount: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
-      hasCustomQuestions: customMap.has(row.id),
-      submittedAt: row.refinery_submitted_at,
-    }));
+    const result: ReviewQueueRow[] = await Promise.all(
+      paged.map(async ({ row }) => ({
+        songId: row.id,
+        title: row.title,
+        artistName: row.artist_name,
+        artistId: row.artist_id,
+        artworkUrl: row.artwork_url,
+        // Reviewers listen to the full track; sign it from the private bucket.
+        audioUrl: (await signSongAudioUrl(row.audio_url)) ?? row.audio_url,
+        durationSeconds: row.duration_seconds,
+        reviewCount: row.refinery_review_count ?? 0,
+        likeCount: realLikesBySongId.get(row.id) ?? row.like_count ?? 0,
+        hasCustomQuestions: customMap.has(row.id),
+        submittedAt: row.refinery_submitted_at,
+      })),
+    );
 
     return { songs: result, limit, offset };
   }
@@ -464,7 +468,7 @@ export class RefineryService {
         artistId: song.artist_id,
         artistName: song.artist_name,
         artworkUrl: song.artwork_url,
-        audioUrl: song.audio_url,
+        audioUrl: (await signSongAudioUrl(song.audio_url)) ?? song.audio_url,
         durationSeconds: song.duration_seconds,
         likeCount: song.like_count ?? 0,
       },

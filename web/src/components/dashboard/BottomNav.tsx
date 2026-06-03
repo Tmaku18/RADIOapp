@@ -13,7 +13,7 @@ type BottomNavItem = {
 
 const navItems: BottomNavItem[] = [
   { href: '/dashboard', label: 'Home', icon: '🏠' },
-  { href: '/social', label: 'Social', icon: '📱' },
+  { href: '/social', label: 'Feed', icon: '📱' },
   { href: '/live', label: 'Live', icon: '🔴' },
   { href: '/profile', label: 'Profile', icon: '👤' },
   {
