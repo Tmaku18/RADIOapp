@@ -38,7 +38,6 @@ import {
 } from '@/components/ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import { BottomNav } from '@/components/dashboard/BottomNav';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
   ComputerSettingsIcon,
@@ -596,7 +595,6 @@ export default function DashboardLayout({
         >
           {children}
         </div>
-        {!isListenPage && <BottomNav />}
       </SidebarInset>
       </SidebarProvider>
     </div>
