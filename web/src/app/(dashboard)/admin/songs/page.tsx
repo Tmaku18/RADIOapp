@@ -1019,7 +1019,7 @@ export default function AdminSongsPage() {
                           <Button
                             variant="outline"
                             size="icon"
-                            className="h-8 w-8 border-border text-foreground hover:bg-accent"
+                            className="h-8 w-8 border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900"
                             title="Actions"
                             aria-label={`Actions for ${song.title}`}
                           >
