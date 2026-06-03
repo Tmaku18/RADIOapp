@@ -5,6 +5,14 @@ import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { TOWERS } from '@/data/station-map';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 
 interface Song {
   id: string;
@@ -1005,63 +1013,93 @@ export default function AdminSongsPage() {
                     {new Date(song.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button
-                        onClick={() => openTrimModal(song)}
-                        disabled={actionLoading === `trim:${song.id}`}
-                        className="px-3 py-1 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        Trim
-                      </button>
-                      <button
-                        onClick={() => setSampleSong(song)}
-                        disabled={!song.audio_url}
-                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:opacity-50"
-                      >
-                        Sample
-                      </button>
-                      <button
-                        onClick={() => openEditModal(song)}
-                        disabled={editSaving && editingSong?.id === song.id}
-                        className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
-                      >
-                        Edit
-                      </button>
-                      <button
-                        onClick={() => void handleDeleteSong(song)}
-                        disabled={actionLoading === `delete:${song.id}`}
-                        className="px-3 py-1 bg-rose-700 text-white text-sm rounded hover:bg-rose-800 disabled:opacity-50"
-                      >
-                        {actionLoading === `delete:${song.id}` ? 'Deleting...' : 'Delete'}
-                      </button>
-                      {song.status === 'pending' && (
-                        <>
-                        <button
-                          onClick={() => handleApprove(song.id)}
-                          disabled={actionLoading === song.id}
-                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-                        >
-                          Approve
-                        </button>
-                        <button
-                          onClick={() => openRejectModal(song.id)}
-                          disabled={actionLoading === song.id}
-                          className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Reject
-                        </button>
-                        </>
-                      )}
-                      {song.status === 'rejected' && (
-                        <button
-                          onClick={() => handleApproveRejected(song)}
-                          disabled={actionLoading === song.id}
-                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
-                          title="Override the rejection and publish this song"
-                        >
-                          {actionLoading === song.id ? 'Approving...' : 'Approve anyway'}
-                        </button>
-                      )}
+                    <div className="flex items-center justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Actions"
+                            aria-label={`Actions for ${song.title}`}
+                          >
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              aria-hidden="true"
+                            >
+                              <circle cx="12" cy="5" r="2" />
+                              <circle cx="12" cy="12" r="2" />
+                              <circle cx="12" cy="19" r="2" />
+                            </svg>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          {song.status === 'pending' && (
+                            <>
+                              <DropdownMenuItem
+                                disabled={actionLoading === song.id}
+                                onSelect={() => handleApprove(song.id)}
+                              >
+                                Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                disabled={actionLoading === song.id}
+                                onSelect={() => openRejectModal(song.id)}
+                              >
+                                Reject
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          {song.status === 'rejected' && (
+                            <>
+                              <DropdownMenuItem
+                                disabled={actionLoading === song.id}
+                                onSelect={() => handleApproveRejected(song)}
+                              >
+                                {actionLoading === song.id
+                                  ? 'Approving…'
+                                  : 'Approve anyway'}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                            </>
+                          )}
+                          <DropdownMenuItem
+                            disabled={actionLoading === `trim:${song.id}`}
+                            onSelect={() => openTrimModal(song)}
+                          >
+                            Trim
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={!song.audio_url}
+                            onSelect={() => setSampleSong(song)}
+                          >
+                            Sample
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            disabled={editSaving && editingSong?.id === song.id}
+                            onSelect={() => openEditModal(song)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            disabled={actionLoading === `delete:${song.id}`}
+                            onSelect={(e) => {
+                              e.preventDefault();
+                              void handleDeleteSong(song);
+                            }}
+                          >
+                            {actionLoading === `delete:${song.id}`
+                              ? 'Deleting…'
+                              : 'Delete'}
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>
