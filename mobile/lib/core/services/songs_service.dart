@@ -91,6 +91,78 @@ class LibrarySong {
   }
 }
 
+class PurchasedSong {
+  final String id;
+  final String title;
+  final String artistName;
+  final String artistId;
+  final String? artworkUrl;
+  final int durationSeconds;
+  final DateTime? purchasedAt;
+
+  const PurchasedSong({
+    required this.id,
+    required this.title,
+    required this.artistName,
+    required this.artistId,
+    required this.artworkUrl,
+    required this.durationSeconds,
+    required this.purchasedAt,
+  });
+
+  factory PurchasedSong.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? 0;
+    }
+
+    return PurchasedSong(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      artistName: (json['artistName'] ?? '').toString(),
+      artistId: (json['artistId'] ?? '').toString(),
+      artworkUrl: json['artworkUrl']?.toString(),
+      durationSeconds: parseInt(json['durationSeconds']),
+      purchasedAt: json['purchasedAt'] != null
+          ? DateTime.tryParse(json['purchasedAt'].toString())
+          : null,
+    );
+  }
+}
+
+class SongAccess {
+  final bool owned;
+  final bool isOwner;
+  final int priceCents;
+  final bool forSale;
+  final String? sampleUrl;
+
+  const SongAccess({
+    required this.owned,
+    required this.isOwner,
+    required this.priceCents,
+    required this.forSale,
+    required this.sampleUrl,
+  });
+
+  factory SongAccess.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    return SongAccess(
+      owned: json['owned'] == true,
+      isOwner: json['isOwner'] == true,
+      priceCents: parseInt(json['priceCents'], fallback: 99),
+      forSale: json['forSale'] != false,
+      sampleUrl: json['sampleUrl']?.toString(),
+    );
+  }
+}
+
 class SongsService {
   final ApiService _api = ApiService();
 
@@ -196,5 +268,56 @@ class SongsService {
       if (startedAt != null) 'startedAt': startedAt,
       if (secondsListened != null) 'secondsListened': secondsListened,
     });
+  }
+
+  Future<List<PurchasedSong>> getPurchases({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 200);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/purchases?limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map(
+            (e) => PurchasedSong.fromJson(
+              e.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .toList();
+    }
+    return const <PurchasedSong>[];
+  }
+
+  Future<SongAccess?> getAccess(String songId) async {
+    final res = await _api.get('songs/$songId/access');
+    if (res is Map<String, dynamic>) return SongAccess.fromJson(res);
+    return null;
+  }
+
+  Future<String?> getStreamUrl(String songId) async {
+    final res = await _api.get('songs/$songId/stream');
+    if (res is Map<String, dynamic>) return res['url']?.toString();
+    return null;
+  }
+
+  Future<String?> getDownloadUrl(String songId) async {
+    final res = await _api.get('songs/$songId/download');
+    if (res is Map<String, dynamic>) return res['url']?.toString();
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> setSample(
+    String songId,
+    int startSeconds,
+  ) async {
+    final res = await _api.post('songs/$songId/sample', {
+      'startSeconds': startSeconds,
+    });
+    if (res is Map<String, dynamic>) return res;
+    return null;
   }
 }

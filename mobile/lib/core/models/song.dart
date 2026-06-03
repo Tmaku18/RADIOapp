@@ -17,6 +17,12 @@ class Song {
   final DateTime updatedAt;
   /// True when the song is in The Refinery for Prospector review (`/songs/mine`).
   final bool inRefinery;
+  /// Public 30s preview URL (null until rendered).
+  final String? sampleUrl;
+  final int sampleStartSeconds;
+  final int? sampleEndSeconds;
+  final int priceCents;
+  final bool forSale;
 
   Song({
     required this.id,
@@ -36,9 +42,20 @@ class Song {
     required this.createdAt,
     required this.updatedAt,
     this.inRefinery = false,
+    this.sampleUrl,
+    this.sampleStartSeconds = 0,
+    this.sampleEndSeconds,
+    this.priceCents = 99,
+    this.forSale = true,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
+    int parseIntOr(dynamic value, int fallback) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
     final id = json['id']?.toString() ?? '';
     final artistId = (json['artist_id'] ?? json['artistId'])?.toString() ?? '';
     return Song(
@@ -58,6 +75,20 @@ class Song {
       skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
       status: json['status']?.toString() ?? 'pending',
       inRefinery: json['inRefinery'] == true || json['in_refinery'] == true,
+      sampleUrl: (json['sample_url'] ?? json['sampleUrl'])?.toString(),
+      sampleStartSeconds: parseIntOr(
+        json['sample_start_seconds'] ?? json['sampleStartSeconds'],
+        0,
+      ),
+      sampleEndSeconds: (json['sample_end_seconds'] ?? json['sampleEndSeconds'])
+          is num
+          ? parseIntOr(json['sample_end_seconds'] ?? json['sampleEndSeconds'], 0)
+          : null,
+      priceCents: parseIntOr(
+        json['price_cents'] ?? json['priceCents'],
+        99,
+      ),
+      forSale: (json['is_for_sale'] ?? json['forSale']) != false,
       createdAt: DateTime.parse(
         (json['created_at'] ?? json['createdAt']).toString(),
       ),
@@ -84,6 +115,11 @@ class Song {
       'skip_count': skipCount,
       'status': status,
       'in_refinery': inRefinery,
+      'sample_url': sampleUrl,
+      'sample_start_seconds': sampleStartSeconds,
+      'sample_end_seconds': sampleEndSeconds,
+      'price_cents': priceCents,
+      'is_for_sale': forSale,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };

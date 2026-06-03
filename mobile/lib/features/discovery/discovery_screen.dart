@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/models/browse_models.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/models/discovery_map_models.dart';
@@ -9,6 +10,7 @@ import '../../core/services/browse_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/discovery_map_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'discover_audio_tab.dart';
 
@@ -814,6 +816,13 @@ class _LibraryTabState extends State<_LibraryTab> {
   List<LibrarySong> _items = const [];
   String _sortBy = 'recent';
 
+  // 'liked' = saved/liked songs (30s sample only).
+  // 'music' = purchased songs (full play + download).
+  String _section = 'liked';
+  bool _purchasesLoading = true;
+  List<PurchasedSong> _purchases = const [];
+  String? _busyPurchaseId;
+
   static const List<DropdownMenuItem<String>> _sortOptions = [
     DropdownMenuItem(value: 'recent', child: Text('Recently added')),
     DropdownMenuItem(value: 'oldest', child: Text('Oldest added')),
@@ -828,6 +837,7 @@ class _LibraryTabState extends State<_LibraryTab> {
   void initState() {
     super.initState();
     _load();
+    _loadPurchases();
   }
 
   Future<void> _load() async {
@@ -838,6 +848,60 @@ class _LibraryTabState extends State<_LibraryTab> {
       setState(() => _items = items);
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadPurchases() async {
+    setState(() => _purchasesLoading = true);
+    try {
+      final items = await _songs.getPurchases(limit: 100, offset: 0);
+      if (!mounted) return;
+      setState(() => _purchases = items);
+    } catch (_) {
+      // Best-effort.
+    } finally {
+      if (mounted) setState(() => _purchasesLoading = false);
+    }
+  }
+
+  Future<void> _playPurchased(PurchasedSong item) async {
+    setState(() => _busyPurchaseId = item.id);
+    try {
+      final url = await _songs.getStreamUrl(item.id);
+      if (url == null || url.isEmpty) {
+        throw Exception('Stream unavailable.');
+      }
+      final player = AudioPlayerService().player;
+      await player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await player.play();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not play: $e')));
+    } finally {
+      if (mounted) setState(() => _busyPurchaseId = null);
+    }
+  }
+
+  Future<void> _downloadPurchased(PurchasedSong item) async {
+    setState(() => _busyPurchaseId = item.id);
+    try {
+      final url = await _songs.getDownloadUrl(item.id);
+      if (url == null || url.isEmpty) {
+        throw Exception('Download link unavailable.');
+      }
+      final uri = Uri.tryParse(url);
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
+    } finally {
+      if (mounted) setState(() => _busyPurchaseId = null);
     }
   }
 
@@ -895,12 +959,49 @@ class _LibraryTabState extends State<_LibraryTab> {
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(
+                value: 'liked',
+                label: Text('Liked'),
+                icon: Icon(Icons.favorite_border),
+              ),
+              ButtonSegment(
+                value: 'music',
+                label: Text('My Music'),
+                icon: Icon(Icons.library_music_outlined),
+              ),
+            ],
+            selected: {_section},
+            onSelectionChanged: (s) =>
+                setState(() => _section = s.first),
+          ),
+        ),
+        Expanded(
+          child: _section == 'liked'
+              ? _buildLikedSection(surfaces)
+              : _buildMusicSection(surfaces),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLikedSection(NetworxSurfaces surfaces) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_items.isEmpty) {
       return Center(
-        child: Text(
-          'No songs saved yet. Tap save on a song in radio to add it here.',
-          style: TextStyle(color: surfaces.textSecondary),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No liked songs yet. Like a song to save its 30-second sample here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: surfaces.textSecondary),
+          ),
         ),
       );
     }
@@ -953,7 +1054,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                     ),
                     title: Text(item.title),
                     subtitle: Text(
-                      item.artistName,
+                      '${item.artistName} · Sample',
                       style: TextStyle(color: surfaces.textSecondary),
                     ),
                     trailing: IconButton(
@@ -968,6 +1069,81 @@ class _LibraryTabState extends State<_LibraryTab> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildMusicSection(NetworxSurfaces surfaces) {
+    if (_purchasesLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_purchases.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No purchased music yet. Buy a song from an artist to play it in '
+            'full and download it here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: surfaces.textSecondary),
+          ),
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadPurchases,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: _purchases.length,
+        separatorBuilder: (_, index) => const SizedBox(height: 8),
+        itemBuilder: (context, i) {
+          final item = _purchases[i];
+          final busy = _busyPurchaseId == item.id;
+          return Card(
+            child: ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child:
+                    (item.artworkUrl != null && item.artworkUrl!.isNotEmpty)
+                    ? Image.network(
+                        item.artworkUrl!,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _artworkFallback(surfaces),
+                      )
+                    : _artworkFallback(surfaces),
+              ),
+              title: Text(item.title),
+              subtitle: Text(
+                '${item.artistName} · Purchased',
+                style: TextStyle(color: surfaces.textSecondary),
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Play',
+                    icon: busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child:
+                                CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.play_arrow),
+                    onPressed: busy ? null : () => _playPurchased(item),
+                  ),
+                  IconButton(
+                    tooltip: 'Download',
+                    icon: const Icon(Icons.download_outlined),
+                    onPressed: busy ? null : () => _downloadPurchased(item),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 

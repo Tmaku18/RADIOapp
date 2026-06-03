@@ -85,4 +85,37 @@ class PaymentsService {
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
+
+  Future<Map<String, dynamic>> buySong({
+    required String songId,
+    String? successUrl,
+    String? cancelUrl,
+  }) async {
+    final res = await _api.post('payments/songs/$songId/checkout', {
+      if (successUrl != null) 'successUrl': successUrl,
+      if (cancelUrl != null) 'cancelUrl': cancelUrl,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> getConnectStatus() async {
+    final res = await _api.get('payments/connect/status');
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> startConnectOnboarding({
+    String? returnUrl,
+    String? refreshUrl,
+  }) async {
+    final res = await _api.post('payments/connect/onboard', {
+      if (returnUrl != null) 'returnUrl': returnUrl,
+      if (refreshUrl != null) 'refreshUrl': refreshUrl,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> createConnectLoginLink() async {
+    final res = await _api.post('payments/connect/login-link', {});
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
 }

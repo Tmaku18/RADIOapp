@@ -13,6 +13,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/services/payments_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -27,6 +28,7 @@ class ArtistProfileScreen extends StatefulWidget {
 
 class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final SongsService _songs = SongsService();
+  final PaymentsService _payments = PaymentsService();
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
 
@@ -38,7 +40,11 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   bool _isPlaying = false;
   final Map<String, bool> _likedBySongId = <String, bool>{};
   final Set<String> _recordedListenForSongIds = <String>{};
+  final Set<String> _ownedSongIds = <String>{};
+  String? _buyingId;
+  String? _downloadingId;
   Timer? _listenTimer;
+  Timer? _sampleStopTimer;
   Map<String, dynamic>? _liveSession;
   bool _liveActionLoading = false;
   bool _isOwnerProfile = false;
@@ -62,8 +68,11 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   @override
   void dispose() {
     _listenTimer?.cancel();
+    _sampleStopTimer?.cancel();
     super.dispose();
   }
+
+  bool _ownsSong(Song s) => _isOwnerProfile || _ownedSongIds.contains(s.id);
 
   Future<void> _load() async {
     setState(() {
@@ -88,6 +97,9 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         _artist = artist;
         _tracks = tracks;
       });
+      if (!isOwner && me != null) {
+        await _loadPurchases();
+      }
       await _loadLikes();
       await _loadLiveStatus();
     } catch (e) {
@@ -95,6 +107,20 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadPurchases() async {
+    try {
+      final purchases = await _songs.getPurchases();
+      if (!mounted) return;
+      setState(() {
+        _ownedSongIds
+          ..clear()
+          ..addAll(purchases.map((p) => p.id));
+      });
+    } catch (_) {
+      // Best-effort; default to sample-only.
     }
   }
 
@@ -163,9 +189,30 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
 
     _listenTimer?.cancel();
+    _sampleStopTimer?.cancel();
+
+    final owns = _ownsSong(s);
+    // Owners/buyers stream the full track; everyone else gets the 30s sample.
+    String? playUrl;
+    if (owns) {
+      playUrl = (await _songs.getStreamUrl(s.id)) ?? s.audioUrl;
+    } else {
+      playUrl = (s.sampleUrl ?? '').isNotEmpty ? s.sampleUrl : s.audioUrl;
+    }
+    if (playUrl == null || playUrl.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preview not available yet.')),
+      );
+      return;
+    }
+
+    final usingFallbackSample =
+        !owns && ((s.sampleUrl ?? '').isEmpty) && s.audioUrl.isNotEmpty;
+
     await _player.setAudioSource(
       AudioSource.uri(
-        Uri.parse(s.audioUrl),
+        Uri.parse(playUrl),
         tag: MediaItem(
           id: s.id,
           title: s.title,
@@ -176,10 +223,83 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         ),
       ),
     );
+
+    // When no rendered sample exists, emulate it: seek to the chosen window
+    // and stop after 30 seconds so non-buyers can't hear the full track.
+    if (usingFallbackSample) {
+      if (s.sampleStartSeconds > 0) {
+        await _player.seek(Duration(seconds: s.sampleStartSeconds));
+      }
+      _sampleStopTimer = Timer(const Duration(seconds: 30), () async {
+        try {
+          await _player.pause();
+        } catch (_) {}
+      });
+    }
+
     await _player.play();
     if (!mounted) return;
     setState(() => _activeSongId = s.id);
-    _scheduleListenRecord(s.id);
+    if (owns) _scheduleListenRecord(s.id);
+  }
+
+  Future<void> _buySong(Song s) async {
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final me = await auth.getUserProfile();
+    if (!mounted) return;
+    if (me == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to buy songs.')),
+      );
+      return;
+    }
+    setState(() => _buyingId = s.id);
+    try {
+      final res = await _payments.buySong(songId: s.id);
+      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception('Could not start checkout.');
+      }
+      await _openExternalUrl(url);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete your purchase in the browser, then tap refresh.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
+    } finally {
+      if (mounted) setState(() => _buyingId = null);
+    }
+  }
+
+  Future<void> _downloadSong(Song s) async {
+    setState(() => _downloadingId = s.id);
+    try {
+      final url = await _songs.getDownloadUrl(s.id);
+      if (url == null || url.isEmpty) {
+        throw Exception('Download link unavailable.');
+      }
+      await _openExternalUrl(url);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Download failed: $e')));
+    } finally {
+      if (mounted) setState(() => _downloadingId = null);
+    }
+  }
+
+  String _formatPrice(int cents) {
+    final dollars = cents / 100.0;
+    return '\$${dollars.toStringAsFixed(2)}';
   }
 
   void _scheduleListenRecord(String songId) {
@@ -646,6 +766,20 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                     fontSize: 12,
                                   ),
                                 ),
+                                Text(
+                                  _ownsSong(s)
+                                      ? (_isOwnerProfile
+                                            ? 'Your track · full play'
+                                            : 'Purchased · full play')
+                                      : 'Sample · 30s preview',
+                                  style: TextStyle(
+                                    color: _ownsSong(s)
+                                        ? scheme.primary
+                                        : surfaces.textMuted,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                                 TextButton(
                                   onPressed: () => _showLikesSheet(s),
                                   style: TextButton.styleFrom(
@@ -676,6 +810,38 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                                   : Icons.play_arrow,
                             ),
                           ),
+                          const SizedBox(width: 6),
+                          if (_ownsSong(s))
+                            IconButton(
+                              tooltip: 'Download',
+                              onPressed: _downloadingId == s.id
+                                  ? null
+                                  : () => _downloadSong(s),
+                              icon: _downloadingId == s.id
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.download_outlined),
+                            )
+                          else if (s.forSale)
+                            OutlinedButton(
+                              onPressed: _buyingId == s.id
+                                  ? null
+                                  : () => _buySong(s),
+                              child: _buyingId == s.id
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : Text('Buy ${_formatPrice(s.priceCents)}'),
+                            ),
                         ],
                       ),
                     ),
