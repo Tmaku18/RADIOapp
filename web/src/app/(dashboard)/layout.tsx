@@ -395,6 +395,11 @@ export default function DashboardLayout({
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                           <SidebarMenuSubItem>
+                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/payouts')}>
+                              <Link href="/artist/payouts">Payouts</Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                          <SidebarMenuSubItem>
                             <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/live-services')}>
                               <Link href="/artist/live-services">Live services</Link>
                             </SidebarMenuSubButton>

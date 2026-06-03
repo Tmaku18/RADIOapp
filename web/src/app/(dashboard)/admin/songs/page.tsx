@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { TOWERS } from '@/data/station-map';
 
 interface Song {
@@ -167,6 +168,7 @@ export default function AdminSongsPage() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [trimmingSong, setTrimmingSong] = useState<Song | null>(null);
+  const [sampleSong, setSampleSong] = useState<Song | null>(null);
   const [trimStartSeconds, setTrimStartSeconds] = useState(0);
   const [trimEndSeconds, setTrimEndSeconds] = useState(0);
   const [trimPreviewReady, setTrimPreviewReady] = useState(false);
@@ -963,6 +965,13 @@ export default function AdminSongsPage() {
                         Trim
                       </button>
                       <button
+                        onClick={() => setSampleSong(song)}
+                        disabled={!song.audio_url}
+                        className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:opacity-50"
+                      >
+                        Sample
+                      </button>
+                      <button
                         onClick={() => openEditModal(song)}
                         disabled={editSaving && editingSong?.id === song.id}
                         className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
@@ -1246,6 +1255,26 @@ export default function AdminSongsPage() {
           </div>
         </div>
       )}
+
+      <SampleTrimDialog
+        open={sampleSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setSampleSong(null);
+        }}
+        song={
+          sampleSong
+            ? {
+                id: sampleSong.id,
+                title: sampleSong.title,
+                audioUrl: sampleSong.audio_url ?? null,
+                durationSeconds:
+                  durationOverrides[sampleSong.id] ??
+                  sampleSong.duration_seconds ??
+                  null,
+              }
+            : null
+        }
+      />
     </div>
   );
 }

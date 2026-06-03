@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { songsApi, usersApi } from '@/lib/api';
+import { songsApi, songSalesApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +18,12 @@ type ArtistSong = {
   artistId: string;
   artistName: string;
   audioUrl: string | null;
+  sampleUrl?: string | null;
+  previewUrl?: string | null;
+  priceCents?: number | null;
+  forSale?: boolean;
+  owned?: boolean;
+  locked?: boolean;
   artworkUrl: string | null;
   durationSeconds: number;
   playCount: number;
@@ -97,13 +103,19 @@ function formatDuration(seconds: number) {
 function toDiscographyTrack(
   song: ArtistSong,
   likedMap: Record<string, boolean>,
+  ownedIds: Set<string>,
 ): DiscographyTrack {
+  const owned = !!song.owned || ownedIds.has(song.id);
   return {
     id: song.id,
     title: song.title,
     artistName: song.artistName,
     artistId: song.artistId,
     audioUrl: song.audioUrl,
+    sampleUrl: song.sampleUrl ?? song.previewUrl ?? null,
+    priceCents: song.priceCents ?? 99,
+    forSale: song.forSale !== false,
+    owned,
     artworkUrl: song.artworkUrl,
     durationSeconds: song.durationSeconds,
     likeCount: song.likeCount,
@@ -130,6 +142,8 @@ export function ArtistPageView({
   const [likesDialogOpen, setLikesDialogOpen] = useState(false);
   const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
   const [likesDialogSongTitle, setLikesDialogSongTitle] = useState('');
+  const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set());
+  const [buyingId, setBuyingId] = useState<string | null>(null);
 
   const refreshFollowState = async (targetUserId: string) => {
     const [followRes, countRes] = await Promise.all([
@@ -334,11 +348,65 @@ export function ArtistPageView({
     };
   }, [profile?.id, data?.artist?.id]);
 
+  // Load the viewer's purchased song ids so owned tracks unlock full playback.
+  useEffect(() => {
+    let ignore = false;
+    if (!profile?.id) {
+      setOwnedIds(new Set());
+      return;
+    }
+    (async () => {
+      try {
+        const res = await songsApi.getPurchases();
+        if (ignore) return;
+        const ids = new Set<string>(
+          (Array.isArray(res.data) ? res.data : []).map((p) => p.id),
+        );
+        setOwnedIds(ids);
+      } catch {
+        if (!ignore) setOwnedIds(new Set());
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [profile?.id]);
+
   const tracks = useMemo(
     () =>
-      (data?.librarySongs ?? []).map((song) => toDiscographyTrack(song, likedBySongId)),
-    [data?.librarySongs, likedBySongId],
+      (data?.librarySongs ?? []).map((song) =>
+        toDiscographyTrack(song, likedBySongId, ownedIds),
+      ),
+    [data?.librarySongs, likedBySongId, ownedIds],
   );
+
+  const handleBuy = async (songId: string) => {
+    if (buyingId) return;
+    setBuyingId(songId);
+    try {
+      const res = await songSalesApi.buySong(songId);
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url;
+      }
+    } catch (e) {
+      const msg =
+        (e as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Unable to start checkout. Please try again.';
+      setError(typeof msg === 'string' ? msg : 'Unable to start checkout.');
+      setBuyingId(null);
+    }
+  };
+
+  const handleDownload = async (songId: string) => {
+    try {
+      const res = await songsApi.getDownloadUrl(songId);
+      const url = res.data?.url;
+      if (url) window.open(url, '_blank', 'noopener');
+    } catch {
+      setError('Unable to download this song.');
+    }
+  };
 
   const handleToggleLike = async (songId: string, nextLiked: boolean) => {
     if (!profile?.id) return;
@@ -356,16 +424,20 @@ export function ArtistPageView({
   };
 
   const handlePlayPopular = async (song: ArtistSong) => {
-    if (!song.audioUrl) return;
+    const owned = !!song.owned || ownedIds.has(song.id);
+    const url = owned
+      ? song.audioUrl ?? song.sampleUrl ?? song.previewUrl ?? null
+      : song.sampleUrl ?? song.previewUrl ?? null;
+    if (!url) return;
     actions.loadTrack(
       {
         id: song.id,
-        title: song.title,
+        title: owned ? song.title : `${song.title} (Sample)`,
         artistName: song.artistName,
         artistId: song.artistId,
         artworkUrl: song.artworkUrl,
-        audioUrl: song.audioUrl,
-        durationSeconds: song.durationSeconds,
+        audioUrl: url,
+        durationSeconds: owned ? song.durationSeconds : 30,
       },
       'discography',
     );
@@ -590,11 +662,27 @@ export function ArtistPageView({
                   )}
                   <Button
                     size="sm"
+                    variant="outline"
                     onClick={() => void handlePlayPopular(song)}
-                    disabled={!song.audioUrl}
+                    disabled={
+                      !(song.owned || ownedIds.has(song.id)) &&
+                      !(song.sampleUrl ?? song.previewUrl)
+                    }
                   >
-                    Play
+                    {song.owned || ownedIds.has(song.id) ? 'Play' : 'Sample'}
                   </Button>
+                  {!(song.owned || ownedIds.has(song.id)) &&
+                  song.forSale !== false ? (
+                    <Button
+                      size="sm"
+                      onClick={() => void handleBuy(song.id)}
+                      disabled={buyingId === song.id}
+                    >
+                      {buyingId === song.id
+                        ? '…'
+                        : `Buy $${(((song.priceCents ?? 99) as number) / 100).toFixed(2)}`}
+                    </Button>
+                  ) : null}
                 </div>
               );
             })}
@@ -612,6 +700,8 @@ export function ArtistPageView({
               tracks={tracks}
               onToggleLike={handleToggleLike}
               onRecordListen={handleRecordListen}
+              onBuy={handleBuy}
+              onDownload={handleDownload}
             />
           )}
         </CardContent>

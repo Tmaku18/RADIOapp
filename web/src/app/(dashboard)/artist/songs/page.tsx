@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
+import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
 import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
 
@@ -64,6 +65,9 @@ interface Song {
     avatarUrl: string | null;
   }>;
   isExplicit?: boolean;
+  sampleUrl?: string | null;
+  sampleStartSeconds?: number | null;
+  priceCents?: number | null;
 }
 
 function parseTimeToSeconds(value: string): number | null {
@@ -151,6 +155,7 @@ export default function MySongsPage() {
   const [refinerySubmitSong, setRefinerySubmitSong] = useState<Song | null>(null);
   const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [sampleSong, setSampleSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editStationId, setEditStationId] = useState('');
   const [editArtworkUrl, setEditArtworkUrl] = useState('');
@@ -737,6 +742,15 @@ export default function MySongsPage() {
                           Edit
                         </Button>
                         <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSampleSong(song)}
+                          disabled={!song.audioUrl}
+                          title="Set the 30-second preview sample"
+                        >
+                          Set sample
+                        </Button>
+                        <Button
                           variant="destructive"
                           size="sm"
                           disabled={deletingSongId === song.id}
@@ -1032,6 +1046,36 @@ export default function MySongsPage() {
         onOpenChange={setLikesDialogOpen}
         songId={likesDialogSongId}
         songTitle={likesDialogSongTitle}
+      />
+      <SampleTrimDialog
+        open={sampleSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setSampleSong(null);
+        }}
+        song={
+          sampleSong
+            ? {
+                id: sampleSong.id,
+                title: sampleSong.title,
+                audioUrl: sampleSong.audioUrl ?? null,
+                durationSeconds: sampleSong.durationSeconds ?? null,
+                sampleStartSeconds: sampleSong.sampleStartSeconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === sampleSong?.id
+                ? {
+                    ...s,
+                    sampleUrl: result.sampleUrl,
+                    sampleStartSeconds: result.sampleStartSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
       />
       <RefinerySubmitDialog
         open={refinerySubmitSong !== null}

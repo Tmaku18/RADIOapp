@@ -461,6 +461,76 @@ export const songsApi = {
     }>('/songs/artists/search', {
       params: { q, limit },
     }),
+  // ── Song sales: samples, purchases, entitled playback/download ──
+  getAccess: (id: string) =>
+    api.get<{
+      songId: string;
+      owned: boolean;
+      isOwner: boolean;
+      priceCents: number;
+      forSale: boolean;
+      sampleUrl: string | null;
+    }>(`/songs/${id}/access`),
+  getStreamUrl: (id: string) =>
+    api.get<{ url: string; title: string; artistName: string | null }>(
+      `/songs/${id}/stream`,
+    ),
+  getDownloadUrl: (id: string) =>
+    api.get<{ url: string; title: string; artistName: string | null }>(
+      `/songs/${id}/download`,
+    ),
+  setSample: (id: string, startSeconds: number) =>
+    api.post<{
+      id: string;
+      sampleUrl: string | null;
+      sampleStartSeconds: number;
+      sampleEndSeconds: number;
+    }>(`/songs/${id}/sample`, { startSeconds }),
+  getPurchases: () =>
+    api.get<
+      Array<{
+        id: string;
+        title: string;
+        artistName: string;
+        artistId: string;
+        artworkUrl: string | null;
+        durationSeconds: number;
+        likeCount: number;
+        playCount: number;
+        purchasedAt: string;
+        amountCents: number;
+        currency: string;
+        owned: boolean;
+      }>
+    >('/songs/purchases'),
+};
+
+export const songSalesApi = {
+  /** Begin Stripe Connect Express onboarding (artist payouts). */
+  connectOnboard: (data?: { returnUrl?: string; refreshUrl?: string }) =>
+    api.post<{ url: string; accountId: string }>(
+      '/payments/connect/onboard',
+      data ?? {},
+    ),
+  connectStatus: () =>
+    api.get<{
+      accountId: string | null;
+      onboarded: boolean;
+      chargesEnabled: boolean;
+      payoutsEnabled: boolean;
+      detailsSubmitted: boolean;
+    }>('/payments/connect/status'),
+  connectLoginLink: () =>
+    api.post<{ url: string }>('/payments/connect/login-link', {}),
+  /** Create a Checkout Session to buy a song. */
+  buySong: (
+    songId: string,
+    data?: { successUrl?: string; cancelUrl?: string },
+  ) =>
+    api.post<{ url: string | null; sessionId: string }>(
+      `/payments/songs/${songId}/checkout`,
+      data ?? {},
+    ),
 };
 
 export interface DiscoverAudioSongCard {

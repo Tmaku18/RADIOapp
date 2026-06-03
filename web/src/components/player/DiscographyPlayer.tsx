@@ -20,7 +20,22 @@ export type DiscographyTrack = {
   likeCount?: number | null;
   individualListenCount?: number | null;
   liked?: boolean;
+  sampleUrl?: string | null;
+  priceCents?: number | null;
+  forSale?: boolean;
+  owned?: boolean;
 };
+
+function formatPrice(cents?: number | null): string {
+  const c = Math.max(0, Math.round(cents ?? 0));
+  return `$${(c / 100).toFixed(2)}`;
+}
+
+/** URL to play for a row: full track when owned, otherwise the 30s sample. */
+function playableUrl(t: DiscographyTrack): string | null {
+  if (t.owned) return t.audioUrl ?? t.sampleUrl ?? null;
+  return t.sampleUrl ?? null;
+}
 
 function clamp(n: number, min: number, max: number) {
   return Math.min(Math.max(n, min), max);
@@ -41,21 +56,23 @@ type Props = {
   tracks: DiscographyTrack[];
   onToggleLike?: (trackId: string, nextLiked: boolean) => Promise<void> | void;
   onRecordListen?: (trackId: string) => Promise<void> | void;
+  onBuy?: (trackId: string) => Promise<void> | void;
+  onDownload?: (trackId: string) => Promise<void> | void;
 };
 
 function toPlaybackTrack(t: DiscographyTrack): PlaybackTrack {
   return {
     id: t.id,
-    title: t.title,
+    title: t.owned ? t.title : `${t.title} (Sample)`,
     artistName: t.artistName,
     artistId: t.artistId,
     artworkUrl: t.artworkUrl ?? null,
-    audioUrl: t.audioUrl ?? '',
-    durationSeconds: t.durationSeconds ?? 0,
+    audioUrl: playableUrl(t) ?? '',
+    durationSeconds: t.owned ? t.durationSeconds ?? 0 : 30,
   };
 }
 
-export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Props) {
+export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen, onBuy, onDownload }: Props) {
   const { state, actions } = usePlayback();
   const [seeking, setSeeking] = useState(false);
   const recordedForTrackRef = useRef<Set<string>>(new Set());
@@ -75,7 +92,7 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
   const playIndex = useCallback(
     async (index: number, autoPlay = false) => {
       const t = tracks[index];
-      if (!t?.audioUrl) return;
+      if (!t || !playableUrl(t)) return;
       actions.loadTrack(toPlaybackTrack(t), 'discography');
       if (autoPlay) await actions.play();
     },
@@ -84,7 +101,7 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
 
   const togglePlay = useCallback(async () => {
     if (!activeTrack) {
-      const idx = tracks.findIndex((t) => !!t.audioUrl);
+      const idx = tracks.findIndex((t) => !!playableUrl(t));
       if (idx >= 0) await playIndex(idx, true);
       return;
     }
@@ -187,6 +204,11 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 min-w-0">
                     <p className="font-medium truncate">{t.title}</p>
+                    {t.owned ? (
+                      <Badge variant="secondary" className="shrink-0">Owned</Badge>
+                    ) : (
+                      <Badge variant="outline" className="shrink-0">Sample · 0:30</Badge>
+                    )}
                     {isActive && (
                       <Badge variant="secondary" className="shrink-0">
                         {isPlaying ? 'Playing' : 'Paused'}
@@ -209,6 +231,30 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen }: Prop
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                  {t.owned ? (
+                    onDownload && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void onDownload(t.id)}
+                      >
+                        Download
+                      </Button>
+                    )
+                  ) : (
+                    t.forSale !== false &&
+                    onBuy && (
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="sm"
+                        onClick={() => void onBuy(t.id)}
+                      >
+                        Buy {formatPrice(t.priceCents)}
+                      </Button>
+                    )
+                  )}
                   <Button
                     type="button"
                     variant={t.liked ? 'default' : 'outline'}
