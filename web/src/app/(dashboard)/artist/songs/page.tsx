@@ -10,6 +10,13 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
@@ -592,8 +599,8 @@ export default function MySongsPage() {
                 <TableHead>Song</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Visibility</TableHead>
-                <TableHead>Stats</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[40%]">Analytics</TableHead>
+                <TableHead className="w-12 text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -680,110 +687,136 @@ export default function MySongsPage() {
                       </button>
                     </TableCell>
                     <TableCell>
-                      <div className="space-y-0.5 text-xs">
-                        <div className="flex items-baseline gap-1">
-                          <span className="text-sm font-semibold text-foreground">
-                            {formatNumber(song.playCount)}
-                          </span>
-                          <span className="text-muted-foreground">plays</span>
-                        </div>
-                        <div className="text-muted-foreground">
-                          {formatNumber(song.listenCount ?? 0)} listens
-                          {' · '}
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold leading-none text-foreground">
+                              {formatNumber(song.playCount)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              plays
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-semibold leading-none text-foreground">
+                              {formatNumber(song.listenCount ?? 0)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              listens
+                            </span>
+                          </div>
                           <button
                             type="button"
-                            className="text-primary hover:underline"
+                            className="flex items-baseline gap-1 hover:underline"
                             onClick={() => {
                               setLikesDialogSongId(song.id);
                               setLikesDialogSongTitle(song.title);
                               setLikesDialogOpen(true);
                             }}
                           >
-                            {formatNumber(song.likeCount)} likes
+                            <span className="text-lg font-semibold leading-none text-primary">
+                              {formatNumber(song.likeCount)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              likes
+                            </span>
                           </button>
                         </div>
-                        {(song.paidPlayCount ?? 0) > 0 && (
-                          <div className="text-muted-foreground">
-                            {formatNumber(song.paidPlayCount ?? 0)} paid /{' '}
-                            {formatNumber(song.freePlayCount ?? 0)} free
-                          </div>
-                        )}
-                        {song.lastPlayedAt && (
-                          <div className="text-muted-foreground">
-                            Last played {formatRelativeTime(song.lastPlayedAt)}
-                          </div>
-                        )}
+                        <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                          {(song.paidPlayCount ?? 0) > 0 && (
+                            <span>
+                              {formatNumber(song.paidPlayCount ?? 0)} paid /{' '}
+                              {formatNumber(song.freePlayCount ?? 0)} free
+                            </span>
+                          )}
+                          {song.lastPlayedAt && (
+                            <span>
+                              Last played {formatRelativeTime(song.lastPlayedAt)}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap items-center justify-end gap-2">
-                        {isApproved && (
-                          <>
-                            {song.inRefinery ? (
-                              <Button asChild size="sm">
-                                <Link href={`/refinery/analytics/${song.id}`}>
-                                  Reviews ({song.refineryReviewCount ?? 0}/
-                                  {song.refineryMinReviews ?? 100})
-                                </Link>
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setRefinerySubmitSong(song)}
-                                title={`Pay $${REFINERY_SUBMISSION_PRICE_USD} to get an in-depth review`}
+                      <div className="flex items-center justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Actions"
+                              aria-label={`Actions for ${song.title}`}
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
                               >
-                                Submit to Refinery (${REFINERY_SUBMISSION_PRICE_USD})
-                              </Button>
+                                <circle cx="12" cy="5" r="2" />
+                                <circle cx="12" cy="12" r="2" />
+                                <circle cx="12" cy="19" r="2" />
+                              </svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            {isApproved &&
+                              (song.inRefinery ? (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/refinery/analytics/${song.id}`}>
+                                    View reviews ({song.refineryReviewCount ?? 0}/
+                                    {song.refineryMinReviews ?? 100})
+                                  </Link>
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onSelect={() => setRefinerySubmitSong(song)}
+                                >
+                                  Submit to Refinery (${REFINERY_SUBMISSION_PRICE_USD})
+                                </DropdownMenuItem>
+                              ))}
+                            <DropdownMenuItem onSelect={() => openEditModal(song)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!song.audioUrl}
+                              onSelect={() => setSampleSong(song)}
+                            >
+                              Set sample
+                            </DropdownMenuItem>
+                            {isApproved && (
+                              <DropdownMenuItem
+                                disabled={!song.audioUrl}
+                                onSelect={() => setDiscoverClipSong(song)}
+                              >
+                                Set Discover clip
+                              </DropdownMenuItem>
                             )}
-                          </>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openEditModal(song)}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSampleSong(song)}
-                          disabled={!song.audioUrl}
-                          title="Set the 30-second preview sample"
-                        >
-                          Set sample
-                        </Button>
-                        {isApproved && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setDiscoverClipSong(song)}
-                            disabled={!song.audioUrl}
-                            title="Set the 5–15s Discover swipe clip"
-                          >
-                            Set Discover clip
-                          </Button>
-                        )}
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          disabled={deletingSongId === song.id}
-                          onClick={() => void handleDeleteSong(song)}
-                        >
-                          {deletingSongId === song.id ? 'Deleting…' : 'Delete'}
-                        </Button>
-                        {isApproved && song.inRefinery && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            disabled={refineryToggling === song.id}
-                            onClick={() => withdrawFromRefinery(song.id)}
-                            title="Remove from The Refinery (no refund)"
-                          >
-                            {refineryToggling === song.id ? '…' : 'Withdraw'}
-                          </Button>
-                        )}
+                            {isApproved && song.inRefinery && (
+                              <DropdownMenuItem
+                                disabled={refineryToggling === song.id}
+                                onSelect={() => withdrawFromRefinery(song.id)}
+                              >
+                                {refineryToggling === song.id
+                                  ? 'Withdrawing…'
+                                  : 'Withdraw from Refinery'}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={deletingSongId === song.id}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                void handleDeleteSong(song);
+                              }}
+                            >
+                              {deletingSongId === song.id ? 'Deleting…' : 'Delete'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </TableCell>
                   </TableRow>
