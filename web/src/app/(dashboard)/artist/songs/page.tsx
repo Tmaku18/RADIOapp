@@ -14,6 +14,7 @@ import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
+import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
 import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
 
@@ -158,6 +159,7 @@ export default function MySongsPage() {
   const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [sampleSong, setSampleSong] = useState<Song | null>(null);
+  const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editStationId, setEditStationId] = useState('');
   const [editArtworkUrl, setEditArtworkUrl] = useState('');
@@ -752,6 +754,17 @@ export default function MySongsPage() {
                         >
                           Set sample
                         </Button>
+                        {isApproved && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setDiscoverClipSong(song)}
+                            disabled={!song.audioUrl}
+                            title="Set the 5–15s Discover swipe clip"
+                          >
+                            Set Discover clip
+                          </Button>
+                        )}
                         <Button
                           variant="destructive"
                           size="sm"
@@ -1060,6 +1073,41 @@ export default function MySongsPage() {
                     sampleUrl: result.sampleUrl,
                     sampleStartSeconds: result.sampleStartSeconds,
                     sampleEndSeconds: result.sampleEndSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
+      />
+      <DiscoverClipDialog
+        open={discoverClipSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setDiscoverClipSong(null);
+        }}
+        song={
+          discoverClipSong
+            ? {
+                id: discoverClipSong.id,
+                title: discoverClipSong.title,
+                audioUrl: discoverClipSong.audioUrl ?? null,
+                durationSeconds: discoverClipSong.durationSeconds ?? null,
+                discoverClipStartSeconds:
+                  discoverClipSong.discoverClipStartSeconds ?? null,
+                discoverClipEndSeconds:
+                  discoverClipSong.discoverClipEndSeconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === discoverClipSong?.id
+                ? {
+                    ...s,
+                    discoverEnabled: result.discoverEnabled,
+                    discoverClipUrl: result.discoverClipUrl,
+                    discoverClipStartSeconds: result.discoverClipStartSeconds,
+                    discoverClipEndSeconds: result.discoverClipEndSeconds,
                   }
                 : s,
             ),
