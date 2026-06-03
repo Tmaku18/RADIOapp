@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LiveChat } from '@/components/stream/LiveChat';
+import { useAuth } from '@/contexts/AuthContext';
 
 type WatchSession = {
   id: string;
@@ -208,11 +209,14 @@ export default function WatchArtistLivePage() {
     () => (typeof params?.artistId === 'string' ? params.artistId : ''),
     [params],
   );
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === 'admin';
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<WatchSession | null>(null);
   const [hostRole, setHostRole] = useState<string>('artist');
   const [error, setError] = useState<string | null>(null);
   const [viewers, setViewers] = useState(0);
+  const [ending, setEnding] = useState(false);
 
   // Donation UI state
   const [presetAmount, setPresetAmount] = useState<number | 'custom'>(5);
@@ -351,6 +355,30 @@ export default function WatchArtistLivePage() {
     }
   };
 
+  const handleAdminEnd = async () => {
+    if (!session?.id) return;
+    if (
+      !window.confirm(
+        'End this stream for everyone? The broadcaster will be cut off immediately.',
+      )
+    ) {
+      return;
+    }
+    setEnding(true);
+    try {
+      await artistLiveApi.adminForceStop(session.id);
+      setSession(null);
+      setError('Stream ended by admin.');
+    } catch (err: unknown) {
+      setError(
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Could not end the stream.',
+      );
+    } finally {
+      setEnding(false);
+    }
+  };
+
   if (!artistId) {
     return (
       <div className="p-6">
@@ -365,11 +393,23 @@ export default function WatchArtistLivePage() {
         <h1 className="text-xl md:text-2xl font-semibold">
           {isDj ? 'Live DJ set' : 'Watch artist live'}
         </h1>
-        <Link href={isDj ? '/dj' : `/artist/${artistId}`}>
-          <Button variant="outline" size="sm">
-            {isDj ? 'Back to Live DJ' : 'Back to artist'}
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {isAdmin && session?.id && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleAdminEnd}
+              disabled={ending}
+            >
+              {ending ? 'Ending…' : 'End stream (admin)'}
+            </Button>
+          )}
+          <Link href={isDj ? '/dj' : `/artist/${artistId}`}>
+            <Button variant="outline" size="sm">
+              {isDj ? 'Back to Live DJ' : 'Back to artist'}
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {donationNotice && (

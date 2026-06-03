@@ -766,6 +766,10 @@ export const artistLiveApi = {
     api.post<{ deleted: boolean }>(
       `/artist-live/${sessionId}/chat/${messageId}/delete`,
     ),
+  adminForceStop: (sessionId: string) =>
+    api.post<{ stopped: boolean }>(
+      `/artist-live/admin/sessions/${sessionId}/force-stop`,
+    ),
 };
 
 export type StreamChatMessage = {

@@ -100,5 +100,12 @@ class LivestreamService {
         await _api.post('artist-live/$sessionId/chat/$messageId/delete', {});
     return data is Map<String, dynamic> && data['deleted'] == true;
   }
+
+  /// Admin-only: force-stop any live session.
+  Future<bool> adminForceStop(String sessionId) async {
+    final data = await _api
+        .post('artist-live/admin/sessions/$sessionId/force-stop', {});
+    return data is Map<String, dynamic> && data['stopped'] == true;
+  }
 }
 

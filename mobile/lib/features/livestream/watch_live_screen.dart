@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/auth/auth_service.dart';
 import '../../core/services/livestream_service.dart';
 
 class WatchLiveScreen extends StatefulWidget {
@@ -41,10 +43,64 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   final TextEditingController _message = TextEditingController();
   bool _donating = false;
 
+  bool _isAdmin = false;
+  bool _ending = false;
+
   @override
   void initState() {
     super.initState();
     _load();
+    _loadAdmin();
+  }
+
+  Future<void> _loadAdmin() async {
+    try {
+      final profile = await Provider.of<AuthService>(context, listen: false)
+          .getUserProfile();
+      if (mounted && profile?.role == 'admin') {
+        setState(() => _isAdmin = true);
+      }
+    } catch (_) {
+      // Not an admin / not signed in — leave controls hidden.
+    }
+  }
+
+  Future<void> _endStreamAdmin() async {
+    final sessionId = _joinedSessionId ?? _session?['id']?.toString();
+    if (sessionId == null || _ending) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End this stream?'),
+        content: const Text(
+          'The broadcaster will be cut off immediately for everyone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('End stream'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _ending = true);
+    try {
+      await _live.adminForceStop(sessionId);
+      if (!mounted) return;
+      setState(() {
+        _session = null;
+        _error = 'Stream ended by admin.';
+      });
+    } catch (_) {
+      _snack('Could not end the stream');
+    } finally {
+      if (mounted) setState(() => _ending = false);
+    }
   }
 
   @override
@@ -246,7 +302,21 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Watch Live')),
+      appBar: AppBar(
+        title: const Text('Watch Live'),
+        actions: [
+          if (_isAdmin && _session != null)
+            TextButton.icon(
+              onPressed: _ending ? null : _endStreamAdmin,
+              icon: const Icon(Icons.stop_circle_outlined,
+                  color: Colors.redAccent),
+              label: Text(
+                _ending ? 'Ending…' : 'End',
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
