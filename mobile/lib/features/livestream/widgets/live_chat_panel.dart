@@ -9,18 +9,26 @@ import '../../../core/services/livestream_service.dart';
 /// messages, and (when [canModerate] is true, e.g. for the broadcasting host)
 /// allows long-pressing a message to delete it.
 ///
-/// Designed to be placed inside a bounded box (e.g. an [Expanded]); the message
-/// list fills the available height and the input row sits at the bottom.
+/// When [overlay] is true it renders semitransparent (white text on a blurred
+/// dark scrim) so it can float over the video, like most streaming platforms.
+///
+/// Designed to be placed inside a bounded box (e.g. an [Expanded] or a
+/// [SizedBox]); the message list fills the available height and the input row
+/// sits at the bottom.
 class LiveChatPanel extends StatefulWidget {
   final String sessionId;
 
   /// Show host/admin moderation affordances (long-press to delete a message).
   final bool canModerate;
 
+  /// Render as a semitransparent overlay meant to float over the video.
+  final bool overlay;
+
   const LiveChatPanel({
     super.key,
     required this.sessionId,
     this.canModerate = false,
+    this.overlay = false,
   });
 
   @override
@@ -156,22 +164,46 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final overlay = widget.overlay;
+    final shadows = overlay
+        ? const [Shadow(color: Colors.black, blurRadius: 3)]
+        : null;
+    final titleColor = overlay ? Colors.white : null;
+    final emptyColor =
+        overlay ? Colors.white70 : theme.colorScheme.onSurfaceVariant;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Live chat', style: theme.textTheme.titleMedium),
+        Text(
+          'Live chat',
+          style: theme.textTheme.titleSmall?.copyWith(
+            color: titleColor,
+            shadows: shadows,
+          ),
+        ),
         const SizedBox(height: 8),
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              border: Border.all(color: theme.dividerColor),
+              color: overlay
+                  ? Colors.black.withValues(alpha: 0.4)
+                  : null,
+              border: Border.all(
+                color: overlay
+                    ? Colors.white.withValues(alpha: 0.15)
+                    : theme.dividerColor,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: _chat.isEmpty
                 ? Center(
                     child: Text(
                       'No messages yet.',
-                      style: theme.textTheme.bodySmall,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: emptyColor,
+                        shadows: shadows,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -190,7 +222,10 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: RichText(
                             text: TextSpan(
-                              style: theme.textTheme.bodyMedium,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: overlay ? Colors.white : null,
+                                shadows: shadows,
+                              ),
                               children: [
                                 if (isHost)
                                   WidgetSpan(
@@ -201,8 +236,11 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 4, vertical: 1),
                                         decoration: BoxDecoration(
-                                          color: theme.colorScheme.primary
-                                              .withValues(alpha: 0.2),
+                                          color: overlay
+                                              ? Colors.white
+                                                  .withValues(alpha: 0.25)
+                                              : theme.colorScheme.primary
+                                                  .withValues(alpha: 0.2),
                                           borderRadius:
                                               BorderRadius.circular(4),
                                         ),
@@ -211,7 +249,9 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                           style: TextStyle(
                                             fontSize: 9,
                                             fontWeight: FontWeight.bold,
-                                            color: theme.colorScheme.primary,
+                                            color: overlay
+                                                ? Colors.white
+                                                : theme.colorScheme.primary,
                                           ),
                                         ),
                                       ),
@@ -222,7 +262,9 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                   style: TextStyle(
                                     fontWeight: FontWeight.w600,
                                     color: isHost
-                                        ? theme.colorScheme.primary
+                                        ? (overlay
+                                            ? Colors.white
+                                            : theme.colorScheme.primary)
                                         : _colorForName(name),
                                   ),
                                 ),
@@ -244,12 +286,19 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                 controller: _chatInput,
                 maxLength: 500,
                 textInputAction: TextInputAction.send,
+                style: overlay ? const TextStyle(color: Colors.white) : null,
                 onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Send a message',
+                  hintStyle: overlay
+                      ? const TextStyle(color: Colors.white60)
+                      : null,
                   counterText: '',
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  filled: overlay,
+                  fillColor:
+                      overlay ? Colors.white.withValues(alpha: 0.1) : null,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -265,7 +314,10 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
             padding: const EdgeInsets.only(top: 4),
             child: Text(
               'Long-press a message to remove it.',
-              style: theme.textTheme.bodySmall,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: emptyColor,
+                shadows: shadows,
+              ),
             ),
           ),
       ],
@@ -278,6 +330,6 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
       hash = c + ((hash << 5) - hash);
     }
     final hue = (hash.abs() % 360).toDouble();
-    return HSLColor.fromAHSL(1.0, hue, 0.6, 0.6).toColor();
+    return HSLColor.fromAHSL(1.0, hue, 0.7, 0.72).toColor();
   }
 }

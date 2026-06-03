@@ -203,10 +203,21 @@ export default function GoLiveStudioPage() {
             ingest?.webRtcUrl ? (
               // DJ sets default to audio-only (camera off) unless the DJ turns
               // the camera on. Musician performances start with the camera on.
-              <CameraBroadcaster
-                whipUrl={ingest.webRtcUrl}
-                startCameraOff={hostKind === 'dj'}
-              />
+              <div className="relative">
+                <CameraBroadcaster
+                  whipUrl={ingest.webRtcUrl}
+                  startCameraOff={hostKind === 'dj'}
+                />
+                {sessionId && artistId && (
+                  <div className="absolute right-2 top-2 z-10 flex h-[55%] max-h-[440px] w-[72%] max-w-[20rem] sm:w-80">
+                    <LiveChat
+                      overlay
+                      sessionId={sessionId}
+                      artistId={artistId}
+                    />
+                  </div>
+                )}
+              </div>
             ) : (
               <Card>
                 <CardContent className="py-8 text-center text-sm text-muted-foreground">
@@ -286,9 +297,13 @@ export default function GoLiveStudioPage() {
             </Card>
           )}
 
-          {sessionId && artistId && (
-            <LiveChat sessionId={sessionId} artistId={artistId} />
-          )}
+          {/* When there's no in-app camera preview (OBS/encoder), show the chat
+              as a normal panel instead of an overlay. */}
+          {!(source === 'device' && ingest?.webRtcUrl) &&
+            sessionId &&
+            artistId && (
+              <LiveChat sessionId={sessionId} artistId={artistId} />
+            )}
 
           <div className="flex flex-col gap-2 sm:flex-row">
             <Button

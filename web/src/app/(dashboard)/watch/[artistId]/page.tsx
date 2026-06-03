@@ -430,8 +430,8 @@ export default function WatchArtistLivePage() {
           ) : error ? (
             <p className="text-sm text-muted-foreground">{error}</p>
           ) : (
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-              <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="relative">
               {session?.watch_url ? (
                 // Cloudflare's own player handles the live startup window (WHIP →
                 // HLS) and low-latency playback far more reliably than a custom
@@ -454,6 +454,17 @@ export default function WatchArtistLivePage() {
                   Stream is initializing. Refresh in a few seconds.
                 </p>
               )}
+              {session?.id &&
+                (session?.watch_url || session?.playback_hls_url) && (
+                  <div className="absolute right-2 top-2 z-10 flex h-[55%] max-h-[440px] w-[72%] max-w-[20rem] sm:w-80">
+                    <LiveChat
+                      overlay
+                      sessionId={session.id}
+                      artistId={artistId}
+                    />
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {viewers} watching now
               </p>
@@ -534,11 +545,6 @@ export default function WatchArtistLivePage() {
                       : `Donate $${resolvedAmountDollars > 0 ? resolvedAmountDollars : 0}`}
                   </Button>
                 </div>
-              )}
-              </div>
-
-              {session?.id && (
-                <LiveChat sessionId={session.id} artistId={artistId} />
               )}
             </div>
           )}
