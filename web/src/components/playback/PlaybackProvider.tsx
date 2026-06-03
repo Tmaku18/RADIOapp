@@ -82,6 +82,32 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     sourceRef.current = state.source;
   }, [state.source]);
 
+  // Pause radio when discover clips, sample previews, or other page audio starts.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const onExternalMediaPlay = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLMediaElement)) return;
+      if (target === audioRef.current) return;
+      if (sourceRef.current !== 'radio') return;
+
+      const main = audioRef.current;
+      if (!main || main.paused) return;
+
+      main.pause();
+      setState((s) => ({
+        ...s,
+        isPlaying: false,
+        pausedAt: Date.now(),
+        isLive: false,
+      }));
+    };
+
+    document.addEventListener('play', onExternalMediaPlay, true);
+    return () => document.removeEventListener('play', onExternalMediaPlay, true);
+  }, []);
+
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;
   }, []);

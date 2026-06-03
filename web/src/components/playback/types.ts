@@ -1,6 +1,7 @@
 /**
  * Unified playback types for global PlaybackProvider.
  * Single audio session: only one source (radio | discography | refinery) plays at a time.
+ * Radio soft-pauses when other page media (discover clips, samples, etc.) starts.
  */
 
 export type PlaybackSource = 'radio' | 'discography' | 'refinery' | null;
