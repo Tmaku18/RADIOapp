@@ -479,13 +479,13 @@ export const songsApi = {
     api.get<{ url: string; title: string; artistName: string | null }>(
       `/songs/${id}/download`,
     ),
-  setSample: (id: string, startSeconds: number) =>
+  setSample: (id: string, startSeconds: number, endSeconds?: number) =>
     api.post<{
       id: string;
       sampleUrl: string | null;
       sampleStartSeconds: number;
       sampleEndSeconds: number;
-    }>(`/songs/${id}/sample`, { startSeconds }),
+    }>(`/songs/${id}/sample`, { startSeconds, endSeconds }),
   getPurchases: () =>
     api.get<
       Array<{

@@ -1068,7 +1068,7 @@ export class SongsController {
   async setSongSample(
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
-    @Body() body: { startSeconds?: number },
+    @Body() body: { startSeconds?: number; endSeconds?: number },
   ) {
     const { id, role } = await this.resolveUserIdAndRole(user.uid);
     return this.songsService.setSongSample(
@@ -1076,6 +1076,7 @@ export class SongsController {
       role,
       songId,
       Number(body?.startSeconds ?? 0),
+      body?.endSeconds == null ? null : Number(body.endSeconds),
     );
   }
 

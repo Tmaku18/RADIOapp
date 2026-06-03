@@ -25,6 +25,8 @@ interface Song {
   like_count?: number;
   status: 'pending' | 'approved' | 'rejected';
   is_explicit?: boolean;
+  sample_start_seconds?: number | null;
+  sample_end_seconds?: number | null;
   rejection_reason?: string;
   rejected_at?: string | null;
   copyright_status?:
@@ -1307,6 +1309,8 @@ export default function AdminSongsPage() {
                   durationOverrides[sampleSong.id] ??
                   sampleSong.duration_seconds ??
                   null,
+                sampleStartSeconds: sampleSong.sample_start_seconds ?? null,
+                sampleEndSeconds: sampleSong.sample_end_seconds ?? null,
               }
             : null
         }

@@ -67,6 +67,7 @@ interface Song {
   isExplicit?: boolean;
   sampleUrl?: string | null;
   sampleStartSeconds?: number | null;
+  sampleEndSeconds?: number | null;
   priceCents?: number | null;
 }
 
@@ -1060,6 +1061,7 @@ export default function MySongsPage() {
                 audioUrl: sampleSong.audioUrl ?? null,
                 durationSeconds: sampleSong.durationSeconds ?? null,
                 sampleStartSeconds: sampleSong.sampleStartSeconds ?? null,
+                sampleEndSeconds: sampleSong.sampleEndSeconds ?? null,
               }
             : null
         }
@@ -1071,6 +1073,7 @@ export default function MySongsPage() {
                     ...s,
                     sampleUrl: result.sampleUrl,
                     sampleStartSeconds: result.sampleStartSeconds,
+                    sampleEndSeconds: result.sampleEndSeconds,
                   }
                 : s,
             ),

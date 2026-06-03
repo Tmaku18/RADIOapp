@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
@@ -428,12 +427,29 @@ class _StudioScreenState extends State<StudioScreen> {
 }
 
 const int _kSampleLengthSeconds = 30;
+const int _kSampleMinSeconds = 5;
 
 String _fmtTime(int totalSeconds) {
   final s = totalSeconds < 0 ? 0 : totalSeconds;
   final m = s ~/ 60;
   final rem = s % 60;
   return '$m:${rem.toString().padLeft(2, '0')}';
+}
+
+/// Parse "m:ss" or a plain seconds string into whole seconds. Null if invalid.
+int? _parseTime(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return null;
+  if (trimmed.contains(':')) {
+    final parts = trimmed.split(':');
+    if (parts.length != 2) return null;
+    final m = int.tryParse(parts[0].trim());
+    final s = int.tryParse(parts[1].trim());
+    if (m == null || s == null || s < 0 || s >= 60) return null;
+    return m * 60 + s;
+  }
+  final n = int.tryParse(trimmed);
+  return n;
 }
 
 /// Lets an artist pick the 30-second sample window for one of their songs.
@@ -448,18 +464,30 @@ class _SampleTrimSheet extends StatefulWidget {
 class _SampleTrimSheetState extends State<_SampleTrimSheet> {
   final SongsService _songs = SongsService();
   final AudioPlayer _player = AudioPlayer();
+  final TextEditingController _startCtrl = TextEditingController();
+  final TextEditingController _endCtrl = TextEditingController();
   int _duration = 0;
   int _start = 0;
+  int _end = _kSampleLengthSeconds;
   bool _saving = false;
   bool _previewing = false;
-  Timer? _stopTimer;
 
   @override
   void initState() {
     super.initState();
     _duration = widget.song.durationSeconds ?? 0;
     _start = widget.song.sampleStartSeconds;
+    final storedEnd = widget.song.sampleEndSeconds;
+    _end = (storedEnd != null && storedEnd > _start)
+        ? storedEnd
+        : _start + _kSampleLengthSeconds;
+    _syncText();
     _prepare();
+  }
+
+  void _syncText() {
+    _startCtrl.text = _fmtTime(_start);
+    _endCtrl.text = _fmtTime(_end);
   }
 
   Future<void> _prepare() async {
@@ -471,6 +499,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
       if (dur != null && dur.inSeconds > 0) {
         setState(() {
           if (_duration <= 0) _duration = dur.inSeconds;
+          _applyWindow(_start, _end, keepLength: true);
         });
       }
     } catch (_) {
@@ -480,38 +509,85 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
 
   int get _maxStart {
     final d = _duration > 0 ? _duration : _kSampleLengthSeconds;
-    final m = d - _kSampleLengthSeconds;
+    final m = d - _kSampleMinSeconds;
     return m < 0 ? 0 : m;
   }
 
-  int get _end {
-    final d = _duration > 0 ? _duration : _start + _kSampleLengthSeconds;
-    final e = _start + _kSampleLengthSeconds;
-    return e > d ? d : e;
+  int get _sampleLength => (_end - _start).clamp(0, _kSampleLengthSeconds);
+
+  /// Clamp the start/end pair so the window stays 5–30s and inside the track.
+  void _applyWindow(int nextStart, int nextEnd, {bool keepLength = false}) {
+    final dur = _duration;
+    final upperStart = dur > 0 ? (dur - _kSampleMinSeconds).clamp(0, dur) : 1 << 30;
+    var s = nextStart.clamp(0, upperStart);
+
+    var e = nextEnd;
+    if (keepLength) {
+      final length = (_end - _start).clamp(_kSampleMinSeconds, _kSampleLengthSeconds);
+      e = s + length;
+    }
+    if (e < s + _kSampleMinSeconds) e = s + _kSampleMinSeconds;
+    if (e > s + _kSampleLengthSeconds) e = s + _kSampleLengthSeconds;
+    if (dur > 0 && e > dur) {
+      e = dur;
+      if (e - s < _kSampleMinSeconds) s = (e - _kSampleMinSeconds).clamp(0, e);
+      if (e - s > _kSampleLengthSeconds) s = e - _kSampleLengthSeconds;
+    }
+    _start = s;
+    _end = e;
+    _syncText();
+  }
+
+  void _nudgeStart(int delta) {
+    _stopPreview();
+    setState(() => _applyWindow(_start + delta, _end, keepLength: true));
+  }
+
+  void _commitStartText() {
+    final parsed = _parseTime(_startCtrl.text);
+    _stopPreview();
+    setState(() {
+      if (parsed == null) {
+        _syncText();
+      } else {
+        _applyWindow(parsed, _end, keepLength: true);
+      }
+    });
+  }
+
+  void _commitEndText() {
+    final parsed = _parseTime(_endCtrl.text);
+    _stopPreview();
+    setState(() {
+      if (parsed == null) {
+        _syncText();
+      } else {
+        _applyWindow(_start, parsed);
+      }
+    });
   }
 
   Future<void> _preview() async {
-    _stopTimer?.cancel();
     try {
-      await _player.seek(Duration(seconds: _start));
+      // Clip + loop-one plays only the selected window, repeating it.
+      await _player.setClip(
+        start: Duration(seconds: _start),
+        end: Duration(seconds: _end),
+      );
+      await _player.setLoopMode(LoopMode.one);
       await _player.play();
       if (!mounted) return;
       setState(() => _previewing = true);
-      _stopTimer = Timer(const Duration(seconds: _kSampleLengthSeconds), () async {
-        try {
-          await _player.pause();
-        } catch (_) {}
-        if (mounted) setState(() => _previewing = false);
-      });
     } catch (_) {
       if (mounted) setState(() => _previewing = false);
     }
   }
 
   Future<void> _stopPreview() async {
-    _stopTimer?.cancel();
     try {
       await _player.pause();
+      await _player.setLoopMode(LoopMode.off);
+      await _player.setClip();
     } catch (_) {}
     if (mounted) setState(() => _previewing = false);
   }
@@ -519,7 +595,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await _songs.setSample(widget.song.id, _start);
+      await _songs.setSample(widget.song.id, _start, endSeconds: _end);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Sample saved. Rendering preview…')),
@@ -537,7 +613,8 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
 
   @override
   void dispose() {
-    _stopTimer?.cancel();
+    _startCtrl.dispose();
+    _endCtrl.dispose();
     _player.dispose();
     super.dispose();
   }
@@ -558,7 +635,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Set 30-second sample',
+              'Set preview sample',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
@@ -569,8 +646,50 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
               style: TextStyle(color: surfaces.textSecondary),
             ),
             const SizedBox(height: 16),
+            // Start time with -1s / +1s nudge buttons and a text field.
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _startCtrl,
+                    keyboardType: TextInputType.text,
+                    decoration: const InputDecoration(
+                      labelText: 'Start (m:ss)',
+                      isDense: true,
+                      border: OutlineInputBorder(),
+                    ),
+                    onEditingComplete: _commitStartText,
+                    onSubmitted: (_) => _commitStartText(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton.outlined(
+                  tooltip: 'Nudge start back 1s',
+                  onPressed: () => _nudgeStart(-1),
+                  icon: const Icon(Icons.remove),
+                ),
+                IconButton.outlined(
+                  tooltip: 'Nudge start forward 1s',
+                  onPressed: () => _nudgeStart(1),
+                  icon: const Icon(Icons.add),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _endCtrl,
+              keyboardType: TextInputType.text,
+              decoration: const InputDecoration(
+                labelText: 'End (m:ss) — 5 to 30s window',
+                isDense: true,
+                border: OutlineInputBorder(),
+              ),
+              onEditingComplete: _commitEndText,
+              onSubmitted: (_) => _commitEndText(),
+            ),
+            const SizedBox(height: 16),
             Text(
-              'Sample window: ${_fmtTime(_start)} – ${_fmtTime(_end)}',
+              'Window: ${_fmtTime(_start)} – ${_fmtTime(_end)}  ·  ${_sampleLength}s',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             Slider(
@@ -583,13 +702,13 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
                   ? null
                   : (v) {
                       _stopPreview();
-                      setState(() => _start = v.round());
+                      setState(() => _applyWindow(v.round(), _end, keepLength: true));
                     },
             ),
             Text(
               _duration > 0
                   ? 'Track length: ${_fmtTime(_duration)}'
-                  : 'Drag to choose where the 30-second preview starts.',
+                  : 'Choose where the preview starts and how long it runs.',
               style: TextStyle(color: surfaces.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -598,7 +717,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
                 OutlinedButton.icon(
                   onPressed: _previewing ? _stopPreview : _preview,
                   icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
-                  label: Text(_previewing ? 'Stop' : 'Preview'),
+                  label: Text(_previewing ? 'Stop' : 'Preview ${_sampleLength}s'),
                 ),
                 const Spacer(),
                 FilledButton(

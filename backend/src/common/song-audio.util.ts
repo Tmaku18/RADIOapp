@@ -119,3 +119,4 @@ export function resolveSampleWindow(song: {
 }
 
 export const SONG_SAMPLE_MAX_SECONDS = 30;
+export const SONG_SAMPLE_MIN_SECONDS = 5;

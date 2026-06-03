@@ -17,6 +17,7 @@ import {
   signSongAudioUrl,
   resolveSampleWindow,
   SONG_SAMPLE_MAX_SECONDS,
+  SONG_SAMPLE_MIN_SECONDS,
 } from '../common/song-audio.util';
 
 export interface DiscoverSongCard {
@@ -404,6 +405,7 @@ export class SongsService {
     requesterRole: string | null | undefined,
     songId: string,
     startSeconds: number,
+    endSeconds?: number | null,
   ): Promise<{
     id: string;
     sampleUrl: string | null;
@@ -429,7 +431,22 @@ export class SongsService {
     const duration = Math.max(0, Number(song.duration_seconds ?? 0) || 0);
     let start = Math.max(0, Math.floor(Number(startSeconds) || 0));
     if (duration > 0 && start >= duration) start = Math.max(0, duration - 1);
-    let end = start + SONG_SAMPLE_MAX_SECONDS;
+
+    // Determine the sample length. The window may be 5–30s; when no explicit
+    // end is provided, default to the full 30s window.
+    const maxRoom = duration > 0 ? Math.max(1, duration - start) : SONG_SAMPLE_MAX_SECONDS;
+    const requestedEnd = Number(endSeconds);
+    let length: number;
+    if (Number.isFinite(requestedEnd) && requestedEnd > start) {
+      length = Math.round(requestedEnd) - start;
+    } else {
+      length = SONG_SAMPLE_MAX_SECONDS;
+    }
+    length = Math.max(
+      Math.min(SONG_SAMPLE_MIN_SECONDS, maxRoom),
+      Math.min(length, SONG_SAMPLE_MAX_SECONDS, maxRoom),
+    );
+    let end = start + length;
     if (duration > 0 && end > duration) end = duration;
     if (end <= start) end = start + Math.min(SONG_SAMPLE_MAX_SECONDS, duration || SONG_SAMPLE_MAX_SECONDS);
 

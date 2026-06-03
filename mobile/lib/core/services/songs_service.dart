@@ -312,10 +312,12 @@ class SongsService {
 
   Future<Map<String, dynamic>?> setSample(
     String songId,
-    int startSeconds,
-  ) async {
+    int startSeconds, {
+    int? endSeconds,
+  }) async {
     final res = await _api.post('songs/$songId/sample', {
       'startSeconds': startSeconds,
+      if (endSeconds != null) 'endSeconds': endSeconds,
     });
     if (res is Map<String, dynamic>) return res;
     return null;

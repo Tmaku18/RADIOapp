@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -12,11 +12,29 @@ import {
 import { Button } from '@/components/ui/button';
 import { songsApi } from '@/lib/api';
 
-const SAMPLE_LENGTH = 30;
+const MAX_SAMPLE = 30;
+const MIN_SAMPLE = 5;
 
 function fmt(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+}
+
+/** Parse "m:ss" or a plain seconds string into seconds. Returns null if invalid. */
+function parseTime(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (trimmed.includes(':')) {
+    const [mm, ss] = trimmed.split(':');
+    const m = Number(mm);
+    const s = Number(ss);
+    if (!Number.isFinite(m) || !Number.isFinite(s) || s < 0 || s >= 60) {
+      return null;
+    }
+    return m * 60 + s;
+  }
+  const n = Number(trimmed);
+  return Number.isFinite(n) ? n : null;
 }
 
 type Props = {
@@ -29,6 +47,7 @@ type Props = {
     audioUrl: string | null;
     durationSeconds?: number | null;
     sampleStartSeconds?: number | null;
+    sampleEndSeconds?: number | null;
   } | null;
   onSaved?: (result: {
     sampleUrl: string | null;
@@ -38,28 +57,85 @@ type Props = {
 };
 
 /**
- * Pick the 30-second preview sample for a song. The uploader/admin scrubs the
- * full track, sets a start point, previews the window, and saves. The server
- * renders the actual sample file.
+ * Pick the preview sample window (5–30s) for a song. The uploader/admin scrubs
+ * the full track, sets start/end points, previews the looping window, and saves.
+ * The server renders the actual sample file.
  */
 export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [duration, setDuration] = useState<number>(song?.durationSeconds ?? 0);
   const [start, setStart] = useState<number>(song?.sampleStartSeconds ?? 0);
+  const [end, setEnd] = useState<number>(
+    song?.sampleEndSeconds ?? (song?.sampleStartSeconds ?? 0) + MAX_SAMPLE,
+  );
   const [current, setCurrent] = useState<number>(0);
   const [playing, setPlaying] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Raw text in the inputs so the user can type freely before we clamp.
+  const [startText, setStartText] = useState('0:00');
+  const [endText, setEndText] = useState('0:30');
 
-  const end = Math.min(start + SAMPLE_LENGTH, duration || start + SAMPLE_LENGTH);
-  const maxStart = Math.max(0, (duration || SAMPLE_LENGTH) - SAMPLE_LENGTH);
+  // Refs keep the looping preview in sync without recreating the audio element.
+  const startRef = useRef(start);
+  const endRef = useRef(end);
+  startRef.current = start;
+  endRef.current = end;
+
+  const maxStart = Math.max(0, (duration || MAX_SAMPLE) - MIN_SAMPLE);
+  const total = duration || end || start + MAX_SAMPLE;
+
+  /** Clamp the start/end pair so the window stays 5–30s and inside the track. */
+  const applyWindow = useCallback(
+    (nextStart: number, nextEnd: number, opts?: { keepLength?: boolean }) => {
+      const dur = duration || 0;
+      const upperStart = dur > 0 ? Math.max(0, dur - MIN_SAMPLE) : Infinity;
+      let s = Math.max(0, Math.min(Math.round(nextStart), upperStart));
+
+      let e = Math.round(nextEnd);
+      if (opts?.keepLength) {
+        const length = Math.min(MAX_SAMPLE, Math.max(MIN_SAMPLE, endRef.current - startRef.current));
+        e = s + length;
+      }
+      // Enforce 5–30s window length.
+      if (e < s + MIN_SAMPLE) e = s + MIN_SAMPLE;
+      if (e > s + MAX_SAMPLE) e = s + MAX_SAMPLE;
+      // Keep inside the track; if it overflows, pull the window back.
+      if (dur > 0 && e > dur) {
+        e = dur;
+        if (e - s < MIN_SAMPLE) s = Math.max(0, e - MIN_SAMPLE);
+        if (e - s > MAX_SAMPLE) s = e - MAX_SAMPLE;
+      }
+      setStart(s);
+      setEnd(e);
+      setStartText(fmt(s));
+      setEndText(fmt(e));
+      if (audioRef.current) audioRef.current.currentTime = s;
+      return { s, e };
+    },
+    [duration],
+  );
 
   useEffect(() => {
     if (!open) return;
-    setStart(song?.sampleStartSeconds ?? 0);
+    const s = song?.sampleStartSeconds ?? 0;
+    const e =
+      song?.sampleEndSeconds && song.sampleEndSeconds > s
+        ? song.sampleEndSeconds
+        : s + MAX_SAMPLE;
+    setStart(s);
+    setEnd(e);
+    setStartText(fmt(s));
+    setEndText(fmt(e));
     setDuration(song?.durationSeconds ?? 0);
     setCurrent(0);
     setPlaying(false);
-  }, [open, song?.id, song?.durationSeconds, song?.sampleStartSeconds]);
+  }, [
+    open,
+    song?.id,
+    song?.durationSeconds,
+    song?.sampleStartSeconds,
+    song?.sampleEndSeconds,
+  ]);
 
   useEffect(() => {
     if (!open || !song?.audioUrl) return;
@@ -74,12 +150,12 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     };
     const onTime = () => {
       setCurrent(audio.currentTime);
-      // Loop within the selected sample window while previewing.
-      if (audio.currentTime >= start + SAMPLE_LENGTH || audio.currentTime < start) {
-        audio.currentTime = start;
-        if (!playing) {
-          audio.pause();
-        }
+      // Loop within the selected window while previewing.
+      if (
+        audio.currentTime >= endRef.current ||
+        audio.currentTime < startRef.current - 0.25
+      ) {
+        audio.currentTime = startRef.current;
       }
     };
     const onEnded = () => setPlaying(false);
@@ -99,6 +175,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
   const previewWindow = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    audio.loop = false;
     audio.currentTime = start;
     void audio.play();
     setPlaying(true);
@@ -109,11 +186,39 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     setPlaying(false);
   };
 
+  const nudgeStart = (delta: number) => {
+    applyWindow(start + delta, end, { keepLength: true });
+  };
+
+  const commitStartText = () => {
+    const parsed = parseTime(startText);
+    if (parsed == null) {
+      setStartText(fmt(start));
+      return;
+    }
+    applyWindow(parsed, end, { keepLength: true });
+  };
+
+  const commitEndText = () => {
+    const parsed = parseTime(endText);
+    if (parsed == null) {
+      setEndText(fmt(end));
+      return;
+    }
+    applyWindow(start, parsed);
+  };
+
+  const sampleLength = Math.max(0, end - start);
+
   const handleSave = async () => {
     if (!song) return;
     setSaving(true);
     try {
-      const res = await songsApi.setSample(song.id, Math.round(start));
+      const res = await songsApi.setSample(
+        song.id,
+        Math.round(start),
+        Math.round(end),
+      );
       toast.success('Sample updated');
       onSaved?.({
         sampleUrl: res.data?.sampleUrl ?? null,
@@ -131,16 +236,20 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
     }
   };
 
-  const total = duration || start + SAMPLE_LENGTH;
-
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) pause(); onOpenChange(o); }}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) pause();
+        onOpenChange(o);
+      }}
+    >
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle>Set 30-second sample</DialogTitle>
+          <DialogTitle>Set preview sample</DialogTitle>
           <DialogDescription>
-            Choose where the preview starts. Listeners hear this 30-second clip
-            on your artist page until they buy the song.
+            Choose the {MIN_SAMPLE}–{MAX_SAMPLE}s window listeners hear on your
+            artist page until they buy the song.
           </DialogDescription>
         </DialogHeader>
 
@@ -156,7 +265,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 className="absolute top-0 h-full rounded-md bg-primary/30"
                 style={{
                   left: `${(start / total) * 100}%`,
-                  width: `${(Math.min(SAMPLE_LENGTH, total) / total) * 100}%`,
+                  width: `${(Math.min(sampleLength, total) / total) * 100}%`,
                 }}
               />
               <div
@@ -165,14 +274,69 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
               />
             </div>
 
-            <div className="flex items-center justify-between text-xs font-mono text-muted-foreground">
-              <span>Start {fmt(start)}</span>
-              <span>End {fmt(end)}</span>
+            {/* Fine-tuning: start / end text inputs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">
+                  Start time (m:ss)
+                </label>
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="px-2"
+                    onClick={() => nudgeStart(-1)}
+                    title="Nudge start back 1 second"
+                  >
+                    -1s
+                  </Button>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={startText}
+                    onChange={(e) => setStartText(e.target.value)}
+                    onBlur={commitStartText}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitStartText();
+                    }}
+                    className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="px-2"
+                    onClick={() => nudgeStart(1)}
+                    title="Nudge start forward 1 second"
+                  >
+                    +1s
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">
+                  End time (m:ss)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={endText}
+                  onChange={(e) => setEndText(e.target.value)}
+                  onBlur={commitEndText}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitEndText();
+                  }}
+                  className="w-full rounded-md border bg-background px-2 py-1 text-center text-sm font-mono"
+                />
+              </div>
             </div>
 
+            {/* Coarse start scrubber */}
             <div>
               <label className="text-xs text-muted-foreground">
-                Sample start ({fmt(start)})
+                Drag start ({fmt(start)})
               </label>
               <input
                 type="range"
@@ -180,11 +344,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 max={maxStart}
                 step={1}
                 value={start}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setStart(v);
-                  if (audioRef.current) audioRef.current.currentTime = v;
-                }}
+                onChange={(e) => applyWindow(Number(e.target.value), end, { keepLength: true })}
                 className="w-full"
               />
             </div>
@@ -196,10 +356,13 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
                 size="sm"
                 onClick={() => (playing ? pause() : previewWindow())}
               >
-                {playing ? 'Pause' : 'Preview 30s'}
+                {playing ? 'Pause' : `Preview ${Math.round(sampleLength)}s`}
               </Button>
               <span className="text-xs font-mono text-muted-foreground">
                 {fmt(current)} / {fmt(total)}
+              </span>
+              <span className="ml-auto text-xs font-mono text-muted-foreground">
+                Length {Math.round(sampleLength)}s
               </span>
             </div>
 
@@ -215,7 +378,11 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
               >
                 Cancel
               </Button>
-              <Button type="button" onClick={() => void handleSave()} disabled={saving}>
+              <Button
+                type="button"
+                onClick={() => void handleSave()}
+                disabled={saving}
+              >
                 {saving ? 'Saving…' : 'Save sample'}
               </Button>
             </div>
