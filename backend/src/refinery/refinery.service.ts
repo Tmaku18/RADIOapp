@@ -538,8 +538,6 @@ export class RefineryService {
       overall_rating: dto.overallRating,
       beat_rating: dto.beatRating,
       lyrics_rating: dto.lyricsRating,
-      lyrics_beat_match_rating: dto.lyricsBeatMatchRating,
-      pacing_rating: dto.pacingRating,
       chorus_rating: dto.chorusRating,
       opening_ending_rating: dto.openingEndingRating,
       survey_responses: surveyResponses,
@@ -672,7 +670,7 @@ export class RefineryService {
     const { data: allReviews, error: reviewsErr } = await supabase
       .from('refinery_reviews')
       .select(
-        'id, overall_rating, beat_rating, lyrics_rating, lyrics_beat_match_rating, pacing_rating, chorus_rating, opening_ending_rating, survey_responses, custom_responses, comment, created_at, reviewer_id',
+        'id, overall_rating, beat_rating, lyrics_rating, chorus_rating, opening_ending_rating, survey_responses, custom_responses, comment, created_at, reviewer_id',
       )
       .eq('song_id', songId)
       .order('created_at', { ascending: false });
@@ -686,8 +684,6 @@ export class RefineryService {
       overall_rating: number;
       beat_rating: number;
       lyrics_rating: number;
-      lyrics_beat_match_rating: number;
-      pacing_rating: number;
       chorus_rating: number;
       opening_ending_rating: number;
       survey_responses: Record<string, string> | null;
@@ -703,10 +699,6 @@ export class RefineryService {
       overall_rating: this.summarizeRatings(reviews.map((r) => r.overall_rating)),
       beat_rating: this.summarizeRatings(reviews.map((r) => r.beat_rating)),
       lyrics_rating: this.summarizeRatings(reviews.map((r) => r.lyrics_rating)),
-      lyrics_beat_match_rating: this.summarizeRatings(
-        reviews.map((r) => r.lyrics_beat_match_rating),
-      ),
-      pacing_rating: this.summarizeRatings(reviews.map((r) => r.pacing_rating)),
       chorus_rating: this.summarizeRatings(reviews.map((r) => r.chorus_rating)),
       opening_ending_rating: this.summarizeRatings(
         reviews.map((r) => r.opening_ending_rating),
@@ -775,8 +767,6 @@ export class RefineryService {
       overallRating: r.overall_rating,
       beatRating: r.beat_rating,
       lyricsRating: r.lyrics_rating,
-      lyricsBeatMatchRating: r.lyrics_beat_match_rating,
-      pacingRating: r.pacing_rating,
       chorusRating: r.chorus_rating,
       openingEndingRating: r.opening_ending_rating,
       surveyResponses: r.survey_responses ?? {},

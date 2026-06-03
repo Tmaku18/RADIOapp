@@ -13,8 +13,6 @@ export class SubmitReviewDto {
   @IsInt() @Min(1) @Max(10) overallRating!: number;
   @IsInt() @Min(1) @Max(10) beatRating!: number;
   @IsInt() @Min(1) @Max(10) lyricsRating!: number;
-  @IsInt() @Min(1) @Max(10) lyricsBeatMatchRating!: number;
-  @IsInt() @Min(1) @Max(10) pacingRating!: number;
   @IsInt() @Min(1) @Max(10) chorusRating!: number;
   @IsInt() @Min(1) @Max(10) openingEndingRating!: number;
 

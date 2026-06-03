@@ -22,25 +22,19 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
     (key: 'overall_rating', question: 'Overall'),
     (key: 'beat_rating', question: 'Beat / instrumental'),
     (key: 'lyrics_rating', question: 'Lyrics'),
-    (key: 'lyrics_beat_match_rating', question: 'Lyrics match the beat'),
-    (key: 'pacing_rating', question: 'Pacing / timing'),
     (key: 'chorus_rating', question: 'Chorus / hook'),
     (key: 'opening_ending_rating', question: 'Opening & ending'),
   ];
 
   static const List<({String key, String question, List<String> options})>
       _surveyQuestions = [
-    (key: 'beat_engaging', question: 'Was the beat engaging?', options: ['Yes', 'Somewhat', 'No']),
     (key: 'vocals_clear', question: 'Was the voice clear?', options: ['Yes', 'Somewhat', 'No']),
-    (key: 'lyrics_understandable', question: 'Could you understand the words?', options: ['Yes', 'Partially', 'No']),
     (key: 'flow_quality', question: 'Flow and delivery', options: ['Smooth', 'Average', 'Choppy']),
     (key: 'intro_hook', question: 'Did the intro hook you?', options: ['Yes', 'No']),
-    (key: 'song_length', question: 'Song length', options: ['Too Long', 'Just Right', 'Too Short']),
     (key: 'listen_again', question: 'Would you listen again?', options: ['Yes', 'Maybe', 'No']),
     (key: 'add_to_playlist', question: 'Add to a playlist?', options: ['Yes', 'Maybe', 'No']),
     (key: 'memorable_hook', question: 'Memorable hook or chorus?', options: ['Yes', 'Somewhat', 'No']),
     (key: 'audio_quality', question: 'Mixing / audio quality', options: ['Yes', 'Needs Work', 'No']),
-    (key: 'emotion_story', question: 'Told a story / conveyed emotion?', options: ['Yes', 'Somewhat', 'No']),
     (key: 'recommend_friend', question: 'Recommend to a friend?', options: ['Yes', 'Maybe', 'No']),
   ];
 
@@ -382,8 +376,6 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
       (label: 'overall', value: r.overallRating),
       (label: 'beat', value: r.beatRating),
       (label: 'lyrics', value: r.lyricsRating),
-      (label: 'lyrics/beat', value: r.lyricsBeatMatchRating),
-      (label: 'pacing', value: r.pacingRating),
       (label: 'chorus', value: r.chorusRating),
       (label: 'intro/outro', value: r.openingEndingRating),
     ];

@@ -29,8 +29,6 @@ const initialRatings: Ratings = {
   overall_rating: 5,
   beat_rating: 5,
   lyrics_rating: 5,
-  lyrics_beat_match_rating: 5,
-  pacing_rating: 5,
   chorus_rating: 5,
   opening_ending_rating: 5,
 };
@@ -89,8 +87,6 @@ export default function ReviewPage() {
         overallRating: ratings.overall_rating,
         beatRating: ratings.beat_rating,
         lyricsRating: ratings.lyrics_rating,
-        lyricsBeatMatchRating: ratings.lyrics_beat_match_rating,
-        pacingRating: ratings.pacing_rating,
         chorusRating: ratings.chorus_rating,
         openingEndingRating: ratings.opening_ending_rating,
         surveyResponses: survey,

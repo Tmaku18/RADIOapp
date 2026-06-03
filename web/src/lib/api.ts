@@ -212,8 +212,6 @@ export type RefinerySubmitReviewPayload = {
   overallRating: number;
   beatRating: number;
   lyricsRating: number;
-  lyricsBeatMatchRating: number;
-  pacingRating: number;
   chorusRating: number;
   openingEndingRating: number;
   surveyResponses: Record<string, string>;
@@ -260,8 +258,6 @@ export type RefineryAnalyticsPayload = {
     overallRating: number;
     beatRating: number;
     lyricsRating: number;
-    lyricsBeatMatchRating: number;
-    pacingRating: number;
     chorusRating: number;
     openingEndingRating: number;
     surveyResponses: Record<string, string>;

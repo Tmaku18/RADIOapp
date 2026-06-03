@@ -123,8 +123,6 @@ class RefineryReviewItem {
   final int overallRating;
   final int beatRating;
   final int lyricsRating;
-  final int lyricsBeatMatchRating;
-  final int pacingRating;
   final int chorusRating;
   final int openingEndingRating;
   final String? comment;
@@ -136,8 +134,6 @@ class RefineryReviewItem {
     required this.overallRating,
     required this.beatRating,
     required this.lyricsRating,
-    required this.lyricsBeatMatchRating,
-    required this.pacingRating,
     required this.chorusRating,
     required this.openingEndingRating,
     required this.comment,
@@ -152,8 +148,6 @@ class RefineryReviewItem {
       overallRating: _toInt(json['overallRating']),
       beatRating: _toInt(json['beatRating']),
       lyricsRating: _toInt(json['lyricsRating']),
-      lyricsBeatMatchRating: _toInt(json['lyricsBeatMatchRating']),
-      pacingRating: _toInt(json['pacingRating']),
       chorusRating: _toInt(json['chorusRating']),
       openingEndingRating: _toInt(json['openingEndingRating']),
       comment: (c == null || c.isEmpty) ? null : c,

@@ -10,8 +10,6 @@ export type RatingKey =
   | 'overall_rating'
   | 'beat_rating'
   | 'lyrics_rating'
-  | 'lyrics_beat_match_rating'
-  | 'pacing_rating'
   | 'chorus_rating'
   | 'opening_ending_rating';
 
@@ -24,8 +22,6 @@ export const REFINERY_RATING_QUESTIONS: ReadonlyArray<RatingQuestion> = [
   { key: 'overall_rating', question: 'Overall, how would you rate this song?' },
   { key: 'beat_rating', question: 'How would you rate just the beat / instrumental?' },
   { key: 'lyrics_rating', question: 'How would you rate just the lyrics?' },
-  { key: 'lyrics_beat_match_rating', question: 'How well did the lyrics match the beat?' },
-  { key: 'pacing_rating', question: 'How was the pacing / timing of the song?' },
   { key: 'chorus_rating', question: 'How would you rate the chorus / hook?' },
   { key: 'opening_ending_rating', question: 'How was the opening and ending?' },
 ] as const;
@@ -38,19 +34,9 @@ export interface SurveyQuestion {
 
 export const REFINERY_SURVEY_QUESTIONS: ReadonlyArray<SurveyQuestion> = [
   {
-    key: 'beat_engaging',
-    question: 'Was the beat engaging and interesting?',
-    options: ['Yes', 'Somewhat', 'No'],
-  },
-  {
     key: 'vocals_clear',
     question: "Was the artist's voice clear and audible?",
     options: ['Yes', 'Somewhat', 'No'],
-  },
-  {
-    key: 'lyrics_understandable',
-    question: 'Could you understand what they were saying?',
-    options: ['Yes', 'Partially', 'No'],
   },
   {
     key: 'flow_quality',
@@ -61,11 +47,6 @@ export const REFINERY_SURVEY_QUESTIONS: ReadonlyArray<SurveyQuestion> = [
     key: 'intro_hook',
     question: 'Did the intro hook you in?',
     options: ['Yes', 'No'],
-  },
-  {
-    key: 'song_length',
-    question: 'Was the song too long, too short, or just right?',
-    options: ['Too Long', 'Just Right', 'Too Short'],
   },
   {
     key: 'listen_again',
@@ -86,11 +67,6 @@ export const REFINERY_SURVEY_QUESTIONS: ReadonlyArray<SurveyQuestion> = [
     key: 'audio_quality',
     question: 'Was the mixing and audio quality good?',
     options: ['Yes', 'Needs Work', 'No'],
-  },
-  {
-    key: 'emotion_story',
-    question: 'Did the song tell a story or convey emotion effectively?',
-    options: ['Yes', 'Somewhat', 'No'],
   },
   {
     key: 'recommend_friend',

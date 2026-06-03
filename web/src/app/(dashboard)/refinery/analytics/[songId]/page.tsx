@@ -286,8 +286,6 @@ export default function RefineryAnalyticsPage() {
                         ['overall', r.overallRating],
                         ['beat', r.beatRating],
                         ['lyrics', r.lyricsRating],
-                        ['lyrics/beat', r.lyricsBeatMatchRating],
-                        ['pacing', r.pacingRating],
                         ['chorus', r.chorusRating],
                         ['intro/outro', r.openingEndingRating],
                       ] as Array<[string, number]>
