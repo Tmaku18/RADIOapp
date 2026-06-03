@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
+import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,6 +47,14 @@ function parseTimeToSeconds(value: string): number | null {
   return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
 }
 
+function formatSecondsForTrimInput(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
+  const whole = Math.round(seconds);
+  const mins = Math.floor(whole / 60);
+  const secs = whole % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function errorMessage(err: unknown, fallback: string): string {
   const msg =
     err && typeof err === 'object'
@@ -72,6 +81,9 @@ export default function UploadPage() {
   const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0:00');
   const [discoverClipEndSeconds, setDiscoverClipEndSeconds] = useState('0:15');
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
+  // Local object URL for previewing the discover-clip window. Source is the
+  // separate discover clip when provided, otherwise the main track.
+  const [discoverPreviewUrl, setDiscoverPreviewUrl] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
   const [artistOriginCity, setArtistOriginCity] = useState('');
@@ -82,6 +94,17 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [readyForRotation, setReadyForRotation] = useState(false);
   const [isExplicit, setIsExplicit] = useState(false);
+
+  useEffect(() => {
+    const source = discoverClipFile ?? audioFile;
+    if (!source) {
+      setDiscoverPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(source);
+    setDiscoverPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [discoverClipFile, audioFile]);
 
   const extractDurationSeconds = (file: File): Promise<number | null> => {
     return new Promise((resolve) => {
@@ -516,34 +539,22 @@ export default function UploadPage() {
                   </div>
                 )}
               </Button>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="discover-start">Clip Start (mm:ss or seconds)</Label>
-                  <Input
-                    id="discover-start"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0:00"
-                    value={discoverClipStartSeconds}
-                    onChange={(e) => setDiscoverClipStartSeconds(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="discover-end">Clip End (mm:ss or seconds)</Label>
-                  <Input
-                    id="discover-end"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0:15"
-                    value={discoverClipEndSeconds}
-                    onChange={(e) => setDiscoverClipEndSeconds(e.target.value)}
-                  />
-                </div>
-              </div>
+              <ClipWindowEditor
+                audioUrl={discoverPreviewUrl}
+                durationSeconds={discoverClipFile ? null : durationSeconds}
+                minLength={5}
+                maxLength={15}
+                startSeconds={parseTimeToSeconds(discoverClipStartSeconds) ?? 0}
+                endSeconds={parseTimeToSeconds(discoverClipEndSeconds) ?? 15}
+                onChange={(start, end) => {
+                  setDiscoverClipStartSeconds(formatSecondsForTrimInput(start));
+                  setDiscoverClipEndSeconds(formatSecondsForTrimInput(end));
+                }}
+              />
               <p className="text-xs text-muted-foreground">
-                Artists can trim discover playback to 15 seconds max. If no
-                discover clip is uploaded, trim is generated from your main
-                audio. Examples: `0:12`, `1:05`, or `12.5`.
+                Trim the discover window (5–15s) and preview the looping clip. If
+                no discover clip is uploaded, the window is taken from your main
+                audio.
               </p>
             </div>
 

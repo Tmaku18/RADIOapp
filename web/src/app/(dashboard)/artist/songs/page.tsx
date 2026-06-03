@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
+import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
 import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
 import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
 
@@ -876,37 +877,22 @@ export default function MySongsPage() {
                 />
               </div>
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                Discover clip source: this song&apos;s uploaded audio.
-                Set start/end below to trim the clip (up to 15s), same flow as admin trim.
+                Discover clip source: this song&apos;s uploaded audio. Set the
+                window below (5–15s) and preview the looping clip, same flow as
+                the sample trimmer.
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    Clip start (mm:ss or seconds)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0:00"
-                    value={editDiscoverClipStartSeconds}
-                    onChange={(e) => setEditDiscoverClipStartSeconds(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-muted-foreground">
-                    Clip end (mm:ss or seconds)
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0:15"
-                    value={editDiscoverClipEndSeconds}
-                    onChange={(e) => setEditDiscoverClipEndSeconds(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                </div>
-              </div>
+              <ClipWindowEditor
+                audioUrl={editingSong.audioUrl ?? null}
+                durationSeconds={editingSong.durationSeconds ?? null}
+                minLength={5}
+                maxLength={15}
+                startSeconds={parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0}
+                endSeconds={parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15}
+                onChange={(start, end) => {
+                  setEditDiscoverClipStartSeconds(formatSecondsForTrimInput(start));
+                  setEditDiscoverClipEndSeconds(formatSecondsForTrimInput(end));
+                }}
+              />
               <label className="text-sm font-medium">Discover Background Image (optional)</label>
               <div className="flex items-center gap-2">
                 <input
