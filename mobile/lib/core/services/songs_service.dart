@@ -322,4 +322,21 @@ class SongsService {
     if (res is Map<String, dynamic>) return res;
     return null;
   }
+
+  /// Render + publish a discover clip from the song's own audio.
+  Future<Map<String, dynamic>?> publishDiscover(
+    String songId, {
+    required int clipStartSeconds,
+    required int clipEndSeconds,
+    String? discoverBackgroundUrl,
+  }) async {
+    final res = await _api.post('songs/$songId/discover/publish', {
+      'clipStartSeconds': clipStartSeconds,
+      'clipEndSeconds': clipEndSeconds,
+      if (discoverBackgroundUrl != null)
+        'discoverBackgroundUrl': discoverBackgroundUrl,
+    });
+    if (res is Map<String, dynamic>) return res;
+    return null;
+  }
 }

@@ -154,11 +154,55 @@ class _StudioScreenState extends State<StudioScreen> {
   }
 
   Future<void> _openSampleTrim(Song song) async {
+    final start = song.sampleStartSeconds;
+    final end = (song.sampleEndSeconds != null && song.sampleEndSeconds! > start)
+        ? song.sampleEndSeconds!
+        : start + _kSampleLengthSeconds;
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (_) => _SampleTrimSheet(song: song),
+      builder: (_) => _ClipWindowSheet(
+        song: song,
+        title: 'Set preview sample',
+        saveLabel: 'Save sample',
+        savedMessage: 'Sample saved. Rendering preview…',
+        minLength: _kSampleMinSeconds,
+        maxLength: _kSampleLengthSeconds,
+        initialStart: start,
+        initialEnd: end,
+        onSave: (s, e) =>
+            _songs.setSample(song.id, s, endSeconds: e),
+      ),
+    );
+    if (updated == true && mounted) await _load();
+  }
+
+  Future<void> _openDiscoverClip(Song song) async {
+    final start = song.discoverClipStartSeconds ?? 0;
+    final storedEnd = song.discoverClipEndSeconds;
+    final end = (storedEnd != null && storedEnd > start)
+        ? storedEnd
+        : start + _kDiscoverClipMaxSeconds;
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _ClipWindowSheet(
+        song: song,
+        title: 'Set Discover clip',
+        saveLabel: 'Publish to Discover',
+        savedMessage: 'Discover clip saved. Rendering…',
+        minLength: _kDiscoverClipMinSeconds,
+        maxLength: _kDiscoverClipMaxSeconds,
+        initialStart: start,
+        initialEnd: end,
+        onSave: (s, e) => _songs.publishDiscover(
+          song.id,
+          clipStartSeconds: s,
+          clipEndSeconds: e,
+        ),
+      ),
     );
     if (updated == true && mounted) await _load();
   }
@@ -367,6 +411,12 @@ class _StudioScreenState extends State<StudioScreen> {
                                         label: const Text('Set sample'),
                                       ),
                                       TextButton.icon(
+                                        onPressed: () => _openDiscoverClip(s),
+                                        icon: const Icon(
+                                            Icons.swipe_outlined),
+                                        label: const Text('Set Discover clip'),
+                                      ),
+                                      TextButton.icon(
                                         onPressed: s.inRefinery
                                             ? null
                                             : () async {
@@ -428,6 +478,8 @@ class _StudioScreenState extends State<StudioScreen> {
 
 const int _kSampleLengthSeconds = 30;
 const int _kSampleMinSeconds = 5;
+const int _kDiscoverClipMaxSeconds = 15;
+const int _kDiscoverClipMinSeconds = 5;
 
 String _fmtTime(int totalSeconds) {
   final s = totalSeconds < 0 ? 0 : totalSeconds;
@@ -452,35 +504,58 @@ int? _parseTime(String value) {
   return n;
 }
 
-/// Lets an artist pick the 30-second sample window for one of their songs.
-class _SampleTrimSheet extends StatefulWidget {
+/// Generic window picker for trimming a clip from a song's audio: start/end
+/// time fields, ±1s nudge buttons, a start scrubber, and a looping preview of
+/// just the selected window. Used for both the paid-preview sample (5–30s) and
+/// the Discover swipe clip (5–15s).
+class _ClipWindowSheet extends StatefulWidget {
   final Song song;
-  const _SampleTrimSheet({required this.song});
+  final String title;
+  final String saveLabel;
+  final String savedMessage;
+  final int minLength;
+  final int maxLength;
+  final int initialStart;
+  final int initialEnd;
+  final Future<void> Function(int startSeconds, int endSeconds) onSave;
+
+  const _ClipWindowSheet({
+    required this.song,
+    required this.title,
+    required this.saveLabel,
+    required this.savedMessage,
+    required this.minLength,
+    required this.maxLength,
+    required this.initialStart,
+    required this.initialEnd,
+    required this.onSave,
+  });
 
   @override
-  State<_SampleTrimSheet> createState() => _SampleTrimSheetState();
+  State<_ClipWindowSheet> createState() => _ClipWindowSheetState();
 }
 
-class _SampleTrimSheetState extends State<_SampleTrimSheet> {
-  final SongsService _songs = SongsService();
+class _ClipWindowSheetState extends State<_ClipWindowSheet> {
   final AudioPlayer _player = AudioPlayer();
   final TextEditingController _startCtrl = TextEditingController();
   final TextEditingController _endCtrl = TextEditingController();
   int _duration = 0;
   int _start = 0;
-  int _end = _kSampleLengthSeconds;
+  int _end = 0;
   bool _saving = false;
   bool _previewing = false;
+
+  int get _minLen => widget.minLength;
+  int get _maxLen => widget.maxLength;
 
   @override
   void initState() {
     super.initState();
     _duration = widget.song.durationSeconds ?? 0;
-    _start = widget.song.sampleStartSeconds;
-    final storedEnd = widget.song.sampleEndSeconds;
-    _end = (storedEnd != null && storedEnd > _start)
-        ? storedEnd
-        : _start + _kSampleLengthSeconds;
+    _start = widget.initialStart;
+    _end = widget.initialEnd > _start
+        ? widget.initialEnd
+        : _start + _maxLen;
     _syncText();
     _prepare();
   }
@@ -508,30 +583,30 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
   }
 
   int get _maxStart {
-    final d = _duration > 0 ? _duration : _kSampleLengthSeconds;
-    final m = d - _kSampleMinSeconds;
+    final d = _duration > 0 ? _duration : _maxLen;
+    final m = d - _minLen;
     return m < 0 ? 0 : m;
   }
 
-  int get _sampleLength => (_end - _start).clamp(0, _kSampleLengthSeconds);
+  int get _windowLength => (_end - _start).clamp(0, _maxLen);
 
-  /// Clamp the start/end pair so the window stays 5–30s and inside the track.
+  /// Clamp the start/end pair so the window stays min–max and inside the track.
   void _applyWindow(int nextStart, int nextEnd, {bool keepLength = false}) {
     final dur = _duration;
-    final upperStart = dur > 0 ? (dur - _kSampleMinSeconds).clamp(0, dur) : 1 << 30;
+    final upperStart = dur > 0 ? (dur - _minLen).clamp(0, dur) : 1 << 30;
     var s = nextStart.clamp(0, upperStart);
 
     var e = nextEnd;
     if (keepLength) {
-      final length = (_end - _start).clamp(_kSampleMinSeconds, _kSampleLengthSeconds);
+      final length = (_end - _start).clamp(_minLen, _maxLen);
       e = s + length;
     }
-    if (e < s + _kSampleMinSeconds) e = s + _kSampleMinSeconds;
-    if (e > s + _kSampleLengthSeconds) e = s + _kSampleLengthSeconds;
+    if (e < s + _minLen) e = s + _minLen;
+    if (e > s + _maxLen) e = s + _maxLen;
     if (dur > 0 && e > dur) {
       e = dur;
-      if (e - s < _kSampleMinSeconds) s = (e - _kSampleMinSeconds).clamp(0, e);
-      if (e - s > _kSampleLengthSeconds) s = e - _kSampleLengthSeconds;
+      if (e - s < _minLen) s = (e - _minLen).clamp(0, e);
+      if (e - s > _maxLen) s = e - _maxLen;
     }
     _start = s;
     _end = e;
@@ -595,17 +670,17 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
   Future<void> _save() async {
     setState(() => _saving = true);
     try {
-      await _songs.setSample(widget.song.id, _start, endSeconds: _end);
+      await widget.onSave(_start, _end);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sample saved. Rendering preview…')),
+        SnackBar(content: Text(widget.savedMessage)),
       );
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not save sample: $e')));
+      ).showSnackBar(SnackBar(content: Text('Could not save: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -635,7 +710,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Set preview sample',
+              widget.title,
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 4),
@@ -679,17 +754,17 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
             TextField(
               controller: _endCtrl,
               keyboardType: TextInputType.text,
-              decoration: const InputDecoration(
-                labelText: 'End (m:ss) — 5 to 30s window',
+              decoration: InputDecoration(
+                labelText: 'End (m:ss) — $_minLen to ${_maxLen}s window',
                 isDense: true,
-                border: OutlineInputBorder(),
+                border: const OutlineInputBorder(),
               ),
               onEditingComplete: _commitEndText,
               onSubmitted: (_) => _commitEndText(),
             ),
             const SizedBox(height: 16),
             Text(
-              'Window: ${_fmtTime(_start)} – ${_fmtTime(_end)}  ·  ${_sampleLength}s',
+              'Window: ${_fmtTime(_start)} – ${_fmtTime(_end)}  ·  ${_windowLength}s',
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),
             Slider(
@@ -708,7 +783,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
             Text(
               _duration > 0
                   ? 'Track length: ${_fmtTime(_duration)}'
-                  : 'Choose where the preview starts and how long it runs.',
+                  : 'Choose where the clip starts and how long it runs.',
               style: TextStyle(color: surfaces.textMuted, fontSize: 12),
             ),
             const SizedBox(height: 16),
@@ -717,7 +792,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
                 OutlinedButton.icon(
                   onPressed: _previewing ? _stopPreview : _preview,
                   icon: Icon(_previewing ? Icons.stop : Icons.play_arrow),
-                  label: Text(_previewing ? 'Stop' : 'Preview ${_sampleLength}s'),
+                  label: Text(_previewing ? 'Stop' : 'Preview ${_windowLength}s'),
                 ),
                 const Spacer(),
                 FilledButton(
@@ -728,7 +803,7 @@ class _SampleTrimSheetState extends State<_SampleTrimSheet> {
                           height: 18,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Save sample'),
+                      : Text(widget.saveLabel),
                 ),
               ],
             ),

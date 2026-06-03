@@ -23,6 +23,9 @@ class Song {
   final int? sampleEndSeconds;
   final int priceCents;
   final bool forSale;
+  final bool discoverEnabled;
+  final int? discoverClipStartSeconds;
+  final int? discoverClipEndSeconds;
 
   Song({
     required this.id,
@@ -47,6 +50,9 @@ class Song {
     this.sampleEndSeconds,
     this.priceCents = 99,
     this.forSale = true,
+    this.discoverEnabled = false,
+    this.discoverClipStartSeconds,
+    this.discoverClipEndSeconds,
   });
 
   factory Song.fromJson(Map<String, dynamic> json) {
@@ -89,6 +95,25 @@ class Song {
         99,
       ),
       forSale: (json['is_for_sale'] ?? json['forSale']) != false,
+      discoverEnabled:
+          (json['discover_enabled'] ?? json['discoverEnabled']) == true,
+      discoverClipStartSeconds:
+          (json['discover_clip_start_seconds'] ?? json['discoverClipStartSeconds'])
+              is num
+          ? parseIntOr(
+              json['discover_clip_start_seconds'] ??
+                  json['discoverClipStartSeconds'],
+              0,
+            )
+          : null,
+      discoverClipEndSeconds:
+          (json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'])
+              is num
+          ? parseIntOr(
+              json['discover_clip_end_seconds'] ?? json['discoverClipEndSeconds'],
+              0,
+            )
+          : null,
       createdAt: DateTime.parse(
         (json['created_at'] ?? json['createdAt']).toString(),
       ),
@@ -120,6 +145,9 @@ class Song {
       'sample_end_seconds': sampleEndSeconds,
       'price_cents': priceCents,
       'is_for_sale': forSale,
+      'discover_enabled': discoverEnabled,
+      'discover_clip_start_seconds': discoverClipStartSeconds,
+      'discover_clip_end_seconds': discoverClipEndSeconds,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
