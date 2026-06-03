@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/api_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/clip_window_sheet.dart';
 import 'package:just_audio/just_audio.dart';
 
 class UploadScreen extends StatefulWidget {
@@ -27,6 +28,12 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _readyForRotation = false;
   int? _durationSeconds;
   bool _isExplicit = false;
+  bool _discoverEnabled = false;
+  int? _discoverClipStart;
+  int? _discoverClipEnd;
+
+  static const int _kDiscoverClipMin = 5;
+  static const int _kDiscoverClipMax = 15;
 
   Future<void> _pickAudioFile() async {
     final result = await FilePicker.platform.pickFiles(
@@ -67,6 +74,40 @@ class _UploadScreenState extends State<UploadScreen> {
         _readyForRotation = false;
       });
     }
+  }
+
+  Future<void> _openDiscoverClipWindow() async {
+    if (_audioFile == null) return;
+    final start = _discoverClipStart ?? 0;
+    final end = (_discoverClipEnd != null && _discoverClipEnd! > start)
+        ? _discoverClipEnd!
+        : start + _kDiscoverClipMax;
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ClipWindowSheet(
+        audioFilePath: _audioFile!.path,
+        displayTitle: _titleController.text.trim().isEmpty
+            ? 'Your track'
+            : _titleController.text.trim(),
+        durationSeconds: _durationSeconds,
+        heading: 'Set Discover clip',
+        saveLabel: 'Use this window',
+        savedMessage: 'Discover window set',
+        minLength: _kDiscoverClipMin,
+        maxLength: _kDiscoverClipMax,
+        initialStart: start,
+        initialEnd: end,
+        onSave: (s, e) async {
+          if (!mounted) return;
+          setState(() {
+            _discoverClipStart = s;
+            _discoverClipEnd = e;
+          });
+        },
+      ),
+    );
   }
 
   String _contentTypeFor(String path, {required bool isAudio}) {
@@ -181,6 +222,11 @@ class _UploadScreenState extends State<UploadScreen> {
       }
       setState(() => _progress = 0.8);
 
+      final discoverReady = _discoverEnabled &&
+          _discoverClipStart != null &&
+          _discoverClipEnd != null &&
+          _discoverClipEnd! > _discoverClipStart!;
+
       await _apiService.post('songs', {
         'title': _titleController.text.trim(),
         'artistName': _artistNameController.text.trim(),
@@ -188,6 +234,8 @@ class _UploadScreenState extends State<UploadScreen> {
         if (artworkPath != null) 'artworkPath': artworkPath,
         if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
         'isExplicit': _isExplicit,
+        if (discoverReady) 'discoverClipStartSeconds': _discoverClipStart,
+        if (discoverReady) 'discoverClipEndSeconds': _discoverClipEnd,
       });
 
       if (!mounted) return;
@@ -383,6 +431,57 @@ class _UploadScreenState extends State<UploadScreen> {
                         ? null
                         : (value) => setState(() => _isExplicit = value),
                   ),
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Enable Discover swipe'),
+                    subtitle: const Text(
+                      'Trim a short clip (5–15s) from this track for the Discover feed.',
+                    ),
+                    value: _discoverEnabled,
+                    onChanged: _isUploading
+                        ? null
+                        : (value) => setState(() => _discoverEnabled = value),
+                  ),
+                  if (_discoverEnabled)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (_audioFile == null)
+                            Text(
+                              'Select an audio file first to set the Discover window.',
+                              style: TextStyle(
+                                  color: surfaces.textMuted, fontSize: 12),
+                            )
+                          else ...[
+                            OutlinedButton.icon(
+                              onPressed:
+                                  _isUploading ? null : _openDiscoverClipWindow,
+                              icon: const Icon(Icons.swipe_outlined),
+                              label: Text(
+                                _discoverClipStart != null &&
+                                        _discoverClipEnd != null
+                                    ? 'Discover window: '
+                                        '${clipFmtTime(_discoverClipStart!)} – '
+                                        '${clipFmtTime(_discoverClipEnd!)}'
+                                    : 'Set Discover clip window',
+                              ),
+                            ),
+                            if (_discoverClipStart != null &&
+                                _discoverClipEnd != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  'Length: ${_discoverClipEnd! - _discoverClipStart!}s',
+                                  style: TextStyle(
+                                      color: surfaces.textMuted, fontSize: 12),
+                                ),
+                              ),
+                          ],
+                        ],
+                      ),
+                    ),
                   const SizedBox(height: 16),
                   if (_isUploading)
                     Column(
