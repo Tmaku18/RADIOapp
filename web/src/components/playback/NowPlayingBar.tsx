@@ -128,10 +128,21 @@ export function NowPlayingBar() {
         </div>
       )}
       <footer
-        className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80"
+        className={cn(
+          'group fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+          // Hide the bar by default so it doesn't block navigation; leave a thin
+          // strip at the bottom that reveals the full bar on hover/focus.
+          'translate-y-[calc(100%-10px)] transition-transform duration-300 ease-out hover:translate-y-0 focus-within:translate-y-0',
+          showExpandedPlayer && 'translate-y-0',
+        )}
         style={{ height: BAR_HEIGHT }}
         aria-label="Now playing"
       >
+        {/* Hover handle shown when the bar is tucked away. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-0.5 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/40 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0"
+        />
         <div className="h-full px-4 flex items-center gap-3 max-w-full">
           <button
             type="button"
