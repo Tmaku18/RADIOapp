@@ -4,6 +4,7 @@ import {
   Post,
   Body,
   Headers,
+  Param,
   Req,
   UseGuards,
   Query,
@@ -261,6 +262,70 @@ export class PaymentsController {
     });
   }
 
+  // ─── Stripe Connect (artist payouts) ────────────────────────────────
+
+  private async resolveUserId(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (!data) throw new Error('User not found');
+    return data.id;
+  }
+
+  /** Begin (or resume) Stripe Connect Express onboarding for the artist. */
+  @Post('connect/onboard')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async connectOnboard(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body: { returnUrl?: string; refreshUrl?: string },
+  ) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.startConnectOnboarding(userId, {
+      returnUrl: body?.returnUrl,
+      refreshUrl: body?.refreshUrl,
+    });
+  }
+
+  /** Current Connect onboarding/payout status for the artist. */
+  @Get('connect/status')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async connectStatus(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.getConnectStatus(userId);
+  }
+
+  /** Express dashboard login link (for an onboarded artist). */
+  @Post('connect/login-link')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async connectLoginLink(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.createConnectLoginLink(userId);
+  }
+
+  // ─── Song purchases ──────────────────────────────────────────────────
+
+  /** Create a Checkout Session to buy a song (full ownership + download). */
+  @Post('songs/:songId/checkout')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async createSongPurchaseCheckout(
+    @CurrentUser() user: FirebaseUser,
+    @Param('songId') songId: string,
+    @Body() body: { successUrl?: string; cancelUrl?: string },
+  ) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.createSongPurchaseCheckout(userId, songId, {
+      successUrl: body?.successUrl,
+      cancelUrl: body?.cancelUrl,
+    });
+  }
+
   /**
    * Stripe webhook handler for payment events.
    *
@@ -387,6 +452,18 @@ export class PaymentsController {
               subscription.id,
             );
           }
+          break;
+        }
+
+        // Stripe Connect: artist onboarding/payout capability changed.
+        case 'account.updated': {
+          const account = event.data.object as {
+            id: string;
+            charges_enabled?: boolean;
+            payouts_enabled?: boolean;
+            details_submitted?: boolean;
+          };
+          await this.paymentsService.handleConnectAccountUpdated(account);
           break;
         }
 

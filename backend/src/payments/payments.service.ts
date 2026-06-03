@@ -892,6 +892,12 @@ export class PaymentsService {
   async handleCheckoutSessionCompleted(sessionId: string) {
     const supabase = getSupabaseClient();
 
+    // Song purchases are tracked in song_purchases (not transactions). Fulfill
+    // those first and short-circuit if this session was a song purchase.
+    const fulfilledSongPurchase =
+      await this.fulfillSongPurchaseBySession(sessionId);
+    if (fulfilledSongPurchase) return;
+
     // Find transaction by checkout session ID
     const { data: transaction } = await supabase
       .from('transactions')
@@ -986,5 +992,293 @@ export class PaymentsService {
         updated_at: new Date().toISOString(),
       })
       .eq('id', transaction.id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stripe Connect (Express) — artist onboarding + status
+  // ---------------------------------------------------------------------------
+
+  private getWebBaseUrl(): string {
+    return this.configService.get<string>('WEB_URL') || 'http://localhost:3001';
+  }
+
+  /** Read the artist's Connect account state, refreshing flags from Stripe. */
+  async getConnectStatus(userId: string): Promise<{
+    accountId: string | null;
+    onboarded: boolean;
+    chargesEnabled: boolean;
+    payoutsEnabled: boolean;
+    detailsSubmitted: boolean;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data: userRow } = await supabase
+      .from('users')
+      .select(
+        'id, stripe_connect_account_id, stripe_connect_charges_enabled, stripe_connect_payouts_enabled, stripe_connect_details_submitted',
+      )
+      .eq('id', userId)
+      .single();
+
+    const accountId =
+      (userRow as { stripe_connect_account_id?: string | null })
+        ?.stripe_connect_account_id ?? null;
+    if (!accountId) {
+      return {
+        accountId: null,
+        onboarded: false,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        detailsSubmitted: false,
+      };
+    }
+
+    // Refresh from Stripe so flags reflect the latest onboarding state.
+    try {
+      const account = await this.stripeService.retrieveAccount(accountId);
+      const chargesEnabled = account.charges_enabled === true;
+      const payoutsEnabled = account.payouts_enabled === true;
+      const detailsSubmitted = account.details_submitted === true;
+      await supabase
+        .from('users')
+        .update({
+          stripe_connect_charges_enabled: chargesEnabled,
+          stripe_connect_payouts_enabled: payoutsEnabled,
+          stripe_connect_details_submitted: detailsSubmitted,
+          stripe_connect_onboarded_at:
+            chargesEnabled && detailsSubmitted ? new Date().toISOString() : null,
+        })
+        .eq('id', userId);
+      return {
+        accountId,
+        onboarded: chargesEnabled && detailsSubmitted,
+        chargesEnabled,
+        payoutsEnabled,
+        detailsSubmitted,
+      };
+    } catch {
+      return {
+        accountId,
+        onboarded:
+          (userRow as { stripe_connect_charges_enabled?: boolean })
+            ?.stripe_connect_charges_enabled === true,
+        chargesEnabled:
+          (userRow as { stripe_connect_charges_enabled?: boolean })
+            ?.stripe_connect_charges_enabled === true,
+        payoutsEnabled:
+          (userRow as { stripe_connect_payouts_enabled?: boolean })
+            ?.stripe_connect_payouts_enabled === true,
+        detailsSubmitted:
+          (userRow as { stripe_connect_details_submitted?: boolean })
+            ?.stripe_connect_details_submitted === true,
+      };
+    }
+  }
+
+  /** Create (if needed) an Express account and return an onboarding link. */
+  async startConnectOnboarding(
+    userId: string,
+    options?: { returnUrl?: string; refreshUrl?: string },
+  ): Promise<{ url: string; accountId: string }> {
+    const supabase = getSupabaseClient();
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('id, email, stripe_connect_account_id')
+      .eq('id', userId)
+      .single();
+    if (!userRow) throw new Error('User not found');
+
+    let accountId =
+      (userRow as { stripe_connect_account_id?: string | null })
+        .stripe_connect_account_id ?? null;
+    if (!accountId) {
+      const account = await this.stripeService.createExpressAccount({
+        email: (userRow as { email?: string | null }).email ?? null,
+        userId,
+      });
+      accountId = account.id;
+      await supabase
+        .from('users')
+        .update({ stripe_connect_account_id: accountId })
+        .eq('id', userId);
+    }
+
+    const base = this.getWebBaseUrl();
+    const link = await this.stripeService.createAccountOnboardingLink({
+      accountId,
+      returnUrl: options?.returnUrl || `${base}/artist/payouts?connect=done`,
+      refreshUrl: options?.refreshUrl || `${base}/artist/payouts?connect=refresh`,
+    });
+    return { url: link.url, accountId };
+  }
+
+  /** Express dashboard login link for an onboarded artist. */
+  async createConnectLoginLink(userId: string): Promise<{ url: string }> {
+    const supabase = getSupabaseClient();
+    const { data: userRow } = await supabase
+      .from('users')
+      .select('stripe_connect_account_id')
+      .eq('id', userId)
+      .single();
+    const accountId =
+      (userRow as { stripe_connect_account_id?: string | null })
+        ?.stripe_connect_account_id ?? null;
+    if (!accountId) {
+      throw new Error('No connected account. Complete onboarding first.');
+    }
+    const link = await this.stripeService.createExpressLoginLink(accountId);
+    return { url: link.url };
+  }
+
+  /** Webhook: refresh stored Connect flags when an account is updated. */
+  async handleConnectAccountUpdated(account: {
+    id: string;
+    charges_enabled?: boolean;
+    payouts_enabled?: boolean;
+    details_submitted?: boolean;
+  }): Promise<void> {
+    const supabase = getSupabaseClient();
+    const chargesEnabled = account.charges_enabled === true;
+    const detailsSubmitted = account.details_submitted === true;
+    await supabase
+      .from('users')
+      .update({
+        stripe_connect_charges_enabled: chargesEnabled,
+        stripe_connect_payouts_enabled: account.payouts_enabled === true,
+        stripe_connect_details_submitted: detailsSubmitted,
+        stripe_connect_onboarded_at:
+          chargesEnabled && detailsSubmitted ? new Date().toISOString() : null,
+      })
+      .eq('stripe_connect_account_id', account.id);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Song purchases (one-time, destination charge to the artist)
+  // ---------------------------------------------------------------------------
+
+  /** Create a Checkout Session to buy a song; routes funds to the artist. */
+  async createSongPurchaseCheckout(
+    buyerUserId: string,
+    songId: string,
+    options?: { successUrl?: string; cancelUrl?: string },
+  ): Promise<{ url: string | null; sessionId: string }> {
+    const supabase = getSupabaseClient();
+
+    const { data: song } = await supabase
+      .from('songs')
+      .select('id, title, artist_name, artist_id, price_cents, is_for_sale')
+      .eq('id', songId)
+      .single();
+    if (!song) throw new Error('Song not found');
+    if ((song as { is_for_sale?: boolean }).is_for_sale === false) {
+      throw new Error('This song is not for sale');
+    }
+    if (song.artist_id === buyerUserId) {
+      throw new Error('You already own your own song');
+    }
+
+    // Block double-purchase.
+    const { data: existing } = await supabase
+      .from('song_purchases')
+      .select('id, status')
+      .eq('user_id', buyerUserId)
+      .eq('song_id', songId)
+      .maybeSingle();
+    if (existing && existing.status === 'completed') {
+      throw new Error('You already purchased this song');
+    }
+
+    // Artist must have an onboarded Connect account to receive funds.
+    const { data: artist } = await supabase
+      .from('users')
+      .select(
+        'id, stripe_connect_account_id, stripe_connect_charges_enabled',
+      )
+      .eq('id', song.artist_id)
+      .single();
+    const destinationAccountId =
+      (artist as { stripe_connect_account_id?: string | null })
+        ?.stripe_connect_account_id ?? null;
+    const chargesEnabled =
+      (artist as { stripe_connect_charges_enabled?: boolean })
+        ?.stripe_connect_charges_enabled === true;
+    if (!destinationAccountId || !chargesEnabled) {
+      throw new Error(
+        'This artist is not yet set up to receive payments. Check back soon.',
+      );
+    }
+
+    const amountCents = Math.max(
+      50,
+      Number((song as { price_cents?: number }).price_cents) ||
+        this.stripeService.getDefaultSongPriceCents(),
+    );
+    const feeBps = this.stripeService.getSongSaleFeeBps();
+    const applicationFeeCents = Math.min(
+      amountCents,
+      Math.round((amountCents * feeBps) / 10000),
+    );
+
+    const { data: buyer } = await supabase
+      .from('users')
+      .select('email')
+      .eq('id', buyerUserId)
+      .single();
+
+    const base = this.getWebBaseUrl();
+    const metadata: Record<string, string> = {
+      purpose: 'song_purchase',
+      songId: song.id,
+      buyerUserId,
+      artistId: song.artist_id,
+    };
+    const session =
+      await this.stripeService.createSongPurchaseCheckoutSession({
+        amountCents,
+        productName: `${song.title}`,
+        productDescription: `Buy "${song.title}" by ${song.artist_name ?? 'artist'}`,
+        destinationAccountId,
+        applicationFeeCents,
+        metadata,
+        customerEmail: (buyer as { email?: string | null })?.email ?? null,
+        successUrl:
+          options?.successUrl ||
+          `${base}/browse/saved?tab=music&purchase=success&session_id={CHECKOUT_SESSION_ID}`,
+        cancelUrl: options?.cancelUrl || `${base}/artist/${song.artist_id}`,
+      });
+
+    // Record a pending purchase keyed by the checkout session for fulfillment.
+    await supabase.from('song_purchases').upsert(
+      {
+        user_id: buyerUserId,
+        song_id: song.id,
+        artist_id: song.artist_id,
+        amount_cents: amountCents,
+        platform_fee_cents: applicationFeeCents,
+        artist_amount_cents: amountCents - applicationFeeCents,
+        currency: 'usd',
+        stripe_checkout_session_id: session.id,
+        status: 'pending',
+      },
+      { onConflict: 'user_id,song_id' },
+    );
+
+    return { url: session.url, sessionId: session.id };
+  }
+
+  /** Mark a pending song purchase as completed. Returns true if one matched. */
+  async fulfillSongPurchaseBySession(sessionId: string): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data: purchase, error } = await supabase
+      .from('song_purchases')
+      .select('id, status')
+      .eq('stripe_checkout_session_id', sessionId)
+      .maybeSingle();
+    if (error || !purchase) return false;
+    if (purchase.status === 'completed') return true;
+    await supabase
+      .from('song_purchases')
+      .update({ status: 'completed' })
+      .eq('id', purchase.id);
+    return true;
   }
 }

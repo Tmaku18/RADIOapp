@@ -260,4 +260,108 @@ export class StripeService {
   async getSubscription(subscriptionId: string): Promise<Stripe.Subscription> {
     return this.stripe.subscriptions.retrieve(subscriptionId);
   }
+
+  // ---------------------------------------------------------------------------
+  // Stripe Connect (Express) — artist payouts for song sales
+  // ---------------------------------------------------------------------------
+
+  /** Platform fee (basis points) retained on each song sale. Default 15%. */
+  getSongSaleFeeBps(): number {
+    const raw = this.configService.get<string>('SONG_SALE_PLATFORM_FEE_BPS');
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000) return 1500;
+    return parsed;
+  }
+
+  /** Default flat song price in cents (configurable). */
+  getDefaultSongPriceCents(): number {
+    const raw = this.configService.get<string>('SONG_PRICE_CENTS');
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    if (!Number.isFinite(parsed) || parsed < 50) return 99;
+    return parsed;
+  }
+
+  /** Create an Express connected account for an artist. */
+  async createExpressAccount(args: {
+    email?: string | null;
+    userId: string;
+  }): Promise<Stripe.Account> {
+    return this.stripe.accounts.create({
+      type: 'express',
+      email: args.email ?? undefined,
+      capabilities: {
+        transfers: { requested: true },
+        card_payments: { requested: true },
+      },
+      business_type: 'individual',
+      metadata: { userId: args.userId },
+    });
+  }
+
+  /** Create a single-use onboarding link for an Express account. */
+  async createAccountOnboardingLink(args: {
+    accountId: string;
+    refreshUrl: string;
+    returnUrl: string;
+  }): Promise<Stripe.AccountLink> {
+    return this.stripe.accountLinks.create({
+      account: args.accountId,
+      refresh_url: args.refreshUrl,
+      return_url: args.returnUrl,
+      type: 'account_onboarding',
+    });
+  }
+
+  /** Create a login link to the Express dashboard (for onboarded accounts). */
+  async createExpressLoginLink(accountId: string): Promise<Stripe.LoginLink> {
+    return this.stripe.accounts.createLoginLink(accountId);
+  }
+
+  /** Retrieve a connected account (to read charges/payouts enabled state). */
+  async retrieveAccount(accountId: string): Promise<Stripe.Account> {
+    return this.stripe.accounts.retrieve(accountId);
+  }
+
+  /**
+   * Create a one-time Checkout Session for purchasing a song, routing funds to
+   * the artist's connected account (destination charge) minus the platform fee.
+   */
+  async createSongPurchaseCheckoutSession(args: {
+    amountCents: number;
+    productName: string;
+    productDescription: string;
+    destinationAccountId: string;
+    applicationFeeCents: number;
+    metadata: Record<string, string>;
+    successUrl: string;
+    cancelUrl: string;
+    customerEmail?: string | null;
+  }): Promise<Stripe.Checkout.Session> {
+    return this.stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      customer_email: args.customerEmail ?? undefined,
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: args.productName,
+              description: args.productDescription,
+            },
+            unit_amount: args.amountCents,
+          },
+          quantity: 1,
+        },
+      ],
+      payment_intent_data: {
+        application_fee_amount: args.applicationFeeCents,
+        transfer_data: { destination: args.destinationAccountId },
+        metadata: args.metadata,
+      },
+      metadata: args.metadata,
+      success_url: args.successUrl,
+      cancel_url: args.cancelUrl,
+    });
+  }
 }

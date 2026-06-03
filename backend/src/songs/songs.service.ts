@@ -6,11 +6,17 @@ import {
 } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
+import { CopyrightService } from '../copyright/copyright.service';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import {
+  signSongAudioUrl,
+  resolveSampleWindow,
+  SONG_SAMPLE_MAX_SECONDS,
+} from '../common/song-audio.util';
 
 export interface DiscoverSongCard {
   songId: string;
@@ -68,7 +74,7 @@ export class SongsService {
       lastNotifiedAt: null,
     };
 
-  constructor() {
+  constructor(private readonly copyrightService: CopyrightService) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
     const ffmpegPath = configuredPath || bundledPath;
@@ -160,6 +166,311 @@ export class SongsService {
     } finally {
       await Promise.allSettled([fs.unlink(inputPath), fs.unlink(outputPath)]);
     }
+  }
+
+  /**
+   * Render a <=30s preview sample from a song's full track and upload it to the
+   * songs bucket. Returns the public sample URL (samples are freely previewable).
+   */
+  private async renderSongSample(params: {
+    sourceUrl: string;
+    artistId: string;
+    songKey: string;
+    startSeconds: number;
+    endSeconds: number;
+  }): Promise<string> {
+    const supabase = getSupabaseClient();
+    if (!this.ffmpegConfigured) {
+      throw new BadRequestException(
+        'FFmpeg is not configured on the server. Set FFMPEG_PATH or install ffmpeg.',
+      );
+    }
+    const signedSource = (await signSongAudioUrl(params.sourceUrl)) ?? params.sourceUrl;
+    const sourceResponse = await fetch(signedSource);
+    if (!sourceResponse.ok) {
+      throw new BadRequestException(
+        `Failed to fetch source audio for sample: ${sourceResponse.status} ${sourceResponse.statusText}`,
+      );
+    }
+    const sourceBuffer = Buffer.from(await sourceResponse.arrayBuffer());
+    if (!sourceBuffer.length) {
+      throw new BadRequestException('Sample source audio is empty');
+    }
+
+    const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const inputPath = join(tmpdir(), `sample-input-${params.songKey}-${runId}.bin`);
+    const outputPath = join(tmpdir(), `sample-output-${params.songKey}-${runId}.mp3`);
+    const duration = Math.min(
+      SONG_SAMPLE_MAX_SECONDS,
+      Math.max(1, params.endSeconds - params.startSeconds),
+    );
+
+    try {
+      await fs.writeFile(inputPath, sourceBuffer);
+      await new Promise<void>((resolve, reject) => {
+        ffmpeg(inputPath)
+          .seekInput(params.startSeconds)
+          .duration(duration)
+          .audioCodec('libmp3lame')
+          .audioBitrate('192k')
+          .format('mp3')
+          .on('end', () => resolve())
+          .on('error', (err) => reject(err))
+          .save(outputPath);
+      });
+
+      const sampleBuffer = await fs.readFile(outputPath);
+      if (!sampleBuffer.length) {
+        throw new BadRequestException('Rendered sample is empty');
+      }
+
+      const storagePath = `${params.artistId}/samples/${params.songKey}-${Date.now()}.mp3`;
+      const { error: uploadError } = await supabase.storage
+        .from('songs')
+        .upload(storagePath, sampleBuffer, {
+          contentType: 'audio/mpeg',
+          upsert: false,
+        });
+      if (uploadError) {
+        throw new BadRequestException(
+          `Failed to upload sample: ${uploadError.message}`,
+        );
+      }
+      const { data: publicUrlData } = supabase.storage
+        .from('songs')
+        .getPublicUrl(storagePath);
+      return publicUrlData.publicUrl;
+    } catch (error) {
+      if (error instanceof BadRequestException) throw error;
+      throw new BadRequestException(
+        `Failed to render sample. Ensure ffmpeg is available on the server or set FFMPEG_PATH. ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    } finally {
+      await Promise.allSettled([fs.unlink(inputPath), fs.unlink(outputPath)]);
+    }
+  }
+
+  /**
+   * Generate (or regenerate) the 30s preview sample for a song in the
+   * background. Failures are logged but never block the caller. Used on upload.
+   */
+  generateSampleInBackground(songId: string): void {
+    void this.regenerateSongSample(songId).catch(() => {
+      // Best-effort: sample can be (re)generated later via the sample endpoint.
+    });
+  }
+
+  private async regenerateSongSample(songId: string): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    const { data: song } = await supabase
+      .from('songs')
+      .select(
+        'id, artist_id, title, audio_url, duration_seconds, sample_start_seconds, sample_end_seconds',
+      )
+      .eq('id', songId)
+      .single();
+    if (!song?.audio_url) return null;
+    const window = resolveSampleWindow(song);
+    const sampleUrl = await this.renderSongSample({
+      sourceUrl: song.audio_url,
+      artistId: song.artist_id,
+      songKey: (song.title ?? song.id)
+        .replace(/[^a-z0-9]+/gi, '-')
+        .toLowerCase()
+        .slice(0, 40),
+      startSeconds: window.startSeconds,
+      endSeconds: window.endSeconds,
+    });
+    await supabase
+      .from('songs')
+      .update({
+        sample_url: sampleUrl,
+        sample_start_seconds: window.startSeconds,
+        sample_end_seconds: window.endSeconds,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', songId);
+    return sampleUrl;
+  }
+
+  /**
+   * Set the sample window (start; end = start + 30s clamped) and render the
+   * preview. Allowed for the song's owner or an admin.
+   */
+  async setSongSample(
+    requesterUserId: string,
+    requesterRole: string | null | undefined,
+    songId: string,
+    startSeconds: number,
+  ): Promise<{
+    id: string;
+    sampleUrl: string | null;
+    sampleStartSeconds: number;
+    sampleEndSeconds: number;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, audio_url, duration_seconds')
+      .eq('id', songId)
+      .single();
+    if (error || !song) throw new NotFoundException('Song not found');
+
+    const isAdmin = requesterRole === 'admin';
+    if (!isAdmin && song.artist_id !== requesterUserId) {
+      throw new ForbiddenException('You can only edit your own songs');
+    }
+    if (!song.audio_url) {
+      throw new BadRequestException('Song has no audio source');
+    }
+
+    const duration = Math.max(0, Number(song.duration_seconds ?? 0) || 0);
+    let start = Math.max(0, Math.floor(Number(startSeconds) || 0));
+    if (duration > 0 && start >= duration) start = Math.max(0, duration - 1);
+    let end = start + SONG_SAMPLE_MAX_SECONDS;
+    if (duration > 0 && end > duration) end = duration;
+    if (end <= start) end = start + Math.min(SONG_SAMPLE_MAX_SECONDS, duration || SONG_SAMPLE_MAX_SECONDS);
+
+    const sampleUrl = await this.renderSongSample({
+      sourceUrl: song.audio_url,
+      artistId: song.artist_id,
+      songKey: (song.title ?? song.id)
+        .replace(/[^a-z0-9]+/gi, '-')
+        .toLowerCase()
+        .slice(0, 40),
+      startSeconds: start,
+      endSeconds: end,
+    });
+
+    const { error: updateError } = await supabase
+      .from('songs')
+      .update({
+        sample_url: sampleUrl,
+        sample_start_seconds: start,
+        sample_end_seconds: end,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', songId);
+    if (updateError) {
+      throw new BadRequestException(
+        `Failed to save sample: ${updateError.message}`,
+      );
+    }
+
+    return {
+      id: song.id,
+      sampleUrl,
+      sampleStartSeconds: start,
+      sampleEndSeconds: end,
+    };
+  }
+
+  /** True when the user owns, is admin, or has purchased the song. */
+  async hasSongEntitlement(
+    userId: string,
+    userRole: string | null | undefined,
+    song: { id: string; artist_id?: string | null },
+  ): Promise<boolean> {
+    if (userRole === 'admin') return true;
+    if (song.artist_id && song.artist_id === userId) return true;
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('song_purchases')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('song_id', song.id)
+      .eq('status', 'completed')
+      .maybeSingle();
+    return !!data;
+  }
+
+  /**
+   * Resolve a signed, playable URL for the FULL track if the user is entitled
+   * (owner/admin/purchaser). Otherwise throws Forbidden.
+   */
+  async getEntitledFullUrl(
+    userId: string,
+    userRole: string | null | undefined,
+    songId: string,
+    options?: { download?: boolean },
+  ): Promise<{ url: string; title: string; artistName: string | null }> {
+    const supabase = getSupabaseClient();
+    const { data: song, error } = await supabase
+      .from('songs')
+      .select('id, artist_id, title, artist_name, audio_url')
+      .eq('id', songId)
+      .single();
+    if (error || !song) throw new NotFoundException('Song not found');
+
+    const entitled = await this.hasSongEntitlement(userId, userRole, song);
+    if (!entitled) {
+      throw new ForbiddenException('Purchase this song to play or download it');
+    }
+    const downloadName = options?.download
+      ? `${(song.artist_name ?? 'track').trim()} - ${(song.title ?? 'track').trim()}.mp3`.replace(
+          /[\\/:*?"<>|]+/g,
+          '_',
+        )
+      : false;
+    const url = await signSongAudioUrl(song.audio_url, {
+      download: downloadName,
+      expiresInSeconds: 60 * 60,
+    });
+    if (!url) {
+      throw new BadRequestException('Unable to resolve audio for this song');
+    }
+    return {
+      url,
+      title: song.title ?? '',
+      artistName: song.artist_name ?? null,
+    };
+  }
+
+  /** Songs the user has purchased ("My Music"), newest first. */
+  async getPurchasedSongs(userId: string) {
+    const supabase = getSupabaseClient();
+    const { data: purchases, error } = await supabase
+      .from('song_purchases')
+      .select('song_id, created_at, amount_cents, currency')
+      .eq('user_id', userId)
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false });
+    if (error) {
+      if (this.isMissingTableError(error, 'song_purchases')) return [];
+      throw new Error(`Failed to load purchases: ${error.message}`);
+    }
+    const songIds = (purchases ?? []).map((p) => p.song_id);
+    if (songIds.length === 0) return [];
+
+    const { data: songs } = await supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, duration_seconds, like_count, play_count',
+      )
+      .in('id', songIds);
+    const byId = new Map((songs ?? []).map((s) => [s.id, s]));
+    return (purchases ?? [])
+      .map((p) => {
+        const s = byId.get(p.song_id);
+        if (!s) return null;
+        return {
+          id: s.id,
+          title: s.title,
+          artistName: s.artist_name,
+          artistId: s.artist_id,
+          artworkUrl: s.artwork_url,
+          durationSeconds: s.duration_seconds,
+          likeCount: s.like_count ?? 0,
+          playCount: s.play_count ?? 0,
+          purchasedAt: p.created_at,
+          amountCents: p.amount_cents ?? 0,
+          currency: p.currency ?? 'usd',
+          owned: true,
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
   }
 
   private async upsertCoreLikeWithFallback(
@@ -764,6 +1075,19 @@ export class SongsService {
 
     if (insertRes.error) {
       throw new Error(`Failed to create song: ${insertRes.error.message}`);
+    }
+
+    // Screen the upload for copyright infringement in the background.
+    // Non-blocking: a match auto-rejects the song and notifies the artist.
+    this.copyrightService.queueCheck(
+      insertRes.data?.id,
+      insertRes.data?.audio_url,
+    );
+
+    // Render the 30-second preview sample in the background so the artist page
+    // and Liked library can preview without exposing the full track.
+    if (insertRes.data?.id) {
+      this.generateSampleInBackground(insertRes.data.id);
     }
 
     return insertRes.data;

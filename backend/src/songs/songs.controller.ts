@@ -957,6 +957,101 @@ export class SongsController {
     return this.songsService.getLibrarySongs(userData.id);
   }
 
+  // ─── Song sales: samples, purchases, entitled playback/download ──────
+
+  private async resolveUserIdAndRole(
+    firebaseUid: string,
+  ): Promise<{ id: string; role: string | null }> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (!data) throw new NotFoundException('User not found');
+    return { id: data.id, role: data.role ?? null };
+  }
+
+  /** "My Music": songs the current user has purchased (full play + download). */
+  @Get('purchases')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getPurchasedSongs(@CurrentUser() user: FirebaseUser) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getPurchasedSongs(id);
+  }
+
+  /** Whether the current user owns the song + price/sample info for gating UI. */
+  @Get(':id/access')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getSongAccess(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id, role } = await this.resolveUserIdAndRole(user.uid);
+    const supabase = getSupabaseClient();
+    const { data: song } = await supabase
+      .from('songs')
+      .select('id, artist_id, price_cents, is_for_sale, sample_url')
+      .eq('id', songId)
+      .single();
+    if (!song) throw new NotFoundException('Song not found');
+    const owned = await this.songsService.hasSongEntitlement(id, role, song);
+    return {
+      songId: song.id,
+      owned,
+      isOwner: song.artist_id === id,
+      priceCents: song.price_cents ?? 99,
+      forSale: song.is_for_sale !== false,
+      sampleUrl: song.sample_url ?? null,
+    };
+  }
+
+  /** Signed full-track URL for streaming (entitled users only). */
+  @Get(':id/stream')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async streamFullSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id, role } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getEntitledFullUrl(id, role, songId);
+  }
+
+  /** Signed full-track download URL (entitled users only). */
+  @Get(':id/download')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async downloadFullSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id, role } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getEntitledFullUrl(id, role, songId, {
+      download: true,
+    });
+  }
+
+  /** Set the 30s preview sample start point (owner or admin) and render it. */
+  @Post(':id/sample')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async setSongSample(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+    @Body() body: { startSeconds?: number },
+  ) {
+    const { id, role } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.setSongSample(
+      id,
+      role,
+      songId,
+      Number(body?.startSeconds ?? 0),
+    );
+  }
+
   // ─── Lyrics ──────────────────────────────────────────────────────────
 
   @Public()

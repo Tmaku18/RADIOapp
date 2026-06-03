@@ -807,6 +807,11 @@ export class UsersService {
       'like_count',
       'created_at',
       'status',
+      'sample_url',
+      'sample_start_seconds',
+      'sample_end_seconds',
+      'price_cents',
+      'is_for_sale',
     ];
     let songsQuery = supabase
       .from('songs')
@@ -951,12 +956,24 @@ export class UsersService {
         realLikesBySongId.get(song.id) ?? (song.like_count || 0);
       const listenCount = realListenersBySongId.get(song.id) ?? 0;
       const popularityScore = listenCount + likeCount * 3 + playCount;
+      const sampleUrl = song.sample_url ?? null;
+      // Clients preview the 30-second sample on the artist page; full playback +
+      // download unlock after purchase via the gated /songs/:id/stream and
+      // /songs/:id/download endpoints. `audioUrl` stays populated for backward
+      // compatibility during rollout; true protection comes from the private
+      // bucket hardening + entitlement-gated signed URLs.
       return {
         id: song.id,
         title: song.title,
         artistId: song.artist_id,
         artistName: song.artist_name,
         audioUrl: song.audio_url,
+        sampleUrl,
+        previewUrl: sampleUrl,
+        priceCents: song.price_cents ?? 99,
+        forSale: song.is_for_sale !== false,
+        owned: requestingOwnProfile,
+        locked: !requestingOwnProfile,
         artworkUrl: song.artwork_url,
         durationSeconds: song.duration_seconds || 0,
         playCount,

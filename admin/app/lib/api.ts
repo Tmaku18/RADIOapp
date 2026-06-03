@@ -96,6 +96,23 @@ export interface Song {
   play_count: number;
   like_count: number;
   skip_count: number;
+  rejection_reason?: string | null;
+  rejected_at?: string | null;
+  copyright_status?:
+    | 'pending'
+    | 'checking'
+    | 'clear'
+    | 'flagged'
+    | 'error'
+    | 'skipped';
+  copyright_match?: {
+    title?: string | null;
+    artists?: string[];
+    album?: string | null;
+    label?: string | null;
+    score?: number;
+    provider?: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }

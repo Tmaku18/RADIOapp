@@ -320,6 +320,11 @@ export class AdminService {
       updateData.admin_free_rotation = false;
     } else if (status === 'approved') {
       updateData.admin_free_rotation = true;
+      // Clear any prior rejection so re-approved songs (incl. copyright
+      // auto-rejections an admin overrides) are clean and not caught by the
+      // 48h rejected-song cleanup cron.
+      updateData.rejection_reason = null;
+      updateData.rejected_at = null;
       this.radioService.clearEmptyStationCache();
     }
 

@@ -3,9 +3,10 @@ import { SongsController } from './songs.controller';
 import { SongsService } from './songs.service';
 import { UploadsModule } from '../uploads/uploads.module';
 import { AdminModule } from '../admin/admin.module';
+import { CopyrightModule } from '../copyright/copyright.module';
 
 @Module({
-  imports: [UploadsModule, AdminModule],
+  imports: [UploadsModule, AdminModule, CopyrightModule],
   controllers: [SongsController],
   providers: [SongsService],
   exports: [SongsService],

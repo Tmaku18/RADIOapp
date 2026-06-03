@@ -1,5 +1,6 @@
 import { ForbiddenException } from '@nestjs/common';
 import { SongsService } from './songs.service';
+import { CopyrightService } from '../copyright/copyright.service';
 import { getSupabaseClient } from '../config/supabase.config';
 
 jest.mock('../config/supabase.config', () => ({
@@ -13,9 +14,12 @@ const createBuilder = () => ({
   insert: jest.fn().mockReturnThis(),
 });
 
+const createCopyrightServiceMock = () =>
+  ({ queueCheck: jest.fn() }) as unknown as CopyrightService;
+
 describe('SongsService', () => {
   it('rejects non-artist uploads', async () => {
-    const service = new SongsService();
+    const service = new SongsService(createCopyrightServiceMock());
     const usersBuilder = createBuilder();
     usersBuilder.single.mockResolvedValue({
       data: { role: 'listener' },
@@ -40,7 +44,7 @@ describe('SongsService', () => {
   });
 
   it('creates song for artist', async () => {
-    const service = new SongsService();
+    const service = new SongsService(createCopyrightServiceMock());
     const usersBuilder = createBuilder();
     const songsBuilder = createBuilder();
 

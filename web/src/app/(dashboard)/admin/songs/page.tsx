@@ -25,6 +25,22 @@ interface Song {
   status: 'pending' | 'approved' | 'rejected';
   is_explicit?: boolean;
   rejection_reason?: string;
+  rejected_at?: string | null;
+  copyright_status?:
+    | 'pending'
+    | 'checking'
+    | 'clear'
+    | 'flagged'
+    | 'error'
+    | 'skipped';
+  copyright_match?: {
+    title?: string | null;
+    artists?: string[];
+    album?: string | null;
+    label?: string | null;
+    score?: number;
+    provider?: string;
+  } | null;
   created_at: string;
   users?: {
     display_name: string;
@@ -309,8 +325,10 @@ export default function AdminSongsPage() {
     setActionLoading(songId);
     try {
       await adminApi.updateSongStatus(songId, 'approved');
-      setSongs(songs.map(s => 
-        s.id === songId ? { ...s, status: 'approved' } : s
+      setSongs(songs.map(s =>
+        s.id === songId
+          ? { ...s, status: 'approved', rejection_reason: undefined, rejected_at: null }
+          : s
       ));
     } catch (err) {
       console.error('Failed to approve song:', err);
@@ -318,6 +336,27 @@ export default function AdminSongsPage() {
     } finally {
       setActionLoading(null);
     }
+  };
+
+  // Approve a previously rejected song (manual override). Surfaces the
+  // copyright match in the confirm prompt so the admin reviews before
+  // overriding an automated copyright rejection.
+  const handleApproveRejected = async (song: Song) => {
+    const match = song.copyright_match;
+    const matchLabel = match?.title
+      ? `"${match.title}"${match.artists?.length ? ` by ${match.artists.join(', ')}` : ''}${
+          typeof match.score === 'number' ? ` (${Math.round(match.score)}% match)` : ''
+        }`
+      : null;
+    const confirmed = window.confirm(
+      song.copyright_status === 'flagged'
+        ? `"${song.title}" was auto-rejected for a possible copyright match${
+            matchLabel ? `: ${matchLabel}` : ''
+          }.\n\nApprove it anyway and publish it?`
+        : `Approve "${song.title}" and override its rejection? It will be published.`,
+    );
+    if (!confirmed) return;
+    await handleApprove(song.id);
   };
 
   const openRejectModal = (songId: string) => {
@@ -823,6 +862,55 @@ export default function AdminSongsPage() {
                         {song.rejection_reason}
                       </p>
                     )}
+                    {song.copyright_status &&
+                      !['clear', 'skipped', 'pending'].includes(song.copyright_status) && (
+                        <div className="mt-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              song.copyright_status === 'flagged'
+                                ? 'bg-orange-100 text-orange-800'
+                                : song.copyright_status === 'checking'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                            title={
+                              song.copyright_status === 'flagged'
+                                ? 'Auto-flagged: possible copyright match'
+                                : song.copyright_status === 'checking'
+                                  ? 'Copyright check in progress'
+                                  : 'Copyright check could not complete'
+                            }
+                          >
+                            {song.copyright_status === 'flagged'
+                              ? '© Copyright match'
+                              : song.copyright_status === 'checking'
+                                ? '© Checking…'
+                                : '© Check error'}
+                          </span>
+                          {song.copyright_status === 'flagged' && song.copyright_match?.title && (
+                            <p
+                              className="text-[10px] text-orange-700 mt-0.5 max-w-[170px] truncate"
+                              title={`${song.copyright_match.title}${
+                                song.copyright_match.artists?.length
+                                  ? ` — ${song.copyright_match.artists.join(', ')}`
+                                  : ''
+                              }${
+                                typeof song.copyright_match.score === 'number'
+                                  ? ` (${Math.round(song.copyright_match.score)}%)`
+                                  : ''
+                              }`}
+                            >
+                              {song.copyright_match.title}
+                              {song.copyright_match.artists?.length
+                                ? ` — ${song.copyright_match.artists.join(', ')}`
+                                : ''}
+                              {typeof song.copyright_match.score === 'number'
+                                ? ` (${Math.round(song.copyright_match.score)}%)`
+                                : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
                   </td>
                   <td className="px-6 py-4">
                     <span
@@ -905,6 +993,16 @@ export default function AdminSongsPage() {
                           Reject
                         </button>
                         </>
+                      )}
+                      {song.status === 'rejected' && (
+                        <button
+                          onClick={() => handleApproveRejected(song)}
+                          disabled={actionLoading === song.id}
+                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                          title="Override the rejection and publish this song"
+                        >
+                          {actionLoading === song.id ? 'Approving...' : 'Approve anyway'}
+                        </button>
                       )}
                     </div>
                   </td>

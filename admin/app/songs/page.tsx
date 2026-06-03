@@ -58,17 +58,47 @@ export default function SongsPage() {
       if (!token) return;
 
       await adminApi.updateSongStatus(token, songId, newStatus);
-      
-      // Update local state
-      setSongs(songs => 
-        songs.map(song => 
-          song.id === songId ? { ...song, status: newStatus, updated_at: new Date().toISOString() } : song
+
+      // Update local state. Clear rejection context when approving.
+      setSongs(songs =>
+        songs.map(song =>
+          song.id === songId
+            ? {
+                ...song,
+                status: newStatus,
+                updated_at: new Date().toISOString(),
+                ...(newStatus === 'approved'
+                  ? { rejection_reason: null, rejected_at: null }
+                  : {}),
+              }
+            : song
         )
       );
     } catch (err) {
       console.error('Failed to update song status:', err);
       alert('Failed to update song status. Please try again.');
     }
+  };
+
+  // Approve a rejected song (manual override). Surfaces the copyright match
+  // in the confirm prompt so the admin reviews before overriding an
+  // automated copyright rejection.
+  const handleApproveRejected = async (song: Song) => {
+    const match = song.copyright_match;
+    const matchLabel = match?.title
+      ? `${match.title}${match.artists?.length ? ` by ${match.artists.join(', ')}` : ''}${
+          typeof match.score === 'number' ? ` (${Math.round(match.score)}% match)` : ''
+        }`
+      : null;
+    const confirmed = window.confirm(
+      song.copyright_status === 'flagged'
+        ? `"${song.title}" was auto-rejected for a possible copyright match${
+            matchLabel ? `: ${matchLabel}` : ''
+          }.\n\nApprove it anyway and publish it?`
+        : `Approve "${song.title}" and override its rejection? It will be published.`,
+    );
+    if (!confirmed) return;
+    await handleUpdateStatus(song.id, 'approved');
   };
 
   const getStatusBadge = (status: string) => {
@@ -197,10 +227,56 @@ export default function SongsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusBadge(song.status)}`}>
                       {song.status}
                     </span>
+                    {song.status === 'rejected' && song.rejection_reason && (
+                      <p
+                        className="text-xs text-red-600 mt-1 max-w-[200px] truncate"
+                        title={song.rejection_reason}
+                      >
+                        {song.rejection_reason}
+                      </p>
+                    )}
+                    {song.copyright_status &&
+                      !['clear', 'skipped', 'pending'].includes(song.copyright_status) && (
+                        <div className="mt-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              song.copyright_status === 'flagged'
+                                ? 'bg-orange-100 text-orange-800'
+                                : song.copyright_status === 'checking'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                            title={
+                              song.copyright_status === 'flagged'
+                                ? 'Auto-flagged: possible copyright match'
+                                : song.copyright_status === 'checking'
+                                  ? 'Copyright check in progress'
+                                  : 'Copyright check could not complete'
+                            }
+                          >
+                            {song.copyright_status === 'flagged'
+                              ? '© Copyright match'
+                              : song.copyright_status === 'checking'
+                                ? '© Checking…'
+                                : '© Check error'}
+                          </span>
+                          {song.copyright_status === 'flagged' && song.copyright_match?.title && (
+                            <p className="text-[10px] text-orange-700 mt-0.5 max-w-[200px] truncate">
+                              {song.copyright_match.title}
+                              {song.copyright_match.artists?.length
+                                ? ` — ${song.copyright_match.artists.join(', ')}`
+                                : ''}
+                              {typeof song.copyright_match.score === 'number'
+                                ? ` (${Math.round(song.copyright_match.score)}%)`
+                                : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {song.credits_remaining}
@@ -242,10 +318,11 @@ export default function SongsPage() {
                     )}
                     {song.status === 'rejected' && (
                       <button
-                        onClick={() => handleUpdateStatus(song.id, 'approved')}
+                        onClick={() => handleApproveRejected(song)}
                         className="text-green-600 hover:text-green-900"
+                        title="Override the rejection and publish this song"
                       >
-                        Approve
+                        Approve anyway
                       </button>
                     )}
                   </td>
