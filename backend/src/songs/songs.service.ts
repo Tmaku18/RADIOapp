@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   NotFoundException,
   ForbiddenException,
   BadRequestException,
@@ -58,8 +59,11 @@ interface ArtistLikeNotificationSettings {
 
 @Injectable()
 export class SongsService {
+  private readonly logger = new Logger(SongsService.name);
   private readonly discoverMaxClipSeconds = 15;
   private readonly ffmpegConfigured: boolean;
+  // Guards against two overlapping sample backfills running at once.
+  private sampleBackfillRunning = false;
   // Beta: every upload lands directly in free rotation (approved + public +
   // admin_free_rotation) so the radio queue is populated without manual review.
   // Set BETA_AUTO_FREE_ROTATION=false once beta ends to restore the
@@ -297,6 +301,98 @@ export class SongsService {
       })
       .eq('id', songId);
     return sampleUrl;
+  }
+
+  /**
+   * One-time (re-runnable) backfill: render the 30s sample for every approved
+   * song that has a full track but no sample yet. Runs in the background with
+   * limited concurrency so it never blocks the request or hammers ffmpeg.
+   * Returns the count queued; progress is logged.
+   */
+  async backfillMissingSamples(options?: {
+    limit?: number;
+    concurrency?: number;
+  }): Promise<{ queued: number; alreadyRunning: boolean }> {
+    if (this.sampleBackfillRunning) {
+      return { queued: 0, alreadyRunning: true };
+    }
+    const limit = Math.min(Math.max(options?.limit ?? 1000, 1), 5000);
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('songs')
+      .select('id')
+      .eq('status', 'approved')
+      .not('audio_url', 'is', null)
+      .is('sample_url', null)
+      .limit(limit);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load songs for sample backfill: ${error.message}`,
+      );
+    }
+    const songIds = (data ?? [])
+      .map((row: { id?: string }) => row?.id)
+      .filter((id): id is string => !!id);
+    if (songIds.length === 0) {
+      return { queued: 0, alreadyRunning: false };
+    }
+
+    const concurrency = Math.min(Math.max(options?.concurrency ?? 2, 1), 4);
+    this.sampleBackfillRunning = true;
+    // Fire-and-forget: the admin request returns immediately.
+    void this.runSampleBackfill(songIds, concurrency);
+    return { queued: songIds.length, alreadyRunning: false };
+  }
+
+  private async runSampleBackfill(
+    songIds: string[],
+    concurrency: number,
+  ): Promise<void> {
+    const total = songIds.length;
+    let processed = 0;
+    let succeeded = 0;
+    let failed = 0;
+    this.logger.log(
+      `Sample backfill started: ${total} song(s), concurrency ${concurrency}`,
+    );
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+      while (cursor < songIds.length) {
+        const index = cursor++;
+        const songId = songIds[index];
+        try {
+          const url = await this.regenerateSongSample(songId);
+          if (url) succeeded++;
+          else failed++;
+        } catch (err) {
+          failed++;
+          this.logger.warn(
+            `Sample backfill failed for ${songId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        } finally {
+          processed++;
+          if (processed % 25 === 0 || processed === total) {
+            this.logger.log(
+              `Sample backfill progress: ${processed}/${total} (ok ${succeeded}, failed ${failed})`,
+            );
+          }
+        }
+      }
+    };
+    try {
+      await Promise.all(
+        Array.from({ length: Math.min(concurrency, songIds.length) }, () =>
+          worker(),
+        ),
+      );
+      this.logger.log(
+        `Sample backfill complete: ${succeeded} rendered, ${failed} failed of ${total}`,
+      );
+    } finally {
+      this.sampleBackfillRunning = false;
+    }
   }
 
   /**

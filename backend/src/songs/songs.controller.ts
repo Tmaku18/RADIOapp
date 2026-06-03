@@ -983,6 +983,22 @@ export class SongsController {
     return { id: data.id, role: data.role ?? null };
   }
 
+  /**
+   * Admin one-time backfill: render the 30s sample for approved songs that
+   * don't have one yet. Runs in the background; returns the count queued.
+   */
+  @Post('admin/backfill-samples')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async backfillSamples(
+    @Body() body: { limit?: number; concurrency?: number },
+  ) {
+    return this.songsService.backfillMissingSamples({
+      limit: body?.limit,
+      concurrency: body?.concurrency,
+    });
+  }
+
   /** "My Music": songs the current user has purchased (full play + download). */
   @Get('purchases')
   @UseGuards(RolesGuard)

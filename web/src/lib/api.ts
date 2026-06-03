@@ -503,6 +503,12 @@ export const songsApi = {
         owned: boolean;
       }>
     >('/songs/purchases'),
+  /** Admin: render 30s samples for approved songs missing one (background job). */
+  backfillSamples: (data?: { limit?: number; concurrency?: number }) =>
+    api.post<{ queued: number; alreadyRunning: boolean }>(
+      '/songs/admin/backfill-samples',
+      data ?? {},
+    ),
 };
 
 export const songSalesApi = {

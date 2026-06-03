@@ -155,6 +155,7 @@ export default function AdminSongsPage() {
   const [error, setError] = useState<string | null>(null);
   const [staleSongsNotice, setStaleSongsNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -240,6 +241,32 @@ export default function AdminSongsPage() {
     // Intentionally not depending on durationOverrides to avoid retrigger loops.
      
   }, [songs]);
+
+  const handleBackfillSamples = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    try {
+      const { data } = await songsApi.backfillSamples({});
+      if (data.alreadyRunning) {
+        setError('A sample backfill is already running. Check back shortly.');
+      } else if (data.queued === 0) {
+        setError(null);
+        alert('All approved songs already have a 30-second sample.');
+      } else {
+        setError(null);
+        alert(
+          `Rendering samples for ${data.queued} song(s) in the background. ` +
+            'This can take a few minutes; refresh later to see them.',
+        );
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to start sample backfill.',
+      );
+    } finally {
+      setBackfilling(false);
+    }
+  };
 
   const loadSongs = async () => {
     setLoading(true);
@@ -740,6 +767,15 @@ export default function AdminSongsPage() {
             <option value="title-asc">A-Z</option>
             <option value="title-desc">Z-A</option>
           </select>
+
+          <button
+            onClick={handleBackfillSamples}
+            disabled={backfilling}
+            title="Render 30s samples for approved songs that don't have one yet"
+            className="px-4 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {backfilling ? 'Starting…' : 'Backfill samples'}
+          </button>
         </div>
       </div>
 
