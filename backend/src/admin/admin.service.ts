@@ -695,6 +695,9 @@ export class AdminService {
       await this.deleteFromStorage('artwork', song.artwork_url);
     }
 
+    // Preserve unique "Ears Reached" before listener rows are removed below.
+    await this.archiveEarsForSong(songId);
+
     // Best-effort cleanup for environments where FK cascades may be missing.
     // Keep this resilient to missing tables/columns across different deployments.
     await this.safeDeleteBySongId('likes', songId);
@@ -890,6 +893,46 @@ export class AdminService {
     const { error } = await supabase.from(table).delete().eq('song_id', songId);
     if (error && !this.isMissingRelationError(error)) {
       this.logger.warn(`Cleanup delete failed for ${table}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Preserve the unique "Ears Reached" count before a song's listener rows are
+   * removed. Best-effort: never block a deletion if archiving fails.
+   */
+  private async archiveEarsForSong(songId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.rpc('archive_song_ears', {
+      p_song_id: songId,
+    });
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Ears archive failed for song ${songId}: ${error.message}`);
+    }
+  }
+
+  private async archiveEarsForArtist(artistId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.rpc('archive_artist_ears', {
+      p_artist_id: artistId,
+    });
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(
+        `Ears archive failed for artist ${artistId}: ${error.message}`,
+      );
+    }
+  }
+
+  /**
+   * Preserve a listener's own "Ears Reached" before their account (and its
+   * prospector_sessions) is deleted. No-op if they never listened on radio.
+   */
+  private async archiveEarForUser(userId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.rpc('archive_user_ear', {
+      p_user_id: userId,
+    });
+    if (error && !this.isMissingRelationError(error)) {
+      this.logger.warn(`Ears archive failed for user ${userId}: ${error.message}`);
     }
   }
 
@@ -1690,6 +1733,8 @@ export class AdminService {
 
     // 5. Optionally delete user data (songs, likes, etc.) while preserving credentials
     if (deleteUserData) {
+      // Preserve unique "Ears Reached" before this artist's songs are removed.
+      await this.archiveEarsForArtist(userId);
       // Delete user's songs
       await supabase.from('songs').delete().eq('artist_id', userId);
       // Delete user's likes
@@ -1816,6 +1861,8 @@ export class AdminService {
           await this.deleteFromStorage('artwork', song.artwork_url);
       }
     }
+    // Preserve unique "Ears Reached" before this artist's songs are removed.
+    await this.archiveEarsForArtist(userId);
     await supabase.from('songs').delete().eq('artist_id', userId);
 
     await supabase.from('likes').delete().eq('user_id', userId);
@@ -1838,6 +1885,9 @@ export class AdminService {
         );
       }
     }
+
+    // Preserve this listener's own ear before their sessions cascade away.
+    await this.archiveEarForUser(userId);
 
     const { error: deleteError } = await supabase
       .from('users')
@@ -1886,6 +1936,8 @@ export class AdminService {
           await this.deleteFromStorage('artwork', song.artwork_url);
       }
     }
+    // Preserve unique "Ears Reached" before this artist's songs are removed.
+    await this.archiveEarsForArtist(userId);
     await supabase.from('songs').delete().eq('artist_id', userId);
 
     await supabase.from('likes').delete().eq('user_id', userId);

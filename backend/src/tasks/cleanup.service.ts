@@ -103,6 +103,17 @@ export class CleanupService {
           await this.deleteFromStorage('artwork', song.artwork_url);
         }
 
+        // Preserve unique "Ears Reached" before the song's listener rows
+        // cascade-delete. Best-effort: never block cleanup if this fails.
+        const { error: archiveError } = await supabase.rpc('archive_song_ears', {
+          p_song_id: song.id,
+        });
+        if (archiveError) {
+          this.logger.warn(
+            `Ears archive failed for rejected song ${song.id}: ${archiveError.message}`,
+          );
+        }
+
         // Delete database record
         const { error: deleteError } = await supabase
           .from('songs')

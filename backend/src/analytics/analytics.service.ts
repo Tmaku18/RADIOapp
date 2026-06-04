@@ -660,6 +660,17 @@ export class AnalyticsService {
       .from('likes')
       .select('*', { count: 'exact', head: true });
 
+    // "Ears reached": unique listeners ever present on radio (authed users +
+    // de-duplicated guest devices). Resilient if the RPC isn't deployed yet.
+    let earsReached = 0;
+    try {
+      const { data: ears } = await supabase.rpc('get_radio_ears_reached');
+      if (typeof ears === 'number') earsReached = ears;
+      else if (ears != null) earsReached = Number(ears) || 0;
+    } catch {
+      earsReached = 0;
+    }
+
     return {
       totalUsers: totalUsers || 0,
       totalArtists: totalArtists || 0,
@@ -669,6 +680,7 @@ export class AnalyticsService {
       totalPlays: totalPlays || 0,
       totalProfileClicks: totalProfileClicks || 0,
       totalLikes: totalLikes || 0,
+      earsReached,
     };
   }
 

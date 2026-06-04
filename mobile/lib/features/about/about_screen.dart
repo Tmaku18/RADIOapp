@@ -359,7 +359,7 @@ class _StatsStrip extends StatelessWidget {
     final items = <List<String>>[
       [_fmt(_val('totalUsers')), 'Members'],
       [_fmt(_val('totalSongs')), 'Songs'],
-      [_fmt(_val('totalPlays')), 'Listens'],
+      [_fmt(_val('earsReached')), 'Ears Reached'],
       [_fmt(_val('totalLikes')), 'Ripples'],
     ];
     final scheme = Theme.of(context).colorScheme;

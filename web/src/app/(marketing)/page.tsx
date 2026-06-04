@@ -117,7 +117,7 @@ async function getHomepageData() {
       const stats = await fetchJsonWithTimeout<{
         totalUsers?: number;
         totalSongs?: number;
-        totalPlays?: number;
+        earsReached?: number;
         totalLikes?: number;
       }>(`${baseUrl}/api/analytics/platform`);
       if (!stats) continue;
@@ -126,7 +126,7 @@ async function getHomepageData() {
         stats: {
           totalUsers: stats.totalUsers ?? 0,
           totalSongs: stats.totalSongs ?? 0,
-          totalPlays: stats.totalPlays ?? 0,
+          earsReached: stats.earsReached ?? 0,
           totalLikes: stats.totalLikes ?? 0,
         },
       };
@@ -140,7 +140,7 @@ async function getHomepageData() {
     stats: {
       totalUsers: 0,
       totalSongs: 0,
-      totalPlays: 0,
+      earsReached: 0,
       totalLikes: 0,
     },
   };
@@ -194,7 +194,7 @@ export default async function HomePage() {
             {[
               { value: formatCount(data.stats.totalUsers), label: 'Members', sub: '(total users)' },
               { value: formatCount(data.stats.totalSongs), label: 'Songs', sub: '(uploaded)' },
-              { value: formatCount(data.stats.totalPlays), label: 'Listens', sub: '(all-time plays)' },
+              { value: formatCount(data.stats.earsReached), label: 'Ears Reached', sub: '(live radio listeners)' },
               { value: formatCount(data.stats.totalLikes), label: 'Ripples', sub: '(total likes)' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
