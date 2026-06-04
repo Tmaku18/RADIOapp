@@ -23,6 +23,14 @@ class AnalyticsService {
     return null;
   }
 
+  /// Public platform-wide totals (users, songs, plays, likes) for the About
+  /// screen stats strip. Backed by the public GET /api/analytics/platform.
+  Future<Map<String, dynamic>?> getPlatformStats() async {
+    final res = await _api.get('analytics/platform');
+    if (res is Map<String, dynamic>) return res;
+    return null;
+  }
+
   Future<List<Map<String, dynamic>>> getMyPlaysByRegion({int days = 30}) async {
     final res = await _api.get('analytics/me/plays-by-region?days=$days');
     if (res is List) {

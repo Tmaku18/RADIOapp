@@ -655,6 +655,11 @@ export class AnalyticsService {
       .from('profile_clicks')
       .select('*', { count: 'exact', head: true });
 
+    // Total Ripples (likes) across the platform
+    const { count: totalLikes } = await supabase
+      .from('likes')
+      .select('*', { count: 'exact', head: true });
+
     return {
       totalUsers: totalUsers || 0,
       totalArtists: totalArtists || 0,
@@ -663,6 +668,7 @@ export class AnalyticsService {
       totalApprovedSongs: totalApprovedSongs || 0,
       totalPlays: totalPlays || 0,
       totalProfileClicks: totalProfileClicks || 0,
+      totalLikes: totalLikes || 0,
     };
   }
 

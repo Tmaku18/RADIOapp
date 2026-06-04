@@ -1,10 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/services/analytics_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
 /// About Networx — mission, story, values, and brand voice.
-class AboutScreen extends StatelessWidget {
+class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
+
+  @override
+  State<AboutScreen> createState() => _AboutScreenState();
+}
+
+class _AboutScreenState extends State<AboutScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  Map<String, dynamic>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await _analytics.getPlatformStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {
+      // Non-fatal: the stats strip simply stays hidden if this fails.
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +50,11 @@ class AboutScreen extends StatelessWidget {
                   fontFamily: 'Lora',
                 ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
+          if (_stats != null) ...[
+            _StatsStrip(stats: _stats!, surfaces: surfaces),
+            const SizedBox(height: 24),
+          ],
           _Section(
             title: 'Our Mission',
             body:
@@ -73,7 +101,23 @@ class AboutScreen extends StatelessWidget {
               'Mentorship over Monopoly: The experienced have a duty to guide the inexperienced. We foster guidance, not gatekeeping.',
             ],
           ),
+          Text(
+            'The Language of Networx',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Lora',
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Our world runs on three ideas: the Butterfly Effect, the artist\'s Metamorphosis, and the Mining of hidden talent.',
+            style: TextStyle(color: surfaces.textSecondary, height: 1.5),
+          ),
           const SizedBox(height: 16),
+          ..._glossary.map(
+            (group) => _GlossaryGroup(group: group, surfaces: surfaces),
+          ),
+          const SizedBox(height: 8),
           Text(
             'Legal',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -284,6 +328,188 @@ class _Section extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Platform-wide totals shown at the top of the About screen.
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({required this.stats, required this.surfaces});
+
+  final Map<String, dynamic> stats;
+  final NetworxSurfaces surfaces;
+
+  int _val(String key) {
+    final v = stats[key];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return 0;
+  }
+
+  String _fmt(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M+';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K+';
+    return n.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <List<String>>[
+      [_fmt(_val('totalUsers')), 'Members'],
+      [_fmt(_val('totalSongs')), 'Songs'],
+      [_fmt(_val('totalPlays')), 'Listens'],
+      [_fmt(_val('totalLikes')), 'Ripples'],
+    ];
+    final scheme = Theme.of(context).colorScheme;
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 2.6,
+      children: items
+          .map(
+            (it) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    it[0],
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          color: scheme.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  Text(
+                    it[1],
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+/// A metaphor family (e.g. The Butterfly Effect) and its defined terms.
+class _GlossaryItem {
+  const _GlossaryItem(this.term, this.definition);
+  final String term;
+  final String definition;
+}
+
+class _GlossaryGroupData {
+  const _GlossaryGroupData(this.system, this.tagline, this.terms);
+  final String system;
+  final String tagline;
+  final List<_GlossaryItem> terms;
+}
+
+const List<_GlossaryGroupData> _glossary = [
+  _GlossaryGroupData(
+    'The Butterfly Effect',
+    'One small ripple can become a storm.',
+    [
+      _GlossaryItem('The Butterfly Effect',
+          'A single vote or discovery can set off the chain reaction that launches an artist\'s career.'),
+      _GlossaryItem('Ripples',
+          'The audience\'s votes and likes. Every ripple carries an artist\'s sound a little further.'),
+      _GlossaryItem('The Wake',
+          'An artist\'s analytics report — the path left behind by a thousand Ripples.'),
+    ],
+  ),
+  _GlossaryGroupData(
+    'Metamorphosis',
+    'The journey from unseen talent to recognized artist.',
+    [
+      _GlossaryItem('Metamorphosis',
+          'The transformation every artist undergoes — from an unknown upload to a name the people know.'),
+      _GlossaryItem('Gem',
+          'An artist. A hidden gem, ready to be heard and refined by the community.'),
+      _GlossaryItem('Diamond',
+          'A Gem refined under pressure — a standout artist the community has voted into the spotlight.'),
+      _GlossaryItem('Catalyst',
+          'A creative service provider (producer, photographer, mentor) who speeds up the metamorphosis through Pro-Networx.'),
+    ],
+  ),
+  _GlossaryGroupData(
+    'Mining',
+    'Surfacing value from the live frequency.',
+    [
+      _GlossaryItem('Mining the Frequency',
+          'How value is surfaced from the always-on stream — the people dig through the radio to find what shines.'),
+      _GlossaryItem('Prospectors',
+          'The listeners. They tune in, send Ripples, and refine raw songs into signal the market can trust.'),
+      _GlossaryItem('The Refinery',
+          'The portal where Prospectors rank, survey, and comment to refine songs before they break out.'),
+      _GlossaryItem('The Yield',
+          'A Prospector\'s rewards — steady earnings from verified engagement like refinement, surveys, and feedback.'),
+    ],
+  ),
+];
+
+class _GlossaryGroup extends StatelessWidget {
+  const _GlossaryGroup({required this.group, required this.surfaces});
+
+  final _GlossaryGroupData group;
+  final NetworxSurfaces surfaces;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            group.system,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Lora',
+                ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            group.tagline,
+            style: TextStyle(
+              color: surfaces.textSecondary,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...group.terms.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(color: surfaces.textSecondary, height: 1.5),
+                  children: [
+                    TextSpan(
+                      text: '${t.term}: ',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(text: t.definition),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );

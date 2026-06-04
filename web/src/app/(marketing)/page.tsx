@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
 import { getBackendBaseUrls } from '@/lib/backend-url';
@@ -8,31 +8,95 @@ import { getBackendBaseUrls } from '@/lib/backend-url';
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;
 
-function formatDiscoveries(n: number): string {
+function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
-  return `${n.toLocaleString()}+`;
-}
-
-function formatLiveListeners(n: number): string {
   return n.toLocaleString();
 }
 
+// The three metaphor systems behind the Networx brand. Keep in sync with
+// docs/branding-terminology.md and the mobile About screen glossary.
+const GLOSSARY: Array<{
+  system: string;
+  tagline: string;
+  terms: Array<{ term: string; definition: string }>;
+}> = [
+  {
+    system: 'The Butterfly Effect',
+    tagline: 'One small ripple can become a storm.',
+    terms: [
+      {
+        term: 'The Butterfly Effect',
+        definition:
+          'Our core belief: a single vote or discovery can set off the chain reaction that launches an artist\u2019s career.',
+      },
+      {
+        term: 'Ripples',
+        definition:
+          'The audience\u2019s votes and likes. Every ripple carries an artist\u2019s sound a little further across the network.',
+      },
+      {
+        term: 'The Wake',
+        definition:
+          'An artist\u2019s analytics report \u2014 the path left behind by a thousand Ripples, showing reach, engagement, and growth.',
+      },
+    ],
+  },
+  {
+    system: 'Metamorphosis',
+    tagline: 'The journey from unseen talent to recognized artist.',
+    terms: [
+      {
+        term: 'Metamorphosis',
+        definition:
+          'The transformation every artist undergoes on Networx \u2014 from an unknown upload to a name the people know.',
+      },
+      {
+        term: 'Gem',
+        definition: 'An artist. A hidden gem, ready to be heard and refined by the community.',
+      },
+      {
+        term: 'Diamond',
+        definition:
+          'A Gem refined under pressure \u2014 a standout artist the community has voted into the spotlight.',
+      },
+      {
+        term: 'Catalyst',
+        definition:
+          'A creative service provider (producer, photographer, mentor) who speeds up the metamorphosis through ProNetworx.',
+      },
+    ],
+  },
+  {
+    system: 'Mining',
+    tagline: 'Surfacing value from the live frequency.',
+    terms: [
+      {
+        term: 'Mining the Frequency',
+        definition:
+          'How value is surfaced from the always-on stream \u2014 the people dig through the radio to find what shines.',
+      },
+      {
+        term: 'Prospectors',
+        definition:
+          'The listeners. They tune in, send Ripples, and refine raw songs into signal the market can trust.',
+      },
+      {
+        term: 'The Refinery',
+        definition:
+          'The portal where Prospectors rank, survey, and comment to refine songs before they break out.',
+      },
+      {
+        term: 'The Yield',
+        definition:
+          'A Prospector\u2019s rewards \u2014 steady earnings from verified engagement like refinement, surveys, and feedback.',
+      },
+    ],
+  },
+];
+
 // Fetch platform stats from the API
 async function getHomepageData() {
-  type FeaturedArtist = {
-    id: string;
-    name: string;
-    genre: string;
-    imageUrl: string | null;
-  };
-
-  const featuredArtistsFallback: FeaturedArtist[] = [
-    { id: '1', name: 'Emerging Artist', genre: 'Electronic', imageUrl: null },
-    { id: '2', name: 'Rising Star', genre: 'Hip Hop', imageUrl: null },
-    { id: '3', name: 'New Voice', genre: 'Indie', imageUrl: null },
-  ];
-
   const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 5000) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -51,56 +115,33 @@ async function getHomepageData() {
   try {
     for (const baseUrl of getBackendBaseUrls()) {
       const stats = await fetchJsonWithTimeout<{
-        totalArtists?: number;
+        totalUsers?: number;
         totalSongs?: number;
-        totalProfileClicks?: number;
+        totalPlays?: number;
+        totalLikes?: number;
       }>(`${baseUrl}/api/analytics/platform`);
       if (!stats) continue;
 
-      const currentRadio = await fetchJsonWithTimeout<{
-        listener_count?: number;
-      }>(`${baseUrl}/api/radio/current`);
-      const liveListeners = currentRadio?.listener_count ?? 0;
-
-      let featuredArtists: FeaturedArtist[] = featuredArtistsFallback;
-      const leaderboard = await fetchJsonWithTimeout<
-        Array<{
-          id?: string;
-          artistName?: string;
-          artworkUrl?: string | null;
-        }>
-      >(`${baseUrl}/api/leaderboard/songs?by=listens&limit=3&offset=0`);
-      if (Array.isArray(leaderboard) && leaderboard.length > 0) {
-        featuredArtists = leaderboard.slice(0, 3).map((item, index) => ({
-          id: item.id ?? `${index + 1}`,
-          name: item.artistName ?? 'Featured Artist',
-          genre: 'Top by Listens',
-          imageUrl: item.artworkUrl ?? null,
-        }));
-      }
-
       return {
-        featuredArtists,
         stats: {
-          totalArtists: stats.totalArtists ?? 0,
+          totalUsers: stats.totalUsers ?? 0,
           totalSongs: stats.totalSongs ?? 0,
-          totalProfileClicks: stats.totalProfileClicks ?? 0,
-          liveListeners,
+          totalPlays: stats.totalPlays ?? 0,
+          totalLikes: stats.totalLikes ?? 0,
         },
       };
     }
   } catch (error) {
     console.error('Failed to fetch platform stats:', error);
   }
-  
+
   // Fallback to default data
   return {
-    featuredArtists: featuredArtistsFallback,
     stats: {
-      totalArtists: 0,
+      totalUsers: 0,
       totalSongs: 0,
-      totalProfileClicks: 0,
-      liveListeners: 0,
+      totalPlays: 0,
+      totalLikes: 0,
     },
   };
 }
@@ -146,40 +187,15 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* 4 AM Story — blue section to alternate with dark */}
-      <section className="py-16 sm:py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-4xl sm:text-5xl font-bold mb-6 text-center">
-            Our Story: The 4 AM Catalyst
-          </h2>
-          <div className="space-y-4 text-primary-foreground/90 text-lg leading-relaxed">
-            <p>
-              Most tech companies start in a Silicon Valley garage. Networx started at a gas station at 4 AM.
-            </p>
-            <p>
-              That was where Tanaka and Merquise first crossed paths. It was a random connection—a &quot;butterfly effect&quot; in its purest form. We were two people who, on paper, were struggling financially, but in reality, were rich in skills and belief. As our friendship grew, we saw each other&apos;s strengths: Tanaka, the architect with the technical vision to build the impossible; Merquise, the strategist with the heart to find the talent others overlooked.
-            </p>
-            <p>
-              We realized that our meeting shouldn&apos;t have been a fluke. We pushed each other to succeed when the world wasn&apos;t looking. We realized that society is full of &quot;bright lights&quot; that are allowed to die out simply because they didn&apos;t have a bridge to the right room. We decided that allowing talent to go to waste is more than a shame—it is a crime. We built Networx to make those 4 AM moments happen for everyone.
-            </p>
-          </div>
-          <div className="mt-8 text-center">
-            <Button variant="secondary" size="lg" className="border-2 border-primary-foreground/90 shadow-md" asChild>
-              <Link href="/about">Read full story</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Stats Section — black/white slot in the teal↔dark alternation */}
+      {/* Stats Section — live platform totals */}
       <section className="py-16 bg-background border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {[
-              { value: data.stats.totalArtists.toLocaleString(), label: 'Gems', sub: '(artists)' },
-              { value: data.stats.totalSongs.toLocaleString(), label: 'Tracks', sub: '(songs)' },
-              { value: formatDiscoveries(data.stats.totalProfileClicks), label: 'Discoveries', sub: '(profile clicks)' },
-              { value: formatLiveListeners(data.stats.liveListeners), label: 'Live listeners', sub: '(tuned in now)' },
+              { value: formatCount(data.stats.totalUsers), label: 'Members', sub: '(total users)' },
+              { value: formatCount(data.stats.totalSongs), label: 'Songs', sub: '(uploaded)' },
+              { value: formatCount(data.stats.totalPlays), label: 'Listens', sub: '(all-time plays)' },
+              { value: formatCount(data.stats.totalLikes), label: 'Ripples', sub: '(total likes)' },
             ].map((stat) => (
               <Card key={stat.label} className="text-center">
                 <CardContent className="pt-6">
@@ -193,103 +209,44 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* How It Works - Prospectors — teal slot */}
+      {/* The Language of Networx — branding glossary (three metaphor systems) */}
       <section className="py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-              For Prospectors
+          <div className="text-center mb-14 max-w-3xl mx-auto">
+            <h2 className="text-3xl sm:text-4xl font-bold text-primary-foreground mb-4">
+              The Language of Networx
             </h2>
-            <p className="text-xl text-primary-foreground/80">
-              Discover your next favorite gem in real time
+            <p className="text-lg text-primary-foreground/80">
+              Our world runs on three ideas: the <strong>Butterfly Effect</strong>, the artist&apos;s{' '}
+              <strong>Metamorphosis</strong>, and the <strong>Mining</strong> of hidden talent. Here is what every term means.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: '🎵', title: 'Always-On Radio', desc: 'Jump into a continuous stream where listeners share the same moment of discovery.' },
-              { icon: '💬', title: 'Vote + Live Chat', desc: 'Ripple, vote, and connect while tracks are playing so artists get immediate feedback.' },
-              { icon: '🎥', title: 'Join Artist Livestreams', desc: 'Watch artists go live, interact directly, and support them with donations during sessions.' },
-            ].map((item) => (
-              <Card key={item.title} className="text-center">
-                <CardHeader>
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-3xl">{item.icon}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold">{item.title}</h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{item.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* How It Works - Gems (underground artists) — black/white slot */}
-      <section className="py-20 bg-background border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">
-              For Gems
-            </h2>
-            <p className="text-xl text-muted-foreground">
-              Launch and grow with tools built for real fans
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { icon: '📤', title: 'Upload + Release', desc: 'Submit tracks for moderation and get played in rotation once approved.' },
-              { icon: '🚀', title: 'Promote with Credits', desc: 'Use play credits to increase visibility while still earning organic discovery.' },
-              { icon: '📊', title: 'Analytics', desc: 'Track listens, discoveries, engagement, and audience growth over time.' },
-            ].map((item) => (
-              <Card key={item.title} className="text-center">
-                <CardHeader>
-                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <span className="text-3xl">{item.icon}</span>
-                  </div>
-                  <h3 className="text-xl font-semibold">{item.title}</h3>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-muted-foreground">{item.desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Diamonds (featured underground talent) — teal slot */}
-      <section className="py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-              Diamonds
-            </h2>
-            <p className="text-xl text-primary-foreground/80">
-              Undiscovered talent in the spotlight
-            </p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {data.featuredArtists.map((artist) => (
-              <Card key={artist.id} className="overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center">
-                  {artist.imageUrl ? (
-                    <img 
-                      src={artist.imageUrl} 
-                      alt={artist.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-6xl">🎤</span>
-                  )}
+          <div className="space-y-12">
+            {GLOSSARY.map((group) => (
+              <div key={group.system}>
+                <div className="mb-6 text-center sm:text-left">
+                  <h3 className="text-2xl font-bold text-primary-foreground">{group.system}</h3>
+                  <p className="text-primary-foreground/70 mt-1">{group.tagline}</p>
                 </div>
-                <CardHeader>
-                  <h3 className="text-xl font-semibold">{artist.name}</h3>
-                  <p className="text-muted-foreground">{artist.genre}</p>
-                </CardHeader>
-              </Card>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {group.terms.map((t) => (
+                    <Card key={t.term} className="text-left h-full">
+                      <CardContent className="pt-6">
+                        <div className="text-lg font-semibold text-primary">{t.term}</div>
+                        <p className="text-muted-foreground mt-2 leading-relaxed">{t.definition}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
             ))}
+          </div>
+
+          <div className="mt-14 text-center">
+            <Button variant="secondary" size="lg" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
+              <Link href="/about">Read our full story</Link>
+            </Button>
           </div>
         </div>
       </section>
