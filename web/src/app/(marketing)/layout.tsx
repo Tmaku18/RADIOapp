@@ -22,9 +22,9 @@ export default function MarketingLayout({
     <div className="min-h-screen flex flex-col bg-background">
       {/* Navigation */}
       <header className="border-b border-border bg-card">
-        <nav className="max-w-7xl mx-auto pl-0 pr-4 sm:pr-6 lg:pr-8">
-          <div className="flex justify-between items-center h-20">
-            {/* Logo + brand text, aligned with left corner */}
+        <nav className="w-full px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center gap-4 h-20">
+            {/* Logo + brand text, pinned to the far left */}
             <Link href="/" className="flex items-center shrink-0 gap-4 self-stretch">
               {!headerLogoError ? (
                 <>
@@ -50,30 +50,28 @@ export default function MarketingLayout({
               )}
             </Link>
 
-            {/* Navigation Links */}
-            <div className="hidden md:flex items-center space-x-2">
-              <Button variant="ghost" asChild>
-                <Link href="/features">Features</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/pricing">Pricing</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/about">About</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/faq">FAQ</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/pro-directory">Pro-Directory</Link>
-              </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/contact">Contact</Link>
-              </Button>
-            </div>
-
-            {/* Auth + ProNetworx: one blue CTA, ProNetworx far right */}
-            <div className="flex items-center space-x-2">
+            {/* Nav links + auth, grouped together and pinned to the far right */}
+            <div className="flex items-center gap-2">
+              <div className="hidden md:flex items-center space-x-1">
+                <Button variant="ghost" asChild>
+                  <Link href="/features">Features</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/pricing">Pricing</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/about">About</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/faq">FAQ</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/pro-directory">Pro-Directory</Link>
+                </Button>
+                <Button variant="ghost" asChild>
+                  <Link href="/contact">Contact</Link>
+                </Button>
+              </div>
               <ThemeToggle />
               <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/signup">Sign Up/Login</Link>
