@@ -19,6 +19,7 @@ export interface UserResponse {
   id: string;
   email: string;
   displayName: string | null;
+  username: string | null;
   role: 'listener' | 'artist' | 'admin' | 'service_provider';
   avatarUrl: string | null;
   createdAt: string;
@@ -46,9 +47,18 @@ export interface UserResponse {
 export interface FollowListItem {
   id: string;
   displayName: string | null;
+  username: string | null;
   avatarUrl: string | null;
   headline: string | null;
   role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
+  /**
+   * Relationship of this person to the profile owner being viewed:
+   * - friend: mutual follow
+   * - fan: follows the owner but the owner doesn't follow back
+   * - following: the owner follows them but they don't follow back
+   * - none: no relationship inferred
+   */
+  relationship?: 'friend' | 'fan' | 'following' | 'none';
 }
 
 export interface ArtistLikeNotificationSettingsResponse {
@@ -62,6 +72,7 @@ function transformUser(data: any): UserResponse {
     id: data.id,
     email: data.email,
     displayName: data.display_name,
+    username: data.username ?? null,
     role: data.role,
     avatarUrl: data.avatar_url,
     createdAt: data.created_at,
@@ -526,6 +537,14 @@ export class UsersService {
       }
       updatePayload.display_name = trimmedDisplayName;
     }
+    if (updateUserDto.username !== undefined) {
+      const normalized = this.normalizeUsername(updateUserDto.username);
+      const available = await this.isUsernameAvailable(normalized, user.id);
+      if (!available) {
+        throw new ConflictException('That username is already taken.');
+      }
+      updatePayload.username = normalized;
+    }
     if (updateUserDto.avatarUrl !== undefined)
       updatePayload.avatar_url = updateUserDto.avatarUrl;
     if (updateUserDto.region !== undefined)
@@ -618,10 +637,92 @@ export class UsersService {
       .single();
 
     if (error) {
+      if (error.code === '23505') {
+        throw new ConflictException('That username is already taken.');
+      }
       throw new BadRequestException(`Failed to update user: ${error.message}`);
     }
 
     return transformUser(data);
+  }
+
+  /**
+   * Normalize and validate a requested username. Lowercases, trims, and
+   * enforces the same 3-30 char [a-z0-9_.] rule as the DB constraint.
+   */
+  normalizeUsername(raw: string): string {
+    const normalized = (raw ?? '').trim().toLowerCase();
+    if (!/^[a-z0-9_.]{3,30}$/.test(normalized)) {
+      throw new BadRequestException(
+        'Username must be 3-30 characters using lowercase letters, numbers, underscores, or dots.',
+      );
+    }
+    return normalized;
+  }
+
+  /**
+   * Returns true if the username is free (case-insensitive). When excludeUserId
+   * is provided, the caller's own current username does not count as taken.
+   */
+  async isUsernameAvailable(
+    username: string,
+    excludeUserId?: string,
+  ): Promise<boolean> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') {
+      // Treat a missing column/table as "available" so degraded envs don't block.
+      if (this.isMissingUsernameColumn(error)) return true;
+      throw new BadRequestException(
+        `Failed to check username: ${error.message}`,
+      );
+    }
+    if (!data) return true;
+    return excludeUserId ? data.id === excludeUserId : false;
+  }
+
+  /** Availability check for the authenticated user (excludes their own handle). */
+  async checkUsernameAvailable(
+    firebaseUid: string,
+    rawUsername: string,
+  ): Promise<{ available: boolean; username: string }> {
+    const username = this.normalizeUsername(rawUsername);
+    const userId = await this.getDbUserIdByFirebaseUid(firebaseUid).catch(
+      () => undefined,
+    );
+    const available = await this.isUsernameAvailable(username, userId);
+    return { available, username };
+  }
+
+  async getUserByUsername(rawUsername: string): Promise<UserResponse> {
+    const supabase = getSupabaseClient();
+    const username = (rawUsername ?? '').trim().toLowerCase();
+    if (!username) throw new NotFoundException('User not found');
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .maybeSingle();
+    if (error || !data) {
+      throw new NotFoundException('User not found');
+    }
+    return transformUser(data);
+  }
+
+  private isMissingUsernameColumn(error: unknown): boolean {
+    const maybeError = error as { code?: string; message?: string } | null;
+    const message = (maybeError?.message ?? '').toLowerCase();
+    return (
+      maybeError?.code === '42703' ||
+      maybeError?.code === 'PGRST204' ||
+      message.includes('users.username') ||
+      message.includes("column users.username") ||
+      message.includes("'username'")
+    );
   }
 
   /**
@@ -1073,6 +1174,7 @@ export class UsersService {
       artist: {
         id: userRow.id,
         displayName: userRow.display_name ?? null,
+        username: userRow.username ?? null,
         avatarUrl: userRow.avatar_url ?? null,
         bio: userRow.bio ?? null,
         headline: userRow.headline ?? null,
@@ -1304,15 +1406,21 @@ export class UsersService {
       return { items: [], total: count ?? 0 };
     }
 
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('id, display_name, avatar_url, headline, role')
-      .in('id', ids);
+    const { data: users, error: usersError } = await this.selectFollowProfiles(
+      supabase,
+      ids,
+    );
     if (usersError) {
       throw new BadRequestException(
         `Failed to load follower profiles: ${usersError.message}`,
       );
     }
+
+    // Relationship is computed from the profile owner's perspective: a follower
+    // the owner also follows back is a "friend", otherwise they are a "fan".
+    const ownerFollowing = await this.getFollowedUserIds(resolvedUserId).catch(
+      () => new Set<string>(),
+    );
 
     const usersById = new Map(
       (users || []).map((u: any) => [u.id as string, u]),
@@ -1323,9 +1431,11 @@ export class UsersService {
       .map((u: any) => ({
         id: u.id,
         displayName: u.display_name ?? null,
+        username: u.username ?? null,
         avatarUrl: u.avatar_url ?? null,
         headline: u.headline ?? null,
         role: (u.role as FollowListItem['role']) ?? null,
+        relationship: ownerFollowing.has(u.id) ? 'friend' : 'fan',
       }));
 
     return { items, total: count ?? legacyResult?.count ?? items.length };
@@ -1376,15 +1486,21 @@ export class UsersService {
       return { items: [], total: count ?? 0 };
     }
 
-    const { data: users, error: usersError } = await supabase
-      .from('users')
-      .select('id, display_name, avatar_url, headline, role')
-      .in('id', ids);
+    const { data: users, error: usersError } = await this.selectFollowProfiles(
+      supabase,
+      ids,
+    );
     if (usersError) {
       throw new BadRequestException(
         `Failed to load following profiles: ${usersError.message}`,
       );
     }
+
+    // From the owner's perspective: someone the owner follows who also follows
+    // the owner back is a "friend", otherwise the owner is just "following".
+    const ownerFollowers = await this.getFollowerUserIds(resolvedUserId).catch(
+      () => new Set<string>(),
+    );
 
     const usersById = new Map(
       (users || []).map((u: any) => [u.id as string, u]),
@@ -1395,12 +1511,118 @@ export class UsersService {
       .map((u: any) => ({
         id: u.id,
         displayName: u.display_name ?? null,
+        username: u.username ?? null,
         avatarUrl: u.avatar_url ?? null,
         headline: u.headline ?? null,
         role: (u.role as FollowListItem['role']) ?? null,
+        relationship: ownerFollowers.has(u.id) ? 'friend' : 'following',
       }));
 
     return { items, total: count ?? legacyResult?.count ?? items.length };
+  }
+
+  /**
+   * Friends = mutual follows (the user follows them and they follow back).
+   * Drives the share-to-friends picker and the profile "Friends" tab.
+   */
+  async getFriends(
+    userId: string,
+    limit = 200,
+    offset = 0,
+  ): Promise<{ items: FollowListItem[]; total: number }> {
+    const supabase = getSupabaseClient();
+    const resolvedUserId = await this.resolveUserId(userId);
+    const [following, followers] = await Promise.all([
+      this.getFollowedUserIds(resolvedUserId).catch(() => new Set<string>()),
+      this.getFollowerUserIds(resolvedUserId).catch(() => new Set<string>()),
+    ]);
+    const mutualIds = [...following].filter((id) => followers.has(id));
+    const total = mutualIds.length;
+    if (!total) return { items: [], total: 0 };
+
+    const pageSize = Math.min(Math.max(limit, 1), 500);
+    const pageOffset = Math.max(offset, 0);
+    const pageIds = mutualIds.slice(pageOffset, pageOffset + pageSize);
+    if (!pageIds.length) return { items: [], total };
+
+    const { data: users, error: usersError } = await this.selectFollowProfiles(
+      supabase,
+      pageIds,
+    );
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to load friends: ${usersError.message}`,
+      );
+    }
+    const usersById = new Map(
+      (users || []).map((u: any) => [u.id as string, u]),
+    );
+    const items: FollowListItem[] = pageIds
+      .map((id) => usersById.get(id))
+      .filter(Boolean)
+      .map((u: any) => ({
+        id: u.id,
+        displayName: u.display_name ?? null,
+        username: u.username ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        headline: u.headline ?? null,
+        role: (u.role as FollowListItem['role']) ?? null,
+        relationship: 'friend',
+      }));
+    return { items, total };
+  }
+
+  /**
+   * Select follow-list profile fields, tolerating envs where the username
+   * column hasn't been migrated yet.
+   */
+  private async selectFollowProfiles(
+    supabase: ReturnType<typeof getSupabaseClient>,
+    ids: string[],
+  ): Promise<{ data: any[] | null; error: { message: string } | null }> {
+    const withUsername = await supabase
+      .from('users')
+      .select('id, display_name, username, avatar_url, headline, role')
+      .in('id', ids);
+    if (!withUsername.error) {
+      return { data: withUsername.data, error: null };
+    }
+    if (!this.isMissingUsernameColumn(withUsername.error)) {
+      return { data: null, error: withUsername.error };
+    }
+    const fallback = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, headline, role')
+      .in('id', ids);
+    return { data: fallback.data, error: fallback.error };
+  }
+
+  async getFollowerUserIds(userId: string): Promise<Set<string>> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('user_follows')
+      .select('follower_user_id')
+      .eq('followed_user_id', userId);
+    if (!error) {
+      return new Set(
+        (data || []).map((r: any) => r.follower_user_id as string),
+      );
+    }
+    if (!this.isMissingUserFollowsTable(error)) {
+      throw new BadRequestException(
+        `Failed to load followers: ${error.message}`,
+      );
+    }
+    const { data: legacyData, error: legacyError } = await supabase
+      .from('artist_follows')
+      .select('user_id')
+      .eq('artist_id', userId);
+    if (legacyError) {
+      throw new BadRequestException(
+        `Failed to load followers: ${legacyError.message}`,
+      );
+    }
+    return new Set((legacyData || []).map((r: any) => r.user_id as string));
   }
 
   async getFollowedUserIds(followerUserId: string): Promise<Set<string>> {

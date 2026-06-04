@@ -19,10 +19,27 @@ type GooglePlayCatalogEntry = {
   plays?: number;
 };
 
-/** Flat $1.99 per play. Returns cents. */
+/**
+ * A Discovery Placement is the unit artists buy to promote a track. Per the
+ * NETWORX model, one placement costs a flat $1.99 and targets a delivery of
+ * ~1,000 verified listener exposures (plays). The purchase quantity selected by
+ * the artist is a number of placements; each placement grants
+ * EXPOSURES_PER_PLACEMENT plays into the song's rotation budget.
+ */
+export const EXPOSURES_PER_PLACEMENT = 1000;
+
+/** Flat $1.99 per discovery placement. Returns cents. */
+export function pricePerPlacementCents(): number {
+  return 199;
+}
+
+/**
+ * @deprecated Pricing is now per discovery placement; this returns the flat
+ * placement price for backward compatibility with existing callers.
+ */
 export function pricePerPlayCents(durationSeconds: number): number {
   void durationSeconds;
-  return 199;
+  return pricePerPlacementCents();
 }
 
 @Injectable()
@@ -337,11 +354,17 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Credits a song's rotation budget for purchased discovery placements.
+   * `placements` is the number of $1.99 placements bought; each grants
+   * EXPOSURES_PER_PLACEMENT plays (verified listener exposures).
+   */
   private async addPlaysToSong(
     supabase: any,
     songId: string,
-    plays: number,
+    placements: number,
   ): Promise<void> {
+    const exposures = placements * EXPOSURES_PER_PLACEMENT;
     const { data: song } = await supabase
       .from('songs')
       .select('credits_remaining')
@@ -351,7 +374,7 @@ export class PaymentsService {
     await supabase
       .from('songs')
       .update({
-        credits_remaining: (song.credits_remaining ?? 0) + plays,
+        credits_remaining: (song.credits_remaining ?? 0) + exposures,
         updated_at: new Date().toISOString(),
       })
       .eq('id', songId);
@@ -708,13 +731,21 @@ export class PaymentsService {
     }
 
     const durationSeconds = song.duration_seconds ?? 180;
-    const pricePerPlayCentsVal = pricePerPlayCents(durationSeconds);
-    const pricePerPlayDollars = (pricePerPlayCentsVal / 100).toFixed(2);
+    const pricePerPlacementCentsVal = pricePerPlacementCents();
+    const pricePerPlacementDollars = (pricePerPlacementCentsVal / 100).toFixed(
+      2,
+    );
 
-    const options = ALLOWED_PLAYS_LIST.map((plays) => {
-      const totalCents = plays * pricePerPlayCentsVal;
+    // Each selectable quantity is a number of discovery placements. A placement
+    // is a flat $1.99 and targets ~EXPOSURES_PER_PLACEMENT verified exposures.
+    const options = ALLOWED_PLAYS_LIST.map((placements) => {
+      const totalCents = placements * pricePerPlacementCentsVal;
       return {
-        plays,
+        // `plays` retains its name for client/IAP compatibility but now counts
+        // placements purchased (not individual plays).
+        plays: placements,
+        placements,
+        exposures: placements * EXPOSURES_PER_PLACEMENT,
         totalCents,
         totalDollars: (totalCents / 100).toFixed(2),
       };
@@ -724,8 +755,12 @@ export class PaymentsService {
       songId: song.id,
       title: song.title,
       durationSeconds,
-      pricePerPlayCents: pricePerPlayCentsVal,
-      pricePerPlayDollars,
+      exposuresPerPlacement: EXPOSURES_PER_PLACEMENT,
+      pricePerPlacementCents: pricePerPlacementCentsVal,
+      pricePerPlacementDollars,
+      // Legacy aliases kept so existing clients keep working during rollout.
+      pricePerPlayCents: pricePerPlacementCentsVal,
+      pricePerPlayDollars: pricePerPlacementDollars,
       options,
     };
   }
@@ -764,8 +799,8 @@ export class PaymentsService {
 
     const session = await this.stripeService.createCheckoutSessionSongPlays(
       option.totalCents,
-      `${dto.plays} play(s) – ${price.title}`,
-      `$${price.pricePerPlayDollars}/play ($${option.totalDollars} total)`,
+      `${dto.plays} discovery placement${dto.plays === 1 ? '' : 's'} – ${price.title}`,
+      `$${price.pricePerPlacementDollars}/placement · ~${option.exposures.toLocaleString()} verified exposures ($${option.totalDollars} total)`,
       {
         userId,
         transactionId: transaction.id,

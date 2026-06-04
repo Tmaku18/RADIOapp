@@ -14,16 +14,16 @@ class SongPlayPrice {
   final String songId;
   final String title;
   final int durationSeconds;
-  final int pricePerPlayCents;
-  final String pricePerPlayDollars;
+  final int exposuresPerPlacement;
+  final String pricePerPlacementDollars;
   final List<PriceOption> options;
 
   SongPlayPrice({
     required this.songId,
     required this.title,
     required this.durationSeconds,
-    required this.pricePerPlayCents,
-    required this.pricePerPlayDollars,
+    required this.exposuresPerPlacement,
+    required this.pricePerPlacementDollars,
     required this.options,
   });
 
@@ -33,8 +33,12 @@ class SongPlayPrice {
       songId: json['songId'] as String? ?? '',
       title: json['title'] as String? ?? '',
       durationSeconds: (json['durationSeconds'] as num?)?.toInt() ?? 0,
-      pricePerPlayCents: (json['pricePerPlayCents'] as num?)?.toInt() ?? 0,
-      pricePerPlayDollars: json['pricePerPlayDollars'] as String? ?? '0.00',
+      exposuresPerPlacement:
+          (json['exposuresPerPlacement'] as num?)?.toInt() ?? 1000,
+      pricePerPlacementDollars:
+          json['pricePerPlacementDollars'] as String? ??
+          json['pricePerPlayDollars'] as String? ??
+          '0.00',
       options: optionsList
           .map((e) => PriceOption.fromJson(e as Map<String, dynamic>))
           .toList(),
@@ -43,19 +47,25 @@ class SongPlayPrice {
 }
 
 class PriceOption {
+  /// Number of discovery placements (kept as `plays` on the wire for
+  /// client/IAP compatibility).
   final int plays;
+  final int exposures;
   final int totalCents;
   final String totalDollars;
 
   PriceOption({
     required this.plays,
+    required this.exposures,
     required this.totalCents,
     required this.totalDollars,
   });
 
   factory PriceOption.fromJson(Map<String, dynamic> json) {
+    final placements = (json['plays'] as num?)?.toInt() ?? 0;
     return PriceOption(
-      plays: (json['plays'] as num?)?.toInt() ?? 0,
+      plays: placements,
+      exposures: (json['exposures'] as num?)?.toInt() ?? placements * 1000,
       totalCents: (json['totalCents'] as num?)?.toInt() ?? 0,
       totalDollars: json['totalDollars'] as String? ?? '0.00',
     );
@@ -114,6 +124,17 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
     return '$m:${s.toString().padLeft(2, '0')}';
   }
 
+  /// Formats an integer with thousands separators (e.g. 1000 -> "1,000").
+  String _withCommas(int n) {
+    final digits = n.toString();
+    final buffer = StringBuffer();
+    for (int i = 0; i < digits.length; i++) {
+      if (i > 0 && (digits.length - i) % 3 == 0) buffer.write(',');
+      buffer.write(digits[i]);
+    }
+    return buffer.toString();
+  }
+
   Future<void> _purchase() async {
     if (_selectedPlays == null || _price == null || _submitting) return;
     PriceOption? option;
@@ -135,7 +156,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         );
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No Google Play product mapping found for $_selectedPlays plays at '
+            'No Google Play product mapping found for $_selectedPlays placement(s) at '
             '\$${option.totalDollars} (key: ${_selectedPlays!}:$totalCents).',
           );
         }
@@ -149,7 +170,9 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Successfully purchased $_selectedPlays plays!'),
+            content: Text(
+              'Purchased $_selectedPlays placement(s) for this song!',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -184,7 +207,9 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Successfully purchased $_selectedPlays plays!'),
+          content: Text(
+            'Purchased $_selectedPlays placement(s) for this song!',
+          ),
           backgroundColor: Colors.green,
         ),
       );
@@ -240,7 +265,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Buy plays'),
+        title: const Text('Buy placements'),
         automaticallyImplyLeading: true,
       ),
       body: _loading
@@ -285,14 +310,14 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'Price per play',
+                            'Price per placement',
                             style: TextStyle(
                               color: surfaces.textSecondary,
                               fontSize: 12,
                             ),
                           ),
                           Text(
-                            '\$${_price!.pricePerPlayDollars} / play',
+                            '\$${_price!.pricePerPlacementDollars} / placement',
                             style: Theme.of(context)
                                 .textTheme
                                 .headlineSmall
@@ -300,6 +325,14 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                   color: scheme.primary,
                                   fontWeight: FontWeight.w700,
                                 ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Each placement targets ~${_withCommas(_price!.exposuresPerPlacement)} verified listener exposures.',
+                            style: TextStyle(
+                              color: surfaces.textMuted,
+                              fontSize: 12,
+                            ),
                           ),
                           const SizedBox(height: 10),
                           Text(
@@ -313,7 +346,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           ),
                           const SizedBox(height: 20),
                           Text(
-                            'Choose number of plays',
+                            'Choose number of placements',
                             style: TextStyle(
                               color: surfaces.textMuted,
                               fontWeight: FontWeight.w500,
@@ -324,13 +357,15 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                             spacing: 8,
                             runSpacing: 8,
                             children: _price!.options.map((option) {
-                              final plays = option.plays;
-                              final selected = _selectedPlays == plays;
+                              final placements = option.plays;
+                              final selected = _selectedPlays == placements;
                               return InkWell(
                                 onTap: _submitting
                                     ? null
                                     : () {
-                                        setState(() => _selectedPlays = plays);
+                                        setState(
+                                          () => _selectedPlays = placements,
+                                        );
                                       },
                                 borderRadius: BorderRadius.circular(12),
                                 child: Container(
@@ -356,10 +391,17 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Text(
-                                        '$plays ${plays == 1 ? "play" : "plays"}',
+                                        '$placements ${placements == 1 ? "placement" : "placements"}',
                                         style: TextStyle(
                                           fontWeight: FontWeight.w600,
                                           color: scheme.onSurface,
+                                        ),
+                                      ),
+                                      Text(
+                                        '~${_withCommas(option.exposures)} exposures',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: surfaces.textMuted,
                                         ),
                                       ),
                                       Text(

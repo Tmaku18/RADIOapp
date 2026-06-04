@@ -26,6 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _isLoadingFollowStats = false;
   int _followersCount = 0;
   int _followingCount = 0;
+  int _friendsCount = 0;
   final UsersService _usersService = UsersService();
 
   @override
@@ -55,16 +56,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _isLoadingFollowStats = true);
     try {
       final counts = await _usersService.getFollowCounts(userId);
+      final friends = await _usersService.getFriends(userId);
       if (!mounted) return;
       setState(() {
         _followersCount = counts['followers'] ?? 0;
         _followingCount = counts['following'] ?? 0;
+        _friendsCount = friends.length;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _followersCount = 0;
         _followingCount = 0;
+        _friendsCount = 0;
       });
     } finally {
       if (mounted) setState(() => _isLoadingFollowStats = false);
@@ -140,6 +144,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = _user;
     if (user == null) return;
     final nameCtrl = TextEditingController(text: user.displayName ?? '');
+    final usernameCtrl = TextEditingController(text: user.username ?? '');
     final headlineCtrl = TextEditingController(text: user.headline ?? '');
     final bioCtrl = TextEditingController(text: user.bio ?? '');
     final locationCtrl = TextEditingController(text: user.locationRegion ?? '');
@@ -164,11 +169,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setModalState) {
             Future<void> submit() async {
               if (saving) return;
+              final trimmedUsername =
+                  usernameCtrl.text.trim().toLowerCase();
+              final usernameChanged =
+                  trimmedUsername != (user.username ?? '').toLowerCase();
+              if (usernameChanged &&
+                  trimmedUsername.isNotEmpty &&
+                  !RegExp(r'^[a-z0-9_.]{3,30}$').hasMatch(trimmedUsername)) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Username must be 3-30 characters: lowercase letters, numbers, underscores, or dots.',
+                    ),
+                  ),
+                );
+                return;
+              }
               setModalState(() => saving = true);
               setState(() => _isUpdatingProfile = true);
               try {
                 await _usersService.updateMe(
                   displayName: nameCtrl.text.trim(),
+                  username: usernameChanged && trimmedUsername.isNotEmpty
+                      ? trimmedUsername
+                      : null,
                   headline: headlineCtrl.text.trim(),
                   bio: bioCtrl.text.trim(),
                   locationRegion: locationCtrl.text.trim(),
@@ -224,6 +248,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Display name',
                         ),
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: usernameCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                          prefixText: '@',
+                          helperText:
+                              'Your unique handle, separate from display name.',
+                        ),
+                        autocorrect: false,
+                        textCapitalization: TextCapitalization.none,
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -386,6 +422,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     // Clean up controllers after the bottom sheet closes.
     nameCtrl.dispose();
+    usernameCtrl.dispose();
     headlineCtrl.dispose();
     bioCtrl.dispose();
     locationCtrl.dispose();
@@ -470,10 +507,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .toList();
   }
 
-  Future<void> _openFollowList({required bool followers}) async {
+  Future<void> _openFollowList({required String mode}) async {
     final user = _user;
     if (user == null) return;
-    final title = followers ? 'Followers' : 'Following';
+    // mode: 'friends' | 'fans' | 'following'
+    final title = mode == 'friends'
+        ? 'Friends'
+        : mode == 'fans'
+            ? 'Fans'
+            : 'Following';
+    final canUnfollow = mode == 'following' || mode == 'friends';
     List<FollowListItem> items = const [];
     bool loading = true;
     String? error;
@@ -491,9 +534,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 error = null;
               });
               try {
-                final next = followers
-                    ? await _usersService.getFollowers(user.id)
-                    : await _usersService.getFollowing(user.id);
+                List<FollowListItem> next;
+                if (mode == 'friends') {
+                  next = await _usersService.getFriends(user.id);
+                } else if (mode == 'fans') {
+                  final followers = await _usersService.getFollowers(user.id);
+                  next = followers
+                      .where((e) => e.relationship != 'friend')
+                      .toList();
+                } else {
+                  next = await _usersService.getFollowing(user.id);
+                }
                 setModalState(() => items = next);
               } catch (e) {
                 setModalState(() => error = e.toString());
@@ -565,10 +616,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           title:
                                               Text(item.displayName ?? 'User'),
                                           subtitle: Text(
-                                            item.headline ??
-                                                (item.role ?? '').toUpperCase(),
+                                            (item.username ?? '').isNotEmpty
+                                                ? '@${item.username}'
+                                                : item.headline ??
+                                                    (item.role ?? '')
+                                                        .toUpperCase(),
                                           ),
-                                          trailing: followers
+                                          trailing: !canUnfollow
                                               ? null
                                               : IconButton(
                                                   onPressed: () async {
@@ -666,6 +720,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: Theme.of(context).textTheme.headlineSmall,
                       ),
                     ),
+                    if ((_user!.username ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Center(
+                        child: Text(
+                          '@${_user!.username}',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                color:
+                                    Theme.of(context).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Center(
                       child: FilledButton.tonalIcon(
@@ -745,13 +811,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: InkWell(
                                 onTap: _isLoadingFollowStats
                                     ? null
-                                    : () => _openFollowList(followers: true),
+                                    : () => _openFollowList(mode: 'friends'),
                                 child: Column(
                                   children: [
                                     Text(
                                       _isLoadingFollowStats
                                           ? '...'
-                                          : '$_followersCount',
+                                          : '$_friendsCount',
                                       style: Theme.of(context)
                                           .textTheme
                                           .titleMedium
@@ -760,7 +826,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ),
                                     ),
                                     const SizedBox(height: 2),
-                                    const Text('Followers'),
+                                    const Text('Friends'),
                                   ],
                                 ),
                               ),
@@ -773,7 +839,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               child: InkWell(
                                 onTap: _isLoadingFollowStats
                                     ? null
-                                    : () => _openFollowList(followers: false),
+                                    : () => _openFollowList(mode: 'fans'),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      _isLoadingFollowStats
+                                          ? '...'
+                                          : '${(_followersCount - _friendsCount).clamp(0, _followersCount)}',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    const Text('Fans'),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 34,
+                              child: VerticalDivider(width: 1),
+                            ),
+                            Expanded(
+                              child: InkWell(
+                                onTap: _isLoadingFollowStats
+                                    ? null
+                                    : () => _openFollowList(mode: 'following'),
                                 child: Column(
                                   children: [
                                     Text(
@@ -795,6 +889,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Card(
+                      child: Column(
+                        children: [
+                          ListTile(
+                            leading: const Icon(Icons.bookmark_border),
+                            title: const Text('Saved posts'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.savedPosts,
+                            ),
+                          ),
+                          const Divider(height: 1),
+                          ListTile(
+                            leading: const Icon(Icons.favorite_border),
+                            title: const Text('Liked posts'),
+                            trailing: const Icon(Icons.chevron_right),
+                            onTap: () => Navigator.pushNamed(
+                              context,
+                              AppRoutes.likedPosts,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 8),

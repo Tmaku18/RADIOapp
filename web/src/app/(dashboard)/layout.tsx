@@ -47,7 +47,26 @@ import {
   ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
 
-const PRO_NETWORX_INTERNAL_URL = '/pro-networx/home';
+// Pro-Networx lives on a separate domain. Dashboard users are already
+// authenticated, so we route them through the cross-domain auth handoff: their
+// session transfers and they land in Pro-Networx without a second sign-in.
+// Logged-out visitors reach the public landing via the marketing layout instead.
+function getProNetworxOrigin(): string {
+  const raw = (
+    process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com'
+  )
+    .trim()
+    .replace(/\/$/, '');
+  try {
+    return new URL(raw.startsWith('http') ? raw : `https://${raw}`).origin;
+  } catch {
+    return 'https://www.pro-networx.com';
+  }
+}
+const PRO_NETWORX_RETURN_URL = `${getProNetworxOrigin()}/pro-networx/home`;
+const PRO_NETWORX_INTERNAL_URL = `/auth-handoff?return_url=${encodeURIComponent(
+  PRO_NETWORX_RETURN_URL,
+)}`;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
 

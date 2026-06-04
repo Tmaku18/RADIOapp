@@ -25,6 +25,7 @@ import '../../features/pro_networx/pro_networx_landing_screen.dart';
 import '../../features/pro_networx/pro_networx_shell_screen.dart';
 import '../../features/pro_networx/pro_profile_screen.dart';
 import '../../features/pro_networx/pro_service_detail_screen.dart';
+import '../../features/pro_networx/saved_liked_posts_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/refinery/refinery_screen.dart';
 import '../../features/refinery/refinery_analytics_screen.dart';
@@ -129,6 +130,10 @@ class AppRouter {
         );
       case AppRoutes.proNetworxMyServices:
         return _route(const ProMyServicesScreen(), settings);
+      case AppRoutes.savedPosts:
+        return _route(const SavedLikedPostsScreen(mode: 'saved'), settings);
+      case AppRoutes.likedPosts:
+        return _route(const SavedLikedPostsScreen(mode: 'liked'), settings);
       case AppRoutes.nearbyPeople:
         return _route(const NearbyPeopleScreen(), settings);
       case AppRoutes.refinery:

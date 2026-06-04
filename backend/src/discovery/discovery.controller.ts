@@ -139,6 +139,64 @@ export class DiscoveryController {
     return { ok: true };
   }
 
+  /** Bookmark (save) a feed post (idempotent). */
+  @Post('feed/posts/:id/bookmark')
+  async bookmarkPost(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') postId: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    await this.discovery.bookmarkPost(viewerUserId, postId);
+    return { ok: true };
+  }
+
+  /** Remove a bookmark. */
+  @Delete('feed/posts/:id/bookmark')
+  async unbookmarkPost(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') postId: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    await this.discovery.unbookmarkPost(viewerUserId, postId);
+    return { ok: true };
+  }
+
+  /** Posts the viewer has saved (Saved screen). */
+  @Get('feed/bookmarks')
+  async listBookmarks(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limitStr?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 24, 60)
+      : undefined;
+    return this.discovery.listBookmarkedPosts({
+      viewerUserId,
+      limit,
+      cursor: cursor || undefined,
+    });
+  }
+
+  /** Posts the viewer has liked (Liked screen). */
+  @Get('feed/liked')
+  async listLiked(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limitStr?: string,
+    @Query('cursor') cursor?: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 24, 60)
+      : undefined;
+    return this.discovery.listLikedPosts({
+      viewerUserId,
+      limit,
+      cursor: cursor || undefined,
+    });
+  }
+
   /** List comments on a feed post. */
   @Get('feed/posts/:id/comments')
   async listComments(

@@ -3,6 +3,7 @@ class User {
   final String firebaseUid;
   final String email;
   final String? displayName;
+  final String? username;
   final String role;
   final String? avatarUrl;
   final String? headline;
@@ -27,6 +28,7 @@ class User {
     required this.firebaseUid,
     required this.email,
     this.displayName,
+    this.username,
     required this.role,
     this.avatarUrl,
     this.headline,
@@ -71,6 +73,7 @@ class User {
       firebaseUid: s(json['firebase_uid'] ?? json['firebaseUid']),
       email: s(json['email']),
       displayName: (json['display_name'] ?? json['displayName'])?.toString(),
+      username: (json['username'])?.toString(),
       role: s(json['role']),
       avatarUrl: (json['avatar_url'] ?? json['avatarUrl'])?.toString(),
       headline: (json['headline'])?.toString(),
@@ -101,6 +104,7 @@ class User {
       'firebaseUid': firebaseUid,
       'email': email,
       'displayName': displayName,
+      'username': username,
       'role': role,
       'avatarUrl': avatarUrl,
       'headline': headline,

@@ -159,10 +159,20 @@ export const songsApi = {
     api.patch(`/songs/${id}`, { optInFreePlay }),
 };
 
+export interface FollowListItem {
+  id: string;
+  displayName: string | null;
+  username?: string | null;
+  avatarUrl: string | null;
+  headline?: string | null;
+  role?: string | null;
+  relationship?: 'friend' | 'fan' | 'following' | 'none' | null;
+}
+
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string }) => 
+  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
@@ -170,10 +180,19 @@ export const usersApi = {
     return api.post('/users/me/avatar', formData);
   },
   getById: (id: string) => api.get(`/users/${id}`),
+  getByUsername: (username: string) => api.get(`/users/by-username/${encodeURIComponent(username)}`),
+  checkUsernameAvailable: (username: string) =>
+    api.get<{ available: boolean }>('/users/username-available', { params: { u: username } }),
   follow: (id: string) => api.post(`/users/${id}/follow`),
   unfollow: (id: string) => api.delete(`/users/${id}/follow`),
   isFollowing: (id: string) => api.get<{ following: boolean }>(`/users/${id}/follow`),
   getFollowCounts: (id: string) => api.get<{ followers: number; following: number }>(`/users/${id}/follow-counts`),
+  getFollowers: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: FollowListItem[] }>(`/users/${id}/followers`, { params }),
+  getFollowing: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: FollowListItem[] }>(`/users/${id}/following`, { params }),
+  getFriends: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: FollowListItem[] }>(`/users/${id}/friends`, { params }),
   create: (data: { email: string; displayName?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
   upgradeToArtist: () => api.post('/users/upgrade-to-artist'),
@@ -241,6 +260,18 @@ export const discoveryApi = {
   listFeed: (params?: { limit?: number; cursor?: string }) =>
     api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
       '/discovery/feed',
+      { params },
+    ),
+  bookmarkPost: (id: string) => api.post(`/discovery/feed/posts/${id}/bookmark`),
+  unbookmarkPost: (id: string) => api.delete(`/discovery/feed/posts/${id}/bookmark`),
+  listBookmarks: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/bookmarks',
+      { params },
+    ),
+  listLiked: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/liked',
       { params },
     ),
   createFeedPost: (file: File, caption?: string) => {
@@ -323,12 +354,17 @@ export interface DiscoverFeedPost {
   id: string;
   authorUserId: string;
   authorDisplayName: string | null;
+  authorUsername?: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
   mediaType: 'image' | 'video';
   caption: string | null;
   createdAt: string;
+  likeCount?: number;
+  commentCount?: number;
+  likedByMe?: boolean;
+  bookmarkedByMe?: boolean;
 }
 
 export interface DiscoveryMapHeatBucket {
@@ -372,11 +408,12 @@ export const messagesApi = {
     data: {
       body?: string;
       requestId?: string | null;
-      messageType?: 'text' | 'image' | 'video' | 'voice';
+      messageType?: 'text' | 'image' | 'video' | 'voice' | 'post_share';
       mediaUrl?: string | null;
       mediaMime?: string | null;
       mediaDurationMs?: number | null;
       replyToMessageId?: string | null;
+      sharedPostId?: string | null;
     },
   ) => api.post(`/messages/conversations/${otherUserId}`, data),
   editMessage: (messageId: string, body: string) =>

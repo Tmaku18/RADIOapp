@@ -75,9 +75,22 @@ export class AuthController {
     const sessionCookie = await auth.createSessionCookie(entry.idToken, {
       expiresIn,
     });
+    // Also mint a one-time custom token so the target origin can sign the
+    // Firebase *client* SDK in (the session cookie alone only authenticates
+    // server requests). This is what lets returning members skip the login
+    // screen on the other domain.
+    let customToken: string | null = null;
+    try {
+      const decoded = await auth.verifyIdToken(entry.idToken);
+      customToken = await auth.createCustomToken(decoded.uid);
+    } catch {
+      // Fall back to session-cookie-only handoff if custom token minting fails.
+      customToken = null;
+    }
     return {
       sessionCookie,
       maxAge: Math.floor(expiresIn / 1000),
+      customToken,
     };
   }
 }

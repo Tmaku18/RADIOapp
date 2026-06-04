@@ -17,6 +17,7 @@ class UsersService {
     bool? discoverable,
     String? avatarUrl,
     String? displayName,
+    String? username,
     String? region,
     bool? suggestLocalArtists,
     String? bio,
@@ -38,6 +39,7 @@ class UsersService {
       if (discoverable != null) 'discoverable': discoverable,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       if (displayName != null) 'displayName': displayName,
+      if (username != null) 'username': username,
       if (region != null) 'region': region,
       if (suggestLocalArtists != null) 'suggestLocalArtists': suggestLocalArtists,
       if (bio != null) 'bio': bio,
@@ -159,6 +161,33 @@ class UsersService {
           ),
         )
         .toList();
+  }
+
+  Future<List<FollowListItem>> getFriends(
+    String userId, {
+    int limit = 200,
+    int offset = 0,
+  }) async {
+    final res = await _api.get(
+      'users/$userId/friends?limit=$limit&offset=$offset',
+    );
+    if (res is! Map<String, dynamic>) return const [];
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => FollowListItem.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
+  /// Checks if a desired username is free (case-insensitive).
+  Future<bool> checkUsernameAvailable(String username) async {
+    final res = await _api.get('users/username-available?u=$username');
+    if (res is! Map<String, dynamic>) return false;
+    return res['available'] == true;
   }
 
   Future<bool> isFollowing(String userId) async {

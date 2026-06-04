@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { sessionCookie, maxAge } = data;
+    const { sessionCookie, maxAge, customToken } = data;
     if (!sessionCookie || !maxAge) {
       return NextResponse.json(
         { error: 'Invalid response from auth' },
@@ -43,7 +43,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const response = NextResponse.json({ success: true });
+    // Forward the custom token so the client can sign the Firebase SDK in on
+    // this origin (skips the login screen for client-gated routes).
+    const response = NextResponse.json({
+      success: true,
+      customToken: customToken ?? null,
+    });
     response.cookies.set('session', sessionCookie, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

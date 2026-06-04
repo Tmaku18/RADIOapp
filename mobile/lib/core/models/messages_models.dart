@@ -42,6 +42,41 @@ class MessageReaction {
   }
 }
 
+class SharedPostSnapshot {
+  final String id;
+  final String authorUserId;
+  final String? authorDisplayName;
+  final String? authorUsername;
+  final String? authorAvatarUrl;
+  final String imageUrl;
+  final String mediaType;
+  final String? caption;
+
+  const SharedPostSnapshot({
+    required this.id,
+    required this.authorUserId,
+    required this.authorDisplayName,
+    required this.authorUsername,
+    required this.authorAvatarUrl,
+    required this.imageUrl,
+    required this.mediaType,
+    required this.caption,
+  });
+
+  factory SharedPostSnapshot.fromJson(Map<String, dynamic> json) {
+    return SharedPostSnapshot(
+      id: (json['id'] ?? '').toString(),
+      authorUserId: (json['authorUserId'] ?? '').toString(),
+      authorDisplayName: (json['authorDisplayName'])?.toString(),
+      authorUsername: (json['authorUsername'])?.toString(),
+      authorAvatarUrl: (json['authorAvatarUrl'])?.toString(),
+      imageUrl: (json['imageUrl'] ?? '').toString(),
+      mediaType: (json['mediaType'] ?? 'image').toString(),
+      caption: (json['caption'])?.toString(),
+    );
+  }
+}
+
 class MessageRow {
   final String id;
   final String senderId;
@@ -53,6 +88,8 @@ class MessageRow {
   final DateTime? editedAt;
   final DateTime? unsentAt;
   final List<MessageReaction> reactions;
+  final String? sharedPostId;
+  final SharedPostSnapshot? sharedPost;
 
   MessageRow({
     required this.id,
@@ -65,6 +102,8 @@ class MessageRow {
     this.editedAt,
     this.unsentAt,
     this.reactions = const [],
+    this.sharedPostId,
+    this.sharedPost,
   });
 
   bool get isEdited => editedAt != null;
@@ -77,6 +116,7 @@ class MessageRow {
     }
 
     final rawReactions = json['reactions'];
+    final rawSharedPost = json['sharedPost'];
     return MessageRow(
       id: (json['id'] ?? '').toString(),
       senderId: (json['senderId'] ?? json['sender_id'] ?? '').toString(),
@@ -96,6 +136,13 @@ class MessageRow {
                   MessageReaction.fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
               .toList()
           : const [],
+      sharedPostId:
+          (json['sharedPostId'] ?? json['shared_post_id'])?.toString(),
+      sharedPost: rawSharedPost is Map
+          ? SharedPostSnapshot.fromJson(
+              rawSharedPost.map((k, v) => MapEntry(k.toString(), v)),
+            )
+          : null,
     );
   }
 }

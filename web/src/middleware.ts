@@ -26,8 +26,10 @@ function getProNetworxOrigin(): string {
 const PRO_NETWORX_DOMAIN = getProNetworxOrigin();
 
 function mapProNetworxPath(pathname: string): string {
+  // The bare entry point lands on the public marketing/landing page so visitors
+  // arriving from Networx Radio get context first instead of an instant auth wall.
   if (pathname === '/pro-networx' || pathname === '/pro-networx/')
-    return '/pro-networx/directory';
+    return '/pro-networx';
   if (pathname === '/pro-networx/directory')
     return '/pro-networx/directory';
   if (pathname === '/pro-networx/feed')
@@ -76,10 +78,8 @@ export function middleware(request: NextRequest) {
   }
 
   if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
-    const proNetworxUrl = new URL(
-      mapProNetworxPath('/pro-networx/directory'),
-      PRO_NETWORX_DOMAIN,
-    );
+    // Front door of the Pro-Networx domain shows the landing page for context.
+    const proNetworxUrl = new URL('/pro-networx', PRO_NETWORX_DOMAIN);
     return NextResponse.redirect(proNetworxUrl, 302);
   }
 

@@ -22,6 +22,7 @@ export interface DiscoverFeedPost {
   id: string;
   authorUserId: string;
   authorDisplayName: string | null;
+  authorUsername: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
@@ -31,6 +32,7 @@ export interface DiscoverFeedPost {
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
+  bookmarkedByMe: boolean;
 }
 
 export interface DiscoverFeedComment {
@@ -759,24 +761,32 @@ export class DiscoveryService {
     const supabase = getSupabaseClient();
     const postIds = rows.map((r) => r.id as string);
 
-    const [likeAgg, commentAgg, viewerLikes] = await Promise.all([
-      supabase
-        .from('discover_feed_post_likes')
-        .select('post_id')
-        .in('post_id', postIds),
-      supabase
-        .from('discover_feed_post_comments')
-        .select('post_id, deleted_at')
-        .in('post_id', postIds)
-        .is('deleted_at', null),
-      viewerUserId
-        ? supabase
-            .from('discover_feed_post_likes')
-            .select('post_id')
-            .eq('user_id', viewerUserId)
-            .in('post_id', postIds)
-        : Promise.resolve({ data: [] as Array<{ post_id: string }> }),
-    ]);
+    const [likeAgg, commentAgg, viewerLikes, viewerBookmarks] =
+      await Promise.all([
+        supabase
+          .from('discover_feed_post_likes')
+          .select('post_id')
+          .in('post_id', postIds),
+        supabase
+          .from('discover_feed_post_comments')
+          .select('post_id, deleted_at')
+          .in('post_id', postIds)
+          .is('deleted_at', null),
+        viewerUserId
+          ? supabase
+              .from('discover_feed_post_likes')
+              .select('post_id')
+              .eq('user_id', viewerUserId)
+              .in('post_id', postIds)
+          : Promise.resolve({ data: [] as Array<{ post_id: string }> }),
+        viewerUserId
+          ? supabase
+              .from('discover_feed_post_bookmarks')
+              .select('post_id')
+              .eq('user_id', viewerUserId)
+              .in('post_id', postIds)
+          : Promise.resolve({ data: [] as Array<{ post_id: string }> }),
+      ]);
 
     const likeCounts = new Map<string, number>();
     for (const row of (likeAgg.data ?? []) as Array<{ post_id: string }>) {
@@ -791,6 +801,11 @@ export class DiscoveryService {
         (r) => r.post_id,
       ),
     );
+    const viewerBookmarkedSet = new Set<string>(
+      ((viewerBookmarks.data ?? []) as Array<{ post_id: string }>).map(
+        (r) => r.post_id,
+      ),
+    );
 
     return rows.map((r) => {
       const u = r.users;
@@ -799,6 +814,7 @@ export class DiscoveryService {
         id: r.id,
         authorUserId: r.author_user_id,
         authorDisplayName: u?.display_name ?? null,
+        authorUsername: u?.username ?? null,
         authorAvatarUrl: u?.avatar_url ?? null,
         authorHeadline: u?.headline ?? null,
         imageUrl,
@@ -808,6 +824,7 @@ export class DiscoveryService {
         likeCount: likeCounts.get(r.id) ?? 0,
         commentCount: commentCounts.get(r.id) ?? 0,
         likedByMe: viewerLikedSet.has(r.id),
+        bookmarkedByMe: viewerBookmarkedSet.has(r.id),
       };
     });
   }
@@ -835,7 +852,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users!author_user_id(display_name, avatar_url, headline)
+        users!author_user_id(display_name, username, avatar_url, headline)
       `,
       )
       .order('created_at', { ascending: false })
@@ -899,7 +916,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users!author_user_id(display_name, avatar_url, headline)
+        users!author_user_id(display_name, username, avatar_url, headline)
       `,
       )
       .eq('author_user_id', params.authorUserId)
@@ -1074,7 +1091,7 @@ export class DiscoveryService {
             image_url,
             caption,
             created_at,
-            users!author_user_id(display_name, avatar_url, headline)
+            users!author_user_id(display_name, username, avatar_url, headline)
           `,
         )
         .ilike('caption', ilike)
@@ -1121,7 +1138,7 @@ export class DiscoveryService {
           image_url,
           caption,
           created_at,
-          users!author_user_id(display_name, avatar_url, headline)
+          users!author_user_id(display_name, username, avatar_url, headline)
         `,
       )
       .gte('created_at', sinceCutoff)
@@ -1187,7 +1204,7 @@ export class DiscoveryService {
           image_url,
           caption,
           created_at,
-          users!author_user_id(display_name, avatar_url, headline)
+          users!author_user_id(display_name, username, avatar_url, headline)
         `,
       )
       .gte('created_at', sinceCutoff)
@@ -1254,7 +1271,7 @@ export class DiscoveryService {
         image_url,
         caption,
         created_at,
-        users!author_user_id(display_name, avatar_url, headline)
+        users!author_user_id(display_name, username, avatar_url, headline)
       `,
       )
       .single();
@@ -1266,6 +1283,7 @@ export class DiscoveryService {
       id: r.id,
       authorUserId: r.author_user_id,
       authorDisplayName: u?.display_name ?? null,
+      authorUsername: u?.username ?? null,
       authorAvatarUrl: u?.avatar_url ?? null,
       authorHeadline: u?.headline ?? null,
       imageUrl: r.image_url,
@@ -1275,6 +1293,170 @@ export class DiscoveryService {
       likeCount: 0,
       commentCount: 0,
       likedByMe: false,
+      bookmarkedByMe: false,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Bookmarks (saved posts) + liked posts
+  // ---------------------------------------------------------------------------
+  async bookmarkPost(viewerUserId: string, postId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_feed_post_bookmarks')
+      .upsert(
+        { post_id: postId, user_id: viewerUserId },
+        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
+      );
+    if (error) throw new Error(`Failed to bookmark post: ${error.message}`);
+  }
+
+  async unbookmarkPost(viewerUserId: string, postId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('discover_feed_post_bookmarks')
+      .delete()
+      .eq('post_id', postId)
+      .eq('user_id', viewerUserId);
+    if (error) throw new Error(`Failed to remove bookmark: ${error.message}`);
+  }
+
+  /**
+   * Posts the viewer has bookmarked, newest-saved first. Joins the bookmark
+   * rows back to discover_feed_posts then reuses the standard hydration.
+   */
+  async listBookmarkedPosts(params: {
+    viewerUserId: string;
+    limit?: number;
+    cursor?: string; // bookmark created_at, exclusive
+  }): Promise<{ items: DiscoverFeedPost[]; nextCursor: string | null }> {
+    const limit = Math.min(params.limit ?? 24, 60);
+    const supabase = getSupabaseClient();
+
+    let query = supabase
+      .from('discover_feed_post_bookmarks')
+      .select(
+        `
+        created_at,
+        discover_feed_posts!post_id(
+          id,
+          author_user_id,
+          image_url,
+          caption,
+          created_at,
+          users!author_user_id(display_name, username, avatar_url, headline)
+        )
+      `,
+      )
+      .eq('user_id', params.viewerUserId)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+    if (params.cursor) query = query.lt('created_at', params.cursor);
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(`Failed to load saved posts: ${error.message}`);
+
+    const list = (rows || []) as any[];
+    const hasMore = list.length > limit;
+    const slice = hasMore ? list.slice(0, limit) : list;
+    const nextCursor =
+      hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
+
+    const postRows = slice
+      .map((r) => r.discover_feed_posts)
+      .filter(Boolean) as any[];
+    const items = await this.hydrateFeedPosts(postRows, params.viewerUserId);
+    return { items, nextCursor };
+  }
+
+  /**
+   * Posts the viewer has liked, newest-liked first.
+   */
+  async listLikedPosts(params: {
+    viewerUserId: string;
+    limit?: number;
+    cursor?: string; // like created_at, exclusive
+  }): Promise<{ items: DiscoverFeedPost[]; nextCursor: string | null }> {
+    const limit = Math.min(params.limit ?? 24, 60);
+    const supabase = getSupabaseClient();
+
+    let query = supabase
+      .from('discover_feed_post_likes')
+      .select(
+        `
+        created_at,
+        discover_feed_posts!post_id(
+          id,
+          author_user_id,
+          image_url,
+          caption,
+          created_at,
+          users!author_user_id(display_name, username, avatar_url, headline)
+        )
+      `,
+      )
+      .eq('user_id', params.viewerUserId)
+      .order('created_at', { ascending: false })
+      .limit(limit + 1);
+    if (params.cursor) query = query.lt('created_at', params.cursor);
+
+    const { data: rows, error } = await query;
+    if (error) throw new Error(`Failed to load liked posts: ${error.message}`);
+
+    const list = (rows || []) as any[];
+    const hasMore = list.length > limit;
+    const slice = hasMore ? list.slice(0, limit) : list;
+    const nextCursor =
+      hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
+
+    const postRows = slice
+      .map((r) => r.discover_feed_posts)
+      .filter(Boolean) as any[];
+    const items = await this.hydrateFeedPosts(postRows, params.viewerUserId);
+    return { items, nextCursor };
+  }
+
+  /**
+   * Lightweight single-post fetch used when sharing a post into a DM so the
+   * message can carry a snapshot (image, caption, author).
+   */
+  async getPostSnapshot(postId: string): Promise<{
+    id: string;
+    authorUserId: string;
+    authorDisplayName: string | null;
+    authorUsername: string | null;
+    authorAvatarUrl: string | null;
+    imageUrl: string;
+    mediaType: 'image' | 'video';
+    caption: string | null;
+  } | null> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('discover_feed_posts')
+      .select(
+        `
+        id,
+        author_user_id,
+        image_url,
+        caption,
+        users!author_user_id(display_name, username, avatar_url)
+      `,
+      )
+      .eq('id', postId)
+      .maybeSingle();
+    if (error || !data) return null;
+    const r = data as any;
+    const u = r.users;
+    const imageUrl = r.image_url as string;
+    return {
+      id: r.id,
+      authorUserId: r.author_user_id,
+      authorDisplayName: u?.display_name ?? null,
+      authorUsername: u?.username ?? null,
+      authorAvatarUrl: u?.avatar_url ?? null,
+      imageUrl,
+      mediaType: this.inferFeedMediaType(String(imageUrl ?? '')),
+      caption: r.caption ?? null,
     };
   }
 }

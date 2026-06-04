@@ -70,7 +70,8 @@ export class PaymentsController {
   }
 
   /**
-   * Get price per play for a song ($1/min) and purchase options (1, 3, 5, 10, 25, 50, 100 plays).
+   * Get discovery-placement pricing for a song. Each placement is a flat $1.99
+   * targeting ~1,000 verified listener exposures; quantities 1/3/5/10/25/50/100.
    */
   @Get('song-play-price')
   @UseGuards(FirebaseAuthGuard, RolesGuard)
@@ -113,8 +114,9 @@ export class PaymentsController {
   }
 
   /**
-   * Quick-buy: fixed "Add 5 Minutes" CTA while listening to your own track.
-   * Implemented as buying 5 plays for the specified song (Apple/Google Pay available via Stripe Checkout when supported).
+   * Quick-buy CTA while listening to your own track: purchases a single $1.99
+   * discovery placement (~1,000 verified exposures) for the specified song.
+   * Apple/Google Pay are available via Stripe Checkout when supported.
    */
   @Post('quick-add-minutes')
   @UseGuards(FirebaseAuthGuard, RolesGuard)
@@ -135,7 +137,7 @@ export class PaymentsController {
     if (!userData) throw new Error('User not found');
     return this.paymentsService.createCheckoutSessionSongPlays(userData.id, {
       songId: body.songId,
-      plays: 5,
+      plays: 1,
     } as BuySongPlaysDto);
   }
 

@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, MessageCircle } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react';
 import { discoveryApi, type DiscoverFeedPost, type DiscoverFeedComment } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { SharePostDialog } from './SharePostDialog';
 
 function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
@@ -29,9 +30,30 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
   const [commentBody, setCommentBody] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [bookmarkedByMe, setBookmarkedByMe] = useState(post.bookmarkedByMe);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
 
   const propagate = (patch: Partial<DiscoverFeedPost>) => {
     onChange?.({ ...post, ...patch });
+  };
+
+  const handleToggleBookmark = async () => {
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true);
+    const wasBookmarked = bookmarkedByMe;
+    const next = !wasBookmarked;
+    setBookmarkedByMe(next);
+    propagate({ bookmarkedByMe: next });
+    try {
+      if (next) await discoveryApi.bookmarkPost(post.id);
+      else await discoveryApi.unbookmarkPost(post.id);
+    } catch {
+      setBookmarkedByMe(wasBookmarked);
+      propagate({ bookmarkedByMe: wasBookmarked });
+    } finally {
+      setBookmarkBusy(false);
+    }
   };
 
   const handleToggleLike = async () => {
@@ -117,8 +139,12 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
           <p className="font-semibold text-sm text-foreground truncate">
             {post.authorDisplayName || 'Creator'}
           </p>
-          {post.authorHeadline && (
-            <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+          {post.authorUsername ? (
+            <p className="text-xs text-muted-foreground truncate">@{post.authorUsername}</p>
+          ) : (
+            post.authorHeadline && (
+              <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+            )
           )}
         </div>
       </Link>
@@ -168,6 +194,28 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
           >
             <MessageCircle className="h-5 w-5 text-foreground" />
             <span className="text-foreground tabular-nums">{commentCount}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShareOpen(true)}
+            className="flex items-center gap-1.5 text-sm hover:opacity-80 transition-opacity"
+            aria-label="Share with friends"
+          >
+            <Send className="h-5 w-5 text-foreground" />
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleBookmark}
+            disabled={bookmarkBusy}
+            className="ml-auto flex items-center text-sm hover:opacity-80 transition-opacity"
+            aria-label={bookmarkedByMe ? 'Remove bookmark' : 'Save post'}
+          >
+            <Bookmark
+              className={cn(
+                'h-5 w-5 transition-colors',
+                bookmarkedByMe ? 'fill-foreground text-foreground' : 'text-foreground',
+              )}
+            />
           </button>
         </div>
 
@@ -252,6 +300,8 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
           </div>
         )}
       </div>
+
+      <SharePostDialog post={post} open={shareOpen} onOpenChange={setShareOpen} />
     </article>
   );
 }

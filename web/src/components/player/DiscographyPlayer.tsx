@@ -187,18 +187,31 @@ export function DiscographyPlayer({ tracks, onToggleLike, onRecordListen, onBuy,
                 <button
                   type="button"
                   onClick={() => void handleRowPlay(t.id)}
-                  className="shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-muted/40 border border-border/60 flex items-center justify-center"
-                  aria-label={isActive && isPlaying ? 'Pause' : 'Play'}
+                  disabled={!playableUrl(t)}
+                  className="group relative shrink-0 w-10 h-10 rounded-lg overflow-hidden bg-muted/40 border border-border/60 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label={isActive && isPlaying ? 'Pause' : t.owned ? 'Play' : 'Play sample'}
+                  title={isActive && isPlaying ? 'Pause' : t.owned ? 'Play' : 'Play sample'}
                 >
-                  {t.artworkUrl ? (
+                  {t.artworkUrl && (
                     <ArtworkImage
                       src={t.artworkUrl}
                       alt={t.title}
                       className="h-10 w-10 object-cover"
                     />
-                  ) : (
-                    <span className="text-sm">{isActive && isPlaying ? '⏸' : '▶'}</span>
                   )}
+                  {/* Play/pause overlay so the thumbnail clearly reads as a control (visible on touch too) */}
+                  <span
+                    className={cn(
+                      'absolute inset-0 flex items-center justify-center text-white text-base transition-colors',
+                      t.artworkUrl
+                        ? cn(
+                            isActive ? 'bg-black/55' : 'bg-black/30 group-hover:bg-black/55 group-focus-visible:bg-black/55',
+                          )
+                        : '',
+                    )}
+                  >
+                    {isActive && isPlaying ? '⏸' : '▶'}
+                  </span>
                 </button>
 
                 <div className="min-w-0 flex-1">

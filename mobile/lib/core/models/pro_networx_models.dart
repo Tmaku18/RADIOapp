@@ -119,6 +119,7 @@ class ProFeedPost {
   final String id;
   final String authorUserId;
   final String? authorDisplayName;
+  final String? authorUsername;
   final String? authorAvatarUrl;
   final String? authorHeadline;
   final String imageUrl;
@@ -128,11 +129,13 @@ class ProFeedPost {
   int likeCount;
   int commentCount;
   bool likedByMe;
+  bool bookmarkedByMe;
 
   ProFeedPost({
     required this.id,
     required this.authorUserId,
     required this.authorDisplayName,
+    this.authorUsername,
     required this.authorAvatarUrl,
     required this.authorHeadline,
     required this.imageUrl,
@@ -142,6 +145,7 @@ class ProFeedPost {
     required this.likeCount,
     required this.commentCount,
     required this.likedByMe,
+    this.bookmarkedByMe = false,
   });
 
   factory ProFeedPost.fromJson(Map<String, dynamic> json) {
@@ -149,6 +153,7 @@ class ProFeedPost {
       id: (json['id'] ?? '').toString(),
       authorUserId: (json['authorUserId'] ?? '').toString(),
       authorDisplayName: (json['authorDisplayName'])?.toString(),
+      authorUsername: (json['authorUsername'])?.toString(),
       authorAvatarUrl: (json['authorAvatarUrl'])?.toString(),
       authorHeadline: (json['authorHeadline'])?.toString(),
       imageUrl: (json['imageUrl'] ?? '').toString(),
@@ -162,6 +167,7 @@ class ProFeedPost {
           ? json['commentCount'] as int
           : int.tryParse((json['commentCount'] ?? '0').toString()) ?? 0,
       likedByMe: json['likedByMe'] == true,
+      bookmarkedByMe: json['bookmarkedByMe'] == true,
     );
   }
 }

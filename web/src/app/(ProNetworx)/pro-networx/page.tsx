@@ -5,6 +5,7 @@ import {
   PRO_NETWORX_REGULAR_DISPLAY,
   PRO_NETWORX_INTRO_DISPLAY,
 } from '@/data/pro-networx-pricing';
+import { LandingCta } from './LandingCta';
 
 const REDIRECT_APP = '/pro-networx/home';
 const REDIRECT_APP_ENCODED = encodeURIComponent(REDIRECT_APP);
@@ -37,23 +38,7 @@ export default function ProNetworxLandingPage() {
             illustrators, lyricists, beat makers and the rest of the creative
             world post their work, get hired, and connect with each other.
           </p>
-          <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Button
-              asChild
-              size="lg"
-              className="bg-primary text-primary-foreground hover:opacity-90 shadow-[var(--brand-glow)]"
-            >
-              <Link href={`/signup?redirect=${REDIRECT_APP_ENCODED}`}>
-                Create your profile — free
-              </Link>
-            </Button>
-            <Button asChild size="lg" variant="outline" className="border-primary/30">
-              <Link href={`/login?redirect=${REDIRECT_APP_ENCODED}`}>Log in</Link>
-            </Button>
-            <Button asChild size="lg" variant="ghost">
-              <Link href="/pro-networx/search">Browse the feed</Link>
-            </Button>
-          </div>
+          <LandingCta />
           <p className="mt-4 text-sm text-muted-foreground">
             One login for both Networks Radio and Pro Networks.
           </p>

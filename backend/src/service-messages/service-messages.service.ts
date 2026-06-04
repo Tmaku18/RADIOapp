@@ -12,6 +12,19 @@ import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-net
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 
+export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'post_share';
+
+export interface SharedPostSnapshot {
+  id: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorUsername: string | null;
+  authorAvatarUrl: string | null;
+  imageUrl: string;
+  mediaType: 'image' | 'video';
+  caption: string | null;
+}
+
 export interface ConversationSummary {
   otherUserId: string;
   otherDisplayName: string | null;
@@ -20,7 +33,7 @@ export interface ConversationSummary {
   lastMessagePreview: string | null;
   lastMessageFromMe: boolean;
   unreadCount: number;
-  lastMessageType: 'text' | 'image' | 'video' | 'voice';
+  lastMessageType: MessageType;
   lastMessageStatus: 'sent' | 'delivered' | 'read';
   canDm: boolean;
 }
@@ -32,7 +45,7 @@ export interface ServiceMessageRow {
   requestId: string | null;
   body: string;
   createdAt: string;
-  messageType: 'text' | 'image' | 'video' | 'voice';
+  messageType: MessageType;
   mediaUrl: string | null;
   mediaMime: string | null;
   mediaDurationMs: number | null;
@@ -41,6 +54,8 @@ export interface ServiceMessageRow {
   unsentAt: string | null;
   status: 'sent' | 'delivered' | 'read';
   reactions: Array<{ emoji: string; userId: string; createdAt: string }>;
+  sharedPostId: string | null;
+  sharedPost: SharedPostSnapshot | null;
 }
 
 interface SendMessageInput {
@@ -48,11 +63,12 @@ interface SendMessageInput {
   recipientId: string;
   body?: string;
   requestId?: string | null;
-  messageType?: 'text' | 'image' | 'video' | 'voice';
+  messageType?: MessageType;
   mediaUrl?: string | null;
   mediaMime?: string | null;
   mediaDurationMs?: number | null;
   replyToMessageId?: string | null;
+  sharedPostId?: string | null;
 }
 
 @Injectable()
@@ -141,6 +157,86 @@ export class ServiceMessagesService {
     return false;
   }
 
+  private inferSharedMediaType(url: string): 'image' | 'video' {
+    const normalized = (url ?? '').toLowerCase();
+    if (
+      normalized.includes('.mp4') ||
+      normalized.includes('.webm') ||
+      normalized.includes('.mov')
+    ) {
+      return 'video';
+    }
+    return 'image';
+  }
+
+  /** Load post snapshots for shared-post messages, keyed by post id. */
+  private async loadSharedPosts(
+    postIds: string[],
+  ): Promise<Map<string, SharedPostSnapshot>> {
+    const out = new Map<string, SharedPostSnapshot>();
+    const ids = [...new Set(postIds.filter(Boolean))];
+    if (!ids.length) return out;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('discover_feed_posts')
+      .select(
+        `
+        id,
+        author_user_id,
+        image_url,
+        caption,
+        users!author_user_id(display_name, username, avatar_url)
+      `,
+      )
+      .in('id', ids);
+    if (error) return out;
+    for (const r of (data ?? []) as any[]) {
+      const u = r.users;
+      const imageUrl = r.image_url as string;
+      out.set(r.id, {
+        id: r.id,
+        authorUserId: r.author_user_id,
+        authorDisplayName: u?.display_name ?? null,
+        authorUsername: u?.username ?? null,
+        authorAvatarUrl: u?.avatar_url ?? null,
+        imageUrl,
+        mediaType: this.inferSharedMediaType(String(imageUrl ?? '')),
+        caption: r.caption ?? null,
+      });
+    }
+    return out;
+  }
+
+  /** True when the two users follow each other (mutual = "friends"). */
+  private async areMutualFollowers(
+    userA: string,
+    userB: string,
+  ): Promise<boolean> {
+    if (!userA || !userB || userA === userB) return false;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('user_follows')
+      .select('follower_user_id, followed_user_id')
+      .or(
+        `and(follower_user_id.eq.${userA},followed_user_id.eq.${userB}),and(follower_user_id.eq.${userB},followed_user_id.eq.${userA})`,
+      );
+    if (error) {
+      if (this.isMissingUserFollowsTable(error)) return false;
+      return false;
+    }
+    const rows = (data ?? []) as Array<{
+      follower_user_id: string;
+      followed_user_id: string;
+    }>;
+    const aFollowsB = rows.some(
+      (r) => r.follower_user_id === userA && r.followed_user_id === userB,
+    );
+    const bFollowsA = rows.some(
+      (r) => r.follower_user_id === userB && r.followed_user_id === userA,
+    );
+    return aFollowsB && bFollowsA;
+  }
+
   async listConversations(
     userId: string,
     search?: string,
@@ -150,7 +246,7 @@ export class ServiceMessagesService {
     let messagesRes: any = await supabase
       .from('service_messages')
       .select(
-        'id, sender_id, recipient_id, body, created_at, message_type, media_url, unsent_at',
+        'id, sender_id, recipient_id, body, created_at, message_type, media_url, unsent_at, shared_post_id',
       )
       .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
       .order('created_at', { ascending: false });
@@ -160,6 +256,7 @@ export class ServiceMessagesService {
         'message_type',
         'media_url',
         'unsent_at',
+        'shared_post_id',
       ])
     ) {
       messagesRes = await supabase
@@ -184,7 +281,7 @@ export class ServiceMessagesService {
         body: string;
         created_at: string;
         fromMe: boolean;
-        message_type: 'text' | 'image' | 'video' | 'voice';
+        message_type: MessageType;
         unsent_at: string | null;
         media_url: string | null;
       }
@@ -261,7 +358,9 @@ export class ServiceMessagesService {
             : 'sent';
       let preview = last.body?.slice(0, 80) ?? null;
       if (last.unsent_at) preview = 'Message unsent';
-      if (!preview && last.media_url) {
+      if (last.message_type === 'post_share') {
+        preview = preview ? `Shared a post: ${preview}` : 'Shared a post';
+      } else if (!preview && last.media_url) {
         preview =
           last.message_type === 'image'
             ? 'Photo'
@@ -307,7 +406,7 @@ export class ServiceMessagesService {
     let q = supabase
       .from('service_messages')
       .select(
-        'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at',
+        'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at, shared_post_id',
       )
       .or(
         `and(sender_id.eq.${userId},recipient_id.eq.${otherUserId}),and(sender_id.eq.${otherUserId},recipient_id.eq.${userId})`,
@@ -326,6 +425,7 @@ export class ServiceMessagesService {
         'reply_to_message_id',
         'edited_at',
         'unsent_at',
+        'shared_post_id',
       ])
     ) {
       let legacyQ = supabase
@@ -373,19 +473,20 @@ export class ServiceMessagesService {
       reactionsByMessage.set(key, list);
     }
 
+    const sharedPostIds = (data || [])
+      .map((m: any) => m.shared_post_id)
+      .filter(Boolean) as string[];
+    const sharedPosts = await this.loadSharedPosts(sharedPostIds);
+
     const readAt = await this.getConversationReadAt(otherUserId, userId);
-    const rows = (data || []).map((m: any) => ({
+    const rows: ServiceMessageRow[] = (data || []).map((m: any) => ({
       id: m.id,
       senderId: m.sender_id,
       recipientId: m.recipient_id,
       requestId: m.request_id,
       body: m.body,
       createdAt: m.created_at,
-      messageType: (m.message_type ?? 'text') as
-        | 'text'
-        | 'image'
-        | 'video'
-        | 'voice',
+      messageType: (m.message_type ?? 'text') as MessageType,
       mediaUrl: m.media_url ?? null,
       mediaMime: m.media_mime ?? null,
       mediaDurationMs: m.media_duration_ms ?? null,
@@ -400,6 +501,10 @@ export class ServiceMessagesService {
             : ('delivered' as const)
           : ('sent' as const),
       reactions: reactionsByMessage.get(m.id) ?? [],
+      sharedPostId: m.shared_post_id ?? null,
+      sharedPost: m.shared_post_id
+        ? (sharedPosts.get(m.shared_post_id) ?? null)
+        : null,
     }));
     return rows.reverse();
   }
@@ -410,16 +515,42 @@ export class ServiceMessagesService {
     if (messageType === 'text' && !trimmedBody) {
       throw new BadRequestException('Text messages require body');
     }
-    if (messageType !== 'text' && !input.mediaUrl) {
+    if (
+      messageType !== 'text' &&
+      messageType !== 'post_share' &&
+      !input.mediaUrl
+    ) {
       throw new BadRequestException('Media messages require mediaUrl');
+    }
+    if (messageType === 'post_share' && !input.sharedPostId) {
+      throw new BadRequestException('Shared post messages require sharedPostId');
     }
     if (input.senderId === input.recipientId) {
       throw new BadRequestException('Cannot message yourself');
     }
 
+    // Validate the shared post exists up front so we don't persist a dangling
+    // reference (and so we can deliver the snapshot in the response).
+    let sharedPostSnapshot: SharedPostSnapshot | null = null;
+    if (messageType === 'post_share' && input.sharedPostId) {
+      const snapshots = await this.loadSharedPosts([input.sharedPostId]);
+      sharedPostSnapshot = snapshots.get(input.sharedPostId) ?? null;
+      if (!sharedPostSnapshot) {
+        throw new NotFoundException('Shared post not found');
+      }
+    }
+
+    // DM gate: Pro Networks subscription is normally required. Exception:
+    // sharing a post to a friend (mutual follower) is always allowed so the
+    // social share-to-friends flow works without a subscription.
     const access = await this.proNetworkSubscription.getAccess(input.senderId);
     if (!access.hasAccess) {
-      throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
+      const sharingToFriend =
+        messageType === 'post_share' &&
+        (await this.areMutualFollowers(input.senderId, input.recipientId));
+      if (!sharingToFriend) {
+        throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
+      }
     }
 
     const supabase = getSupabaseClient();
@@ -435,9 +566,10 @@ export class ServiceMessagesService {
         media_mime: input.mediaMime ?? null,
         media_duration_ms: input.mediaDurationMs ?? null,
         reply_to_message_id: input.replyToMessageId ?? null,
+        shared_post_id: input.sharedPostId ?? null,
       })
       .select(
-        'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at',
+        'id, sender_id, recipient_id, request_id, body, created_at, message_type, media_url, media_mime, media_duration_ms, reply_to_message_id, edited_at, unsent_at, shared_post_id',
       )
       .single();
     if (
@@ -448,6 +580,7 @@ export class ServiceMessagesService {
         'media_mime',
         'media_duration_ms',
         'reply_to_message_id',
+        'shared_post_id',
       ])
     ) {
       insertRes = await supabase
@@ -467,18 +600,14 @@ export class ServiceMessagesService {
     }
     const inserted = insertRes.data as any;
 
-    const msg = {
+    const msg: ServiceMessageRow = {
       id: inserted.id,
       senderId: inserted.sender_id,
       recipientId: inserted.recipient_id,
       requestId: inserted.request_id,
       body: inserted.body,
       createdAt: inserted.created_at,
-      messageType: (inserted.message_type ?? 'text') as
-        | 'text'
-        | 'image'
-        | 'video'
-        | 'voice',
+      messageType: (inserted.message_type ?? 'text') as MessageType,
       mediaUrl: inserted.media_url ?? null,
       mediaMime: inserted.media_mime ?? null,
       mediaDurationMs: inserted.media_duration_ms ?? null,
@@ -487,6 +616,8 @@ export class ServiceMessagesService {
       unsentAt: inserted.unsent_at ?? null,
       status: 'delivered' as const,
       reactions: [],
+      sharedPostId: inserted.shared_post_id ?? input.sharedPostId ?? null,
+      sharedPost: sharedPostSnapshot,
     };
 
     const senderName = await this.getDisplayName(input.senderId);
@@ -498,7 +629,9 @@ export class ServiceMessagesService {
           ? 'Sent a photo'
           : messageType === 'video'
             ? 'Sent a video'
-            : 'Sent a voice message';
+            : messageType === 'post_share'
+              ? 'Shared a post'
+              : 'Sent a voice message';
     const messageText = senderName
       ? `${senderName}: ${fallbackPreview.slice(0, 60)}${fallbackPreview.length > 60 ? '…' : ''}`
       : fallbackPreview.slice(0, 80);

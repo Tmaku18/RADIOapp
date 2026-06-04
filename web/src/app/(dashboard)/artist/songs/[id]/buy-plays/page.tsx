@@ -22,6 +22,8 @@ function errorMessage(err: unknown, fallback: string): string {
 
 interface PriceOption {
   plays: number;
+  placements?: number;
+  exposures?: number;
   totalCents: number;
   totalDollars: string;
 }
@@ -30,6 +32,8 @@ interface SongPlayPrice {
   songId: string;
   title: string;
   durationSeconds: number;
+  exposuresPerPlacement?: number;
+  pricePerPlacementDollars?: string;
   pricePerPlayCents: number;
   pricePerPlayDollars: string;
   options: PriceOption[];
@@ -41,7 +45,7 @@ function formatDuration(seconds: number): string {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
 
-const PLAYS_OPTIONS = [1, 3, 5, 10, 25, 50, 100];
+const PLACEMENT_OPTIONS = [1, 3, 5, 10, 25, 50, 100];
 
 export default function BuyPlaysPage() {
   const router = useRouter();
@@ -118,6 +122,11 @@ export default function BuyPlaysPage() {
   if (!price) return null;
 
   const selectedOption = price.options.find((o) => o.plays === selectedPlays);
+  const exposuresPerPlacement = price.exposuresPerPlacement ?? 1000;
+  const placementPriceDollars =
+    price.pricePerPlacementDollars ?? price.pricePerPlayDollars;
+  const exposuresFor = (option: PriceOption) =>
+    option.exposures ?? option.plays * exposuresPerPlacement;
 
   return (
     <div className="space-y-6 max-w-2xl">
@@ -125,7 +134,7 @@ export default function BuyPlaysPage() {
         <Button variant="ghost" onClick={() => router.push('/artist/songs')} className="mb-4">
           ← Back to My Songs
         </Button>
-        <h1 className="text-2xl font-bold text-foreground">Buy plays</h1>
+        <h1 className="text-2xl font-bold text-foreground">Buy discovery placements</h1>
         <p className="text-muted-foreground mt-1">
           {price.title} · {formatDuration(price.durationSeconds)}
         </p>
@@ -133,7 +142,7 @@ export default function BuyPlaysPage() {
 
       {success && (
         <Alert>
-          <AlertDescription>Payment successful. Plays have been added to this song.</AlertDescription>
+          <AlertDescription>Payment successful. Your discovery placements have been added to this song.</AlertDescription>
         </Alert>
       )}
       {canceled && (
@@ -144,22 +153,22 @@ export default function BuyPlaysPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-muted-foreground mb-1">Price per play</p>
-          <p className="text-2xl font-semibold text-foreground">${price.pricePerPlayDollars} <span className="text-base font-normal text-muted-foreground">/ play</span></p>
-          <p className="text-xs text-muted-foreground mt-1">Flat price: $1.99 per play</p>
+          <p className="text-sm text-muted-foreground mb-1">Price per placement</p>
+          <p className="text-2xl font-semibold text-foreground">${placementPriceDollars} <span className="text-base font-normal text-muted-foreground">/ placement</span></p>
+          <p className="text-xs text-muted-foreground mt-1">Flat $1.99 per placement · targets ~{exposuresPerPlacement.toLocaleString()} verified listener exposures</p>
 
           <div className="mt-6">
-            <p className="text-sm font-medium text-foreground mb-3">Choose number of plays</p>
+            <p className="text-sm font-medium text-foreground mb-3">Choose number of placements</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {PLAYS_OPTIONS.map((plays) => {
-                const option = price.options.find((o) => o.plays === plays);
+              {PLACEMENT_OPTIONS.map((placements) => {
+                const option = price.options.find((o) => o.plays === placements);
                 if (!option) return null;
-                const isSelected = selectedPlays === plays;
+                const isSelected = selectedPlays === placements;
                 return (
                   <button
-                    key={plays}
+                    key={placements}
                     type="button"
-                    onClick={() => setSelectedPlays(plays)}
+                    onClick={() => setSelectedPlays(placements)}
                     className={cn(
                       'rounded-lg border-2 p-4 text-left transition-colors',
                       isSelected
@@ -167,7 +176,8 @@ export default function BuyPlaysPage() {
                         : 'border-muted hover:border-muted-foreground/50',
                     )}
                   >
-                    <div className="font-medium text-foreground">{plays} {plays === 1 ? 'play' : 'plays'}</div>
+                    <div className="font-medium text-foreground">{placements} {placements === 1 ? 'placement' : 'placements'}</div>
+                    <div className="text-xs text-muted-foreground">~{exposuresFor(option).toLocaleString()} exposures</div>
                     <div className="text-sm text-muted-foreground">${option.totalDollars}</div>
                   </button>
                 );
@@ -185,7 +195,7 @@ export default function BuyPlaysPage() {
             <div>
               {selectedOption && (
                 <p className="text-sm text-muted-foreground">
-                  Total: <span className="font-semibold text-foreground">${selectedOption.totalDollars}</span> for {selectedPlays} plays
+                  Total: <span className="font-semibold text-foreground">${selectedOption.totalDollars}</span> for {selectedPlays} {selectedPlays === 1 ? 'placement' : 'placements'} · ~{exposuresFor(selectedOption).toLocaleString()} exposures
                 </p>
               )}
             </div>

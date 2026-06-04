@@ -62,24 +62,35 @@ export class ServiceMessagesController {
     body: {
       body?: string;
       requestId?: string | null;
-      messageType?: 'text' | 'image' | 'video' | 'voice';
+      messageType?: 'text' | 'image' | 'video' | 'voice' | 'post_share';
       mediaUrl?: string | null;
       mediaMime?: string | null;
       mediaDurationMs?: number | null;
       replyToMessageId?: string | null;
+      sharedPostId?: string | null;
     },
   ) {
     const messageType = body?.messageType ?? 'text';
     const trimmedBody = body?.body?.trim() ?? '';
     const mediaUrl = body?.mediaUrl?.trim() ?? '';
+    const sharedPostId = body?.sharedPostId?.trim() ?? '';
 
     if (messageType === 'text' && !trimmedBody) {
       throw new BadRequestException(
         'Message body is required for text messages',
       );
     }
-    if (messageType !== 'text' && !mediaUrl) {
+    if (
+      messageType !== 'text' &&
+      messageType !== 'post_share' &&
+      !mediaUrl
+    ) {
       throw new BadRequestException('mediaUrl is required for media messages');
+    }
+    if (messageType === 'post_share' && !sharedPostId) {
+      throw new BadRequestException(
+        'sharedPostId is required for shared post messages',
+      );
     }
 
     const userId = await this.getUserId(user.uid);
@@ -93,6 +104,7 @@ export class ServiceMessagesController {
       mediaMime: body.mediaMime ?? null,
       mediaDurationMs: body.mediaDurationMs ?? null,
       replyToMessageId: body.replyToMessageId ?? null,
+      sharedPostId: sharedPostId || null,
     });
   }
 

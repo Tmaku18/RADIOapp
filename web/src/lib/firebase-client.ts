@@ -6,6 +6,7 @@ import {
   GoogleAuthProvider, 
   signInWithPopup,
   signInWithEmailAndPassword,
+  signInWithCustomToken as firebaseSignInWithCustomToken,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
@@ -50,6 +51,17 @@ export async function signInWithEmail(email: string, password: string) {
 export async function signUpWithEmail(email: string, password: string) {
   if (!auth) throw new Error('Firebase not initialized');
   const result = await createUserWithEmailAndPassword(auth, email, password);
+  return result.user;
+}
+
+/**
+ * Signs the Firebase client SDK in using a one-time custom token. Used by the
+ * cross-domain login flow so a member who is already signed in on one Networx
+ * domain becomes signed in on the other without re-entering credentials.
+ */
+export async function signInWithCustomToken(token: string) {
+  if (!auth) throw new Error('Firebase not initialized');
+  const result = await firebaseSignInWithCustomToken(auth, token);
   return result.user;
 }
 

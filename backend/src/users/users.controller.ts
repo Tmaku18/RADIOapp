@@ -79,6 +79,24 @@ export class UsersController {
     };
   }
 
+  /** Check whether a desired username is free (case-insensitive). */
+  @Get('username-available')
+  async checkUsernameAvailable(
+    @CurrentUser() user: FirebaseUser,
+    @Query('u') username?: string,
+  ) {
+    if (!username || !username.trim()) {
+      throw new BadRequestException('Provide a username via ?u=');
+    }
+    return this.usersService.checkUsernameAvailable(user.uid, username);
+  }
+
+  @Public()
+  @Get('by-username/:username')
+  async getUserByUsername(@Param('username') username: string) {
+    return this.usersService.getUserByUsername(username);
+  }
+
   @Put('me')
   async updateCurrentUser(
     @CurrentUser() user: FirebaseUser,
@@ -215,6 +233,22 @@ export class UsersController {
     const parsedLimit = limit ? parseInt(limit, 10) : undefined;
     const parsedOffset = offset ? parseInt(offset, 10) : undefined;
     return this.usersService.getFollowers(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
+  }
+
+  @Public()
+  @Get(':id/friends')
+  async getFriends(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFriends(
       id,
       Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
       Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,

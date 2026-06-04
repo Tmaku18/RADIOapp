@@ -226,6 +226,38 @@ class ProNetworxService {
     await _api.delete('discovery/feed/posts/$postId/like');
   }
 
+  Future<void> bookmarkPost(String postId) async {
+    await _api.post('discovery/feed/posts/$postId/bookmark', null);
+  }
+
+  Future<void> unbookmarkPost(String postId) async {
+    await _api.delete('discovery/feed/posts/$postId/bookmark');
+  }
+
+  Future<({List<ProFeedPost> items, String? nextCursor})> listBookmarks({
+    int limit = 24,
+    String? cursor,
+  }) async {
+    final parts = <String>['limit=$limit'];
+    if (cursor != null && cursor.isNotEmpty) {
+      parts.add('cursor=${Uri.encodeComponent(cursor)}');
+    }
+    final res = await _api.get('discovery/feed/bookmarks?${parts.join('&')}');
+    return _parseFeedResponse(res);
+  }
+
+  Future<({List<ProFeedPost> items, String? nextCursor})> listLiked({
+    int limit = 24,
+    String? cursor,
+  }) async {
+    final parts = <String>['limit=$limit'];
+    if (cursor != null && cursor.isNotEmpty) {
+      parts.add('cursor=${Uri.encodeComponent(cursor)}');
+    }
+    final res = await _api.get('discovery/feed/liked?${parts.join('&')}');
+    return _parseFeedResponse(res);
+  }
+
   Future<List<ProFeedComment>> listComments(String postId,
       {int limit = 50, String? before}) async {
     final parts = <String>['limit=$limit'];

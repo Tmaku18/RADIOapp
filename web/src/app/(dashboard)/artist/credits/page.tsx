@@ -53,13 +53,13 @@ export default function CreditsPage() {
     <div className="space-y-8">
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Buy plays per song</h2>
+          <h2 className="text-lg font-semibold text-foreground mb-2">Buy discovery placements per song</h2>
           <p className="text-muted-foreground mb-4">
-            Plays cost <strong className="text-foreground">$1.99 per play</strong>.
-            There is no credit bank — you buy plays for each approved song.
+            A discovery placement costs <strong className="text-foreground">$1.99</strong> and targets <strong className="text-foreground">~1,000 verified listener exposures</strong>.
+            There is no credit bank — you buy placements for each approved song.
           </p>
           <p className="text-muted-foreground mb-2">
-            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy plays</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 plays.
+            Go to <strong className="text-foreground">My Songs</strong>, then click <strong className="text-foreground">Buy plays</strong> on an approved track to choose 1, 3, 5, 10, 25, 50, or 100 placements.
           </p>
           <Button variant="default" asChild>
             <Link href="/artist/songs">Open My Songs →</Link>

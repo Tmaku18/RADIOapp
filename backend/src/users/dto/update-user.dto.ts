@@ -28,6 +28,11 @@ export class UpdateUserDto {
   @IsOptional()
   displayName?: string;
 
+  /** Unique handle (separate from display name). 3-30 chars [a-z0-9_.]. */
+  @IsString()
+  @IsOptional()
+  username?: string;
+
   /** Switch account mode between listener, artist, and catalyst (service_provider). */
   @IsIn(['listener', 'artist', 'service_provider'])
   @IsOptional()

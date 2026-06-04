@@ -70,6 +70,7 @@ export class JobBoardController {
   }
 
   @Post('requests')
+  @Roles('listener')
   async createRequest(
     @CurrentUser() user: FirebaseUser,
     @Body()
@@ -114,10 +115,13 @@ export class JobBoardController {
   }
 
   @Get('requests/:requestId/applications')
+  @Roles('listener')
   async listApplications(
     @CurrentUser() user: FirebaseUser,
     @Param('requestId') requestId: string,
   ) {
+    // Open to any signed-in member; the service enforces that only the request
+    // owner can actually view the applications.
     const userId = await this.getUserId(user.uid);
     return this.jobBoard.listApplicationsForRequest(requestId, userId);
   }

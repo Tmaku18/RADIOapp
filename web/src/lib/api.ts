@@ -631,29 +631,47 @@ export const discoverAudioApi = {
     }),
 };
 
+export interface FollowListItem {
+  id: string;
+  displayName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  headline: string | null;
+  role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
+  relationship?: 'friend' | 'fan' | 'following' | 'none';
+}
+
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     return api.post('/users/me/avatar', formData);
   },
+  checkUsernameAvailable: (username: string) =>
+    api.get<{ available: boolean; username: string }>('/users/username-available', { params: { u: username } }),
+  getByUsername: (username: string) => api.get(`/users/by-username/${username}`),
   getById: (id: string) => api.get(`/users/${id}`),
   follow: (id: string) => api.post(`/users/${id}/follow`),
   unfollow: (id: string) => api.delete(`/users/${id}/follow`),
   isFollowing: (id: string) => api.get<{ following: boolean }>(`/users/${id}/follow`),
   getFollowCounts: (id: string) => api.get<{ followers: number; following: number }>(`/users/${id}/follow-counts`),
   getFollowers: (id: string, params?: { limit?: number; offset?: number }) =>
-    api.get<{ items: Array<{ id: string; displayName: string | null; avatarUrl: string | null; headline: string | null; role: 'listener' | 'artist' | 'admin' | 'service_provider' | null }>; total: number }>(
+    api.get<{ items: FollowListItem[]; total: number }>(
       `/users/${id}/followers`,
       { params: params ?? {} },
     ),
   getFollowing: (id: string, params?: { limit?: number; offset?: number }) =>
-    api.get<{ items: Array<{ id: string; displayName: string | null; avatarUrl: string | null; headline: string | null; role: 'listener' | 'artist' | 'admin' | 'service_provider' | null }>; total: number }>(
+    api.get<{ items: FollowListItem[]; total: number }>(
       `/users/${id}/following`,
+      { params: params ?? {} },
+    ),
+  getFriends: (id: string, params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: FollowListItem[]; total: number }>(
+      `/users/${id}/friends`,
       { params: params ?? {} },
     ),
   getArtistProfile: (id: string) => api.get(`/users/${id}/artist-profile`),
@@ -816,6 +834,20 @@ export const discoveryApi = {
     api.post<{ ok: true }>(`/discovery/feed/posts/${postId}/like`),
   unlikePost: (postId: string) =>
     api.delete<{ ok: true }>(`/discovery/feed/posts/${postId}/like`),
+  bookmarkPost: (postId: string) =>
+    api.post<{ ok: true }>(`/discovery/feed/posts/${postId}/bookmark`),
+  unbookmarkPost: (postId: string) =>
+    api.delete<{ ok: true }>(`/discovery/feed/posts/${postId}/bookmark`),
+  listBookmarks: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/bookmarks',
+      { params },
+    ),
+  listLiked: (params?: { limit?: number; cursor?: string }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/liked',
+      { params },
+    ),
   listComments: (postId: string, params?: { limit?: number; before?: string }) =>
     api.get<{ items: DiscoverFeedComment[] }>(
       `/discovery/feed/posts/${postId}/comments`,
@@ -933,6 +965,7 @@ export interface DiscoverFeedPost {
   id: string;
   authorUserId: string;
   authorDisplayName: string | null;
+  authorUsername: string | null;
   authorAvatarUrl: string | null;
   authorHeadline: string | null;
   imageUrl: string;
@@ -942,6 +975,7 @@ export interface DiscoverFeedPost {
   likeCount: number;
   commentCount: number;
   likedByMe: boolean;
+  bookmarkedByMe: boolean;
 }
 
 export interface DiscoverFeedComment {
@@ -1006,11 +1040,12 @@ export const messagesApi = {
     data: {
       body?: string;
       requestId?: string | null;
-      messageType?: 'text' | 'image' | 'video' | 'voice';
+      messageType?: 'text' | 'image' | 'video' | 'voice' | 'post_share';
       mediaUrl?: string | null;
       mediaMime?: string | null;
       mediaDurationMs?: number | null;
       replyToMessageId?: string | null;
+      sharedPostId?: string | null;
     },
   ) => api.post(`/messages/conversations/${otherUserId}`, data),
   editMessage: (messageId: string, body: string) =>

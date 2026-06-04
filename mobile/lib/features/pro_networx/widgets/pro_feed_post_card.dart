@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/pro_networx_service.dart';
+import 'share_post_sheet.dart';
 
 class ProFeedPostCard extends StatefulWidget {
   const ProFeedPostCard({
@@ -62,6 +63,28 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _toggleBookmark() async {
+    final post = widget.post;
+    final wasBookmarked = post.bookmarkedByMe;
+    setState(() => post.bookmarkedByMe = !wasBookmarked);
+    widget.onChange(post);
+    try {
+      if (post.bookmarkedByMe) {
+        await _service.bookmarkPost(post.id);
+      } else {
+        await _service.unbookmarkPost(post.id);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => post.bookmarkedByMe = wasBookmarked);
+      widget.onChange(post);
+    }
+  }
+
+  void _openShare() {
+    SharePostSheet.show(context, widget.post);
   }
 
   Future<void> _ensureComments() async {
@@ -151,6 +174,15 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if ((post.authorUsername ?? '').isNotEmpty)
+                          Text(
+                            '@${post.authorUsername}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: cs.onSurfaceVariant,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         if ((post.authorHeadline ?? '').isNotEmpty)
                           Text(
                             post.authorHeadline!,
@@ -208,6 +240,22 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                       onPressed: _toggleComments,
                     ),
                     Text('${post.commentCount}'),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.send_outlined),
+                      tooltip: 'Share with friends',
+                      onPressed: _openShare,
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: Icon(
+                        post.bookmarkedByMe
+                            ? Icons.bookmark
+                            : Icons.bookmark_border,
+                      ),
+                      tooltip: post.bookmarkedByMe ? 'Saved' : 'Save',
+                      onPressed: _toggleBookmark,
+                    ),
                   ],
                 ),
                 if ((post.caption ?? '').isNotEmpty) ...[

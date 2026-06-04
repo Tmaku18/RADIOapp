@@ -7,9 +7,6 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 const LOGO_SRC = '/networx-logo.png';
-const EXTERNAL_PRO_NETWORX_URL =
-  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL ||
-  'https://www.pro-networx.com/directory';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 
@@ -56,6 +53,12 @@ export default function MarketingLayout({
             {/* Navigation Links */}
             <div className="hidden md:flex items-center space-x-2">
               <Button variant="ghost" asChild>
+                <Link href="/features">Features</Link>
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/pricing">Pricing</Link>
+              </Button>
+              <Button variant="ghost" asChild>
                 <Link href="/about">About</Link>
               </Button>
               <Button variant="ghost" asChild>
@@ -76,13 +79,7 @@ export default function MarketingLayout({
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
-                <a
-                  href={EXTERNAL_PRO_NETWORX_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  ProNetworx
-                </a>
+                <Link href="/pro-networx">ProNetworx</Link>
               </Button>
             </div>
           </div>
@@ -96,7 +93,7 @@ export default function MarketingLayout({
 
       {/* Footer */}
       <footer className="bg-muted/50 border-t border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="w-full px-4 sm:px-6 lg:px-10 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}
             <div className="space-y-4 min-w-0">
@@ -112,14 +109,14 @@ export default function MarketingLayout({
                       unoptimized
                       onError={() => setFooterLogoError(true)}
                     />
-                    <span className="text-networx font-bold text-base leading-snug">
+                    <span className="text-foreground font-bold text-base leading-snug">
                       NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
                     </span>
                   </>
                 ) : (
                   <>
                     <span className="text-2xl">🎧</span>
-                    <span className="text-lg font-bold text-networx leading-snug">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                    <span className="text-lg font-bold text-foreground leading-snug">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
                   </>
                 )}
               </Link>
@@ -132,6 +129,8 @@ export default function MarketingLayout({
             <div>
               <h3 className="font-semibold text-foreground mb-4">Product</h3>
               <ul className="space-y-2 text-sm">
+                <li><Link href="/features" className="text-muted-foreground hover:text-foreground transition-colors">Features</Link></li>
+                <li><Link href="/pricing" className="text-muted-foreground hover:text-foreground transition-colors">Pricing</Link></li>
                 <li><Link href="/about" className="text-muted-foreground hover:text-foreground transition-colors">About</Link></li>
                 <li><Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</Link></li>
                 <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
@@ -167,9 +166,9 @@ export default function MarketingLayout({
             </div>
 
             {/* Social */}
-            <div>
+            <div className="md:text-right">
               <h3 className="font-semibold text-foreground mb-4">Follow Us</h3>
-              <div className="flex space-x-4">
+              <div className="flex space-x-4 md:justify-end">
                 <a href="#" className="text-muted-foreground hover:text-foreground transition-colors">Twitter</a>
                 <a
                   href={INSTAGRAM_URL}

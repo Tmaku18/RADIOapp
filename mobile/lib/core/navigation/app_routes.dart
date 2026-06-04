@@ -24,6 +24,8 @@ class AppRoutes {
   static const proNetworxExploreDetail = '/pro-networx/explore-detail';
   static const proNetworxServiceDetail = '/pro-networx/service-detail';
   static const proNetworxMyServices = '/pro-networx/my-services';
+  static const savedPosts = '/saved-posts';
+  static const likedPosts = '/liked-posts';
   static const nearbyPeople = '/nearby-people';
   static const refinery = '/refinery';
   static const refineryAnalytics = '/refinery-analytics';

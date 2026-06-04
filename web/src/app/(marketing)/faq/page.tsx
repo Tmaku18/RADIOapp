@@ -18,15 +18,19 @@ const faqs = [
     questions: [
       {
         q: 'What is Networx?',
-        a: 'Networx is a "By Artists, For Artists" ecosystem that combines democratic radio with artist livestreams, live chat, and the ProNetworx growth hub. Artists upload and promote through play credits while listeners discover and engage in real time.',
+        a: 'Networx is a "By Artists, For Artists" live radio, music discovery, and creative marketplace. It combines democratic radio, artist livestreams, live chat, community up/down voting, direct-to-fan song sales, and the ProNetworx growth hub - so listeners discover and engage in real time while artists prove demand and get paid.',
       },
       {
         q: 'Is Networx free to use?',
-        a: 'Yes! Listening is completely free, forever—no intrusive ads. Artists can upload music for free and only pay if they want to promote tracks through our credit system.',
+        a: 'Yes! Listening is free for everyone, and it always will be. Networx stays free through light, non-intrusive ads plus artist promotions and marketplace sales—not listener fees. Artists can upload music for free and only pay if they want verified exposure through a discovery placement.',
       },
       {
         q: 'How is this different from Spotify or SoundCloud?',
-        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add artist livestreams, Live Sync Chat, and ProNetworx mentorship pathways so careers can grow beyond streams. Our charts are earned, not bought.',
+        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add community up/down voting, artist livestreams, Live Sync Chat, a direct-to-fan marketplace, and ProNetworx mentorship pathways so careers can grow beyond streams. Our charts are earned, not bought.',
+      },
+      {
+        q: 'What are Live Events?',
+        a: 'Coming soon: showcases, artist battles, listening sessions, and ticketed events that bring the community together offline. They are on our roadmap as Networx grows into a community-powered creative movement.',
       },
     ],
   },
@@ -38,20 +42,28 @@ const faqs = [
         a: 'Create a gem account, go to your dashboard, and click "Upload". Submit your track with artwork for review. Once approved by our moderation team, it enters the radio rotation.',
       },
       {
-        q: 'What are play credits?',
-        a: 'Play credits are used to promote your tracks in our rotation. One credit equals one play to a real listener. You can purchase credits in packages from $9.99 to $59.99.',
+        q: 'How do artist discovery placements work?',
+        a: 'Seed a track into the Networx discovery pipeline for $1.99, with a target delivery of roughly 1,000 verified listener exposures. Placements are built on real, tracked delivery and engagement - and you get full campaign analytics (votes, downvotes, and conversion) in The Wake. No bots, no fake streams.',
+      },
+      {
+        q: 'Can I sell my music on Networx?',
+        a: 'Yes. Your artist page offers a free 30-second preview, and listeners buy the full track to unlock complete playback and downloads. You build real demand and earn directly from your fans.',
+      },
+      {
+        q: 'Can I livestream to my fans?',
+        a: 'Yes. Artists and DJs can broadcast live - straight from your device or through external software like OBS - while fans join the room and chat with you in real time through Live Sync Chat.',
       },
       {
         q: 'How long does moderation take?',
         a: 'Most tracks are reviewed within 24-48 hours. We check for audio quality, appropriate content, and ensure you have rights to the music.',
       },
       {
-        q: 'What happens when I run out of credits?',
-        a: 'Your music stays in the rotation! Tracks without credits still get organic plays based on engagement and our fairness algorithm. Credits just boost your priority.',
+        q: 'Do my tracks still get plays without a placement?',
+        a: 'Yes. Your music stays in the rotation and still earns organic plays based on engagement and our fairness algorithm. A discovery placement just adds verified exposure on top.',
       },
       {
         q: 'Can I see analytics for my tracks?',
-        a: 'Yes! Analytics (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, credits spent, and Prospector activity over time.',
+        a: 'Yes! The Wake (in your gem dashboard) shows detailed analytics including discoveries, engagement metrics, votes and downvotes, placement delivery, preview-to-purchase conversion, and Prospector activity over time.',
       },
       {
         q: 'What is ProNetworx and why should I use it?',
@@ -65,6 +77,18 @@ const faqs = [
       {
         q: 'Do I need an account to listen?',
         a: 'You can listen without an account, but creating a free account lets you send ripples to tracks, follow gems, and access the mobile app.',
+      },
+      {
+        q: 'Can I vote songs down, not just up?',
+        a: 'Yes - and that is the difference-maker. You can vote songs up or down. Both directions count, giving artists honest feedback and helping the strongest songs rise on merit.',
+      },
+      {
+        q: 'How do I buy a song?',
+        a: 'Every track has a free 30-second preview. When you find one you love, purchase the full song to unlock complete playback and downloads. No subscription needed - hear it, love it, own it.',
+      },
+      {
+        q: 'Can I earn as a listener?',
+        a: 'Yes. Through The Yield, Prospectors can earn rewards from verified engagement - refining songs, completing surveys, and leaving structured feedback in The Refinery. Your ears help shape what the market hears next.',
       },
       {
         q: 'Can I skip songs?',

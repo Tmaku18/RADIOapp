@@ -19,16 +19,24 @@ import { Badge } from '@/components/ui/badge';
 type FollowListItem = {
   id: string;
   displayName: string | null;
+  username: string | null;
   avatarUrl: string | null;
   headline: string | null;
   role: 'listener' | 'artist' | 'admin' | 'service_provider' | null;
+  relationship?: 'friend' | 'fan' | 'following' | 'none';
 };
+
+type SocialTab = 'friends' | 'fans' | 'following';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
+  const [username, setUsername] = useState(profile?.username || '');
+  const [usernameStatus, setUsernameStatus] = useState<
+    'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+  >('idle');
   const [region, setRegion] = useState(profile?.region ?? '');
   const [suggestLocalArtists, setSuggestLocalArtists] = useState(profile?.suggestLocalArtists !== false);
   const [bio, setBio] = useState(profile?.bio ?? '');
@@ -61,6 +69,8 @@ export default function ProfilePage() {
   });
   const [followers, setFollowers] = useState<FollowListItem[]>([]);
   const [following, setFollowing] = useState<FollowListItem[]>([]);
+  const [friends, setFriends] = useState<FollowListItem[]>([]);
+  const [socialTab, setSocialTab] = useState<SocialTab>('friends');
   const [followLoading, setFollowLoading] = useState(false);
   const [followMutatingId, setFollowMutatingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +98,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!isEditing) {
       if (profile?.displayName !== undefined) setDisplayName(profile.displayName || '');
+      if (profile?.username !== undefined) setUsername(profile.username || '');
       if (profile?.region !== undefined) setRegion(profile.region ?? '');
       if (profile?.suggestLocalArtists !== undefined) setSuggestLocalArtists(profile.suggestLocalArtists !== false);
       if (profile?.bio !== undefined) setBio(profile.bio ?? '');
@@ -107,7 +118,39 @@ export default function ProfilePage() {
         setSelectedRole(profile.role as 'listener' | 'artist' | 'service_provider');
       }
     }
-  }, [profile?.displayName, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, isEditing]);
+  }, [profile?.displayName, profile?.username, profile?.region, profile?.suggestLocalArtists, profile?.bio, profile?.headline, profile?.locationRegion, profile?.instagramUrl, profile?.twitterUrl, profile?.youtubeUrl, profile?.tiktokUrl, profile?.websiteUrl, profile?.soundcloudUrl, profile?.spotifyUrl, profile?.appleMusicUrl, profile?.facebookUrl, profile?.snapchatUrl, profile?.role, isEditing]);
+
+  // Debounced username availability check while editing.
+  useEffect(() => {
+    if (!isEditing) {
+      setUsernameStatus('idle');
+      return;
+    }
+    const candidate = username.trim().toLowerCase();
+    if (candidate === (profile?.username ?? '').toLowerCase()) {
+      setUsernameStatus('idle');
+      return;
+    }
+    if (!/^[a-z0-9_.]{3,30}$/.test(candidate)) {
+      setUsernameStatus('invalid');
+      return;
+    }
+    setUsernameStatus('checking');
+    let alive = true;
+    const t = setTimeout(async () => {
+      try {
+        const res = await usersApi.checkUsernameAvailable(candidate);
+        if (!alive) return;
+        setUsernameStatus(res.data?.available ? 'available' : 'taken');
+      } catch {
+        if (alive) setUsernameStatus('idle');
+      }
+    }, 400);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [username, isEditing, profile?.username]);
 
   useEffect(() => {
     const userId = profile?.id;
@@ -116,10 +159,11 @@ export default function ProfilePage() {
     const loadFollowData = async () => {
       setFollowLoading(true);
       try {
-        const [countsRes, followersRes, followingRes] = await Promise.all([
+        const [countsRes, followersRes, followingRes, friendsRes] = await Promise.all([
           usersApi.getFollowCounts(userId),
-          usersApi.getFollowers(userId, { limit: 24, offset: 0 }),
-          usersApi.getFollowing(userId, { limit: 24, offset: 0 }),
+          usersApi.getFollowers(userId, { limit: 100, offset: 0 }),
+          usersApi.getFollowing(userId, { limit: 100, offset: 0 }),
+          usersApi.getFriends(userId, { limit: 100, offset: 0 }),
         ]);
         if (!mounted) return;
         setFollowCounts({
@@ -128,6 +172,7 @@ export default function ProfilePage() {
         });
         setFollowers((followersRes.data?.items ?? []) as FollowListItem[]);
         setFollowing((followingRes.data?.items ?? []) as FollowListItem[]);
+        setFriends((friendsRes.data?.items ?? []) as FollowListItem[]);
       } catch (err) {
         console.error('Failed to load follow lists', err);
       } finally {
@@ -148,8 +193,18 @@ export default function ProfilePage() {
     try {
       const normalizedRegion = region.trim();
       const normalizedLocation = locationRegion.trim();
+      const trimmedUsername = username.trim().toLowerCase();
+      const usernameChanged =
+        trimmedUsername !== (profile?.username ?? '').toLowerCase();
+      if (usernameChanged && usernameStatus === 'taken') {
+        setError('That username is already taken.');
+        setIsSaving(false);
+        return;
+      }
       await usersApi.updateMe({
         displayName,
+        username:
+          usernameChanged && trimmedUsername ? trimmedUsername : undefined,
         // Region powers some legacy ranking/discovery paths; when users only set
         // Location, mirror it here to avoid forcing duplicate inputs.
         region: normalizedRegion || normalizedLocation || undefined,
@@ -184,6 +239,8 @@ export default function ProfilePage() {
 
   const handleCancel = () => {
     setDisplayName(profile?.displayName || '');
+    setUsername(profile?.username || '');
+    setUsernameStatus('idle');
     setRegion(profile?.region ?? '');
     setSuggestLocalArtists(profile?.suggestLocalArtists !== false);
     setBio(profile?.bio ?? '');
@@ -301,6 +358,13 @@ export default function ProfilePage() {
     try {
       await usersApi.unfollow(targetUserId);
       setFollowing((prev) => prev.filter((u) => u.id !== targetUserId));
+      setFriends((prev) => prev.filter((u) => u.id !== targetUserId));
+      // A former friend who still follows you becomes a "fan".
+      setFollowers((prev) =>
+        prev.map((u) =>
+          u.id === targetUserId ? { ...u, relationship: 'fan' } : u,
+        ),
+      );
       setFollowCounts((prev) => ({
         ...prev,
         following: Math.max(0, (prev.following || 0) - 1),
@@ -370,6 +434,9 @@ export default function ProfilePage() {
             </div>
             <div className="flex-1">
               <h3 className="font-medium text-foreground">{profile?.displayName || 'No name set'}</h3>
+              {profile?.username && (
+                <p className="text-sm text-muted-foreground">@{profile.username}</p>
+              )}
               <p className="text-sm text-muted-foreground">{roleLabel}</p>
               <div className="flex flex-wrap gap-2 mt-2">
                 <Button
@@ -418,6 +485,40 @@ export default function ProfilePage() {
                 <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Enter your display name" />
               ) : (
                 <Input value={profile?.displayName || 'Not set'} disabled />
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Username</Label>
+              {isEditing ? (
+                <Input
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                  placeholder="your_handle"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                />
+              ) : (
+                <Input value={profile?.username ? `@${profile.username}` : 'Not set'} disabled />
+              )}
+              {isEditing && usernameStatus === 'checking' && (
+                <p className="text-xs text-muted-foreground">Checking availability…</p>
+              )}
+              {isEditing && usernameStatus === 'available' && (
+                <p className="text-xs text-green-600">@{username.trim()} is available</p>
+              )}
+              {isEditing && usernameStatus === 'taken' && (
+                <p className="text-xs text-destructive">That username is already taken.</p>
+              )}
+              {isEditing && usernameStatus === 'invalid' && (
+                <p className="text-xs text-destructive">
+                  3-30 characters: lowercase letters, numbers, underscores, or dots.
+                </p>
+              )}
+              {(!isEditing || usernameStatus === 'idle') && (
+                <p className="text-xs text-muted-foreground">
+                  Your unique @handle, separate from your display name.
+                </p>
               )}
             </div>
 
@@ -589,75 +690,106 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="rounded-lg border border-border p-3">
-              <h4 className="text-sm font-medium mb-3">Followers</h4>
-              <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                {followLoading && followers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                ) : followers.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No followers yet.</p>
-                ) : (
-                  followers.map((u) => (
-                    <Link
-                      key={`follower-${u.id}`}
-                      href={getPublicProfileHref(u.id, u.role)}
-                      className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50"
+          {(() => {
+            const fans = followers.filter((u) => u.relationship !== 'friend');
+            const activeList =
+              socialTab === 'friends'
+                ? friends
+                : socialTab === 'fans'
+                  ? fans
+                  : following;
+            const tabs: Array<{ id: SocialTab; label: string; count: number }> = [
+              { id: 'friends', label: 'Friends', count: friends.length },
+              { id: 'fans', label: 'Fans', count: fans.length },
+              { id: 'following', label: 'Following', count: following.length },
+            ];
+            const emptyText =
+              socialTab === 'friends'
+                ? 'No friends yet. When you and someone follow each other, you become friends.'
+                : socialTab === 'fans'
+                  ? 'No fans yet. Fans follow you without you following back.'
+                  : 'You are not following anyone yet.';
+            return (
+              <>
+                <div className="mb-3 flex gap-2">
+                  {tabs.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setSocialTab(t.id)}
+                      className={
+                        socialTab === t.id
+                          ? 'rounded-full bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground'
+                          : 'rounded-full bg-muted px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted/70'
+                      }
                     >
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={u.avatarUrl ?? undefined} />
-                        <AvatarFallback>👤</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
-                        <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
-                      </div>
-                    </Link>
-                  ))
-                )}
-              </div>
-            </div>
+                      {t.label} ({t.count})
+                    </button>
+                  ))}
+                </div>
 
-            <div className="rounded-lg border border-border p-3">
-              <h4 className="text-sm font-medium mb-3">Following</h4>
-              <div className="space-y-2 max-h-72 overflow-auto pr-1">
-                {followLoading && following.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                ) : following.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">You are not following anyone yet.</p>
-                ) : (
-                  following.map((u) => (
-                    <div
-                      key={`following-${u.id}`}
-                      className="flex flex-col gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <Link
-                        href={getPublicProfileHref(u.id, u.role)}
-                        className="flex min-w-0 items-center gap-3 sm:flex-1"
-                      >
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={u.avatarUrl ?? undefined} />
-                          <AvatarFallback>👤</AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
-                          <p className="text-xs text-muted-foreground truncate">{u.headline || '—'}</p>
+                <div className="rounded-lg border border-border p-3">
+                  <div className="space-y-2 max-h-80 overflow-auto pr-1">
+                    {followLoading && activeList.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    ) : activeList.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">{emptyText}</p>
+                    ) : (
+                      activeList.map((u) => (
+                        <div
+                          key={`${socialTab}-${u.id}`}
+                          className="flex flex-col gap-2 rounded-md px-2 py-1.5 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <Link
+                            href={getPublicProfileHref(u.id, u.role)}
+                            className="flex min-w-0 items-center gap-3 sm:flex-1"
+                          >
+                            <Avatar className="h-9 w-9">
+                              <AvatarImage src={u.avatarUrl ?? undefined} />
+                              <AvatarFallback>👤</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{u.displayName || 'Unnamed'}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {u.username ? `@${u.username}` : u.headline || '—'}
+                              </p>
+                            </div>
+                          </Link>
+                          {(socialTab === 'following' || socialTab === 'friends') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={followMutatingId === u.id}
+                              onClick={() => void handleUnfollow(u.id)}
+                              className="w-full shrink-0 sm:w-auto"
+                            >
+                              {followMutatingId === u.id ? '...' : 'Unfollow'}
+                            </Button>
+                          )}
                         </div>
-                      </Link>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={followMutatingId === u.id}
-                        onClick={() => void handleUnfollow(u.id)}
-                        className="w-full shrink-0 sm:w-auto"
-                      >
-                        {followMutatingId === u.id ? '...' : 'Unfollow'}
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent className="pt-6">
+          <h3 className="text-lg font-semibold text-foreground mb-1">Your posts</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Revisit what you&apos;ve saved and liked across the feed.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="outline" asChild>
+              <Link href="/saved">Saved posts</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/liked">Liked posts</Link>
+            </Button>
           </div>
         </CardContent>
       </Card>

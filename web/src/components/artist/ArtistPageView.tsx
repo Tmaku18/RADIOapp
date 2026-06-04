@@ -607,7 +607,7 @@ export function ArtistPageView({
               return (
                 <div
                   key={song.id}
-                  className="grid grid-cols-[24px_1fr_auto] sm:grid-cols-[24px_1fr_auto_auto_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
+                  className="grid grid-cols-[24px_1fr_auto] items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40"
                 >
                   <span className="text-sm text-muted-foreground">{idx + 1}</span>
                   <div className="min-w-0">
@@ -644,45 +644,45 @@ export function ArtistPageView({
                       </button>
                     </p>
                   </div>
-                  <span className="hidden sm:block text-xs text-muted-foreground">
-                    {formatDuration(song.durationSeconds)}
-                  </span>
-                  {profile?.id ? (
+                  <div className="flex items-center justify-end gap-2 shrink-0">
+                    <span className="hidden sm:block text-xs text-muted-foreground">
+                      {formatDuration(song.durationSeconds)}
+                    </span>
+                    {profile?.id && (
+                      <Button
+                        size="sm"
+                        variant={isLiked ? 'default' : 'outline'}
+                        onClick={() => void handleToggleLike(song.id, !isLiked)}
+                        aria-pressed={isLiked}
+                        title={isLiked ? 'Unlike' : 'Like'}
+                      >
+                        {isLiked ? '♥ Liked' : '♡ Like'}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      variant={isLiked ? 'default' : 'outline'}
-                      onClick={() => void handleToggleLike(song.id, !isLiked)}
-                      aria-pressed={isLiked}
-                      title={isLiked ? 'Unlike' : 'Like'}
+                      variant="outline"
+                      onClick={() => void handlePlayPopular(song)}
+                      disabled={
+                        !(song.owned || ownedIds.has(song.id)) &&
+                        !(song.sampleUrl ?? song.previewUrl)
+                      }
                     >
-                      {isLiked ? '♥ Liked' : '♡ Like'}
+                      {song.owned || ownedIds.has(song.id) ? 'Play' : 'Sample'}
                     </Button>
-                  ) : (
-                    <span className="hidden sm:block" />
-                  )}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void handlePlayPopular(song)}
-                    disabled={
-                      !(song.owned || ownedIds.has(song.id)) &&
-                      !(song.sampleUrl ?? song.previewUrl)
-                    }
-                  >
-                    {song.owned || ownedIds.has(song.id) ? 'Play' : 'Sample'}
-                  </Button>
-                  {!(song.owned || ownedIds.has(song.id)) &&
-                  song.forSale !== false ? (
-                    <Button
-                      size="sm"
-                      onClick={() => void handleBuy(song.id)}
-                      disabled={buyingId === song.id}
-                    >
-                      {buyingId === song.id
-                        ? '…'
-                        : `Buy $${(((song.priceCents ?? 99) as number) / 100).toFixed(2)}`}
-                    </Button>
-                  ) : null}
+                    {!(song.owned || ownedIds.has(song.id)) &&
+                    song.forSale !== false ? (
+                      <Button
+                        size="sm"
+                        onClick={() => void handleBuy(song.id)}
+                        disabled={buyingId === song.id}
+                      >
+                        {buyingId === song.id
+                          ? '…'
+                          : `Buy $${(((song.priceCents ?? 99) as number) / 100).toFixed(2)}`}
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}

@@ -2,6 +2,14 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { signInWithCustomToken } from '@/lib/firebase-client';
+
+/** Only allow same-origin relative paths to avoid open-redirects. */
+function safeNext(raw: string | null): string {
+  if (!raw) return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
+  return raw;
+}
 
 function CrossDomainLoginContent() {
   const router = useRouter();
@@ -9,6 +17,7 @@ function CrossDomainLoginContent() {
   const [status, setStatus] = useState<'exchanging' | 'done' | 'error'>('exchanging');
   const [error, setError] = useState<string | null>(null);
   const token = searchParams.get('token');
+  const next = safeNext(searchParams.get('next'));
 
   useEffect(() => {
     if (!token) return;
@@ -31,8 +40,21 @@ function CrossDomainLoginContent() {
           return;
         }
 
+        // Sign the Firebase client SDK in on this origin so client-gated routes
+        // (e.g. the Pro-Networx dashboard) recognize the member immediately and
+        // don't bounce to the login screen.
+        if (data.customToken) {
+          try {
+            await signInWithCustomToken(data.customToken);
+          } catch {
+            // Server session cookie is still set; client-gated pages may ask to
+            // sign in, but API/SSR access works. Continue to the destination.
+          }
+        }
+
+        if (cancelled) return;
         setStatus('done');
-        router.replace('/dashboard');
+        router.replace(next);
       } catch (e) {
         if (!cancelled) {
           setError('Something went wrong');
@@ -44,7 +66,7 @@ function CrossDomainLoginContent() {
     return () => {
       cancelled = true;
     };
-  }, [token, router]);
+  }, [token, router, next]);
 
   if (!token || status === 'error') {
     const message = token ? error : 'Missing token';

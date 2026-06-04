@@ -6,6 +6,11 @@ export class BuySongPlaysDto {
   @IsUUID()
   songId: string;
 
+  /**
+   * Number of discovery placements to purchase. Each placement is a flat $1.99
+   * and grants ~1,000 verified listener exposures (plays) to the song. The
+   * field keeps the `plays` name for client/IAP wire compatibility.
+   */
   @IsInt()
   @Min(1)
   @Max(100)

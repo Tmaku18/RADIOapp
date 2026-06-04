@@ -6,37 +6,10 @@ import { Badge } from '@/components/ui/badge';
 
 export const metadata: Metadata = {
   title: 'Pricing - Networx',
-  description: 'Simple, transparent Networx pricing: free listening for everyone, pay for play credits when you want promotion, plus ProNetworx opportunities.',
+  description: 'Simple, transparent Networx pricing: free listening for everyone, $1.99 verified-exposure discovery placements for artists, direct-to-fan song sales, The Refinery, and ProNetworx.',
 };
 
 export const revalidate = 3600;
-
-const creditPackages = [
-  {
-    credits: 10,
-    price: 9.99,
-    popular: false,
-    description: 'Perfect for testing the waters',
-  },
-  {
-    credits: 25,
-    price: 19.99,
-    popular: false,
-    description: 'Great for single releases',
-  },
-  {
-    credits: 50,
-    price: 34.99,
-    popular: true,
-    description: 'Best value for regular promotion',
-  },
-  {
-    credits: 100,
-    price: 59.99,
-    popular: false,
-    description: 'For serious campaigns',
-  },
-];
 
 export default function PricingPage() {
   return (
@@ -48,7 +21,7 @@ export default function PricingPage() {
             Simple, Transparent Pricing
           </h1>
           <p className="text-xl text-muted-foreground">
-            Listening is free for everyone. Pay only when you want additional promotion for your tracks.
+            Listening is free for everyone, forever. Artists pay only when they want verified exposure, and fans pay only for the full songs they choose to own.
           </p>
         </div>
 
@@ -58,7 +31,7 @@ export default function PricingPage() {
             <CardContent className="pt-8 pb-8 text-center">
               <h2 className="text-2xl font-bold mb-4">For Everyone</h2>
               <div className="text-5xl font-bold mb-2">Free</div>
-              <p className="text-primary-foreground/80 mb-6">Listen, discover, upload, and use the job board. No intrusive ads. No hidden limits.</p>
+              <p className="text-primary-foreground/80 mb-6">Listen, discover, upload, and use the job board. Free forever&mdash;supported by light, non-intrusive ads, not listener fees. No hidden limits.</p>
               <ul className="text-left max-w-md mx-auto space-y-3 mb-8">
                 <li className="flex items-center">
                   <span className="mr-2">✓</span>
@@ -84,45 +57,68 @@ export default function PricingPage() {
           </Card>
         </div>
 
-        {/* Play credits */}
+        {/* Artist Discovery Placements */}
         <div>
-          <h2 className="text-2xl font-bold text-foreground text-center mb-8">
-            Play Credits
+          <h2 className="text-2xl font-bold text-foreground text-center mb-3">
+            Artist Discovery Placements
           </h2>
-          <p className="text-center text-muted-foreground mb-4 max-w-2xl mx-auto">
-            Credits are used to promote your tracks in our radio rotation. 
-            One credit equals one play to a real listener. No bots, no fake streams, and your tracks can still receive organic plays.
-          </p>
-          <p className="text-center text-foreground font-medium mb-12">
-            Pricing: <strong>$1/min</strong> per play (rounded up to the nearest cent).
+          <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+            Want verified exposure? Seed your track into the Networx discovery pipeline.
+            No bots and no fake streams - just real delivery you can measure, and your
+            tracks still earn organic plays on top.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {creditPackages.map((pkg) => (
-              <Card
-                key={pkg.credits}
-                className={pkg.popular ? 'relative ring-2 ring-primary' : ''}
-              >
-                {pkg.popular && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge>MOST POPULAR</Badge>
-                  </div>
-                )}
-                <CardContent className="pt-6 text-center">
-                  <div className="text-4xl font-bold text-foreground mb-1">{pkg.credits}</div>
-                  <div className="text-sm text-muted-foreground mb-4">credits</div>
-                  <div className="text-3xl font-bold text-foreground mb-2">${pkg.price}</div>
-                  <div className="text-sm text-muted-foreground mb-6">
-                    ${(pkg.price / pkg.credits).toFixed(2)} per credit
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-6">{pkg.description}</p>
-                  <Button className="w-full" variant={pkg.popular ? 'default' : 'secondary'} asChild>
-                    <Link href="/signup">Sign up</Link>
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="max-w-xl mx-auto">
+            <Card className="relative ring-2 ring-primary">
+              <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                <Badge>VERIFIED EXPOSURE</Badge>
+              </div>
+              <CardContent className="pt-8 text-center">
+                <div className="text-5xl font-bold text-foreground mb-2">$1.99</div>
+                <div className="text-muted-foreground mb-6">per track placement</div>
+                <ul className="text-left max-w-sm mx-auto space-y-3 mb-8">
+                  <li className="flex items-start">
+                    <span className="mr-2">✓</span>
+                    Target delivery of ~1,000 verified listener exposures
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">✓</span>
+                    Tracked delivery and engagement, not vanity numbers
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">✓</span>
+                    Community votes and downvotes for honest feedback
+                  </li>
+                  <li className="flex items-start">
+                    <span className="mr-2">✓</span>
+                    Full campaign analytics in The Wake
+                  </li>
+                </ul>
+                <Button size="lg" asChild>
+                  <Link href="/login?redirect=/artist/songs">Promote a track</Link>
+                </Button>
+              </CardContent>
+            </Card>
           </div>
+        </div>
+
+        {/* Direct-to-fan marketplace */}
+        <div className="mt-16">
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="pt-8 text-center">
+              <h2 className="text-2xl font-semibold text-foreground mb-3">
+                Direct-to-Fan Song Sales
+              </h2>
+              <p className="text-muted-foreground mb-3 max-w-2xl mx-auto">
+                Every track offers a free 30-second preview. Fans purchase the full
+                song to unlock complete playback and downloads - and artists earn
+                directly from the people who believe in them. Pricing is set per track.
+              </p>
+              <p className="text-sm text-muted-foreground max-w-2xl mx-auto">
+                No subscription required to buy. Hear it, love it, own it.
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         <div className="mt-16">
@@ -172,6 +168,20 @@ export default function PricingPage() {
                   <Link href="/pro-networx">Open ProNetworx</Link>
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="mt-8">
+          <Card className="border-dashed">
+            <CardContent className="pt-8 text-center">
+              <Badge className="mb-3">Coming soon</Badge>
+              <h3 className="text-2xl font-semibold text-foreground mb-3">Live Events &amp; Sponsorships</h3>
+              <p className="text-muted-foreground max-w-2xl mx-auto">
+                Showcases, artist battles, listening sessions, and ticketed events are
+                on the roadmap, along with brand sponsorships and partnerships. Listening
+                stays free, supported by light, non-intrusive ads.
+              </p>
             </CardContent>
           </Card>
         </div>

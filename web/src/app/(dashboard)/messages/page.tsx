@@ -24,13 +24,24 @@ interface ConversationSummary {
   lastMessageStatus: 'sent' | 'delivered' | 'read';
 }
 
+interface SharedPostSnapshot {
+  id: string;
+  authorUserId: string;
+  authorDisplayName: string | null;
+  authorUsername: string | null;
+  authorAvatarUrl: string | null;
+  imageUrl: string;
+  mediaType: 'image' | 'video';
+  caption: string | null;
+}
+
 interface MessageRow {
   id: string;
   senderId: string;
   recipientId: string;
   body: string;
   createdAt: string;
-  messageType: 'text' | 'image' | 'video' | 'voice';
+  messageType: 'text' | 'image' | 'video' | 'voice' | 'post_share';
   mediaUrl: string | null;
   mediaMime: string | null;
   mediaDurationMs: number | null;
@@ -39,6 +50,8 @@ interface MessageRow {
   unsentAt: string | null;
   status: 'sent' | 'delivered' | 'read';
   reactions: Array<{ emoji: string; userId: string; createdAt: string }>;
+  sharedPostId?: string | null;
+  sharedPost?: SharedPostSnapshot | null;
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -467,7 +480,40 @@ export default function MessagesPage() {
                             ) : (
                               <>
                                 {!!msg.body && <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>}
-                                {msg.messageType !== 'text' && msg.mediaUrl && (
+                                {msg.messageType === 'post_share' && (
+                                  msg.sharedPost ? (
+                                    <Link
+                                      href={`/pro-networx/explore/${msg.sharedPost.id}`}
+                                      className="mt-2 block w-56 overflow-hidden rounded-md border border-black/10 bg-background text-foreground"
+                                    >
+                                      <div className="relative aspect-square w-full bg-muted">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={msg.sharedPost.imageUrl}
+                                          alt={msg.sharedPost.caption || 'Shared post'}
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </div>
+                                      <div className="p-2">
+                                        <p className="text-xs font-semibold truncate">
+                                          {msg.sharedPost.authorUsername
+                                            ? `@${msg.sharedPost.authorUsername}`
+                                            : msg.sharedPost.authorDisplayName || 'Creator'}
+                                        </p>
+                                        {msg.sharedPost.caption && (
+                                          <p className="text-xs text-muted-foreground line-clamp-2">
+                                            {msg.sharedPost.caption}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </Link>
+                                  ) : (
+                                    <p className="mt-2 text-xs italic opacity-80">
+                                      Shared a post that is no longer available
+                                    </p>
+                                  )
+                                )}
+                                {msg.messageType !== 'text' && msg.messageType !== 'post_share' && msg.mediaUrl && (
                                   <>
                                     {msg.messageType === 'image' && (
                                        

@@ -46,7 +46,7 @@ export default function ProDirectoryPage() {
                 <Link href="/signup">Create account</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/discover">Browse Catalysts</Link>
+                <Link href="/pro-networx">Browse Catalysts</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/pro-networx">

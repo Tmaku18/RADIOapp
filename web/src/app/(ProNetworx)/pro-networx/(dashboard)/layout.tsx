@@ -7,6 +7,7 @@ import {
   Home,
   Search,
   Briefcase,
+  ClipboardList,
   Radio,
   User as UserIcon,
 } from 'lucide-react';
@@ -17,6 +18,7 @@ const TABS = [
   { href: '/pro-networx/home', label: 'Home', icon: Home },
   { href: '/pro-networx/search', label: 'Search', icon: Search },
   { href: '/pro-networx/services', label: 'Services', icon: Briefcase },
+  { href: '/pro-networx/jobs', label: 'Jobs', icon: ClipboardList },
   { href: '/pro-networx/radio', label: 'Radio', icon: Radio },
 ] as const;
 

@@ -425,7 +425,11 @@ class _ThreadScreenState extends State<ThreadScreen> {
       );
     } else {
       final children = <Widget>[];
+      if (m.messageType == 'post_share' && m.sharedPost != null) {
+        children.add(_buildSharedPost(m.sharedPost!, fg, mutedFg));
+      }
       final hasMedia = m.messageType != 'text' &&
+          m.messageType != 'post_share' &&
           m.mediaUrl != null &&
           m.mediaUrl!.isNotEmpty;
       if (hasMedia) {
@@ -502,6 +506,76 @@ class _ThreadScreenState extends State<ThreadScreen> {
           if (m.reactions.isNotEmpty)
             _buildReactions(m, surfaces, scheme),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSharedPost(SharedPostSnapshot post, Color fg, Color mutedFg) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pushNamed(
+        AppRoutes.proNetworxExploreDetail,
+        arguments: post.id,
+      ),
+      child: Container(
+        width: 240,
+        decoration: BoxDecoration(
+          color: fg.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: fg.withValues(alpha: 0.15)),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AspectRatio(
+              aspectRatio: 1,
+              child: post.mediaType == 'video'
+                  ? Container(
+                      color: Colors.black,
+                      alignment: Alignment.center,
+                      child: const Icon(Icons.play_circle_outline,
+                          size: 48, color: Colors.white70),
+                    )
+                  : Image.network(
+                      post.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        color: fg.withValues(alpha: 0.1),
+                        alignment: Alignment.center,
+                        child: Icon(Icons.broken_image_outlined, color: mutedFg),
+                      ),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    (post.authorUsername != null &&
+                            post.authorUsername!.isNotEmpty)
+                        ? '@${post.authorUsername}'
+                        : (post.authorDisplayName ?? 'Creator'),
+                    style: TextStyle(color: fg, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if ((post.caption ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      post.caption!,
+                      style: TextStyle(color: mutedFg, fontSize: 12),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

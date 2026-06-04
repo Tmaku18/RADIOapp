@@ -50,7 +50,24 @@ function AuthHandoffContent() {
           return;
         }
 
-        const redirectUrl = data.redirectUrl || `${targetHost}/cross-domain-login?token=${data.token}`;
+        // Carry the intended destination (the path of return_url) through the
+        // exchange so the member lands where they were headed instead of a
+        // generic dashboard.
+        let nextPath = '/dashboard';
+        try {
+          if (returnUrl.startsWith('http')) {
+            const u = new URL(returnUrl);
+            nextPath = `${u.pathname}${u.search}` || '/dashboard';
+          } else if (returnUrl.startsWith('/')) {
+            nextPath = returnUrl;
+          }
+        } catch {
+          nextPath = '/dashboard';
+        }
+
+        const base =
+          data.redirectUrl || `${targetHost}/cross-domain-login?token=${data.token}`;
+        const redirectUrl = `${base}${base.includes('?') ? '&' : '?'}next=${encodeURIComponent(nextPath)}`;
         setStatus('redirecting');
         window.location.href = redirectUrl;
       } catch (e) {

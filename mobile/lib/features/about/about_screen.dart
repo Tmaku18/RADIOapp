@@ -96,7 +96,7 @@ class _AboutScreenState extends State<AboutScreen> {
             bullets: const [
               'Potential in Everyone: We believe talent is universal, but opportunity is not. We are here to fix the distribution.',
               'The "Trial by Fire" Democracy: Our charts aren\'t bought; they are earned. Votes reflect the true opinion of the people.',
-              'Pure Listening, No Noise: Music should be free to hear without intrusive ads. We keep the frequency clean.',
+              'Always Free to Listen: Listening is free, and it always will be. Light, non-intrusive ads plus artist and marketplace revenue keep it that way\u2014so discovery never sits behind a paywall.',
               'Human Connectivity: We reject the "enigma" model. If your song is playing, you should be in the room with your fans.',
               'Mentorship over Monopoly: The experienced have a duty to guide the inexperienced. We foster guidance, not gatekeeping.',
             ],
