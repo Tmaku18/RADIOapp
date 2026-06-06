@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -22,6 +23,8 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UploadsService } from '../uploads/uploads.service';
 import { DurationService } from '../uploads/duration.service';
+import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
+import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-network-subscription.constants';
 
 @Controller('discovery')
 @UseGuards(FirebaseAuthGuard)
@@ -41,6 +44,7 @@ export class DiscoveryController {
     private readonly discovery: DiscoveryService,
     private readonly uploads: UploadsService,
     private readonly durationService: DurationService,
+    private readonly proNetworkSubscription: ProNetworkSubscriptionService,
   ) {}
 
   @Get('people')
@@ -210,7 +214,7 @@ export class DiscoveryController {
     };
   }
 
-  /** Add a comment to a feed post. */
+  /** Add a comment to a feed post. Requires a Pro-Networx subscription. */
   @Post('feed/posts/:id/comments')
   async createComment(
     @CurrentUser() user: FirebaseUser,
@@ -222,6 +226,12 @@ export class DiscoveryController {
       throw new BadRequestException('Comment body required');
     }
     const viewerUserId = await this.getUserId(user.uid);
+    // Commenting on the creative feed is a paid Pro-Networx feature. Reading
+    // comments stays free for everyone (see listComments above).
+    const access = await this.proNetworkSubscription.getAccess(viewerUserId);
+    if (!access.hasAccess) {
+      throw new ForbiddenException(PRO_NETWORK_PAYWALL_PAYLOAD);
+    }
     return this.discovery.createComment(viewerUserId, postId, text);
   }
 

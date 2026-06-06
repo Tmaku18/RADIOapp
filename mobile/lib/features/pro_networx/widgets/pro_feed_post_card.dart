@@ -3,7 +3,9 @@ import 'package:flutter/material.dart';
 
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
+import '../../../core/services/api_service.dart';
 import '../../../core/services/pro_networx_service.dart';
+import 'pro_network_paywall_sheet.dart';
 import 'share_post_sheet.dart';
 
 class ProFeedPostCard extends StatefulWidget {
@@ -119,6 +121,22 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
         _commentController.clear();
       });
       widget.onChange(widget.post);
+    } on ApiException catch (e) {
+      // Commenting is a paid Pro-Networx feature; reading stays free.
+      final requiresSub = e.statusCode == 403 &&
+          (e.responseBody?.contains('PRO_NETWORK_SUBSCRIPTION_REQUIRED') ??
+              false);
+      if (requiresSub && mounted) {
+        final subscribed = await ProNetworkPaywallSheet.show(
+          context,
+          title: 'Subscribe to comment',
+          description: 'Reading comments is free. Commenting unlocks with a '
+              'Pro-Networx subscription. Cancel anytime.',
+        );
+        if (subscribed == true && mounted) {
+          await _postComment();
+        }
+      }
     } catch (_) {
       // ignore
     }

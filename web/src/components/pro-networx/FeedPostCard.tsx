@@ -4,11 +4,17 @@ import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react';
-import { discoveryApi, type DiscoverFeedPost, type DiscoverFeedComment } from '@/lib/api';
+import {
+  discoveryApi,
+  proNetworkSubscriptionApi,
+  type DiscoverFeedPost,
+  type DiscoverFeedComment,
+} from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SharePostDialog } from './SharePostDialog';
+import { PaywallCard } from './PaywallCard';
 
 function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
@@ -29,6 +35,8 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
   const [loadingComments, setLoadingComments] = useState(false);
   const [commentBody, setCommentBody] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
+  // Commenting is a paid Pro-Networx feature; null = not yet checked.
+  const [canComment, setCanComment] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [bookmarkedByMe, setBookmarkedByMe] = useState(post.bookmarkedByMe);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
@@ -90,10 +98,23 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
     }
   };
 
+  const ensureCommentAccess = async () => {
+    if (canComment != null) return;
+    try {
+      const res = await proNetworkSubscriptionApi.getAccess();
+      setCanComment(!!res.data?.hasAccess);
+    } catch {
+      setCanComment(false);
+    }
+  };
+
   const handleToggleComments = async () => {
     const next = !showComments;
     setShowComments(next);
-    if (next) await ensureComments();
+    if (next) {
+      await ensureComments();
+      void ensureCommentAccess();
+    }
   };
 
   const handlePostComment = async () => {
@@ -110,8 +131,15 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
         propagate({ commentCount: next });
         return next;
       });
-    } catch {
-      // ignore
+    } catch (e: unknown) {
+      const data =
+        e && typeof e === 'object'
+          ? (e as { response?: { data?: { requiresSubscription?: boolean } } })
+              .response?.data
+          : undefined;
+      if (data?.requiresSubscription) {
+        setCanComment(false);
+      }
     } finally {
       setSubmittingComment(false);
     }
@@ -275,28 +303,35 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
               </ul>
             )}
 
-            <div className="flex items-end gap-2">
-              <Textarea
-                value={commentBody}
-                onChange={(e) => setCommentBody(e.target.value)}
-                placeholder="Add a comment…"
-                rows={1}
-                className="min-h-[36px] resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    void handlePostComment();
-                  }
-                }}
+            {canComment === false ? (
+              <PaywallCard
+                variant="dm"
+                caption="Commenting unlocks with a Pro-Networx subscription. Reading comments is always free."
               />
-              <Button
-                size="sm"
-                onClick={handlePostComment}
-                disabled={!commentBody.trim() || submittingComment}
-              >
-                Post
-              </Button>
-            </div>
+            ) : (
+              <div className="flex items-end gap-2">
+                <Textarea
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  placeholder="Add a comment…"
+                  rows={1}
+                  className="min-h-[36px] resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      void handlePostComment();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handlePostComment}
+                  disabled={!commentBody.trim() || submittingComment}
+                >
+                  Post
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </div>
