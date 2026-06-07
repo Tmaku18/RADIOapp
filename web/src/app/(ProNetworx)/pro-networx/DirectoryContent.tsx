@@ -36,8 +36,26 @@ export type DirectoryItem = {
 
 const PAGE_SIZE = 24;
 
+// Brand marks used as a fallback when a profile has no media preview.
+const FALLBACK_LOGOS = [
+  '/networx-logo.png',
+  '/images/Logo_0.png',
+  '/images/Logo_1.png',
+  '/images/NX_0.png',
+] as const;
+
 function shouldUnoptimizeImage(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
+}
+
+// Deterministic pick so a profile always shows the same logo (no flicker on
+// re-render) while spreading evenly across the available brand marks.
+function fallbackLogoFor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i += 1) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return FALLBACK_LOGOS[Math.abs(hash) % FALLBACK_LOGOS.length];
 }
 
 function formatStartingAt(cents: number | null, rateType: 'hourly' | 'fixed' | null): string {
@@ -229,8 +247,14 @@ export function ProNetworxDirectoryContent({
                       />
                     </div>
                   ) : (
-                    <div className="w-full aspect-video rounded-lg border border-border bg-muted/50 flex items-center justify-center text-muted-foreground text-sm">
-                      No preview
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-gradient-to-br from-muted/60 to-background flex items-center justify-center">
+                      <Image
+                        src={fallbackLogoFor(p.userId)}
+                        alt="Networx"
+                        width={120}
+                        height={120}
+                        className="object-contain opacity-80 max-h-[70%] w-auto"
+                      />
                     </div>
                   )}
 
