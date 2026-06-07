@@ -270,7 +270,9 @@ export function ProNetworxDirectoryContent({
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="font-semibold text-foreground truncate">
-                        {p.serviceTitle?.replace(/_/g, ' ') || (p.skills[0]?.replace(/_/g, ' ') ?? 'Service')}
+                        {p.serviceTitle?.replace(/_/g, ' ') ||
+                          p.skills[0]?.replace(/_/g, ' ') ||
+                          (p.role === 'service_provider' ? 'Service' : 'Artist')}
                       </p>
                       <p className="text-xs text-muted-foreground truncate">
                         {p.currentTitle || p.skillsHeadline || p.headline || '—'}
