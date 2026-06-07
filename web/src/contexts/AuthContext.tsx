@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User } from 'firebase/auth';
 import {
   onAuthChange,
@@ -12,6 +12,7 @@ import {
   createSessionCookie,
 } from '@/lib/firebase-client';
 import { usersApi } from '@/lib/api';
+import { DisplayNameGate } from '@/components/DisplayNameGate';
 
 interface UserProfile {
   id: string;
@@ -49,6 +50,8 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
+  pendingProfileSetup: boolean;
+  completeProfileSetup: (displayName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -58,6 +61,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // True when an authenticated user has no backend profile yet and must pick a
+  // display name before continuing (mainly new Google/Apple sign-ups).
+  const [pendingProfileSetup, setPendingProfileSetup] = useState(false);
+  // Suppresses the auto-setup gate while the email sign-up flow is creating the
+  // profile itself, so the background listener doesn't race it.
+  const suppressAutoSetupRef = useRef(false);
   const AUTH_BOOT_TIMEOUT_MS = 15000;
 
   const getHttpStatus = useCallback((err: unknown): number | null => {
@@ -77,13 +86,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const deriveDisplayName = useCallback((firebaseUser: User) => {
-    const fromProfile = firebaseUser.displayName?.trim();
-    if (fromProfile) return fromProfile;
-    const email = firebaseUser.email?.trim() ?? '';
-    if (!email) return 'User';
-    const local = email.split('@')[0]?.trim();
-    return local || email;
+  // A display name is mandatory at sign-up. We only ever pre-fill from the
+  // identity provider's real name (Google/Apple); we never fall back to the
+  // email prefix, so new OAuth users without a provider name are required to
+  // choose one before their account is created.
+  const providerDisplayName = useCallback((firebaseUser: User) => {
+    return firebaseUser.displayName?.trim() ?? '';
   }, []);
 
   // Fetch user profile from backend
@@ -104,14 +112,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }, [profile?.role]);
 
-  // Create profile; backend defaults non-admin users to listener.
-  const createDefaultProfile = useCallback(async (firebaseUser: User) => {
-    await usersApi.create({
-      email: firebaseUser.email!,
-      displayName: deriveDisplayName(firebaseUser),
-    });
-    await fetchProfile();
-  }, [deriveDisplayName, fetchProfile]);
+  // Finishes account creation once a display name has been chosen. Used by the
+  // mandatory display-name gate for new OAuth users.
+  const completeProfileSetup = useCallback(
+    async (displayName: string) => {
+      const name = displayName.trim();
+      if (!name) {
+        throw new Error('Display name is required');
+      }
+      const current = user;
+      if (!current?.email) {
+        throw new Error('You must be signed in to finish setting up your account.');
+      }
+      await usersApi.create({ email: current.email, displayName: name });
+      await fetchProfile();
+      setPendingProfileSetup(false);
+    },
+    [user, fetchProfile],
+  );
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
@@ -130,24 +148,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const response = await withTimeout(usersApi.getMe());
           if (response.data) {
             setProfile(response.data);
+            setPendingProfileSetup(false);
           } else {
             setProfile(null);
           }
         } catch (err) {
-          // Only auto-create profile when backend confirms the user row does not exist.
+          // Only require profile setup when backend confirms the row is missing.
           if (getHttpStatus(err) !== 404) {
             return;
           }
-          try {
-            await createDefaultProfile(firebaseUser);
-          } catch (createErr) {
-            const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
-            setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
-            setProfile(null);
+          // The email sign-up flow creates the profile itself; don't race it.
+          if (suppressAutoSetupRef.current) {
+            return;
           }
+          // New user (typically a Google/Apple sign-up): require a display name
+          // before the account is created. The gate handles creation.
+          setProfile(null);
+          setPendingProfileSetup(true);
         }
       } else {
         setProfile(null);
+        setPendingProfileSetup(false);
       }
     });
 
@@ -155,7 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       clearTimeout(bootTimeout);
       unsubscribe();
     };
-  }, [createDefaultProfile, withTimeout, getHttpStatus]);
+  }, [withTimeout, getHttpStatus]);
 
   // Background reconciliation: if auth exists but profile is missing, keep retrying.
   // This prevents users getting stuck in unresolved "Loading..." role states.
@@ -192,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const response = await usersApi.getMe();
         if (response.data) {
           setProfile(response.data);
+          setPendingProfileSetup(false);
           setLoading(false);
           return;
         }
@@ -200,16 +222,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setLoading(false);
           return;
         }
-        // New user: create profile (backend defaults to listener)
-        try {
-          await createDefaultProfile(firebaseUser);
-          setLoading(false);
-          return;
-        } catch (createErr) {
-          const apiMessage = (createErr as { response?: { data?: { message?: string } } })?.response?.data?.message;
-          setError(apiMessage ?? (createErr instanceof Error ? createErr.message : 'Failed to create account'));
-          throw createErr;
-        }
+        // New user: require a display name before creating the account. The
+        // gate (rendered globally) collects it and finishes setup. We pre-fill
+        // with the Google profile name when available, never the email prefix.
+        setProfile(null);
+        setPendingProfileSetup(true);
+        setLoading(false);
+        return;
       }
       setLoading(false);
     } catch (err) {
@@ -253,6 +272,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   ) => {
     setError(null);
     setLoading(true);
+    const name = displayName?.trim() ?? '';
+    if (!name) {
+      setLoading(false);
+      const message = 'Display name is required';
+      setError(message);
+      throw new Error(message);
+    }
+    suppressAutoSetupRef.current = true;
     try {
       const firebaseUser = await signUpWithEmail(email, password);
 
@@ -264,20 +291,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Session cookie creation failed during sign-up:', sessionErr);
       }
 
-      // Create profile; backend defaults non-admin users to listener
+      // Create profile with the required display name; backend defaults
+      // non-admin users to listener.
       await usersApi.create({
         email: firebaseUser.email!,
-        displayName:
-          displayName?.trim() ||
-          deriveDisplayName(firebaseUser),
+        displayName: name,
       });
 
+      setPendingProfileSetup(false);
       await fetchProfile();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to sign up';
       setError(message);
       throw err;
     } finally {
+      suppressAutoSetupRef.current = false;
       setLoading(false);
     }
   };
@@ -305,11 +333,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut: handleSignOut,
     getIdToken,
     refreshProfile: fetchProfile,
+    pendingProfileSetup,
+    completeProfileSetup,
   };
 
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {pendingProfileSetup && user && (
+        <DisplayNameGate
+          suggestedName={providerDisplayName(user)}
+          email={user.email ?? ''}
+          onSubmit={completeProfileSetup}
+          onCancel={handleSignOut}
+        />
+      )}
     </AuthContext.Provider>
   );
 }

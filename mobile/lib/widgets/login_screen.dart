@@ -90,6 +90,10 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
       }
+    } on ProfileSetupRequiredException catch (setup) {
+      // New OAuth user: a display name is mandatory before the account is
+      // created. Collect one (pre-filled with the Google name) and finish.
+      await _completeOAuthSetup(authService, setup);
     } catch (e) {
       if (mounted) {
         // Firebase may still have signed in (e.g. backend /users/me failed)
@@ -106,6 +110,95 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  /// Drives the mandatory display-name step for a new Google/Apple user. Keeps
+  /// asking until a name is provided (or the user cancels and is signed out).
+  Future<void> _completeOAuthSetup(
+    AuthService authService,
+    ProfileSetupRequiredException setup,
+  ) async {
+    String suggested = setup.suggestedName;
+    while (mounted) {
+      final name = await _promptForDisplayName(suggested);
+      if (name == null) {
+        // User cancelled: sign out so we don't leave a half-created account.
+        await authService.signOut();
+        return;
+      }
+      try {
+        await authService.completeOAuthProfile(name);
+        if (!mounted) return;
+        Navigator.of(context)
+            .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        return;
+      } catch (e) {
+        suggested = name;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save your name: $e')),
+          );
+        }
+      }
+    }
+  }
+
+  Future<String?> _promptForDisplayName(String suggested) async {
+    final controller = TextEditingController(text: suggested);
+    final formKey = GlobalKey<FormState>();
+    final result = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Choose your display name'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "This is how you'll appear across Networx. You can change it "
+                  'later in settings.',
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: controller,
+                  autofocus: true,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Display name',
+                    hintText: 'How you want to be shown',
+                  ),
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Please enter a display name';
+                    }
+                    return null;
+                  },
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(null),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.of(dialogContext).pop(controller.text.trim());
+                }
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return result;
   }
 
   @override

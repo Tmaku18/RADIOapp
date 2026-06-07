@@ -7,6 +7,20 @@ import '../services/api_service.dart';
 import '../services/push_notification_service.dart';
 import '../models/user.dart' as app_user;
 
+/// Thrown when a freshly authenticated OAuth user (Google/Apple) has no backend
+/// profile yet. A display name is mandatory at sign-up, so the UI must collect
+/// one and call [AuthService.completeOAuthProfile] before the account is
+/// created. We never derive the name from the email prefix.
+class ProfileSetupRequiredException implements Exception {
+  ProfileSetupRequiredException({required this.suggestedName, required this.email});
+
+  final String suggestedName;
+  final String email;
+
+  @override
+  String toString() => 'ProfileSetupRequiredException';
+}
+
 class AuthService extends ChangeNotifier {
   final bool firebaseInitialized;
   FirebaseAuth? _auth;
@@ -149,27 +163,18 @@ class AuthService extends ChangeNotifier {
           debugPrint('Backend profile lookup timed out after Google sign-in.');
           return _buildFallbackUser(firebaseUser);
         } catch (e) {
-          try {
-            await _apiService.post('users', {
-              'email': firebaseUser.email ?? '',
-              'displayName': _deriveDisplayName(
-                firebaseUser.displayName,
-                firebaseUser.email,
-              ),
-              'role': 'listener',
-            }).timeout(const Duration(seconds: 10));
-            return await _getUserProfile().timeout(const Duration(seconds: 10));
-          } on TimeoutException {
-            debugPrint('Backend user sync timed out after Google sign-in.');
-            return _buildFallbackUser(firebaseUser);
-          } catch (e2) {
-            // Backend unreachable; still return profile from Firebase so UI can navigate
-            debugPrint('Backend user sync failed: $e2');
-            return _buildFallbackUser(firebaseUser);
-          }
+          // No backend profile yet: a display name is mandatory, so hand control
+          // back to the UI to collect one. Pre-fill with the Google name when
+          // present; never derive from the email prefix.
+          throw ProfileSetupRequiredException(
+            suggestedName: _providerName(firebaseUser.displayName),
+            email: firebaseUser.email ?? '',
+          );
         }
       }
       return null;
+    } on ProfileSetupRequiredException {
+      rethrow;
     } on TimeoutException {
       throw Exception('Google sign in timed out. Please try again.');
     } catch (e, st) {
@@ -202,24 +207,21 @@ class AuthService extends ChangeNotifier {
         _apiService.setAuthToken(token);
 
         try {
-          await _getUserProfile();
+          return await _getUserProfile();
         } catch (e) {
-          final email = credential.email ??
-              userCredential.user!.email ??
-              'private@apple.relay';
-          await _apiService.post('users', {
-            'email': email,
-            'displayName': _deriveDisplayName(
-              credential.givenName,
-              email,
-            ),
-            'role': 'listener',
-          });
+          // No backend profile yet: require a display name before creating the
+          // account. Pre-fill with the Apple name when present.
+          throw ProfileSetupRequiredException(
+            suggestedName: _providerName(credential.givenName),
+            email: credential.email ??
+                userCredential.user!.email ??
+                'private@apple.relay',
+          );
         }
-
-        return await _getUserProfile();
       }
       return null;
+    } on ProfileSetupRequiredException {
+      rethrow;
     } catch (e) {
       throw Exception('Apple sign in failed: $e');
     }
@@ -250,13 +252,41 @@ class AuthService extends ChangeNotifier {
     return app_user.User.fromJson(response);
   }
 
-  String _deriveDisplayName(String? preferred, String? email) {
-    final name = preferred?.trim();
-    if (name != null && name.isNotEmpty) return name;
-    final emailValue = (email ?? '').trim();
-    if (emailValue.isEmpty) return 'User';
-    final local = emailValue.split('@').first.trim();
-    return local.isNotEmpty ? local : emailValue;
+  /// Returns the identity provider's real name (trimmed) or an empty string.
+  /// We intentionally never fall back to the email prefix so a display name is
+  /// always an explicit choice at sign-up.
+  String _providerName(String? preferred) {
+    return preferred?.trim() ?? '';
+  }
+
+  /// Creates the backend profile for a freshly authenticated OAuth user once a
+  /// display name has been chosen. Used to satisfy the mandatory-name step
+  /// surfaced via [ProfileSetupRequiredException].
+  Future<app_user.User?> completeOAuthProfile(
+    String displayName, {
+    String role = 'listener',
+  }) async {
+    final name = displayName.trim();
+    if (name.isEmpty) {
+      throw Exception('Display name is required');
+    }
+    final user = _auth?.currentUser;
+    if (user == null) {
+      throw Exception('You must be signed in to finish setting up your account.');
+    }
+    final token = await user.getIdToken();
+    _apiService.setAuthToken(token);
+    await _apiService.post('users', {
+      'email': user.email ?? '',
+      'displayName': name,
+      'role': role,
+    });
+    try {
+      await user.updateDisplayName(name);
+    } catch (_) {
+      // Non-fatal: the backend profile is the source of truth for the name.
+    }
+    return await _getUserProfile();
   }
 
   Future<app_user.User?> getUserProfile() async {
