@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:audio_metadata_reader/audio_metadata_reader.dart';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
@@ -43,11 +44,15 @@ class _UploadScreenState extends State<UploadScreen> {
     );
 
     if (result != null && result.files.single.path != null) {
+      final picked = File(result.files.single.path!);
       setState(() {
-        _audioFile = File(result.files.single.path!);
+        _audioFile = picked;
         _error = null;
         _readyForRotation = false;
       });
+
+      // Best-effort: pre-fill title / artist / artwork from embedded tags.
+      _applyAudioMetadata(picked);
 
       // Best-effort duration extraction.
       final p = AudioPlayer();
@@ -61,6 +66,57 @@ class _UploadScreenState extends State<UploadScreen> {
       } finally {
         await p.dispose();
       }
+    }
+  }
+
+  String _titleFromFilename(String path) {
+    var name = path.split(Platform.pathSeparator).last;
+    final dot = name.lastIndexOf('.');
+    if (dot > 0) name = name.substring(0, dot);
+    return name.replaceAll(RegExp(r'[_]+'), ' ').trim();
+  }
+
+  /// Reads embedded tags (ID3 / MP4 / FLAC / Vorbis) to pre-fill the title,
+  /// artist, and artwork. Only fills fields the user hasn't set; best-effort
+  /// and never blocks or errors the upload.
+  void _applyAudioMetadata(File file) {
+    String? metaTitle;
+    String? metaArtist;
+    File? coverFile;
+    try {
+      final meta = readMetadata(file, getImage: _artworkFile == null);
+      metaTitle = meta.title?.trim();
+      metaArtist = meta.artist?.trim();
+      if (_artworkFile == null && meta.pictures.isNotEmpty) {
+        final pic = meta.pictures.first;
+        if (pic.bytes.isNotEmpty && pic.bytes.length <= 15 * 1024 * 1024) {
+          final ext = pic.mimetype.contains('png')
+              ? 'png'
+              : (pic.mimetype.contains('webp') ? 'webp' : 'jpg');
+          final coverPath = '${Directory.systemTemp.path}'
+              '${Platform.pathSeparator}'
+              'networx_cover_${DateTime.now().millisecondsSinceEpoch}.$ext';
+          coverFile = File(coverPath)..writeAsBytesSync(pic.bytes);
+        }
+      }
+    } catch (_) {
+      // Metadata is optional; fall back to the filename for the title.
+    }
+
+    final resolvedTitle = (metaTitle != null && metaTitle.isNotEmpty)
+        ? metaTitle
+        : _titleFromFilename(file.path);
+
+    if (_titleController.text.trim().isEmpty && resolvedTitle.isNotEmpty) {
+      _titleController.text = resolvedTitle;
+    }
+    if (_artistNameController.text.trim().isEmpty &&
+        metaArtist != null &&
+        metaArtist.isNotEmpty) {
+      _artistNameController.text = metaArtist;
+    }
+    if (coverFile != null) {
+      setState(() => _artworkFile = coverFile);
     }
   }
 

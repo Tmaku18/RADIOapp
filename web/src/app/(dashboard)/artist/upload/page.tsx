@@ -159,6 +159,50 @@ export default function UploadPage() {
     });
   };
 
+  const deriveTitleFromFilename = (name: string): string => {
+    return name
+      .replace(/\.[^.]+$/, '')
+      .replace(/[_]+/g, ' ')
+      .trim();
+  };
+
+  // Best-effort: read embedded tags (ID3 / MP4 / FLAC / Vorbis) to pre-fill the
+  // title, artist, and artwork so artists don't retype what's already in the
+  // file. Only fills fields the user hasn't already set; never blocks upload.
+  const applyAudioMetadata = async (file: File) => {
+    let resolvedTitle = '';
+    let resolvedArtist = '';
+    try {
+      const { parseBlob } = await import('music-metadata');
+      const { common } = await parseBlob(file, { duration: false });
+      resolvedTitle = common.title?.trim() ?? '';
+      resolvedArtist = (common.artist ?? common.albumartist)?.trim() ?? '';
+
+      const picture = common.picture?.[0];
+      if (picture && !artworkFile) {
+        const type = picture.format || 'image/jpeg';
+        const ext = (type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
+        const picFile = new File([new Uint8Array(picture.data)], `cover.${ext}`, {
+          type,
+        });
+        if (picFile.size > 0 && picFile.size <= 15 * 1024 * 1024) {
+          setArtworkFile(picFile);
+          setArtworkPreview(URL.createObjectURL(picFile));
+        }
+      }
+    } catch {
+      // Metadata is optional; fall back to the filename for the title.
+    }
+
+    if (!resolvedTitle) resolvedTitle = deriveTitleFromFilename(file.name);
+    if (resolvedTitle) {
+      setTitle((prev) => (prev.trim() ? prev : resolvedTitle));
+    }
+    if (resolvedArtist) {
+      setArtistName((prev) => (prev.trim() ? prev : resolvedArtist));
+    }
+  };
+
   const handleAudioSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -178,6 +222,9 @@ export default function UploadPage() {
       void extractDurationSeconds(file).then((secs) => {
         setDurationSeconds(secs);
       });
+
+      // Best-effort: pre-fill title / artist / artwork from the file's metadata.
+      void applyAudioMetadata(file);
     }
   };
 
