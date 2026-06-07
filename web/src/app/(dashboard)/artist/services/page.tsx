@@ -81,6 +81,8 @@ type ProviderProfile = {
 
 const SERVICE_TYPE_OPTIONS = ['mixing', 'mastering', 'production', 'session', 'collab', 'design', 'photo', 'video', 'other'];
 
+const MAX_PORTFOLIO_SIZE = 25 * 1024 * 1024; // 25MB
+
 function locationScore(candidate: string | null, query: string): number {
   const q = query.trim().toLowerCase();
   if (!q) return 0;
@@ -139,6 +141,7 @@ export default function ArtistServicesPage() {
   const [portfolioUrl, setPortfolioUrl] = useState('');
   const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
   const [portfolioSaving, setPortfolioSaving] = useState(false);
+  const [portfolioError, setPortfolioError] = useState<string | null>(null);
 
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -298,23 +301,35 @@ export default function ArtistServicesPage() {
 
   const savePortfolio = async () => {
     if (portfolioSaving) return;
+    setPortfolioError(null);
     setPortfolioSaving(true);
     try {
       let fileUrl = portfolioUrl.trim();
       if (portfolioFile) {
+        if (portfolioFile.size > MAX_PORTFOLIO_SIZE) {
+          throw new Error('File is too large. Audio, images, and video must be 25MB or smaller.');
+        }
         const up = await serviceProvidersApi.getPortfolioUploadUrl({
           filename: portfolioFile.name,
           contentType: portfolioFile.type,
         });
         const { signedUrl, publicUrl } = up.data;
-        await fetch(signedUrl, {
+        const putRes = await fetch(signedUrl, {
           method: 'PUT',
           headers: { 'Content-Type': portfolioFile.type },
           body: portfolioFile,
         });
+        if (!putRes.ok) {
+          throw new Error(
+            `Upload failed (${putRes.status}). Please try a different file or format.`,
+          );
+        }
         fileUrl = publicUrl;
       }
-      if (!fileUrl) return;
+      if (!fileUrl) {
+        setPortfolioError('Choose a file to upload or paste a link.');
+        return;
+      }
       await serviceProvidersApi.addPortfolioItem({
         type: portfolioType,
         fileUrl,
@@ -328,6 +343,13 @@ export default function ArtistServicesPage() {
       setPortfolioUrl('');
       setPortfolioFile(null);
       await loadMe();
+    } catch (e) {
+      const apiMessage = (e as { response?: { data?: { message?: string | string[] } } })
+        ?.response?.data?.message;
+      const normalized = Array.isArray(apiMessage) ? apiMessage.join(', ') : apiMessage;
+      setPortfolioError(
+        normalized || (e instanceof Error ? e.message : 'Could not add portfolio item.'),
+      );
     } finally {
       setPortfolioSaving(false);
     }
@@ -504,7 +526,7 @@ export default function ArtistServicesPage() {
                       <h3 className="font-semibold">Portfolio</h3>
                       <p className="text-sm text-muted-foreground">Upload work samples or link external media.</p>
                     </div>
-                    <Button onClick={() => setPortfolioOpen(true)}>Add portfolio item</Button>
+                    <Button onClick={() => { setPortfolioError(null); setPortfolioOpen(true); }}>Add portfolio item</Button>
                   </div>
 
                   {(me?.portfolio?.length ?? 0) === 0 ? (
@@ -648,7 +670,11 @@ export default function ArtistServicesPage() {
                           accept={portfolioType === 'image' ? 'image/*' : portfolioType === 'video' ? 'video/*' : 'audio/*'}
                         />
                         <p className="text-xs text-muted-foreground">
-                          If you upload, we’ll store it in the `portfolio` bucket and use the public URL.
+                          {portfolioType === 'audio'
+                            ? 'Upload an audio sample (MP3, WAV, M4A, AAC, OGG, FLAC) — max 25MB.'
+                            : portfolioType === 'video'
+                              ? 'Upload a video sample (MP4, WebM) — max 25MB.'
+                              : 'Upload an image (JPEG, PNG, WebP) — max 25MB.'}
                         </p>
                       </div>
 
@@ -665,6 +691,9 @@ export default function ArtistServicesPage() {
                         <Label>Description (optional)</Label>
                         <Textarea value={portfolioDescription} onChange={(e) => setPortfolioDescription(e.target.value)} placeholder="What this sample demonstrates…" />
                       </div>
+                      {portfolioError && (
+                        <p className="text-sm text-destructive">{portfolioError}</p>
+                      )}
                     </div>
 
                     <DialogFooter>
