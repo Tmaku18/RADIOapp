@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FileText, MessageSquare, Briefcase } from 'lucide-react';
+import { FileText, MessageSquare, Briefcase, UserPlus, UserCheck } from 'lucide-react';
 import {
   discoveryApi,
   proNetworxApi,
+  usersApi,
   type DiscoverFeedPost,
   type EducationItem,
   type ExperienceItem,
@@ -105,6 +106,8 @@ export default function ProNetworxProfilePage() {
   const [loadError, setLoadError] = useState(false);
   const [services, setServices] = useState<ProServiceListing[]>([]);
   const [portfolioPosts, setPortfolioPosts] = useState<DiscoverFeedPost[]>([]);
+  const [following, setFollowing] = useState<boolean | null>(null);
+  const [followBusy, setFollowBusy] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -151,6 +154,41 @@ export default function ProNetworxProfilePage() {
     void loadServices();
     void loadPortfolioPosts();
   }, [loadServices, loadPortfolioPosts]);
+
+  // Load follow state (skip for own profile / before auth resolves).
+  useEffect(() => {
+    if (!user || isMe) {
+      setFollowing(null);
+      return;
+    }
+    let alive = true;
+    usersApi
+      .isFollowing(id)
+      .then((res) => {
+        if (alive) setFollowing(!!res.data?.following);
+      })
+      .catch(() => {
+        if (alive) setFollowing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, user, isMe]);
+
+  const handleToggleFollow = useCallback(async () => {
+    if (followBusy || following == null) return;
+    setFollowBusy(true);
+    const next = !following;
+    setFollowing(next);
+    try {
+      if (next) await usersApi.follow(id);
+      else await usersApi.unfollow(id);
+    } catch {
+      setFollowing(!next);
+    } finally {
+      setFollowBusy(false);
+    }
+  }, [followBusy, following, id]);
 
   const loading = loadedId !== id;
   const socialLinks = useMemo(
@@ -266,14 +304,36 @@ export default function ProNetworxProfilePage() {
                       <Link href="/pro-networx/me">Edit profile</Link>
                     </Button>
                   ) : (
-                    <Button asChild className="bg-primary text-primary-foreground hover:opacity-90">
-                      <Link
-                        href={`/messages?to=${data.userId}`}
-                        className="inline-flex items-center gap-1"
+                    <>
+                      <Button
+                        variant={following ? 'outline' : 'default'}
+                        onClick={handleToggleFollow}
+                        disabled={followBusy || following == null}
+                        className={
+                          following
+                            ? 'inline-flex items-center gap-1'
+                            : 'bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1'
+                        }
                       >
-                        <MessageSquare className="h-4 w-4" /> Message
-                      </Link>
-                    </Button>
+                        {following ? (
+                          <>
+                            <UserCheck className="h-4 w-4" /> Following
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus className="h-4 w-4" /> Follow
+                          </>
+                        )}
+                      </Button>
+                      <Button asChild variant="outline">
+                        <Link
+                          href={`/messages?to=${data.userId}`}
+                          className="inline-flex items-center gap-1"
+                        >
+                          <MessageSquare className="h-4 w-4" /> Message
+                        </Link>
+                      </Button>
+                    </>
                   )}
                   {data.resumeUrl && (
                     <Button variant="outline" asChild>
@@ -611,12 +671,31 @@ export default function ProNetworxProfilePage() {
                 <Link href="/pro-networx/me">Edit profile</Link>
               </Button>
             ) : (
-              <Button
-                asChild
-                className="flex-1 bg-primary text-primary-foreground hover:opacity-90"
-              >
-                <Link href={`/messages?to=${data.userId}`}>Message</Link>
-              </Button>
+              <>
+                <Button
+                  variant={following ? 'outline' : 'default'}
+                  onClick={handleToggleFollow}
+                  disabled={followBusy || following == null}
+                  className={
+                    following
+                      ? 'flex-1 inline-flex items-center justify-center gap-1'
+                      : 'flex-1 bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-1'
+                  }
+                >
+                  {following ? (
+                    <>
+                      <UserCheck className="h-4 w-4" /> Following
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4" /> Follow
+                    </>
+                  )}
+                </Button>
+                <Button asChild variant="outline" className="flex-1">
+                  <Link href={`/messages?to=${data.userId}`}>Message</Link>
+                </Button>
+              </>
             )}
           </div>
         </>
