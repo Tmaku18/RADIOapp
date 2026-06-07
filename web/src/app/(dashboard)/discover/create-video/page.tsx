@@ -86,6 +86,50 @@ export default function CreateDiscoverFeedVideoPage() {
   const stopTimerRef = useRef<number | null>(null);
   const recordingIntervalRef = useRef<number | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
+  // Canvas pipeline used to bake the selfie mirror into the recorded file so
+  // the saved clip matches the mirrored preview (instead of flipping on stop).
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const drawRafRef = useRef<number | null>(null);
+
+  const stopDrawLoop = () => {
+    if (drawRafRef.current != null) {
+      cancelAnimationFrame(drawRafRef.current);
+      drawRafRef.current = null;
+    }
+  };
+
+  // Draws the live camera frames onto a horizontally-flipped canvas and returns
+  // its captured video track, so MediaRecorder stores the mirrored image.
+  const startMirroredVideoTrack = (
+    cameraStream: MediaStream,
+  ): MediaStreamTrack | null => {
+    const video = previewVideoRef.current;
+    if (!video) return null;
+    const settings = cameraStream.getVideoTracks()[0]?.getSettings() ?? {};
+    const width = settings.width ?? video.videoWidth ?? 720;
+    const height = settings.height ?? video.videoHeight ?? 1280;
+    let canvas = captureCanvasRef.current;
+    if (!canvas) {
+      canvas = document.createElement('canvas');
+      captureCanvasRef.current = canvas;
+    }
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    const draw = () => {
+      if (video.readyState >= 2 && canvas) {
+        ctx.save();
+        // Flip horizontally: mirror around the vertical axis.
+        ctx.setTransform(-1, 0, 0, 1, canvas.width, 0);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+      }
+      drawRafRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    return canvas.captureStream(30).getVideoTracks()[0] ?? null;
+  };
 
   const canPostToFeed =
     profile?.role === 'service_provider' || profile?.role === 'admin';
@@ -109,6 +153,7 @@ export default function CreateDiscoverFeedVideoPage() {
 
   useEffect(() => {
     return () => {
+      stopDrawLoop();
       if (stopTimerRef.current != null) {
         window.clearTimeout(stopTimerRef.current);
       }
@@ -147,6 +192,7 @@ export default function CreateDiscoverFeedVideoPage() {
   };
 
   const resetRecorderSession = () => {
+    stopDrawLoop();
     if (stopTimerRef.current != null) {
       window.clearTimeout(stopTimerRef.current);
       stopTimerRef.current = null;
@@ -236,8 +282,14 @@ export default function CreateDiscoverFeedVideoPage() {
       clipSource.connect(destination);
       clipSource.connect(audioContext.destination);
 
+      stopDrawLoop();
+      let videoTracks = cameraStream.getVideoTracks();
+      if (isMirrored) {
+        const mirroredTrack = startMirroredVideoTrack(cameraStream);
+        if (mirroredTrack) videoTracks = [mirroredTrack];
+      }
       const recordingStream = new MediaStream([
-        ...cameraStream.getVideoTracks(),
+        ...videoTracks,
         ...destination.stream.getAudioTracks(),
       ]);
 
@@ -253,6 +305,7 @@ export default function CreateDiscoverFeedVideoPage() {
       };
 
       recorder.onstop = () => {
+        stopDrawLoop();
         const blobType =
           recorder.mimeType && recorder.mimeType.length > 0
             ? recorder.mimeType
