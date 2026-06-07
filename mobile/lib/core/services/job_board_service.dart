@@ -45,6 +45,10 @@ class JobBoardService {
     return null;
   }
 
+  Future<void> deleteRequest(String requestId) async {
+    await _api.delete('job-board/requests/$requestId');
+  }
+
   Future<void> apply(String requestId, {String? message}) async {
     await _api.post('job-board/requests/$requestId/applications', {
       'message': message,

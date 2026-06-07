@@ -1120,6 +1120,8 @@ export const jobBoardApi = {
   createRequest: (data: { title: string; description?: string | null; serviceType?: string | null }) =>
     api.post('/job-board/requests', data),
   getRequest: (requestId: string) => api.get(`/job-board/requests/${requestId}`),
+  deleteRequest: (requestId: string) =>
+    api.delete(`/job-board/requests/${requestId}`),
   apply: (requestId: string, message?: string | null) =>
     api.post(`/job-board/requests/${requestId}/applications`, { message }),
   listApplications: (requestId: string) => api.get(`/job-board/requests/${requestId}/applications`),

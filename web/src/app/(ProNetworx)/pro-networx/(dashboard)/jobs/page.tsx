@@ -93,6 +93,9 @@ export default function ProNetworxJobsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const [deleteTarget, setDeleteTarget] = useState<ServiceRequestRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
   const loadRequests = useCallback(
     async (mine: boolean) => {
       setLoading(true);
@@ -228,6 +231,23 @@ export default function ProNetworxJobsPage() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    try {
+      await jobBoardApi.deleteRequest(deleteTarget.id);
+      const deletedId = deleteTarget.id;
+      setDeleteTarget(null);
+      if (selectedRequest?.id === deletedId) setSelectedRequest(null);
+      setItems((prev) => prev.filter((r) => r.id !== deletedId));
+      setTotal((prev) => Math.max(0, prev - 1));
+    } catch (e) {
+      console.error('Failed to delete request:', e);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const isOwner = myId && requestDetail && requestDetail.artistId === myId;
 
   return (
@@ -356,9 +376,22 @@ export default function ProNetworxJobsPage() {
                         {req.serviceType || 'General'} · {req.status}
                       </p>
                     </div>
-                    <Badge variant={req.status === 'open' ? 'default' : 'secondary'}>
-                      {req.status}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={req.status === 'open' ? 'default' : 'secondary'}>
+                        {req.status}
+                      </Badge>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleteTarget(req);
+                        }}
+                      >
+                        Delete
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               ))}
@@ -472,15 +505,27 @@ export default function ProNetworxJobsPage() {
                 </>
               )}
 
-              <DialogFooter>
-                <Button variant="outline" asChild>
-                  <Link href={`/pro-networx/u/${requestDetail.artistId}`}>
-                    View profile
-                  </Link>
-                </Button>
-                <Button variant="ghost" onClick={() => setSelectedRequest(null)}>
-                  Close
-                </Button>
+              <DialogFooter className="sm:justify-between">
+                {isOwner ? (
+                  <Button
+                    variant="destructive"
+                    onClick={() => setDeleteTarget(requestDetail)}
+                  >
+                    Delete request
+                  </Button>
+                ) : (
+                  <span />
+                )}
+                <div className="flex gap-2">
+                  <Button variant="outline" asChild>
+                    <Link href={`/pro-networx/u/${requestDetail.artistId}`}>
+                      View profile
+                    </Link>
+                  </Button>
+                  <Button variant="ghost" onClick={() => setSelectedRequest(null)}>
+                    Close
+                  </Button>
+                </div>
               </DialogFooter>
             </>
           ) : null}
@@ -522,6 +567,37 @@ export default function ProNetworxJobsPage() {
           requests&quot; tab.
         </p>
       )}
+
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && !deleting && setDeleteTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete this request?</DialogTitle>
+            <DialogDescription>
+              &quot;{deleteTarget?.title}&quot; and any applications it received
+              will be permanently removed. This can&apos;t be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+              disabled={deleting}
+            >
+              {deleting ? 'Deleting…' : 'Delete request'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent>

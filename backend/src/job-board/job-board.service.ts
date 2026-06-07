@@ -133,6 +133,33 @@ export class JobBoardService {
     };
   }
 
+  async deleteRequest(
+    requestId: string,
+    userId: string,
+    isAdmin = false,
+  ): Promise<{ success: true }> {
+    const supabase = getSupabaseClient();
+    const request = await this.getRequest(requestId);
+    if (!request) throw new NotFoundException('Request not found');
+    if (!isAdmin && request.artistId !== userId) {
+      throw new ForbiddenException('You can only delete your own requests');
+    }
+
+    // Remove applications first in case there is no FK cascade in the schema.
+    await supabase
+      .from('service_request_applications')
+      .delete()
+      .eq('request_id', requestId);
+
+    const { error } = await supabase
+      .from('service_requests')
+      .delete()
+      .eq('id', requestId);
+    if (error) throw new Error(`Failed to delete request: ${error.message}`);
+
+    return { success: true };
+  }
+
   async getRequest(requestId: string): Promise<ServiceRequestRow | null> {
     const supabase = getSupabaseClient();
     const { data: r, error } = await supabase

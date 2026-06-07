@@ -3,6 +3,7 @@ import {
   Get,
   Param,
   Post,
+  Delete,
   Query,
   Body,
   UseGuards,
@@ -38,6 +39,19 @@ export class JobBoardController {
       .single();
     if (error || !data) throw new UnauthorizedException('User not found');
     return data.id;
+  }
+
+  private async getUserIdAndRole(
+    firebaseUid: string,
+  ): Promise<{ id: string; role: string | null }> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data) throw new UnauthorizedException('User not found');
+    return { id: data.id, role: (data.role as string | null) ?? null };
   }
 
   @Get('requests')
@@ -95,6 +109,16 @@ export class JobBoardController {
     const req = await this.jobBoard.getRequest(requestId);
     if (!req) throw new NotFoundException('Request not found');
     return req;
+  }
+
+  @Delete('requests/:requestId')
+  @Roles('listener')
+  async deleteRequest(
+    @CurrentUser() user: FirebaseUser,
+    @Param('requestId') requestId: string,
+  ) {
+    const { id, role } = await this.getUserIdAndRole(user.uid);
+    return this.jobBoard.deleteRequest(requestId, id, role === 'admin');
   }
 
   @Post('requests/:requestId/applications')

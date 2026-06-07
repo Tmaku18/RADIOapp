@@ -500,6 +500,49 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     }
   }
 
+  Future<void> _delete() async {
+    final req = _detail ?? widget.request;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete this request?'),
+          content: Text(
+            '"${req.title}" and any applications it received will be '
+            'permanently removed. This can\'t be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.deleteRequest(req.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Request deleted.')),
+      );
+      Navigator.pop(context);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete the request.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -511,6 +554,12 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
       appBar: AppBar(
         title: const Text('Request'),
         actions: [
+          if (isOwner)
+            IconButton(
+              tooltip: 'Delete request',
+              onPressed: _loading ? null : _delete,
+              icon: const Icon(Icons.delete_outline),
+            ),
           IconButton(
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
