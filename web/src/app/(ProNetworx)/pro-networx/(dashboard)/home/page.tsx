@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { discoveryApi, type DiscoverFeedPost } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -19,6 +20,19 @@ import { hasArtistCapability } from '@/lib/roles';
 import { FeedPostCard } from '@/components/pro-networx/FeedPostCard';
 
 const FEED_PAGE_SIZE = 12;
+const SUGGESTED_PEOPLE_SIZE = 12;
+
+function shouldUnoptimize(url?: string | null): boolean {
+  return !!url && /^https?:\/\//i.test(url);
+}
+
+interface SuggestedPerson {
+  userId: string;
+  displayName: string | null;
+  headline: string | null;
+  avatarUrl: string | null;
+  role: 'artist' | 'service_provider';
+}
 
 export default function ProNetworxHomePage() {
   const { profile } = useAuth();
@@ -33,6 +47,10 @@ export default function ProNetworxHomePage() {
   const [uploadCaption, setUploadCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  // Random creator suggestions surfaced when the follow feed has no posts.
+  const [people, setPeople] = useState<SuggestedPerson[]>([]);
+  const [loadingPeople, setLoadingPeople] = useState(false);
+  const [peopleSeed] = useState(() => Math.random().toString(36).slice(2));
 
   const loadFeed = useCallback(async (append: boolean, cursor?: string | null) => {
     if (append) setLoadingMore(true);
@@ -55,9 +73,35 @@ export default function ProNetworxHomePage() {
     }
   }, []);
 
+  const loadPeople = useCallback(async () => {
+    setLoadingPeople(true);
+    try {
+      const res = await discoveryApi.listPeople({
+        role: 'all',
+        mode: 'random',
+        seed: peopleSeed,
+        limit: SUGGESTED_PEOPLE_SIZE,
+      });
+      const data = res.data as { items: SuggestedPerson[]; total: number };
+      setPeople(data.items ?? []);
+    } catch (e) {
+      console.error('Failed to load suggested creators:', e);
+      setPeople([]);
+    } finally {
+      setLoadingPeople(false);
+    }
+  }, [peopleSeed]);
+
   useEffect(() => {
     void loadFeed(false);
   }, [loadFeed]);
+
+  // When the follow feed is empty, show random creators to discover instead.
+  useEffect(() => {
+    if (!loading && posts.length === 0 && people.length === 0) {
+      void loadPeople();
+    }
+  }, [loading, posts.length, people.length, loadPeople]);
 
   useEffect(() => {
     if (!nextCursor || loadingMore) return;
@@ -155,14 +199,69 @@ export default function ProNetworxHomePage() {
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
         </div>
       ) : posts.length === 0 ? (
-        <div className="rounded-lg border border-border p-8 text-center space-y-3">
-          <p className="text-foreground font-medium">Your home feed is empty</p>
-          <p className="text-sm text-muted-foreground">
-            Follow creators in Search to see their posts here.
-          </p>
-          <Button asChild>
-            <Link href="/pro-networx/search">Discover creators</Link>
-          </Button>
+        <div className="space-y-4">
+          <div className="rounded-lg border border-border p-5 text-center space-y-1">
+            <p className="text-foreground font-medium">Discover creators</p>
+            <p className="text-sm text-muted-foreground">
+              Follow people to fill your home feed. Here are some creators to get you started.
+            </p>
+          </div>
+
+          {loadingPeople ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+            </div>
+          ) : people.length === 0 ? (
+            <div className="rounded-lg border border-border p-8 text-center space-y-3">
+              <p className="text-sm text-muted-foreground">
+                No creators to suggest yet.
+              </p>
+              <Button asChild>
+                <Link href="/pro-networx/search">Browse Search</Link>
+              </Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {people.map((person) => (
+                <Link
+                  key={person.userId}
+                  href={`/pro-networx/u/${person.userId}`}
+                  className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-muted/40 transition-colors"
+                >
+                  {person.avatarUrl ? (
+                    <Image
+                      src={person.avatarUrl}
+                      alt={person.displayName ?? 'Avatar'}
+                      width={44}
+                      height={44}
+                      className="rounded-full object-cover"
+                      unoptimized={shouldUnoptimize(person.avatarUrl)}
+                    />
+                  ) : (
+                    <div className="w-11 h-11 rounded-full bg-muted flex items-center justify-center">
+                      {person.role === 'service_provider' ? '🛠️' : '🎤'}
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">
+                      {person.displayName || 'Creator'}
+                    </p>
+                    {person.headline && (
+                      <p className="text-xs text-muted-foreground truncate">
+                        {person.headline}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+
+          <div className="flex justify-center pt-1">
+            <Button variant="outline" asChild>
+              <Link href="/pro-networx/search">See more in Search</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-4">
