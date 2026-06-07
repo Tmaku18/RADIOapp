@@ -52,6 +52,63 @@ function getClientBackendApiBases(): string[] {
   return unique;
 }
 
+/**
+ * Upload a multipart form directly to the backend, bypassing the same-origin
+ * `/api` proxy. The web host's proxy enforces a small request-body limit that
+ * can reject larger files (e.g. phone photos) with a 413 before any backend
+ * code runs, so file uploads must talk to the backend host directly. Falls
+ * back to the proxied axios path if every direct host fails to respond.
+ */
+async function directBackendUpload<T>(
+  path: string,
+  form: FormData,
+): Promise<{ data: T }> {
+  const token = await getIdToken(false);
+  const authHeader: HeadersInit | undefined =
+    token && token.trim().length > 0
+      ? { Authorization: `Bearer ${token}` }
+      : undefined;
+
+  for (const apiBase of getClientBackendApiBases()) {
+    try {
+      const response = await fetch(`${apiBase}${path}`, {
+        method: 'POST',
+        headers: authHeader,
+        body: form,
+      });
+
+      const text = await response.text();
+      const parsed = text.trim()
+        ? (() => {
+            try {
+              return JSON.parse(text);
+            } catch {
+              return { message: text };
+            }
+          })()
+        : {};
+
+      if (response.ok) {
+        return { data: parsed as T };
+      }
+
+      // The backend reachably rejected the request (e.g. invalid type/size).
+      // Surface that error instead of silently retrying another host or the
+      // proxy, which would mask the real message.
+      throw { response: { status: response.status, data: parsed } };
+    } catch (err) {
+      // Re-throw deliberate backend rejections; only fall through on
+      // network/transport errors so another host (or the proxy) can be tried.
+      if (err && typeof err === 'object' && 'response' in err) {
+        throw err;
+      }
+    }
+  }
+
+  // Last resort: go through the same-origin proxy.
+  return api.post<T>(path, form) as Promise<{ data: T }>;
+}
+
 // Request interceptor: Always send fresh ID token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -651,7 +708,8 @@ export const usersApi = {
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post('/users/me/avatar', formData);
+    // Direct-to-backend to avoid the proxy's request-body size limit.
+    return directBackendUpload('/users/me/avatar', formData);
   },
   checkUsernameAvailable: (username: string) =>
     api.get<{ available: boolean; username: string }>('/users/username-available', { params: { u: username } }),
@@ -1084,7 +1142,10 @@ export const serviceProvidersApi = {
   uploadCover: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return api.post<{ heroImageUrl?: string }>('/service-providers/me/cover', formData);
+    return directBackendUpload<{ heroImageUrl?: string }>(
+      '/service-providers/me/cover',
+      formData,
+    );
   },
   createListing: (data: {
     serviceType: string;
@@ -1235,7 +1296,7 @@ export const proNetworxApi = {
   uploadResume: (file: File) => {
     const form = new FormData();
     form.append('file', file);
-    return api.post<{ url: string; filename: string }>(
+    return directBackendUpload<{ url: string; filename: string }>(
       '/pro-networx/me/resume',
       form,
     );
