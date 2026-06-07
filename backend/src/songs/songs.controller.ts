@@ -58,6 +58,63 @@ export class SongsController {
     }
   }
 
+  /**
+   * Resolve the backend user row for an authenticated Firebase user, creating a
+   * minimal row on the fly if it does not exist yet. This prevents brand-new
+   * accounts from hitting "User not found" when their profile row has not been
+   * provisioned yet (e.g. uploading immediately after sign-up, before the
+   * background bootstrap has finished).
+   */
+  private async resolveUploaderUser(user: FirebaseUser): Promise<{
+    id: string;
+    display_name: string | null;
+    avatar_url: string | null;
+  }> {
+    const supabase = getSupabaseClient();
+    const select = () =>
+      supabase
+        .from('users')
+        .select('id, display_name, avatar_url')
+        .eq('firebase_uid', user.uid)
+        .maybeSingle();
+
+    const { data: existing } = await select();
+    if (existing) {
+      return existing as {
+        id: string;
+        display_name: string | null;
+        avatar_url: string | null;
+      };
+    }
+
+    const email = (user.email ?? '').trim().toLowerCase();
+    if (!email) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { error: insertError } = await supabase.from('users').insert({
+      firebase_uid: user.uid,
+      email,
+      role: 'listener',
+    });
+    // 23505 = row was created concurrently; fall through to re-select.
+    if (insertError && insertError.code !== '23505') {
+      this.logger.warn(
+        `Failed to provision user row for ${user.uid}: ${insertError.message}`,
+      );
+    }
+
+    const { data: created } = await select();
+    if (!created) {
+      throw new NotFoundException('User not found');
+    }
+    return created as {
+      id: string;
+      display_name: string | null;
+      avatar_url: string | null;
+    };
+  }
+
   private isMissingColumnError(error: unknown, columnName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -284,16 +341,7 @@ export class SongsController {
       isExplicit?: boolean;
     },
   ) {
-    const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id, display_name, avatar_url')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new NotFoundException('User not found');
-    }
+    const userData = await this.resolveUploaderUser(user);
     this.assertArtistProfileComplete(userData);
 
     if (!files || files.length === 0) {
@@ -358,16 +406,7 @@ export class SongsController {
     @CurrentUser() user: FirebaseUser,
     @Body() dto: GetUploadUrlDto,
   ) {
-    const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new NotFoundException('User not found');
-    }
+    const userData = await this.resolveUploaderUser(user);
 
     return this.uploadsService.getSignedUploadUrl(
       userData.id,
@@ -389,15 +428,7 @@ export class SongsController {
     @Body() dto: CreateSongFromPathDto,
   ) {
     const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id, display_name, avatar_url')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new NotFoundException('User not found');
-    }
+    const userData = await this.resolveUploaderUser(user);
     this.assertArtistProfileComplete(userData);
 
     // Convert storage paths to public URLs

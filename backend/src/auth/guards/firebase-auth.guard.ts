@@ -210,14 +210,29 @@ export class FirebaseAuthGuard implements CanActivate {
           `User lookup failed for ${decodedToken.uid}: ${userLookupError.message}`,
         );
       } else if (!user) {
-        // Best-effort; never block the request on a slow profile bootstrap.
-        withDeadline('ensureUserProfile', 5000, () =>
-          this.ensureUserProfile(decodedToken.uid, decodedToken.email),
-        ).catch((err) => {
-          this.logger.warn(
-            `ensureUserProfile failed for ${decodedToken.uid}: ${err?.message ?? err}`,
+        // Brand-new user: provision the profile row now (awaited, with a hard
+        // deadline) so downstream controllers can resolve the user instead of
+        // failing with "User not found" on the first authenticated requests
+        // (e.g. uploading a song right after sign-up).
+        try {
+          await withDeadline('ensureUserProfile', 5000, () =>
+            this.ensureUserProfile(decodedToken.uid, decodedToken.email),
           );
-        });
+          const { data: provisioned } = await supabase
+            .from('users')
+            .select('id, role, is_banned, ban_reason')
+            .eq('firebase_uid', decodedToken.uid)
+            .maybeSingle();
+          if (provisioned) {
+            user = provisioned as UserRow;
+          }
+        } catch (err) {
+          this.logger.warn(
+            `ensureUserProfile failed for ${decodedToken.uid}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        }
       }
 
       if (user?.is_banned) {
