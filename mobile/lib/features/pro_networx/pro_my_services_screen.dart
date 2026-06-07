@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
+import 'pro_portfolio_screen.dart';
 
 class ProMyServicesScreen extends StatefulWidget {
   const ProMyServicesScreen({super.key});
@@ -77,7 +78,17 @@ class _ProMyServicesScreenState extends State<ProMyServicesScreen> {
         title: const Text('My services'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.collections_outlined),
+            tooltip: 'Portfolio',
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (_) => const ProPortfolioScreen(),
+              ),
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.add),
+            tooltip: 'New listing',
             onPressed: () => _openEditor(),
           ),
         ],

@@ -484,6 +484,73 @@ class ProNetworxService {
   }
 
   // ---------------------------------------------------------------------------
+  // Service-provider portfolio (Featured work: image / audio / video)
+  // ---------------------------------------------------------------------------
+  /// The current user's provider portfolio items (audio/image/video samples).
+  /// Returns each item as { id, type, fileUrl, title, description, sortOrder }.
+  Future<List<Map<String, dynamic>>> getMyPortfolio() async {
+    final res = await _api.get('service-providers/me/profile');
+    if (res is Map<String, dynamic>) {
+      final items = res['portfolio'];
+      if (items is List) {
+        return items
+            .whereType<Map>()
+            .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+            .toList();
+      }
+    }
+    return const [];
+  }
+
+  /// Uploads a portfolio file to the `portfolio` bucket via a signed URL and
+  /// returns the public URL to attach to a portfolio item.
+  Future<String> uploadPortfolioFile(File file, String contentType) async {
+    final filename = file.path.split('/').last;
+    final res = await _api.post('service-providers/portfolio/upload-url', {
+      'filename': filename,
+      'contentType': contentType,
+    });
+    if (res is! Map<String, dynamic>) {
+      throw Exception('Failed to get portfolio upload URL');
+    }
+    final signedUrl = (res['signedUrl'] ?? res['signed_url'] ?? '').toString();
+    final publicUrl = (res['publicUrl'] ?? res['public_url'] ?? '').toString();
+    if (signedUrl.isEmpty || publicUrl.isEmpty) {
+      throw Exception('Upload URL response missing fields');
+    }
+    final bytes = await file.readAsBytes();
+    final put = await http.put(
+      Uri.parse(signedUrl),
+      headers: {'Content-Type': contentType},
+      body: bytes,
+    );
+    if (put.statusCode < 200 || put.statusCode >= 300) {
+      throw Exception('Upload failed (${put.statusCode})');
+    }
+    return publicUrl;
+  }
+
+  Future<void> addPortfolioItem({
+    required String type,
+    required String fileUrl,
+    String? title,
+    String? description,
+  }) async {
+    await _api.post('service-providers/me/portfolio', {
+      'type': type,
+      'fileUrl': fileUrl,
+      if (title != null && title.trim().isNotEmpty) 'title': title.trim(),
+      if (description != null && description.trim().isNotEmpty)
+        'description': description.trim(),
+      'sortOrder': 0,
+    });
+  }
+
+  Future<void> deletePortfolioItem(String id) async {
+    await _api.delete('service-providers/me/portfolio/$id');
+  }
+
+  // ---------------------------------------------------------------------------
   // Helpers
   // ---------------------------------------------------------------------------
   ({List<ProFeedPost> items, String? nextCursor}) _parseFeedResponse(
