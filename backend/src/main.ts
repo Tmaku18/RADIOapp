@@ -42,13 +42,37 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS -- wildcard + credentials is rejected by browsers, so when
-  // CORS_ORIGIN is unset we fall back to a known-good origin list.
-  const corsOrigin =
-    configService.get<string>('CORS_ORIGIN') ||
-    'https://www.networxradio.com,https://networxradio.com,https://www.pro-networx.com,https://pro-networx.com';
+  // Enable CORS -- wildcard + credentials is rejected by browsers. We always
+  // allow the known production origins (both apps share this backend for direct
+  // media uploads) and additionally honor any origins set via CORS_ORIGIN, so a
+  // misconfigured env var can never lock out a first-party domain.
+  const defaultOrigins = [
+    'https://www.networxradio.com',
+    'https://networxradio.com',
+    'https://www.pro-networx.com',
+    'https://pro-networx.com',
+  ];
+  const envOrigins = (configService.get<string>('CORS_ORIGIN') || '')
+    .split(',')
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0);
+  const allowedOrigins = Array.from(
+    new Set([...defaultOrigins, ...envOrigins]),
+  );
   app.enableCors({
-    origin: corsOrigin.split(',').map((o) => o.trim()),
+    origin: (origin, callback) => {
+      // Allow same-origin/non-browser requests (no Origin header) and any
+      // explicitly allowlisted origin. Also allow localhost during dev.
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        /^http:\/\/localhost(:\d+)?$/.test(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+      callback(null, false);
+    },
     credentials: true,
   });
 

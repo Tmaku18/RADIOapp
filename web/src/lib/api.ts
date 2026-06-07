@@ -69,43 +69,59 @@ async function directBackendUpload<T>(
       ? { Authorization: `Bearer ${token}` }
       : undefined;
 
+  const postTo = async (url: string): Promise<{ data: T }> => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: authHeader,
+      body: form,
+    });
+    const text = await response.text();
+    const parsed = text.trim()
+      ? (() => {
+          try {
+            return JSON.parse(text);
+          } catch {
+            return { message: text };
+          }
+        })()
+      : {};
+    if (response.ok) {
+      return { data: parsed as T };
+    }
+    throw { response: { status: response.status, data: parsed } };
+  };
+
+  // Prefer the same-origin proxy first: it needs no CORS preflight and works on
+  // every first-party domain. Only the proxy's body-size limit (413) requires
+  // talking to the backend host directly, so we reserve the cross-origin direct
+  // hosts for that fallback.
+  try {
+    return await postTo(`/api${path}`);
+  } catch (err) {
+    const status =
+      err && typeof err === 'object' && 'response' in err
+        ? (err as { response?: { status?: number } }).response?.status
+        : undefined;
+    // 413 = payload too large for the proxy. Anything else that came back from
+    // the backend is a deliberate rejection we should surface as-is.
+    if (status !== undefined && status !== 413) {
+      throw err;
+    }
+  }
+
   for (const apiBase of getClientBackendApiBases()) {
     try {
-      const response = await fetch(`${apiBase}${path}`, {
-        method: 'POST',
-        headers: authHeader,
-        body: form,
-      });
-
-      const text = await response.text();
-      const parsed = text.trim()
-        ? (() => {
-            try {
-              return JSON.parse(text);
-            } catch {
-              return { message: text };
-            }
-          })()
-        : {};
-
-      if (response.ok) {
-        return { data: parsed as T };
-      }
-
-      // The backend reachably rejected the request (e.g. invalid type/size).
-      // Surface that error instead of silently retrying another host or the
-      // proxy, which would mask the real message.
-      throw { response: { status: response.status, data: parsed } };
+      return await postTo(`${apiBase}${path}`);
     } catch (err) {
       // Re-throw deliberate backend rejections; only fall through on
-      // network/transport errors so another host (or the proxy) can be tried.
+      // network/transport errors so another host can be tried.
       if (err && typeof err === 'object' && 'response' in err) {
         throw err;
       }
     }
   }
 
-  // Last resort: go through the same-origin proxy.
+  // Last resort: go through the same-origin proxy via axios.
   return api.post<T>(path, form) as Promise<{ data: T }>;
 }
 
