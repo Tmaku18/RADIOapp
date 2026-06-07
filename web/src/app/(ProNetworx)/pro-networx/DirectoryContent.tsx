@@ -70,7 +70,7 @@ export function ProNetworxDirectoryContent({
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [randomMode, setRandomMode] = useState(false);
+  const [randomMode, setRandomMode] = useState(true);
   const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
 
