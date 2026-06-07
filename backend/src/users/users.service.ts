@@ -9,6 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
+import { generateUniqueUsername } from '../common/username.util';
 import { UploadsService } from '../uploads/uploads.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -213,16 +214,49 @@ export class UsersService {
     if (!displayName) {
       throw new BadRequestException('Display name is required');
     }
-    const { data, error } = await supabase
-      .from('users')
-      .insert({
-        firebase_uid: firebaseUid,
+
+    // username is NOT NULL/unique; auto-generate a handle for the new account.
+    let data: any = null;
+    let error: { code?: string; message: string } | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const username = await generateUniqueUsername(supabase, {
+        displayName,
         email: createUserDto.email,
-        display_name: displayName,
-        role,
-      })
-      .select()
-      .single();
+      });
+      const result = await supabase
+        .from('users')
+        .insert({
+          firebase_uid: firebaseUid,
+          email: createUserDto.email,
+          display_name: displayName,
+          username,
+          role,
+        })
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+      if (!error) break;
+      // A racing insert may have claimed the same username; on a unique
+      // violation that isn't the firebase_uid/email row, regenerate and retry.
+      if (error.code === '23505') {
+        const { data: byUid } = await supabase
+          .from('users')
+          .select('*')
+          .eq('firebase_uid', firebaseUid)
+          .single();
+        if (byUid) return transformUser(byUid);
+        // Only retry for username collisions; email collisions are terminal.
+        const { data: byEmail } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', createUserDto.email)
+          .maybeSingle();
+        if (byEmail) break;
+        continue;
+      }
+      break;
+    }
 
     if (error) {
       // Race: another request created this user by firebase_uid

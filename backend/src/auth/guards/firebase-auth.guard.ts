@@ -10,6 +10,7 @@ import { Reflector } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { getFirebaseAuth } from '../../config/firebase.config';
 import { getSupabaseClient } from '../../config/supabase.config';
+import { generateUniqueUsername } from '../../common/username.util';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 @Injectable()
@@ -107,9 +108,15 @@ export class FirebaseAuthGuard implements CanActivate {
 
     if (!normalizedEmail) return;
 
+    // username is NOT NULL/unique; generate a handle so the insert succeeds.
+    const username = await generateUniqueUsername(supabase, {
+      email: normalizedEmail,
+      userId: firebaseUid,
+    });
     const { error } = await supabase.from('users').insert({
       firebase_uid: firebaseUid,
       email: normalizedEmail,
+      username,
       role: defaultRole,
     });
     if (error && error.code !== '23505') {

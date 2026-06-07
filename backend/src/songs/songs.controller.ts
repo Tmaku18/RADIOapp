@@ -30,6 +30,7 @@ import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
+import { generateUniqueUsername } from '../common/username.util';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -92,9 +93,14 @@ export class SongsController {
       throw new NotFoundException('User not found');
     }
 
+    const username = await generateUniqueUsername(supabase, {
+      email,
+      userId: user.uid,
+    });
     const { error: insertError } = await supabase.from('users').insert({
       firebase_uid: user.uid,
       email,
+      username,
       role: 'listener',
     });
     // 23505 = row was created concurrently; fall through to re-select.

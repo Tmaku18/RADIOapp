@@ -7,6 +7,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { getSupabaseClient } from '../../config/supabase.config';
+import { generateUniqueUsername } from '../../common/username.util';
 import { ConfigService } from '@nestjs/config';
 
 /** Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst). User satisfies required role if their role inherits it. "dj" is a standalone broadcaster role (admin can also act as a DJ). */
@@ -119,11 +120,17 @@ export class RolesGuard implements CanActivate {
 
     if (!normalizedEmail) return null;
 
+    // username is NOT NULL/unique; generate a handle so the insert succeeds.
+    const username = await generateUniqueUsername(supabase, {
+      email: normalizedEmail,
+      userId: firebaseUid,
+    });
     const { data, error } = await supabase
       .from('users')
       .insert({
         firebase_uid: firebaseUid,
         email: normalizedEmail,
+        username,
         role: defaultRole,
       })
       .select('id, role')
