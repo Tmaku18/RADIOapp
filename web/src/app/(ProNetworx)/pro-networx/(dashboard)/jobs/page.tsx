@@ -257,7 +257,7 @@ export default function ProNetworxJobsPage() {
         <div className="relative">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-2xl font-semibold text-white">Jobs</h1>
+              <h1 className="text-2xl font-semibold text-white">Projects</h1>
               <p className="text-white/80 text-sm mt-1">
                 Post what you need and let Catalysts come to you—or browse open
                 requests and apply.
