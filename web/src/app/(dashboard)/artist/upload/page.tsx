@@ -83,6 +83,10 @@ export default function UploadPage() {
   const [discoverBackgroundPreview, setDiscoverBackgroundPreview] = useState<string | null>(null);
   const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0:00');
   const [discoverClipEndSeconds, setDiscoverClipEndSeconds] = useState('0:15');
+  const [sampleStartSeconds, setSampleStartSeconds] = useState('0:00');
+  const [sampleEndSeconds, setSampleEndSeconds] = useState('0:30');
+  // Object URL of the main track, used to preview/scrub the sample window.
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
   // Local object URL for previewing the discover-clip window. Source is the
   // separate discover clip when provided, otherwise the main track.
@@ -108,6 +112,18 @@ export default function UploadPage() {
     setDiscoverPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [discoverClipFile, audioFile]);
+
+  // The sample preview is always taken from the main track, since the sample
+  // is the listener-facing 30s preview of the actual song.
+  useEffect(() => {
+    if (!audioFile) {
+      setAudioPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(audioFile);
+    setAudioPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [audioFile]);
 
   const extractDurationSeconds = (file: File): Promise<number | null> => {
     return new Promise((resolve) => {
@@ -296,6 +312,21 @@ export default function UploadPage() {
         return;
       }
     }
+    {
+      const start = parseTimeToSeconds(sampleStartSeconds);
+      const end = parseTimeToSeconds(sampleEndSeconds);
+      if (start == null || end == null || end <= start) {
+        setError(
+          'Sample clip window must be valid (mm:ss or seconds) and end must be greater than start',
+        );
+        return;
+      }
+      const length = end - start;
+      if (length < 5 || length > 30) {
+        setError('Sample clip window must be between 5 and 30 seconds');
+        return;
+      }
+    }
 
     setIsUploading(true);
     setError(null);
@@ -367,6 +398,10 @@ export default function UploadPage() {
       setUploadProgress(90);
       const parsedStartSeconds = parseTimeToSeconds(discoverClipStartSeconds);
       const parsedEndSeconds = parseTimeToSeconds(discoverClipEndSeconds);
+      // The listener-facing sample preview is rendered server-side from this
+      // window of the main track, so we pass it through create.
+      const parsedSampleStart = parseTimeToSeconds(sampleStartSeconds);
+      const parsedSampleEnd = parseTimeToSeconds(sampleEndSeconds);
       try {
         await songsApi.create({
           title,
@@ -381,6 +416,8 @@ export default function UploadPage() {
           discoverBackgroundPath,
           discoverClipStartSeconds: parsedStartSeconds ?? undefined,
           discoverClipEndSeconds: parsedEndSeconds ?? undefined,
+          sampleStartSeconds: parsedSampleStart ?? undefined,
+          sampleEndSeconds: parsedSampleEnd ?? undefined,
           isExplicit,
         });
       } catch (dbErr) {
@@ -516,7 +553,51 @@ export default function UploadPage() {
             </div>
 
             <div className="space-y-2 rounded-lg border border-border p-4">
+              <Label>Sample Clip (Preview)</Label>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">What it is:</span>{' '}
+                the free 5–30 second preview of this exact song. It plays on your
+                artist profile and anywhere fans can buy the track.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Why it matters:</span>{' '}
+                it lets listeners try before they buy — a strong sample drives
+                more purchases. Pick the most memorable part (the hook or a big
+                moment). We render the preview from your main track, so listeners
+                never get the full song for free.
+              </p>
+              <ClipWindowEditor
+                audioUrl={audioPreviewUrl}
+                durationSeconds={durationSeconds}
+                minLength={5}
+                maxLength={30}
+                startSeconds={parseTimeToSeconds(sampleStartSeconds) ?? 0}
+                endSeconds={parseTimeToSeconds(sampleEndSeconds) ?? 30}
+                onChange={(start, end) => {
+                  setSampleStartSeconds(formatSecondsForTrimInput(start));
+                  setSampleEndSeconds(formatSecondsForTrimInput(end));
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Defaults to the first 30 seconds. Select the audio above to
+                scrub and preview your sample window.
+              </p>
+            </div>
+
+            <div className="space-y-2 rounded-lg border border-border p-4">
               <Label>Discover Clip Audio (Optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">What it is:</span>{' '}
+                a short looping clip (5–15s) shown in the Discover feed where
+                listeners swipe through new music.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Why it matters:</span>{' '}
+                it&apos;s your first impression in Discover — a punchy loop earns
+                the follow, the like, and the full listen. You can upload a
+                dedicated promo clip, or trim the window from your main track
+                below.
+              </p>
               <input
                 ref={discoverClipInputRef}
                 type="file"

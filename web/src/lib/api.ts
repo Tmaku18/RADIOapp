@@ -415,9 +415,11 @@ export const songsApi = {
     discoverBackgroundPath?: string;
     discoverClipStartSeconds?: number;
     discoverClipEndSeconds?: number;
+    sampleStartSeconds?: number;
+    sampleEndSeconds?: number;
     isExplicit?: boolean;
   }) => 
-    api.post('/songs', data),
+    api.post<{ id?: string }>('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
   unlike: (id: string) => api.delete(`/songs/${id}/like`),
   getLikeStatus: (id: string) => api.get(`/songs/${id}/like`),

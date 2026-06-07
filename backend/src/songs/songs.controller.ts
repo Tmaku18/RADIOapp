@@ -493,6 +493,8 @@ export class SongsController {
       discoverBackgroundUrl,
       discoverClipStartSeconds: dto.discoverClipStartSeconds,
       discoverClipEndSeconds: dto.discoverClipEndSeconds,
+      sampleStartSeconds: dto.sampleStartSeconds,
+      sampleEndSeconds: dto.sampleEndSeconds,
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: dto.isExplicit !== false,
     };
@@ -506,6 +508,18 @@ export class SongsController {
       if (clipDuration <= 0 || clipDuration > 15) {
         throw new BadRequestException(
           'Discover clip duration must be greater than 0 and at most 15 seconds',
+        );
+      }
+    }
+    if (
+      createSongDto.sampleStartSeconds != null &&
+      createSongDto.sampleEndSeconds != null
+    ) {
+      const sampleDuration =
+        createSongDto.sampleEndSeconds - createSongDto.sampleStartSeconds;
+      if (sampleDuration < 5 || sampleDuration > 30) {
+        throw new BadRequestException(
+          'Sample clip duration must be between 5 and 30 seconds',
         );
       }
     }

@@ -1085,6 +1085,21 @@ export class SongsService {
       );
     }
 
+    // Listener-facing sample preview window (rendered from the main track by the
+    // background sample generator below). When provided, it makes the artist's
+    // chosen window authoritative so the auto-render doesn't fall back to the
+    // first 30 seconds.
+    const sampleStartRaw = createSongDto.sampleStartSeconds;
+    const sampleEndRaw = createSongDto.sampleEndSeconds;
+    const sampleStartSeconds =
+      sampleStartRaw != null && Number.isFinite(Number(sampleStartRaw))
+        ? Number(sampleStartRaw)
+        : null;
+    const sampleEndSeconds =
+      sampleEndRaw != null && Number.isFinite(Number(sampleEndRaw))
+        ? Number(sampleEndRaw)
+        : null;
+
     const statusFields = this.uploadStatusFields();
     const baseInsertPayload = {
       artist_id: userId,
@@ -1096,6 +1111,8 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
       station_id: createSongDto.stationId,
+      sample_start_seconds: sampleStartSeconds,
+      sample_end_seconds: sampleEndSeconds,
       // Songs are explicit by default; uploaders opt out by unchecking the box.
       is_explicit: createSongDto.isExplicit !== false,
       ...statusFields,
@@ -1108,6 +1125,8 @@ export class SongsService {
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180,
       station_id: createSongDto.stationId,
+      sample_start_seconds: sampleStartSeconds,
+      sample_end_seconds: sampleEndSeconds,
       ...statusFields,
     };
 

@@ -63,6 +63,18 @@ export class CreateSongDto {
   @Min(0)
   discoverClipEndSeconds?: number;
 
+  /** Start of the listener-facing sample preview window (seconds). */
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  sampleStartSeconds?: number;
+
+  /** End of the listener-facing sample preview window (seconds; 5–30s span). */
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  sampleEndSeconds?: number;
+
   @IsBoolean()
   @IsOptional()
   isExplicit?: boolean;
