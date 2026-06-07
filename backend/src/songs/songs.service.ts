@@ -65,12 +65,12 @@ export class SongsService {
   private readonly ffmpegConfigured: boolean;
   // Guards against two overlapping sample backfills running at once.
   private sampleBackfillRunning = false;
-  // Beta: every upload lands directly in free rotation (approved + public +
-  // admin_free_rotation) so the radio queue is populated without manual review.
-  // Set BETA_AUTO_FREE_ROTATION=false once beta ends to restore the
-  // review-gated flow where free rotation is toggled by the artist/admin.
+  // Uploads are review-gated by default: a new song lands in `pending` and an
+  // admin must approve it before it goes public / into free rotation. The
+  // legacy beta behavior (auto-approve every upload) can be re-enabled only by
+  // explicitly setting BETA_AUTO_FREE_ROTATION=true.
   private readonly betaAutoFreeRotation =
-    (process.env.BETA_AUTO_FREE_ROTATION ?? 'true').toLowerCase() !== 'false';
+    (process.env.BETA_AUTO_FREE_ROTATION ?? 'false').toLowerCase() === 'true';
   private readonly defaultArtistLikeNotificationSettings: ArtistLikeNotificationSettings =
     {
       muted: false,
@@ -1009,14 +1009,17 @@ export class SongsService {
 
   /**
    * Status/visibility fields applied to a freshly uploaded song.
-   * During beta the song is auto-approved and placed in free rotation so the
-   * radio queue stays populated; otherwise it goes to pending review.
+   * By default a new song goes to `pending` and an admin must approve it before
+   * it becomes public / enters free rotation. The legacy beta auto-approval
+   * (BETA_AUTO_FREE_ROTATION=true) places it straight into free rotation.
    */
   private uploadStatusFields(): Record<string, unknown> {
     if (this.betaAutoFreeRotation) {
       return { status: 'approved', is_public: true, admin_free_rotation: true };
     }
-    return { status: 'pending' };
+    // Keep it private until approved so a pending upload can't leak into any
+    // public/rotation query even if is_public defaults to TRUE in the schema.
+    return { status: 'pending', is_public: false, admin_free_rotation: false };
   }
 
   async createSong(userId: string, createSongDto: CreateSongDto) {

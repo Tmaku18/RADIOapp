@@ -324,13 +324,20 @@ export class AdminService {
       updateData.rejection_reason = reason || null;
       updateData.rejected_at = now;
       updateData.admin_free_rotation = false;
+      // Keep rejected songs out of every public/rotation query.
+      updateData.is_public = false;
     } else if (status === 'pending') {
       // Clear rejection fields when reverting to pending
       updateData.rejection_reason = null;
       updateData.rejected_at = null;
       updateData.admin_free_rotation = false;
+      // Pending songs are not public until (re-)approved.
+      updateData.is_public = false;
     } else if (status === 'approved') {
       updateData.admin_free_rotation = true;
+      // Approval makes the song public so it can enter free rotation (which
+      // requires status=approved AND is_public AND admin_free_rotation).
+      updateData.is_public = true;
       // Clear any prior rejection so re-approved songs (incl. copyright
       // auto-rejections an admin overrides) are clean and not caught by the
       // 48h rejected-song cleanup cron.
