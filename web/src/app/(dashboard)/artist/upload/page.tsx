@@ -72,13 +72,11 @@ export default function UploadPage() {
   const router = useRouter();
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
-  const discoverClipInputRef = useRef<HTMLInputElement>(null);
   const discoverBackgroundInputRef = useRef<HTMLInputElement>(null);
 
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
-  const [discoverClipFile, setDiscoverClipFile] = useState<File | null>(null);
   const [discoverBackgroundFile, setDiscoverBackgroundFile] = useState<File | null>(null);
   const [discoverBackgroundPreview, setDiscoverBackgroundPreview] = useState<string | null>(null);
   const [discoverClipStartSeconds, setDiscoverClipStartSeconds] = useState('0:00');
@@ -88,8 +86,8 @@ export default function UploadPage() {
   // Object URL of the main track, used to preview/scrub the sample window.
   const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
   const [durationSeconds, setDurationSeconds] = useState<number | null>(null);
-  // Local object URL for previewing the discover-clip window. Source is the
-  // separate discover clip when provided, otherwise the main track.
+  // Local object URL for previewing the discover-clip window, taken from the
+  // main track (the discover clip is a window of the song, not a separate file).
   const [discoverPreviewUrl, setDiscoverPreviewUrl] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [artistName, setArtistName] = useState('');
@@ -103,15 +101,14 @@ export default function UploadPage() {
   const [isExplicit, setIsExplicit] = useState(true);
 
   useEffect(() => {
-    const source = discoverClipFile ?? audioFile;
-    if (!source) {
+    if (!audioFile) {
       setDiscoverPreviewUrl(null);
       return;
     }
-    const url = URL.createObjectURL(source);
+    const url = URL.createObjectURL(audioFile);
     setDiscoverPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
-  }, [discoverClipFile, audioFile]);
+  }, [audioFile]);
 
   // The sample preview is always taken from the main track, since the sample
   // is the listener-facing 30s preview of the actual song.
@@ -245,21 +242,6 @@ export default function UploadPage() {
     }
   };
 
-  const handleDiscoverClipSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.includes('audio')) {
-      setError('Please select a valid discover clip audio file');
-      return;
-    }
-    if (file.size > 20 * 1024 * 1024) {
-      setError('Discover clip must be less than 20MB');
-      return;
-    }
-    setDiscoverClipFile(file);
-    setError(null);
-  };
-
   const handleDiscoverBackgroundSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -347,8 +329,8 @@ export default function UploadPage() {
     }
     {
       // The Discover clip is required for every track (it powers the Discover
-      // feed). It's either a dedicated uploaded clip or a window trimmed from
-      // the main track, so the window must always be valid.
+      // feed). It's a window set on the main track, so the window must always
+      // be valid.
       const start = parseTimeToSeconds(discoverClipStartSeconds);
       const end = parseTimeToSeconds(discoverClipEndSeconds);
       if (start == null || end == null || end <= start) {
@@ -415,21 +397,6 @@ export default function UploadPage() {
         setUploadProgress(70);
       }
 
-      let discoverClipPath: string | undefined;
-      if (discoverClipFile) {
-        try {
-          discoverClipPath = await uploadToSignedUrl(discoverClipFile, 'songs');
-        } catch (uploadErr) {
-          throw new Error(
-            `Discover clip upload failed: ${errorMessage(
-              uploadErr,
-              'Could not upload discover clip.',
-            )}`,
-          );
-        }
-        setUploadProgress(80);
-      }
-
       let discoverBackgroundPath: string | undefined;
       if (discoverBackgroundFile) {
         try {
@@ -463,7 +430,6 @@ export default function UploadPage() {
           audioPath,
           artworkPath,
           durationSeconds: durationSeconds ?? undefined,
-          discoverClipPath,
           discoverBackgroundPath,
           discoverClipStartSeconds: parsedStartSeconds ?? undefined,
           discoverClipEndSeconds: parsedEndSeconds ?? undefined,
@@ -630,13 +596,13 @@ export default function UploadPage() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                Defaults to the first 30 seconds. Select the audio above to
-                scrub and preview your sample window.
+                Defaults to the first 30 seconds. Set the 5–30s preview window
+                from your main track above to scrub and preview it.
               </p>
             </div>
 
             <div className="space-y-2 rounded-lg border border-border p-4">
-              <Label>Discover Clip Audio (Required)</Label>
+              <Label>Discover Clip (Required)</Label>
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">What it is:</span>{' '}
                 a short looping clip (5–15s) shown in the Discover feed where
@@ -646,37 +612,11 @@ export default function UploadPage() {
                 <span className="font-medium text-foreground">Why it matters:</span>{' '}
                 it&apos;s your first impression in Discover — a punchy loop earns
                 the follow, the like, and the full listen. Every track needs one:
-                upload a dedicated promo clip, or trim the window from your main
-                track below.
+                set the 5–15s window from your main track below.
               </p>
-              <input
-                ref={discoverClipInputRef}
-                type="file"
-                accept="audio/mpeg,audio/mp3,audio/wav,audio/x-wav,audio/mp4,audio/x-m4a,audio/aac,audio/ogg,audio/flac,audio/webm"
-                onChange={handleDiscoverClipSelect}
-                className="hidden"
-              />
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full h-auto py-4 border-dashed flex flex-col sm:flex-row"
-                onClick={() => discoverClipInputRef.current?.click()}
-              >
-                {discoverClipFile ? (
-                  <div className="text-left">
-                    <p className="text-foreground font-medium">{discoverClipFile.name}</p>
-                    <p className="text-sm text-muted-foreground">Discover clip selected</p>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center space-x-2">
-                    <span className="text-2xl">🎚️</span>
-                    <span className="text-muted-foreground">Upload discover clip (max 15s after trim)</span>
-                  </div>
-                )}
-              </Button>
               <ClipWindowEditor
                 audioUrl={discoverPreviewUrl}
-                durationSeconds={discoverClipFile ? null : durationSeconds}
+                durationSeconds={durationSeconds}
                 minLength={5}
                 maxLength={15}
                 startSeconds={parseTimeToSeconds(discoverClipStartSeconds) ?? 0}
@@ -687,9 +627,8 @@ export default function UploadPage() {
                 }}
               />
               <p className="text-xs text-muted-foreground">
-                Trim the discover window (5–15s) and preview the looping clip. If
-                no discover clip is uploaded, the window is taken from your main
-                audio.
+                Set the discover window (5–15s) from your main track and preview
+                the looping clip.
               </p>
             </div>
 
