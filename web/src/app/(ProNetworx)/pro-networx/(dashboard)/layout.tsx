@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Home,
+  Compass,
   Search,
   Briefcase,
   ClipboardList,
@@ -16,6 +17,7 @@ import { cn } from '@/lib/utils';
 
 const TABS = [
   { href: '/pro-networx/home', label: 'Home', icon: Home },
+  { href: '/pro-networx/feed', label: 'Discover', icon: Compass },
   { href: '/pro-networx/search', label: 'Search', icon: Search },
   { href: '/pro-networx/services', label: 'Services', icon: Briefcase },
   { href: '/pro-networx/jobs', label: 'Projects', icon: ClipboardList },
