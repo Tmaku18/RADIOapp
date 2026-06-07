@@ -396,7 +396,7 @@ export default function ProNetworxOnboardingPage() {
         featured: sanitizeFeatured(featured),
         skillNames: skills,
       });
-      router.push('/pro-networx/directory');
+      router.push('/pro-networx/home');
     } catch (err: unknown) {
       const msg =
         (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -922,7 +922,7 @@ export default function ProNetworxOnboardingPage() {
               {error && <p className="text-sm text-destructive">{error}</p>}
 
               <div className="flex items-center justify-between gap-3 flex-wrap pt-4">
-                <Button variant="outline" onClick={() => router.push('/pro-networx/directory')}>
+                <Button variant="outline" onClick={() => router.push('/pro-networx/home')}>
                   Skip for now
                 </Button>
                 <Button onClick={save} disabled={saving} className="bg-primary text-primary-foreground hover:opacity-90">
