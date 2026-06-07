@@ -22,8 +22,8 @@ export class ListProDirectoryDto {
   sort?: 'asc' | 'desc';
 
   @IsOptional()
-  @IsIn(['default', 'random'])
-  mode?: 'default' | 'random';
+  @IsIn(['default', 'random', 'smart'])
+  mode?: 'default' | 'random' | 'smart';
 
   @IsOptional()
   @IsString()

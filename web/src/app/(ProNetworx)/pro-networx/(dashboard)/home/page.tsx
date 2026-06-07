@@ -8,6 +8,7 @@ export default function ProNetworxHomePage() {
       title="Discover Catalysts"
       subtitle="Browse the directory by skill, availability, and location."
       showEditProfile
+      smartRanking
     />
   );
 }

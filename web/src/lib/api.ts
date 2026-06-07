@@ -1300,7 +1300,7 @@ export const proNetworxApi = {
     featured?: FeaturedItem[];
     skillNames?: string[];
   }) => api.put('/pro-networx/me/profile', data),
-  listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
+  listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random' | 'smart'; seed?: string }) =>
     api.get('/pro-networx/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
 

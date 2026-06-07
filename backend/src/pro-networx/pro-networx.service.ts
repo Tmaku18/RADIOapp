@@ -516,7 +516,7 @@ export class ProNetworxService {
     search?: string;
     location?: string;
     sort?: 'asc' | 'desc';
-    mode?: 'default' | 'random';
+    mode?: 'default' | 'random' | 'smart';
     seed?: string;
   }): Promise<{ items: ProDirectoryItem[]; total: number }> {
     const supabase = getSupabaseClient();
@@ -722,6 +722,79 @@ export class ProNetworxService {
           this.deterministicSeededRank(a.userId, seed) -
           this.deterministicSeededRank(b.userId, seed),
       );
+    } else if (mode === 'smart') {
+      // Music uploaded per artist (approved, publicly visible tracks).
+      const { data: songRows } = await supabase
+        .from('songs')
+        .select('artist_id')
+        .in('artist_id', userIds)
+        .eq('status', 'approved');
+      const musicCountByUserId = new Map<string, number>();
+      for (const s of songRows || []) {
+        const uid = (s as any).artist_id as string | null;
+        if (!uid) continue;
+        musicCountByUserId.set(uid, (musicCountByUserId.get(uid) ?? 0) + 1);
+      }
+
+      const hasServiceFor = (userId: string): boolean => {
+        const providerId = providerByUserId.get(userId)?.id as
+          | string
+          | undefined;
+        return !!(providerId && bestListingByProviderId.get(providerId));
+      };
+
+      // Count of filled profile signals -> "more completed" first.
+      const completenessFor = (i: ProDirectoryItem): number => {
+        let score = 0;
+        if (i.avatarUrl) score += 1;
+        if (i.headline || i.currentTitle || i.skillsHeadline) score += 1;
+        if (i.bio) score += 1;
+        if (i.skills.length > 0) score += 1;
+        if (i.mediaPreviewUrl) score += 1;
+        if (i.locationRegion) score += 1;
+        return score;
+      };
+
+      const metaByUserId = new Map<
+        string,
+        { hasService: boolean; music: number; completeness: number }
+      >();
+      for (const i of filtered) {
+        metaByUserId.set(i.userId, {
+          hasService: hasServiceFor(i.userId),
+          music: musicCountByUserId.get(i.userId) ?? 0,
+          completeness: completenessFor(i),
+        });
+      }
+
+      // Hide empty placeholder profiles: keep only those with a service,
+      // uploaded music, or at least one meaningful profile field.
+      filtered = filtered.filter((i) => {
+        const m = metaByUserId.get(i.userId)!;
+        return m.hasService || m.music > 0 || m.completeness > 0;
+      });
+
+      // Tier 1: profiles offering a service, most complete first.
+      // Tier 2: everyone else (artists), most music uploaded first.
+      filtered.sort((a, b) => {
+        const ma = metaByUserId.get(a.userId)!;
+        const mb = metaByUserId.get(b.userId)!;
+        if (ma.hasService !== mb.hasService) return ma.hasService ? -1 : 1;
+        if (ma.hasService) {
+          if (mb.completeness !== ma.completeness)
+            return mb.completeness - ma.completeness;
+          if (mb.music !== ma.music) return mb.music - ma.music;
+        } else {
+          if (mb.music !== ma.music) return mb.music - ma.music;
+          if (mb.completeness !== ma.completeness)
+            return mb.completeness - ma.completeness;
+        }
+        // Stable, varied tie-break.
+        return (
+          this.deterministicSeededRank(a.userId, seed) -
+          this.deterministicSeededRank(b.userId, seed)
+        );
+      });
     }
 
     // If user filtering removed some userIds, total should match visible list.

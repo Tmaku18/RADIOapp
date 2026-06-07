@@ -68,12 +68,16 @@ type Props = {
   title?: string;
   subtitle?: string;
   showEditProfile?: boolean;
+  // Home uses a curated ranking (services-first, then artists by music)
+  // and hides empty profiles; the standalone directory defaults to random.
+  smartRanking?: boolean;
 };
 
 export function ProNetworxDirectoryContent({
   title = 'Directory',
   subtitle = 'Find Catalysts by skill, availability, and location.',
   showEditProfile = true,
+  smartRanking = false,
 }: Props) {
   const { profile } = useAuth();
   const [items, setItems] = useState<DirectoryItem[]>([]);
@@ -88,7 +92,8 @@ export function ProNetworxDirectoryContent({
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [randomMode, setRandomMode] = useState(true);
+  // Home defaults to the curated ranking; the standalone directory shuffles.
+  const [randomMode, setRandomMode] = useState(!smartRanking);
   const [randomSeed, setRandomSeed] = useState(() => String(Date.now()));
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
 
@@ -102,10 +107,14 @@ export function ProNetworxDirectoryContent({
       skill: sk,
       availableForWork: availableOnly ? true : undefined,
       sort: 'desc' as const,
-      mode: randomMode ? ('random' as const) : ('default' as const),
+      mode: randomMode
+        ? ('random' as const)
+        : smartRanking
+          ? ('smart' as const)
+          : ('default' as const),
       seed: randomMode ? randomSeed : undefined,
     };
-  }, [search, location, skill, availableOnly, randomMode, randomSeed]);
+  }, [search, location, skill, availableOnly, randomMode, randomSeed, smartRanking]);
 
   const load = useCallback(async (append: boolean, currentOffset: number) => {
     if (append) setLoadingMore(true);
