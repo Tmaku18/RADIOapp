@@ -298,17 +298,21 @@ export default function UploadPage() {
       setError('Please select a station/category');
       return;
     }
-    if (discoverClipFile) {
+    {
+      // The Discover clip is required for every track (it powers the Discover
+      // feed). It's either a dedicated uploaded clip or a window trimmed from
+      // the main track, so the window must always be valid.
       const start = parseTimeToSeconds(discoverClipStartSeconds);
       const end = parseTimeToSeconds(discoverClipEndSeconds);
       if (start == null || end == null || end <= start) {
         setError(
-          'Discover clip trim must be valid (mm:ss or seconds) and end must be greater than start',
+          'Discover clip window must be valid (mm:ss or seconds) and end must be greater than start',
         );
         return;
       }
-      if (end - start > 15) {
-        setError('Discover clip trim range must be 15 seconds or less');
+      const length = end - start;
+      if (length < 5 || length > 15) {
+        setError('Discover clip window must be between 5 and 15 seconds');
         return;
       }
     }
@@ -585,7 +589,7 @@ export default function UploadPage() {
             </div>
 
             <div className="space-y-2 rounded-lg border border-border p-4">
-              <Label>Discover Clip Audio (Optional)</Label>
+              <Label>Discover Clip Audio (Required)</Label>
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">What it is:</span>{' '}
                 a short looping clip (5–15s) shown in the Discover feed where
@@ -594,9 +598,9 @@ export default function UploadPage() {
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">Why it matters:</span>{' '}
                 it&apos;s your first impression in Discover — a punchy loop earns
-                the follow, the like, and the full listen. You can upload a
-                dedicated promo clip, or trim the window from your main track
-                below.
+                the follow, the like, and the full listen. Every track needs one:
+                upload a dedicated promo clip, or trim the window from your main
+                track below.
               </p>
               <input
                 ref={discoverClipInputRef}
