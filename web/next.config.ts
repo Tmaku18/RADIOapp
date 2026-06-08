@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
+import path from "path";
 import withPWAInit from "@ducanh2912/next-pwa";
+
+const monorepoRoot = path.join(process.cwd(), "..");
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -10,7 +13,9 @@ const withPWA = withPWAInit({
 });
 
 const nextConfig: NextConfig = {
-  turbopack: {},
+  turbopack: {
+    root: monorepoRoot,
+  },
   transpilePackages: ['@radioapp/db', '@radioapp/ui', '@radioapp/api-client'],
   async rewrites() {
     const stranglerEnabled = process.env.STRANGLER_ENABLED === 'true';

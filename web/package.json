@@ -4,6 +4,7 @@
   "private": true,
   "packageManager": "npm@10.9.2",
   "scripts": {
+    "postinstall": "npm install --prefix ../packages/db --legacy-peer-deps && npm install --prefix ../packages/api-client --legacy-peer-deps && npm install --prefix ../packages/ui --legacy-peer-deps",
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
