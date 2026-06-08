@@ -96,6 +96,8 @@ class _ProExploreDetailScreenState extends State<ProExploreDetailScreen> {
                       post: _posts[i],
                       onChange: (next) =>
                           setState(() => _posts[i] = next),
+                      onDeleted: (id) => setState(
+                          () => _posts.removeWhere((p) => p.id == id)),
                       expandedComments: i == 0,
                     );
                   },

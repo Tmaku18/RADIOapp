@@ -100,6 +100,9 @@ export default function ProNetworxExploreDetailPage({
               onChange={(next) =>
                 setPosts((prev) => prev.map((p) => (p.id === next.id ? next : p)))
               }
+              onDeleted={(deletedId) =>
+                setPosts((prev) => prev.filter((p) => p.id !== deletedId))
+              }
             />
           ))}
           <div ref={sentinelRef} className="h-12" />

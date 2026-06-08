@@ -39,7 +39,7 @@ export class JobBoardService {
 
   async listRequests(params: {
     serviceType?: string;
-    status?: 'open' | 'closed' | 'all';
+    status?: 'open' | 'closed' | 'completed' | 'all';
     mine?: boolean;
     artistId?: string;
     limit?: number;
@@ -58,6 +58,7 @@ export class JobBoardService {
 
     if (params.status === 'open') q = q.eq('status', 'open');
     if (params.status === 'closed') q = q.eq('status', 'closed');
+    if (params.status === 'completed') q = q.eq('status', 'completed');
     if (params.serviceType?.trim())
       q = q.eq('service_type', params.serviceType.trim());
     if (params.mine && params.artistId) q = q.eq('artist_id', params.artistId);
@@ -158,6 +159,30 @@ export class JobBoardService {
     if (error) throw new Error(`Failed to delete request: ${error.message}`);
 
     return { success: true };
+  }
+
+  async setRequestStatus(
+    requestId: string,
+    userId: string,
+    status: 'open' | 'closed' | 'completed',
+    isAdmin = false,
+  ): Promise<ServiceRequestRow> {
+    const supabase = getSupabaseClient();
+    const request = await this.getRequest(requestId);
+    if (!request) throw new NotFoundException('Request not found');
+    if (!isAdmin && request.artistId !== userId) {
+      throw new ForbiddenException('You can only update your own requests');
+    }
+
+    const { error } = await supabase
+      .from('service_requests')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', requestId);
+    if (error) throw new Error(`Failed to update request: ${error.message}`);
+
+    const updated = await this.getRequest(requestId);
+    if (!updated) throw new NotFoundException('Request not found');
+    return updated;
   }
 
   async getRequest(requestId: string): Promise<ServiceRequestRow | null> {

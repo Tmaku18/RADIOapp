@@ -59,7 +59,7 @@ export class JobBoardController {
   async listRequests(
     @CurrentUser() user: FirebaseUser,
     @Query('serviceType') serviceType?: string,
-    @Query('status') status?: 'open' | 'closed' | 'all',
+    @Query('status') status?: 'open' | 'closed' | 'completed' | 'all',
     @Query('mine') mineStr?: string,
     @Query('limit') limitStr?: string,
     @Query('offset') offsetStr?: string,
@@ -75,7 +75,9 @@ export class JobBoardController {
     }
     return this.jobBoard.listRequests({
       serviceType,
-      status: status ?? 'open',
+      // Owners viewing their own requests should see every status (open,
+      // completed, closed); the public Browse tab defaults to open only.
+      status: status ?? (mine ? 'all' : 'open'),
       mine,
       artistId,
       limit,
@@ -119,6 +121,36 @@ export class JobBoardController {
   ) {
     const { id, role } = await this.getUserIdAndRole(user.uid);
     return this.jobBoard.deleteRequest(requestId, id, role === 'admin');
+  }
+
+  @Post('requests/:requestId/complete')
+  @Roles('listener')
+  async completeRequest(
+    @CurrentUser() user: FirebaseUser,
+    @Param('requestId') requestId: string,
+  ) {
+    const { id, role } = await this.getUserIdAndRole(user.uid);
+    return this.jobBoard.setRequestStatus(
+      requestId,
+      id,
+      'completed',
+      role === 'admin',
+    );
+  }
+
+  @Post('requests/:requestId/reopen')
+  @Roles('listener')
+  async reopenRequest(
+    @CurrentUser() user: FirebaseUser,
+    @Param('requestId') requestId: string,
+  ) {
+    const { id, role } = await this.getUserIdAndRole(user.uid);
+    return this.jobBoard.setRequestStatus(
+      requestId,
+      id,
+      'open',
+      role === 'admin',
+    );
   }
 
   @Post('requests/:requestId/applications')

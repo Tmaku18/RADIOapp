@@ -1,4 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CLEAN_RAP_STATION_ID } from '../radio/station.constants';
 
@@ -1058,6 +1062,33 @@ export class DiscoveryService {
       .eq('id', commentId)
       .eq('author_user_id', viewerUserId);
     if (error) throw new Error(`Failed to delete comment: ${error.message}`);
+  }
+
+  /**
+   * Delete a feed post. Only the author (or an admin) may remove it. Likes,
+   * comments, and bookmarks cascade away via FK constraints.
+   */
+  async deletePost(
+    viewerUserId: string,
+    postId: string,
+    isAdmin = false,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: post, error: loadError } = await supabase
+      .from('discover_feed_posts')
+      .select('id, author_user_id')
+      .eq('id', postId)
+      .maybeSingle();
+    if (loadError) throw new Error(`Failed to load post: ${loadError.message}`);
+    if (!post) throw new NotFoundException('Post not found');
+    if (!isAdmin && (post as { author_user_id: string }).author_user_id !== viewerUserId) {
+      throw new ForbiddenException('You can only delete your own posts');
+    }
+    const { error } = await supabase
+      .from('discover_feed_posts')
+      .delete()
+      .eq('id', postId);
+    if (error) throw new Error(`Failed to delete post: ${error.message}`);
   }
 
   // ---------------------------------------------------------------------------

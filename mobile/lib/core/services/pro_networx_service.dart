@@ -292,6 +292,11 @@ class ProNetworxService {
     await _api.delete('discovery/feed/comments/$commentId');
   }
 
+  /// Delete a feed post authored by the current user.
+  Future<void> deletePost(String postId) async {
+    await _api.delete('discovery/feed/posts/$postId');
+  }
+
   /// Upload an image or short video as a feed post.
   Future<ProFeedPost> createFeedPost(File file, {String? caption}) async {
     final mime = _inferImageMime(file.path) ?? 'application/octet-stream';

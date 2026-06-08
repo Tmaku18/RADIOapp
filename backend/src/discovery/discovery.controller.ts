@@ -467,6 +467,17 @@ export class DiscoveryController {
     });
   }
 
+  /** Delete a feed post authored by the viewer (admins may delete any). */
+  @Delete('feed/posts/:id')
+  async deletePost(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') postId: string,
+  ) {
+    const { id, role } = await this.getUserIdAndRole(user.uid);
+    await this.discovery.deletePost(id, postId, role === 'admin');
+    return { ok: true };
+  }
+
   private async getUserId(firebaseUid: string): Promise<string> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
@@ -476,5 +487,18 @@ export class DiscoveryController {
       .single();
     if (error || !data) throw new UnauthorizedException('User not found');
     return data.id;
+  }
+
+  private async getUserIdAndRole(
+    firebaseUid: string,
+  ): Promise<{ id: string; role: string | null }> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data) throw new UnauthorizedException('User not found');
+    return { id: data.id, role: (data.role as string | null) ?? null };
   }
 }

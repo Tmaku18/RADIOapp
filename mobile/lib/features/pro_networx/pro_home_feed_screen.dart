@@ -182,6 +182,8 @@ class _ProHomeFeedScreenState extends State<ProHomeFeedScreen> {
           return ProFeedPostCard(
             post: _posts[i],
             onChange: (next) => setState(() => _posts[i] = next),
+            onDeleted: (id) =>
+                setState(() => _posts.removeWhere((p) => p.id == id)),
           );
         },
       ),

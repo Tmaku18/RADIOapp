@@ -500,6 +500,29 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     }
   }
 
+  Future<void> _setStatus(bool complete) async {
+    final req = _detail ?? widget.request;
+    try {
+      final updated = complete
+          ? await _service.completeRequest(req.id)
+          : await _service.reopenRequest(req.id);
+      if (!mounted) return;
+      if (updated != null) setState(() => _detail = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            complete ? 'Marked as complete.' : 'Request reopened.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update the request.')),
+      );
+    }
+  }
+
   Future<void> _delete() async {
     final req = _detail ?? widget.request;
     final confirmed = await showDialog<bool>(
@@ -598,6 +621,21 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
                     ),
                   ),
                 if (isOwner) ...[
+                  const SizedBox(height: 18),
+                  SizedBox(
+                    width: double.infinity,
+                    child: req.status == 'completed'
+                        ? OutlinedButton.icon(
+                            onPressed: _loading ? null : () => _setStatus(false),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Reopen request'),
+                          )
+                        : FilledButton.icon(
+                            onPressed: _loading ? null : () => _setStatus(true),
+                            icon: const Icon(Icons.check_circle_outline),
+                            label: const Text('Mark as complete'),
+                          ),
+                  ),
                   const SizedBox(height: 18),
                   Text(
                     'Applications',

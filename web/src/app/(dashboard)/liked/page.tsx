@@ -82,6 +82,10 @@ export default function LikedPostsPage() {
     setPosts((prev) => prev.map((p) => (p.id === next.id ? next : p)));
   }, []);
 
+  const handlePostDeleted = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center gap-3">
@@ -120,7 +124,7 @@ export default function LikedPostsPage() {
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (
-            <FeedPostCard key={post.id} post={post} onChange={handlePostUpdate} />
+            <FeedPostCard key={post.id} post={post} onChange={handlePostUpdate} onDeleted={handlePostDeleted} />
           ))}
           <div ref={sentinelRef} className="h-1" />
           {loadingMore && (

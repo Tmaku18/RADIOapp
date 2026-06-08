@@ -914,6 +914,8 @@ export const discoveryApi = {
     api.post<{ ok: true }>(`/discovery/feed/posts/${postId}/bookmark`),
   unbookmarkPost: (postId: string) =>
     api.delete<{ ok: true }>(`/discovery/feed/posts/${postId}/bookmark`),
+  deletePost: (postId: string) =>
+    api.delete<{ ok: true }>(`/discovery/feed/posts/${postId}`),
   listBookmarks: (params?: { limit?: number; cursor?: string }) =>
     api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
       '/discovery/feed/bookmarks',
@@ -1192,13 +1194,17 @@ export const serviceProvidersApi = {
 };
 
 export const jobBoardApi = {
-  listRequests: (params?: { serviceType?: string; status?: 'open' | 'closed' | 'all'; mine?: boolean; limit?: number; offset?: number }) =>
+  listRequests: (params?: { serviceType?: string; status?: 'open' | 'closed' | 'completed' | 'all'; mine?: boolean; limit?: number; offset?: number }) =>
     api.get('/job-board/requests', { params }),
   createRequest: (data: { title: string; description?: string | null; serviceType?: string | null }) =>
     api.post('/job-board/requests', data),
   getRequest: (requestId: string) => api.get(`/job-board/requests/${requestId}`),
   deleteRequest: (requestId: string) =>
     api.delete(`/job-board/requests/${requestId}`),
+  completeRequest: (requestId: string) =>
+    api.post(`/job-board/requests/${requestId}/complete`),
+  reopenRequest: (requestId: string) =>
+    api.post(`/job-board/requests/${requestId}/reopen`),
   apply: (requestId: string, message?: string | null) =>
     api.post(`/job-board/requests/${requestId}/applications`, { message }),
   listApplications: (requestId: string) => api.get(`/job-board/requests/${requestId}/applications`),

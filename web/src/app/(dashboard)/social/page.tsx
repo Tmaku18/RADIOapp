@@ -85,6 +85,10 @@ export default function SocialFeedPage() {
     setPosts((prev) => prev.map((p) => (p.id === next.id ? next : p)));
   }, []);
 
+  const handlePostDeleted = useCallback((postId: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== postId));
+  }, []);
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -163,6 +167,7 @@ export default function SocialFeedPage() {
               key={post.id}
               post={post}
               onChange={handlePostUpdate}
+              onDeleted={handlePostDeleted}
             />
           ))}
           <div ref={sentinelRef} className="h-1" />

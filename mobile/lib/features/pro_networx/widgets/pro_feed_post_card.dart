@@ -1,6 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/auth/auth_service.dart';
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/api_service.dart';
@@ -13,11 +15,13 @@ class ProFeedPostCard extends StatefulWidget {
     super.key,
     required this.post,
     required this.onChange,
+    this.onDeleted,
     this.expandedComments = false,
   });
 
   final ProFeedPost post;
   final ValueChanged<ProFeedPost> onChange;
+  final ValueChanged<String>? onDeleted;
   final bool expandedComments;
 
   @override
@@ -31,6 +35,60 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
   bool _loadingComments = false;
   final TextEditingController _commentController = TextEditingController();
   bool _busy = false;
+  bool _canManage = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resolveOwnership();
+  }
+
+  Future<void> _resolveOwnership() async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      if (!mounted || profile == null) return;
+      final canManage = profile.id == widget.post.authorUserId ||
+          profile.role == 'admin';
+      if (canManage != _canManage) setState(() => _canManage = canManage);
+    } catch (_) {
+      // Leave the menu hidden if the profile can't be resolved.
+    }
+  }
+
+  Future<void> _confirmDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this post?'),
+        content: const Text('This can\'t be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await _service.deletePost(widget.post.id);
+      if (!mounted) return;
+      widget.onDeleted?.call(widget.post.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not delete the post.')),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -158,63 +216,91 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.proProfile,
-              arguments: post.authorUserId,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: cs.surfaceContainerHighest,
-                    backgroundImage:
-                        post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty
-                            ? CachedNetworkImageProvider(post.authorAvatarUrl!)
-                            : null,
-                    child: (post.authorAvatarUrl == null ||
-                            post.authorAvatarUrl!.isEmpty)
-                        ? const Icon(Icons.brush, size: 18)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pushNamed(
+                      AppRoutes.proProfile,
+                      arguments: post.authorUserId,
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          post.authorDisplayName ?? 'Creator',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: cs.surfaceContainerHighest,
+                          backgroundImage: post.authorAvatarUrl != null &&
+                                  post.authorAvatarUrl!.isNotEmpty
+                              ? CachedNetworkImageProvider(post.authorAvatarUrl!)
+                              : null,
+                          child: (post.authorAvatarUrl == null ||
+                                  post.authorAvatarUrl!.isEmpty)
+                              ? const Icon(Icons.brush, size: 18)
+                              : null,
                         ),
-                        if ((post.authorUsername ?? '').isNotEmpty)
-                          Text(
-                            '@${post.authorUsername}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.authorDisplayName ?? 'Creator',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if ((post.authorUsername ?? '').isNotEmpty)
+                                Text(
+                                  '@${post.authorUsername}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if ((post.authorHeadline ?? '').isNotEmpty)
+                                Text(
+                                  post.authorHeadline!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
                           ),
-                        if ((post.authorHeadline ?? '').isNotEmpty)
-                          Text(
-                            post.authorHeadline!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                if (_canManage)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'Post options',
+                    onSelected: (value) {
+                      if (value == 'delete') _confirmDelete();
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem<String>(
+                        value: 'delete',
+                        child: Row(
+                          children: [
+                            Icon(Icons.delete_outline,
+                                size: 20, color: cs.error),
+                            const SizedBox(width: 8),
+                            Text('Delete post',
+                                style: TextStyle(color: cs.error)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
           AspectRatio(

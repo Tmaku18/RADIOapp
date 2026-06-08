@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, MoreVertical, Trash2 } from 'lucide-react';
 import {
   discoveryApi,
   proNetworkSubscriptionApi,
@@ -13,6 +13,13 @@ import {
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { SharePostDialog } from './SharePostDialog';
 import { PaywallCard } from './PaywallCard';
 
@@ -23,10 +30,15 @@ function shouldUnoptimize(url?: string | null): boolean {
 interface FeedPostCardProps {
   post: DiscoverFeedPost;
   onChange?: (next: DiscoverFeedPost) => void;
+  onDeleted?: (postId: string) => void;
   variant?: 'feed' | 'detail';
 }
 
-export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardProps) {
+export function FeedPostCard({ post, onChange, onDeleted, variant = 'feed' }: FeedPostCardProps) {
+  const { profile } = useAuth();
+  const canManage =
+    !!profile && (profile.id === post.authorUserId || profile.role === 'admin');
+  const [deleting, setDeleting] = useState(false);
   const [likedByMe, setLikedByMe] = useState(post.likedByMe);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [commentCount, setCommentCount] = useState(post.commentCount);
@@ -44,6 +56,18 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
 
   const propagate = (patch: Partial<DiscoverFeedPost>) => {
     onChange?.({ ...post, ...patch });
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    if (!window.confirm('Delete this post? This cannot be undone.')) return;
+    setDeleting(true);
+    try {
+      await discoveryApi.deletePost(post.id);
+      onDeleted?.(post.id);
+    } catch {
+      setDeleting(false);
+    }
   };
 
   const handleToggleBookmark = async () => {
@@ -147,35 +171,62 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
 
   return (
     <article className="bg-background border border-border rounded-lg overflow-hidden">
-      <Link
-        href={`/pro-networx/u/${post.authorUserId}`}
-        className="flex items-center gap-3 p-3 border-b border-border/60"
-      >
-        {post.authorAvatarUrl ? (
-          <Image
-            src={post.authorAvatarUrl}
-            alt={post.authorDisplayName ?? 'Avatar'}
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
-            unoptimized={shouldUnoptimize(post.authorAvatarUrl)}
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">🎨</div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground truncate">
-            {post.authorDisplayName || 'Creator'}
-          </p>
-          {post.authorUsername ? (
-            <p className="text-xs text-muted-foreground truncate">@{post.authorUsername}</p>
+      <div className="flex items-center gap-3 p-3 border-b border-border/60">
+        <Link
+          href={`/pro-networx/u/${post.authorUserId}`}
+          className="flex items-center gap-3 min-w-0 flex-1"
+        >
+          {post.authorAvatarUrl ? (
+            <Image
+              src={post.authorAvatarUrl}
+              alt={post.authorDisplayName ?? 'Avatar'}
+              width={36}
+              height={36}
+              className="rounded-full object-cover"
+              unoptimized={shouldUnoptimize(post.authorAvatarUrl)}
+            />
           ) : (
-            post.authorHeadline && (
-              <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
-            )
+            <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">🎨</div>
           )}
-        </div>
-      </Link>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-foreground truncate">
+              {post.authorDisplayName || 'Creator'}
+            </p>
+            {post.authorUsername ? (
+              <p className="text-xs text-muted-foreground truncate">@{post.authorUsername}</p>
+            ) : (
+              post.authorHeadline && (
+                <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+              )
+            )}
+          </div>
+        </Link>
+        {canManage && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Post options"
+                disabled={deleting}
+              >
+                <MoreVertical className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border border-border shadow-xl">
+              <DropdownMenuItem
+                onClick={handleDelete}
+                disabled={deleting}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleting ? 'Deleting…' : 'Delete post'}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
 
       <div className="relative w-full bg-muted aspect-square">
         {post.mediaType === 'video' ? (

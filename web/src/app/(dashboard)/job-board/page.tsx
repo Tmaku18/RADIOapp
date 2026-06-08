@@ -61,7 +61,7 @@ export default function JobBoardPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [serviceType, setServiceType] = useState<string>('all');
-  const [status, setStatus] = useState<'open' | 'closed' | 'all'>('open');
+  const [status, setStatus] = useState<'open' | 'closed' | 'completed' | 'all'>('open');
 
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequestRow | null>(null);
   const [requestDetail, setRequestDetail] = useState<ServiceRequestRow | null>(null);
@@ -215,6 +215,43 @@ export default function JobBoardPage() {
     }
   };
 
+  const [ownerActioning, setOwnerActioning] = useState(false);
+
+  const handleSetStatus = async (next: 'completed' | 'open') => {
+    if (!requestDetail || ownerActioning) return;
+    setOwnerActioning(true);
+    try {
+      const res =
+        next === 'completed'
+          ? await jobBoardApi.completeRequest(requestDetail.id)
+          : await jobBoardApi.reopenRequest(requestDetail.id);
+      const updated = res.data as ServiceRequestRow;
+      setRequestDetail(updated);
+      loadRequests(tab === 'mine');
+    } catch (e) {
+      console.error('Failed to update request status:', e);
+    } finally {
+      setOwnerActioning(false);
+    }
+  };
+
+  const handleDeleteRequest = async () => {
+    if (!requestDetail || ownerActioning) return;
+    if (!window.confirm('Delete this request? Applications will be removed too. This cannot be undone.')) {
+      return;
+    }
+    setOwnerActioning(true);
+    try {
+      await jobBoardApi.deleteRequest(requestDetail.id);
+      setSelectedRequest(null);
+      loadRequests(tab === 'mine');
+    } catch (e) {
+      console.error('Failed to delete request:', e);
+    } finally {
+      setOwnerActioning(false);
+    }
+  };
+
   const isOwner = myId && requestDetail && requestDetail.artistId === myId;
 
   return (
@@ -272,6 +309,7 @@ export default function JobBoardPage() {
               <SelectContent>
                 <SelectItem value="open">Open</SelectItem>
                 <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
                 <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
@@ -364,7 +402,35 @@ export default function JobBoardPage() {
               )}
 
               {isOwner ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {requestDetail.status === 'completed' ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleSetStatus('open')}
+                        disabled={ownerActioning}
+                      >
+                        Reopen request
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() => handleSetStatus('completed')}
+                        disabled={ownerActioning}
+                      >
+                        Mark as complete
+                      </Button>
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleDeleteRequest}
+                      disabled={ownerActioning}
+                    >
+                      Delete request
+                    </Button>
+                  </div>
                   <h3 className="font-medium text-sm">Applications ({applications.length})</h3>
                   {applications.length === 0 ? (
                     <p className="text-sm text-muted-foreground">No applications yet.</p>

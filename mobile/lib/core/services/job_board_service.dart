@@ -49,6 +49,18 @@ class JobBoardService {
     await _api.delete('job-board/requests/$requestId');
   }
 
+  Future<ServiceRequestRow?> completeRequest(String requestId) async {
+    final res = await _api.post('job-board/requests/$requestId/complete', {});
+    if (res is Map<String, dynamic>) return ServiceRequestRow.fromJson(res);
+    return null;
+  }
+
+  Future<ServiceRequestRow?> reopenRequest(String requestId) async {
+    final res = await _api.post('job-board/requests/$requestId/reopen', {});
+    if (res is Map<String, dynamic>) return ServiceRequestRow.fromJson(res);
+    return null;
+  }
+
   Future<void> apply(String requestId, {String? message}) async {
     await _api.post('job-board/requests/$requestId/applications', {
       'message': message,
