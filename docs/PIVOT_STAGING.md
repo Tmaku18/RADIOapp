@@ -126,6 +126,36 @@ Verify RLS on staging: `pnpm test:rls` (with staging `SUPABASE_URL` / service ke
 
 Docs: [Supabase branching](https://supabase.com/docs/guides/deployment/branching), [managing environments](https://supabase.com/docs/guides/deployment/managing-environments).
 
+#### “My Supabase branch is connected to main — is that bad?”
+
+**Usually no.** Supabase branches always show a **parent** (your production project). That means “schema forked from prod,” **not** “writes go to production.”
+
+| What you see | What it means | Safe? |
+|--------------|---------------|-------|
+| Same **GitHub repo** on prod + branch | Normal — all git branches use one repo | Yes |
+| `parent_project_ref` = `tgjydsqeatvcerzpdqup` | Staging forked schema from prod DB | Yes |
+| Branch named **`main`** in Supabase | Default/production branch label (same ref as prod) | Confusing name; use **`staging`** for pivot work |
+| **`git_branch` empty** in Supabase | Not linked to a git branch yet | Link **`staging`** → `pivot/radioapp-monolith` in Dashboard |
+| Git integration deploys on push to **git `main`** | Migrations auto-apply to **production** Supabase | Expected — **never put pivot migrations on git `main`** until cutover |
+
+**Your current Supabase branches (RADIOapp project):**
+
+| Supabase branch | Project ref / URL | Use for |
+|-----------------|-------------------|---------|
+| Production (default) | `tgjydsqeatvcerzpdqup` → `https://tgjydsqeatvcerzpdqup.supabase.co` | **main** / networxradio.com only |
+| **staging** | `afrbesjptdqznxtensbz` → `https://afrbesjptdqznxtensbz.supabase.co` | **pivot** Preview + local |
+
+Staging is a **separate database** with its own URL and API keys. Production is untouched as long as pivot env vars point at **`afrbesjptdqznxtensbz`**, not `tgjydsqeatvcerzpdqup`.
+
+**If staging shows `MIGRATIONS_FAILED`:** the branch did not finish copying prod schema. In Supabase Dashboard → **Branches** → **staging** → **Reset** or **Rebase** from production, then apply pivot migrations `087`–`089` on staging only.
+
+**Dashboard steps to finish isolation:**
+
+1. **Supabase** → RADIOapp → **Branches** → **staging** → link git branch **`pivot/radioapp-monolith`** (not `main`).
+2. **Do not** enable “merge to production” for pivot migrations.
+3. **Vercel** → radi-oapp → env vars on **Preview** scope only → set `NEXT_PUBLIC_SUPABASE_URL` / anon key to **staging** (`afrbesjptdqznxtensbz`).
+4. **Local** → `web/.env.local` → same staging Supabase URL/keys; keep `BACKEND_URL` on staging Railway when you create it.
+
 ---
 
 ## Option B — Stronger isolation (second Vercel project)
@@ -301,7 +331,7 @@ See [PIVOT_CUTOVER.md — Rollback](PIVOT_CUTOVER.md#rollback).
 |---------|------------|---------------|
 | Web | https://networxradio.com | Vercel Preview URL |
 | NestJS API | `backend-production-17cc.up.railway.app` | `backend-pivot-staging-….up.railway.app` |
-| Supabase | `tgjydsqeatvcerzpdqup.supabase.co` | Branch / staging project URL |
+| Supabase | `tgjydsqeatvcerzpdqup.supabase.co` | **`afrbesjptdqznxtensbz.supabase.co`** (branch `staging`) |
 | Git branch | `main` | `pivot/radioapp-monolith` |
 
 ---
