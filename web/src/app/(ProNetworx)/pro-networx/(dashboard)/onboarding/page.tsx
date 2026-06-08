@@ -82,6 +82,8 @@ export default function ProNetworxOnboardingPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
+  const [removingCover, setRemovingCover] = useState(false);
   const [resumeUrl, setResumeUrl] = useState<string | null>(null);
   const [resumeFilename, setResumeFilename] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -261,6 +263,37 @@ export default function ProNetworxOnboardingPage() {
       setError(normalizedMessage ?? (err as Error)?.message ?? 'Failed to upload profile photo');
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    if (!avatarPreviewUrl) return;
+    if (!window.confirm('Remove your profile photo?')) return;
+    setError(null);
+    setRemovingAvatar(true);
+    try {
+      await usersApi.updateMe({ avatarUrl: '' });
+      await refreshProfile();
+      await loadMe();
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to remove profile photo');
+    } finally {
+      setRemovingAvatar(false);
+    }
+  };
+
+  const handleCoverRemove = async () => {
+    if (!coverPreviewUrl) return;
+    if (!window.confirm('Remove your cover image?')) return;
+    setError(null);
+    setRemovingCover(true);
+    try {
+      await serviceProvidersApi.updateMeProfile({ heroImageUrl: '' });
+      await loadMe();
+    } catch (err) {
+      setError((err as Error)?.message ?? 'Failed to remove cover image');
+    } finally {
+      setRemovingCover(false);
     }
   };
 
@@ -459,15 +492,28 @@ export default function ProNetworxOnboardingPage() {
                           className="sr-only"
                           onChange={handleAvatarUpload}
                         />
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={uploadingAvatar}
-                          onClick={() => avatarInputRef.current?.click()}
-                        >
-                          {uploadingAvatar ? 'Uploading…' : 'Upload photo'}
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={uploadingAvatar || removingAvatar}
+                            onClick={() => avatarInputRef.current?.click()}
+                          >
+                            {uploadingAvatar ? 'Uploading…' : 'Upload photo'}
+                          </Button>
+                          {avatarPreviewUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              disabled={uploadingAvatar || removingAvatar}
+                              onClick={handleAvatarRemove}
+                            >
+                              {removingAvatar ? 'Removing…' : 'Remove'}
+                            </Button>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 15MB</p>
                       </div>
                     </div>
@@ -494,15 +540,28 @@ export default function ProNetworxOnboardingPage() {
                       className="sr-only"
                       onChange={handleCoverUpload}
                     />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={uploadingCover}
-                      onClick={() => coverInputRef.current?.click()}
-                    >
-                      {uploadingCover ? 'Uploading…' : 'Upload cover'}
-                    </Button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={uploadingCover || removingCover}
+                        onClick={() => coverInputRef.current?.click()}
+                      >
+                        {uploadingCover ? 'Uploading…' : 'Upload cover'}
+                      </Button>
+                      {coverPreviewUrl && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={uploadingCover || removingCover}
+                          onClick={handleCoverRemove}
+                        >
+                          {removingCover ? 'Removing…' : 'Remove'}
+                        </Button>
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, max 15MB</p>
                   </div>
                 </div>
