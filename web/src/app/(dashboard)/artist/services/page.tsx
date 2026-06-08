@@ -144,6 +144,7 @@ export default function ArtistServicesPage() {
   const [portfolioError, setPortfolioError] = useState<string | null>(null);
 
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [removingCover, setRemovingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
   const [instagramUrl, setInstagramUrl] = useState('');
   const [linkedinUrl, setLinkedinUrl] = useState('');
@@ -446,9 +447,31 @@ export default function ArtistServicesPage() {
                           }
                         }}
                       />
-                      <Button type="button" variant="outline" size="sm" disabled={uploadingCover} onClick={() => coverInputRef.current?.click()}>
-                        {uploadingCover ? 'Uploading…' : 'Upload image'}
-                      </Button>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button type="button" variant="outline" size="sm" disabled={uploadingCover || removingCover} onClick={() => coverInputRef.current?.click()}>
+                          {uploadingCover ? 'Uploading…' : 'Upload image'}
+                        </Button>
+                        {me?.heroImageUrl && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={uploadingCover || removingCover}
+                            onClick={async () => {
+                              if (!window.confirm('Remove your cover image?')) return;
+                              setRemovingCover(true);
+                              try {
+                                await serviceProvidersApi.updateMeProfile({ heroImageUrl: '' });
+                                await loadMe();
+                              } finally {
+                                setRemovingCover(false);
+                              }
+                            }}
+                          >
+                            {removingCover ? 'Removing…' : 'Remove'}
+                          </Button>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, WebP, max 15MB</p>
                     </div>
                   </div>
