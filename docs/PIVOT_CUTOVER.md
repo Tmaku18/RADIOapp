@@ -2,6 +2,8 @@
 
 Branch: `pivot/radioapp-monolith`
 
+**Staging isolation (keep production safe):** [PIVOT_STAGING.md](PIVOT_STAGING.md)
+
 ## Phase 1 — Strangler (current)
 
 - [x] `STRANGLER_ENABLED=true` routes `/api/*` through Next.js catch-all

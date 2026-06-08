@@ -33,3 +33,8 @@ pnpm dev:worker       # Radio worker :3099
 Pro-Networx routes already live in `web/src/app/(ProNetworx)/`. Standalone `pro-web/` remains for production until DNS points to the monolith.
 
 Admin tools live in `web/src/app/(dashboard)/admin/` (full) and `admin/` (legacy slim). Enable `MONOLITH_ADMIN_ENABLED` to serve admin subdomain from the monolith.
+
+## Related docs
+
+- [PIVOT_STAGING.md](PIVOT_STAGING.md) — isolate pivot from production (Vercel Preview, staging Railway, Supabase branch)
+- [PIVOT_CUTOVER.md](PIVOT_CUTOVER.md) — cutover checklist
