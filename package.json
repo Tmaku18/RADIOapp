@@ -1,7 +1,6 @@
 {
   "name": "radioapp-monolith",
   "private": true,
-  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "dev": "turbo run dev",
     "dev:web": "pnpm --filter web dev",
