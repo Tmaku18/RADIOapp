@@ -6,6 +6,8 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
+import { InstallPrompt } from '@/components/pwa/InstallPrompt';
+import { SupabaseAuthBridge } from '@/components/auth/SupabaseAuthBridge';
 
 const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
@@ -74,7 +76,9 @@ export default function RootLayout({
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="networx-theme" disableTransitionOnChange>
           <AuthProvider>
+            <SupabaseAuthBridge />
             <PlaybackLayout>{children}</PlaybackLayout>
+            <InstallPrompt />
           </AuthProvider>
           <Toaster />
           <SpeedInsights />

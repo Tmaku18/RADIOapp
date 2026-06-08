@@ -20,7 +20,10 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@shared/*": ["../backend/src/shared/*"]
+      "@shared/*": ["../backend/src/shared/*"],
+      "@radioapp/db": ["../packages/db/src/index.ts"],
+      "@radioapp/ui": ["../packages/ui/src/index.ts"],
+      "@radioapp/api-client": ["../packages/api-client/src/index.ts"]
     }
   },
   "include": [

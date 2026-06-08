@@ -1,0 +1,7 @@
+packages:
+  - "web"
+  - "pro-web"
+  - "admin"
+  - "packages/*"
+  - "workers/*"
+  - "capacitor"

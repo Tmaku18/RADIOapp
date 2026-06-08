@@ -1,0 +1,18 @@
+{
+  "name": "radioapp-monolith",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "pnpm --filter web dev",
+    "dev:worker": "pnpm --filter @radioapp/radio-worker dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test:rls": "pnpm --filter @radioapp/db test:rls",
+    "test:api-parity": "pnpm --filter web test:api-parity"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.3"
+  }
+}

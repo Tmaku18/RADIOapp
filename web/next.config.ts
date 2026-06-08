@@ -11,7 +11,15 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   turbopack: {},
+  transpilePackages: ['@radioapp/db', '@radioapp/ui', '@radioapp/api-client'],
   async rewrites() {
+    const stranglerEnabled = process.env.STRANGLER_ENABLED === 'true';
+
+    // Strangler mode: all /api/* handled by Next.js App Router (catch-all + module routes).
+    if (stranglerEnabled) {
+      return { afterFiles: [] };
+    }
+
     const raw =
       process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
     const trimmed = raw.trim().replace(/\/$/, "");

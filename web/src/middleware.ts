@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { updateSupabaseSession } from '@/lib/supabase/middleware';
 
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
 
+const ADMIN_HOSTS = ['admin.networxradio.com', 'admin.localhost'];
 const PRO_NETWORX_HOSTS = ['pro-networx.com', 'www.pro-networx.com'];
 const NETWORXRADIO_HOSTS = ['networxradio.com', 'www.networxradio.com'];
 function getProNetworxOrigin(): string {
@@ -52,9 +54,21 @@ function mapProNetworxPath(pathname: string): string {
   return '/pro-networx/directory';
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl;
   const hostname = request.nextUrl.hostname?.toLowerCase() ?? '';
+
+  // Monolith: standalone admin app absorbed at admin.* subdomain -> /admin/*
+  if (
+    process.env.MONOLITH_ADMIN_ENABLED === 'true' &&
+    ADMIN_HOSTS.some((h) => hostname === h)
+  ) {
+    if (!pathname.startsWith('/admin')) {
+      const adminUrl = request.nextUrl.clone();
+      adminUrl.pathname = `/admin${pathname === '/' ? '' : pathname}`;
+      return NextResponse.rewrite(adminUrl);
+    }
+  }
 
   const isNetworxDomain = NETWORXRADIO_HOSTS.some((h) => hostname === h);
   const isProNetworxRoute =
@@ -99,7 +113,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(proNetworxProfileUrl, 302);
   }
 
-  const res = NextResponse.next();
+  const res = await updateSupabaseSession(request);
 
   const ref = searchParams.get('ref');
   if (ref && typeof ref === 'string' && ref.length > 0 && ref.length <= 128) {
