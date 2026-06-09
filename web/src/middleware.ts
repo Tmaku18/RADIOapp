@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { shouldNoIndexPath } from '@/lib/site-url';
 
 const REF_COOKIE = 'networx_ref';
 const REF_MAX_AGE = 60 * 60 * 24 * 30; // 30 days
@@ -73,14 +74,16 @@ export function middleware(request: NextRequest) {
       (PRO_NETWORX_HOSTS.some((h) => hostname === h) &&
         `${request.nextUrl.pathname}${request.nextUrl.search}` !== targetPath)
     ) {
-      return NextResponse.redirect(proUrl, 302);
+      const redirect = NextResponse.redirect(proUrl, 308);
+      redirect.headers.set('X-Robots-Tag', 'noindex, nofollow');
+      return redirect;
     }
   }
 
   if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/' || pathname === '')) {
     // Front door of the Pro-Networx domain shows the landing page for context.
     const proNetworxUrl = new URL('/pro-networx', PRO_NETWORX_DOMAIN);
-    return NextResponse.redirect(proNetworxUrl, 302);
+    return NextResponse.redirect(proNetworxUrl, 308);
   }
 
   if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/dashboard' || pathname.startsWith('/dashboard/'))) {
@@ -88,7 +91,7 @@ export function middleware(request: NextRequest) {
       mapProNetworxPath('/pro-networx/directory'),
       PRO_NETWORX_DOMAIN,
     );
-    return NextResponse.redirect(proNetworxAppUrl, 302);
+    return NextResponse.redirect(proNetworxAppUrl, 308);
   }
 
   if (PRO_NETWORX_HOSTS.some((h) => hostname === h) && (pathname === '/profile' || pathname.startsWith('/profile/'))) {
@@ -96,10 +99,14 @@ export function middleware(request: NextRequest) {
       mapProNetworxPath('/pro-networx/onboarding'),
       PRO_NETWORX_DOMAIN,
     );
-    return NextResponse.redirect(proNetworxProfileUrl, 302);
+    return NextResponse.redirect(proNetworxProfileUrl, 308);
   }
 
   const res = NextResponse.next();
+
+  if (shouldNoIndexPath(pathname)) {
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   const ref = searchParams.get('ref');
   if (ref && typeof ref === 'string' && ref.length > 0 && ref.length <= 128) {
@@ -111,19 +118,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/artist/:path*',
-    '/job-board',
-    '/',
-    '/dashboard',
-    '/dashboard/:path*',
-    '/profile',
-    '/profile/:path*',
-    '/signup',
-    '/login',
-    '/pro-directory',
-    '/pro-networx',
-    '/pro-networx/:path*',
-    '/auth-handoff',
-    '/cross-domain-login',
+    '/((?!_next/static|_next/image|favicon.ico|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|json|txt|xml)$).*)',
   ],
 };

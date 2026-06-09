@@ -10,6 +10,9 @@ const LOGO_SRC = '/networx-logo.png';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 
+const PRO_NETWORX_APP_ORIGIN =
+  (process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com').replace(/\/$/, '');
+
 export default function MarketingLayout({
   children,
 }: {
@@ -77,7 +80,7 @@ export default function MarketingLayout({
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
               <Button asChild className="bg-networx text-black hover:opacity-90">
-                <Link href="/pro-networx">ProNetworx</Link>
+                <a href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx`}>ProNetworx</a>
               </Button>
             </div>
           </div>
@@ -133,9 +136,12 @@ export default function MarketingLayout({
                 <li><Link href="/faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</Link></li>
                 <li><Link href="/pro-directory" className="text-muted-foreground hover:text-foreground transition-colors">Pro-Directory</Link></li>
                 <li>
-                  <Link href="/pro-networx" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <a
+                    href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx/directory`}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
                     ProNetworx
-                  </Link>
+                  </a>
                 </li>
               </ul>
             </div>

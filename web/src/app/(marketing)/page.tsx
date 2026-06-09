@@ -4,6 +4,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
 import { getBackendBaseUrls } from '@/lib/backend-url';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+};
 
 // Enable ISR with 60 second revalidation
 export const revalidate = 60;

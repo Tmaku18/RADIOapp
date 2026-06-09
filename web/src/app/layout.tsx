@@ -6,10 +6,12 @@ import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
+import { getSiteUrl } from '@/lib/site-url';
 
 const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
   "Discover underground artists and promote your music on Networx. Artists upload and pay for airplay while Prospectors tune into continuous curated music.";
+const SITE_URL = getSiteUrl();
 
 const inter = Inter({
   variable: '--font-inter',
@@ -40,11 +42,15 @@ const story = Caveat({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   applicationName: APP_NAME,
   title: 'Networx - Underground Music Radio',
   description: APP_DESCRIPTION,
   keywords: ['radio', 'music', 'underground', 'artists', 'streaming', 'promotion', 'networx'],
   manifest: '/manifest.json',
+  alternates: {
+    canonical: '/',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
@@ -54,6 +60,13 @@ export const metadata: Metadata = {
     title: 'Networx - Underground Music Radio',
     description: APP_DESCRIPTION,
     type: 'website',
+    url: SITE_URL,
+    siteName: APP_NAME,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Networx - Underground Music Radio',
+    description: APP_DESCRIPTION,
   },
 };
 

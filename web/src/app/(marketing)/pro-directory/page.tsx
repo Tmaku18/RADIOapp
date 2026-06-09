@@ -2,15 +2,18 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { getProNetworxAppUrl } from '@/lib/site-url';
 
 export const metadata: Metadata = {
   title: 'Pro-Directory and ProNetworx | Networx',
   description: 'Join Networx Pro-Directory and ProNetworx to mentor hidden gems, showcase your portfolio, and connect with artists who need your expertise.',
+  alternates: { canonical: '/pro-directory' },
 };
 
 export const revalidate = 3600;
 
 export default function ProDirectoryPage() {
+  const proNetworxDirectory = `${getProNetworxAppUrl()}/pro-networx/directory`;
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
       <h1 className="text-4xl font-bold text-foreground mb-4">Industry Catalysts and ProNetworx</h1>
@@ -46,12 +49,10 @@ export default function ProDirectoryPage() {
                 <Link href="/signup">Create account</Link>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/pro-networx">Browse Catalysts</Link>
+                <a href={proNetworxDirectory}>Browse Catalysts</a>
               </Button>
               <Button variant="outline" asChild>
-                <Link href="/pro-networx">
-                  Open ProNetworx
-                </Link>
+                <a href={proNetworxDirectory}>Open ProNetworx</a>
               </Button>
             </div>
           </CardContent>

@@ -1,0 +1,45 @@
+import type { MetadataRoute } from 'next';
+import { getSiteUrl } from '@/lib/site-url';
+
+export default function robots(): MetadataRoute.Robots {
+  const siteUrl = getSiteUrl();
+
+  return {
+    rules: {
+      userAgent: '*',
+      allow: '/',
+      disallow: [
+        '/login',
+        '/signup',
+        '/dashboard/',
+        '/listen',
+        '/discover',
+        '/browse',
+        '/admin/',
+        '/artist/',
+        '/settings/',
+        '/messages',
+        '/notifications',
+        '/profile',
+        '/social/',
+        '/competition/',
+        '/refinery/',
+        '/studio/',
+        '/watch/',
+        '/yield',
+        '/library',
+        '/upload',
+        '/payment',
+        '/auth-handoff',
+        '/cross-domain-login',
+        '/pro-networx/',
+        '/pro-networx',
+        '/job-board',
+        '/directory',
+        '/api/',
+      ],
+    },
+    sitemap: `${siteUrl}/sitemap.xml`,
+    host: siteUrl,
+  };
+}
