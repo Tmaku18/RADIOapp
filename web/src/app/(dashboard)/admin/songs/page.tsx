@@ -150,6 +150,7 @@ function SongActionsMenu({
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
+        side="left"
         className="w-56 border border-border shadow-xl ring-1 ring-border"
       >
         {song.status === 'pending' && (
@@ -970,13 +971,16 @@ export default function AdminSongsPage() {
                 >
                   Submitted <SortIcon field="created_at" />
                 </th>
+                <th className="sticky right-0 z-20 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 text-center w-[72px] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {songs.map((song) => (
-                <tr key={song.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
+                <tr key={song.id} className="group hover:bg-gray-50">
+                  <td className="px-6 py-4 min-w-[220px] max-w-[280px]">
+                    <div className="flex items-center min-w-0">
                       <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
                         <ArtworkImage
                           src={song.artwork_url}
@@ -985,27 +989,11 @@ export default function AdminSongsPage() {
                         />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="font-medium text-gray-900 truncate">{song.title}</p>
-                          <SongActionsMenu
-                            song={song}
-                            actionLoading={actionLoading}
-                            editSaving={editSaving}
-                            editingSongId={editingSong?.id ?? null}
-                            onApprove={handleApprove}
-                            onApproveRejected={handleApproveRejected}
-                            onReject={openRejectModal}
-                            onTrim={openTrimModal}
-                            onSample={setSampleSong}
-                            onDiscoverClip={setDiscoverClipSong}
-                            onEdit={openEditModal}
-                            onDelete={handleDeleteSong}
-                          />
-                        </div>
+                        <p className="font-medium text-gray-900 truncate">{song.title}</p>
                         {song.audio_url && (
                           <audio
                             controls
-                            className="h-6 mt-1"
+                            className="h-6 mt-1 max-w-full w-full"
                             onPlay={(e) => {
                               const current = e.currentTarget;
                               document
@@ -1157,6 +1145,24 @@ export default function AdminSongsPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
                     {new Date(song.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="sticky right-0 z-10 bg-white px-4 py-4 text-center shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                    <div className="flex justify-center">
+                      <SongActionsMenu
+                        song={song}
+                        actionLoading={actionLoading}
+                        editSaving={editSaving}
+                        editingSongId={editingSong?.id ?? null}
+                        onApprove={handleApprove}
+                        onApproveRejected={handleApproveRejected}
+                        onReject={openRejectModal}
+                        onTrim={openTrimModal}
+                        onSample={setSampleSong}
+                        onDiscoverClip={setDiscoverClipSong}
+                        onEdit={openEditModal}
+                        onDelete={handleDeleteSong}
+                      />
+                    </div>
                   </td>
                 </tr>
               ))}
