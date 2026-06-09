@@ -719,8 +719,9 @@ export interface FollowListItem {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; notifyFollowedArtistOnRadio?: boolean; favoriteGenres?: string[]; completeGenreOnboarding?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; notifyFollowedArtistOnRadio?: boolean; discoverable?: boolean; favoriteGenres?: string[]; completeGenreOnboarding?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.put('/users/me', data),
+  deleteMyAccount: () => api.delete<{ ok: true }>('/users/me'),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
