@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
+import { GenreOnboardingDialog } from '@/components/onboarding/GenreOnboardingDialog';
 import { notificationsApi, usersApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
 import {
@@ -210,8 +211,10 @@ export default function DashboardLayout({
   const pathname = usePathname();
   const isListenPage = pathname.startsWith('/listen');
   const router = useRouter();
-  const { user, profile, loading, signOut, refreshProfile } = useAuth();
+  const { user, profile, loading, signOut, refreshProfile, pendingProfileSetup } =
+    useAuth();
   const [adminRoleHint, setAdminRoleHint] = useState(false);
+  const [showGenreOnboarding, setShowGenreOnboarding] = useState(false);
   // Confirmed admin hint must override stale profile.role values.
   const effectiveRole = adminRoleHint ? 'admin' : profile?.role;
   const isArtistMode = hasArtistCapability(effectiveRole);
@@ -282,6 +285,25 @@ export default function DashboardLayout({
     const role = effectiveRole.toLowerCase();
     document.cookie = `user_role=${role}; path=/; max-age=${60 * 60 * 24 * 7}; samesite=lax`;
   }, [effectiveRole]);
+
+  useEffect(() => {
+    if (loading || pendingProfileSetup || !profile) {
+      setShowGenreOnboarding(false);
+      return;
+    }
+    if (profile.role === 'admin' || profile.genreOnboardingCompletedAt) {
+      setShowGenreOnboarding(false);
+      return;
+    }
+    const createdMs = new Date(profile.createdAt).getTime();
+    if (!Number.isFinite(createdMs)) return;
+    const maxAccountAgeMs = 30 * 24 * 60 * 60 * 1000;
+    if (Date.now() - createdMs > maxAccountAgeMs) {
+      setShowGenreOnboarding(false);
+      return;
+    }
+    setShowGenreOnboarding(true);
+  }, [loading, pendingProfileSetup, profile]);
 
   useEffect(() => {
     if (user && profile) {
@@ -619,6 +641,16 @@ export default function DashboardLayout({
         </div>
       </SidebarInset>
       </SidebarProvider>
+      {profile && (
+        <GenreOnboardingDialog
+          open={showGenreOnboarding}
+          userId={profile.id}
+          onCompleted={() => {
+            setShowGenreOnboarding(false);
+            void refreshProfile();
+          }}
+        />
+      )}
     </div>
   );
 }

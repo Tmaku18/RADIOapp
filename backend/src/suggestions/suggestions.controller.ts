@@ -1,10 +1,12 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { SuggestionsService } from './suggestions.service';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
+import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 
 @Controller('suggestions')
+@UseGuards(FirebaseAuthGuard)
 export class SuggestionsController {
   constructor(private readonly suggestionsService: SuggestionsService) {}
 
@@ -36,6 +38,42 @@ export class SuggestionsController {
       me.region ?? null,
       limitNum,
     );
+    return { artists };
+  }
+
+  /**
+   * GET /api/suggestions/genre-artists?genres=hip-hop,rap&limit=12&seed=...
+   * Returns artists with songs in the selected genres (shuffled).
+   */
+  @Get('genre-artists')
+  async getGenreArtists(
+    @CurrentUser() user: FirebaseUser,
+    @Query('genres') genres?: string,
+    @Query('limit') limit?: string,
+    @Query('seed') seed?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: me } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .maybeSingle();
+
+    const genreIds = (genres ?? '')
+      .split(',')
+      .map((g) => g.trim().toLowerCase())
+      .filter(Boolean);
+    const limitNum = Math.min(
+      Math.max(parseInt(limit || '12', 10) || 12, 1),
+      24,
+    );
+
+    const artists = await this.suggestionsService.getGenreArtists({
+      genreIds,
+      limit: limitNum,
+      seed: seed?.trim() || me?.id || user.uid,
+      excludeUserId: me?.id,
+    });
     return { artists };
   }
 }

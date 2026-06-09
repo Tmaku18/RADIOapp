@@ -719,7 +719,7 @@ export interface FollowListItem {
 export const usersApi = {
   getMe: () => api.get('/users/me'),
   checkAdmin: () => api.get<{ isAdmin: boolean }>('/users/me/check-admin'),
-  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
+  updateMe: (data: { displayName?: string; username?: string; avatarUrl?: string; region?: string; suggestLocalArtists?: boolean; favoriteGenres?: string[]; completeGenreOnboarding?: boolean; bio?: string; headline?: string; locationRegion?: string; instagramUrl?: string; twitterUrl?: string; youtubeUrl?: string; tiktokUrl?: string; websiteUrl?: string; soundcloudUrl?: string; spotifyUrl?: string; appleMusicUrl?: string; facebookUrl?: string; snapchatUrl?: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.put('/users/me', data),
   uploadProfilePhoto: (file: File) => {
     const formData = new FormData();
@@ -768,6 +768,21 @@ export const usersApi = {
 
 export const suggestionsApi = {
   getLocalArtists: (limit?: number) => api.get('/suggestions/local-artists', { params: { limit } }),
+  getGenreArtists: (params: { genres: string[]; limit?: number; seed?: string }) =>
+    api.get<{ artists: Array<{
+      id: string;
+      displayName: string | null;
+      avatarUrl: string | null;
+      headline: string | null;
+      songCount?: number;
+      matchedGenres: string[];
+    }> }>('/suggestions/genre-artists', {
+      params: {
+        genres: params.genres.join(','),
+        limit: params.limit,
+        seed: params.seed,
+      },
+    }),
 };
 
 type LeaderboardVoteResponse = {

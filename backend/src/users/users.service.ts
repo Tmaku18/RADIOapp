@@ -27,6 +27,8 @@ export interface UserResponse {
   firebaseUid: string;
   region?: string | null;
   suggestLocalArtists?: boolean;
+  favoriteGenres?: string[];
+  genreOnboardingCompletedAt?: string | null;
   bio?: string | null;
   headline?: string | null;
   locationRegion?: string | null;
@@ -80,6 +82,10 @@ function transformUser(data: any): UserResponse {
     firebaseUid: data.firebase_uid,
     region: data.region ?? null,
     suggestLocalArtists: data.suggest_local_artists ?? true,
+    favoriteGenres: Array.isArray(data.favorite_genres)
+      ? data.favorite_genres
+      : [],
+    genreOnboardingCompletedAt: data.genre_onboarding_completed_at ?? null,
     bio: data.bio ?? null,
     headline: data.headline ?? null,
     locationRegion: data.location_region ?? null,
@@ -585,6 +591,19 @@ export class UsersService {
       updatePayload.region = updateUserDto.region;
     if (updateUserDto.suggestLocalArtists !== undefined)
       updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
+    if (updateUserDto.favoriteGenres !== undefined) {
+      const normalized = [
+        ...new Set(
+          updateUserDto.favoriteGenres
+            .map((g) => g.trim().toLowerCase())
+            .filter(Boolean),
+        ),
+      ].slice(0, 12);
+      updatePayload.favorite_genres = normalized;
+    }
+    if (updateUserDto.completeGenreOnboarding === true) {
+      updatePayload.genre_onboarding_completed_at = new Date().toISOString();
+    }
     if (updateUserDto.bio !== undefined) updatePayload.bio = updateUserDto.bio;
     if (updateUserDto.headline !== undefined)
       updatePayload.headline = updateUserDto.headline;

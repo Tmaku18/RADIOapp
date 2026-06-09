@@ -9,6 +9,8 @@ import {
   IsNumber,
   Min,
   Max,
+  IsArray,
+  ArrayMaxSize,
 } from 'class-validator';
 import {
   normalizeInstagramUrl,
@@ -52,6 +54,18 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   suggestLocalArtists?: boolean;
+
+  /** Genre ids from onboarding (e.g. hip-hop, rap, country). */
+  @IsArray()
+  @IsString({ each: true })
+  @ArrayMaxSize(12)
+  @IsOptional()
+  favoriteGenres?: string[];
+
+  /** Mark genre onboarding complete (sets timestamp server-side). */
+  @IsBoolean()
+  @IsOptional()
+  completeGenreOnboarding?: boolean;
 
   /** Artist or Catalyst (service provider) bio */
   @IsString()

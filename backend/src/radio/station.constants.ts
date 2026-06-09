@@ -90,3 +90,42 @@ export function normalizeSongStationId(radioId?: string | null): StationId {
   }
   return DEFAULT_STATION_ID;
 }
+
+/** Map genre picker ids to radio station ids (mirrors web TOWERS genreId). */
+export const STATION_IDS_BY_GENRE: Record<string, readonly string[]> = {
+  rap: [RAP_STATION_ID, OLD_SCHOOL_RAP_STATION_ID, CLEAN_RAP_STATION_ID, READY_NOW_RAP_STATION_ID],
+  'hip-hop': [HIP_HOP_STATION_ID],
+  country: [COUNTRY_STATION_ID],
+  rock: [ROCK_STATION_ID],
+  metal: [METAL_STATION_ID],
+  pop: [POP_STATION_ID],
+  edm: [EDM_STATION_ID],
+  rnb: [RNB_STATION_ID],
+  podcasts: [PODCASTS_STATION_ID],
+  'spoken-word': [SPOKEN_WORD_STATION_ID],
+  comedian: [COMEDIAN_STATION_ID],
+  gospel: [GOSPEL_STATION_ID],
+  classical: [CLASSICAL_STATION_ID],
+  emo: [EMO_STATION_ID],
+  'ai-created': [AI_CREATED_STATION_ID],
+  beats: [BEATS_STATION_ID],
+  freestyle: [FREESTYLE_STATION_ID],
+  instrumental: [INSTRUMENTAL_STATION_ID],
+  lofi: [LOFI_STATION_ID],
+  jazz: [JAZZ_STATION_ID],
+  audiobook: [AUDIOBOOK_STATION_ID],
+  spanish: [SPANISH_STATION_ID],
+  afrobeats: [AFROBEATS_STATION_ID],
+};
+
+export function stationIdsForGenres(genreIds: string[]): string[] {
+  const ids = new Set<string>();
+  for (const genre of genreIds) {
+    const key = genre.trim().toLowerCase();
+    const stations = STATION_IDS_BY_GENRE[key];
+    if (stations) {
+      for (const stationId of stations) ids.add(stationId);
+    }
+  }
+  return [...ids];
+}
