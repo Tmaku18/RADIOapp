@@ -20,6 +20,7 @@ class UsersService {
     String? username,
     String? region,
     bool? suggestLocalArtists,
+    bool? notifyFollowedArtistOnRadio,
     String? bio,
     String? headline,
     String? locationRegion,
@@ -42,6 +43,8 @@ class UsersService {
       if (username != null) 'username': username,
       if (region != null) 'region': region,
       if (suggestLocalArtists != null) 'suggestLocalArtists': suggestLocalArtists,
+      if (notifyFollowedArtistOnRadio != null)
+        'notifyFollowedArtistOnRadio': notifyFollowedArtistOnRadio,
       if (bio != null) 'bio': bio,
       if (headline != null) 'headline': headline,
       if (locationRegion != null) 'locationRegion': locationRegion,

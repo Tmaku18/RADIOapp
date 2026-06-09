@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/notification_models.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/notifications_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
@@ -135,6 +136,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Icons.favorite_outline;
       case 'song_played':
         return Icons.music_note_outlined;
+      case 'artist_song_on_radio':
+        return Icons.radio_outlined;
       default:
         return Icons.notifications_none;
     }
@@ -236,7 +239,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                   .primaryContainer
                                   .withValues(alpha: 0.25),
                           child: ListTile(
-                            onTap: () => _markAsRead(n),
+                            onTap: () async {
+                              await _markAsRead(n);
+                              if (!mounted) return;
+                              if (n.type == 'artist_song_on_radio') {
+                                Navigator.of(context).pushNamed(AppRoutes.player);
+                              }
+                            },
                             leading: Icon(
                               _iconForType(n.type),
                               color: n.type == 'song_liked'

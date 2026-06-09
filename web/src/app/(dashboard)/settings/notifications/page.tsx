@@ -22,8 +22,14 @@ const DEFAULT_SETTINGS: ArtistLikeNotificationSettings = {
 };
 
 export default function NotificationSettingsPage() {
-  const { profile } = useAuth();
+  const { profile, refreshProfile } = useAuth();
   const isArtist = hasArtistCapability(profile?.role);
+
+  const [notifyFollowedArtistOnRadio, setNotifyFollowedArtistOnRadio] = useState(
+    profile?.notifyFollowedArtistOnRadio !== false,
+  );
+  const [savingFollowedRadio, setSavingFollowedRadio] = useState(false);
+  const [followedRadioSaved, setFollowedRadioSaved] = useState(false);
 
   const [settings, setSettings] =
     useState<ArtistLikeNotificationSettings>(DEFAULT_SETTINGS);
@@ -31,6 +37,10 @@ export default function NotificationSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    setNotifyFollowedArtistOnRadio(profile?.notifyFollowedArtistOnRadio !== false);
+  }, [profile?.notifyFollowedArtistOnRadio]);
 
   useEffect(() => {
     const load = async () => {
@@ -43,7 +53,7 @@ export default function NotificationSettingsPage() {
       try {
         const res = await usersApi.getArtistLikeNotificationSettings();
         setSettings(res.data ?? DEFAULT_SETTINGS);
-      } catch (err) {
+      } catch {
         setError('Failed to load notification settings.');
       } finally {
         setLoading(false);
@@ -51,6 +61,23 @@ export default function NotificationSettingsPage() {
     };
     void load();
   }, [isArtist]);
+
+  const handleSaveFollowedRadio = async (enabled: boolean) => {
+    setSavingFollowedRadio(true);
+    setFollowedRadioSaved(false);
+    setError(null);
+    try {
+      await usersApi.updateMe({ notifyFollowedArtistOnRadio: enabled });
+      setNotifyFollowedArtistOnRadio(enabled);
+      await refreshProfile?.();
+      setFollowedRadioSaved(true);
+    } catch {
+      setError('Failed to save followed-artist radio alerts.');
+      setNotifyFollowedArtistOnRadio(profile?.notifyFollowedArtistOnRadio !== false);
+    } finally {
+      setSavingFollowedRadio(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -67,21 +94,6 @@ export default function NotificationSettingsPage() {
     }
   };
 
-  if (!isArtist) {
-    return (
-      <div className="max-w-2xl space-y-4">
-        <Button variant="ghost" asChild>
-          <Link href="/settings">← Back to Settings</Link>
-        </Button>
-        <Alert>
-          <AlertDescription>
-            Song-like notification controls are available for artist accounts.
-          </AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-2xl space-y-6">
       <div className="space-y-1">
@@ -90,7 +102,7 @@ export default function NotificationSettingsPage() {
         </Button>
         <h1 className="text-2xl font-bold text-foreground">Notification settings</h1>
         <p className="text-muted-foreground">
-          Control how often you are notified when listeners like your songs.
+          Control alerts for followed artists and, if you are an artist, song likes.
         </p>
       </div>
 
@@ -100,87 +112,125 @@ export default function NotificationSettingsPage() {
         </Alert>
       )}
 
-      {saved && (
+      {followedRadioSaved && (
         <Alert>
-          <AlertDescription>Settings saved.</AlertDescription>
+          <AlertDescription>Followed-artist radio alerts updated.</AlertDescription>
         </Alert>
       )}
 
       <Card>
-        <CardContent className="space-y-6 pt-6">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <Label htmlFor="mute-likes">Mute song-like notifications</Label>
+              <Label htmlFor="followed-radio">Followed artists on radio</Label>
               <p className="text-sm text-muted-foreground">
-                Turn this on to stop all notifications for new likes.
+                Get notified when an artist you follow has a song playing on the radio.
               </p>
             </div>
             <Switch
-              id="mute-likes"
-              checked={settings.muted}
-              onCheckedChange={(checked) =>
-                setSettings((prev) => ({ ...prev, muted: checked }))
-              }
-              disabled={loading || saving}
+              id="followed-radio"
+              checked={notifyFollowedArtistOnRadio}
+              onCheckedChange={(checked) => {
+                setNotifyFollowedArtistOnRadio(checked);
+                void handleSaveFollowedRadio(checked);
+              }}
+              disabled={savingFollowedRadio}
             />
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="min-trigger">
-              Minimum likes before notifying
-            </Label>
-            <Input
-              id="min-trigger"
-              type="number"
-              min={1}
-              max={1000}
-              value={settings.minLikesTrigger}
-              onChange={(e) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  minLikesTrigger: Math.max(
-                    1,
-                    Number.parseInt(e.target.value || '1', 10) || 1,
-                  ),
-                }))
-              }
-              disabled={loading || saving}
-            />
-            <p className="text-sm text-muted-foreground">
-              Example: set to 5 to get notified on 5, 10, 15 likes instead of every single like.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="cooldown-minutes">Minimum time between notifications (minutes)</Label>
-            <Input
-              id="cooldown-minutes"
-              type="number"
-              min={0}
-              max={10080}
-              value={settings.cooldownMinutes}
-              onChange={(e) =>
-                setSettings((prev) => ({
-                  ...prev,
-                  cooldownMinutes: Math.max(
-                    0,
-                    Number.parseInt(e.target.value || '0', 10) || 0,
-                  ),
-                }))
-              }
-              disabled={loading || saving}
-            />
-            <p className="text-sm text-muted-foreground">
-              Set to 0 for no cooldown. Example: 60 means at most one notification per hour.
-            </p>
-          </div>
-
-          <Button onClick={handleSave} disabled={loading || saving}>
-            {saving ? 'Saving...' : 'Save settings'}
-          </Button>
         </CardContent>
       </Card>
+
+      {isArtist && (
+        <>
+          {saved && (
+            <Alert>
+              <AlertDescription>Artist like settings saved.</AlertDescription>
+            </Alert>
+          )}
+
+          <Card>
+            <CardContent className="space-y-6 pt-6">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold text-foreground">Song likes (artists)</h2>
+                <p className="text-sm text-muted-foreground">
+                  Control how often you are notified when listeners like your songs.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="mute-likes">Mute song-like notifications</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Turn this on to stop all notifications for new likes.
+                  </p>
+                </div>
+                <Switch
+                  id="mute-likes"
+                  checked={settings.muted}
+                  onCheckedChange={(checked) =>
+                    setSettings((prev) => ({ ...prev, muted: checked }))
+                  }
+                  disabled={loading || saving}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="min-trigger">
+                  Minimum likes before notifying
+                </Label>
+                <Input
+                  id="min-trigger"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={settings.minLikesTrigger}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      minLikesTrigger: Math.max(
+                        1,
+                        Number.parseInt(e.target.value || '1', 10) || 1,
+                      ),
+                    }))
+                  }
+                  disabled={loading || saving}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Example: set to 5 to get notified on 5, 10, 15 likes instead of every single like.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cooldown-minutes">Minimum time between notifications (minutes)</Label>
+                <Input
+                  id="cooldown-minutes"
+                  type="number"
+                  min={0}
+                  max={10080}
+                  value={settings.cooldownMinutes}
+                  onChange={(e) =>
+                    setSettings((prev) => ({
+                      ...prev,
+                      cooldownMinutes: Math.max(
+                        0,
+                        Number.parseInt(e.target.value || '0', 10) || 0,
+                      ),
+                    }))
+                  }
+                  disabled={loading || saving}
+                />
+                <p className="text-sm text-muted-foreground">
+                  Set to 0 for no cooldown. Example: 60 means at most one notification per hour.
+                </p>
+              </div>
+
+              <Button onClick={handleSave} disabled={loading || saving}>
+                {saving ? 'Saving...' : 'Save artist like settings'}
+              </Button>
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }
-

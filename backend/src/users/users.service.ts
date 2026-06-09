@@ -27,6 +27,7 @@ export interface UserResponse {
   firebaseUid: string;
   region?: string | null;
   suggestLocalArtists?: boolean;
+  notifyFollowedArtistOnRadio?: boolean;
   favoriteGenres?: string[];
   genreOnboardingCompletedAt?: string | null;
   bio?: string | null;
@@ -82,6 +83,8 @@ function transformUser(data: any): UserResponse {
     firebaseUid: data.firebase_uid,
     region: data.region ?? null,
     suggestLocalArtists: data.suggest_local_artists ?? true,
+    notifyFollowedArtistOnRadio:
+      data.notify_followed_artist_on_radio ?? true,
     favoriteGenres: Array.isArray(data.favorite_genres)
       ? data.favorite_genres
       : [],
@@ -591,6 +594,9 @@ export class UsersService {
       updatePayload.region = updateUserDto.region;
     if (updateUserDto.suggestLocalArtists !== undefined)
       updatePayload.suggest_local_artists = updateUserDto.suggestLocalArtists;
+    if (updateUserDto.notifyFollowedArtistOnRadio !== undefined)
+      updatePayload.notify_followed_artist_on_radio =
+        updateUserDto.notifyFollowedArtistOnRadio;
     if (updateUserDto.favoriteGenres !== undefined) {
       const normalized = [
         ...new Set(

@@ -55,6 +55,11 @@ export class UpdateUserDto {
   @IsOptional()
   suggestLocalArtists?: boolean;
 
+  /** Notify when a followed artist's song is playing on radio */
+  @IsBoolean()
+  @IsOptional()
+  notifyFollowedArtistOnRadio?: boolean;
+
   /** Genre ids from onboarding (e.g. hip-hop, rap, country). */
   @IsArray()
   @IsString({ each: true })

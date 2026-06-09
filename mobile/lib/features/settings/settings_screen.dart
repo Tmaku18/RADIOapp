@@ -28,6 +28,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _systemNotificationsEnabled = false;
   bool _discoverable = true;
   bool _savingDiscoverable = false;
+  bool _notifyFollowedArtistOnRadio = true;
+  bool _savingFollowedRadio = false;
   app_user.User? _me;
   String? _role;
 
@@ -58,6 +60,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final me = await _usersService.getMe();
     final role = me['role'] as String?;
     final discoverable = (me['discoverable'] ?? true) == true;
+    final notifyFollowedArtistOnRadio =
+        (me['notifyFollowedArtistOnRadio'] ?? true) == true;
     Map<String, dynamic>? artistLikeSettings;
     if (role == 'artist' || role == 'admin') {
       try {
@@ -89,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _artistLikeCooldownMinutes =
             ((artistLikeSettings?['cooldownMinutes'] ?? 0) as num).toInt();
         _discoverable = discoverable;
+        _notifyFollowedArtistOnRadio = notifyFollowedArtistOnRadio;
         _isLoading = false;
       });
     }
@@ -175,6 +180,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<void> _toggleFollowedArtistOnRadio(bool value) async {
+    if (_savingFollowedRadio) return;
+    setState(() {
+      _notifyFollowedArtistOnRadio = value;
+      _savingFollowedRadio = true;
+    });
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      await _usersService.updateMe(notifyFollowedArtistOnRadio: value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notifyFollowedArtistOnRadio = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save followed-artist radio alerts'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _savingFollowedRadio = false);
+      }
+    }
   }
 
   Future<void> _toggleDiscoverable(bool value) async {
@@ -382,6 +412,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           }
                         : null,
                     secondary: const Icon(Icons.check_circle_outline),
+                    activeThumbColor: primary,
+                  ),
+                  SwitchListTile(
+                    title: const Text('Followed artists on radio'),
+                    subtitle: const Text(
+                      'When an artist you follow has a song playing on-air',
+                    ),
+                    value: _notifyFollowedArtistOnRadio && _notificationsEnabled,
+                    onChanged: _notificationsEnabled && !_savingFollowedRadio
+                        ? _toggleFollowedArtistOnRadio
+                        : null,
+                    secondary: const Icon(Icons.radio_outlined),
                     activeThumbColor: primary,
                   ),
                   SwitchListTile(

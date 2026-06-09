@@ -24,6 +24,7 @@ interface UserProfile {
   createdAt: string;
   region?: string | null;
   suggestLocalArtists?: boolean;
+  notifyFollowedArtistOnRadio?: boolean;
   favoriteGenres?: string[];
   genreOnboardingCompletedAt?: string | null;
   bio?: string | null;

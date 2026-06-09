@@ -55,7 +55,27 @@ export class PushNotificationService {
   // Pending notifications (for debounce)
   private pendingNotifications: Map<string, NodeJS.Timeout> = new Map();
 
+  // Per-follower cooldown when a followed artist goes on radio (avoid spam)
+  private readonly FOLLOWER_RADIO_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+  private followerRadioCooldown = new Map<string, number>();
+
   constructor(private readonly notificationService: NotificationService) {}
+
+  private isFollowerRadioInCooldown(
+    followerId: string,
+    artistId: string,
+  ): boolean {
+    const key = `${followerId}:${artistId}`;
+    const until = this.followerRadioCooldown.get(key);
+    return until != null && Date.now() < until;
+  }
+
+  private markFollowerRadioCooldown(followerId: string, artistId: string) {
+    this.followerRadioCooldown.set(
+      `${followerId}:${artistId}`,
+      Date.now() + this.FOLLOWER_RADIO_COOLDOWN_MS,
+    );
+  }
 
   private isMissingUserFollowsTable(error: unknown): boolean {
     const maybeError = error as { code?: string; message?: string } | null;
@@ -464,29 +484,66 @@ export class PushNotificationService {
       return { notified: 0, followers: 0 };
     }
 
+    const { data: followerPrefs, error: prefsError } = await supabase
+      .from('users')
+      .select('id, notify_followed_artist_on_radio')
+      .in('id', [...followerIds]);
+
+    if (prefsError) {
+      this.logger.warn(
+        `Failed to load follower radio notification prefs: ${prefsError.message}`,
+      );
+    }
+
+    const eligibleFollowerIds = new Set(
+      (followerPrefs || [])
+        .filter((row: any) => row.notify_followed_artist_on_radio !== false)
+        .map((row: any) => row.id as string)
+        .filter(Boolean),
+    );
+
+    // If prefs query failed, fall back to all followers (column may be missing pre-migration).
+    const targets = prefsError ? followerIds : eligibleFollowerIds;
+    if (targets.size === 0) {
+      return { notified: 0, followers: followerIds.size };
+    }
+
     const title = `${dto.artistName} is on the radio now`;
     const body = `"${dto.songTitle}" is playing now. Join the radio stream.`;
+    const notificationData = {
+      type: 'artist_song_on_radio',
+      artistId: dto.artistId,
+      songId: dto.songId,
+      songTitle: dto.songTitle,
+      action: 'open_radio',
+      route: '/listen',
+    };
 
     let notified = 0;
     await Promise.allSettled(
-      [...followerIds].map(async (userId) => {
+      [...targets].map(async (userId) => {
+        if (this.isFollowerRadioInCooldown(userId, dto.artistId)) {
+          return;
+        }
+
         const sent = await this.sendPushNotification({
           userId,
           title,
           body,
-          data: {
-            type: 'artist_song_on_radio',
-            artistId: dto.artistId,
-            songId: dto.songId,
-            action: 'open_radio',
-            route: '/listen',
-          },
+          data: notificationData,
         });
-        if (sent) notified += 1;
+        if (sent) {
+          notified += 1;
+          this.markFollowerRadioCooldown(userId, dto.artistId);
+        } else {
+          // In-app fallback still counts as a delivered alert.
+          this.markFollowerRadioCooldown(userId, dto.artistId);
+          notified += 1;
+        }
       }),
     );
 
-    return { notified, followers: followerIds.size };
+    return { notified, followers: targets.size };
   }
 
   /**

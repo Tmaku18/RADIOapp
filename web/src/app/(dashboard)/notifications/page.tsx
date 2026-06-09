@@ -36,6 +36,8 @@ function getNotificationIcon(type: string): string {
       return '❤️';
     case 'song_played':
       return '🎵';
+    case 'artist_song_on_radio':
+      return '📻';
     default:
       return '🔔';
   }
@@ -179,6 +181,7 @@ export default function NotificationsPage() {
           <div className="divide-y divide-border">
             {notifications.map((notification) => {
               const isSongPlayed = notification.type === 'song_played' && notification.metadata?.playId;
+              const isArtistOnRadio = notification.type === 'artist_song_on_radio';
               const content = (
                 <div className="flex items-start space-x-4">
                   <div className="text-2xl">{getNotificationIcon(notification.type)}</div>
@@ -194,6 +197,9 @@ export default function NotificationsPage() {
                     )}
                     {isSongPlayed && (
                       <p className="mt-2 text-sm text-primary font-medium">View analytics →</p>
+                    )}
+                    {isArtistOnRadio && (
+                      <p className="mt-2 text-sm text-primary font-medium">Listen now →</p>
                     )}
                     {notification.type === 'song_rejected' && (
                       <div className="mt-2 text-sm">
@@ -225,6 +231,10 @@ export default function NotificationsPage() {
                 >
                   {isSongPlayed ? (
                     <Link href={`/artist/stats?playId=${notification.metadata!.playId}`} className="block">
+                      {content}
+                    </Link>
+                  ) : isArtistOnRadio ? (
+                    <Link href="/listen" className="block">
                       {content}
                     </Link>
                   ) : (

@@ -232,6 +232,14 @@ class PushNotificationService {
     }
     if (type == 'song_liked') {
       onNotificationTap?.call({'type': 'song_liked'});
+      return;
+    }
+    if (type == 'artist_song_on_radio') {
+      onNotificationTap?.call({
+        'type': 'artist_song_on_radio',
+        'artistId': message.data['artistId'],
+        'songId': message.data['songId'],
+      });
     }
   }
 
