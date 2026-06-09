@@ -1064,6 +1064,7 @@ export class AdminService {
       { id: 'us-rap', state: 'US', label: 'New School Rap Radio' },
       { id: 'us-old-school-rap', state: 'US', label: 'Old School Rap Radio' },
       { id: 'us-rap-clean', state: 'US', label: 'Clean Rap Radio' },
+      { id: 'us-ready-now-rap', state: 'US', label: 'Ready Now Radio' },
       { id: 'us-hip-hop', state: 'US', label: 'Hip Hop' },
       { id: 'us-country', state: 'US', label: 'Country' },
       { id: 'us-rock', state: 'US', label: 'Rock' },

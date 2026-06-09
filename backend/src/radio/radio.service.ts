@@ -21,6 +21,7 @@ import {
 import {
   CLEAN_RAP_STATION_ID,
   RAP_STATION_ID,
+  READY_NOW_RAP_STATION_ID,
   normalizeSongStationId,
 } from './station.constants';
 
@@ -709,6 +710,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       DEFAULT_RADIO_ID,
       RAP_STATION_ID,
       CLEAN_RAP_STATION_ID,
+      READY_NOW_RAP_STATION_ID,
     ]);
     const supabase = getSupabaseClient();
 
