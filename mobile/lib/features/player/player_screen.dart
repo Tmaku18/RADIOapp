@@ -67,11 +67,11 @@ const List<_StationOption> _stationOptions = <_StationOption>[
     genre: 'Clean Rap Radio',
     city: 'Charlotte',
   ),
-  // _StationOption(
-  //   id: 'us-ready-now-rap',
-  //   genre: 'Ready Now Radio',
-  //   city: 'Houston',
-  // ),
+  _StationOption(
+    id: 'us-ready-now-rap',
+    genre: 'Ready Now Radio',
+    city: 'Houston',
+  ),
   _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
   _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
   _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),

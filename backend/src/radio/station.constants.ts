@@ -1,7 +1,7 @@
 export const RAP_STATION_ID = 'us-rap' as const;
 export const OLD_SCHOOL_RAP_STATION_ID = 'us-old-school-rap' as const;
 export const CLEAN_RAP_STATION_ID = 'us-rap-clean' as const;
-// Temporarily disabled from picker lists.
+// Ready Now Radio: showcase station for diamond artists who are ready for deals.
 export const READY_NOW_RAP_STATION_ID = 'us-ready-now-rap' as const;
 export const HIP_HOP_STATION_ID = 'us-hip-hop' as const;
 export const COUNTRY_STATION_ID = 'us-country' as const;
@@ -30,7 +30,7 @@ export const STATION_IDS = [
   RAP_STATION_ID,
   OLD_SCHOOL_RAP_STATION_ID,
   CLEAN_RAP_STATION_ID,
-  // READY_NOW_RAP_STATION_ID,
+  READY_NOW_RAP_STATION_ID,
   HIP_HOP_STATION_ID,
   COUNTRY_STATION_ID,
   ROCK_STATION_ID,
