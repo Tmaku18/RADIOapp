@@ -25,6 +25,7 @@ type RisingStarStationEvent = {
 export default function ListenPage() {
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
+  const autoplay = searchParams.get('autoplay') === '1';
   const resolvedStationId = useMemo(() => {
     const fallback = DEFAULT_STATION_ID;
     if (!stationId) return fallback;
@@ -110,6 +111,7 @@ export default function ListenPage() {
               <CardContent className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
                 <RadioPlayer
                   radioId={resolvedStationId}
+                  autoplay={autoplay}
                   cardClassName="py-0 gap-2"
                 />
               </CardContent>

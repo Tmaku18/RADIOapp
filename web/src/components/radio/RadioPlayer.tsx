@@ -59,6 +59,8 @@ interface RadioPlayerProps {
   radioId?: string;
   /** Extra classes applied to the player's root Card (e.g. to trim padding). */
   cardClassName?: string;
+  /** When true, treat selection as a user gesture and start playback immediately. */
+  autoplay?: boolean;
 }
 
 const DEFAULT_RADIO_ID = DEFAULT_STATION_ID;
@@ -66,7 +68,7 @@ const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
 
 type StoredReactions = Record<string, 'fire' | 'shit'>;
 
-export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
+export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioPlayerProps = {}) {
   const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
@@ -97,7 +99,7 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
   const TEMP_BASELINE = 50;
   const [temperaturePercent, setTemperaturePercent] = useState(TEMP_BASELINE);
   const [showJumpToLive, setShowJumpToLive] = useState(false);
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
+  const [hasUserInteracted, setHasUserInteracted] = useState(autoplay);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
   const [isLiveBroadcast, setIsLiveBroadcast] = useState(false);
@@ -580,6 +582,12 @@ export function RadioPlayer({ radioId, cardClassName }: RadioPlayerProps = {}) {
       // Ignore storage failures so voting UX is unaffected.
     }
   }, []);
+
+  useEffect(() => {
+    if (autoplay) {
+      setHasUserInteracted(true);
+    }
+  }, [autoplay]);
 
   // Reset vote state when the current vote key changes.
   useEffect(() => {

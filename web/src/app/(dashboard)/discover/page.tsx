@@ -161,6 +161,16 @@ export default function DiscoverPage() {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  const handleSelectStation = useCallback(
+    (stationId: string) => {
+      setSelectedStationId(stationId);
+      router.push(
+        `/listen?station=${encodeURIComponent(stationId)}&autoplay=1`,
+      );
+    },
+    [router],
+  );
+
   useEffect(() => {
     const params = new URLSearchParams(
       typeof window !== 'undefined' ? window.location.search : '',
@@ -344,18 +354,13 @@ export default function DiscoverPage() {
 
           <TabsContent value="station" className="mt-0 pt-6 space-y-4">
             <p className="text-sm text-muted-foreground">
-              Pick a station here, then open the player.
+              Tap a station to start listening right away.
             </p>
             <StationNetworkSelector
               stationId={selectedStationId}
-              onSelectStation={setSelectedStationId}
+              onSelectStation={handleSelectStation}
             />
             <div className="flex gap-2">
-              <Button asChild>
-                <Link href={`/listen?station=${encodeURIComponent(selectedStationId)}`}>
-                  Listen to selected station
-                </Link>
-              </Button>
               <Button variant="outline" onClick={() => setActiveTab('map')}>
                 Open artist map
               </Button>
