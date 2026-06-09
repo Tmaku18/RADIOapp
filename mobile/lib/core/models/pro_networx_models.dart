@@ -11,18 +11,173 @@ class ProSkill {
   }
 }
 
+class ProExperienceItem {
+  String title;
+  String company;
+  String location;
+  String startDate;
+  String endDate;
+  bool current;
+  String description;
+
+  ProExperienceItem({
+    this.title = '',
+    this.company = '',
+    this.location = '',
+    this.startDate = '',
+    this.endDate = '',
+    this.current = false,
+    this.description = '',
+  });
+
+  factory ProExperienceItem.fromJson(Map<String, dynamic> json) {
+    return ProExperienceItem(
+      title: (json['title'] ?? '').toString(),
+      company: (json['company'] ?? '').toString(),
+      location: (json['location'] ?? '').toString(),
+      startDate: (json['startDate'] ?? json['start_date'] ?? '').toString(),
+      endDate: (json['endDate'] ?? json['end_date'] ?? '').toString(),
+      current: json['current'] == true,
+      description: (json['description'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'title': title.trim(),
+        'company': company.trim(),
+        if (location.trim().isNotEmpty) 'location': location.trim(),
+        if (startDate.trim().isNotEmpty) 'startDate': startDate.trim(),
+        if (endDate.trim().isNotEmpty) 'endDate': endDate.trim(),
+        'current': current,
+        if (description.trim().isNotEmpty) 'description': description.trim(),
+      };
+}
+
+class ProEducationItem {
+  String school;
+  String degree;
+  String field;
+  String startYear;
+  String endYear;
+  String description;
+
+  ProEducationItem({
+    this.school = '',
+    this.degree = '',
+    this.field = '',
+    this.startYear = '',
+    this.endYear = '',
+    this.description = '',
+  });
+
+  factory ProEducationItem.fromJson(Map<String, dynamic> json) {
+    return ProEducationItem(
+      school: (json['school'] ?? '').toString(),
+      degree: (json['degree'] ?? '').toString(),
+      field: (json['field'] ?? '').toString(),
+      startYear: (json['startYear'] ?? json['start_year'] ?? '').toString(),
+      endYear: (json['endYear'] ?? json['end_year'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'school': school.trim(),
+        if (degree.trim().isNotEmpty) 'degree': degree.trim(),
+        if (field.trim().isNotEmpty) 'field': field.trim(),
+        if (startYear.trim().isNotEmpty) 'startYear': startYear.trim(),
+        if (endYear.trim().isNotEmpty) 'endYear': endYear.trim(),
+        if (description.trim().isNotEmpty) 'description': description.trim(),
+      };
+}
+
+class ProFeaturedItem {
+  String type;
+  String url;
+  String title;
+  String description;
+
+  ProFeaturedItem({
+    this.type = 'link',
+    this.url = '',
+    this.title = '',
+    this.description = '',
+  });
+
+  factory ProFeaturedItem.fromJson(Map<String, dynamic> json) {
+    return ProFeaturedItem(
+      type: (json['type'] ?? 'link').toString(),
+      url: (json['url'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      description: (json['description'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'type': type.trim().isEmpty ? 'link' : type.trim(),
+        if (url.trim().isNotEmpty) 'url': url.trim(),
+        if (title.trim().isNotEmpty) 'title': title.trim(),
+        if (description.trim().isNotEmpty) 'description': description.trim(),
+      };
+}
+
 class ProProfile {
   final String userId;
   final bool availableForWork;
   final String? skillsHeadline;
+  final String? currentTitle;
+  final String? about;
+  final String? avatarUrl;
+  final String? heroImageUrl;
+  final String? websiteUrl;
+  final String? instagramUrl;
+  final String? twitterUrl;
+  final String? youtubeUrl;
+  final String? tiktokUrl;
+  final String? soundcloudUrl;
+  final String? spotifyUrl;
+  final String? appleMusicUrl;
+  final String? facebookUrl;
+  final String? snapchatUrl;
   final List<ProSkill> skills;
+  final List<ProExperienceItem> experience;
+  final List<ProEducationItem> education;
+  final List<ProFeaturedItem> featured;
 
   const ProProfile({
     required this.userId,
     required this.availableForWork,
     required this.skillsHeadline,
+    required this.currentTitle,
+    required this.about,
+    required this.avatarUrl,
+    required this.heroImageUrl,
+    required this.websiteUrl,
+    required this.instagramUrl,
+    required this.twitterUrl,
+    required this.youtubeUrl,
+    required this.tiktokUrl,
+    required this.soundcloudUrl,
+    required this.spotifyUrl,
+    required this.appleMusicUrl,
+    required this.facebookUrl,
+    required this.snapchatUrl,
     required this.skills,
+    required this.experience,
+    required this.education,
+    required this.featured,
   });
+
+  static List<T> _parseList<T>(
+    dynamic raw,
+    T Function(Map<String, dynamic>) fromJson,
+  ) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map>()
+        .map((e) => fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+        .toList();
+  }
 
   factory ProProfile.fromJson(Map<String, dynamic> json) {
     final skillsRaw = json['skills'];
@@ -38,7 +193,24 @@ class ProProfile {
       userId: (json['userId'] ?? json['user_id'] ?? '').toString(),
       availableForWork: json['availableForWork'] == true || json['available_for_work'] == true,
       skillsHeadline: (json['skillsHeadline'] ?? json['skills_headline'])?.toString(),
+      currentTitle: (json['currentTitle'] ?? json['current_title'])?.toString(),
+      about: (json['about'])?.toString(),
+      avatarUrl: (json['avatarUrl'] ?? json['avatar_url'])?.toString(),
+      heroImageUrl: (json['heroImageUrl'] ?? json['hero_image_url'])?.toString(),
+      websiteUrl: (json['websiteUrl'] ?? json['website_url'])?.toString(),
+      instagramUrl: (json['instagramUrl'] ?? json['instagram_url'])?.toString(),
+      twitterUrl: (json['twitterUrl'] ?? json['twitter_url'])?.toString(),
+      youtubeUrl: (json['youtubeUrl'] ?? json['youtube_url'])?.toString(),
+      tiktokUrl: (json['tiktokUrl'] ?? json['tiktok_url'])?.toString(),
+      soundcloudUrl: (json['soundcloudUrl'] ?? json['soundcloud_url'])?.toString(),
+      spotifyUrl: (json['spotifyUrl'] ?? json['spotify_url'])?.toString(),
+      appleMusicUrl: (json['appleMusicUrl'] ?? json['apple_music_url'])?.toString(),
+      facebookUrl: (json['facebookUrl'] ?? json['facebook_url'])?.toString(),
+      snapchatUrl: (json['snapchatUrl'] ?? json['snapchat_url'])?.toString(),
       skills: skills,
+      experience: _parseList(json['experience'], ProExperienceItem.fromJson),
+      education: _parseList(json['education'], ProEducationItem.fromJson),
+      featured: _parseList(json['featured'], ProFeaturedItem.fromJson),
     );
   }
 }

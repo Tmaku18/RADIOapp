@@ -75,6 +75,38 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleAppleSignIn() async {
+    if (_isSubmitting) return;
+    final authService = Provider.of<AuthService>(context, listen: false);
+    setState(() => _isSubmitting = true);
+    try {
+      final user = await authService.signInWithApple();
+      if (mounted && (user != null || authService.currentUser != null)) {
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Apple sign-in was canceled or did not complete.')),
+        );
+      }
+    } on ProfileSetupRequiredException catch (setup) {
+      await _completeOAuthSetup(authService, setup);
+    } catch (e) {
+      if (mounted) {
+        if (authService.currentUser != null) {
+          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Apple sign in failed: $e')),
+          );
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
   Future<void> _handleGoogleSignIn() async {
     if (_isSubmitting) return;
     final authService = Provider.of<AuthService>(context, listen: false);
@@ -456,6 +488,20 @@ class _LoginScreenState extends State<LoginScreen> {
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
                             label: const Text('Continue with Google'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isSubmitting ? null : _handleAppleSignIn,
+                            icon: const Icon(Icons.apple, size: 22),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: NetworxTokens.cloudDancer,
+                              side: BorderSide(color: borderColor),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            label: const Text('Continue with Apple'),
                           ),
                         ),
                         const SizedBox(height: 8),

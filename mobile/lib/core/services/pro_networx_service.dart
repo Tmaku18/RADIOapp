@@ -483,6 +483,25 @@ class ProNetworxService {
     await _api.delete('pro-networx/me/resume');
   }
 
+  Future<String?> uploadCover(File file) async {
+    final mime = _inferImageMime(file.path) ?? 'image/jpeg';
+    final res = await _api.postMultipart(
+      'service-providers/me/cover',
+      {},
+      [
+        await http.MultipartFile.fromPath(
+          'file',
+          file.path,
+          contentType: MediaType.parse(mime),
+        ),
+      ],
+    );
+    if (res is Map<String, dynamic>) {
+      return (res['heroImageUrl'] ?? res['hero_image_url'])?.toString();
+    }
+    throw Exception('Failed to upload cover image');
+  }
+
   // ---------------------------------------------------------------------------
   // Service-provider portfolio (Featured work: image / audio / video)
   // ---------------------------------------------------------------------------

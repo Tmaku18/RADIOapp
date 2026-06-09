@@ -257,9 +257,20 @@ export const discoveryApi = {
     mode?: 'default' | 'random';
     seed?: string;
   }) => api.get('/discovery/people', { params }),
-  listFeed: (params?: { limit?: number; cursor?: string }) =>
+  listFeed: (params?: { limit?: number; cursor?: string; scope?: 'all' | 'following' }) =>
     api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
       '/discovery/feed',
+      { params },
+    ),
+  searchFeed: (q: string) =>
+    api.get<DiscoverFeedSearchResult>('/discovery/feed/search', { params: { q } }),
+  exploreStream: (params?: {
+    cursor?: string | null;
+    anchorPostId?: string | null;
+    limit?: number;
+  }) =>
+    api.get<{ items: DiscoverFeedPost[]; nextCursor: string | null }>(
+      '/discovery/feed/explore-stream',
       { params },
     ),
   bookmarkPost: (id: string) => api.post(`/discovery/feed/posts/${id}/bookmark`),
@@ -365,6 +376,17 @@ export interface DiscoverFeedPost {
   commentCount?: number;
   likedByMe?: boolean;
   bookmarkedByMe?: boolean;
+}
+
+export interface DiscoverFeedSearchResult {
+  people: Array<{
+    userId: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+    headline: string | null;
+    role: string | null;
+  }>;
+  posts: DiscoverFeedPost[];
 }
 
 export interface DiscoveryMapHeatBucket {
@@ -505,6 +527,44 @@ export const proNetworxApi = {
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random'; seed?: string }) =>
     api.get('/pro-networx/public/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/public/profiles/${userId}`),
+  listServices: (params?: {
+    serviceType?: string;
+    search?: string;
+    minPriceCents?: number;
+    maxPriceCents?: number;
+    limit?: number;
+    offset?: number;
+  }) =>
+    api.get<{ items: ProServiceListing[]; total: number }>(
+      '/pro-networx/services',
+      { params },
+    ),
+  getService: (id: string) => api.get<ProServiceListing>(`/pro-networx/services/${id}`),
+  listMyServices: () =>
+    api.get<{ items: ProServiceListing[] }>('/pro-networx/me/services'),
+  createService: (data: {
+    serviceType: string;
+    title: string;
+    description?: string;
+    priceCents?: number;
+    rateType?: 'hourly' | 'fixed';
+    currency?: string;
+    isPublished?: boolean;
+  }) => api.post<ProServiceListing>('/pro-networx/me/services', data),
+  updateService: (
+    id: string,
+    data: Partial<{
+      serviceType: string;
+      title: string;
+      description: string;
+      priceCents: number;
+      rateType: 'hourly' | 'fixed';
+      currency: string;
+      isPublished: boolean;
+    }>,
+  ) => api.patch<ProServiceListing>(`/pro-networx/me/services/${id}`, data),
+  deleteService: (id: string) =>
+    api.delete<{ ok: true }>(`/pro-networx/me/services/${id}`),
 };
 
 export type ExperienceItem = {
@@ -557,6 +617,29 @@ export type ProNetworxMeProfile = {
   featured: FeaturedItem[];
   skills: Array<{ name: string; category: string }>;
 };
+
+export interface ProServiceListing {
+  id: string;
+  ownerUserId: string;
+  ownerDisplayName: string | null;
+  ownerAvatarUrl: string | null;
+  ownerHeadline: string | null;
+  serviceType: string;
+  title: string;
+  description: string | null;
+  priceCents: number | null;
+  rateType: 'hourly' | 'fixed';
+  currency: string;
+  status: 'active' | 'paused';
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+  contact: {
+    email: string | null;
+    phone: string | null;
+    link: string | null;
+  } | null;
+}
 
 export const jobBoardApi = {
   listRequests: (params?: { serviceType?: string; status?: 'open' | 'closed' | 'all'; mine?: boolean; limit?: number; offset?: number }) =>
