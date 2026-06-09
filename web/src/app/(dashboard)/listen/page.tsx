@@ -9,7 +9,7 @@ import ChatSidebar from '@/components/chat/ChatSidebar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
-import { getStationById } from '@/data/station-map';
+import { DEFAULT_STATION_ID, getStationById } from '@/data/station-map';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -26,7 +26,7 @@ export default function ListenPage() {
   const searchParams = useSearchParams();
   const stationId = searchParams.get('station');
   const resolvedStationId = useMemo(() => {
-    const fallback = 'us-rap';
+    const fallback = DEFAULT_STATION_ID;
     if (!stationId) return fallback;
     const trimmed = stationId.trim().toLowerCase();
     if (!trimmed) return fallback;

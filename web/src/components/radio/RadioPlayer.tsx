@@ -12,6 +12,7 @@ import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -54,13 +55,13 @@ function formatArtistOrigin(
 }
 
 interface RadioPlayerProps {
-  /** Station/radio id (e.g. us-rap). When set, track and heartbeat use this radio. */
+  /** Station/radio id (e.g. us-ready-now-rap). When set, track and heartbeat use this radio. */
   radioId?: string;
   /** Extra classes applied to the player's root Card (e.g. to trim padding). */
   cardClassName?: string;
 }
 
-const DEFAULT_RADIO_ID = 'global';
+const DEFAULT_RADIO_ID = DEFAULT_STATION_ID;
 const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
 
 type StoredReactions = Record<string, 'fire' | 'shit'>;

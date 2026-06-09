@@ -38,6 +38,9 @@ export interface Tower {
   lng: number;
 }
 
+/** Default station for playback (home, unsigned listeners, /listen without ?station=). */
+export const DEFAULT_STATION_ID = 'us-ready-now-rap';
+
 /** Leaflet LatLngBounds: [southWest, northEast] = [[latMin, lngMin], [latMax, lngMax]] */
 export interface StateBounds {
   southWest: [number, number];

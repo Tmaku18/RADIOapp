@@ -3,6 +3,9 @@ export const OLD_SCHOOL_RAP_STATION_ID = 'us-old-school-rap' as const;
 export const CLEAN_RAP_STATION_ID = 'us-rap-clean' as const;
 // Ready Now Radio: showcase station for diamond artists who are ready for deals.
 export const READY_NOW_RAP_STATION_ID = 'us-ready-now-rap' as const;
+
+/** Default station when none is specified (home, unsigned listeners, legacy global/default). */
+export const DEFAULT_STATION_ID = READY_NOW_RAP_STATION_ID;
 export const HIP_HOP_STATION_ID = 'us-hip-hop' as const;
 export const COUNTRY_STATION_ID = 'us-country' as const;
 export const ROCK_STATION_ID = 'us-rock' as const;
@@ -76,7 +79,7 @@ const LEGACY_STATION_ID_MAP: Record<string, StationId> = {
 export function normalizeSongStationId(radioId?: string | null): StationId {
   const trimmed = (radioId ?? '').trim();
   if (!trimmed || LEGACY_DEFAULT_STATION_IDS.includes(trimmed as any)) {
-    return RAP_STATION_ID;
+    return DEFAULT_STATION_ID;
   }
   const legacyMapped = LEGACY_STATION_ID_MAP[trimmed];
   if (legacyMapped) {
@@ -85,5 +88,5 @@ export function normalizeSongStationId(radioId?: string | null): StationId {
   if (STATION_IDS.includes(trimmed as StationId)) {
     return trimmed as StationId;
   }
-  return RAP_STATION_ID;
+  return DEFAULT_STATION_ID;
 }

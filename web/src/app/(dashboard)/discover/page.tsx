@@ -6,6 +6,7 @@ import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { discoveryApi, type DiscoverFeedPost, usersApi } from '@/lib/api';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -114,7 +115,7 @@ export default function DiscoverPage() {
   const { profile } = useAuth();
   const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
   const initialTabParam = searchParams.get('tab');
-  const initialStationParam = searchParams.get('station')?.trim() || 'us-rap';
+  const initialStationParam = searchParams.get('station')?.trim() || DEFAULT_STATION_ID;
   const initialSearchParam = searchParams.get('q')?.trim() ?? '';
   const initialTab: 'station' | 'map' | 'feed' | 'artist' | 'service_provider' =
     initialTabParam === 'station' ||

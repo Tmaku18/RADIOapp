@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { venueAdsApi } from '@/lib/api';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 
 type Ad = { id: string; imageUrl: string; linkUrl: string | null; stationId: string };
 
-export function VenueAdSlot({ stationId = 'global', className = '' }: { stationId?: string; className?: string }) {
+export function VenueAdSlot({ stationId = DEFAULT_STATION_ID, className = '' }: { stationId?: string; className?: string }) {
   const [ad, setAd] = useState<Ad | null>(null);
   const [loading, setLoading] = useState(true);
 

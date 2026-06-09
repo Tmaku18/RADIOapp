@@ -19,7 +19,7 @@ class DiscoverAudioTab extends StatefulWidget {
 class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
   static const int _pageSize = 12;
   static const String _selectedStationPrefKey = 'selected_radio_station_id';
-  static const String _defaultStationId = 'us-rap';
+  static const String _defaultStationId = 'us-ready-now-rap';
   final DiscoverAudioService _service = DiscoverAudioService();
   final AudioPlayer _player = AudioPlayerService().player;
   StreamSubscription<PlayerState>? _playerStateSub;

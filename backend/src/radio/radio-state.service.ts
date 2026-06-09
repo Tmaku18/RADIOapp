@@ -2,9 +2,10 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { getRedisClient, isRedisAvailable } from '../config/redis.config';
 import { getSupabaseClient } from '../config/supabase.config';
 import * as crypto from 'crypto';
+import { DEFAULT_STATION_ID } from './station.constants';
 
-/** Default radio when none specified (single-radio backward compatibility). */
-export const DEFAULT_RADIO_ID = 'global';
+/** Default radio when none specified (unsigned home, marketing pages, legacy global). */
+export const DEFAULT_RADIO_ID = DEFAULT_STATION_ID;
 
 /**
  * Redis key structure per radio: radio:{radioId}:* so each radio has its own state.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { adminApi } from '@/lib/api';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 
@@ -60,7 +61,9 @@ export default function AdminQueuePage() {
   const searchParams = useSearchParams();
   const stationParam = searchParams.get('station')?.trim() || '';
   const [radios, setRadios] = useState<RadioOption[]>([]);
-  const [selectedRadioId, setSelectedRadioId] = useState<string>(stationParam || 'us-rap');
+  const [selectedRadioId, setSelectedRadioId] = useState<string>(
+    stationParam || DEFAULT_STATION_ID,
+  );
   const [queueState, setQueueState] = useState<QueueState | null>(null);
   const [draftStackIds, setDraftStackIds] = useState<string[]>([]);
   const [originalStackIds, setOriginalStackIds] = useState<string[]>([]);

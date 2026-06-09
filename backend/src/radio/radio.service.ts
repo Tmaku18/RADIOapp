@@ -2178,7 +2178,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     // Rap station is intended to run nonstop free rotation.
     const forceFreeRotation =
-      radioId === RAP_STATION_ID || radioId === CLEAN_RAP_STATION_ID;
+      radioId === RAP_STATION_ID ||
+      radioId === CLEAN_RAP_STATION_ID ||
+      radioId === READY_NOW_RAP_STATION_ID;
     if (forceFreeRotation) {
       targetType = 'free_rotation';
     }

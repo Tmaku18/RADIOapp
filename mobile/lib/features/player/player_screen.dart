@@ -147,7 +147,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
   DateTime _lastSyncSeekAt = DateTime(2000);
-  String _radioId = env('RADIO_STATION_ID') ?? 'us-rap';
+  String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
   final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
 
@@ -156,9 +156,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (station.id == _radioId) return station;
     }
     return const _StationOption(
-      id: 'us-rap',
-      genre: 'New School Rap Radio',
-      city: 'New York',
+      id: 'us-ready-now-rap',
+      genre: 'Ready Now Radio',
+      city: 'Houston',
     );
   }
 
@@ -211,7 +211,8 @@ class _PlayerScreenState extends State<PlayerScreen>
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.getString(_selectedStationPrefKey)?.trim();
       if (stored != null && stored.isNotEmpty) {
-        _radioId = stored;
+        // New School Rap was emptied; migrate saved selection to Ready Now.
+        _radioId = stored == 'us-rap' ? 'us-ready-now-rap' : stored;
       }
     } catch (_) {
       // Ignore storage failures and keep env/default station.
