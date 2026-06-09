@@ -109,6 +109,15 @@ export class NotificationController {
   }
 
   /**
+   * Soft delete all notifications for the current user.
+   */
+  @Delete()
+  async deleteAllNotifications(@CurrentUser() user: FirebaseUser) {
+    const userId = await this.getUserId(user.uid);
+    return this.notificationService.deleteAll(userId);
+  }
+
+  /**
    * Soft delete a single notification.
    */
   @Delete(':id')
@@ -119,14 +128,5 @@ export class NotificationController {
     const userId = await this.getUserId(user.uid);
     await this.notificationService.delete(notificationId, userId);
     return { success: true };
-  }
-
-  /**
-   * Soft delete all notifications for the current user.
-   */
-  @Delete()
-  async deleteAllNotifications(@CurrentUser() user: FirebaseUser) {
-    const userId = await this.getUserId(user.uid);
-    return this.notificationService.deleteAll(userId);
   }
 }

@@ -318,7 +318,19 @@ export default function DashboardLayout({
       };
       fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60000);
-      return () => clearInterval(interval);
+
+      const onNotificationsCleared = () => setUnreadCount(0);
+      const onNotificationsChanged = () => {
+        void fetchUnreadCount();
+      };
+      window.addEventListener('notifications-cleared', onNotificationsCleared);
+      window.addEventListener('notifications-changed', onNotificationsChanged);
+
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener('notifications-cleared', onNotificationsCleared);
+        window.removeEventListener('notifications-changed', onNotificationsChanged);
+      };
     }
   }, [user, profile]);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { notificationsApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,29 +65,35 @@ export default function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const loadRequestRef = useRef(0);
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      loadNotifications();
-    }
-  }, [authLoading, user]);
-
-  const loadNotifications = async () => {
+  const loadNotifications = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     try {
       setLoading(true);
       setError(null);
       const response = await notificationsApi.getAll();
+      if (requestId !== loadRequestRef.current) return;
       const list = response?.data?.notifications;
       setNotifications(Array.isArray(list) ? list : []);
     } catch (err: unknown) {
+      if (requestId !== loadRequestRef.current) return;
       const errObj = err as { response?: { data?: { message?: string } }; message?: string };
       const msg = errObj.response?.data?.message ?? errObj.message ?? 'Failed to load notifications';
       setError(msg);
       setNotifications([]);
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) {
+        setLoading(false);
+      }
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user?.uid) {
+      void loadNotifications();
+    }
+  }, [authLoading, user?.uid, loadNotifications]);
 
   const handleMarkAsRead = async (id: string) => {
     try {
@@ -104,6 +110,7 @@ export default function NotificationsPage() {
     try {
       await notificationsApi.markAllAsRead();
       setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      window.dispatchEvent(new CustomEvent('notifications-changed'));
     } catch (err: unknown) {
       console.error('Failed to mark all as read:', err);
     }
@@ -113,12 +120,21 @@ export default function NotificationsPage() {
     if (notifications.length === 0 || clearing) return;
     const confirmed = window.confirm('Clear all notifications? This cannot be undone.');
     if (!confirmed) return;
+
+    const previous = notifications;
+    loadRequestRef.current += 1;
+    setClearing(true);
+    setNotifications([]);
+    setError(null);
+    window.dispatchEvent(new CustomEvent('notifications-cleared'));
+
     try {
-      setClearing(true);
       await notificationsApi.deleteAll();
-      setNotifications([]);
     } catch (err: unknown) {
       console.error('Failed to clear notifications:', err);
+      setNotifications(previous);
+      setError('Failed to clear notifications. Please try again.');
+      window.dispatchEvent(new CustomEvent('notifications-changed'));
     } finally {
       setClearing(false);
     }

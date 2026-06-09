@@ -18,6 +18,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _clearingAll = false;
   List<AppNotification> _items = const [];
   String? _error;
+  int _loadRequestId = 0;
 
   @override
   void initState() {
@@ -26,19 +27,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _load() async {
+    final requestId = ++_loadRequestId;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final items = await _service.getAll(limit: 100);
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() => _items = items);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || requestId != _loadRequestId) return;
       setState(() => _error = e.toString());
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requestId == _loadRequestId) {
+        setState(() => _loading = false);
+      }
     }
   }
 
@@ -105,11 +109,23 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
     );
     if (confirmed != true) return;
-    setState(() => _clearingAll = true);
+
+    final previous = List<AppNotification>.from(_items);
+    _loadRequestId += 1;
+    setState(() {
+      _clearingAll = true;
+      _items = const [];
+      _error = null;
+    });
     try {
       await _service.deleteAll();
       if (!mounted) return;
-      setState(() => _items = const []);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _items = previous;
+        _error = 'Failed to clear notifications';
+      });
     } finally {
       if (mounted) setState(() => _clearingAll = false);
     }
