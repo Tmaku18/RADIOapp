@@ -96,6 +96,132 @@ function normalizeText(value: string | null | undefined): string {
   return (value || '').trim().toLowerCase();
 }
 
+type SongActionsMenuProps = {
+  song: Song;
+  actionLoading: string | null;
+  editSaving: boolean;
+  editingSongId: string | null;
+  onApprove: (songId: string) => void;
+  onApproveRejected: (song: Song) => void;
+  onReject: (songId: string) => void;
+  onTrim: (song: Song) => void;
+  onSample: (song: Song) => void;
+  onDiscoverClip: (song: Song) => void;
+  onEdit: (song: Song) => void;
+  onDelete: (song: Song) => void;
+};
+
+function SongActionsMenu({
+  song,
+  actionLoading,
+  editSaving,
+  editingSongId,
+  onApprove,
+  onApproveRejected,
+  onReject,
+  onTrim,
+  onSample,
+  onDiscoverClip,
+  onEdit,
+  onDelete,
+}: SongActionsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0 border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-100 hover:text-gray-900"
+          title="Actions"
+          aria-label={`Actions for ${song.title}`}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+          </svg>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-56 border border-border shadow-xl ring-1 ring-border"
+      >
+        {song.status === 'pending' && (
+          <>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onApprove(song.id)}
+            >
+              Approve
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onReject(song.id)}
+            >
+              Reject
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {song.status === 'rejected' && (
+          <>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onApproveRejected(song)}
+            >
+              {actionLoading === song.id ? 'Approving…' : 'Approve anyway'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem
+          disabled={actionLoading === `trim:${song.id}`}
+          onSelect={() => onTrim(song)}
+        >
+          Trim
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!song.audio_url}
+          onSelect={() => onSample(song)}
+        >
+          Sample
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!song.audio_url}
+          onSelect={() => onDiscoverClip(song)}
+        >
+          {song.discover_enabled || song.discover_clip_start_seconds != null
+            ? 'Edit Discover clip'
+            : 'Set Discover clip'}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={editSaving && editingSongId === song.id}
+          onSelect={() => onEdit(song)}
+        >
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={actionLoading === `delete:${song.id}`}
+          onSelect={(e) => {
+            e.preventDefault();
+            void onDelete(song);
+          }}
+        >
+          {actionLoading === `delete:${song.id}` ? 'Deleting…' : 'Delete'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function sortSongsLocal(rows: Song[], sortBy: SortField, sortOrder: SortOrder): Song[] {
   const multiplier = sortOrder === 'asc' ? 1 : -1;
   return [...rows].sort((a, b) => {
@@ -816,11 +942,11 @@ export default function AdminSongsPage() {
             No songs found with status: {filter}
           </div>
         ) : (
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[960px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th 
-                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600 min-w-[220px]"
                   onClick={() => handleSort('title')}
                 >
                   Song <SortIcon field="title" />
@@ -844,7 +970,6 @@ export default function AdminSongsPage() {
                 >
                   Submitted <SortIcon field="created_at" />
                 </th>
-                <th className="text-right px-6 py-3 text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -859,8 +984,24 @@ export default function AdminSongsPage() {
                           className="w-10 h-10 rounded object-cover"
                         />
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{song.title}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-gray-900 truncate">{song.title}</p>
+                          <SongActionsMenu
+                            song={song}
+                            actionLoading={actionLoading}
+                            editSaving={editSaving}
+                            editingSongId={editingSong?.id ?? null}
+                            onApprove={handleApprove}
+                            onApproveRejected={handleApproveRejected}
+                            onReject={openRejectModal}
+                            onTrim={openTrimModal}
+                            onSample={setSampleSong}
+                            onDiscoverClip={setDiscoverClipSong}
+                            onEdit={openEditModal}
+                            onDelete={handleDeleteSong}
+                          />
+                        </div>
                         {song.audio_url && (
                           <audio
                             controls
@@ -1016,108 +1157,6 @@ export default function AdminSongsPage() {
                   </td>
                   <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
                     {new Date(song.created_at).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 border-gray-300 bg-white text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                            title="Actions"
-                            aria-label={`Actions for ${song.title}`}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="currentColor"
-                              aria-hidden="true"
-                            >
-                              <circle cx="12" cy="5" r="2" />
-                              <circle cx="12" cy="12" r="2" />
-                              <circle cx="12" cy="19" r="2" />
-                            </svg>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="w-56 border border-border shadow-xl ring-1 ring-border"
-                        >
-                          {song.status === 'pending' && (
-                            <>
-                              <DropdownMenuItem
-                                disabled={actionLoading === song.id}
-                                onSelect={() => handleApprove(song.id)}
-                              >
-                                Approve
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                disabled={actionLoading === song.id}
-                                onSelect={() => openRejectModal(song.id)}
-                              >
-                                Reject
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          {song.status === 'rejected' && (
-                            <>
-                              <DropdownMenuItem
-                                disabled={actionLoading === song.id}
-                                onSelect={() => handleApproveRejected(song)}
-                              >
-                                {actionLoading === song.id
-                                  ? 'Approving…'
-                                  : 'Approve anyway'}
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                            </>
-                          )}
-                          <DropdownMenuItem
-                            disabled={actionLoading === `trim:${song.id}`}
-                            onSelect={() => openTrimModal(song)}
-                          >
-                            Trim
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!song.audio_url}
-                            onSelect={() => setSampleSong(song)}
-                          >
-                            Sample
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!song.audio_url}
-                            onSelect={() => setDiscoverClipSong(song)}
-                          >
-                            {song.discover_enabled ||
-                            song.discover_clip_start_seconds != null
-                              ? 'Edit Discover clip'
-                              : 'Set Discover clip'}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={editSaving && editingSong?.id === song.id}
-                            onSelect={() => openEditModal(song)}
-                          >
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            variant="destructive"
-                            disabled={actionLoading === `delete:${song.id}`}
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              void handleDeleteSong(song);
-                            }}
-                          >
-                            {actionLoading === `delete:${song.id}`
-                              ? 'Deleting…'
-                              : 'Delete'}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
                   </td>
                 </tr>
               ))}
