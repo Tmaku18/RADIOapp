@@ -64,7 +64,7 @@ export function LiveRippleVisualizer() {
         const alpha = 1 - r.t;
         ctx.beginPath();
         ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
-        ctx.strokeStyle = `rgba(0, 245, 255, ${alpha * 0.4})`;
+        ctx.strokeStyle = `rgba(106, 13, 173, ${alpha * 0.45})`;
         ctx.lineWidth = 2;
         ctx.stroke();
       }

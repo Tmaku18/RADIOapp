@@ -61,111 +61,112 @@
 }
 
 /* =============================================================================
-   NETWORX Theme Strategy — Neo‑Minimalist Noir (2026)
-   Mission alignment:
-   - 4 AM cinematic "Obsidian Night" base (raw, honest, focused)
-   - "Pure Signal" listening: high contrast, low noise, zero clutter
-   - "Human Frequency" + mentorship: Electric accents + Deep Cobalt trust
+   NETWORX Theme — Sovereign Operator (Brand Identity Compass, June 2026)
+   Creator command center: Command Black base, Royal Amethyst identity accent,
+   Signal Blue for live/data intelligence, minimal gradients, premium dark UI.
    ============================================================================= */
 
 :root {
   --radius: 0.75rem;
   --networx-bg-image: url('/images/networx-background.png');
+
+  /* Canonical brand palette */
+  --nx-command-black: #07070A;
+  --nx-deep-midnight: #0B0710;
+  --nx-carbon: #111827;
+  --nx-graphite: #1F2937;
+  --nx-data-white: #F8FAFC;
+  --nx-muted-steel: #94A3B8;
+  --nx-amethyst: #6A0DAD;
+  --nx-amethyst-hover: #5A0B96;
+  --nx-signal-blue: #2563EB;
+  --nx-signal-blue-hover: #1D4ED8;
+  --nx-profit-green: #22C55E;
+  --nx-cfo-gold: #D6A84F;
+  --nx-rose-gold: #B76E79;
+  --nx-alert-red: #EF4444;
 }
 
-/* ---------- Dark Theme (Primary) — "The Collective" ---------- */
+/* ---------- Dark Theme (Primary) — Sovereign Operator ---------- */
 .dark,
 :root {
-  /* Backgrounds */
-  --bg: #0A0A0A;
-  --background: #0A0A0A;
-  --surface: #101010;
-  --card: #101010;
-  --elevated: #161616;
-  --popover: #161616;
-  --border: rgba(245, 245, 245, 0.10);
-  --input: rgba(245, 245, 245, 0.08);
+  --bg: var(--nx-command-black);
+  --background: var(--nx-command-black);
+  --surface: var(--nx-deep-midnight);
+  --card: var(--nx-carbon);
+  --elevated: var(--nx-graphite);
+  --popover: var(--nx-graphite);
+  --border: rgba(248, 250, 252, 0.10);
+  --input: rgba(248, 250, 252, 0.08);
 
-  /* Text */
-  --text-primary: #F5F5F5;
-  --text-secondary: rgba(245, 245, 245, 0.78);
-  --text-muted: rgba(245, 245, 245, 0.60);
-  --foreground: #F5F5F5;
-  --card-foreground: #F5F5F5;
-  --popover-foreground: #F5F5F5;
-  --muted-foreground: rgba(245, 245, 245, 0.60);
-  --accent-foreground: #F5F5F5;
-  --secondary-foreground: #F5F5F5;
-  --sidebar-foreground: #F5F5F5;
-  --sidebar-accent-foreground: #F5F5F5;
+  --text-primary: var(--nx-data-white);
+  --text-secondary: rgba(248, 250, 252, 0.78);
+  --text-muted: var(--nx-muted-steel);
+  --foreground: var(--nx-data-white);
+  --card-foreground: var(--nx-data-white);
+  --popover-foreground: var(--nx-data-white);
+  --muted-foreground: var(--nx-muted-steel);
+  --accent-foreground: var(--nx-data-white);
+  --secondary-foreground: var(--nx-data-white);
+  --sidebar-foreground: var(--nx-data-white);
+  --sidebar-accent-foreground: var(--nx-data-white);
 
-  /* Brand */
-  --primary: #00F5FF;
-  --primary-foreground: #0A0A0A;
-  --primary-hover: #00C9D4;
-  --ring: #00F5FF;
-  --outline-ring: rgba(0, 245, 255, 0.45);
-  /* NOTE: legacy token name kept for compatibility; now represents Deep Cobalt */
-  --rose-gold: #1A237E;
-  --sidebar-primary: #00F5FF;
-  --sidebar-ring: #00F5FF;
+  --primary: var(--nx-amethyst);
+  --primary-foreground: var(--nx-data-white);
+  --primary-hover: var(--nx-amethyst-hover);
+  --ring: var(--nx-amethyst);
+  --outline-ring: rgba(106, 13, 173, 0.45);
+  --rose-gold: var(--nx-rose-gold);
+  --sidebar-primary: var(--nx-amethyst);
+  --sidebar-ring: var(--nx-amethyst);
 
-  /* Status */
-  --success: #2ECC71;
-  --warning: #F2C94C;
-  --error: #EB5757;
-  --destructive: #EB5757;
+  --success: var(--nx-profit-green);
+  --warning: var(--nx-cfo-gold);
+  --error: var(--nx-alert-red);
+  --destructive: var(--nx-alert-red);
 
-  /* Surfaces / UI */
-  --secondary: rgba(245, 245, 245, 0.06);
-  --muted: rgba(245, 245, 245, 0.06);
-  --accent: rgba(0, 245, 255, 0.10);
-  --sidebar: #101010;
-  --sidebar-accent: rgba(245, 245, 245, 0.06);
-  --sidebar-border: rgba(245, 245, 245, 0.10);
+  --secondary: rgba(248, 250, 252, 0.06);
+  --muted: rgba(248, 250, 252, 0.06);
+  --accent: rgba(106, 13, 173, 0.14);
+  --sidebar: var(--nx-carbon);
+  --sidebar-accent: rgba(248, 250, 252, 0.06);
+  --sidebar-border: rgba(248, 250, 252, 0.10);
 
-  /* Chart */
-  --chart-1: #00F5FF;
-  --chart-2: #1A237E;
-  --chart-3: rgba(245, 245, 245, 0.78);
-  --chart-4: #2ECC71;
-  --chart-5: #F2C94C;
+  --chart-1: var(--nx-amethyst);
+  --chart-2: var(--nx-signal-blue);
+  --chart-3: var(--nx-muted-steel);
+  --chart-4: var(--nx-profit-green);
+  --chart-5: var(--nx-cfo-gold);
 
-  /* Signature gradient (use lightly, low opacity) */
   --gradient-signature: linear-gradient(
     160deg,
-    rgba(10, 10, 10, 0.98) 0%,
-    rgba(26, 35, 126, 0.14) 45%,
-    rgba(0, 245, 255, 0.08) 100%
+    rgba(7, 7, 10, 0.98) 0%,
+    rgba(106, 13, 173, 0.12) 45%,
+    rgba(37, 99, 235, 0.08) 100%
   );
-  --gradient-networx: linear-gradient(135deg, #00F5FF, #1A237E);
-  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(0, 245, 255, 0.16), transparent);
-  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.35), rgba(10, 10, 10, 1));
+  --gradient-networx: linear-gradient(135deg, var(--nx-amethyst), var(--nx-signal-blue));
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(37, 99, 235, 0.14), transparent);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(106, 13, 173, 0.28), rgba(7, 7, 10, 1));
 
   --brand-primary: var(--primary);
   --brand-primary-foreground: var(--primary-foreground);
-  --brand-glow: 0 0 18px rgba(0, 245, 255, 0.22);
-  --brand-verified: #1A237E;
+  --brand-glow: 0 0 18px rgba(106, 13, 173, 0.28);
+  --brand-verified: var(--nx-cfo-gold);
 
-  /* Film grain / texture (subtle) */
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
 }
 
-/* ---------- Light Theme (Production) — "Daylight Studio" (2026) ---------- */
-/* Cool, airy neutral canvas + crisp white cards + fresh teal/cobalt accents. */
-/* Mirrors dark theme token set for consistent components and WCAG contrast. */
+/* ---------- Light Theme — Sovereign Operator (daylight command center) ---------- */
 .light {
-  /* Backgrounds — soft cool-neutral canvas, white surfaces float above it */
-  --bg: #F4F6FB;
-  --background: #F4F6FB;
+  --bg: #F1F5F9;
+  --background: #F1F5F9;
   --surface: #FFFFFF;
   --card: #FFFFFF;
-  --elevated: #ECF0F7;
+  --elevated: #E2E8F0;
   --popover: #FFFFFF;
   --border: rgba(15, 23, 42, 0.10);
   --input: rgba(15, 23, 42, 0.07);
 
-  /* Text — slate ink rather than flat black for a softer, modern read */
   --text-primary: #0F172A;
   --text-secondary: #334155;
   --text-muted: #64748B;
@@ -178,55 +179,50 @@
   --sidebar-foreground: #0F172A;
   --sidebar-accent-foreground: #0F172A;
 
-  /* Brand — fresher teal primary, cobalt as verified/secondary accent */
-  --primary: #0E9AA7;
+  --primary: var(--nx-amethyst);
   --primary-foreground: #FFFFFF;
-  --primary-hover: #0B7E89;
-  --ring: #0E9AA7;
-  --outline-ring: rgba(14, 154, 167, 0.40);
-  --rose-gold: #1A237E;
-  --sidebar-primary: #0E9AA7;
-  --sidebar-ring: #0E9AA7;
+  --primary-hover: var(--nx-amethyst-hover);
+  --ring: var(--nx-amethyst);
+  --outline-ring: rgba(106, 13, 173, 0.35);
+  --rose-gold: var(--nx-rose-gold);
+  --sidebar-primary: var(--nx-amethyst);
+  --sidebar-ring: var(--nx-amethyst);
 
-  /* Status (AA-contrast on white) */
   --success: #15803D;
   --warning: #B45309;
-  --error: #DC2626;
-  --destructive: #DC2626;
+  --error: var(--nx-alert-red);
+  --destructive: var(--nx-alert-red);
 
-  /* Surfaces / UI */
   --secondary: rgba(15, 23, 42, 0.05);
   --muted: rgba(15, 23, 42, 0.045);
-  --accent: rgba(14, 154, 167, 0.12);
+  --accent: rgba(106, 13, 173, 0.10);
   --sidebar: #FFFFFF;
   --sidebar-accent: rgba(15, 23, 42, 0.05);
   --sidebar-border: rgba(15, 23, 42, 0.08);
 
-  /* Chart */
-  --chart-1: #0E9AA7;
-  --chart-2: #1A237E;
+  --chart-1: var(--nx-amethyst);
+  --chart-2: var(--nx-signal-blue);
   --chart-3: #64748B;
   --chart-4: #15803D;
   --chart-5: #B45309;
 
-  /* Gradients (light equivalents) */
   --gradient-signature: linear-gradient(
     160deg,
-    rgba(244, 246, 251, 0.98) 0%,
-    rgba(14, 154, 167, 0.07) 45%,
-    rgba(26, 35, 126, 0.05) 100%
+    rgba(241, 245, 249, 0.98) 0%,
+    rgba(106, 13, 173, 0.06) 45%,
+    rgba(37, 99, 235, 0.04) 100%
   );
-  --gradient-networx: linear-gradient(135deg, #0E9AA7, #1A237E);
-  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(14, 154, 167, 0.14), transparent 60%);
-  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.08), rgba(244, 246, 251, 1));
+  --gradient-networx: linear-gradient(135deg, var(--nx-amethyst), var(--nx-signal-blue));
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(37, 99, 235, 0.12), transparent 60%);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(106, 13, 173, 0.08), rgba(241, 245, 249, 1));
 
   --brand-primary: var(--primary);
   --brand-primary-foreground: var(--primary-foreground);
-  --brand-glow: 0 0 16px rgba(14, 154, 167, 0.20);
-  --brand-verified: #1A237E;
+  --brand-glow: 0 0 16px rgba(106, 13, 173, 0.18);
+  --brand-verified: var(--nx-cfo-gold);
 
   --chat-bubble-bg: #EEF2F8;
-  --chat-bubble-border: #0E9AA7;
+  --chat-bubble-border: var(--nx-amethyst);
 
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
 }
@@ -253,9 +249,9 @@
 .light .bg-signature {
   background: linear-gradient(
     160deg,
-    rgba(244, 246, 251, 0.98) 0%,
-    rgba(236, 240, 247, 0.92) 50%,
-    rgba(14, 154, 167, 0.10) 100%
+    rgba(241, 245, 249, 0.98) 0%,
+    rgba(226, 232, 240, 0.92) 50%,
+    rgba(106, 13, 173, 0.08) 100%
   );
 }
 
@@ -284,14 +280,14 @@
   letter-spacing: 0.05em;
   padding: 0.2rem 0.5rem;
   border-radius: 4px;
-  box-shadow: 0 0 14px rgba(26, 35, 126, 0.35);
+  box-shadow: 0 0 14px rgba(183, 110, 121, 0.35);
 }
 
 /* Featured / spotlight badge */
 .badge-featured {
   color: var(--rose-gold);
   border: 1px solid var(--rose-gold);
-  background: rgba(26, 35, 126, 0.14);
+  background: rgba(183, 110, 121, 0.14);
   font-size: 0.7rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -299,76 +295,75 @@
   border-radius: 4px;
 }
 .light .badge-featured {
-  background: rgba(26, 35, 126, 0.08);
+  background: rgba(183, 110, 121, 0.08);
 }
 .light .badge-live {
-  box-shadow: 0 0 12px rgba(26, 35, 126, 0.2);
+  box-shadow: 0 0 12px rgba(183, 110, 121, 0.2);
 }
 
-/* Spotlight card: rose gold border + glow, use .heading-serif for title */
+/* Spotlight card: rose gold border + amethyst glow */
 .spotlight-card {
-  border: 1px solid rgba(26, 35, 126, 0.35);
-  box-shadow: 0 0 24px rgba(0, 245, 255, 0.10);
+  border: 1px solid rgba(183, 110, 121, 0.35);
+  box-shadow: 0 0 24px rgba(106, 13, 173, 0.12);
   border-radius: var(--radius);
   background: var(--card);
 }
 .light .spotlight-card {
-  border: 1px solid rgba(14, 154, 167, 0.25);
-  box-shadow: 0 4px 24px rgba(14, 154, 167, 0.08);
+  border: 1px solid rgba(106, 13, 173, 0.22);
+  box-shadow: 0 4px 24px rgba(106, 13, 173, 0.08);
 }
 
 /* Primary CTA: subtle focus glow */
 .btn-primary-glow:focus-visible {
-  box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.30), 0 0 18px rgba(0, 245, 255, 0.18);
+  box-shadow: 0 0 0 3px rgba(106, 13, 173, 0.35), 0 0 18px rgba(106, 13, 173, 0.18);
 }
 .light .btn-primary-glow:focus-visible {
-  box-shadow: 0 0 0 3px rgba(14, 154, 167, 0.35), 0 0 14px rgba(14, 154, 167, 0.2);
+  box-shadow: 0 0 0 3px rgba(106, 13, 173, 0.30), 0 0 14px rgba(106, 13, 173, 0.14);
 }
 
-/* ========== Listener theme: "Social Frequency" — Butterfly Electric (#00F5FF) ========== */
-/* Color injection: black base with cyan visual weight so the space feels distinct */
+/* ========== Listener theme: live radio — Signal Blue accent ========== */
 [data-brand="listener"] {
-  --primary: #00F5FF;
-  --primary-foreground: #0A0A0A;
-  --ring: #00F5FF;
-  --brand-primary: #00F5FF;
-  --brand-primary-foreground: #0A0A0A;
-  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.28);
-  --sidebar-primary: #00F5FF;
-  --sidebar-ring: #00F5FF;
-  --chart-1: #00F5FF;
-  --chart-2: #0ea5e9;
-  --chat-bubble-bg: #121212;
-  --chat-bubble-border: #00F5FF;
-  /* Surfaces: subtle cyan tint on black so listener space feels "cool" and active */
-  --background: #0A0A0A;
-  --card: #101010;
-  --sidebar: #101010;
-  --muted: rgba(0, 245, 255, 0.06);
-  --accent: rgba(0, 245, 255, 0.10);
-  --border: rgba(245, 245, 245, 0.10);
+  --primary: var(--nx-signal-blue);
+  --primary-foreground: var(--nx-data-white);
+  --primary-hover: var(--nx-signal-blue-hover);
+  --ring: var(--nx-signal-blue);
+  --brand-primary: var(--nx-signal-blue);
+  --brand-primary-foreground: var(--nx-data-white);
+  --brand-glow: 0 0 12px rgba(37, 99, 235, 0.28);
+  --sidebar-primary: var(--nx-signal-blue);
+  --sidebar-ring: var(--nx-signal-blue);
+  --chart-1: var(--nx-signal-blue);
+  --chart-2: var(--nx-amethyst);
+  --chat-bubble-bg: var(--nx-carbon);
+  --chat-bubble-border: var(--nx-signal-blue);
+  --background: var(--nx-command-black);
+  --card: var(--nx-carbon);
+  --sidebar: var(--nx-carbon);
+  --muted: rgba(37, 99, 235, 0.08);
+  --accent: rgba(37, 99, 235, 0.12);
+  --border: rgba(248, 250, 252, 0.10);
 }
 
-/* ========== Artist theme: "Pro-Network & Studio" — Electric action + Cobalt trust ========== */
+/* ========== Artist theme: creator command center — Royal Amethyst ========== */
 [data-brand="artist"] {
-  --primary: #00F5FF;
-  --primary-foreground: #0A0A0A;
-  --ring: #00F5FF;
-  --brand-primary: #00F5FF;
-  --brand-primary-foreground: #0A0A0A;
-  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.22);
-  --sidebar-primary: #00F5FF;
-  --sidebar-ring: #00F5FF;
-  --chart-1: #00F5FF;
-  --chart-2: #1A237E;
-  --brand-verified: #1A237E;
-  /* Surfaces: consistent noir */
-  --background: #0A0A0A;
-  --card: #101010;
-  --sidebar: #101010;
-  --muted: rgba(26, 35, 126, 0.10);
-  --accent: rgba(0, 245, 255, 0.10);
-  --border: rgba(245, 245, 245, 0.10);
+  --primary: var(--nx-amethyst);
+  --primary-foreground: var(--nx-data-white);
+  --primary-hover: var(--nx-amethyst-hover);
+  --ring: var(--nx-amethyst);
+  --brand-primary: var(--nx-amethyst);
+  --brand-primary-foreground: var(--nx-data-white);
+  --brand-glow: 0 0 12px rgba(106, 13, 173, 0.24);
+  --sidebar-primary: var(--nx-amethyst);
+  --sidebar-ring: var(--nx-amethyst);
+  --chart-1: var(--nx-amethyst);
+  --chart-2: var(--nx-signal-blue);
+  --brand-verified: var(--nx-cfo-gold);
+  --background: var(--nx-command-black);
+  --card: var(--nx-carbon);
+  --sidebar: var(--nx-carbon);
+  --muted: rgba(106, 13, 173, 0.10);
+  --accent: rgba(106, 13, 173, 0.14);
+  --border: rgba(248, 250, 252, 0.10);
 }
 
 [data-brand="listener"] .listener-glow {
@@ -380,48 +375,48 @@
 
 /* ---------- Light + data-brand: keep light surfaces, apply brand accents ---------- */
 .light [data-brand="listener"] {
-  --primary: #0E9AA7;
-  --ring: #0E9AA7;
-  --brand-primary: #0E9AA7;
-  --brand-glow: 0 0 14px rgba(14, 154, 167, 0.24);
-  --sidebar-primary: #0E9AA7;
-  --sidebar-ring: #0E9AA7;
-  --chart-1: #0E9AA7;
-  --chart-2: #0D9488;
+  --primary: var(--nx-signal-blue);
+  --ring: var(--nx-signal-blue);
+  --brand-primary: var(--nx-signal-blue);
+  --brand-glow: 0 0 14px rgba(37, 99, 235, 0.20);
+  --sidebar-primary: var(--nx-signal-blue);
+  --sidebar-ring: var(--nx-signal-blue);
+  --chart-1: var(--nx-signal-blue);
+  --chart-2: var(--nx-amethyst);
   --chat-bubble-bg: #EEF2F8;
-  --chat-bubble-border: #0E9AA7;
-  --background: #F4F6FB;
+  --chat-bubble-border: var(--nx-signal-blue);
+  --background: #F1F5F9;
   --card: #FFFFFF;
   --sidebar: #FFFFFF;
   --sidebar-border: rgba(15, 23, 42, 0.08);
-  --muted: rgba(14, 154, 167, 0.07);
-  --accent: rgba(14, 154, 167, 0.12);
+  --muted: rgba(37, 99, 235, 0.07);
+  --accent: rgba(37, 99, 235, 0.10);
   --border: rgba(15, 23, 42, 0.10);
 }
 
 .light [data-brand="artist"] {
-  --primary: #0E9AA7;
-  --ring: #0E9AA7;
-  --brand-primary: #0E9AA7;
-  --brand-glow: 0 0 14px rgba(14, 154, 167, 0.20);
-  --sidebar-primary: #0E9AA7;
-  --sidebar-ring: #0E9AA7;
-  --chart-1: #0E9AA7;
-  --chart-2: #1A237E;
-  --brand-verified: #1A237E;
-  --background: #F4F6FB;
+  --primary: var(--nx-amethyst);
+  --ring: var(--nx-amethyst);
+  --brand-primary: var(--nx-amethyst);
+  --brand-glow: 0 0 14px rgba(106, 13, 173, 0.16);
+  --sidebar-primary: var(--nx-amethyst);
+  --sidebar-ring: var(--nx-amethyst);
+  --chart-1: var(--nx-amethyst);
+  --chart-2: var(--nx-signal-blue);
+  --brand-verified: var(--nx-cfo-gold);
+  --background: #F1F5F9;
   --card: #FFFFFF;
   --sidebar: #FFFFFF;
   --sidebar-border: rgba(15, 23, 42, 0.08);
-  --muted: rgba(26, 35, 126, 0.06);
-  --accent: rgba(14, 154, 167, 0.12);
+  --muted: rgba(106, 13, 173, 0.06);
+  --accent: rgba(106, 13, 173, 0.10);
   --border: rgba(15, 23, 42, 0.10);
 }
 
-/* ---------- Listener: Now Playing deck — subtle Electric Cyan pulse ---------- */
+/* ---------- Listener: Now Playing deck — Signal Blue pulse ---------- */
 [data-brand="listener"] .now-playing-deck {
-  border: 1px solid rgba(0, 245, 255, 0.50);
-  box-shadow: 0 0 12px rgba(0, 245, 255, 0.18);
+  border: 1px solid rgba(37, 99, 235, 0.50);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.18);
 }
 @media (prefers-reduced-motion: no-preference) {
   [data-brand="listener"] .now-playing-deck {
@@ -429,12 +424,12 @@
   }
 }
 @keyframes now-playing-glow {
-  0%, 100% { box-shadow: 0 0 12px rgba(0, 245, 255, 0.18); border-color: rgba(0, 245, 255, 0.50); }
-  50% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.32); border-color: rgba(0, 245, 255, 0.80); }
+  0%, 100% { box-shadow: 0 0 12px rgba(37, 99, 235, 0.18); border-color: rgba(37, 99, 235, 0.50); }
+  50% { box-shadow: 0 0 20px rgba(37, 99, 235, 0.32); border-color: rgba(37, 99, 235, 0.80); }
 }
 .light [data-brand="listener"] .now-playing-deck {
-  border: 1px solid rgba(14, 154, 167, 0.4);
-  box-shadow: 0 0 12px rgba(14, 154, 167, 0.12);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.10);
 }
 @media (prefers-reduced-motion: no-preference) {
   .light [data-brand="listener"] .now-playing-deck {
@@ -442,8 +437,8 @@
   }
 }
 @keyframes now-playing-glow-light {
-  0%, 100% { box-shadow: 0 0 12px rgba(14, 154, 167, 0.12); border-color: rgba(14, 154, 167, 0.4); }
-  50% { box-shadow: 0 0 18px rgba(14, 154, 167, 0.22); border-color: rgba(14, 154, 167, 0.65); }
+  0%, 100% { box-shadow: 0 0 12px rgba(37, 99, 235, 0.10); border-color: rgba(37, 99, 235, 0.35); }
+  50% { box-shadow: 0 0 18px rgba(37, 99, 235, 0.18); border-color: rgba(37, 99, 235, 0.55); }
 }
 
 /* ---------- Amplify button: large circular, high-glow + ripple on click ---------- */
@@ -458,12 +453,15 @@
 .amplify-ripple {
   position: absolute;
   border-radius: 50%;
-  background: rgba(0, 245, 255, 0.30);
+  background: rgba(106, 13, 173, 0.30);
   transform: scale(0);
   pointer-events: none;
 }
+[data-brand="listener"] .amplify-ripple {
+  background: rgba(37, 99, 235, 0.30);
+}
 [data-brand="artist"] .amplify-ripple {
-  background: rgba(0, 245, 255, 0.30);
+  background: rgba(106, 13, 173, 0.30);
 }
 @media (prefers-reduced-motion: no-preference) {
   .amplify-ripple.animate-ripple {
@@ -513,15 +511,15 @@
   --chart-color: #4B0082;
 }
 .badge-verified {
-  background: var(--brand-verified, #D4AF37);
-  color: #080808;
+  background: var(--brand-verified, var(--nx-cfo-gold));
+  color: var(--nx-command-black);
 }
 
 /* ---------- Locked Door: Pro-Network exclusive overlay ---------- */
 .locked-door-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 10, 10, 0.86);
+  background: rgba(7, 7, 10, 0.88);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 50;
@@ -531,7 +529,7 @@
   padding: 1rem;
 }
 .light .locked-door-overlay {
-  background: rgba(244, 246, 251, 0.92);
+  background: rgba(241, 245, 249, 0.92);
 }
 .locked-door-content {
   max-width: 400px;
@@ -545,11 +543,11 @@
 
 /* ---------- Upload portal: Amethyst gradient (artist) ---------- */
 .upload-zone-artist {
-  background: linear-gradient(135deg, rgba(0, 245, 255, 0.10), rgba(26, 35, 126, 0.12));
+  background: linear-gradient(135deg, rgba(106, 13, 173, 0.12), rgba(37, 99, 235, 0.08));
   border: 2px dashed var(--primary);
 }
 .light .upload-zone-artist {
-  background: linear-gradient(135deg, rgba(14, 154, 167, 0.08), rgba(26, 35, 126, 0.06));
+  background: linear-gradient(135deg, rgba(106, 13, 173, 0.06), rgba(37, 99, 235, 0.05));
   border: 2px dashed var(--primary);
 }
 
@@ -568,30 +566,32 @@
     @apply text-foreground;
     background-color: var(--background);
     background-image:
-      linear-gradient(rgba(10, 10, 10, 0.82), rgba(10, 10, 10, 0.9)),
-      radial-gradient(70% 55% at 50% 0%, rgba(0, 245, 255, 0.08), transparent 60%),
+      linear-gradient(rgba(7, 7, 10, 0.84), rgba(11, 7, 16, 0.92)),
+      radial-gradient(70% 55% at 50% 0%, rgba(106, 13, 173, 0.10), transparent 58%),
+      radial-gradient(55% 45% at 85% 15%, rgba(37, 99, 235, 0.06), transparent 55%),
       var(--networx-bg-image),
       var(--grain);
-    background-blend-mode: normal, screen, normal, overlay;
-    background-size: cover, cover, cover, 220px 220px;
-    background-position: center center, center center, center center, center center;
-    background-attachment: fixed, fixed, fixed, fixed;
-    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-blend-mode: normal, screen, screen, normal, overlay;
+    background-size: cover, cover, cover, cover, 220px 220px;
+    background-position: center center, center center, center center, center center, center center;
+    background-attachment: fixed, fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
     min-height: 100vh;
   }
 
   .light body {
     background-color: var(--background);
     background-image:
-      linear-gradient(rgba(244, 246, 251, 0.86), rgba(244, 246, 251, 0.94)),
-      radial-gradient(70% 50% at 50% 0%, rgba(14, 154, 167, 0.06), transparent 55%),
+      linear-gradient(rgba(241, 245, 249, 0.88), rgba(241, 245, 249, 0.95)),
+      radial-gradient(70% 50% at 50% 0%, rgba(106, 13, 173, 0.05), transparent 55%),
+      radial-gradient(50% 40% at 80% 10%, rgba(37, 99, 235, 0.04), transparent 50%),
       var(--networx-bg-image),
       var(--grain);
-    background-blend-mode: normal, normal, normal, overlay;
-    background-size: cover, cover, cover, 220px 220px;
-    background-position: center center, center center, center center, center center;
-    background-attachment: fixed, fixed, fixed, fixed;
-    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+    background-blend-mode: normal, normal, normal, normal, overlay;
+    background-size: cover, cover, cover, cover, 220px 220px;
+    background-position: center center, center center, center center, center center, center center;
+    background-attachment: fixed, fixed, fixed, fixed, fixed;
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, repeat;
   }
 }
 

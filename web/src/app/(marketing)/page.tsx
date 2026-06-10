@@ -193,7 +193,7 @@ export default async function HomePage() {
               Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
-              <Button size="lg" className="!text-black" asChild>
+              <Button size="lg" asChild>
                 <Link href="/signup">Get Started Free</Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
@@ -303,7 +303,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" className="!text-black" asChild>
+            <Button size="lg" asChild>
               <Link href="/signup">Get Started Free</Link>
             </Button>
             <Button size="lg" variant="outline" asChild>
