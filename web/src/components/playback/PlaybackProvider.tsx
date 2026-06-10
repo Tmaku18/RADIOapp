@@ -60,6 +60,10 @@ type PlaybackContextValue = {
   actions: PlaybackActions;
   /** Register callback when track ends (e.g. radio fetches next). Called only when source === 'radio'. */
   setOnRadioTrackEnded: (cb: (() => void) | null) => void;
+  /** True while a full RadioPlayer surface is mounted (listen page or expanded bar). */
+  radioPlayerUiActive: boolean;
+  /** Call on mount; returned function unregisters on unmount. */
+  registerRadioPlayerUi: () => () => void;
 };
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null);
@@ -118,6 +122,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const overlayHlsRef = useRef<Hls | null>(null);
   const djOverlayRef = useRef<DjOverlayState | null>(null);
   const globalTransportPausedRef = useRef(false);
+  const radioPlayerUiCountRef = useRef(0);
+  const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
+
+  const registerRadioPlayerUi = useCallback(() => {
+    radioPlayerUiCountRef.current += 1;
+    setRadioPlayerUiActive(true);
+    return () => {
+      radioPlayerUiCountRef.current = Math.max(0, radioPlayerUiCountRef.current - 1);
+      setRadioPlayerUiActive(radioPlayerUiCountRef.current > 0);
+    };
+  }, []);
 
   const getActiveAudio = useCallback(() => {
     const pair = audioPairRef.current;
@@ -872,6 +887,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       handleDjBoothEvent,
     },
     setOnRadioTrackEnded,
+    radioPlayerUiActive,
+    registerRadioPlayerUi,
   };
 
   return (

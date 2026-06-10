@@ -2,6 +2,7 @@
 
 import { PlaybackProvider } from './PlaybackProvider';
 import { NowPlayingBar, NOW_PLAYING_BAR_HEIGHT } from './NowPlayingBar';
+import { RadioBackgroundSync } from './RadioBackgroundSync';
 
 /**
  * Wraps the app with PlaybackProvider and renders the persistent Now Playing bar.
@@ -10,6 +11,7 @@ import { NowPlayingBar, NOW_PLAYING_BAR_HEIGHT } from './NowPlayingBar';
 export function PlaybackLayout({ children }: { children: React.ReactNode }) {
   return (
     <PlaybackProvider>
+      <RadioBackgroundSync />
       <div style={{ paddingBottom: NOW_PLAYING_BAR_HEIGHT }}>
         {children}
       </div>

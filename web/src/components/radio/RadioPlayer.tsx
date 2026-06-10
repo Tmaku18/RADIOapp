@@ -147,10 +147,12 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
-  const { state, actions, setOnRadioTrackEnded } = usePlayback();
+  const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi } = usePlayback();
   const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
   const playRef = useRef<(() => Promise<void>) | null>(null);
+
+  useEffect(() => registerRadioPlayerUi(), [registerRadioPlayerUi]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

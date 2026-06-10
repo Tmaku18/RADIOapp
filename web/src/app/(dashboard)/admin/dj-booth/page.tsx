@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { adminApi, djBoothApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
@@ -16,8 +16,11 @@ import {
 } from '@/components/admin/dj-booth/QueuePanel';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { Badge } from '@/components/ui/badge';
+import { subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 
 type RadioOption = { id: string; state: string; label: string };
+
+const STATUS_POLL_MS = 5000;
 
 function coerceListenerCount(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -60,6 +63,15 @@ export default function DjBoothPage() {
   >([]);
   const [selectedAddStackId, setSelectedAddStackId] = useState('');
   const [clips, setClips] = useState<SoundboardClip[]>([]);
+  const hasChangesRef = useRef(false);
+  const [displayPositionSec, setDisplayPositionSec] = useState(0);
+  const [displayRemainingSec, setDisplayRemainingSec] = useState(0);
+  const progressAnchorRef = useRef({
+    positionSec: 0,
+    remainingSec: 0,
+    capturedAt: Date.now(),
+    paused: false,
+  });
 
   const loadRadios = useCallback(async () => {
     const res = await adminApi.getRadios();
@@ -91,20 +103,22 @@ export default function DjBoothPage() {
 
       const upcoming = data.queue?.upcoming || [];
       const stackIds = upcoming.map((row: { stackId: string }) => row.stackId);
-      setDraftStackIds(stackIds);
-      setOriginalStackIds(stackIds);
-      const map = new Map<
-        string,
-        { title: string | null; artistName: string | null; durationSeconds: number }
-      >();
-      for (const row of upcoming) {
-        map.set(row.stackId, {
-          title: row.title,
-          artistName: row.artistName,
-          durationSeconds: row.durationSeconds || 0,
-        });
+      if (!hasChangesRef.current) {
+        setDraftStackIds(stackIds);
+        setOriginalStackIds(stackIds);
+        const map = new Map<
+          string,
+          { title: string | null; artistName: string | null; durationSeconds: number }
+        >();
+        for (const row of upcoming) {
+          map.set(row.stackId, {
+            title: row.title,
+            artistName: row.artistName,
+            durationSeconds: row.durationSeconds || 0,
+          });
+        }
+        setQueueMap(map);
       }
-      setQueueMap(map);
 
       setClips(Array.isArray(clipsRes.data) ? clipsRes.data : clipsRes.data?.clips ?? []);
     } catch (e: unknown) {
@@ -141,9 +155,16 @@ export default function DjBoothPage() {
     if (!selectedRadioId) return;
     void loadStatus(selectedRadioId);
     void loadCandidates(selectedRadioId);
-    const interval = setInterval(() => void loadStatus(selectedRadioId), 10000);
+    const interval = setInterval(() => void loadStatus(selectedRadioId), STATUS_POLL_MS);
     return () => clearInterval(interval);
   }, [selectedRadioId, loadStatus, loadCandidates]);
+
+  useEffect(() => {
+    if (!selectedRadioId) return;
+    return subscribeDjBoothEvents(selectedRadioId, () => {
+      void loadStatus(selectedRadioId);
+    });
+  }, [selectedRadioId, loadStatus]);
 
   useEffect(() => {
     if (!selectedRadioId) return;
@@ -173,6 +194,37 @@ export default function DjBoothPage() {
     draftStackIds.length !== originalStackIds.length ||
     draftStackIds.some((v, i) => v !== originalStackIds[i]);
 
+  useEffect(() => {
+    hasChangesRef.current = hasChanges;
+  }, [hasChanges]);
+
+  const isTrackPlaying = currentTrack?.is_playing !== false;
+
+  useEffect(() => {
+    const positionSec = Number(currentTrack?.position_seconds ?? 0);
+    const remainingSec = Math.ceil(Number(currentTrack?.time_remaining_ms ?? 0) / 1000);
+    const paused = transportPaused || !isTrackPlaying;
+    progressAnchorRef.current = {
+      positionSec,
+      remainingSec,
+      capturedAt: Date.now(),
+      paused,
+    };
+    setDisplayPositionSec(positionSec);
+    setDisplayRemainingSec(remainingSec);
+  }, [currentTrack, transportPaused, isTrackPlaying]);
+
+  useEffect(() => {
+    const tick = setInterval(() => {
+      const anchor = progressAnchorRef.current;
+      if (anchor.paused) return;
+      const elapsedSec = (Date.now() - anchor.capturedAt) / 1000;
+      setDisplayPositionSec(Math.floor(anchor.positionSec + elapsedSec));
+      setDisplayRemainingSec(Math.max(0, Math.floor(anchor.remainingSec - elapsedSec)));
+    }, 1000);
+    return () => clearInterval(tick);
+  }, []);
+
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
     setError(null);
@@ -194,12 +246,11 @@ export default function DjBoothPage() {
     (currentTrack?.artwork_url as string | undefined) ??
     (currentTrack?.artworkUrl as string | undefined) ??
     null;
-  const positionSec = Number(currentTrack?.position_seconds ?? 0);
-  const remainingMs = Number(currentTrack?.time_remaining_ms ?? 0);
+  const positionSec = displayPositionSec;
+  const remainingSec = displayRemainingSec;
   const listenerCount = coerceListenerCount(
     currentTrack?.listener_count ?? currentTrack?.listenerCount,
   );
-  const isTrackPlaying = currentTrack?.is_playing !== false;
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -251,7 +302,7 @@ export default function DjBoothPage() {
             <p className="text-muted-foreground truncate">{trackArtist}</p>
             <p className="text-sm mt-2">
               {Math.floor(positionSec / 60)}:{String(positionSec % 60).padStart(2, '0')} /{' '}
-              {Math.ceil(remainingMs / 1000)}s left
+              {remainingSec}s left
               {transportPaused && (
                 <span className="ml-2 text-amber-600 font-medium">PAUSED (global)</span>
               )}
