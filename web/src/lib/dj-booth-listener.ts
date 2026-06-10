@@ -24,7 +24,8 @@ export type DjBoothEvent =
       clipUrl: string;
       clipName: string;
       durationSeconds: number;
-    };
+    }
+  | { type: 'queue_updated' };
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
