@@ -494,6 +494,15 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
+  Future<void> _beginCrossfadeToUpcoming(Track currentTrack) async {
+    if (!mounted || _crossfadeInProgress) return;
+    final peek = await _radioService.peekNextTrack(radioId: _radioId);
+    if (!mounted || peek.noContent || peek.track == null) return;
+    if (peek.track!.id == currentTrack.id) return;
+    if (!_isPlaying) return;
+    await _crossfadeToTrack(peek.track!, peek, reportPlay: false);
+  }
+
   void _scheduleTrackBoundarySync(Track track) {
     _trackBoundaryTimer?.cancel();
     _crossfadeEarlyTimer?.cancel();
@@ -511,7 +520,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       final crossfadeEarlyMs =
           (remainingMs - radioCrossfadeMs).clamp(500, remainingMs).toInt();
       _crossfadeEarlyTimer = Timer(Duration(milliseconds: crossfadeEarlyMs), () {
-        _syncCurrentTrack(forceReload: true);
+        unawaited(_beginCrossfadeToUpcoming(track));
       });
     }
 

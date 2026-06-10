@@ -403,8 +403,9 @@ export function useRadioState(options?: UseRadioStateOptions) {
         !!previousTrackId &&
         previousTrackId !== track.id &&
         isCrossfadeSupportedUrl(url) &&
-        isCrossfadeSupportedUrl(outgoing.src || url) &&
         !outgoing.paused &&
+        !outgoing.ended &&
+        outgoing.currentTime > 0 &&
         !isIosSafari() &&
         autoPlay;
 

@@ -60,6 +60,28 @@ class RadioService {
     }
   }
 
+  Future<TrackFetchResult> peekNextTrack({
+    String radioId = defaultRadioId,
+  }) async {
+    try {
+      final response = await _apiService.get(_withRadio('radio/peek', radioId));
+      if (response == null) return const TrackFetchResult(track: null);
+      if (response is Map<String, dynamic>) {
+        if (response['no_content'] == true) {
+          return TrackFetchResult.noContent(
+            (response['message'] ?? 'No upcoming track available.').toString(),
+          );
+        }
+        return TrackFetchResult(track: Track.fromJson(response));
+      }
+      return const TrackFetchResult(track: null);
+    } catch (e) {
+      return TrackFetchResult.noContent(
+        'Unable to reach radio service. Please try again.',
+      );
+    }
+  }
+
   Future<void> reportPlay(
     String songId, {
     bool skipped = false,

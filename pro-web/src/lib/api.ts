@@ -111,6 +111,8 @@ export const radioApi = {
   getCurrentTrack: () => api.get('/radio/current'),
   getNextTrack: (params?: { force?: boolean; radio?: string }) =>
     api.get('/radio/next', { params }),
+  peekNextTrack: (radioId?: string) =>
+    api.get('/radio/peek', { params: radioId ? { radio: radioId } : undefined }),
   getStream: () => api.get('/radio/stream'),
   sendHeartbeat: (data: { streamToken: string; songId: string; timestamp: string }) => 
     api.post('/radio/heartbeat', data),

@@ -18,6 +18,7 @@ import {
   RADIO_CROSSFADE_MS,
   runAudioCrossfade,
 } from '@/lib/radio-crossfade';
+import { radioApi } from '@/lib/api';
 import {
   applyDuckToMain,
   syncOverlayHls,
@@ -119,6 +120,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const crossfadeCancelRef = useRef<(() => void) | null>(null);
   const isCrossfadingRef = useRef(false);
   const crossfadeIncomingSlotRef = useRef<AudioSlot | null>(null);
+  const crossfadePrefetchTrackIdRef = useRef<string | null>(null);
+  const isCrossfadePrefetchingRef = useRef(false);
   const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const overlayHlsRef = useRef<Hls | null>(null);
   const djOverlayRef = useRef<DjOverlayState | null>(null);
@@ -697,8 +700,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !!previousTrackId &&
         previousTrackId !== track.id &&
         isCrossfadeSupportedUrl(url) &&
-        isCrossfadeSupportedUrl(outgoing.src || url) &&
         !outgoing.paused &&
+        !outgoing.ended &&
+        outgoing.currentTime > 0 &&
         !isIosSafari() &&
         (autoPlay ?? true);
 
@@ -711,6 +715,83 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     },
     [getActiveAudio, loadTrackImmediate, startRadioCrossfade],
   );
+
+  // Start a 6s overlap crossfade before the current song ends.
+  useEffect(() => {
+    if (state.source !== 'radio') return;
+    if (!state.isPlaying || state.pausedAt) return;
+    const track = state.track;
+    if (!track?.id || !track.radioId) return;
+
+    const duration =
+      state.duration > 0 ? state.duration : track.durationSeconds || 0;
+    if (duration <= 0) return;
+
+    const remainingSec = duration - state.currentTime;
+    const crossfadeSec = RADIO_CROSSFADE_MS / 1000;
+    if (remainingSec > crossfadeSec + 0.5) {
+      if (crossfadePrefetchTrackIdRef.current === track.id) {
+        crossfadePrefetchTrackIdRef.current = null;
+      }
+      return;
+    }
+    if (crossfadePrefetchTrackIdRef.current === track.id) return;
+    if (isCrossfadePrefetchingRef.current || isCrossfadingRef.current) return;
+
+    crossfadePrefetchTrackIdRef.current = track.id;
+    const currentTrackId = track.id;
+    const radioId = track.radioId;
+    let cancelled = false;
+
+    void (async () => {
+      isCrossfadePrefetchingRef.current = true;
+      try {
+        const response = await radioApi.peekNextTrack(radioId);
+        if (cancelled) return;
+        const trackData = response.data as Record<string, unknown>;
+        if (trackData?.no_content || !trackData?.id) return;
+        if (String(trackData.id) === currentTrackId) return;
+
+        const audioUrl = trackData.audio_url;
+        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
+          return;
+        }
+        if (!isCrossfadeSupportedUrl(audioUrl)) return;
+
+        const nextTrack: PlaybackTrack = {
+          id: String(trackData.id),
+          title: String(trackData.title ?? 'Untitled'),
+          artistName: String(trackData.artist_name ?? 'Unknown artist'),
+          artistOriginCity: (trackData.artist_origin_city as string | null) ?? null,
+          artistOriginState: (trackData.artist_origin_state as string | null) ?? null,
+          artistId: (trackData.artist_id as string | null) ?? null,
+          radioId,
+          artworkUrl: (trackData.artwork_url as string | null) ?? null,
+          audioUrl,
+          durationSeconds: Number(trackData.duration_seconds) || 180,
+          playId: (trackData.play_id as string | null) ?? null,
+        };
+
+        loadTrack(nextTrack, 'radio', true);
+      } catch {
+        if (!cancelled) crossfadePrefetchTrackIdRef.current = null;
+      } finally {
+        isCrossfadePrefetchingRef.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loadTrack,
+    state.currentTime,
+    state.duration,
+    state.isPlaying,
+    state.pausedAt,
+    state.source,
+    state.track,
+  ]);
 
   const play = useCallback(async () => {
     const audio = getActiveAudio();

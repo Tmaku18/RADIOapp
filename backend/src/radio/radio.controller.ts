@@ -171,6 +171,27 @@ export class RadioController {
     return { received: true };
   }
 
+  @Public()
+  @Get('peek')
+  async peekNextTrack(@Query('radio') radioId?: string) {
+    const id = radioId?.trim() || DEFAULT_RADIO_ID;
+    try {
+      return await this.withTimeout(
+        this.radioService.peekNextTrack(id),
+        `peekNextTrack(${id})`,
+      );
+    } catch (err) {
+      this.logger.warn(
+        `peekNextTrack failed: ${err?.message || err}`,
+        err?.stack,
+      );
+      return {
+        no_content: true,
+        message: err?.message || 'Unable to preview next track',
+      };
+    }
+  }
+
   @Get('queue')
   async getUpcomingQueue(
     @Query('limit') limit?: string,

@@ -2182,6 +2182,68 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Preview the upcoming track without advancing queue state.
+   * Used by clients to start a crossfade before the current song ends.
+   */
+  async peekNextTrack(radioId: string = DEFAULT_RADIO_ID): Promise<any> {
+    const now = Date.now();
+    const trial = isTrialByFireActiveAt(new Date(now));
+    const currentState = await this.getQueueState(radioId);
+    const currentSongId = currentState?.songId?.replace(/^admin:|^song:/, '');
+
+    const nextSong = await this.peekNextFreeRotationSong(
+      radioId,
+      currentSongId,
+    );
+    if (!nextSong) {
+      return { no_content: true, message: 'No upcoming track available.' };
+    }
+
+    const audioUrl = await this.withTimeoutFallback(
+      this.ensurePlayableAudioUrl(nextSong.audio_url ?? null),
+      null,
+      3000,
+      `peekEnsurePlayableAudioUrl(${nextSong.id})`,
+    );
+    if (!audioUrl) {
+      return {
+        no_content: true,
+        message: 'Next track has no playable audio.',
+      };
+    }
+
+    const durationMs =
+      (nextSong.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+    const isLive = await this.withTimeoutFallback(
+      this.isLiveBroadcastActive(),
+      false,
+      2000,
+      'peekIsLiveBroadcastActive',
+    );
+
+    return this.enrichTrackPayload(
+      {
+        ...nextSong,
+        audio_url: audioUrl,
+        is_playing: false,
+        is_peek: true,
+        started_at: new Date(now).toISOString(),
+        server_time: new Date(now).toISOString(),
+        time_remaining_ms: durationMs,
+        position_seconds: 0,
+        is_live: isLive,
+        trial_by_fire_active: trial.active,
+        play_id: null,
+        listener_count: 0,
+      },
+      radioId,
+      now,
+      durationMs,
+      now,
+    );
+  }
+
+  /**
    * Save stack to Supabase only if the content has changed.
    */
   private async saveStackIfChanged(

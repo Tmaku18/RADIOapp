@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
-import { RADIO_CROSSFADE_MS } from '@/lib/radio-crossfade';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 
 type PinnedCatalyst = {
@@ -125,7 +124,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
-  const crossfadePrefetchTrackIdRef = useRef<string | null>(null);
 
   // New station = new listener session; avoids stale heartbeats and forces stream reload when song id matches.
   useEffect(() => {
@@ -635,88 +633,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted, noContent]);
-
-  // Begin a 6s crossfade before the current song ends (overlap with next track).
-  useEffect(() => {
-    if (state.source && state.source !== 'radio') return;
-    if (!state.isPlaying || state.pausedAt) return;
-    if (noContent) return;
-
-    const track = state.track;
-    if (!track?.id) return;
-
-    const duration = state.duration > 0 ? state.duration : track.durationSeconds || 0;
-    if (duration <= 0) return;
-
-    const remainingSec = duration - state.currentTime;
-    const crossfadeSec = RADIO_CROSSFADE_MS / 1000;
-    if (remainingSec > crossfadeSec + 0.5) {
-      if (crossfadePrefetchTrackIdRef.current === track.id) {
-        crossfadePrefetchTrackIdRef.current = null;
-      }
-      return;
-    }
-    if (crossfadePrefetchTrackIdRef.current === track.id) return;
-    if (isFetchingNextTrack.current || isFetchingCurrentTrackRef.current) return;
-
-    crossfadePrefetchTrackIdRef.current = track.id;
-    const currentTrackId = track.id;
-    let cancelled = false;
-
-    (async () => {
-      isFetchingNextTrack.current = true;
-      try {
-        const response = await radioApi.getNextTrack({
-          radio: effectiveRadioId,
-          force: false,
-        });
-        if (cancelled) return;
-        const trackData = response.data;
-        if (trackData?.no_content || !trackData?.id) return;
-        if (trackData.id === currentTrackId) return;
-
-        const audioUrl = trackData.audio_url;
-        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) return;
-
-        const nextTrack: PlaybackTrack = {
-          id: trackData.id,
-          title: trackData.title,
-          artistName: trackData.artist_name,
-          artistOriginCity: trackData.artist_origin_city ?? null,
-          artistOriginState: trackData.artist_origin_state ?? null,
-          artistId: trackData.artist_id ?? null,
-          radioId: effectiveRadioId,
-          artworkUrl: trackData.artwork_url,
-          audioUrl,
-          durationSeconds: trackData.duration_seconds || 180,
-          playId: trackData.play_id ?? null,
-        };
-
-        const serverPosition = trackData.position_seconds || 0;
-        lastServerPosition.current = serverPosition;
-        actions.loadTrack(nextTrack, 'radio', true);
-        actions.syncToPosition(serverPosition);
-      } catch {
-        if (!cancelled) crossfadePrefetchTrackIdRef.current = null;
-      } finally {
-        isFetchingNextTrack.current = false;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    actions,
-    effectiveRadioId,
-    noContent,
-    state.currentTime,
-    state.duration,
-    state.isPlaying,
-    state.pausedAt,
-    state.source,
-    state.track,
-  ]);
 
   useEffect(() => {
     if (state.source && state.source !== 'radio') return;

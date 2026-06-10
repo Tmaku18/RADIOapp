@@ -387,7 +387,7 @@ export function RadioPlayer() {
     (async () => {
       isFetchingNextTrack.current = true;
       try {
-        const response = await radioApi.getNextTrack({ force: false });
+        const response = await radioApi.peekNextTrack();
         if (cancelled) return;
         const trackData = response.data;
         if (trackData?.no_content || !trackData?.id) return;
@@ -406,10 +406,7 @@ export function RadioPlayer() {
           durationSeconds: trackData.duration_seconds || 180,
         };
 
-        const serverPosition = trackData.position_seconds || 0;
-        lastServerPosition.current = serverPosition;
         loadTrack(nextTrack, true);
-        syncToPosition(serverPosition);
       } catch {
         if (!cancelled) crossfadePrefetchTrackIdRef.current = null;
       } finally {
@@ -428,7 +425,6 @@ export function RadioPlayer() {
     state.duration,
     state.isPlaying,
     state.pausedAt,
-    syncToPosition,
   ]);
 
   // Re-sync every 30 seconds to handle drift (only when live)

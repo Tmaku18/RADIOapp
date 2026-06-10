@@ -214,6 +214,11 @@ export const radioApi = {
         : radioIdOrParams;
     return api.get('/radio/next', { params, timeout: RADIO_API_TIMEOUT_MS });
   },
+  peekNextTrack: (radioId?: string) =>
+    api.get('/radio/peek', {
+      params: radioId ? { radio: radioId } : undefined,
+      timeout: RADIO_API_TIMEOUT_MS,
+    }),
   getStream: (radioId?: string) =>
     api.get('/radio/stream', {
       params: radioId ? { radio: radioId } : undefined,
