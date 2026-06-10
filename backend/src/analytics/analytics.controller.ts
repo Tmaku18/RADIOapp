@@ -273,4 +273,13 @@ export class AnalyticsController {
   async getPlatformStats() {
     return this.analyticsService.getPlatformStats();
   }
+
+  /**
+   * Live radio listener count + cumulative ears reached (marketing homepage poll).
+   */
+  @Get('platform/live')
+  @Public()
+  async getPlatformLiveStats() {
+    return this.analyticsService.getPlatformLiveStats();
+  }
 }

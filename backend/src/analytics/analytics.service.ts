@@ -1,5 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import { RadioStateService } from '../radio/radio-state.service';
+import { STATION_IDS } from '../radio/station.constants';
 
 export interface DailyPlayCount {
   date: string;
@@ -60,6 +62,8 @@ export interface ArtistAnalytics {
 @Injectable()
 export class AnalyticsService {
   private readonly logger = new Logger(AnalyticsService.name);
+
+  constructor(private readonly radioStateService: RadioStateService) {}
 
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
@@ -660,17 +664,6 @@ export class AnalyticsService {
       .from('likes')
       .select('*', { count: 'exact', head: true });
 
-    // "Ears reached": unique listeners ever present on radio (authed users +
-    // de-duplicated guest devices). Resilient if the RPC isn't deployed yet.
-    let earsReached = 0;
-    try {
-      const { data: ears } = await supabase.rpc('get_radio_ears_reached');
-      if (typeof ears === 'number') earsReached = ears;
-      else if (ears != null) earsReached = Number(ears) || 0;
-    } catch {
-      earsReached = 0;
-    }
-
     return {
       totalUsers: totalUsers || 0,
       totalArtists: totalArtists || 0,
@@ -680,8 +673,34 @@ export class AnalyticsService {
       totalPlays: totalPlays || 0,
       totalProfileClicks: totalProfileClicks || 0,
       totalLikes: totalLikes || 0,
-      earsReached,
     };
+  }
+
+  /**
+   * Live radio metrics for the marketing homepage (poll every ~30s).
+   */
+  async getPlatformLiveStats(): Promise<{
+    liveListeners: number;
+    earsReached: number;
+  }> {
+    const counts = await Promise.all(
+      STATION_IDS.map((stationId) =>
+        this.radioStateService.getListenerCount(stationId),
+      ),
+    );
+    const liveListeners = counts.reduce((sum, n) => sum + Math.max(0, n), 0);
+
+    const supabase = getSupabaseClient();
+    let earsReached = 0;
+    try {
+      const { data: ears } = await supabase.rpc('get_radio_ears_reached');
+      if (typeof ears === 'number') earsReached = ears;
+      else if (ears != null) earsReached = Number(ears) || 0;
+    } catch {
+      earsReached = 0;
+    }
+
+    return { liveListeners, earsReached };
   }
 
   /**

@@ -39,6 +39,7 @@ describe('AnalyticsController', () => {
       getArtistAnalytics: jest.fn(),
       getSongAnalytics: jest.fn(),
       getPlatformStats: jest.fn().mockResolvedValue({ listeners: 100 }),
+      getPlatformLiveStats: jest.fn(),
     };
     const controller = new AnalyticsController(analyticsService as any);
 

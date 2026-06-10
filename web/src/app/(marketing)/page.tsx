@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
+import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
 import { getBackendBaseUrls } from '@/lib/backend-url';
 import { NETWORX_BRAND, NETWORX_FLYER_IMAGE } from '@/lib/brand-assets';
 import type { Metadata } from 'next';
@@ -102,7 +103,7 @@ const GLOSSARY: Array<{
   },
 ];
 
-// Fetch platform stats from the API
+// Fetch platform stats from the API (all-time totals + initial live snapshot)
 async function getHomepageData() {
   const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 5000) => {
     const controller = new AbortController();
@@ -119,22 +120,42 @@ async function getHomepageData() {
     }
   };
 
+  const empty = {
+    stats: {
+      totalUsers: 0,
+      totalSongs: 0,
+      totalLikes: 0,
+    },
+    live: {
+      liveListeners: 0,
+      earsReached: 0,
+    },
+  };
+
   try {
     for (const baseUrl of getBackendBaseUrls()) {
-      const stats = await fetchJsonWithTimeout<{
-        totalUsers?: number;
-        totalSongs?: number;
-        earsReached?: number;
-        totalLikes?: number;
-      }>(`${baseUrl}/api/analytics/platform`);
-      if (!stats) continue;
+      const [platform, live] = await Promise.all([
+        fetchJsonWithTimeout<{
+          totalUsers?: number;
+          totalSongs?: number;
+          totalLikes?: number;
+        }>(`${baseUrl}/api/analytics/platform`),
+        fetchJsonWithTimeout<{
+          liveListeners?: number;
+          earsReached?: number;
+        }>(`${baseUrl}/api/analytics/platform/live`),
+      ]);
+      if (!platform && !live) continue;
 
       return {
         stats: {
-          totalUsers: stats.totalUsers ?? 0,
-          totalSongs: stats.totalSongs ?? 0,
-          earsReached: stats.earsReached ?? 0,
-          totalLikes: stats.totalLikes ?? 0,
+          totalUsers: platform?.totalUsers ?? 0,
+          totalSongs: platform?.totalSongs ?? 0,
+          totalLikes: platform?.totalLikes ?? 0,
+        },
+        live: {
+          liveListeners: live?.liveListeners ?? 0,
+          earsReached: live?.earsReached ?? 0,
         },
       };
     }
@@ -142,15 +163,7 @@ async function getHomepageData() {
     console.error('Failed to fetch platform stats:', error);
   }
 
-  // Fallback to default data
-  return {
-    stats: {
-      totalUsers: 0,
-      totalSongs: 0,
-      earsReached: 0,
-      totalLikes: 0,
-    },
-  };
+  return empty;
 }
 
 export default async function HomePage() {
@@ -205,24 +218,40 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Stats Section — live platform totals */}
+      {/* Stats — all-time totals (cached) + live radio metrics (poll 30s) */}
       <section className="py-16 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
-            {[
-              { value: formatCount(data.stats.totalUsers), label: 'Members', sub: '(total users)' },
-              { value: formatCount(data.stats.totalSongs), label: 'Songs', sub: '(uploaded)' },
-              { value: formatCount(data.stats.earsReached), label: 'Ears Reached', sub: '(live radio listeners)' },
-              { value: formatCount(data.stats.totalLikes), label: 'Ripples', sub: '(total likes)' },
-            ].map((stat) => (
-              <Card key={stat.label} className="text-center">
-                <CardContent className="pt-6">
-                  <div className="text-4xl font-bold text-primary">{stat.value}</div>
-                  <div className="text-muted-foreground mt-2">{stat.label}</div>
-                  <div className="text-muted-foreground/80 text-sm mt-0.5">{stat.sub}</div>
-                </CardContent>
-              </Card>
-            ))}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+          <div>
+            <p className="text-center text-sm font-medium uppercase tracking-wide text-muted-foreground mb-6">
+              Platform totals
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+              {[
+                { value: formatCount(data.stats.totalUsers), label: 'Members', sub: '(total users)' },
+                { value: formatCount(data.stats.totalSongs), label: 'Songs', sub: '(uploaded)' },
+                { value: formatCount(data.stats.totalLikes), label: 'Ripples', sub: '(total likes)' },
+              ].map((stat) => (
+                <Card key={stat.label} className="text-center">
+                  <CardContent className="pt-6">
+                    <div className="text-4xl font-bold text-primary">{stat.value}</div>
+                    <div className="text-muted-foreground mt-2">{stat.label}</div>
+                    <div className="text-muted-foreground/80 text-sm mt-0.5">{stat.sub}</div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <p className="text-center text-sm font-medium uppercase tracking-wide text-muted-foreground mb-6">
+              Radio now · updates every 30s
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 max-w-3xl mx-auto">
+              <PlatformLiveStats
+                initialLiveListeners={data.live.liveListeners}
+                initialEarsReached={data.live.earsReached}
+              />
+            </div>
           </div>
         </div>
       </section>

@@ -1720,6 +1720,7 @@ export const analyticsApi = {
     api.post('/analytics/profile-click', { songId }),
   // Platform stats (public)
   getPlatformStats: () => api.get('/analytics/platform'),
+  getPlatformLiveStats: () => api.get('/analytics/platform/live'),
 };
 
 export const chatApi = {
