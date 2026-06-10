@@ -15,8 +15,20 @@ import {
   saveQueueOrder,
 } from '@/components/admin/dj-booth/QueuePanel';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { Badge } from '@/components/ui/badge';
 
 type RadioOption = { id: string; state: string; label: string };
+
+function coerceListenerCount(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.max(0, Math.floor(value));
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+  }
+  return 0;
+}
 
 export default function DjBoothPage() {
   const router = useRouter();
@@ -184,6 +196,10 @@ export default function DjBoothPage() {
     null;
   const positionSec = Number(currentTrack?.position_seconds ?? 0);
   const remainingMs = Number(currentTrack?.time_remaining_ms ?? 0);
+  const listenerCount = coerceListenerCount(
+    currentTrack?.listener_count ?? currentTrack?.listenerCount,
+  );
+  const isTrackPlaying = currentTrack?.is_playing !== false;
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-6xl mx-auto">
@@ -194,17 +210,28 @@ export default function DjBoothPage() {
             Control the radio player, queue, mic, and soundboard for any station.
           </p>
         </div>
-        <select
-          className="border rounded-md px-3 py-2 bg-background"
-          value={selectedRadioId}
-          onChange={(e) => setSelectedRadioId(e.target.value)}
-        >
-          {radios.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.label || r.id}
-            </option>
-          ))}
-        </select>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="outline" className="gap-2 px-3 py-1.5 text-sm">
+            <span
+              className={`inline-block h-2 w-2 rounded-full ${
+                listenerCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/40'
+              }`}
+              aria-hidden
+            />
+            Live listeners: {listenerCount.toLocaleString()}
+          </Badge>
+          <select
+            className="border rounded-md px-3 py-2 bg-background"
+            value={selectedRadioId}
+            onChange={(e) => setSelectedRadioId(e.target.value)}
+          >
+            {radios.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.label || r.id}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {error && (
@@ -228,6 +255,10 @@ export default function DjBoothPage() {
               {transportPaused && (
                 <span className="ml-2 text-amber-600 font-medium">PAUSED (global)</span>
               )}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1">
+              {listenerCount.toLocaleString()} listener{listenerCount === 1 ? '' : 's'} on this track
+              {isTrackPlaying ? '' : ' (transport paused)'}
             </p>
           </div>
         </Card>
