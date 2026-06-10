@@ -33,6 +33,8 @@ import { ProNetworxModule } from './pro-networx/pro-networx.module';
 import { ProNetworkSubscriptionModule } from './pro-network-subscription/pro-network-subscription.module';
 import { YieldModule } from './yield/yield.module';
 import { ArtistLiveModule } from './artist-live/artist-live.module';
+import { DjBoothModule } from './dj-booth/dj-booth.module';
+import { StreamingModule } from './streaming/streaming.module';
 import { LoggerModule } from './common/logger';
 import { SentryModule } from './common/sentry';
 import { RequestIdMiddleware } from './common/middleware';
@@ -73,6 +75,8 @@ import { RequestIdMiddleware } from './common/middleware';
     ProNetworkSubscriptionModule,
     YieldModule,
     ArtistLiveModule,
+    StreamingModule,
+    DjBoothModule,
   ],
   controllers: [AppController],
   providers: [AppService],

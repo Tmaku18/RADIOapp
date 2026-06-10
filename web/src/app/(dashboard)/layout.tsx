@@ -158,6 +158,7 @@ const adminSubNavigation = [
   { name: 'Users', href: '/admin/users', icon: '👥' },
   { name: 'Swipe', href: '/admin/swipe', icon: '🃏' },
   { name: 'Queue', href: '/admin/queue', icon: '🧵' },
+  { name: 'DJ Booth', href: '/admin/dj-booth', icon: '🎙️' },
   { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
   { name: 'Feed', href: '/admin/feed', icon: '📱' },
   { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },

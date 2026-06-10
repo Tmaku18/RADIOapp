@@ -9,6 +9,7 @@ import {
 import { getSupabaseClient } from '../config/supabase.config';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { StripeService } from '../payments/stripe.service';
+import { CloudflareStreamService } from '../streaming/cloudflare-stream.service';
 
 type CloudflareCreateInputResult = {
   uid: string;
@@ -28,6 +29,7 @@ export class ArtistLiveService {
   constructor(
     private readonly pushNotifications: PushNotificationService,
     private readonly stripeService: StripeService,
+    private readonly cloudflareStream: CloudflareStreamService,
   ) {}
 
   private ensureLiveEnabled() {
@@ -36,31 +38,20 @@ export class ArtistLiveService {
     }
   }
 
-  /**
-   * Build Cloudflare Stream playback URLs from a live-input (or video) UID.
-   * Cloudflare's customer subdomain code is required; if it's not configured we
-   * return nulls and callers fall back to the iframe/initializing state.
-   * HLS format: https://customer-<CODE>.cloudflarestream.com/<UID>/manifest/video.m3u8
-   */
   private buildPlaybackUrls(uid?: string | null): {
     hlsUrl: string | null;
     dashUrl: string | null;
     watchUrl: string | null;
   } {
-    const code = (
-      process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE ||
-      process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN ||
-      ''
-    ).trim();
-    if (!uid || !code) {
-      return { hlsUrl: null, dashUrl: null, watchUrl: null };
-    }
-    const base = `https://customer-${code}.cloudflarestream.com/${uid}`;
-    return {
-      hlsUrl: `${base}/manifest/video.m3u8`,
-      dashUrl: `${base}/manifest/video.mpd`,
-      watchUrl: `${base}/iframe`,
-    };
+    return this.cloudflareStream.buildPlaybackUrls(uid);
+  }
+
+  private async cloudflareRequest<T>(
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    path: string,
+    body?: Record<string, unknown>,
+  ): Promise<T> {
+    return this.cloudflareStream.request<T>(method, path, body);
   }
 
   private async getDbUser(firebaseUid: string): Promise<{
@@ -78,42 +69,6 @@ export class ArtistLiveService {
       throw new UnauthorizedException('User not found');
     }
     return data;
-  }
-
-  private async cloudflareRequest<T>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
-    path: string,
-    body?: Record<string, unknown>,
-  ): Promise<T> {
-    const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
-    const token =
-      process.env.CLOUDFLARE_STREAM_API_TOKEN ||
-      process.env.CLOUDFLARE_API_TOKEN;
-    if (!accountId || !token) {
-      throw new BadRequestException('Cloudflare Stream env vars are missing');
-    }
-
-    const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}${path}`;
-    const res = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-
-    // DELETE (and some other responses) can return an empty body; tolerate it.
-    const text = await res.text();
-    const json = text ? JSON.parse(text) : null;
-    if (!res.ok || json?.success === false) {
-      const message =
-        json?.errors?.[0]?.message ||
-        `Cloudflare request failed (${res.status})`;
-      throw new BadRequestException(message);
-    }
-
-    return json?.result as T;
   }
 
   /**

@@ -1646,6 +1646,54 @@ export const adminApi = {
     api.patch(`/admin/streamer-applications/${userId}`, { action }),
 };
 
+export const djBoothApi = {
+  getStatus: (stationId: string) => api.get(`/admin/dj-booth/${stationId}`),
+  getQueue: (stationId: string, limit = 25) =>
+    api.get(`/admin/dj-booth/${stationId}/queue`, { params: { limit } }),
+  replaceQueue: (stationId: string, stackIds: string[]) =>
+    api.patch(`/admin/dj-booth/${stationId}/queue`, { stackIds }),
+  addQueueEntries: (
+    stationId: string,
+    body: {
+      items: Array<{ stackId?: string; songId?: string; source?: 'songs' }>;
+      position?: number;
+      allowDuplicates?: boolean;
+    },
+  ) => api.post(`/admin/dj-booth/${stationId}/queue`, body),
+  removeQueueEntry: (
+    stationId: string,
+    params: { position?: number; stackId?: string; songId?: string },
+  ) => api.delete(`/admin/dj-booth/${stationId}/queue`, { params }),
+  skipForward: (stationId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/queue/skip`),
+  skipBack: (stationId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/transport/back`),
+  pauseTransport: (stationId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/transport/pause`),
+  playTransport: (stationId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/transport/play`),
+  createMicSession: (stationId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/mic/session`),
+  deleteMicSession: (stationId: string) =>
+    api.delete(`/admin/dj-booth/${stationId}/mic/session`),
+  micOn: (stationId: string) => api.post(`/admin/dj-booth/${stationId}/mic/on`),
+  micOff: (stationId: string) => api.post(`/admin/dj-booth/${stationId}/mic/off`),
+  setDuckVolume: (stationId: string, duckVolume: number) =>
+    api.patch(`/admin/dj-booth/${stationId}/mic/duck-volume`, { duckVolume }),
+  listSoundboardClips: () => api.get('/admin/dj-booth/soundboard/clips'),
+  createSoundboardUploadUrl: (fileName: string, contentType: string) =>
+    api.post('/admin/dj-booth/soundboard/upload-url', { fileName, contentType }),
+  registerSoundboardClip: (body: {
+    name: string;
+    storagePath: string;
+    durationSeconds?: number;
+  }) => api.post('/admin/dj-booth/soundboard/clips', body),
+  deleteSoundboardClip: (clipId: string) =>
+    api.delete(`/admin/dj-booth/soundboard/clips/${clipId}`),
+  playSoundboardClip: (stationId: string, clipId: string) =>
+    api.post(`/admin/dj-booth/${stationId}/soundboard/${clipId}/play`),
+};
+
 export const notificationsApi = {
   getAll: (params?: { limit?: number }) => api.get('/notifications', { params }),
   getUnreadCount: () => api.get('/notifications/unread-count'),

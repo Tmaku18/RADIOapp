@@ -25,8 +25,34 @@ function redisKeys(radioId: string) {
     CURRENT_PLAY_ID: prefix + 'current_play_id',
     CURRENT_PLAY_ARTIST_ID: prefix + 'current_play_artist_id',
     CURRENT_PLAY_STARTED_AT: prefix + 'current_play_started_at',
+    TRANSPORT: prefix + 'transport',
+    BOOTH: prefix + 'booth',
+    HISTORY: prefix + 'history',
   };
 }
+
+export interface RadioTransportState {
+  paused: boolean;
+  pausedAt: number | null;
+  positionSeconds: number;
+}
+
+export interface RadioBoothState {
+  micActive: boolean;
+  duckVolume: number;
+  hlsUrl: string | null;
+  sessionId: string | null;
+}
+
+export interface RadioHistoryEntry {
+  songId: string;
+  startedAt: number;
+  durationMs: number;
+  positionSeconds: number;
+}
+
+const HISTORY_MAX = 20;
+const DEFAULT_DUCK_VOLUME = 0.25;
 
 // Checkpoint frequency for saving to Supabase
 const CHECKPOINT_INTERVAL = parseInt(
@@ -754,6 +780,105 @@ export class RadioStateService implements OnModuleInit {
       return JSON.parse(data) as RadioState;
     } catch (e) {
       this.logger.error(`Failed to parse Redis state: ${e.message}`);
+      return null;
+    }
+  }
+
+  // === DJ Booth: transport, history, mic overlay ===
+
+  async getTransportState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioTransportState | null> {
+    if (!this.redisAvailable) return null;
+    const redis = getRedisClient();
+    const raw = await redis.get(redisKeys(radioId).TRANSPORT);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as RadioTransportState;
+    } catch {
+      return null;
+    }
+  }
+
+  async setTransportState(
+    state: RadioTransportState,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.setex(
+      redisKeys(radioId).TRANSPORT,
+      86400,
+      JSON.stringify(state),
+    );
+  }
+
+  async clearTransportState(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.del(redisKeys(radioId).TRANSPORT);
+  }
+
+  async getBoothState(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioBoothState | null> {
+    if (!this.redisAvailable) return null;
+    const redis = getRedisClient();
+    const raw = await redis.get(redisKeys(radioId).BOOTH);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as RadioBoothState;
+    } catch {
+      return null;
+    }
+  }
+
+  async setBoothState(
+    state: RadioBoothState,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.setex(redisKeys(radioId).BOOTH, 86400, JSON.stringify(state));
+  }
+
+  async clearBoothState(radioId: string = DEFAULT_RADIO_ID): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    await redis.del(redisKeys(radioId).BOOTH);
+  }
+
+  async getDefaultBoothState(): Promise<RadioBoothState> {
+    return {
+      micActive: false,
+      duckVolume: DEFAULT_DUCK_VOLUME,
+      hlsUrl: null,
+      sessionId: null,
+    };
+  }
+
+  async pushHistory(
+    entry: RadioHistoryEntry,
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<void> {
+    if (!this.redisAvailable) return;
+    const redis = getRedisClient();
+    const key = redisKeys(radioId).HISTORY;
+    await redis.lpush(key, JSON.stringify(entry));
+    await redis.ltrim(key, 0, HISTORY_MAX - 1);
+    await redis.expire(key, 86400 * 7);
+  }
+
+  async popHistory(
+    radioId: string = DEFAULT_RADIO_ID,
+  ): Promise<RadioHistoryEntry | null> {
+    if (!this.redisAvailable) return null;
+    const redis = getRedisClient();
+    const raw = await redis.lpop(redisKeys(radioId).HISTORY);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as RadioHistoryEntry;
+    } catch {
       return null;
     }
   }

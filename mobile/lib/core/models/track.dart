@@ -39,6 +39,12 @@ class Track {
   /// Catalyst deep-link credits pinned during this song's airtime.
   final List<PinnedCatalystCredit> pinnedCatalysts;
 
+  /// Admin DJ booth: global pause for all listeners.
+  final bool transportPaused;
+
+  /// Admin DJ mic overlay (duck music + play HLS).
+  final DjOverlay? djOverlay;
+
   Track({
     required this.id,
     required this.title,
@@ -57,6 +63,8 @@ class Track {
     this.shitVotes = 0,
     this.temperaturePercent = 0,
     this.pinnedCatalysts = const [],
+    this.transportPaused = false,
+    this.djOverlay,
   });
 
   factory Track.fromJson(Map<String, dynamic> json) {
@@ -72,6 +80,14 @@ class Track {
           );
         }
       }
+    }
+
+    DjOverlay? djOverlay;
+    final overlayRaw = json['dj_overlay'] ?? json['djOverlay'];
+    if (overlayRaw is Map) {
+      djOverlay = DjOverlay.fromJson(
+        overlayRaw.map((k, v) => MapEntry(k.toString(), v)),
+      );
     }
 
     return Track(
@@ -144,6 +160,9 @@ class Track {
                 ) ??
                 0,
       pinnedCatalysts: pinned,
+      transportPaused:
+          json['transport_paused'] == true || json['transportPaused'] == true,
+      djOverlay: djOverlay,
     );
   }
 
@@ -165,6 +184,8 @@ class Track {
     int? shitVotes,
     int? temperaturePercent,
     List<PinnedCatalystCredit>? pinnedCatalysts,
+    bool? transportPaused,
+    DjOverlay? djOverlay,
   }) {
     return Track(
       id: id ?? this.id,
@@ -184,6 +205,29 @@ class Track {
       shitVotes: shitVotes ?? this.shitVotes,
       temperaturePercent: temperaturePercent ?? this.temperaturePercent,
       pinnedCatalysts: pinnedCatalysts ?? this.pinnedCatalysts,
+      transportPaused: transportPaused ?? this.transportPaused,
+      djOverlay: djOverlay ?? this.djOverlay,
+    );
+  }
+}
+
+class DjOverlay {
+  final bool active;
+  final String? hlsUrl;
+  final double duckVolume;
+
+  const DjOverlay({
+    required this.active,
+    this.hlsUrl,
+    this.duckVolume = 0.25,
+  });
+
+  factory DjOverlay.fromJson(Map<String, dynamic> json) {
+    final duck = json['duck_volume'] ?? json['duckVolume'];
+    return DjOverlay(
+      active: json['active'] == true,
+      hlsUrl: (json['hls_url'] ?? json['hlsUrl'])?.toString(),
+      duckVolume: duck is num ? duck.toDouble() : 0.25,
     );
   }
 }

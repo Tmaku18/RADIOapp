@@ -952,6 +952,120 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     await this.radioStateService.setCurrentState(state, radioId);
   }
 
+  /** Global pause for all listeners on a station. */
+  async pauseTransportForStation(radioId: string): Promise<number> {
+    const current = await this.getQueueState(radioId);
+    if (!current?.startedAt) {
+      throw new BadRequestException('Nothing is playing on this station');
+    }
+    const positionSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - current.startedAt) / 1000),
+    );
+    await this.radioStateService.setTransportState(
+      { paused: true, pausedAt: Date.now(), positionSeconds },
+      radioId,
+    );
+    return positionSeconds;
+  }
+
+  /** Resume global playback from frozen position. */
+  async resumeTransportForStation(radioId: string): Promise<number> {
+    const transport = await this.radioStateService.getTransportState(radioId);
+    if (!transport?.paused) {
+      return 0;
+    }
+    const current = await this.getQueueState(radioId);
+    if (current) {
+      current.startedAt = Date.now() - transport.positionSeconds * 1000;
+      await this.radioStateService.setCurrentState(current, radioId);
+    }
+    await this.radioStateService.clearTransportState(radioId);
+    return transport.positionSeconds;
+  }
+
+  /** Restore the previous track from booth history. */
+  async skipBackForStation(radioId: string): Promise<any> {
+    const entry = await this.radioStateService.popHistory(radioId);
+    if (!entry) {
+      throw new BadRequestException('No previous track in history');
+    }
+    await this.radioStateService.clearTransportState(radioId);
+    const durationSeconds = Math.max(
+      1,
+      Math.floor(entry.durationMs / 1000),
+    );
+    const now = Date.now();
+    const state: RadioState = {
+      songId: entry.songId,
+      startedAt: now - entry.positionSeconds * 1000,
+      durationMs: durationSeconds * 1000,
+      priorityScore: 0,
+      isFallback: false,
+      isAdminFallback: false,
+      playedAt: new Date(now - entry.positionSeconds * 1000).toISOString(),
+    };
+    await this.radioStateService.setCurrentState(state, radioId);
+    return this.getCurrentTrack(radioId);
+  }
+
+  private async enrichTrackPayload(
+    payload: Record<string, unknown>,
+    radioId: string,
+    startedAt: number,
+    durationMs: number,
+    now: number,
+  ): Promise<Record<string, unknown>> {
+    const transport = await this.radioStateService.getTransportState(radioId);
+    const booth = await this.radioStateService.getBoothState(radioId);
+
+    if (transport?.paused) {
+      payload.transport_paused = true;
+      payload.position_seconds = transport.positionSeconds;
+      payload.time_remaining_ms = Math.max(
+        0,
+        durationMs - transport.positionSeconds * 1000,
+      );
+      payload.is_playing = false;
+    } else {
+      payload.transport_paused = false;
+      payload.position_seconds = Math.floor((now - startedAt) / 1000);
+    }
+
+    if (booth?.hlsUrl) {
+      payload.dj_overlay = {
+        active: !!booth.micActive,
+        hls_url: booth.hlsUrl,
+        duck_volume: booth.duckVolume ?? 0.25,
+      };
+    } else {
+      payload.dj_overlay = null;
+    }
+
+    return payload;
+  }
+
+  private async pushTrackHistory(
+    radioId: string,
+    currentState: RadioState,
+    now: number,
+  ): Promise<void> {
+    if (!currentState?.songId || !currentState.startedAt) return;
+    const positionSeconds = Math.max(
+      0,
+      Math.floor((now - currentState.startedAt) / 1000),
+    );
+    await this.radioStateService.pushHistory(
+      {
+        songId: currentState.songId.replace(/^admin:|^song:/, ''),
+        startedAt: currentState.startedAt,
+        durationMs: currentState.durationMs,
+        positionSeconds,
+      },
+      radioId,
+    );
+  }
+
   /** Check if an admin live broadcast is currently active. */
   private async isLiveBroadcastActive(): Promise<boolean> {
     const cached = this.liveBroadcastCache;
@@ -1248,6 +1362,80 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const durationMs =
       queueState.durationMs ||
       (song.duration_seconds || DEFAULT_DURATION_SECONDS) * 1000;
+
+    const transport = await this.radioStateService.getTransportState(radioId);
+
+    if (transport?.paused) {
+      const timeRemainingMs = Math.max(
+        0,
+        durationMs - transport.positionSeconds * 1000,
+      );
+      const [pinnedCatalysts, artistLiveNow, audioUrl, listenerCount, temperature] =
+        await Promise.all([
+          this.withTimeoutFallback(
+            this.getPinnedCatalystsForSong(actualSongId),
+            [],
+            2000,
+            `getPinnedCatalystsForSong(${actualSongId})`,
+          ),
+          this.withTimeoutFallback(
+            this.getArtistLiveNow(song.artist_id ?? null),
+            null,
+            2000,
+            `getArtistLiveNow(${song.artist_id ?? 'unknown'})`,
+          ),
+          this.withTimeoutFallback(
+            this.ensurePlayableAudioUrl(song.audio_url ?? null),
+            song.audio_url ?? null,
+            3000,
+            `ensurePlayableAudioUrl(${actualSongId})`,
+          ),
+          this.withTimeoutFallback(
+            this.getActiveListenerCountForSong(song.id),
+            0,
+            1500,
+            `getActiveListenerCountForSong(${song.id})`,
+          ),
+          this.withTimeoutFallback(
+            this.getSongTemperature({
+              playId: null,
+              songId: song.id,
+              startedAtIso: queueState.playedAt ?? null,
+            }),
+            { fireVotes: 0, shitVotes: 0, totalVotes: 0, temperaturePercent: RadioService.TEMP_BASELINE },
+            2000,
+            `getSongTemperature(${song.id})`,
+          ),
+        ]);
+
+      const payload = await this.enrichTrackPayload(
+        {
+          ...song,
+          audio_url: audioUrl,
+          is_playing: false,
+          started_at: queueState.playedAt,
+          server_time: new Date(now).toISOString(),
+          time_remaining_ms: timeRemainingMs,
+          is_live: isLive,
+          trial_by_fire_active: trial.active,
+          pinned_catalysts: pinnedCatalysts,
+          play_id: null,
+          artist_live_now: artistLiveNow,
+          listener_count: listenerCount,
+          fire_votes: temperature.fireVotes,
+          shit_votes: temperature.shitVotes,
+          total_votes: temperature.totalVotes,
+          temperature_percent: temperature.temperaturePercent,
+        },
+        radioId,
+        startedAt,
+        durationMs,
+        now,
+      );
+      this.cacheTrackSnapshot(radioId, payload);
+      return payload;
+    }
+
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
@@ -1336,25 +1524,31 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       return this.getNextTrack(radioId, true);
     }
 
-    const payload = {
-      ...song,
-      audio_url: audioUrl,
-      is_playing: true,
-      started_at: queueState.playedAt,
-      server_time: new Date(now).toISOString(),
-      time_remaining_ms: timeRemainingMs,
-      position_seconds: Math.floor((now - startedAt) / 1000),
-      is_live: isLive,
-      trial_by_fire_active: trial.active,
-      pinned_catalysts: pinnedCatalysts,
-      play_id: playId,
-      artist_live_now: artistLiveNow,
-      listener_count: listenerCount,
-      fire_votes: temperature.fireVotes,
-      shit_votes: temperature.shitVotes,
-      total_votes: temperature.totalVotes,
-      temperature_percent: temperature.temperaturePercent,
-    };
+    const payload = await this.enrichTrackPayload(
+      {
+        ...song,
+        audio_url: audioUrl,
+        is_playing: true,
+        started_at: queueState.playedAt,
+        server_time: new Date(now).toISOString(),
+        time_remaining_ms: timeRemainingMs,
+        position_seconds: Math.floor((now - startedAt) / 1000),
+        is_live: isLive,
+        trial_by_fire_active: trial.active,
+        pinned_catalysts: pinnedCatalysts,
+        play_id: playId,
+        artist_live_now: artistLiveNow,
+        listener_count: listenerCount,
+        fire_votes: temperature.fireVotes,
+        shit_votes: temperature.shitVotes,
+        total_votes: temperature.totalVotes,
+        temperature_percent: temperature.temperaturePercent,
+      },
+      radioId,
+      startedAt,
+      durationMs,
+      now,
+    );
     this.cacheTrackSnapshot(radioId, payload);
     return payload;
   }
@@ -2068,6 +2262,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       this.getQueueState(radioId),
     ]);
 
+    if (!forceAdvance) {
+      const transport = await this.radioStateService.getTransportState(radioId);
+      if (transport?.paused) {
+        return this.getCurrentTrack(radioId);
+      }
+    }
+
     // Check if song currently playing
     if (!forceAdvance && currentState?.songId && currentState?.startedAt) {
       const actualSongId = currentState.songId.replace(/^admin:|^song:/, '');
@@ -2130,26 +2331,32 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
                 `getSongTemperature(${currentSong.id})`,
               ),
             ]);
-          const payload = {
-            ...currentSong,
-            audio_url: audioUrl,
-            is_playing: true,
-            started_at: currentState.playedAt,
-            server_time: new Date(now).toISOString(),
-            time_remaining_ms: timeRemainingMs,
-            position_seconds: Math.floor((now - startedAt) / 1000),
-            is_fallback: currentState.isFallback,
-            is_admin_fallback: false,
-            is_live: isLive,
-            trial_by_fire_active: trial.active,
-            pinned_catalysts: pinnedCatalysts,
-            artist_live_now: artistLiveNow,
-            listener_count: listenerCount,
-            fire_votes: temperature.fireVotes,
-            shit_votes: temperature.shitVotes,
-            total_votes: temperature.totalVotes,
-            temperature_percent: temperature.temperaturePercent,
-          };
+          const payload = await this.enrichTrackPayload(
+            {
+              ...currentSong,
+              audio_url: audioUrl,
+              is_playing: true,
+              started_at: currentState.playedAt,
+              server_time: new Date(now).toISOString(),
+              time_remaining_ms: timeRemainingMs,
+              position_seconds: Math.floor((now - startedAt) / 1000),
+              is_fallback: currentState.isFallback,
+              is_admin_fallback: false,
+              is_live: isLive,
+              trial_by_fire_active: trial.active,
+              pinned_catalysts: pinnedCatalysts,
+              artist_live_now: artistLiveNow,
+              listener_count: listenerCount,
+              fire_votes: temperature.fireVotes,
+              shit_votes: temperature.shitVotes,
+              total_votes: temperature.totalVotes,
+              temperature_percent: temperature.temperaturePercent,
+            },
+            radioId,
+            startedAt,
+            durationMs,
+            now,
+          );
           this.cacheTrackSnapshot(radioId, payload);
           return payload;
         }
@@ -2158,6 +2365,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     const currentSongId = currentState?.songId;
     this.nextSongNotifiedFor.delete(radioId);
+
+    if (currentState?.songId && currentState.startedAt) {
+      await this.pushTrackHistory(radioId, currentState, now);
+    }
 
     // Finalize previous play: update per-play metrics and send "Your song has been played" notification
     await this.finalizePreviousPlay(radioId);

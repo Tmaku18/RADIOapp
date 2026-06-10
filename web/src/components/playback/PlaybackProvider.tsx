@@ -12,6 +12,19 @@ import {
 import Hls from 'hls.js';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
+import {
+  isCrossfadeSupportedUrl,
+  isIosSafari,
+  RADIO_CROSSFADE_MS,
+  runAudioCrossfade,
+} from '@/lib/radio-crossfade';
+import {
+  applyDuckToMain,
+  attachOverlayHls,
+  playSoundboardClipOnOverlay,
+  type DjBoothEvent,
+  type DjOverlayState,
+} from '@/lib/dj-booth-listener';
 
 type PlaybackActions = {
   /** Load and optionally play a track. Stops any current playback (single session rule). */
@@ -34,6 +47,12 @@ type PlaybackActions = {
   needsJumpToLive: () => boolean;
   /** Stop and clear current track */
   stop: () => void;
+  /** Apply global DJ booth transport + mic overlay from server */
+  applyServerBoothState: (opts: {
+    transportPaused?: boolean;
+    djOverlay?: DjOverlayState | null;
+  }) => void;
+  handleDjBoothEvent: (event: DjBoothEvent) => void;
 };
 
 type PlaybackContextValue = {
@@ -61,26 +80,208 @@ interface PlaybackProviderProps {
   children: ReactNode;
 }
 
+type AudioSlot = 'a' | 'b';
+
+function applyVolumeToAudio(audio: HTMLAudioElement, vol: number) {
+  const v = Math.max(0, Math.min(1, vol));
+  if (isIosSafari()) {
+    audio.volume = 1;
+    audio.muted = v <= 0.001;
+  } else {
+    audio.volume = v;
+    audio.muted = v <= 0.001;
+  }
+}
+
 export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC = 8;
   const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 12;
   const LIVE_SYNC_SEEK_COOLDOWN_MS = 30000;
   const [state, setState] = useState<PlaybackState>(initialPlaybackState);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const hlsRef = useRef<Hls | null>(null);
+  const audioPairRef = useRef<{ a: HTMLAudioElement; b: HTMLAudioElement } | null>(null);
+  const activeSlotRef = useRef<AudioSlot>('a');
+  const hlsBySlotRef = useRef<{ a: Hls | null; b: Hls | null }>({ a: null, b: null });
   const onRadioTrackEndedRef = useRef<(() => void) | null>(null);
   const sourceRef = useRef<PlaybackSource>(null);
   const loadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  /** One recovery attempt for same track before advancing on media error (avoid skip cascade). */
   const hasRetriedAfterErrorRef = useRef(false);
   const lastSyncSeekAtRef = useRef(0);
   const autoPlayPendingRef = useRef(false);
   const isLoadingTrackRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
+  const trackIdRef = useRef<string | null>(null);
+  const volumeRef = useRef(1);
+  const crossfadeCancelRef = useRef<(() => void) | null>(null);
+  const isCrossfadingRef = useRef(false);
+  const crossfadeIncomingSlotRef = useRef<AudioSlot | null>(null);
+  const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
+  const overlayHlsRef = useRef<Hls | null>(null);
+  const djOverlayRef = useRef<DjOverlayState | null>(null);
+  const globalTransportPausedRef = useRef(false);
+
+  const getActiveAudio = useCallback(() => {
+    const pair = audioPairRef.current;
+    if (!pair) return null;
+    return pair[activeSlotRef.current];
+  }, []);
+
+  const getInactiveAudio = useCallback(() => {
+    const pair = audioPairRef.current;
+    if (!pair) return null;
+    return activeSlotRef.current === 'a' ? pair.b : pair.a;
+  }, []);
+
+  const getOverlayController = useCallback(() => {
+    const overlay = overlayAudioRef.current;
+    if (!overlay) return null;
+    return {
+      overlayAudio: overlay,
+      hlsRef: overlayHlsRef,
+      userVolume: volumeRef.current,
+      duckVolume: djOverlayRef.current?.duckVolume ?? 0.25,
+      micActive: !!djOverlayRef.current?.active,
+    };
+  }, []);
+
+  const refreshMainVolume = useCallback(() => {
+    const main = getActiveAudio();
+    const ctrl = getOverlayController();
+    if (main && ctrl) applyDuckToMain(main, volumeRef.current, ctrl);
+    else if (main) applyVolumeToAudio(main, volumeRef.current);
+  }, [getActiveAudio, getOverlayController]);
+
+  const applyServerBoothState = useCallback(
+    (opts: { transportPaused?: boolean; djOverlay?: DjOverlayState | null }) => {
+      if (typeof opts.transportPaused === 'boolean') {
+        globalTransportPausedRef.current = opts.transportPaused;
+        const pair = audioPairRef.current;
+        if (opts.transportPaused) {
+          pair?.a.pause();
+          pair?.b.pause();
+          setState((s) => ({ ...s, isPlaying: false }));
+        } else if (sourceRef.current === 'radio') {
+          const main = getActiveAudio();
+          if (main && main.paused) {
+            main.play().catch(() => undefined);
+            setState((s) => ({ ...s, isPlaying: true }));
+          }
+        }
+      }
+      if (opts.djOverlay !== undefined) {
+        djOverlayRef.current = opts.djOverlay;
+        const ctrl = getOverlayController();
+        if (ctrl && opts.djOverlay?.active && opts.djOverlay.hlsUrl) {
+          attachOverlayHls(ctrl, opts.djOverlay.hlsUrl, true);
+        } else if (ctrl && !opts.djOverlay?.active) {
+          attachOverlayHls(ctrl, null, false);
+        }
+        refreshMainVolume();
+      }
+    },
+    [getActiveAudio, getOverlayController, refreshMainVolume],
+  );
+
+  const handleDjBoothEvent = useCallback(
+    (event: DjBoothEvent) => {
+      if (event.type === 'transport_pause') {
+        applyServerBoothState({ transportPaused: true });
+      } else if (event.type === 'transport_play') {
+        applyServerBoothState({ transportPaused: false });
+      } else if (event.type === 'mic_on') {
+        applyServerBoothState({
+          djOverlay: {
+            active: true,
+            hlsUrl: event.hlsUrl,
+            duckVolume: event.duckVolume,
+          },
+        });
+      } else if (event.type === 'mic_off') {
+        applyServerBoothState({
+          djOverlay: {
+            active: false,
+            hlsUrl: djOverlayRef.current?.hlsUrl ?? null,
+            duckVolume: djOverlayRef.current?.duckVolume ?? 0.25,
+          },
+        });
+      } else if (event.type === 'duck_volume') {
+        if (djOverlayRef.current) {
+          djOverlayRef.current.duckVolume = event.duckVolume;
+          refreshMainVolume();
+        }
+      } else if (event.type === 'soundboard_play') {
+        const ctrl = getOverlayController();
+        const main = getActiveAudio();
+        if (ctrl) {
+          void playSoundboardClipOnOverlay(
+            ctrl,
+            event.clipUrl,
+            event.durationSeconds,
+            main,
+            volumeRef.current,
+          );
+        }
+      }
+    },
+    [applyServerBoothState, getActiveAudio, getOverlayController, refreshMainVolume],
+  );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const overlay = new Audio();
+    overlayAudioRef.current = overlay;
+    return () => {
+      overlay.pause();
+      if (overlayHlsRef.current) {
+        overlayHlsRef.current.destroy();
+        overlayHlsRef.current = null;
+      }
+      overlayAudioRef.current = null;
+    };
+  }, []);
+
+  const getInactiveSlot = useCallback((): AudioSlot => {
+    return activeSlotRef.current === 'a' ? 'b' : 'a';
+  }, []);
+
+  const destroyHlsForSlot = useCallback((slot: AudioSlot) => {
+    const hls = hlsBySlotRef.current[slot];
+    if (hls) {
+      hls.destroy();
+      hlsBySlotRef.current[slot] = null;
+    }
+  }, []);
+
+  const clearAudioSlot = useCallback(
+    (slot: AudioSlot) => {
+      const pair = audioPairRef.current;
+      if (!pair) return;
+      const audio = pair[slot];
+      audio.pause();
+      destroyHlsForSlot(slot);
+      audio.removeAttribute('src');
+      audio.load();
+    },
+    [destroyHlsForSlot],
+  );
+
+  const cancelCrossfade = useCallback(() => {
+    crossfadeCancelRef.current?.();
+    crossfadeCancelRef.current = null;
+    isCrossfadingRef.current = false;
+    crossfadeIncomingSlotRef.current = null;
+  }, []);
 
   useEffect(() => {
     sourceRef.current = state.source;
   }, [state.source]);
+
+  useEffect(() => {
+    volumeRef.current = state.volume;
+  }, [state.volume]);
+
+  useEffect(() => {
+    trackIdRef.current = state.track?.id ?? null;
+  }, [state.track?.id]);
 
   // Pause radio when discover clips, sample previews, or other page audio starts.
   useEffect(() => {
@@ -89,13 +290,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const onExternalMediaPlay = (event: Event) => {
       const target = event.target;
       if (!(target instanceof HTMLMediaElement)) return;
-      if (target === audioRef.current) return;
+      const pair = audioPairRef.current;
+      if (pair && (target === pair.a || target === pair.b)) return;
       if (sourceRef.current !== 'radio') return;
 
-      const main = audioRef.current;
+      const main = getActiveAudio();
       if (!main || main.paused) return;
 
-      main.pause();
+      cancelCrossfade();
+      pair?.a.pause();
+      pair?.b.pause();
       setState((s) => ({
         ...s,
         isPlaying: false,
@@ -106,215 +310,394 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
     document.addEventListener('play', onExternalMediaPlay, true);
     return () => document.removeEventListener('play', onExternalMediaPlay, true);
-  }, []);
+  }, [cancelCrossfade, getActiveAudio]);
 
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;
   }, []);
 
-  // Single audio element and event wiring
+  const attachSourceToSlot = useCallback(
+    (
+      slot: AudioSlot,
+      url: string,
+      seekSeconds: number | null,
+      autoPlay: boolean,
+      source: PlaybackSource,
+    ) => {
+      const pair = audioPairRef.current;
+      if (!pair) return;
+      const audio = pair[slot];
+
+      destroyHlsForSlot(slot);
+      audio.removeAttribute('src');
+      audio.load();
+      applyVolumeToAudio(audio, slot === activeSlotRef.current ? volumeRef.current : 0);
+
+      const onReady = () => {
+        if (seekSeconds !== null && seekSeconds > 0) {
+          audio.currentTime = seekSeconds;
+        }
+        if (autoPlay) {
+          audio.play().catch(() => {});
+        }
+      };
+
+      if (url.includes('.m3u8')) {
+        if (Hls.isSupported()) {
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          hls.loadSource(url);
+          hls.attachMedia(audio);
+          hls.on(Hls.Events.MANIFEST_PARSED, onReady);
+          hls.on(Hls.Events.ERROR, (_, data) => {
+            if (data.fatal) {
+              setState((s) => ({ ...s, error: 'Stream error', isLoading: false }));
+              if (source === 'radio' && onRadioTrackEndedRef.current) {
+                onRadioTrackEndedRef.current();
+              }
+            }
+          });
+          hlsBySlotRef.current[slot] = hls;
+        } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+          audio.src = url;
+          audio.addEventListener('canplay', onReady, { once: true });
+        } else {
+          setState((s) => ({ ...s, error: 'HLS not supported', isLoading: false }));
+        }
+      } else {
+        audio.src = url;
+        if (autoPlay) {
+          audio.addEventListener(
+            'canplay',
+            () => {
+              if (seekSeconds !== null && seekSeconds > 0) {
+                audio.currentTime = seekSeconds;
+              }
+              audio.play().catch(() => {});
+            },
+            { once: true },
+          );
+        } else if (seekSeconds !== null && seekSeconds > 0) {
+          audio.addEventListener(
+            'canplay',
+            () => {
+              audio.currentTime = seekSeconds;
+            },
+            { once: true },
+          );
+        }
+      }
+    },
+    [destroyHlsForSlot],
+  );
+
+  // Dual audio elements and event wiring
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const audio = new Audio();
-    const isIosDevice =
-      /iPad|iPhone|iPod/.test(window.navigator.userAgent) ||
-      (window.navigator.platform === 'MacIntel' &&
-        window.navigator.maxTouchPoints > 1);
-    // iOS Safari ignores programmatic volume changes for media playback.
-    // Keep volume at 1 and use mute/unmute for zero-volume UX.
-    audio.volume = isIosDevice ? 1 : state.volume;
-    audio.muted = state.volume <= 0.001;
-    audioRef.current = audio;
 
-    const onTimeUpdate = () => {
-      setState((s) => ({ ...s, currentTime: audio.currentTime || 0 }));
-    };
-    const onDurationChange = () => {
-      setState((s) => ({ ...s, duration: audio.duration || 0 }));
-    };
-    const onPlay = () => setState((s) => ({ ...s, isPlaying: true }));
-    const onPause = () => {
-      if (isLoadingTrackRef.current) return;
-      setState((s) => ({ ...s, isPlaying: false }));
-    };
-    const clearLoadTimeout = () => {
-      if (loadTimeoutRef.current) {
-        clearTimeout(loadTimeoutRef.current);
-        loadTimeoutRef.current = null;
-      }
-    };
-    const onLoadStart = () => {
-      clearLoadTimeout();
-      setState((s) => ({ ...s, isLoading: true }));
-      // Some browsers/network failures never emit canplay or error reliably.
-      // If a radio source is still loading after 12s, fail fast and advance.
-      loadTimeoutRef.current = setTimeout(() => {
+    const wireAudio = (audio: HTMLAudioElement, slot: AudioSlot) => {
+      applyVolumeToAudio(audio, slot === activeSlotRef.current ? volumeRef.current : 0);
+
+      const onTimeUpdate = () => {
+        if (activeSlotRef.current !== slot) return;
+        setState((s) => ({ ...s, currentTime: audio.currentTime || 0 }));
+      };
+      const onDurationChange = () => {
+        if (activeSlotRef.current !== slot) return;
+        setState((s) => ({ ...s, duration: audio.duration || 0 }));
+      };
+      const onPlay = () => {
+        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        setState((s) => ({ ...s, isPlaying: true }));
+      };
+      const onPause = () => {
+        if (activeSlotRef.current !== slot || isLoadingTrackRef.current || isCrossfadingRef.current) {
+          return;
+        }
+        setState((s) => ({ ...s, isPlaying: false }));
+      };
+      const clearLoadTimeout = () => {
+        if (loadTimeoutRef.current) {
+          clearTimeout(loadTimeoutRef.current);
+          loadTimeoutRef.current = null;
+        }
+      };
+      const onLoadStart = () => {
+        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        clearLoadTimeout();
+        setState((s) => ({ ...s, isLoading: true }));
+        loadTimeoutRef.current = setTimeout(() => {
+          setState((s) => ({
+            ...s,
+            isLoading: false,
+            error:
+              s.error ?? 'Audio is taking too long to load. Skipping to next track…',
+          }));
+          if (sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
+            onRadioTrackEndedRef.current();
+          }
+        }, 12000);
+      };
+      const onCanPlay = () => {
+        if (activeSlotRef.current !== slot && crossfadeIncomingSlotRef.current !== slot) return;
+        clearLoadTimeout();
+        isLoadingTrackRef.current = false;
+        const seekTo = pendingSeekRef.current;
+        if (seekTo !== null && seekTo > 0 && activeSlotRef.current === slot) {
+          pendingSeekRef.current = null;
+          audio.currentTime = seekTo;
+        }
+        setState((s) => ({ ...s, isLoading: false }));
+        if (autoPlayPendingRef.current && activeSlotRef.current === slot) {
+          autoPlayPendingRef.current = false;
+          audio.play().catch(() => {});
+        }
+      };
+      const onError = () => {
+        if (activeSlotRef.current !== slot && crossfadeIncomingSlotRef.current !== slot) return;
+        clearLoadTimeout();
+        isLoadingTrackRef.current = false;
+        autoPlayPendingRef.current = false;
+        const mediaError = audio.error;
+        const isUnsupported =
+          mediaError?.code === 4 || mediaError?.message?.includes('supported source');
         setState((s) => ({
           ...s,
+          error: isUnsupported ? 'Audio source not available.' : 'Failed to load audio',
           isLoading: false,
-          error:
-            s.error ?? 'Audio is taking too long to load. Skipping to next track…',
         }));
-        if (sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
+        if (isUnsupported && sourceRef.current === 'radio') {
+          if (!hasRetriedAfterErrorRef.current) {
+            hasRetriedAfterErrorRef.current = true;
+            audio.load();
+            audio.play().catch(() => {
+              onRadioTrackEndedRef.current?.();
+            });
+          } else {
+            onRadioTrackEndedRef.current?.();
+          }
+        }
+      };
+      const onEnded = () => {
+        if (isCrossfadingRef.current) return;
+        if (sourceRef.current === 'radio' && activeSlotRef.current === slot && onRadioTrackEndedRef.current) {
           onRadioTrackEndedRef.current();
         }
-      }, 12000);
-    };
-    const onCanPlay = () => {
-      clearLoadTimeout();
-      isLoadingTrackRef.current = false;
-      const seekTo = pendingSeekRef.current;
-      if (seekTo !== null && seekTo > 0) {
-        pendingSeekRef.current = null;
-        audio.currentTime = seekTo;
-      }
-      setState((s) => ({ ...s, isLoading: false }));
-      if (autoPlayPendingRef.current) {
-        autoPlayPendingRef.current = false;
-        audio.play().catch(() => {});
-      }
-    };
-    const onError = () => {
-      clearLoadTimeout();
-      isLoadingTrackRef.current = false;
-      autoPlayPendingRef.current = false;
-      const mediaError = audio.error;
-      const isUnsupported =
-        mediaError?.code === 4 || mediaError?.message?.includes('supported source');
-      setState((s) => ({
-        ...s,
-        error: isUnsupported ? 'Audio source not available.' : 'Failed to load audio',
-        isLoading: false,
-      }));
-      if (isUnsupported && sourceRef.current === 'radio') {
-        if (!hasRetriedAfterErrorRef.current) {
-          hasRetriedAfterErrorRef.current = true;
-          audio.load();
-          audio.play().catch(() => {
-            onRadioTrackEndedRef.current?.();
-          });
-        } else {
-          onRadioTrackEndedRef.current?.();
-        }
-      }
-    };
-    const onEnded = () => {
-      if (sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
-        onRadioTrackEndedRef.current();
-      }
+      };
+
+      audio.addEventListener('timeupdate', onTimeUpdate);
+      audio.addEventListener('durationchange', onDurationChange);
+      audio.addEventListener('play', onPlay);
+      audio.addEventListener('pause', onPause);
+      audio.addEventListener('loadstart', onLoadStart);
+      audio.addEventListener('canplay', onCanPlay);
+      audio.addEventListener('error', onError);
+      audio.addEventListener('ended', onEnded);
+
+      return () => {
+        clearLoadTimeout();
+        audio.removeEventListener('timeupdate', onTimeUpdate);
+        audio.removeEventListener('durationchange', onDurationChange);
+        audio.removeEventListener('play', onPlay);
+        audio.removeEventListener('pause', onPause);
+        audio.removeEventListener('loadstart', onLoadStart);
+        audio.removeEventListener('canplay', onCanPlay);
+        audio.removeEventListener('error', onError);
+        audio.removeEventListener('ended', onEnded);
+      };
     };
 
-    audio.addEventListener('timeupdate', onTimeUpdate);
-    audio.addEventListener('durationchange', onDurationChange);
-    audio.addEventListener('play', onPlay);
-    audio.addEventListener('pause', onPause);
-    audio.addEventListener('loadstart', onLoadStart);
-    audio.addEventListener('canplay', onCanPlay);
-    audio.addEventListener('error', onError);
-    audio.addEventListener('ended', onEnded);
+    const audioA = new Audio();
+    const audioB = new Audio();
+    audioPairRef.current = { a: audioA, b: audioB };
+    const cleanupA = wireAudio(audioA, 'a');
+    const cleanupB = wireAudio(audioB, 'b');
 
     return () => {
-      clearLoadTimeout();
-      audio.removeEventListener('timeupdate', onTimeUpdate);
-      audio.removeEventListener('durationchange', onDurationChange);
-      audio.removeEventListener('play', onPlay);
-      audio.removeEventListener('pause', onPause);
-      audio.removeEventListener('loadstart', onLoadStart);
-      audio.removeEventListener('canplay', onCanPlay);
-      audio.removeEventListener('error', onError);
-      audio.removeEventListener('ended', onEnded);
-      audio.pause();
-      audio.src = '';
-      audioRef.current = null;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
+      cancelCrossfade();
+      cleanupA?.();
+      cleanupB?.();
+      audioA.pause();
+      audioB.pause();
+      audioPairRef.current = null;
+      destroyHlsForSlot('a');
+      destroyHlsForSlot('b');
     };
-  }, []);
+  }, [cancelCrossfade, destroyHlsForSlot]);
 
-  const loadTrack = useCallback((track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => {
-    const audio = audioRef.current;
-    if (!audio) return;
+  const loadTrackImmediate = useCallback(
+    (
+      track: PlaybackTrack,
+      source: PlaybackSource,
+      autoPlay: boolean,
+      seekSeconds: number | null,
+    ) => {
+      const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
+      if (!url) return;
 
-    if (loadTimeoutRef.current) {
-      clearTimeout(loadTimeoutRef.current);
-      loadTimeoutRef.current = null;
-    }
+      cancelCrossfade();
+      const activeSlot = activeSlotRef.current;
+      clearAudioSlot(getInactiveSlot());
 
-    hasRetriedAfterErrorRef.current = false;
-    autoPlayPendingRef.current = !!autoPlay;
-    isLoadingTrackRef.current = true;
-    pendingSeekRef.current = null;
+      hasRetriedAfterErrorRef.current = false;
+      autoPlayPendingRef.current = autoPlay;
+      isLoadingTrackRef.current = true;
+      pendingSeekRef.current = seekSeconds;
 
-    const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
-    if (!url) {
-      isLoadingTrackRef.current = false;
-      autoPlayPendingRef.current = false;
       setState((s) => ({
         ...s,
         source,
         track,
-        isLoading: false,
-        error: 'No audio source available.',
+        currentTime: seekSeconds ?? 0,
+        duration: track.durationSeconds || 0,
+        isLoading: true,
+        error: null,
+        serverPosition: seekSeconds ?? 0,
+        pausedAt: null,
+        isLive: true,
       }));
-      return;
-    }
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-    audio.removeAttribute('src');
-    audio.load();
+      attachSourceToSlot(activeSlot, url, seekSeconds, autoPlay, source);
+    },
+    [attachSourceToSlot, cancelCrossfade, clearAudioSlot, getInactiveSlot],
+  );
 
-    setState((s) => ({
-      ...s,
-      source,
-      track,
-      currentTime: 0,
-      duration: track.durationSeconds || 0,
-      isLoading: true,
-      error: null,
-      serverPosition: 0,
-      pausedAt: null,
-      isLive: true,
-    }));
+  const startRadioCrossfade = useCallback(
+    (
+      track: PlaybackTrack,
+      source: PlaybackSource,
+      seekSeconds: number | null,
+    ) => {
+      const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
+      const outgoing = getActiveAudio();
+      const incomingSlot = getInactiveSlot();
+      const pair = audioPairRef.current;
+      if (!url || !outgoing || !pair) return;
 
-    if (url.includes('.m3u8')) {
-      if (Hls.isSupported()) {
-        const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-        hls.loadSource(url);
-        hls.attachMedia(audio);
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          isLoadingTrackRef.current = false;
-          setState((s) => ({ ...s, isLoading: false }));
-          if (autoPlayPendingRef.current) {
-            autoPlayPendingRef.current = false;
-            audio.play().catch(() => {});
-          }
+      cancelCrossfade();
+      isCrossfadingRef.current = true;
+      crossfadeIncomingSlotRef.current = incomingSlot;
+      isLoadingTrackRef.current = true;
+
+      setState((s) => ({
+        ...s,
+        source,
+        track,
+        duration: track.durationSeconds || 0,
+        isLoading: true,
+        error: null,
+        serverPosition: seekSeconds ?? s.serverPosition,
+        isLive: true,
+      }));
+
+      const incoming = pair[incomingSlot];
+      let started = false;
+
+      const beginCrossfade = () => {
+        if (started) return;
+        started = true;
+        if (seekSeconds !== null && seekSeconds > 0) {
+          incoming.currentTime = seekSeconds;
+        }
+        incoming.play().catch(() => {});
+        isLoadingTrackRef.current = false;
+        setState((s) => ({ ...s, isLoading: false, isPlaying: true }));
+
+        crossfadeCancelRef.current = runAudioCrossfade(outgoing, incoming, {
+          targetVolume: volumeRef.current,
+          durationMs: RADIO_CROSSFADE_MS,
+          onComplete: () => {
+            crossfadeCancelRef.current = null;
+            isCrossfadingRef.current = false;
+            crossfadeIncomingSlotRef.current = null;
+
+            const outgoingSlot = activeSlotRef.current;
+            clearAudioSlot(outgoingSlot);
+            activeSlotRef.current = incomingSlot;
+            applyVolumeToAudio(incoming, volumeRef.current);
+
+            setState((s) => ({
+              ...s,
+              currentTime: incoming.currentTime || 0,
+              duration: incoming.duration || track.durationSeconds || 0,
+              isPlaying: !incoming.paused,
+            }));
+          },
         });
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            setState((s) => ({ ...s, error: 'Stream error', isLoading: false }));
-            if (source === 'radio' && onRadioTrackEndedRef.current) {
-              onRadioTrackEndedRef.current();
-            }
-          }
-        });
-        hlsRef.current = hls;
-      } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-        audio.src = url;
-      } else {
-        setState((s) => ({ ...s, error: 'HLS not supported', isLoading: false }));
+      };
+
+      destroyHlsForSlot(incomingSlot);
+      incoming.removeAttribute('src');
+      incoming.load();
+      applyVolumeToAudio(incoming, 0);
+
+      if (url.includes('.m3u8')) {
+        isCrossfadingRef.current = false;
+        loadTrackImmediate(track, source, true, seekSeconds);
+        return;
       }
-    } else {
-      audio.src = url;
-    }
-  }, []);
+
+      incoming.src = url;
+      incoming.addEventListener('canplay', beginCrossfade, { once: true });
+    },
+    [
+      cancelCrossfade,
+      clearAudioSlot,
+      destroyHlsForSlot,
+      getActiveAudio,
+      getInactiveSlot,
+      loadTrackImmediate,
+    ],
+  );
+
+  const loadTrack = useCallback(
+    (track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => {
+      const pair = audioPairRef.current;
+      const outgoing = getActiveAudio();
+      if (!pair || !outgoing) return;
+
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+        loadTimeoutRef.current = null;
+      }
+
+      const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
+      if (!url) {
+        isLoadingTrackRef.current = false;
+        autoPlayPendingRef.current = false;
+        setState((s) => ({
+          ...s,
+          source,
+          track,
+          isLoading: false,
+          error: 'No audio source available.',
+        }));
+        return;
+      }
+
+      const previousTrackId = trackIdRef.current;
+      const shouldCrossfade =
+        source === 'radio' &&
+        sourceRef.current === 'radio' &&
+        !!previousTrackId &&
+        previousTrackId !== track.id &&
+        isCrossfadeSupportedUrl(url) &&
+        isCrossfadeSupportedUrl(outgoing.src || url) &&
+        !outgoing.paused &&
+        !isIosSafari() &&
+        (autoPlay ?? true);
+
+      if (shouldCrossfade) {
+        startRadioCrossfade(track, source, null);
+        return;
+      }
+
+      loadTrackImmediate(track, source, !!autoPlay, null);
+    },
+    [getActiveAudio, loadTrackImmediate, startRadioCrossfade],
+  );
 
   const play = useCallback(async () => {
-    const audio = audioRef.current;
+    const audio = getActiveAudio();
     if (!audio) return;
     setState((s) => ({ ...s, isPlaying: true, error: null }));
     try {
@@ -322,12 +705,15 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     } catch {
       setState((s) => ({ ...s, isPlaying: false, error: 'Failed to play.' }));
     }
-  }, []);
+  }, [getActiveAudio]);
 
   const pause = useCallback(() => {
-    audioRef.current?.pause();
+    cancelCrossfade();
+    const pair = audioPairRef.current;
+    pair?.a.pause();
+    pair?.b.pause();
     setState((s) => ({ ...s, isPlaying: false }));
-  }, []);
+  }, [cancelCrossfade]);
 
   const togglePlay = useCallback(async () => {
     if (state.isPlaying) {
@@ -337,72 +723,85 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     }
   }, [state.isPlaying, pause, play]);
 
-  const setVolume = useCallback((vol: number) => {
-    const v = Math.max(0, Math.min(1, vol));
-    if (audioRef.current) {
-      const audio = audioRef.current;
-      const isIosDevice =
-        typeof window !== 'undefined' &&
-        (/iPad|iPhone|iPod/.test(window.navigator.userAgent) ||
-          (window.navigator.platform === 'MacIntel' &&
-            window.navigator.maxTouchPoints > 1));
-      if (isIosDevice) {
-        audio.volume = 1;
-        audio.muted = v <= 0.001;
-      } else {
-        audio.volume = v;
-        audio.muted = v <= 0.001;
-      }
-    }
-    setState((s) => ({ ...s, volume: v }));
-  }, []);
+  const setVolume = useCallback(
+    (vol: number) => {
+      const v = Math.max(0, Math.min(1, vol));
+      volumeRef.current = v;
+      refreshMainVolume();
+      setState((s) => ({ ...s, volume: v }));
+    },
+    [refreshMainVolume],
+  );
 
-  const seek = useCallback((time: number) => {
-    if (audioRef.current) audioRef.current.currentTime = time;
-  }, []);
+  const seek = useCallback(
+    (time: number) => {
+      const audio = getActiveAudio();
+      if (audio) audio.currentTime = time;
+    },
+    [getActiveAudio],
+  );
 
   const clearError = useCallback(() => {
     setState((s) => ({ ...s, error: null }));
   }, []);
 
-  const syncToPosition = useCallback((positionSeconds: number) => {
-    const audio = audioRef.current;
-    if (!audio || positionSeconds <= 0) return;
+  const syncToPosition = useCallback(
+    (positionSeconds: number) => {
+      const audio = getActiveAudio();
+      if (!audio || positionSeconds <= 0) return;
 
-    if (audio.paused || isLoadingTrackRef.current) {
-      pendingSeekRef.current = positionSeconds;
+      if (isCrossfadingRef.current && crossfadeIncomingSlotRef.current) {
+        const incoming = audioPairRef.current?.[crossfadeIncomingSlotRef.current];
+        if (incoming) {
+          pendingSeekRef.current = positionSeconds;
+          if (!incoming.paused && incoming.readyState >= 2) {
+            incoming.currentTime = positionSeconds;
+            pendingSeekRef.current = null;
+          }
+        }
+        setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+        return;
+      }
+
+      if (audio.paused || isLoadingTrackRef.current) {
+        pendingSeekRef.current = positionSeconds;
+        setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+        return;
+      }
+
+      const delta = positionSeconds - audio.currentTime;
+      const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;
+      const needsBackwardCorrection = delta < -LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC;
+      if (!needsForwardCatchup && !needsBackwardCorrection) {
+        setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastSyncSeekAtRef.current >= LIVE_SYNC_SEEK_COOLDOWN_MS) {
+        audio.currentTime = positionSeconds;
+        lastSyncSeekAtRef.current = now;
+      }
       setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
-      return;
-    }
-
-    const delta = positionSeconds - audio.currentTime;
-    const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;
-    const needsBackwardCorrection = delta < -LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC;
-    if (!needsForwardCatchup && !needsBackwardCorrection) {
-      setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
-      return;
-    }
-
-    const now = Date.now();
-    if (now - lastSyncSeekAtRef.current >= LIVE_SYNC_SEEK_COOLDOWN_MS) {
-      audio.currentTime = positionSeconds;
-      lastSyncSeekAtRef.current = now;
-    }
-    setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
-  }, []);
+    },
+    [getActiveAudio],
+  );
 
   const softPause = useCallback(() => {
-    audioRef.current?.pause();
+    cancelCrossfade();
+    const pair = audioPairRef.current;
+    pair?.a.pause();
+    pair?.b.pause();
     setState((s) => ({
       ...s,
       isPlaying: false,
       pausedAt: Date.now(),
       isLive: false,
     }));
-  }, []);
+  }, [cancelCrossfade]);
 
   const softResume = useCallback(async () => {
-    const audio = audioRef.current;
+    const audio = getActiveAudio();
     if (!audio) return;
     const pausedAt = state.pausedAt;
     const pauseDuration = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
@@ -415,26 +814,30 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, isPlaying: false }));
       }
     }
-  }, [state.pausedAt]);
+  }, [getActiveAudio, state.pausedAt]);
 
-  const jumpToLive = useCallback(async (positionSeconds: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = positionSeconds;
-    setState((s) => ({ ...s, isPlaying: true, error: null }));
-    try {
-      await audio.play();
-      setState((s) => ({
-        ...s,
-        isPlaying: true,
-        pausedAt: null,
-        isLive: true,
-        serverPosition: positionSeconds,
-      }));
-    } catch {
-      setState((s) => ({ ...s, isPlaying: false }));
-    }
-  }, []);
+  const jumpToLive = useCallback(
+    async (positionSeconds: number) => {
+      const audio = getActiveAudio();
+      if (!audio) return;
+      cancelCrossfade();
+      audio.currentTime = positionSeconds;
+      setState((s) => ({ ...s, isPlaying: true, error: null }));
+      try {
+        await audio.play();
+        setState((s) => ({
+          ...s,
+          isPlaying: true,
+          pausedAt: null,
+          isLive: true,
+          serverPosition: positionSeconds,
+        }));
+      } catch {
+        setState((s) => ({ ...s, isPlaying: false }));
+      }
+    },
+    [cancelCrossfade, getActiveAudio],
+  );
 
   const needsJumpToLive = useCallback(() => {
     if (!state.pausedAt) return false;
@@ -442,15 +845,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   }, [state.pausedAt]);
 
   const stop = useCallback(() => {
-    audioRef.current?.pause();
-    audioRef.current?.removeAttribute('src');
-    audioRef.current?.load();
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
+    cancelCrossfade();
+    clearAudioSlot('a');
+    clearAudioSlot('b');
+    activeSlotRef.current = 'a';
     setState(initialPlaybackState);
-  }, []);
+  }, [cancelCrossfade, clearAudioSlot]);
 
   const value: PlaybackContextValue = {
     state,
@@ -468,6 +868,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       jumpToLive,
       needsJumpToLive,
       stop,
+      applyServerBoothState,
+      handleDjBoothEvent,
     },
     setOnRadioTrackEnded,
   };

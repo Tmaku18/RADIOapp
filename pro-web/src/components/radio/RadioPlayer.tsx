@@ -12,6 +12,9 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { RADIO_CROSSFADE_MS } from '@/lib/radio-crossfade';
+import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 
 type PinnedCatalyst = {
   userId: string;
@@ -53,6 +56,7 @@ export function RadioPlayer() {
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
+  const crossfadePrefetchTrackIdRef = useRef<string | null>(null);
 
   const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -130,7 +134,7 @@ export function RadioPlayer() {
         lastServerPosition.current = serverPosition;
         
         // Load and immediately play the next track (user has already interacted)
-        if (loadTrackRef.current) loadTrackRef.current(track);
+        if (loadTrackRef.current) loadTrackRef.current(track, true);
         if (syncToPositionRef.current) syncToPositionRef.current(serverPosition);
         if (playRef.current) {
           try {
@@ -194,6 +198,8 @@ export function RadioPlayer() {
     jumpToLive,
     needsJumpToLive,
     play,
+    applyServerBoothState,
+    handleDjBoothEvent,
   } = useRadioState({
     onTrackEnded: handleTrackEnded,
     onTrackError: () => {
@@ -306,24 +312,16 @@ export function RadioPlayer() {
         
         // Only load if different track
         if (!state.currentTrack || state.currentTrack.id !== track.id) {
-          loadTrack(track);
-          // Sync position
+          const shouldAutoPlay = autoPlay && hasUserInteracted;
+          loadTrack(track, shouldAutoPlay);
           syncToPosition(serverPosition);
-          // Only auto-play if user has already interacted (clicked play before)
-          if (autoPlay && hasUserInteracted) {
-            requestAnimationFrame(async () => {
-              try {
-                await play();
-              } catch (err) {
-                // Autoplay was blocked - this is expected on initial load
-                console.log('Autoplay blocked by browser policy');
-              }
-            });
-          }
         } else if (shouldSync && state.isLive) {
-          // Same track, just sync position (handle drift)
           syncToPosition(serverPosition);
         }
+        applyServerBoothState({
+          transportPaused: !!trackData.transport_paused,
+          djOverlay: parseDjOverlay(trackData.dj_overlay),
+        });
 
         // Check like status
         try {
@@ -342,7 +340,11 @@ export function RadioPlayer() {
       setListenerCount(0);
       console.warn('Radio current track unavailable:', (error as Error)?.message || error);
     }
-  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, play, hasUserInteracted, coerceListenerCount]);
+  }, [loadTrack, state.currentTrack, state.isLive, syncToPosition, hasUserInteracted, coerceListenerCount, applyServerBoothState]);
+
+  useEffect(() => {
+    return subscribeDjBoothEvents(DEFAULT_STATION_ID, handleDjBoothEvent);
+  }, [handleDjBoothEvent]);
 
   // Initial fetch and periodic polling
   useEffect(() => {
@@ -355,6 +357,79 @@ export function RadioPlayer() {
     
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted]);
+
+  // Begin a 6s crossfade before the current song ends.
+  useEffect(() => {
+    if (!state.isPlaying || state.pausedAt) return;
+    if (noContent) return;
+
+    const track = state.currentTrack;
+    if (!track?.id) return;
+
+    const duration = state.duration > 0 ? state.duration : track.durationSeconds || 0;
+    if (duration <= 0) return;
+
+    const remainingSec = duration - state.currentTime;
+    const crossfadeSec = RADIO_CROSSFADE_MS / 1000;
+    if (remainingSec > crossfadeSec + 0.5) {
+      if (crossfadePrefetchTrackIdRef.current === track.id) {
+        crossfadePrefetchTrackIdRef.current = null;
+      }
+      return;
+    }
+    if (crossfadePrefetchTrackIdRef.current === track.id) return;
+    if (isFetchingNextTrack.current) return;
+
+    crossfadePrefetchTrackIdRef.current = track.id;
+    const currentTrackId = track.id;
+    let cancelled = false;
+
+    (async () => {
+      isFetchingNextTrack.current = true;
+      try {
+        const response = await radioApi.getNextTrack({ force: false });
+        if (cancelled) return;
+        const trackData = response.data;
+        if (trackData?.no_content || !trackData?.id) return;
+        if (trackData.id === currentTrackId) return;
+
+        const audioUrl = trackData.audio_url;
+        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) return;
+
+        const nextTrack: Track = {
+          id: trackData.id,
+          title: trackData.title,
+          artistName: trackData.artist_name,
+          artistId: trackData.artist_id ?? null,
+          artworkUrl: trackData.artwork_url,
+          audioUrl,
+          durationSeconds: trackData.duration_seconds || 180,
+        };
+
+        const serverPosition = trackData.position_seconds || 0;
+        lastServerPosition.current = serverPosition;
+        loadTrack(nextTrack, true);
+        syncToPosition(serverPosition);
+      } catch {
+        if (!cancelled) crossfadePrefetchTrackIdRef.current = null;
+      } finally {
+        isFetchingNextTrack.current = false;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    loadTrack,
+    noContent,
+    state.currentTime,
+    state.currentTrack,
+    state.duration,
+    state.isPlaying,
+    state.pausedAt,
+    syncToPosition,
+  ]);
 
   // Re-sync every 30 seconds to handle drift (only when live)
   useEffect(() => {

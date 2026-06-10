@@ -26,6 +26,7 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
+import '../../core/constants/radio_crossfade.dart';
 
 const List<String> _radioBrandFallbackLogos = <String>[
   'assets/images/branding/logo_0.png',
@@ -124,6 +125,8 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
+  final AudioPlayer _crossfadePlayer = AudioPlayer();
+  final AudioPlayer _djOverlayPlayer = AudioPlayer();
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
   Track? _currentTrack;
@@ -143,6 +146,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _presenceTimer;
   Timer? _trackSyncTimer;
   Timer? _trackBoundaryTimer;
+  Timer? _crossfadeEarlyTimer;
+  bool _crossfadeInProgress = false;
+  bool _globalTransportPaused = false;
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
@@ -360,10 +366,133 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
     _scheduleTrackBoundarySync(track);
     _presenceTick();
+    await _applyBoothState(track);
+  }
+
+  Future<void> _applyBoothState(Track track) async {
+    if (track.transportPaused) {
+      _globalTransportPaused = true;
+      if (_audioPlayer.playing) {
+        await _audioPlayer.pause();
+        if (mounted) setState(() => _isPlaying = false);
+      }
+    } else if (_globalTransportPaused) {
+      _globalTransportPaused = false;
+      if (!_audioPlayer.playing && _currentTrack != null) {
+        await _audioPlayer.play();
+        if (mounted) setState(() => _isPlaying = true);
+      }
+    }
+
+    final overlay = track.djOverlay;
+    final mainVolume = _audioPlayer.volume;
+    if (overlay?.active == true && overlay!.hlsUrl != null && overlay.hlsUrl!.isNotEmpty) {
+      await _audioPlayer.setVolume(mainVolume * overlay.duckVolume);
+      if (_djOverlayPlayer.processingState == ProcessingState.idle) {
+        await _djOverlayPlayer.setUrl(overlay.hlsUrl!);
+      }
+      if (!_djOverlayPlayer.playing) {
+        await _djOverlayPlayer.play();
+      }
+    } else {
+      await _audioPlayer.setVolume(mainVolume);
+      if (_djOverlayPlayer.playing) {
+        await _djOverlayPlayer.stop();
+      }
+    }
+  }
+
+  MediaItem _mediaItemForTrack(Track track) {
+    return MediaItem(
+      id: track.id,
+      title: track.title,
+      artist: track.artistName,
+      artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty
+          ? Uri.tryParse(track.artworkUrl!)
+          : null,
+    );
+  }
+
+  Future<void> _crossfadeToTrack(
+    Track track,
+    TrackFetchResult result, {
+    bool reportPlay = true,
+  }) async {
+    final url = track.audioUrl.trim();
+    if (_crossfadeInProgress || url.contains('.m3u8')) {
+      await _loadAndPlay(track, result, reportPlay: reportPlay);
+      return;
+    }
+
+    _crossfadeInProgress = true;
+    final mainVolume = _audioPlayer.volume;
+    try {
+      await _crossfadePlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: _mediaItemForTrack(track),
+        ),
+      );
+      if (track.positionSeconds > 0) {
+        await _crossfadePlayer.seek(Duration(seconds: track.positionSeconds));
+      }
+      await _crossfadePlayer.setVolume(0);
+      await _crossfadePlayer.play();
+
+      const steps = 30;
+      final stepMs = radioCrossfadeMs ~/ steps;
+      for (var i = 1; i <= steps; i++) {
+        if (!mounted) return;
+        final t = i / steps;
+        await _crossfadePlayer.setVolume(mainVolume * t);
+        await _audioPlayer.setVolume(mainVolume * (1 - t));
+        await Future<void>.delayed(Duration(milliseconds: stepMs));
+      }
+
+      final handoffPosition = _crossfadePlayer.position;
+      await _audioPlayer.stop();
+      await _audioPlayer.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: _mediaItemForTrack(track),
+        ),
+      );
+      await _audioPlayer.seek(handoffPosition);
+      await _audioPlayer.setVolume(mainVolume);
+      await _crossfadePlayer.stop();
+      await _audioPlayer.play();
+
+      if (reportPlay) {
+        await _radioService.reportPlay(track.id, radioId: _radioId);
+      }
+      if (!mounted) return;
+
+      final playId = track.playId;
+      final alreadyVoted =
+          playId != null && playId.isNotEmpty && playId == _lastVotedPlayId;
+
+      setState(() {
+        _currentTrack = track;
+        _isPlaying = true;
+        _isLoading = false;
+        _hasVoted = alreadyVoted;
+        if (!alreadyVoted) {
+          _selectedReaction = null;
+        }
+      });
+      _scheduleTrackBoundarySync(track);
+      _presenceTick();
+    } finally {
+      _crossfadeInProgress = false;
+      if (mounted) {
+        await _audioPlayer.setVolume(mainVolume);
+      }
+    }
   }
 
   void _scheduleTrackBoundarySync(Track track) {
     _trackBoundaryTimer?.cancel();
+    _crossfadeEarlyTimer?.cancel();
     var remainingMs = track.timeRemainingMs;
     if (remainingMs <= 0 && track.durationSeconds > 0) {
       final estimated = (track.durationSeconds - track.positionSeconds).clamp(
@@ -373,6 +502,15 @@ class _PlayerScreenState extends State<PlayerScreen>
       remainingMs = estimated * 1000;
     }
     if (remainingMs <= 0) return;
+
+    if (remainingMs > radioCrossfadeMs) {
+      final crossfadeEarlyMs =
+          (remainingMs - radioCrossfadeMs).clamp(500, remainingMs).toInt();
+      _crossfadeEarlyTimer = Timer(Duration(milliseconds: crossfadeEarlyMs), () {
+        _syncCurrentTrack(forceReload: true);
+      });
+    }
+
     final safeMs = (remainingMs + 250).clamp(500, 15 * 60 * 1000).toInt();
     _trackBoundaryTimer = Timer(Duration(milliseconds: safeMs), () {
       _syncCurrentTrack(forceReload: true);
@@ -419,11 +557,19 @@ class _PlayerScreenState extends State<PlayerScreen>
           _selectedReaction = null;
           _isVoting = false;
         });
-        await _loadAndPlay(
-          serverTrack,
-          res,
-          reportPlay: localTrack?.id != serverTrack.id,
-        );
+        await (_isPlaying &&
+                localTrack != null &&
+                localTrack.id != serverTrack.id
+            ? _crossfadeToTrack(
+                serverTrack,
+                res,
+                reportPlay: true,
+              )
+            : _loadAndPlay(
+                serverTrack,
+                res,
+                reportPlay: localTrack?.id != serverTrack.id,
+              ));
         return;
       }
 
@@ -448,6 +594,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         _noContent = false;
       });
       _scheduleTrackBoundarySync(serverTrack);
+      await _applyBoothState(serverTrack);
     } catch (_) {
       // Keep current playback state on transient sync failures.
     } finally {
@@ -624,6 +771,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     _presenceTimer?.cancel();
     _trackSyncTimer?.cancel();
     _trackBoundaryTimer?.cancel();
+    _crossfadeEarlyTimer?.cancel();
+    unawaited(_crossfadePlayer.dispose());
+    unawaited(_djOverlayPlayer.dispose());
     StationEventsService().stop();
     _rippleController.dispose();
     super.dispose();
