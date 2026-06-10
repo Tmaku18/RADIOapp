@@ -20,7 +20,8 @@ import {
 } from '@/lib/radio-crossfade';
 import {
   applyDuckToMain,
-  attachOverlayHls,
+  syncOverlayHls,
+  applyOverlayVolume,
   playSoundboardClipOnOverlay,
   type DjBoothEvent,
   type DjOverlayState,
@@ -163,6 +164,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const ctrl = getOverlayController();
     if (main && ctrl) applyDuckToMain(main, volumeRef.current, ctrl);
     else if (main) applyVolumeToAudio(main, volumeRef.current);
+    if (ctrl) applyOverlayVolume(ctrl, ctrl.micActive);
   }, [getActiveAudio, getOverlayController]);
 
   const applyServerBoothState = useCallback(
@@ -185,10 +187,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (opts.djOverlay !== undefined) {
         djOverlayRef.current = opts.djOverlay;
         const ctrl = getOverlayController();
-        if (ctrl && opts.djOverlay?.active && opts.djOverlay.hlsUrl) {
-          attachOverlayHls(ctrl, opts.djOverlay.hlsUrl, true);
-        } else if (ctrl && !opts.djOverlay?.active) {
-          attachOverlayHls(ctrl, null, false);
+        if (ctrl) {
+          syncOverlayHls(ctrl, opts.djOverlay, true);
         }
         refreshMainVolume();
       }
@@ -206,7 +206,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         applyServerBoothState({
           djOverlay: {
             active: true,
-            hlsUrl: event.hlsUrl,
+            hlsUrl: event.hlsUrl ?? djOverlayRef.current?.hlsUrl ?? null,
             duckVolume: event.duckVolume,
           },
         });
@@ -307,6 +307,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!(target instanceof HTMLMediaElement)) return;
       const pair = audioPairRef.current;
       if (pair && (target === pair.a || target === pair.b)) return;
+      if (overlayAudioRef.current && target === overlayAudioRef.current) return;
       if (sourceRef.current !== 'radio') return;
 
       const main = getActiveAudio();

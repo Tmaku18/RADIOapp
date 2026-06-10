@@ -172,12 +172,17 @@ export class DjBoothService {
     }
 
     const booth: RadioBoothState = {
-      micActive: false,
+      micActive: true,
       duckVolume: 0.25,
       hlsUrl: ingest.hlsUrl,
       sessionId: session.id,
     };
     await this.radioStateService.setBoothState(booth, radioId);
+    await this.realtime.broadcast(radioId, {
+      type: 'mic_on',
+      duckVolume: booth.duckVolume,
+      hlsUrl: ingest.hlsUrl,
+    });
 
     return {
       sessionId: session.id,

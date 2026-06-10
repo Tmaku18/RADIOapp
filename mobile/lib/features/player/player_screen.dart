@@ -141,6 +141,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   VenueAd? _ad;
   app_user.User? _me;
   String? _risingStarText;
+  String? _djOverlayLoadedUrl;
   StreamSubscription? _risingStarSub;
   bool _rippleActive = false;
   Timer? _presenceTimer;
@@ -388,13 +389,16 @@ class _PlayerScreenState extends State<PlayerScreen>
     final mainVolume = _audioPlayer.volume;
     if (overlay?.active == true && overlay!.hlsUrl != null && overlay.hlsUrl!.isNotEmpty) {
       await _audioPlayer.setVolume(mainVolume * overlay.duckVolume);
-      if (_djOverlayPlayer.processingState == ProcessingState.idle) {
+      if (_djOverlayLoadedUrl != overlay.hlsUrl) {
         await _djOverlayPlayer.setUrl(overlay.hlsUrl!);
+        _djOverlayLoadedUrl = overlay.hlsUrl;
       }
+      await _djOverlayPlayer.setVolume(1.0);
       if (!_djOverlayPlayer.playing) {
         await _djOverlayPlayer.play();
       }
     } else {
+      _djOverlayLoadedUrl = null;
       await _audioPlayer.setVolume(mainVolume);
       if (_djOverlayPlayer.playing) {
         await _djOverlayPlayer.stop();

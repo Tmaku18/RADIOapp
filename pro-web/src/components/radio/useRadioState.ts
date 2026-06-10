@@ -2,8 +2,9 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  attachOverlayHls,
+  syncOverlayHls,
   applyDuckToMain,
+  applyOverlayVolume,
   playSoundboardClipOnOverlay,
   type DjBoothEvent,
   type DjOverlayState,
@@ -606,6 +607,7 @@ export function useRadioState(options?: UseRadioStateOptions) {
     const main = getActiveAudio();
     const ctrl = getOverlayController();
     if (main && ctrl) applyDuckToMain(main, volumeRef.current, ctrl);
+    if (ctrl) applyOverlayVolume(ctrl, ctrl.micActive);
   }, [getActiveAudio, getOverlayController]);
 
   const applyServerBoothState = useCallback(
@@ -627,10 +629,8 @@ export function useRadioState(options?: UseRadioStateOptions) {
       if (opts.djOverlay !== undefined) {
         djOverlayRef.current = opts.djOverlay;
         const ctrl = getOverlayController();
-        if (ctrl && opts.djOverlay?.active && opts.djOverlay.hlsUrl) {
-          attachOverlayHls(ctrl, opts.djOverlay.hlsUrl, true);
-        } else if (ctrl && !opts.djOverlay?.active) {
-          attachOverlayHls(ctrl, null, false);
+        if (ctrl) {
+          syncOverlayHls(ctrl, opts.djOverlay, true);
         }
         refreshMainVolume();
       }
@@ -648,7 +648,7 @@ export function useRadioState(options?: UseRadioStateOptions) {
         applyServerBoothState({
           djOverlay: {
             active: true,
-            hlsUrl: event.hlsUrl,
+            hlsUrl: event.hlsUrl ?? djOverlayRef.current?.hlsUrl ?? null,
             duckVolume: event.duckVolume,
           },
         });

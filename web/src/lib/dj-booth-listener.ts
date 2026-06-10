@@ -67,6 +67,20 @@ export type OverlayController = {
   micActive: boolean;
 };
 
+const overlayAttachState = new WeakMap<
+  HTMLAudioElement,
+  { url: string | null; active: boolean }
+>();
+
+export function applyOverlayVolume(
+  controller: OverlayController,
+  micActive: boolean,
+) {
+  const v = micActive ? Math.max(0, Math.min(1, controller.userVolume)) : 0;
+  controller.overlayAudio.volume = v;
+  controller.overlayAudio.muted = v <= 0.001;
+}
+
 export function attachOverlayHls(
   controller: OverlayController,
   hlsUrl: string | null,
@@ -80,20 +94,73 @@ export function attachOverlayHls(
   overlayAudio.pause();
   overlayAudio.removeAttribute('src');
   overlayAudio.load();
-  if (!hlsUrl) return;
+  if (!hlsUrl) {
+    overlayAttachState.set(overlayAudio, { url: null, active: false });
+    return;
+  }
+
+  const startPlayback = () => {
+    applyOverlayVolume(controller, controller.micActive);
+    if (autoPlay) overlayAudio.play().catch(() => undefined);
+  };
 
   if (hlsUrl.includes('.m3u8') && Hls.isSupported()) {
-    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+    const hls = new Hls({
+      enableWorker: true,
+      lowLatencyMode: true,
+      liveSyncDurationCount: 3,
+    });
     hls.loadSource(hlsUrl);
     hls.attachMedia(overlayAudio);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => {
-      if (autoPlay) overlayAudio.play().catch(() => undefined);
+    hls.on(Hls.Events.MANIFEST_PARSED, startPlayback);
+    hls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      hls.destroy();
+      hlsRef.current = null;
+      window.setTimeout(() => {
+        if (overlayAttachState.get(overlayAudio)?.url === hlsUrl) {
+          attachOverlayHls(controller, hlsUrl, autoPlay);
+        }
+      }, 2000);
     });
     hlsRef.current = hls;
   } else {
     overlayAudio.src = hlsUrl;
+    overlayAudio.addEventListener('canplay', startPlayback, { once: true });
     if (autoPlay) overlayAudio.play().catch(() => undefined);
   }
+
+  overlayAttachState.set(overlayAudio, { url: hlsUrl, active: true });
+}
+
+/** Attach or refresh the mic overlay only when URL/active state actually changes. */
+export function syncOverlayHls(
+  controller: OverlayController,
+  overlay: { active: boolean; hlsUrl: string | null } | null,
+  autoPlay: boolean,
+) {
+  const { overlayAudio } = controller;
+  const prev = overlayAttachState.get(overlayAudio) ?? { url: null, active: false };
+  const nextActive = !!overlay?.active && !!overlay?.hlsUrl;
+  const nextUrl = nextActive ? overlay!.hlsUrl! : null;
+
+  if (!nextActive) {
+    if (prev.active || prev.url) {
+      attachOverlayHls(controller, null, false);
+    }
+    applyOverlayVolume(controller, false);
+    return;
+  }
+
+  if (prev.url === nextUrl && prev.active) {
+    applyOverlayVolume(controller, true);
+    if (autoPlay && overlayAudio.paused) {
+      overlayAudio.play().catch(() => undefined);
+    }
+    return;
+  }
+
+  attachOverlayHls(controller, nextUrl, autoPlay);
 }
 
 export function applyDuckToMain(
@@ -118,6 +185,7 @@ export async function playSoundboardClipOnOverlay(
   controller.micActive = true;
   controller.duckVolume = 0.2;
   if (mainAudio) applyDuckToMain(mainAudio, userVolume, controller);
+  applyOverlayVolume(controller, true);
 
   controller.overlayAudio.src = clipUrl;
   await controller.overlayAudio.play().catch(() => undefined);
