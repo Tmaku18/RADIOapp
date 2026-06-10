@@ -1,9 +1,11 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
 import { getBackendBaseUrls } from '@/lib/backend-url';
+import { NETWORX_BRAND, NETWORX_FLYER_IMAGE } from '@/lib/brand-assets';
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
@@ -156,24 +158,35 @@ export default async function HomePage() {
 
   return (
     <div>
-      {/* Hero — Join the movement (primary CTA above the fold) */}
-      <section className="py-24 sm:py-32 bg-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
-            Join the movement and build your network
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-primary-foreground/90 max-w-2xl mx-auto">
-            Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
-              <Link href="/signup">Get Started Free</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
-              <Link href="/pro-networx">
-                Explore ProNetworx
-              </Link>
-            </Button>
+      {/* Hero — brand flyer + primary CTA */}
+      <section className="relative py-12 sm:py-16 overflow-hidden border-b border-border">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative overflow-hidden rounded-2xl border border-border shadow-2xl bg-card/70 backdrop-blur-sm">
+            <Image
+              src={NETWORX_FLYER_IMAGE}
+              alt={`Networx — ${NETWORX_BRAND.tagline}. ${NETWORX_BRAND.motto}`}
+              width={1600}
+              height={900}
+              className="w-full h-auto object-contain"
+              priority
+              unoptimized
+            />
+          </div>
+          <div className="mt-10 text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+              Join the movement and build your network
+            </h1>
+            <p className="mt-5 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
+              Whether you are a hidden gem ready to be heard, a Prospector discovering new talent, or a pro ready to mentor, Networx and ProNetworx create the bridge.
+            </p>
+            <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+              <Button size="lg" className="!text-black" asChild>
+                <Link href="/signup">Get Started Free</Link>
+              </Button>
+              <Button size="lg" variant="outline" asChild>
+                <Link href="/pro-networx">Explore ProNetworx</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
@@ -193,7 +206,7 @@ export default async function HomePage() {
       </section>
 
       {/* Stats Section — live platform totals */}
-      <section className="py-16 bg-background border-b border-border">
+      <section className="py-16 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8">
             {[
@@ -256,8 +269,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Final CTA — closing black/white slot */}
-      <section className="py-16 bg-background">
+      {/* Final CTA — closing slot */}
+      <section className="py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

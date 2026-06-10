@@ -22,9 +22,9 @@ export default function MarketingLayout({
   const [footerLogoError, setFooterLogoError] = useState(false);
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col">
       {/* Navigation */}
-      <header className="border-b border-border bg-card">
+      <header className="border-b border-border bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/65">
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-20">
             {/* Logo + brand text, pinned to the far left */}
@@ -93,7 +93,7 @@ export default function MarketingLayout({
       </main>
 
       {/* Footer */}
-      <footer className="bg-muted/50 border-t border-border">
+      <footer className="bg-muted/40 backdrop-blur-md border-t border-border">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Brand */}

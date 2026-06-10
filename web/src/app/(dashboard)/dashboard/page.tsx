@@ -5,9 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsApi, prospectorApi, usersApi } from '@/lib/api';
+import { NETWORX_FLYER_IMAGE } from '@/lib/brand-assets';
 import { Card, CardContent } from '@/components/ui/card';
 
-const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
+const WELCOME_HERO_IMAGE = NETWORX_FLYER_IMAGE;
 
 interface DashboardStats {
   platform?: {
@@ -219,7 +220,7 @@ export default function DashboardPage() {
         <div className="relative w-full aspect-[2/1] min-h-[240px] flex items-center justify-center">
           <Image
             src={WELCOME_HERO_IMAGE}
-            alt=""
+            alt="Networx — The Butterfly Effect"
             fill
             className="object-contain object-center"
             sizes="100vw"

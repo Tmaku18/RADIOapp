@@ -1,7 +1,9 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { NETWORX_FLYER_IMAGE } from '@/lib/brand-assets';
 
 export const metadata: Metadata = {
   title: 'About - Networx',
@@ -17,6 +19,18 @@ export default function AboutPage() {
       <p className="text-xl text-primary font-semibold mb-10">
         Where the People have the Voice, and the Artist has the Power.
       </p>
+
+      <div className="relative overflow-hidden rounded-2xl border border-border bg-card/80 backdrop-blur-sm mb-12">
+        <Image
+          src={NETWORX_FLYER_IMAGE}
+          alt="Networx — The Butterfly Effect. One connection can change everything."
+          width={1600}
+          height={900}
+          className="w-full h-auto object-contain"
+          priority
+          unoptimized
+        />
+      </div>
 
       <div className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground">
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">Our Mission</h2>

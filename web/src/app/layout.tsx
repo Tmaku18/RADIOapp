@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
 import { getSiteUrl } from '@/lib/site-url';
+import { NETWORX_FLYER_IMAGE } from '@/lib/brand-assets';
 
 const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
@@ -62,11 +63,20 @@ export const metadata: Metadata = {
     type: 'website',
     url: SITE_URL,
     siteName: APP_NAME,
+    images: [
+      {
+        url: NETWORX_FLYER_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: 'Networx — The Butterfly Effect',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Networx - Underground Music Radio',
     description: APP_DESCRIPTION,
+    images: [NETWORX_FLYER_IMAGE],
   },
 };
 
