@@ -41,15 +41,18 @@ export function RadioBackgroundSync() {
   const isFetchingRef = useRef(false);
   const trackIdRef = useRef<string | null>(null);
   const radioIdRef = useRef<string | null>(null);
+  const actionsRef = useRef(playback?.actions);
+  actionsRef.current = playback?.actions;
 
   const state = playback?.state;
-  const actions = playback?.actions;
   const setOnRadioTrackEnded = playback?.setOnRadioTrackEnded;
   const radioPlayerUiActive = playback?.radioPlayerUiActive ?? false;
 
   const isListenPage = pathname === '/listen';
+  const isDjBoothPage = pathname.startsWith('/admin/dj-booth');
   const shouldSync =
     !isListenPage &&
+    !isDjBoothPage &&
     !radioPlayerUiActive &&
     state?.source === 'radio' &&
     !!state.track?.radioId;
@@ -63,6 +66,7 @@ export function RadioBackgroundSync() {
 
   const applyServerTrack = useCallback(
     (trackData: Record<string, unknown>, autoPlay: boolean) => {
+      const actions = actionsRef.current;
       if (!actions || !radioId) return;
       const track = trackFromPayload(trackData, radioId);
       if (!track) return;
@@ -84,11 +88,11 @@ export function RadioBackgroundSync() {
 
       actions.syncToPosition(serverPosition);
     },
-    [actions, radioId],
+    [radioId],
   );
 
   const syncCurrentTrack = useCallback(async () => {
-    if (!actions || !radioId || isFetchingRef.current) return;
+    if (!actionsRef.current || !radioId || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
       const response = await radioApi.getCurrentTrack(radioId);
@@ -100,10 +104,10 @@ export function RadioBackgroundSync() {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [actions, radioId, applyServerTrack, state?.isPlaying]);
+  }, [radioId, applyServerTrack, state?.isPlaying]);
 
   const fetchNextTrack = useCallback(async () => {
-    if (!actions || !radioIdRef.current || isFetchingRef.current) return;
+    if (!actionsRef.current || !radioIdRef.current || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
       const response = await radioApi.getNextTrack({
@@ -118,7 +122,7 @@ export function RadioBackgroundSync() {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [actions, applyServerTrack]);
+  }, [applyServerTrack]);
 
   useEffect(() => {
     if (!shouldSync || !setOnRadioTrackEnded) return;
@@ -134,8 +138,10 @@ export function RadioBackgroundSync() {
   }, [shouldSync, syncCurrentTrack]);
 
   useEffect(() => {
-    if (!shouldSync || !actions || !radioId) return;
+    if (!shouldSync || !radioId) return;
     return subscribeDjBoothEvents(radioId, (event) => {
+      const actions = actionsRef.current;
+      if (!actions) return;
       actions.handleDjBoothEvent(event);
       if (event.type === 'transport_pause' && typeof event.positionSeconds === 'number') {
         actions.syncToPosition(event.positionSeconds);
@@ -145,7 +151,7 @@ export function RadioBackgroundSync() {
         void syncCurrentTrack();
       }
     });
-  }, [shouldSync, actions, radioId, syncCurrentTrack]);
+  }, [shouldSync, radioId, syncCurrentTrack]);
 
   return null;
 }

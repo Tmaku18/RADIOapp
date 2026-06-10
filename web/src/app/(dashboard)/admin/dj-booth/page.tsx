@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import axios from 'axios';
 import { adminApi, djBoothApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,25 @@ import { subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 type RadioOption = { id: string; state: string; label: string };
 
 const STATUS_POLL_MS = 5000;
+const REALTIME_REFRESH_MS = 1500;
+
+function formatApiError(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const message = error.response?.data?.message;
+    if (typeof message === 'string' && message.trim()) return message;
+    if (Array.isArray(message) && message.length > 0) {
+      return message.map(String).join(', ');
+    }
+    if (error.response?.status === 403) {
+      return 'Access denied. Confirm your account has the admin role, then refresh.';
+    }
+    if (error.response?.status === 401) {
+      return 'Session expired. Sign in again to use the DJ Booth.';
+    }
+  }
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return 'Failed to load DJ booth';
+}
 
 function coerceListenerCount(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -72,6 +92,8 @@ export default function DjBoothPage() {
     capturedAt: Date.now(),
     paused: false,
   });
+  const loadStatusRef = useRef<(stationId: string) => Promise<void>>(async () => undefined);
+  const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const loadRadios = useCallback(async () => {
     const res = await adminApi.getRadios();
@@ -122,8 +144,20 @@ export default function DjBoothPage() {
 
       setClips(Array.isArray(clipsRes.data) ? clipsRes.data : clipsRes.data?.clips ?? []);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Failed to load DJ booth');
+      setError(formatApiError(e));
     }
+  }, []);
+
+  useEffect(() => {
+    loadStatusRef.current = loadStatus;
+  }, [loadStatus]);
+
+  const scheduleRealtimeRefresh = useCallback((stationId: string) => {
+    if (realtimeRefreshTimerRef.current) return;
+    realtimeRefreshTimerRef.current = setTimeout(() => {
+      realtimeRefreshTimerRef.current = null;
+      void loadStatusRef.current(stationId);
+    }, REALTIME_REFRESH_MS);
   }, []);
 
   const loadCandidates = useCallback(async (stationId: string) => {
@@ -162,9 +196,18 @@ export default function DjBoothPage() {
   useEffect(() => {
     if (!selectedRadioId) return;
     return subscribeDjBoothEvents(selectedRadioId, () => {
-      void loadStatus(selectedRadioId);
+      scheduleRealtimeRefresh(selectedRadioId);
     });
-  }, [selectedRadioId, loadStatus]);
+  }, [selectedRadioId, scheduleRealtimeRefresh]);
+
+  useEffect(
+    () => () => {
+      if (realtimeRefreshTimerRef.current) {
+        clearTimeout(realtimeRefreshTimerRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectedRadioId) return;
@@ -232,7 +275,7 @@ export default function DjBoothPage() {
       await fn();
       await loadStatus(selectedRadioId);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Action failed');
+      setError(formatApiError(e));
     } finally {
       setBusy(false);
     }

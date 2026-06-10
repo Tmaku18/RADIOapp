@@ -1,5 +1,5 @@
 import Hls from 'hls.js';
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
 
 export type DjOverlayState = {
   active: boolean;
@@ -25,6 +25,23 @@ export type DjBoothEvent =
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+let sharedSupabase: SupabaseClient | null = null;
+
+function getSharedSupabase(): SupabaseClient | null {
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+  if (!sharedSupabase) {
+    sharedSupabase = createClient(supabaseUrl, supabaseAnonKey);
+  }
+  return sharedSupabase;
+}
+
+type BoothChannelEntry = {
+  channel: RealtimeChannel;
+  listeners: Set<(event: DjBoothEvent) => void>;
+};
+
+const boothChannelsByStation = new Map<string, BoothChannelEntry>();
+
 export function parseDjOverlay(raw: unknown): DjOverlayState | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
@@ -45,17 +62,33 @@ export function subscribeDjBoothEvents(
   stationId: string,
   onEvent: (event: DjBoothEvent) => void,
 ): () => void {
-  if (!supabaseUrl || !supabaseAnonKey || !stationId) return () => undefined;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
-  const channel = supabase
-    .channel(`dj-booth:${stationId}`)
-    .on('broadcast', { event: 'dj_booth_event' }, (payload) => {
-      const event = payload.payload as DjBoothEvent;
-      if (event?.type) onEvent(event);
-    })
-    .subscribe();
+  const supabase = getSharedSupabase();
+  if (!supabase || !stationId) return () => undefined;
+
+  let entry = boothChannelsByStation.get(stationId);
+  if (!entry) {
+    const listeners = new Set<(event: DjBoothEvent) => void>();
+    const channel = supabase
+      .channel(`dj-booth:${stationId}`)
+      .on('broadcast', { event: 'dj_booth_event' }, (payload) => {
+        const event = payload.payload as DjBoothEvent;
+        if (!event?.type) return;
+        for (const listener of listeners) {
+          listener(event);
+        }
+      })
+      .subscribe();
+    entry = { channel, listeners };
+    boothChannelsByStation.set(stationId, entry);
+  }
+
+  entry.listeners.add(onEvent);
   return () => {
-    void supabase.removeChannel(channel);
+    entry!.listeners.delete(onEvent);
+    if (entry!.listeners.size === 0) {
+      void supabase.removeChannel(entry!.channel);
+      boothChannelsByStation.delete(stationId);
+    }
   };
 }
 

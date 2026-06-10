@@ -5,6 +5,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -949,9 +950,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     setState(initialPlaybackState);
   }, [cancelCrossfade, clearAudioSlot]);
 
-  const value: PlaybackContextValue = {
-    state,
-    actions: {
+  const actions = useMemo(
+    (): PlaybackActions => ({
       loadTrack,
       play,
       pause,
@@ -967,7 +967,29 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       stop,
       applyServerBoothState,
       handleDjBoothEvent,
-    },
+    }),
+    [
+      loadTrack,
+      play,
+      pause,
+      togglePlay,
+      setVolume,
+      seek,
+      clearError,
+      syncToPosition,
+      softPause,
+      softResume,
+      jumpToLive,
+      needsJumpToLive,
+      stop,
+      applyServerBoothState,
+      handleDjBoothEvent,
+    ],
+  );
+
+  const value: PlaybackContextValue = {
+    state,
+    actions,
     setOnRadioTrackEnded,
     radioPlayerUiActive,
     registerRadioPlayerUi,
