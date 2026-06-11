@@ -57,7 +57,7 @@ export function HeroCta() {
 
   return (
     <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-      <Button size="lg" asChild>
+      <Button size="lg" className="!text-black" asChild>
         <Link href="/signup">Get Started Free</Link>
       </Button>
       <Button size="lg" variant="outline" asChild>

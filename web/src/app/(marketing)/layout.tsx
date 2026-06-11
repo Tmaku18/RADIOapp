@@ -76,10 +76,10 @@ export default function MarketingLayout({
                 </Button>
               </div>
               <ThemeToggle />
-              <Button asChild className="bg-networx text-primary-foreground hover:opacity-90">
+              <Button asChild className="bg-networx text-black hover:opacity-90">
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
-              <Button asChild className="bg-networx text-primary-foreground hover:opacity-90">
+              <Button asChild className="bg-networx text-black hover:opacity-90">
                 <a href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx`}>ProNetworx</a>
               </Button>
             </div>

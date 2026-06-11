@@ -26,7 +26,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'error';
 
 const TWITCH_LIKE_NAME_COLORS = [
-  '#6A0DAD',
+  '#00F5FF',
   '#CCFF00',
   '#F472B6',
   '#60A5FA',
