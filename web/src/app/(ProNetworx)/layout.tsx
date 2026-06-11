@@ -7,9 +7,9 @@ import { ArrowLeft, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
-import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
 
-const LOGO_SRC = NETWORX_LOGO;
+const LOGO_SRC = NETWORX_LOGO_MARK;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const NETWORX_RADIO_ORIGIN = 'https://www.networxradio.com';
 const NETWORX_RADIO_DASHBOARD = `${NETWORX_RADIO_ORIGIN}/dashboard`;

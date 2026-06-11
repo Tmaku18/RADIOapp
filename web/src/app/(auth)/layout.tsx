@@ -7,9 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
 
-const LOGO_SRC = NETWORX_LOGO;
+const LOGO_SRC = NETWORX_LOGO_MARK;
 
 export default function AuthLayout({
   children,

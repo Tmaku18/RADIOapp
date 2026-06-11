@@ -106,9 +106,9 @@ const moreNav = [
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
 
-import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
 
-const DASHBOARD_LOGO = NETWORX_LOGO;
+const DASHBOARD_LOGO = NETWORX_LOGO_MARK;
 
 /**
  * Auto-collapse the mobile sidebar overlay whenever the route changes, so

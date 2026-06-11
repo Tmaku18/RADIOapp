@@ -5,9 +5,9 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { GlobalPulseTopBar } from '@/components/pro/GlobalPulseTopBar';
 
-import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
 
-const LOGO_SRC = NETWORX_LOGO;
+const LOGO_SRC = NETWORX_LOGO_MARK;
 
 export default function MarketingLayout({
   children,
