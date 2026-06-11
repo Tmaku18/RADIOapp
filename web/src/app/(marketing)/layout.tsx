@@ -6,9 +6,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
 
 const LOGO_SRC = NETWORX_LOGO;
+const LOGO_SRC_LIGHT = NETWORX_LOGO_LIGHT;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 
@@ -32,16 +33,28 @@ export default function MarketingLayout({
             {/* Logo + brand text, pinned to the far left */}
             <Link href="/" className="flex items-center shrink-0 gap-3 self-stretch">
               {!headerLogoError ? (
-                <Image
-                  src={LOGO_SRC}
-                  alt="NETWORX Radio — The Butterfly Effect"
-                  width={220}
-                  height={220}
-                  className="h-14 sm:h-16 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
-                  priority
-                  unoptimized
-                  onError={() => setHeaderLogoError(true)}
-                />
+                <>
+                  <Image
+                    src={LOGO_SRC}
+                    alt="NETWORX Radio — The Butterfly Effect"
+                    width={220}
+                    height={220}
+                    className="hidden dark:block h-14 sm:h-16 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
+                    priority
+                    unoptimized
+                    onError={() => setHeaderLogoError(true)}
+                  />
+                  <Image
+                    src={LOGO_SRC_LIGHT}
+                    alt="NETWORX Radio — The Butterfly Effect"
+                    width={220}
+                    height={220}
+                    className="block dark:hidden h-14 sm:h-16 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
+                    priority
+                    unoptimized
+                    onError={() => setHeaderLogoError(true)}
+                  />
+                </>
               ) : null}
               <span className="hidden sm:inline text-networx-cyan-ombre font-extrabold text-base lg:text-lg whitespace-nowrap">
                 NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
@@ -95,15 +108,26 @@ export default function MarketingLayout({
             <div className="space-y-4 min-w-0">
               <Link href="/" className="flex flex-col items-start gap-3 max-w-xs">
                 {!footerLogoError ? (
-                  <Image
-                    src={LOGO_SRC}
-                    alt="NETWORX Radio — The Butterfly Effect"
-                    width={200}
-                    height={200}
-                    className="h-20 w-auto max-w-[200px] object-contain object-left shrink-0"
-                    unoptimized
-                    onError={() => setFooterLogoError(true)}
-                  />
+                  <>
+                    <Image
+                      src={LOGO_SRC}
+                      alt="NETWORX Radio — The Butterfly Effect"
+                      width={200}
+                      height={200}
+                      className="hidden dark:block h-20 w-auto max-w-[200px] object-contain object-left shrink-0"
+                      unoptimized
+                      onError={() => setFooterLogoError(true)}
+                    />
+                    <Image
+                      src={LOGO_SRC_LIGHT}
+                      alt="NETWORX Radio — The Butterfly Effect"
+                      width={200}
+                      height={200}
+                      className="block dark:hidden h-20 w-auto max-w-[200px] object-contain object-left shrink-0"
+                      unoptimized
+                      onError={() => setFooterLogoError(true)}
+                    />
+                  </>
                 ) : (
                   <>
                     <span className="text-2xl">🎧</span>
