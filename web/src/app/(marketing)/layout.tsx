@@ -42,9 +42,10 @@ export default function MarketingLayout({
                   unoptimized
                   onError={() => setHeaderLogoError(true)}
                 />
-              ) : (
-                <span className="text-xl font-extrabold text-networx-cyan-ombre whitespace-nowrap">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
-              )}
+              ) : null}
+              <span className="hidden sm:inline text-networx-cyan-ombre font-extrabold text-base lg:text-lg whitespace-nowrap">
+                NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
+              </span>
             </Link>
 
             {/* Nav links + auth, grouped together and pinned to the far right */}
