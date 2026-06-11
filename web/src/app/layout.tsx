@@ -7,6 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
 import { getSiteUrl } from '@/lib/site-url';
+import { NETWORX_APP_ICON } from '@/lib/brand-assets';
 
 const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
@@ -48,6 +49,10 @@ export const metadata: Metadata = {
   description: APP_DESCRIPTION,
   keywords: ['radio', 'music', 'underground', 'artists', 'streaming', 'promotion', 'networx'],
   manifest: '/manifest.json',
+  icons: {
+    icon: NETWORX_APP_ICON,
+    apple: NETWORX_APP_ICON,
+  },
   alternates: {
     canonical: '/',
   },

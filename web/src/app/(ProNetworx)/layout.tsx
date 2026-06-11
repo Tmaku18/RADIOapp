@@ -7,7 +7,9 @@ import { ArrowLeft, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 
-const LOGO_SRC = '/networx-logo.png';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
+
+const LOGO_SRC = NETWORX_LOGO;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const NETWORX_RADIO_ORIGIN = 'https://www.networxradio.com';
 const NETWORX_RADIO_DASHBOARD = `${NETWORX_RADIO_ORIGIN}/dashboard`;
@@ -30,9 +32,9 @@ export default function ProNetworxLayout({
               <Image
                 src={LOGO_SRC}
                 alt="Networx Radio — The Butterfly Effect"
-                width={140}
-                height={50}
-                className="h-10 w-auto object-contain object-left shrink-0"
+                width={40}
+                height={40}
+                className="h-10 w-10 object-contain object-left shrink-0"
                 priority
                 unoptimized
               />

@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-const LOGO_SRC = '/networx-logo.png';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
+
+const LOGO_SRC = NETWORX_LOGO;
 
 export default function AuthLayout({
   children,
@@ -51,9 +53,9 @@ export default function AuthLayout({
           <Image
             src={LOGO_SRC}
             alt=""
-            width={140}
-            height={50}
-            className="h-10 w-auto object-contain object-left shrink-0"
+            width={48}
+            height={48}
+            className="h-10 w-10 object-contain object-left shrink-0"
             priority
             unoptimized
           />

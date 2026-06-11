@@ -106,8 +106,9 @@ const moreNav = [
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
 
-const DASHBOARD_LOGO_PRIMARY = '/networx-logo.png';
-const DASHBOARD_LOGO_FALLBACK = '/icons/icon.svg';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
+
+const DASHBOARD_LOGO = NETWORX_LOGO;
 
 /**
  * Auto-collapse the mobile sidebar overlay whenever the route changes, so
@@ -124,31 +125,17 @@ function AutoCollapseSidebarOnNavigate() {
 }
 
 function DashboardSidebarLogo() {
-  const [useFallback, setUseFallback] = useState(false);
   return (
     <span className="size-10 shrink-0 flex items-center justify-center rounded-lg bg-primary/20 overflow-hidden">
-      {useFallback ? (
-        <Image
-          src={DASHBOARD_LOGO_FALLBACK}
-          alt=""
-          width={40}
-          height={40}
-          className="size-10 object-contain"
-          priority
-          unoptimized
-        />
-      ) : (
-        <Image
-          src={DASHBOARD_LOGO_PRIMARY}
-          alt=""
-          width={140}
-          height={50}
-          className="h-10 w-auto object-contain object-left"
-          priority
-          unoptimized
-          onError={() => setUseFallback(true)}
-        />
-      )}
+      <Image
+        src={DASHBOARD_LOGO}
+        alt=""
+        width={40}
+        height={40}
+        className="size-10 object-contain"
+        priority
+        unoptimized
+      />
     </span>
   );
 }

@@ -1,35 +1,55 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="RadioApp icon">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Networx">
   <defs>
-    <radialGradient id="g" cx="50%" cy="45%" r="70%">
-      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.35"/>
-      <stop offset="60%" stop-color="#00f5ff" stop-opacity="0.12"/>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#00f5ff" stop-opacity="0.18"/>
+      <stop offset="55%" stop-color="#1a237e" stop-opacity="0.12"/>
       <stop offset="100%" stop-color="#05070d" stop-opacity="1"/>
     </radialGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="10" result="b"/>
+    <linearGradient id="nx-wing" x1="0%" y1="20%" x2="100%" y2="80%">
+      <stop offset="0%" stop-color="#00F5FF" stop-opacity="0.42"/>
+      <stop offset="55%" stop-color="#00F5FF" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#1A237E" stop-opacity="0.28"/>
+    </linearGradient>
+    <linearGradient id="nx-edge" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#00F5FF"/>
+      <stop offset="100%" stop-color="#00C9D4"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="b"/>
       <feColorMatrix in="b" type="matrix"
         values="0 0 0 0 0
                 0 0 0 0 0.96
                 0 0 0 0 1
-                0 0 0 0.65 0" result="c"/>
+                0 0 0 0.55 0"/>
       <feMerge>
-        <feMergeNode in="c"/>
+        <feMergeNode/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
     </filter>
   </defs>
 
   <rect width="512" height="512" rx="112" fill="#05070d"/>
-  <circle cx="256" cy="256" r="210" fill="url(#g)"/>
+  <circle cx="256" cy="256" r="220" fill="url(#bg)"/>
 
-  <!-- Minimal signal mark -->
-  <g filter="url(#glow)" fill="none" stroke="#00f5ff" stroke-width="18" stroke-linecap="round">
-    <path d="M184 272c18 22 44 34 72 34s54-12 72-34"/>
-    <path d="M160 230c28-36 62-54 96-54s68 18 96 54"/>
-    <path d="M136 190c40-50 84-74 120-74s80 24 120 74"/>
+  <g transform="translate(156 118) scale(2)" filter="url(#glow)">
+    <path d="M94 78 Q88 58 80 46" fill="none" stroke="#00F5FF" stroke-width="2.8" stroke-linecap="round"/>
+    <path d="M106 78 Q112 58 120 46" fill="none" stroke="#00F5FF" stroke-width="2.8" stroke-linecap="round"/>
+    <circle cx="80" cy="46" r="3" fill="#00F5FF"/>
+    <circle cx="120" cy="46" r="3" fill="#00F5FF"/>
+    <path d="M100 92 C62 72 28 68 18 98 C10 122 28 148 58 152 C78 155 94 136 100 122 Z" fill="url(#nx-wing)" stroke="url(#nx-edge)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M100 92 C138 72 172 68 182 98 C190 122 172 148 142 152 C122 155 106 136 100 122 Z" fill="url(#nx-wing)" stroke="url(#nx-edge)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M100 108 C68 114 36 126 32 150 C28 168 44 182 66 176 C84 172 96 152 100 142 Z" fill="url(#nx-wing)" stroke="url(#nx-edge)" stroke-width="2.2" stroke-linejoin="round"/>
+    <path d="M100 108 C132 114 164 126 168 150 C172 168 156 182 134 176 C116 172 104 152 100 142 Z" fill="url(#nx-wing)" stroke="url(#nx-edge)" stroke-width="2.2" stroke-linejoin="round"/>
+    <g fill="none" stroke="#00F5FF" stroke-width="1.4" stroke-linecap="round" opacity="0.85">
+      <path d="M52 118 L72 108 L64 132 L48 126 Z"/>
+      <path d="M148 118 L128 108 L136 132 L152 126 Z"/>
+      <path d="M72 108 L100 100 L128 108"/>
+      <path d="M64 132 L100 124 L136 132"/>
+      <circle cx="72" cy="108" r="2.2" fill="#00F5FF" stroke="none"/>
+      <circle cx="128" cy="108" r="2.2" fill="#00F5FF" stroke="none"/>
+      <circle cx="100" cy="100" r="2.6" fill="#00F5FF" stroke="none"/>
+    </g>
+    <ellipse cx="100" cy="112" rx="5.5" ry="24" fill="#F5F5F5"/>
+    <ellipse cx="100" cy="98" rx="4" ry="6" fill="#00F5FF"/>
   </g>
-
-  <!-- Center dot -->
-  <circle cx="256" cy="320" r="18" fill="#00f5ff"/>
 </svg>
-

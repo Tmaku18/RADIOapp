@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import './globals.css';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
+import { NETWORX_APP_ICON } from '@/lib/brand-assets';
 
 const APP_NAME = 'PRO-NETWORX';
 const APP_DESCRIPTION =
@@ -29,6 +30,10 @@ export const metadata: Metadata = {
   title: 'PRO-NETWORX — The Collective Directory',
   description: APP_DESCRIPTION,
   keywords: ['networx', 'artists', 'producers', 'studio', 'directory', 'services', 'collaboration'],
+  icons: {
+    icon: NETWORX_APP_ICON,
+    apple: NETWORX_APP_ICON,
+  },
   // manifest intentionally omitted for Pro MVP (PWA optional)
   appleWebApp: {
     capable: true,

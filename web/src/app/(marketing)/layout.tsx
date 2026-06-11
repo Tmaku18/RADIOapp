@@ -6,7 +6,9 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-const LOGO_SRC = '/networx-logo.png';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
+
+const LOGO_SRC = NETWORX_LOGO;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const INSTAGRAM_URL = 'https://www.instagram.com/networx_radio/';
 
@@ -34,9 +36,9 @@ export default function MarketingLayout({
                   <Image
                     src={LOGO_SRC}
                     alt=""
-                    width={260}
-                    height={92}
-                    className="h-14 w-auto object-contain object-left dark:invert-0 shrink-0"
+                    width={56}
+                    height={56}
+                    className="h-12 w-12 object-contain object-left shrink-0"
                     priority
                     unoptimized
                     onError={() => setHeaderLogoError(true)}
@@ -104,9 +106,9 @@ export default function MarketingLayout({
                     <Image
                       src={LOGO_SRC}
                       alt=""
-                      width={220}
-                      height={78}
-                      className="h-12 w-auto object-contain object-left shrink-0"
+                      width={48}
+                      height={48}
+                      className="h-10 w-10 object-contain object-left shrink-0"
                       unoptimized
                       onError={() => setFooterLogoError(true)}
                     />

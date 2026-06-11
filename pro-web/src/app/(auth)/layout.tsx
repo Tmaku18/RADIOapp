@@ -1,5 +1,6 @@
 'use client';
 
+import { NETWORX_LOGO } from '@/lib/brand-assets';
 import { useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -40,11 +41,11 @@ export default function AuthLayout({
       <header className="px-5 py-4 border-b border-border/70 bg-background/80 backdrop-blur">
         <Link href="/directory" className="flex items-center gap-3">
           <Image
-            src="/networx-logo.png"
+            src={NETWORX_LOGO}
             alt="Networx"
-            width={120}
+            width={40}
             height={40}
-            className="h-8 w-auto object-contain"
+            className="h-8 w-8 object-contain"
             unoptimized
           />
           <span className="font-semibold tracking-tight">Pro-Networx</span>

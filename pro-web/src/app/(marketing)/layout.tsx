@@ -5,7 +5,9 @@ import Image from 'next/image';
 import { useState } from 'react';
 import { GlobalPulseTopBar } from '@/components/pro/GlobalPulseTopBar';
 
-const LOGO_SRC = '/networx-logo.png';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
+
+const LOGO_SRC = NETWORX_LOGO;
 
 export default function MarketingLayout({
   children,
@@ -35,9 +37,9 @@ export default function MarketingLayout({
                     <Image
                       src={LOGO_SRC}
                       alt=""
-                      width={220}
-                      height={78}
-                      className="h-12 w-auto object-contain object-left shrink-0"
+                      width={48}
+                      height={48}
+                      className="h-10 w-10 object-contain object-left shrink-0"
                       unoptimized
                       onError={() => setFooterLogoError(true)}
                     />

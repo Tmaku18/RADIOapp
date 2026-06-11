@@ -38,7 +38,7 @@ const PAGE_SIZE = 24;
 
 // Brand marks used as a fallback when a profile has no media preview.
 const FALLBACK_LOGOS = [
-  '/networx-logo.png',
+  '/icons/butterfly.svg',
   '/images/Logo_0.png',
   '/images/Logo_1.png',
   '/images/NX_0.png',
