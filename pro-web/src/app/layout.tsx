@@ -9,6 +9,9 @@ import { NETWORX_APP_ICON } from '@/lib/brand-assets';
 const APP_NAME = 'PRO-NETWORX';
 const APP_DESCRIPTION =
   'Hire and collaborate with artists, producers, studios, designers, and more — powered by NETWORX.';
+const SITE_URL = (
+  process.env.NEXT_PUBLIC_PRO_NETWORX_APP_URL || 'https://www.pro-networx.com'
+).replace(/\/$/, '');
 
 const inter = Inter({
   variable: '--font-inter',
@@ -26,6 +29,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   applicationName: APP_NAME,
   title: 'PRO-NETWORX — The Collective Directory',
   description: APP_DESCRIPTION,
@@ -44,6 +48,22 @@ export const metadata: Metadata = {
     title: 'PRO-NETWORX — The Collective Directory',
     description: APP_DESCRIPTION,
     type: 'website',
+    url: SITE_URL,
+    siteName: APP_NAME,
+    images: [
+      {
+        url: '/images/og-flyer.png',
+        width: 1536,
+        height: 1024,
+        alt: 'NETWORX — The Butterfly Effect: one connection can change everything.',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'PRO-NETWORX — The Collective Directory',
+    description: APP_DESCRIPTION,
+    images: ['/images/og-flyer.png'],
   },
 };
 

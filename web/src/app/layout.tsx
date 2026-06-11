@@ -67,11 +67,20 @@ export const metadata: Metadata = {
     type: 'website',
     url: SITE_URL,
     siteName: APP_NAME,
+    images: [
+      {
+        url: '/images/og-flyer.png',
+        width: 1536,
+        height: 1024,
+        alt: 'NETWORX — The Butterfly Effect: one connection can change everything.',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Networx - Underground Music Radio',
     description: APP_DESCRIPTION,
+    images: ['/images/og-flyer.png'],
   },
 };
 
