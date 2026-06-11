@@ -1,17 +1,8 @@
 # Static images
 
-## Company brand assets
+Place the **Welcome to the Networx** hero asset here for the dashboard:
 
-| File | Use |
-|------|-----|
-| `networx-background.png` | Site-wide body background (see `globals.css`) |
-| `networx-flyer.png` | Homepage hero, About page, dashboard welcome, social/OG preview |
+- **Filename:** `welcome-to-the-networx.png`
+- **Full path:** `web/public/images/welcome-to-the-networx.png`
 
-Constants live in `web/src/lib/brand-assets.ts`.
-
-## Other assets
-
-- **`welcome-to-the-networx.png`** — legacy dashboard hero fallback (optional)
-- **Eye / Logo / NX variants** — artwork fallbacks in `ArtworkImage`
-
-The signed-in dashboard hero uses `networx-flyer.png` by default.
+The dashboard hero at the top of the signed-in dashboard uses this image. If the file is missing, the hero still shows the "Welcome to the Networx!" heading and tagline.
