@@ -43,14 +43,14 @@ export default function MarketingLayout({
                     unoptimized
                     onError={() => setHeaderLogoError(true)}
                   />
-                  <span className="text-networx font-bold text-lg whitespace-nowrap">
+                  <span className="text-networx-cyan-ombre font-extrabold text-lg whitespace-nowrap">
                     NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
                   </span>
                 </>
               ) : (
                 <>
                   <span className="text-2xl">🎧</span>
-                  <span className="text-xl font-bold text-networx">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
+                  <span className="text-xl font-extrabold text-networx-cyan-ombre">NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;</span>
                 </>
               )}
             </Link>
@@ -112,7 +112,7 @@ export default function MarketingLayout({
                       unoptimized
                       onError={() => setFooterLogoError(true)}
                     />
-                    <span className="text-foreground font-bold text-base leading-snug">
+                    <span className="text-networx-cyan-ombre font-extrabold text-base leading-snug">
                       NETWORX Radio: &ldquo;The Butterfly Effect&rdquo;
                     </span>
                   </>

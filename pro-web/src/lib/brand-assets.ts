@@ -1,3 +1,5 @@
-/** Networx butterfly mark — site logo, favicon, and PWA icon source. */
-export const NETWORX_LOGO = '/icons/butterfly.svg';
+/** Cyan butterfly mark cropped from the official logo — site logo / header. */
+export const NETWORX_LOGO = '/images/networx-logo-icon.png';
+/** Full official cyan wordmark (butterfly + NETWORX RADIO + tagline). */
+export const NETWORX_WORDMARK = '/images/networx-logo-cyan.png';
 export const NETWORX_APP_ICON = '/icons/icon.svg';
