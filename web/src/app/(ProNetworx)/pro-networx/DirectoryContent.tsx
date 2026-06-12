@@ -256,13 +256,14 @@ export function ProNetworxDirectoryContent({
                       />
                     </div>
                   ) : (
-                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-gradient-to-br from-muted/60 to-background flex items-center justify-center">
+                    <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-gradient-to-br from-muted/60 to-background flex items-center justify-center p-6">
                       <Image
                         src={fallbackLogoFor(p.userId)}
                         alt="Networx"
                         width={120}
                         height={120}
-                        className="object-contain opacity-80 max-h-[70%] w-auto"
+                        sizes="120px"
+                        className="object-contain opacity-80 max-h-full max-w-full w-auto h-auto"
                       />
                     </div>
                   )}
