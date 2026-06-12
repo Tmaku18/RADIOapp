@@ -1,0 +1,636 @@
+import 'package:flutter/material.dart';
+
+import '../../core/navigation/app_routes.dart';
+import '../../core/services/analytics_service.dart';
+import '../../core/theme/networx_tokens.dart';
+
+/// Public pre-login landing for Networx Radio. Mirrors the web marketing home
+/// (`web/src/app/(marketing)/page.tsx`): hero + value props + live platform
+/// stats + the "Language of Networx" glossary, with CTAs into sign up / log in
+/// and the Pro-Networx landing.
+///
+/// Shown by [AuthWrapper] as the first screen for signed-out users.
+class WelcomeLandingScreen extends StatefulWidget {
+  const WelcomeLandingScreen({super.key});
+
+  @override
+  State<WelcomeLandingScreen> createState() => _WelcomeLandingScreenState();
+}
+
+class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
+  final AnalyticsService _analytics = AnalyticsService();
+  Map<String, dynamic>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await _analytics.getPlatformStats();
+      if (mounted && stats != null) setState(() => _stats = stats);
+    } catch (_) {
+      // Non-fatal: the stats strip simply stays hidden if this fails.
+    }
+  }
+
+  void _goToSignUp() {
+    Navigator.of(context).pushNamed(AppRoutes.login, arguments: {'signUp': true});
+  }
+
+  void _goToLogin() {
+    Navigator.of(context).pushNamed(AppRoutes.login);
+  }
+
+  void _goToProNetworx() {
+    Navigator.of(context).pushNamed(AppRoutes.proNetworxLanding);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Scaffold(
+      body: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            _Hero(
+              onGetStarted: _goToSignUp,
+              onLogin: _goToLogin,
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_stats != null) ...[
+                    _StatsStrip(stats: _stats!),
+                    const SizedBox(height: 28),
+                  ],
+                  Text(
+                    'Build your audience, team, and career in one platform',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Lora',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Always-on radio, livestreams, votes and ripples, transparent '
+                    'analytics, and ProNetworx mentorship — everything you need to be '
+                    'discovered.',
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  ..._valueProps.map(
+                    (vp) => _FeatureRow(
+                      icon: vp.icon,
+                      title: vp.title,
+                      description: vp.description,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _ProNetworxTeaser(onExplore: _goToProNetworx),
+                  const SizedBox(height: 32),
+                  Text(
+                    'The Language of Networx',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Lora',
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Our world runs on three ideas: the Butterfly Effect, the '
+                    "artist's Metamorphosis, and the Mining of hidden talent.",
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ..._glossary.map((g) => _GlossaryGroup(group: g)),
+                  const SizedBox(height: 16),
+                  _FinalCta(
+                    onGetStarted: _goToSignUp,
+                    onLogin: _goToLogin,
+                  ),
+                  const SizedBox(height: 24),
+                  Center(
+                    child: Text(
+                      'By Artists, For Artists.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                        fontFamily: 'Lora',
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Hero extends StatelessWidget {
+  const _Hero({required this.onGetStarted, required this.onLogin});
+
+  final VoidCallback onGetStarted;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            NetworxTokens.deepMidnight,
+            NetworxTokens.charcoalMatte,
+            NetworxTokens.deepCobalt,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 36, 24, 36),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.asset(
+                  'assets/images/branding/logo_0.png',
+                  width: 56,
+                  height: 56,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'NETWORX Radio',
+                      style: textTheme.titleMedium?.copyWith(
+                        color: NetworxTokens.cloudDancer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    Text(
+                      'The Butterfly Effect',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: NetworxTokens.electricCyan,
+                        fontFamily: 'Lora',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
+          Text(
+            'Join the movement and build your network',
+            style: textTheme.headlineSmall?.copyWith(
+              color: NetworxTokens.cloudDancer,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Whether you are a hidden gem ready to be heard, a Prospector '
+            'discovering new talent, or a pro ready to mentor, Networx and '
+            'ProNetworx create the bridge.',
+            style: textTheme.bodyLarge?.copyWith(
+              color: NetworxTokens.cloudDancer.withValues(alpha: 0.78),
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: onGetStarted,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: NetworxTokens.electricCyan,
+                    foregroundColor: NetworxTokens.deepMidnight,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Get Started Free'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onLogin,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: NetworxTokens.cloudDancer,
+                    side: BorderSide(
+                      color: NetworxTokens.cloudDancer.withValues(alpha: 0.3),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  child: const Text('Log in'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Always free to listen.',
+            style: textTheme.bodySmall?.copyWith(
+              color: NetworxTokens.cloudDancer.withValues(alpha: 0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProNetworxTeaser extends StatelessWidget {
+  const _ProNetworxTeaser({required this.onExplore});
+
+  final VoidCallback onExplore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: cs.primary.withValues(alpha: 0.06),
+        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'A network for every kind of creative',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'ProNetworx is where designers, photographers, videographers, '
+            'lyricists, beat makers and more post work, get hired, and connect. '
+            'One login works for both Networx Radio and ProNetworx.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: onExplore,
+            icon: const Icon(Icons.arrow_forward, size: 18),
+            label: const Text('Explore ProNetworx'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FinalCta extends StatelessWidget {
+  const _FinalCta({required this.onGetStarted, required this.onLogin});
+
+  final VoidCallback onGetStarted;
+  final VoidCallback onLogin;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: cs.primary.withValues(alpha: 0.08),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ready to get started?',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Lora',
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton(
+                  onPressed: onGetStarted,
+                  child: const Text('Get Started Free'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: onLogin,
+                  child: const Text('Log in'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FeatureRow extends StatelessWidget {
+  const _FeatureRow({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
+
+  final IconData icon;
+  final String title;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: cs.primary.withValues(alpha: 0.12),
+            child: Icon(icon, color: cs.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatsStrip extends StatelessWidget {
+  const _StatsStrip({required this.stats});
+
+  final Map<String, dynamic> stats;
+
+  int _val(String key) {
+    final v = stats[key];
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    return 0;
+  }
+
+  String _fmt(int n) {
+    if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M+';
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K+';
+    return n.toString();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final items = <List<String>>[
+      [_fmt(_val('totalUsers')), 'Members'],
+      [_fmt(_val('totalSongs')), 'Songs'],
+      [_fmt(_val('totalLikes')), 'Ripples'],
+      [_fmt(_val('earsReached')), 'Ears Reached'],
+    ];
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 2.6,
+      children: items
+          .map(
+            (it) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: cs.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    it[0],
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: cs.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Text(
+                    it[1],
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(),
+    );
+  }
+}
+
+class _ValueProp {
+  const _ValueProp(this.icon, this.title, this.description);
+  final IconData icon;
+  final String title;
+  final String description;
+}
+
+const List<_ValueProp> _valueProps = [
+  _ValueProp(
+    Icons.radio,
+    'Always-on radio',
+    'A live, democratic station where the people decide what rises.',
+  ),
+  _ValueProp(
+    Icons.videocam_outlined,
+    'Livestreams',
+    'Go live, perform, and stand shoulder-to-shoulder with your fans.',
+  ),
+  _ValueProp(
+    Icons.favorite_outline,
+    'Votes & Ripples',
+    'Every like carries an artist a little further across the network.',
+  ),
+  _ValueProp(
+    Icons.insights_outlined,
+    'Transparent analytics',
+    'The Wake shows your real reach, engagement, and growth.',
+  ),
+  _ValueProp(
+    Icons.handshake_outlined,
+    'ProNetworx mentorship',
+    'Connect with Catalysts — producers, photographers, and mentors.',
+  ),
+];
+
+class _GlossaryItem {
+  const _GlossaryItem(this.term, this.definition);
+  final String term;
+  final String definition;
+}
+
+class _GlossaryGroupData {
+  const _GlossaryGroupData(this.system, this.tagline, this.terms);
+  final String system;
+  final String tagline;
+  final List<_GlossaryItem> terms;
+}
+
+const List<_GlossaryGroupData> _glossary = [
+  _GlossaryGroupData(
+    'The Butterfly Effect',
+    'One small ripple can become a storm.',
+    [
+      _GlossaryItem('The Butterfly Effect',
+          'A single vote or discovery can set off the chain reaction that launches an artist\'s career.'),
+      _GlossaryItem('Ripples',
+          'The audience\'s votes and likes. Every ripple carries an artist\'s sound a little further.'),
+      _GlossaryItem('The Wake',
+          'An artist\'s analytics report — the path left behind by a thousand Ripples.'),
+    ],
+  ),
+  _GlossaryGroupData(
+    'Metamorphosis',
+    'The journey from unseen talent to recognized artist.',
+    [
+      _GlossaryItem('Metamorphosis',
+          'The transformation every artist undergoes — from an unknown upload to a name the people know.'),
+      _GlossaryItem('Gem',
+          'An artist. A hidden gem, ready to be heard and refined by the community.'),
+      _GlossaryItem('Diamond',
+          'A Gem refined under pressure — a standout artist the community has voted into the spotlight.'),
+      _GlossaryItem('Catalyst',
+          'A creative service provider (producer, photographer, mentor) who speeds up the metamorphosis through Pro-Networx.'),
+    ],
+  ),
+  _GlossaryGroupData(
+    'Mining',
+    'Surfacing value from the live frequency.',
+    [
+      _GlossaryItem('Mining the Frequency',
+          'How value is surfaced from the always-on stream — the people dig through the radio to find what shines.'),
+      _GlossaryItem('Prospectors',
+          'The listeners. They tune in, send Ripples, and refine raw songs into signal the market can trust.'),
+      _GlossaryItem('The Refinery',
+          'The portal where Prospectors rank, survey, and comment to refine songs before they break out.'),
+      _GlossaryItem('The Yield',
+          'A Prospector\'s rewards — steady earnings from verified engagement like refinement, surveys, and feedback.'),
+    ],
+  ),
+];
+
+class _GlossaryGroup extends StatelessWidget {
+  const _GlossaryGroup({required this.group});
+
+  final _GlossaryGroupData group;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            group.system,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: cs.primary,
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Lora',
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            group.tagline,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: cs.onSurfaceVariant,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...group.terms.map(
+            (t) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: RichText(
+                text: TextSpan(
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: cs.onSurfaceVariant,
+                    height: 1.5,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: '${t.term}: ',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    TextSpan(text: t.definition),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

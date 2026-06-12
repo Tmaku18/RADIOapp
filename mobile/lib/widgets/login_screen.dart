@@ -20,6 +20,21 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isSignUp = false;
   bool _isSubmitting = false;
   String _selectedRole = 'listener';
+  bool _appliedRouteArgs = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Allow callers (e.g. the welcome landing "Get Started Free" CTA) to open
+    // this screen straight into sign-up mode via route arguments.
+    if (!_appliedRouteArgs) {
+      _appliedRouteArgs = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['signUp'] == true) {
+        _isSignUp = true;
+      }
+    }
+  }
 
   @override
   void dispose() {
@@ -518,6 +533,25 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ? 'Already have an account? Sign in'
                                 : 'Don\'t have an account? Sign up',
                             style: const TextStyle(color: NetworxTokens.electricCyan),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () {
+                                  if (Navigator.of(context).canPop()) {
+                                    Navigator.of(context).pop();
+                                  } else {
+                                    Navigator.of(context)
+                                        .pushNamed(AppRoutes.welcome);
+                                  }
+                                },
+                          child: Text(
+                            'New here? Learn about Networx',
+                            style: TextStyle(
+                              color: NetworxTokens.cloudDancer
+                                  .withValues(alpha: 0.74),
+                            ),
                           ),
                         ),
                       ],

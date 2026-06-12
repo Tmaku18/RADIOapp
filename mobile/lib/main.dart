@@ -15,6 +15,7 @@ import 'core/theme/networx_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
+import 'features/welcome/welcome_landing_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -160,6 +161,7 @@ class _MyAppState extends State<MyApp> {
             initialRoute: AppRoutes.root,
             routes: {
               AppRoutes.root: (context) => const AuthWrapper(),
+              AppRoutes.welcome: (context) => const WelcomeLandingScreen(),
               AppRoutes.login: (context) => const LoginScreen(),
               AppRoutes.home: (context) => const HomeScreen(),
             },
@@ -181,7 +183,7 @@ class AuthWrapper extends StatelessWidget {
         // Check if Firebase is initialized
         if (!authService.firebaseInitialized) {
           debugPrint('AuthWrapper: Firebase not initialized');
-          return const LoginScreen();
+          return const WelcomeLandingScreen();
         }
 
         return StreamBuilder(
@@ -230,8 +232,9 @@ class AuthWrapper extends StatelessWidget {
               return const HomeScreen();
             }
 
-            // User is not authenticated - show login
-            return const LoginScreen();
+            // User is not authenticated - show the public landing page first.
+            // Sign up / Log in CTAs push the LoginScreen on top.
+            return const WelcomeLandingScreen();
           },
         );
       },
