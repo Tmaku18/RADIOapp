@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/theme/networx_tokens.dart';
 
 /// About Networx — mission, story, values, and brand voice.
 class AboutScreen extends StatefulWidget {
@@ -34,6 +35,18 @@ class _AboutScreenState extends State<AboutScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final surfaces = context.networxSurfaces;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final wordmarkStops = isDark
+        ? const [
+            Color(0xFFEAFEFF),
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+          ]
+        : const [
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+            NetworxTokens.deepCobalt,
+          ];
 
     return Scaffold(
       appBar: AppBar(
@@ -42,6 +55,22 @@ class _AboutScreenState extends State<AboutScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          ShaderMask(
+            shaderCallback: (bounds) => LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: wordmarkStops,
+            ).createShader(bounds),
+            child: Text(
+              'NETWORX',
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 4,
+                  ),
+            ),
+          ),
+          const SizedBox(height: 8),
           Text(
             'Where the People have the Voice, and the Artist has the Power.',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
