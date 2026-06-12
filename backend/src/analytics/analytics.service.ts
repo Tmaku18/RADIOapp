@@ -664,6 +664,24 @@ export class AnalyticsService {
       .from('likes')
       .select('*', { count: 'exact', head: true });
 
+    // Live radio metrics (current listeners + cumulative unique ears). Folded
+    // into the public platform payload so clients that only poll /platform
+    // (e.g. the mobile welcome/about stats strip) still get real values.
+    // Best-effort: never let a transient radio/Redis issue fail the totals.
+    let liveListeners = 0;
+    let earsReached = 0;
+    try {
+      const live = await this.getPlatformLiveStats();
+      liveListeners = live.liveListeners;
+      earsReached = live.earsReached;
+    } catch (error) {
+      this.logger.warn(
+        `Live stats unavailable for platform payload: ${
+          (error as Error)?.message ?? error
+        }`,
+      );
+    }
+
     return {
       totalUsers: totalUsers || 0,
       totalArtists: totalArtists || 0,
@@ -673,6 +691,8 @@ export class AnalyticsService {
       totalPlays: totalPlays || 0,
       totalProfileClicks: totalProfileClicks || 0,
       totalLikes: totalLikes || 0,
+      liveListeners,
+      earsReached,
     };
   }
 

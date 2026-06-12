@@ -388,8 +388,10 @@ class _StatsStrip extends StatelessWidget {
     final items = <List<String>>[
       [_fmt(_val('totalUsers')), 'Members'],
       [_fmt(_val('totalSongs')), 'Songs'],
-      [_fmt(_val('earsReached')), 'Ears Reached'],
       [_fmt(_val('totalLikes')), 'Ripples'],
+      [_fmt(_val('totalPlays')), 'Plays'],
+      [_fmt(_val('liveListeners')), 'Live Listeners'],
+      [_fmt(_val('earsReached')), 'Ears Reached'],
     ];
     final scheme = Theme.of(context).colorScheme;
     return GridView.count(
