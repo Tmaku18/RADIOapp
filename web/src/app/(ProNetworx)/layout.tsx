@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { ArrowLeft, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
@@ -63,6 +64,7 @@ export default function ProNetworxLayout({
                   <span className="sm:hidden">Radio</span>
                 </a>
               </Button>
+              <ThemeToggle />
               {!loading && !user && (
                 <>
                   <Button variant="ghost" size="sm" asChild>

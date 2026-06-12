@@ -75,14 +75,47 @@ export const NOINDEX_PATH_PREFIXES = [
   '/payment',
   '/auth-handoff',
   '/cross-domain-login',
-  '/pro-networx',
   '/job-board',
   '/directory',
   '/api',
 ] as const;
 
+/**
+ * Auth-gated subroutes inside the /pro-networx tree. Public landing/directory
+ * pages on pro-networx.com remain indexable; everything here stays out of
+ * Google's index regardless of host.
+ */
+export const NOINDEX_PRO_NETWORX_SUBPATHS = [
+  '/pro-networx/home',
+  '/pro-networx/me',
+  '/pro-networx/messages',
+  '/pro-networx/notifications',
+  '/pro-networx/onboarding',
+  '/pro-networx/search',
+  '/pro-networx/explore',
+  '/pro-networx/feed',
+  '/pro-networx/radio',
+] as const;
+
+/**
+ * Public, indexable canonical paths served on the pro-networx.com host. These
+ * end up in pro-networx.com/sitemap.xml and are NOT disallowed in robots.txt
+ * for that host.
+ */
+export const PUBLIC_PRO_NETWORX_PATHS = [
+  '/pro-networx',
+  '/pro-networx/directory',
+] as const;
+
 export function shouldNoIndexPath(pathname: string): boolean {
-  return NOINDEX_PATH_PREFIXES.some(
+  if (
+    NOINDEX_PATH_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+    )
+  ) {
+    return true;
+  }
+  return NOINDEX_PRO_NETWORX_SUBPATHS.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );
 }
