@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
 export default function AuthLayout({
   children,
@@ -38,7 +39,7 @@ export default function AuthLayout({
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
-      <header className="px-5 py-4 border-b border-border/70 bg-background/80 backdrop-blur">
+      <header className="px-5 py-4 border-b border-border/70 bg-background/80 backdrop-blur flex items-center justify-between gap-3">
         <Link href="/directory" className="flex items-center gap-3">
           <Image
             src={NETWORX_LOGO_MARK}
@@ -50,6 +51,7 @@ export default function AuthLayout({
           />
           <span className="font-semibold tracking-tight">Pro-Networx</span>
         </Link>
+        <ThemeToggle triggerClassName="h-9 w-9" />
       </header>
 
       <main className="flex-1 flex items-center justify-center p-4">

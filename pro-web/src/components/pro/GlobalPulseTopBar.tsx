@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
 
 function initials(name: string | null | undefined): string {
@@ -56,6 +57,7 @@ export function GlobalPulseTopBar() {
           <Button variant="ghost" size="sm" asChild>
             <Link href="/onboarding">Profile</Link>
           </Button>
+          <ThemeToggle triggerClassName="h-9 w-9" />
           <Avatar size="sm" className="border border-primary/20">
             <AvatarImage src={profile?.avatarUrl ?? undefined} alt={profile?.displayName ?? 'Avatar'} />
             <AvatarFallback>{initials(profile?.displayName)}</AvatarFallback>
