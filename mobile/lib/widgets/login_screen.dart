@@ -329,18 +329,30 @@ class _LoginScreenState extends State<LoginScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(18),
                           child: Image.asset(
-                            'assets/images/branding/logo_0.png',
+                            'assets/images/branding/networx-logo-cyan.png',
                             width: 78,
                             height: 78,
                             fit: BoxFit.cover,
                           ),
                         ),
                         const SizedBox(height: 10),
-                        Text(
-                          'Networx',
-                          style: textTheme.headlineSmall?.copyWith(
-                            color: NetworxTokens.cloudDancer,
-                            fontWeight: FontWeight.w700,
+                        ShaderMask(
+                          shaderCallback: (bounds) => const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color(0xFFEAFEFF),
+                              NetworxTokens.electricCyan,
+                              NetworxTokens.electricCyanHover,
+                            ],
+                          ).createShader(bounds),
+                          child: Text(
+                            'NETWORX',
+                            style: textTheme.headlineSmall?.copyWith(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 3,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),

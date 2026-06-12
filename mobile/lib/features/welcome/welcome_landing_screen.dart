@@ -175,7 +175,7 @@ class _Hero extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: Image.asset(
-                  'assets/images/branding/logo_0.png',
+                  'assets/images/branding/networx-logo-cyan.png',
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
@@ -186,11 +186,23 @@ class _Hero extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'NETWORX Radio',
-                      style: textTheme.titleMedium?.copyWith(
-                        color: NetworxTokens.cloudDancer,
-                        fontWeight: FontWeight.w700,
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Color(0xFFEAFEFF),
+                          NetworxTokens.electricCyan,
+                          NetworxTokens.electricCyanHover,
+                        ],
+                      ).createShader(bounds),
+                      child: Text(
+                        'NETWORX RADIO',
+                        style: textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1.5,
+                        ),
                       ),
                     ),
                     Text(
