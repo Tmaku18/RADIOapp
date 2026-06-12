@@ -252,7 +252,40 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    final borderColor = NetworxTokens.cloudDancer.withValues(alpha: 0.12);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Theme-aware brand surface so the auth screen matches web in both modes.
+    final onCard = isDark ? NetworxTokens.cloudDancer : NetworxTokens.lightTextPrimary;
+    final borderColor = onCard.withValues(alpha: 0.12);
+    final fieldFill = isDark
+        ? NetworxTokens.charcoalMatte.withValues(alpha: 0.86)
+        : NetworxTokens.lightElevated;
+    final linkColor = isDark ? NetworxTokens.electricCyan : NetworxTokens.deepCobalt;
+    final logoAsset = isDark
+        ? 'assets/images/branding/networx-logo-cyan.png'
+        : 'assets/images/branding/networx-logo-cyan-light.png';
+    final wordmarkStops = isDark
+        ? const [
+            Color(0xFFEAFEFF),
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+          ]
+        : const [
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+            NetworxTokens.deepCobalt,
+          ];
+    final gradientColors = isDark
+        ? const [
+            NetworxTokens.deepMidnight,
+            NetworxTokens.charcoalMatte,
+            NetworxTokens.deepCobalt,
+          ]
+        : const [
+            Color(0xFFFAFAFA),
+            Color(0xFFFFFFFF),
+            Color(0xFFE6FBFF),
+          ];
 
     InputDecoration themedDecoration({
       required String label,
@@ -261,12 +294,12 @@ class _LoginScreenState extends State<LoginScreen> {
       return InputDecoration(
         labelText: label,
         hintText: hint,
-        labelStyle: const TextStyle(color: NetworxTokens.cloudDancer),
+        labelStyle: TextStyle(color: onCard.withValues(alpha: 0.86)),
         hintStyle: TextStyle(
-          color: NetworxTokens.cloudDancer.withValues(alpha: 0.62),
+          color: onCard.withValues(alpha: 0.5),
         ),
         filled: true,
-        fillColor: NetworxTokens.charcoalMatte.withValues(alpha: 0.86),
+        fillColor: fieldFill,
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: borderColor),
@@ -288,15 +321,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              NetworxTokens.deepMidnight,
-              NetworxTokens.charcoalMatte,
-              NetworxTokens.deepCobalt,
-            ],
+            colors: gradientColors,
           ),
         ),
         child: SafeArea(
@@ -310,14 +339,16 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: NetworxTokens.deepMidnight.withValues(alpha: 0.76),
+                      color: isDark
+                          ? NetworxTokens.deepMidnight.withValues(alpha: 0.76)
+                          : NetworxTokens.lightSurface,
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: NetworxTokens.cloudDancer.withValues(alpha: 0.14),
+                        color: onCard.withValues(alpha: isDark ? 0.14 : 0.12),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: NetworxTokens.deepMidnight.withValues(alpha: 0.55),
+                          color: Colors.black.withValues(alpha: isDark ? 0.55 : 0.12),
                           blurRadius: 28,
                           offset: const Offset(0, 14),
                         ),
@@ -329,7 +360,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(18),
                           child: Image.asset(
-                            'assets/images/branding/networx-logo-cyan.png',
+                            logoAsset,
                             width: 78,
                             height: 78,
                             fit: BoxFit.cover,
@@ -337,14 +368,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const SizedBox(height: 10),
                         ShaderMask(
-                          shaderCallback: (bounds) => const LinearGradient(
+                          shaderCallback: (bounds) => LinearGradient(
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0xFFEAFEFF),
-                              NetworxTokens.electricCyan,
-                              NetworxTokens.electricCyanHover,
-                            ],
+                            colors: wordmarkStops,
                           ).createShader(bounds),
                           child: Text(
                             'NETWORX',
@@ -362,14 +389,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               : 'Welcome back',
                           textAlign: TextAlign.center,
                           style: textTheme.bodyMedium?.copyWith(
-                            color: NetworxTokens.cloudDancer.withValues(alpha: 0.74),
+                            color: onCard.withValues(alpha: 0.74),
                           ),
                         ),
                         const SizedBox(height: 20),
                         if (_isSignUp) ...[
                           TextFormField(
                             controller: _displayNameController,
-                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            style: TextStyle(color: onCard),
                             decoration: themedDecoration(
                               label: 'Display name',
                               hint: 'Your public name',
@@ -385,8 +412,10 @@ class _LoginScreenState extends State<LoginScreen> {
                           DropdownButtonFormField<String>(
                             initialValue: _selectedRole,
                             decoration: themedDecoration(label: 'Role'),
-                            dropdownColor: NetworxTokens.charcoalMatte,
-                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            dropdownColor: isDark
+                                ? NetworxTokens.charcoalMatte
+                                : NetworxTokens.lightSurface,
+                            style: TextStyle(color: onCard),
                             items: const [
                               DropdownMenuItem(value: 'listener', child: Text('Listener')),
                               DropdownMenuItem(value: 'artist', child: Text('Gem')),
@@ -402,7 +431,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                         TextFormField(
                           controller: _emailController,
-                          style: const TextStyle(color: NetworxTokens.cloudDancer),
+                          style: TextStyle(color: onCard),
                           decoration: themedDecoration(
                             label: 'Email',
                             hint: 'you@example.com',
@@ -418,7 +447,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: _passwordController,
-                          style: const TextStyle(color: NetworxTokens.cloudDancer),
+                          style: TextStyle(color: onCard),
                           decoration: themedDecoration(
                             label: 'Password',
                             hint: 'Enter your password',
@@ -438,7 +467,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           const SizedBox(height: 14),
                           TextFormField(
                             controller: _confirmPasswordController,
-                            style: const TextStyle(color: NetworxTokens.cloudDancer),
+                            style: TextStyle(color: onCard),
                             decoration: themedDecoration(
                               label: 'Confirm password',
                               hint: 'Re-enter your password',
@@ -483,7 +512,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           children: [
                             Expanded(
                               child: Divider(
-                                color: NetworxTokens.cloudDancer.withValues(alpha: 0.22),
+                                color: onCard.withValues(alpha: 0.22),
                               ),
                             ),
                             Padding(
@@ -491,14 +520,14 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: Text(
                                 'OR',
                                 style: textTheme.labelSmall?.copyWith(
-                                  color: NetworxTokens.cloudDancer.withValues(alpha: 0.72),
+                                  color: onCard.withValues(alpha: 0.72),
                                   letterSpacing: 0.8,
                                 ),
                               ),
                             ),
                             Expanded(
                               child: Divider(
-                                color: NetworxTokens.cloudDancer.withValues(alpha: 0.22),
+                                color: onCard.withValues(alpha: 0.22),
                               ),
                             ),
                           ],
@@ -510,7 +539,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _isSubmitting ? null : _handleGoogleSignIn,
                             icon: const Icon(Icons.g_mobiledata, size: 28),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: NetworxTokens.cloudDancer,
+                              foregroundColor: onCard,
                               side: BorderSide(color: borderColor),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
@@ -524,7 +553,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: _isSubmitting ? null : _handleAppleSignIn,
                             icon: const Icon(Icons.apple, size: 22),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: NetworxTokens.cloudDancer,
+                              foregroundColor: onCard,
                               side: BorderSide(color: borderColor),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                             ),
@@ -544,7 +573,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             _isSignUp
                                 ? 'Already have an account? Sign in'
                                 : 'Don\'t have an account? Sign up',
-                            style: const TextStyle(color: NetworxTokens.electricCyan),
+                            style: TextStyle(color: linkColor),
                           ),
                         ),
                         TextButton(
@@ -561,8 +590,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Text(
                             'New here? Learn about Networx',
                             style: TextStyle(
-                              color: NetworxTokens.cloudDancer
-                                  .withValues(alpha: 0.74),
+                              color: onCard.withValues(alpha: 0.74),
                             ),
                           ),
                         ),

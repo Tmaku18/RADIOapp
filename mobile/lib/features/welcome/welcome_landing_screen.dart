@@ -152,18 +152,42 @@ class _Hero extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final onHero =
+        isDark ? NetworxTokens.cloudDancer : NetworxTokens.lightTextPrimary;
+    final logoAsset = isDark
+        ? 'assets/images/branding/networx-logo-cyan.png'
+        : 'assets/images/branding/networx-logo-cyan-light.png';
+    final wordmarkStops = isDark
+        ? const [
+            Color(0xFFEAFEFF),
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+          ]
+        : const [
+            NetworxTokens.electricCyan,
+            NetworxTokens.electricCyanHover,
+            NetworxTokens.deepCobalt,
+          ];
+    final gradientColors = isDark
+        ? const [
             NetworxTokens.deepMidnight,
             NetworxTokens.charcoalMatte,
             NetworxTokens.deepCobalt,
-          ],
+          ]
+        : const [
+            Color(0xFFFAFAFA),
+            Color(0xFFFFFFFF),
+            Color(0xFFE6FBFF),
+          ];
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: gradientColors,
         ),
       ),
       padding: const EdgeInsets.fromLTRB(24, 36, 24, 36),
@@ -175,7 +199,7 @@ class _Hero extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
                 child: Image.asset(
-                  'assets/images/branding/networx-logo-cyan.png',
+                  logoAsset,
                   width: 56,
                   height: 56,
                   fit: BoxFit.cover,
@@ -187,14 +211,10 @@ class _Hero extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
+                      shaderCallback: (bounds) => LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [
-                          Color(0xFFEAFEFF),
-                          NetworxTokens.electricCyan,
-                          NetworxTokens.electricCyanHover,
-                        ],
+                        colors: wordmarkStops,
                       ).createShader(bounds),
                       child: Text(
                         'NETWORX RADIO',
@@ -221,7 +241,7 @@ class _Hero extends StatelessWidget {
           Text(
             'Join the movement and build your network',
             style: textTheme.headlineSmall?.copyWith(
-              color: NetworxTokens.cloudDancer,
+              color: onHero,
               fontWeight: FontWeight.w800,
               height: 1.2,
             ),
@@ -232,7 +252,7 @@ class _Hero extends StatelessWidget {
             'discovering new talent, or a pro ready to mentor, Networx and '
             'ProNetworx create the bridge.',
             style: textTheme.bodyLarge?.copyWith(
-              color: NetworxTokens.cloudDancer.withValues(alpha: 0.78),
+              color: onHero.withValues(alpha: 0.78),
               height: 1.5,
             ),
           ),
@@ -255,9 +275,9 @@ class _Hero extends StatelessWidget {
                 child: OutlinedButton(
                   onPressed: onLogin,
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: NetworxTokens.cloudDancer,
+                    foregroundColor: onHero,
                     side: BorderSide(
-                      color: NetworxTokens.cloudDancer.withValues(alpha: 0.3),
+                      color: onHero.withValues(alpha: 0.3),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
@@ -270,7 +290,7 @@ class _Hero extends StatelessWidget {
           Text(
             'Always free to listen.',
             style: textTheme.bodySmall?.copyWith(
-              color: NetworxTokens.cloudDancer.withValues(alpha: 0.6),
+              color: onHero.withValues(alpha: 0.6),
             ),
           ),
         ],
