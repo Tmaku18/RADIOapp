@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
 import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
+import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 import { getBackendBaseUrls } from '@/lib/backend-url';
 import type { Metadata } from 'next';
 
@@ -170,8 +171,9 @@ export default async function HomePage() {
   return (
     <div>
       {/* Hero — Join the movement (primary CTA above the fold) */}
-      <section className="py-24 sm:py-32 bg-primary text-primary-foreground">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden py-24 sm:py-32 bg-primary text-primary-foreground">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={150} opacity={0.14} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold tracking-tight">
             Join the movement and build your network
           </h1>
@@ -206,8 +208,9 @@ export default async function HomePage() {
       </section>
 
       {/* Stats — all-time totals (cached) + live radio metrics (poll 30s) */}
-      <section className="py-16 border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
+      <section className="relative overflow-hidden py-16 border-b border-border">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={140} opacity={0.1} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div>
             <p className="text-center text-sm font-medium uppercase tracking-wide text-muted-foreground mb-6">
               Platform totals
@@ -244,8 +247,9 @@ export default async function HomePage() {
       </section>
 
       {/* The Language of Networx — branding glossary (three metaphor systems) */}
-      <section className="py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={160} opacity={0.13} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14 max-w-3xl mx-auto">
             <h2 className="text-3xl sm:text-4xl font-bold text-primary-foreground mb-4">
               The Language of Networx
@@ -286,8 +290,9 @@ export default async function HomePage() {
       </section>
 
       {/* Final CTA — closing black/white slot */}
-      <section className="py-16 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden py-16 bg-background">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={130} opacity={0.1} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Ready to get started?</h2>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button size="lg" className="!text-black" asChild>
