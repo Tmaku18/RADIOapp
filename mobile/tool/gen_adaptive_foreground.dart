@@ -1,9 +1,9 @@
 // One-off helper: builds a padded Android adaptive-icon foreground from the
 // full cyan NETWORX lockup so the wordmark isn't clipped by the launcher mask.
 //
-// The full lockup is scaled to ~62% of the canvas and centered on a transparent
-// background. The adaptive_icon_background color (#0A0A0A) fills the rest, which
-// matches the logo's own dark backdrop for a seamless look.
+// The full lockup is scaled to ~62% of the canvas and centered on a SOLID
+// #0A0A0A background (matching adaptive_icon_background) so the icon is dark
+// edge-to-edge with no visible square seam under the launcher mask.
 //
 // Run from the `mobile/` directory:
 //   dart run tool/gen_adaptive_foreground.dart
@@ -32,8 +32,9 @@ void main() {
     interpolation: img.Interpolation.cubic,
   );
 
+  // Solid #0A0A0A fill (opaque) so the foreground is dark edge-to-edge.
   final canvas = img.Image(width: canvasSize, height: canvasSize, numChannels: 4);
-  img.fill(canvas, color: img.ColorRgba8(0, 0, 0, 0));
+  img.fill(canvas, color: img.ColorRgba8(0x0A, 0x0A, 0x0A, 0xFF));
 
   final offset = ((canvasSize - target) / 2).round();
   img.compositeImage(canvas, resized, dstX: offset, dstY: offset);
