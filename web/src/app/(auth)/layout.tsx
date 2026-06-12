@@ -7,9 +7,11 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 
-import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
 
-const LOGO_SRC = NETWORX_LOGO_MARK;
+// Auth header has a teal gradient background regardless of theme, so the
+// dark wordmark (white words) is correct for both light and dark mode here.
+const LOGO_SRC = NETWORX_LOGO;
 
 export default function AuthLayout({
   children,
@@ -49,17 +51,16 @@ export default function AuthLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
       <header className="p-4 flex items-center justify-between gap-3">
-        <Link href="/" className="flex items-center gap-3 text-primary-foreground">
+        <Link href="/" className="flex items-center text-primary-foreground">
           <Image
             src={LOGO_SRC}
-            alt=""
-            width={48}
-            height={48}
-            className="h-10 w-10 object-contain object-left shrink-0"
+            alt="NETWORX Radio — The Butterfly Effect"
+            width={220}
+            height={64}
+            className="h-12 sm:h-14 w-auto max-w-[min(220px,55vw)] object-contain object-left shrink-0"
             priority
             unoptimized
           />
-          <span className="text-xl font-bold">Networx</span>
         </Link>
         <ThemeToggle triggerClassName="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" />
       </header>

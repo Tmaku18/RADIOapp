@@ -106,9 +106,7 @@ const moreNav = [
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
 
-import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
-
-const DASHBOARD_LOGO = NETWORX_LOGO_MARK;
+import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
 
 /**
  * Auto-collapse the mobile sidebar overlay whenever the route changes, so
@@ -125,18 +123,30 @@ function AutoCollapseSidebarOnNavigate() {
 }
 
 function DashboardSidebarLogo() {
+  // Render the full official wordmark (light + dark variants). When the
+  // sidebar collapses to icon mode, the wordmark scales down with the slot
+  // so the butterfly + start of "NETWORX" remain visible.
   return (
-    <span className="size-10 shrink-0 flex items-center justify-center rounded-lg bg-primary/20 overflow-hidden">
+    <>
       <Image
-        src={DASHBOARD_LOGO}
-        alt=""
-        width={40}
-        height={40}
-        className="size-10 object-contain"
+        src={NETWORX_LOGO}
+        alt="NETWORX Radio — The Butterfly Effect"
+        width={200}
+        height={56}
+        className="hidden dark:block h-10 w-auto object-contain object-left shrink-0"
         priority
         unoptimized
       />
-    </span>
+      <Image
+        src={NETWORX_LOGO_LIGHT}
+        alt="NETWORX Radio — The Butterfly Effect"
+        width={200}
+        height={56}
+        className="block dark:hidden h-10 w-auto object-contain object-left shrink-0"
+        priority
+        unoptimized
+      />
+    </>
   );
 }
 
@@ -358,9 +368,8 @@ export default function DashboardLayout({
           <SidebarMenu>
             <SidebarMenuItem>
               <SidebarMenuButton size="lg" asChild>
-                <Link href="/dashboard" className="flex items-center gap-3">
+                <Link href="/dashboard" className="flex items-center">
                   <DashboardSidebarLogo />
-                  <span className="font-bold text-foreground">Networx</span>
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>

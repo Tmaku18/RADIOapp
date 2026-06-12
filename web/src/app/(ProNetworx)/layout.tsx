@@ -8,9 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
 
-import { NETWORX_LOGO_MARK } from '@/lib/brand-assets';
-
-const LOGO_SRC = NETWORX_LOGO_MARK;
+import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const NETWORX_RADIO_ORIGIN = 'https://www.networxradio.com';
 const NETWORX_RADIO_DASHBOARD = `${NETWORX_RADIO_ORIGIN}/dashboard`;
@@ -31,16 +29,25 @@ export default function ProNetworxLayout({
           <div className="flex justify-between items-center gap-4 h-16">
             <Link href={user ? '/pro-networx/home' : '/pro-networx'} className="flex items-center shrink-0 gap-3">
               <Image
-                src={LOGO_SRC}
-                alt="Networx Radio — The Butterfly Effect"
-                width={40}
-                height={40}
-                className="h-10 w-10 object-contain object-left shrink-0"
+                src={NETWORX_LOGO}
+                alt="NETWORX Radio — The Butterfly Effect"
+                width={220}
+                height={64}
+                className="hidden dark:block h-12 w-auto max-w-[min(220px,55vw)] object-contain object-left shrink-0"
                 priority
                 unoptimized
               />
-              <span className="text-primary font-semibold text-sm sm:text-base tracking-tight">
-                PRO-NETWORX
+              <Image
+                src={NETWORX_LOGO_LIGHT}
+                alt="NETWORX Radio — The Butterfly Effect"
+                width={220}
+                height={64}
+                className="block dark:hidden h-12 w-auto max-w-[min(220px,55vw)] object-contain object-left shrink-0"
+                priority
+                unoptimized
+              />
+              <span className="hidden md:inline text-primary font-semibold text-sm tracking-tight">
+                · PRO‑NETWORX
               </span>
             </Link>
             <div className="flex items-center gap-2">
