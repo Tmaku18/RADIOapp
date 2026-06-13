@@ -37,3 +37,20 @@ import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 A section may already have a different absolute background (e.g.
 `LiveRippleVisualizer`); add the print alongside it — both can coexist as long
 as the content stays on `relative z-10`.
+
+## Alternate teal ↔ light down the page
+
+Stacked marketing sections alternate between **teal** and **light** so adjacent
+sections never share the same background:
+
+- **Teal section**: `bg-primary text-primary-foreground border-b border-primary-foreground/10`.
+  Use `text-primary-foreground` (and `/80`, `/70` tints) for headings, body and
+  links; for cards/media use `bg-primary-foreground/10`, `ring-primary-foreground/20`,
+  and flip accent buttons to `bg-primary-foreground text-primary`. Print uses
+  `colorClassName="text-primary-foreground"`.
+- **Light section**: default background (`border-b border-border`, optionally
+  `bg-muted`). Use `text-foreground` / `text-muted-foreground`. Print uses
+  `colorClassName="text-primary"`.
+
+When adding a new section, look at its neighbors and pick the opposite scheme so
+the teal/light rhythm continues. Don't put two same-scheme sections back to back.
