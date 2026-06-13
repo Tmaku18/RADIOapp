@@ -53,21 +53,53 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
     super.dispose();
   }
 
+  /// Resolve [future], falling back to [fallback] if it throws. Each leaderboard
+  /// section is loaded independently so one failing endpoint (e.g. a 500 on the
+  /// ratio board) does not blank every tab — successful boards still render.
+  Future<T> _safe<T>(Future<T> Function() future, T fallback) async {
+    try {
+      return await future();
+    } catch (_) {
+      return fallback;
+    }
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait([
-        _service.getLeaderboardSongs(by: 'likes', limit: 20),
-        _service.getLeaderboardSongs(by: 'listens', limit: 20),
-        _service.getLeaderboardSongs(by: 'positive_votes', limit: 20),
-        _service.getLeaderboardSongs(by: 'ratio', limit: 20),
-        _service.getLeaderboardSongs(by: 'saves', limit: 20),
-        _service.getUpvotesPerMinute(windowMinutes: 60, limit: 20),
-        _service.getNewsPromotions(limit: 10),
-        _service.getTodaySpotlight(),
-        _service.getWeekSpotlight(),
-        _service.getCurrentWeek(),
-        _service.getBrowseLeaderboard(limitPerCategory: 5),
+      final results = await Future.wait<Object?>([
+        _safe(
+          () => _service.getLeaderboardSongs(by: 'likes', limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(
+          () => _service.getLeaderboardSongs(by: 'listens', limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(
+          () => _service.getLeaderboardSongs(by: 'positive_votes', limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(
+          () => _service.getLeaderboardSongs(by: 'ratio', limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(
+          () => _service.getLeaderboardSongs(by: 'saves', limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(
+          () => _service.getUpvotesPerMinute(windowMinutes: 60, limit: 20),
+          const <LeaderboardSong>[],
+        ),
+        _safe(() => _service.getNewsPromotions(limit: 10), const <NewsItem>[]),
+        _safe<SpotlightToday?>(() => _service.getTodaySpotlight(), null),
+        _safe(() => _service.getWeekSpotlight(), const <SpotlightWeekDay>[]),
+        _safe<CurrentWeek?>(() => _service.getCurrentWeek(), null),
+        _safe(
+          () => _service.getBrowseLeaderboard(limitPerCategory: 5),
+          const <BrowseLeaderboardCategory>[],
+        ),
       ]);
 
       if (!mounted) return;
