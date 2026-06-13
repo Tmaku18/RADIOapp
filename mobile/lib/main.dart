@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:just_audio_background/just_audio_background.dart';
 import 'core/env.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/auth/auth_service.dart';
@@ -32,13 +31,9 @@ void main() async {
   final themeController = ThemeController();
   await themeController.load();
 
+  // Stands up the audio_service handler (music + DJ voice-over players) and
+  // configures the audio session for background playback.
   await AudioPlayerService.ensureInitialized();
-
-  await JustAudioBackground.init(
-    androidNotificationChannelId: 'networx_radio_playback',
-    androidNotificationChannelName: 'NETWORX Radio Playback',
-    androidNotificationOngoing: true,
-  );
 
   // Initialize Stripe
   final stripePublishableKey = env('STRIPE_PUBLISHABLE_KEY');

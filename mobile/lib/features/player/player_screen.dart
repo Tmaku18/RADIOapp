@@ -146,10 +146,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _trackSyncTimer;
   Timer? _trackBoundaryTimer;
   bool _globalTransportPaused = false;
-  /// User-facing music volume (0..1). On mobile we never duck below this because
-  /// just_audio_background allows only one player instance, so a separate
-  /// DJ-voice overlay stream cannot be mixed in (ducking with no audible overlay
-  /// just made the music quiet).
+  /// User-facing music volume (0..1). The DJ talk-over ducks below this via the
+  /// audio handler's separate voice player; we restore to this level when the
+  /// overlay ends.
   final double _userVolume = 1.0;
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
@@ -373,7 +372,10 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _applyMainVolumeForTrack(Track? track) async {
-    await _audioPlayer.setVolume(_userVolume.clamp(0.0, 1.0));
+    // The handler restores to this base level whenever no DJ overlay is active.
+    await AudioPlayerService.handler.setBaseMusicVolume(
+      _userVolume.clamp(0.0, 1.0),
+    );
   }
 
   Future<void> _applyBoothState(Track track) async {
@@ -391,16 +393,29 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     }
 
-    // DJ-voice overlay layering requires a second simultaneous audio stream,
-    // which just_audio_background does not support on mobile. Keep the music at
-    // full volume rather than ducking for an overlay that cannot be heard.
+    // Keep the handler's base music volume in sync with the user's level.
     await _applyMainVolumeForTrack(track);
+
+    // Layer the live DJ talk-over over the music (ducking the music) via the
+    // handler's separate voice player. Stop it when the booth goes off-air.
+    final overlay = track.djOverlay;
+    final overlayUrl = overlay?.hlsUrl;
+    if (overlay != null &&
+        overlay.active &&
+        overlayUrl != null &&
+        overlayUrl.trim().isNotEmpty) {
+      await AudioPlayerService.handler.startVoiceOverlay(
+        overlayUrl,
+        duckVolume: overlay.duckVolume,
+      );
+    } else {
+      await AudioPlayerService.handler.stopVoiceOverlay();
+    }
   }
 
-  /// Transition to [track]. just_audio_background only supports a single player
-  /// instance, so a true crossfade (two overlapping players) is not possible on
-  /// mobile; we hand off directly. Kept as a named method because the sync path
-  /// calls it when the live track changes mid-playback.
+  /// Transition to [track]. The radio music uses a single content player, so we
+  /// hand off directly rather than crossfade. Kept as a named method because the
+  /// sync path calls it when the live track changes mid-playback.
   Future<void> _crossfadeToTrack(
     Track track,
     TrackFetchResult result, {
