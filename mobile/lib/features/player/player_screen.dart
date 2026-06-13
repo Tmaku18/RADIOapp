@@ -115,6 +115,9 @@ const List<_StationOption> _stationOptions = <_StationOption>[
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
 
+/// Neutral starting point for song temperature (matches backend TEMP_BASELINE).
+const int _kTempBaseline = 50;
+
 class PlayerScreen extends StatefulWidget {
   const PlayerScreen({super.key});
 
@@ -727,10 +730,12 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (previousReaction == 'shit') shitVotes -= 1;
       if (serverReaction == 'fire') fireVotes += 1;
       if (serverReaction == 'shit') shitVotes += 1;
-      final totalVotes = fireVotes + shitVotes;
-      final temperaturePercent = totalVotes > 0
-          ? ((fireVotes / totalVotes) * 100).round()
-          : 0;
+      fireVotes = fireVotes < 0 ? 0 : fireVotes;
+      shitVotes = shitVotes < 0 ? 0 : shitVotes;
+      // Mirror the server formula (clamp(0..100, baseline + fire - shit)) so the
+      // optimistic value matches web instead of jumping to 100% on a single vote.
+      final temperaturePercent =
+          (_kTempBaseline + fireVotes - shitVotes).clamp(0, 100).toInt();
 
       if (!mounted) return;
       setState(() {
