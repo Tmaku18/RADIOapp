@@ -8,11 +8,12 @@ production release forms.
 - App name: NETWORX (Radio App)
 - Android package: `com.radioapp.radio_app`
 - Company: DISCOVERMERADIO GROUP LLC
-- Privacy policy URL: `https://pro-networx.com/privacy` (publish and verify)
-- Terms URL: `https://pro-networx.com/terms` (publish and verify)
-- Legal center URL: `https://pro-networx.com/legal` (publish and verify)
-- Community guidelines URL: `https://pro-networx.com/community-guidelines`
-- DMCA URL: `https://pro-networx.com/dmca`
+- Privacy policy URL: `https://www.networxradio.com/privacy` (publish and verify)
+- Terms URL: `https://www.networxradio.com/terms` (publish and verify)
+- Legal center URL: `https://www.networxradio.com/legal` (publish and verify)
+- Community guidelines URL: `https://www.networxradio.com/community-guidelines`
+- DMCA URL: `https://www.networxradio.com/dmca`
+- Store listing copy: `docs/play-store-listing.md`
 - Support email: `support@networxradio.com`
 
 See also: `docs/legal/mobile-store-compliance-packet.md`
@@ -67,8 +68,10 @@ Confirm final answers with legal and product owners before submission.
 ## Payments declaration
 
 - Android in-app purchases use Google Play Billing.
-- Song-play purchases follow dynamic pricing: **$1/minute per play**, so total price
-  changes by song duration and selected play count.
+- Discovery placement purchases use Google Play Billing product packs mapped in
+  `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`. Each placement is a flat **$1.99** and
+  targets ~**1,000 verified listener exposures** (see `pricePerPlacementCents()`
+  in `backend/src/payments/payments.service.ts`).
 - Backend verification endpoint: `POST /api/payments/google-play/complete`.
 - Web/non-Android payment flows remain Stripe where allowed.
 
