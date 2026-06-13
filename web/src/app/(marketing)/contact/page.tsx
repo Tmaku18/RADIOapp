@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
 
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 
@@ -66,12 +67,15 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl font-bold text-foreground mb-4">Contact Us</h1>
-      <p className="text-xl text-muted-foreground mb-8">
-        Have a question, partnership idea, or support request? We&apos;d love to hear from you.
-      </p>
+    <div>
+      <MarketingHero
+        title="Contact Us"
+        subtitle="Have a question, partnership idea, or support request? We'd love to hear from you."
+      />
 
+      <section className="relative overflow-hidden py-16">
+        <MarketingBodyPattern />
+        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
       <Card className="mb-8 border-primary/30 bg-primary/5">
         <CardContent className="pt-6">
           <h2 className="text-lg font-semibold text-foreground mb-2">Looking for ProNetworx?</h2>
@@ -204,6 +208,8 @@ export default function ContactPage() {
               </a>
             </CardContent>
           </Card>
+        </div>
+      </section>
         </div>
       </section>
     </div>

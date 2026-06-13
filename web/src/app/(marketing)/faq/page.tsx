@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
 
 export const metadata: Metadata = {
   title: 'FAQ - Networx',
@@ -125,14 +126,15 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl font-bold text-foreground mb-4">
-        Frequently Asked Questions
-      </h1>
-      <p className="text-xl text-muted-foreground mb-12">
-        Everything you need to know about Networx and ProNetworx.
-      </p>
+    <div>
+      <MarketingHero
+        title="Frequently Asked Questions"
+        subtitle="Everything you need to know about Networx and ProNetworx."
+      />
 
+      <section className="relative overflow-hidden py-16">
+        <MarketingBodyPattern />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="space-y-6">
         {faqs.map((section) => (
           <Card key={section.category}>
@@ -194,6 +196,8 @@ export default function FAQPage() {
           </div>
         </CardContent>
       </Card>
+        </div>
+      </section>
     </div>
   );
 }

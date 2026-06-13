@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { getProNetworxAppUrl } from '@/lib/site-url';
+import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
 
 export const metadata: Metadata = {
   title: 'Pro-Directory and ProNetworx | Networx',
@@ -15,12 +16,15 @@ export const revalidate = 3600;
 export default function ProDirectoryPage() {
   const proNetworxDirectory = `${getProNetworxAppUrl()}/pro-networx/directory`;
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl font-bold text-foreground mb-4">Industry Catalysts and ProNetworx</h1>
-      <p className="text-xl text-primary font-semibold mb-10">
-        The signal needs a spark. Become an Industry Catalyst and help artists scale.
-      </p>
+    <div>
+      <MarketingHero
+        title="Industry Catalysts and ProNetworx"
+        subtitle="The signal needs a spark. Become an Industry Catalyst and help artists scale."
+      />
 
+      <section className="relative overflow-hidden py-16">
+        <MarketingBodyPattern />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-muted-foreground">
         <h2 className="text-2xl font-bold text-foreground mt-10 mb-4">The 4 AM Story</h2>
         <p className="text-muted-foreground mb-4">
@@ -58,6 +62,8 @@ export default function ProDirectoryPage() {
           </CardContent>
         </Card>
       </div>
+        </div>
+      </section>
     </div>
   );
 }

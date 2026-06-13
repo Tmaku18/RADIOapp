@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
 
 export const metadata: Metadata = {
   title: 'Pricing - Networx',
@@ -13,18 +14,15 @@ export const revalidate = 3600;
 
 export default function PricingPage() {
   return (
-    <div className="py-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-bold text-foreground mb-4">
-            Simple, Transparent Pricing
-          </h1>
-          <p className="text-xl text-muted-foreground">
-            Listening is free for everyone, forever. Artists pay only when they want verified exposure, and fans pay only for the full songs they choose to own.
-          </p>
-        </div>
+    <div>
+      <MarketingHero
+        title="Simple, Transparent Pricing"
+        subtitle="Listening is free for everyone, forever. Artists pay only when they want verified exposure, and fans pay only for the full songs they choose to own."
+      />
 
+      <section className="relative overflow-hidden py-16">
+        <MarketingBodyPattern />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Free for everyone */}
         <div className="mb-20">
           <Card className="bg-primary text-primary-foreground border-0">
@@ -195,7 +193,8 @@ export default function PricingPage() {
             </Link>
           </p>
         </div>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

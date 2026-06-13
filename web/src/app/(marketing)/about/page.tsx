@@ -2,6 +2,7 @@ import { Metadata } from 'next';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
 
 export const metadata: Metadata = {
   title: 'About - Networx',
@@ -12,12 +13,15 @@ export const revalidate = 3600;
 
 export default function AboutPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-      <h1 className="text-4xl font-bold text-foreground mb-4">About Networx</h1>
-      <p className="text-xl text-primary font-semibold mb-10">
-        Where the People have the Voice, and the Artist has the Power.
-      </p>
+    <div>
+      <MarketingHero
+        title="About Networx"
+        subtitle="Where the People have the Voice, and the Artist has the Power."
+      />
 
+      <section className="relative overflow-hidden py-16">
+        <MarketingBodyPattern />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="prose prose-lg max-w-none prose-headings:text-foreground prose-p:text-muted-foreground prose-li:text-muted-foreground">
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">Our Mission</h2>
         <p className="text-muted-foreground mb-6">
@@ -78,6 +82,8 @@ export default function AboutPage() {
           </CardContent>
         </Card>
       </div>
+        </div>
+      </section>
     </div>
   );
 }

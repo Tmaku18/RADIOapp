@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 
 export const metadata: Metadata = {
   title: 'Features - Networx',
@@ -114,8 +115,9 @@ export default function FeaturesPage() {
   return (
     <div>
       {/* Hero */}
-      <section className="py-20 sm:py-24 bg-primary text-primary-foreground">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden py-20 sm:py-24 bg-primary text-primary-foreground">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={150} opacity={0.14} />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
             One ecosystem. Every tool to be discovered.
           </h1>
@@ -177,8 +179,9 @@ export default function FeaturesPage() {
       ))}
 
       {/* Roadmap / Coming soon */}
-      <section className="py-16 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden py-16 bg-muted/30">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={140} opacity={0.08} />
+        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-10 text-center">
             <h2 className="text-3xl font-bold text-foreground">On the roadmap</h2>
             <p className="text-muted-foreground mt-2 text-lg">
@@ -205,8 +208,9 @@ export default function FeaturesPage() {
       </section>
 
       {/* People-powered label vision + CTA */}
-      <section className="py-20 bg-primary text-primary-foreground">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative overflow-hidden py-20 bg-primary text-primary-foreground">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={160} opacity={0.13} />
+        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-bold">The people-powered label</h2>
           <p className="mt-4 text-lg text-primary-foreground/90">
             Instead of executives alone deciding who gets a chance, Networx lets
