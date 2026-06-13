@@ -7,7 +7,6 @@ import '../features/social/social_feed_screen.dart';
 import '../features/competition/competition_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
-import '../features/refinery/refinery_screen.dart';
 import '../core/auth/auth_service.dart';
 import 'mini_player_bar.dart';
 import '../core/models/user.dart' as app_user;
@@ -48,6 +47,20 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     }
+  }
+
+  Widget _sheetSectionHeader(BuildContext context, String label) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Text(
+        label.toUpperCase(),
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+              letterSpacing: 0.8,
+              fontWeight: FontWeight.w700,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+      ),
+    );
   }
 
   @override
@@ -106,8 +119,8 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'Competition',
             ),
             NavigationDestination(
-              icon: Icon(Icons.science_outlined),
-              label: 'Refinery',
+              icon: Icon(Icons.handshake_outlined),
+              label: 'Pro-Networx',
             ),
             NavigationDestination(
               icon: Icon(Icons.more_horiz),
@@ -128,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: ListView(
                 shrinkWrap: true,
                 children: [
+                _sheetSectionHeader(context, 'Explore'),
                 ListTile(
                   leading: const Icon(Icons.person_outline),
                   title: const Text('Profile'),
@@ -136,61 +150,25 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, AppRoutes.profile);
                   },
                 ),
-                if (isArtist) ...[
-                  ListTile(
-                    leading: const Icon(Icons.show_chart),
-                    title: const Text('Analytics'),
-                    subtitle: const Text('Listens, likes, audience insights'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.analytics);
-                    },
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.library_music_outlined),
-                    title: const Text('Credits'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.credits);
-                    },
-                  ),
-                ],
-                if (isStreamerRole)
-                  ListTile(
-                    leading: const Icon(Icons.live_tv),
-                    title: const Text('Stream settings'),
-                    subtitle: const Text('Request access, go live, manage stream'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.streamSettings);
-                    },
-                  ),
-                if (isStreamerRole)
-                  ListTile(
-                    leading: const Icon(Icons.event_available_outlined),
-                    title: const Text('Live services'),
-                    subtitle: const Text('Promote gigs and contact support'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.liveServices);
-                    },
-                  ),
                 ListTile(
-                  leading: const Icon(Icons.mail_outline),
-                  title: const Text('Messages'),
+                  leading: const Icon(Icons.handshake_outlined),
+                  title: const Text('Pro-Networx'),
+                  subtitle: const Text('Network, hire, post, and message'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.messages);
+                    Navigator.pushNamed(context, AppRoutes.proNetworxShell);
                   },
                 ),
-                ListTile(
-                  leading: const Icon(Icons.notifications_outlined),
-                  title: const Text('Notifications'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.notifications);
-                  },
-                ),
+                if (!isArtist)
+                  ListTile(
+                    leading: const Icon(Icons.science_outlined),
+                    title: const Text('Refinery'),
+                    subtitle: const Text('Review songs, rank, survey, comment for rewards'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.refinery);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.sensors),
                   title: const Text('Live'),
@@ -198,15 +176,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.liveSessions);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.headphones),
-                  title: const Text('Live DJ'),
-                  subtitle: const Text('Tune into a DJ broadcasting live'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.liveDj);
                   },
                 ),
                 ListTile(
@@ -219,20 +188,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.headphones),
+                  title: const Text('Live DJ'),
+                  subtitle: const Text('Tune into a DJ broadcasting live'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.liveDj);
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.forum_outlined),
                   title: const Text('Room'),
                   onTap: () {
                     Navigator.pop(context);
                     Navigator.pushNamed(context, AppRoutes.room);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.handshake_outlined),
-                  title: const Text('Pro-Networx'),
-                  subtitle: const Text('Network, hire, post, and message'),
-                  onTap: () {
-                    Navigator.pop(context);
-                    Navigator.pushNamed(context, AppRoutes.proNetworxShell);
                   },
                 ),
                 ListTile(
@@ -271,16 +240,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, AppRoutes.proMeProfile);
                   },
                 ),
-                if (!isArtist)
-                  ListTile(
-                    leading: const Icon(Icons.science_outlined),
-                    title: const Text('Refinery'),
-                    subtitle: const Text('Review songs, rank, survey, comment for rewards'),
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.pushNamed(context, AppRoutes.refinery);
-                    },
-                  ),
                 ListTile(
                   leading: const Icon(Icons.redeem_outlined),
                   title: const Text('Rewards'),
@@ -290,6 +249,63 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.pushNamed(context, AppRoutes.yield);
                   },
                 ),
+                if (isArtist) ...[
+                  ListTile(
+                    leading: const Icon(Icons.show_chart),
+                    title: const Text('Analytics'),
+                    subtitle: const Text('Listens, likes, audience insights'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.analytics);
+                    },
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.library_music_outlined),
+                    title: const Text('Credits'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.credits);
+                    },
+                  ),
+                ],
+                const Divider(height: 1),
+                _sheetSectionHeader(context, 'Account & settings'),
+                ListTile(
+                  leading: const Icon(Icons.mail_outline),
+                  title: const Text('Messages'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.messages);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.notifications_outlined),
+                  title: const Text('Notifications'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    Navigator.pushNamed(context, AppRoutes.notifications);
+                  },
+                ),
+                if (isStreamerRole)
+                  ListTile(
+                    leading: const Icon(Icons.live_tv),
+                    title: const Text('Stream settings'),
+                    subtitle: const Text('Request access, go live, manage stream'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.streamSettings);
+                    },
+                  ),
+                if (isStreamerRole)
+                  ListTile(
+                    leading: const Icon(Icons.event_available_outlined),
+                    title: const Text('Live services'),
+                    subtitle: const Text('Promote gigs and contact support'),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, AppRoutes.liveServices);
+                    },
+                  ),
                 ListTile(
                   leading: const Icon(Icons.settings_outlined),
                   title: const Text('Settings'),
@@ -327,8 +343,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Map indices based on role.
     //
-    // Artist nav:   Radio[0], Feed[1], Discover[2], My Songs[3], Pro-Networx[4], More[5]
-    // Listener nav: Radio[0], Feed[1], Discover[2], Competition[3], Refinery[4],   More[5]
+    // Artist nav:   Radio[0], Feed[1], Discover[2], My Songs[3], Pro-Networx[4],   More[5]
+    // Listener nav: Radio[0], Feed[1], Discover[2], Competition[3], Pro-Networx[4], More[5]
+    //
+    // For listeners the Pro-Networx button (index 4) does not render an inline tab;
+    // it pushes the Pro-Networx shell route just like the "More" menu entry, so it
+    // never becomes the selected screen here.
     Widget getCurrentScreen() {
       if (isArtist) {
         switch (_currentIndex) {
@@ -355,8 +375,6 @@ class _HomeScreenState extends State<HomeScreen> {
             return const DiscoveryScreen();
           case 3:
             return const CompetitionScreen();
-          case 4:
-            return const RefineryScreen();
           default:
             return const PlayerScreen();
         }
@@ -385,6 +403,13 @@ class _HomeScreenState extends State<HomeScreen> {
               // More sheet (do not change the selected tab)
               if (index == moreTabIndex) {
                 openMoreSheet();
+                setState(() => _currentIndex = _lastRealIndex);
+                return;
+              }
+              // Listener Pro-Networx button (index 4) navigates like the menu entry
+              // instead of switching to an inline tab.
+              if (!isArtist && index == 4) {
+                Navigator.pushNamed(context, AppRoutes.proNetworxShell);
                 setState(() => _currentIndex = _lastRealIndex);
                 return;
               }
