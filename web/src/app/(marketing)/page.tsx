@@ -139,6 +139,23 @@ async function getHomepageData() {
     trending: emptyTrending,
   };
 
+  // The trending query is much heavier than the simple count endpoints
+  // (temperature aggregation, per-song signed clip URLs, artist rollups), so it
+  // gets a longer timeout and a retry. Otherwise a single cold-backend response
+  // over 5s returns null and hides the whole section until the next render.
+  const fetchTrending = async (baseUrl: string): Promise<TrendingData | null> => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const result = await fetchJsonWithTimeout<TrendingData>(
+        `${baseUrl}/api/songs/public/trending?limit=12`,
+        12000,
+      );
+      if (result && Array.isArray(result.songs) && result.songs.length > 0) {
+        return result;
+      }
+    }
+    return null;
+  };
+
   try {
     for (const baseUrl of getBackendBaseUrls()) {
       const [platform, live, trending] = await Promise.all([
@@ -151,9 +168,7 @@ async function getHomepageData() {
           liveListeners?: number;
           earsReached?: number;
         }>(`${baseUrl}/api/analytics/platform/live`),
-        fetchJsonWithTimeout<TrendingData>(
-          `${baseUrl}/api/songs/public/trending?limit=12`,
-        ),
+        fetchTrending(baseUrl),
       ]);
       if (!platform && !live && !trending) continue;
 
