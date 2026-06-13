@@ -150,6 +150,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   Timer? _crossfadeEarlyTimer;
   bool _crossfadeInProgress = false;
   bool _globalTransportPaused = false;
+  /// User-facing volume (0..1). DJ ducking applies on top of this, never compounds.
+  double _userVolume = 1.0;
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
@@ -346,6 +348,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     if (track.positionSeconds > 0) {
       await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
     }
+    await _applyMainVolumeForTrack(track);
     await _audioPlayer.play();
     if (reportPlay) {
       await _radioService.reportPlay(track.id, radioId: _radioId);
@@ -370,6 +373,21 @@ class _PlayerScreenState extends State<PlayerScreen>
     await _applyBoothState(track);
   }
 
+  double _duckMultiplierForTrack(Track? track) {
+    final overlay = track?.djOverlay;
+    if (overlay?.active == true &&
+        overlay!.hlsUrl != null &&
+        overlay.hlsUrl!.isNotEmpty) {
+      return overlay.duckVolume.clamp(0.0, 1.0);
+    }
+    return 1.0;
+  }
+
+  Future<void> _applyMainVolumeForTrack(Track? track) async {
+    final volume = (_userVolume * _duckMultiplierForTrack(track)).clamp(0.0, 1.0);
+    await _audioPlayer.setVolume(volume);
+  }
+
   Future<void> _applyBoothState(Track track) async {
     if (track.transportPaused) {
       _globalTransportPaused = true;
@@ -385,10 +403,12 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     }
 
+    await _applyMainVolumeForTrack(track);
+
     final overlay = track.djOverlay;
-    final mainVolume = _audioPlayer.volume;
-    if (overlay?.active == true && overlay!.hlsUrl != null && overlay.hlsUrl!.isNotEmpty) {
-      await _audioPlayer.setVolume(mainVolume * overlay.duckVolume);
+    if (overlay?.active == true &&
+        overlay!.hlsUrl != null &&
+        overlay.hlsUrl!.isNotEmpty) {
       if (_djOverlayLoadedUrl != overlay.hlsUrl) {
         await _djOverlayPlayer.setUrl(overlay.hlsUrl!);
         _djOverlayLoadedUrl = overlay.hlsUrl;
@@ -399,7 +419,6 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     } else {
       _djOverlayLoadedUrl = null;
-      await _audioPlayer.setVolume(mainVolume);
       if (_djOverlayPlayer.playing) {
         await _djOverlayPlayer.stop();
       }
@@ -429,7 +448,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
 
     _crossfadeInProgress = true;
-    final mainVolume = _audioPlayer.volume;
+    final mainVolume = _userVolume;
     try {
       await _crossfadePlayer.setAudioSource(
         AudioSource.uri(
@@ -462,7 +481,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         ),
       );
       await _audioPlayer.seek(handoffPosition);
-      await _audioPlayer.setVolume(mainVolume);
+      await _applyMainVolumeForTrack(track);
       await _crossfadePlayer.stop();
       await _audioPlayer.play();
 
@@ -489,7 +508,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     } finally {
       _crossfadeInProgress = false;
       if (mounted) {
-        await _audioPlayer.setVolume(mainVolume);
+        await _applyMainVolumeForTrack(_currentTrack);
       }
     }
   }

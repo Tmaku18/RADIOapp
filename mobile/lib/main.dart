@@ -7,6 +7,7 @@ import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'core/env.dart';
+import 'core/services/audio_player_service.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/navigation/app_router.dart';
@@ -30,6 +31,8 @@ void main() async {
   // Theme mode persistence (System/Dark/Light). Default = Dark.
   final themeController = ThemeController();
   await themeController.load();
+
+  await AudioPlayerService.ensureInitialized();
 
   await JustAudioBackground.init(
     androidNotificationChannelId: 'networx_radio_playback',
