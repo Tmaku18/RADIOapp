@@ -1372,6 +1372,200 @@ export class SongsService {
     };
   }
 
+  /**
+   * Public homepage showcase: trending approved songs (with a playable Discover
+   * clip), the artists behind them, and an overall "temperature" reading.
+   * Marked public so the logged-out marketing homepage can render real data.
+   */
+  async getPublicTrending(limitInput = 10): Promise<{
+    songs: Array<{
+      id: string;
+      title: string;
+      artistId: string | null;
+      artistName: string;
+      artworkUrl: string | null;
+      clipUrl: string | null;
+      clipDurationSeconds: number;
+      durationSeconds: number | null;
+      likeCount: number;
+      playCount: number;
+      temperaturePercent: number;
+    }>;
+    artists: Array<{
+      id: string;
+      displayName: string;
+      avatarUrl: string | null;
+      songCount: number;
+      likeCount: number;
+      playCount: number;
+    }>;
+    temperature: { average: number; top: number };
+  }> {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(1, limitInput || 10), 24);
+
+    const { data: rows, error } = await supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, discover_clip_url, discover_clip_start_seconds, discover_clip_end_seconds, sample_url, duration_seconds, like_count, play_count, profile_play_count',
+      )
+      .eq('status', 'approved')
+      .or('discover_clip_url.not.is.null,sample_url.not.is.null')
+      .limit(200);
+
+    if (error) {
+      this.logger.warn(`getPublicTrending: failed to load songs: ${error.message}`);
+      return { songs: [], artists: [], temperature: { average: 50, top: 50 } };
+    }
+
+    const allSongs = (rows ?? []) as Array<{
+      id: string;
+      title: string;
+      artist_name: string;
+      artist_id: string | null;
+      artwork_url: string | null;
+      discover_clip_url: string | null;
+      discover_clip_start_seconds: number | null;
+      discover_clip_end_seconds: number | null;
+      sample_url: string | null;
+      duration_seconds: number | null;
+      like_count: number | null;
+      play_count: number | null;
+      profile_play_count: number | null;
+    }>;
+
+    const score = (s: (typeof allSongs)[number]) =>
+      (s.like_count ?? 0) * 2 +
+      (s.play_count ?? 0) +
+      (s.profile_play_count ?? 0);
+
+    const ranked = [...allSongs]
+      .sort((a, b) => score(b) - score(a))
+      .slice(0, limit);
+
+    const songIds = ranked.map((s) => s.id);
+    const temperatureBySong = await this.getTemperatureBySongId(songIds);
+
+    const songs = await Promise.all(
+      ranked.map(async (s) => {
+        const rawClip = s.discover_clip_url ?? s.sample_url ?? null;
+        return {
+          id: s.id,
+          title: s.title,
+          artistId: s.artist_id,
+          artistName: s.artist_name,
+          artworkUrl: s.artwork_url,
+          clipUrl: (await signSongAudioUrl(rawClip)) ?? null,
+          clipDurationSeconds: s.discover_clip_url
+            ? this.getDiscoverClipDuration(
+                s.discover_clip_start_seconds,
+                s.discover_clip_end_seconds,
+              )
+            : 30,
+          durationSeconds: s.duration_seconds,
+          likeCount: s.like_count ?? 0,
+          playCount: (s.play_count ?? 0) + (s.profile_play_count ?? 0),
+          temperaturePercent: temperatureBySong.get(s.id) ?? 50,
+        };
+      }),
+    );
+
+    // Aggregate the artists behind the trending songs.
+    const artistAgg = new Map<
+      string,
+      { likeCount: number; playCount: number; songCount: number; name: string }
+    >();
+    for (const s of allSongs) {
+      if (!s.artist_id) continue;
+      const current = artistAgg.get(s.artist_id) ?? {
+        likeCount: 0,
+        playCount: 0,
+        songCount: 0,
+        name: s.artist_name,
+      };
+      current.likeCount += s.like_count ?? 0;
+      current.playCount += (s.play_count ?? 0) + (s.profile_play_count ?? 0);
+      current.songCount += 1;
+      artistAgg.set(s.artist_id, current);
+    }
+
+    const topArtistEntries = [...artistAgg.entries()]
+      .sort(
+        (a, b) =>
+          b[1].likeCount * 2 +
+          b[1].playCount -
+          (a[1].likeCount * 2 + a[1].playCount),
+      )
+      .slice(0, Math.min(limit, 12));
+
+    const artistIds = topArtistEntries.map(([id]) => id);
+    const avatarById = new Map<string, { displayName: string | null; avatarUrl: string | null }>();
+    if (artistIds.length > 0) {
+      const { data: users } = await supabase
+        .from('users')
+        .select('id, display_name, avatar_url')
+        .in('id', artistIds);
+      for (const u of (users ?? []) as Array<{
+        id: string;
+        display_name: string | null;
+        avatar_url: string | null;
+      }>) {
+        avatarById.set(u.id, {
+          displayName: u.display_name,
+          avatarUrl: u.avatar_url,
+        });
+      }
+    }
+
+    const artists = topArtistEntries.map(([id, agg]) => ({
+      id,
+      displayName: avatarById.get(id)?.displayName || agg.name || 'Artist',
+      avatarUrl: avatarById.get(id)?.avatarUrl ?? null,
+      songCount: agg.songCount,
+      likeCount: agg.likeCount,
+      playCount: agg.playCount,
+    }));
+
+    const temps = songs.map((s) => s.temperaturePercent);
+    const average = temps.length
+      ? Math.round(temps.reduce((sum, t) => sum + t, 0) / temps.length)
+      : 50;
+    const top = temps.length ? Math.max(...temps) : 50;
+
+    return { songs, artists, temperature: { average, top } };
+  }
+
+  /**
+   * Best-effort temperature lookup from the cached `song_temperature` table.
+   * Returns an empty map if the table is unavailable (callers default to 50).
+   */
+  private async getTemperatureBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase
+        .from('song_temperature')
+        .select('song_id, temperature_percent')
+        .in('song_id', songIds);
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        temperature_percent: number | null;
+      }>) {
+        const value = Number(row.temperature_percent);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.min(100, Math.round(value))));
+        }
+      }
+    } catch {
+      // Table may not exist in this environment; callers fall back to baseline.
+    }
+    return result;
+  }
+
   async getSongs(filters: {
     artistId?: string;
     status?: string;

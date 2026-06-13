@@ -5,6 +5,7 @@ import { HeroCta } from '@/components/marketing/HeroCta';
 import { LiveRippleVisualizer } from '@/components/marketing/LiveRippleVisualizer';
 import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
 import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
+import { TrendingShowcase, type TrendingData } from '@/components/marketing/TrendingShowcase';
 import { getBackendBaseUrls } from '@/lib/backend-url';
 import type { Metadata } from 'next';
 
@@ -119,6 +120,12 @@ async function getHomepageData() {
     }
   };
 
+  const emptyTrending: TrendingData = {
+    songs: [],
+    artists: [],
+    temperature: { average: 50, top: 50 },
+  };
+
   const empty = {
     stats: {
       totalUsers: 0,
@@ -129,11 +136,12 @@ async function getHomepageData() {
       liveListeners: 0,
       earsReached: 0,
     },
+    trending: emptyTrending,
   };
 
   try {
     for (const baseUrl of getBackendBaseUrls()) {
-      const [platform, live] = await Promise.all([
+      const [platform, live, trending] = await Promise.all([
         fetchJsonWithTimeout<{
           totalUsers?: number;
           totalSongs?: number;
@@ -143,8 +151,11 @@ async function getHomepageData() {
           liveListeners?: number;
           earsReached?: number;
         }>(`${baseUrl}/api/analytics/platform/live`),
+        fetchJsonWithTimeout<TrendingData>(
+          `${baseUrl}/api/songs/public/trending?limit=12`,
+        ),
       ]);
-      if (!platform && !live) continue;
+      if (!platform && !live && !trending) continue;
 
       return {
         stats: {
@@ -156,6 +167,7 @@ async function getHomepageData() {
           liveListeners: live?.liveListeners ?? 0,
           earsReached: live?.earsReached ?? 0,
         },
+        trending: trending ?? emptyTrending,
       };
     }
   } catch (error) {
@@ -206,6 +218,9 @@ export default async function HomePage() {
           <HeroCta />
         </div>
       </section>
+
+      {/* Trending songs (playable Discover clips), artists, and temperature */}
+      <TrendingShowcase data={data.trending} />
 
       {/* Stats — all-time totals (cached) + live radio metrics (poll 30s) */}
       <section className="relative overflow-hidden py-16 border-b border-border">

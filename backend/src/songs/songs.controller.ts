@@ -618,6 +618,16 @@ export class SongsController {
     return { counts };
   }
 
+  @Public()
+  @Get('public/trending')
+  async getPublicTrending(@Query('limit') limitStr?: string) {
+    const limit = Math.min(
+      Math.max(1, parseInt(limitStr || '12', 10) || 12),
+      24,
+    );
+    return this.songsService.getPublicTrending(limit);
+  }
+
   @Get()
   async getSongs(
     @Query('artistId') artistId?: string,
