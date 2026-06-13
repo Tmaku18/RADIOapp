@@ -1,3 +1,9 @@
+// ARCHIVED 2026-06-13 — Removed from the app along with the Discovery "Map" tab.
+// Original location: mobile/lib/core/models/discovery_map_models.dart
+// To restore: copy this file back to its original location, restore
+// discovery_map_service.dart and discovery_map_tab.dart, and re-add the "Map"
+// tab in mobile/lib/features/discovery/discovery_screen.dart. See README.md.
+
 class DiscoveryMapHeatBucket {
   final double lat;
   final double lng;

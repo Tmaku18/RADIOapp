@@ -1,3 +1,8 @@
+// ARCHIVED 2026-06-13 — Removed from the app along with the Discovery "Map" tab.
+// Original location: mobile/lib/core/services/discovery_map_service.dart
+// To restore: copy this file back to its original location (the imports below
+// already match that location). See README.md.
+
 import '../models/discovery_map_models.dart';
 import 'api_service.dart';
 
