@@ -1389,6 +1389,7 @@ export class SongsService {
       durationSeconds: number | null;
       likeCount: number;
       playCount: number;
+      earsReached: number;
       temperaturePercent: number;
     }>;
     artists: Array<{
@@ -1445,6 +1446,7 @@ export class SongsService {
 
     const songIds = ranked.map((s) => s.id);
     const temperatureBySong = await this.getTemperatureBySongId(songIds);
+    const earsBySong = await this.getEarsReachedBySongId(songIds);
 
     const songs = await Promise.all(
       ranked.map(async (s) => {
@@ -1465,6 +1467,7 @@ export class SongsService {
           durationSeconds: s.duration_seconds,
           likeCount: s.like_count ?? 0,
           playCount: (s.play_count ?? 0) + (s.profile_play_count ?? 0),
+          earsReached: earsBySong.get(s.id) ?? 0,
           temperaturePercent: temperatureBySong.get(s.id) ?? 50,
         };
       }),
@@ -1562,6 +1565,37 @@ export class SongsService {
       }
     } catch {
       // Table may not exist in this environment; callers fall back to baseline.
+    }
+    return result;
+  }
+
+  /**
+   * Per-song unique "Ears Reached" via the get_song_ears_reached RPC. Mirrors
+   * the platform-wide ears definition. Best-effort: returns an empty map if the
+   * function is unavailable (callers default to 0).
+   */
+  private async getEarsReachedBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_ears_reached', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        ears: number | string | null;
+      }>) {
+        const value = Number(row.ears);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment; callers fall back to 0.
     }
     return result;
   }

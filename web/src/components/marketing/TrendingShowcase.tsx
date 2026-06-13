@@ -16,6 +16,7 @@ export type TrendingSong = {
   durationSeconds: number | null;
   likeCount: number;
   playCount: number;
+  earsReached: number;
   temperaturePercent: number;
 };
 
@@ -172,7 +173,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                       {song.artistName}
                     </div>
                     <div className="mt-1 text-xs text-primary-foreground/70">
-                      ▶ {formatCount(song.playCount)} · ♥ {formatCount(song.likeCount)}
+                      🎧 {formatCount(song.earsReached ?? 0)} ears · ♥ {formatCount(song.likeCount)}
                     </div>
                   </div>
                 </div>
