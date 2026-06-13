@@ -23,7 +23,25 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// Primary content player (radio + previews). Exposed via
   /// `AudioPlayerService().player` so existing screens keep working unchanged.
-  final AudioPlayer music = AudioPlayer();
+  ///
+  /// A generous buffer is configured so transient CPU/network stalls don't
+  /// starve the audio sink (heard as glitches / cut-outs). ExoPlayer keeps up
+  /// to a minute buffered and requires several seconds before resuming after a
+  /// rebuffer, which smooths over momentary hiccups.
+  final AudioPlayer music = AudioPlayer(
+    audioLoadConfiguration: const AudioLoadConfiguration(
+      androidLoadControl: AndroidLoadControl(
+        minBufferDuration: Duration(seconds: 30),
+        maxBufferDuration: Duration(seconds: 60),
+        bufferForPlaybackDuration: Duration(seconds: 5),
+        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 10),
+        prioritizeTimeOverSizeThresholds: true,
+      ),
+      darwinLoadControl: DarwinLoadControl(
+        preferredForwardBufferDuration: Duration(seconds: 30),
+      ),
+    ),
+  );
 
   /// Secondary player used only for the DJ voice-over overlay.
   final AudioPlayer voice = AudioPlayer();
