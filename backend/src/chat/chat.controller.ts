@@ -11,6 +11,7 @@ import { ChatService } from './chat.service';
 import { SendMessageDto } from './dto/send-message.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 
 @Controller('chat')
@@ -71,9 +72,13 @@ export class ChatController {
   }
 
   /**
-   * Get chat history for hydration
+   * Get chat history for hydration. Public read: chat is already broadcast to
+   * every listener over Realtime, so reading history needs no auth. This keeps
+   * the panel populated even when the viewer's auth token is briefly
+   * unavailable (which otherwise surfaced as "Can't reach chat server").
    * GET /api/v1/chat/history
    */
+  @Public()
   @Get('history')
   async getHistory(
     @Query('limit') limit?: string,
@@ -105,9 +110,10 @@ export class ChatController {
   }
 
   /**
-   * Get chat status (enabled/disabled)
+   * Get chat status (enabled/disabled). Public read — no user context needed.
    * GET /api/v1/chat/status
    */
+  @Public()
   @Get('status')
   async getStatus() {
     try {

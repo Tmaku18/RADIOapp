@@ -128,8 +128,15 @@ async function directBackendUpload<T>(
 // Request interceptor: Always send fresh ID token
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    // Skip token for public endpoints (exact matches only)
-    const publicEndpoints = ['/radio/current', '/venue-ads/current'];
+    // Skip token for public endpoints (exact matches only). Chat reads are
+    // public so the panel still loads when the Firebase token is briefly
+    // unavailable instead of failing with "Can't reach chat server".
+    const publicEndpoints = [
+      '/radio/current',
+      '/venue-ads/current',
+      '/chat/history',
+      '/chat/status',
+    ];
     const isPublicEndpoint = publicEndpoints.some(endpoint => 
       config.url === endpoint && config.method?.toLowerCase() === 'get'
     );
