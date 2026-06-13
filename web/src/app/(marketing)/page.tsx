@@ -208,7 +208,8 @@ export default async function HomePage() {
       {/* Supporting hero — platform value prop + visualizer */}
       <section className="relative py-16 sm:py-20 overflow-hidden border-b border-border">
         <LiveRippleVisualizer />
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={140} opacity={0.1} />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
             Build your audience, team, and career in one platform
           </h2>
