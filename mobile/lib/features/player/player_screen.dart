@@ -141,6 +141,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   app_user.User? _me;
   String? _risingStarText;
   StreamSubscription? _risingStarSub;
+  StreamSubscription? _djBoothSub;
   bool _rippleActive = false;
   Timer? _presenceTimer;
   Timer? _trackSyncTimer;
@@ -194,6 +195,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         setState(() => _risingStarText = null);
       });
     });
+    _djBoothSub = StationEventsService().djBoothStream.listen(_onDjBoothEvent);
     _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
       if (mounted && _isPlaying != state.playing) {
         setState(() => _isPlaying = state.playing);
@@ -369,6 +371,33 @@ class _PlayerScreenState extends State<PlayerScreen>
     _scheduleTrackBoundarySync(track);
     _presenceTick();
     await _applyBoothState(track);
+  }
+
+  /// React immediately to live DJ booth events (pushed over Supabase Realtime)
+  /// so listeners hear the admin go live without waiting for the 30s radio poll.
+  Future<void> _onDjBoothEvent(DjBoothRealtimeEvent event) async {
+    final handler = AudioPlayerService.handler;
+    switch (event.type) {
+      case 'mic_on':
+        final url = event.hlsUrl;
+        if (url != null && url.trim().isNotEmpty) {
+          await handler.startVoiceOverlay(
+            url,
+            duckVolume: event.duckVolume ?? 0.25,
+          );
+        }
+        break;
+      case 'mic_off':
+        await handler.stopVoiceOverlay();
+        break;
+      case 'duck_volume':
+        if (event.duckVolume != null) {
+          await handler.setDuckVolume(event.duckVolume!);
+        }
+        break;
+      default:
+        break;
+    }
   }
 
   Future<void> _applyMainVolumeForTrack(Track? track) async {
@@ -695,6 +724,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   void dispose() {
     _playerStateSub?.cancel();
     _risingStarSub?.cancel();
+    _djBoothSub?.cancel();
     _presenceTimer?.cancel();
     _trackSyncTimer?.cancel();
     _trackBoundaryTimer?.cancel();

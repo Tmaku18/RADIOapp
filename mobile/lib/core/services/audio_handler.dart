@@ -33,6 +33,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   bool _overlayActive = false;
   String? _overlayUrl;
+  double _overlayDuckVolume = 0.25;
 
   /// Mirror the music player's state + current [MediaItem] into `audio_service`
   /// so the system media notification shows track info and play/pause works.
@@ -138,21 +139,40 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     double duckVolume = 0.25,
   }) async {
     final duck = duckVolume.clamp(0.0, 1.0);
-    await music.setVolume(duck);
-    _overlayActive = true;
+    _overlayDuckVolume = duck;
 
+    // Already streaming this talk-over: just (re)apply the duck level.
     if (_overlayUrl == url && voice.playing) {
+      _overlayActive = true;
+      await music.setVolume(duck);
       return;
     }
+
     _overlayUrl = url;
     try {
       await voice.setAudioSource(AudioSource.uri(Uri.parse(url)));
       await voice.setVolume(1.0);
+      // Duck the music only once the live stream actually loads. A live HLS
+      // manifest can 404 during Cloudflare warm-up; ducking before it is ready
+      // would leave listeners with quiet music and no voice. The periodic radio
+      // sync (and realtime mic_on) retry until the stream is up.
+      await music.setVolume(duck);
+      _overlayActive = true;
       await voice.play();
     } catch (_) {
-      // If the overlay fails to load, restore music so listeners aren't stuck
-      // with permanently quiet audio.
-      await stopVoiceOverlay();
+      // Stream not ready yet: clear state so the next attempt retries cleanly
+      // and keep the music at full volume in the meantime.
+      _overlayUrl = null;
+      _overlayActive = false;
+      await music.setVolume(_baseMusicVolume);
+    }
+  }
+
+  /// Adjust the duck level while a talk-over is live (admin moved the slider).
+  Future<void> setDuckVolume(double duckVolume) async {
+    _overlayDuckVolume = duckVolume.clamp(0.0, 1.0);
+    if (_overlayActive) {
+      await music.setVolume(_overlayDuckVolume);
     }
   }
 
