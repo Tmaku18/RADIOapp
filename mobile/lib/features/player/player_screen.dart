@@ -26,8 +26,6 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
-import '../../core/constants/radio_crossfade.dart';
-
 const List<String> _radioBrandFallbackLogos = <String>[
   'assets/images/branding/logo_0.png',
   'assets/images/branding/logo_1.png',
@@ -128,8 +126,6 @@ class PlayerScreen extends StatefulWidget {
 class _PlayerScreenState extends State<PlayerScreen>
     with SingleTickerProviderStateMixin {
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
-  final AudioPlayer _crossfadePlayer = AudioPlayer();
-  final AudioPlayer _djOverlayPlayer = AudioPlayer();
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
   Track? _currentTrack;
@@ -144,16 +140,16 @@ class _PlayerScreenState extends State<PlayerScreen>
   VenueAd? _ad;
   app_user.User? _me;
   String? _risingStarText;
-  String? _djOverlayLoadedUrl;
   StreamSubscription? _risingStarSub;
   bool _rippleActive = false;
   Timer? _presenceTimer;
   Timer? _trackSyncTimer;
   Timer? _trackBoundaryTimer;
-  Timer? _crossfadeEarlyTimer;
-  bool _crossfadeInProgress = false;
   bool _globalTransportPaused = false;
-  /// User-facing volume (0..1). DJ ducking applies on top of this, never compounds.
+  /// User-facing music volume (0..1). On mobile we never duck below this because
+  /// just_audio_background allows only one player instance, so a separate
+  /// DJ-voice overlay stream cannot be mixed in (ducking with no audible overlay
+  /// just made the music quiet).
   final double _userVolume = 1.0;
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
@@ -376,19 +372,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     await _applyBoothState(track);
   }
 
-  double _duckMultiplierForTrack(Track? track) {
-    final overlay = track?.djOverlay;
-    if (overlay?.active == true &&
-        overlay!.hlsUrl != null &&
-        overlay.hlsUrl!.isNotEmpty) {
-      return overlay.duckVolume.clamp(0.0, 1.0);
-    }
-    return 1.0;
-  }
-
   Future<void> _applyMainVolumeForTrack(Track? track) async {
-    final volume = (_userVolume * _duckMultiplierForTrack(track)).clamp(0.0, 1.0);
-    await _audioPlayer.setVolume(volume);
+    await _audioPlayer.setVolume(_userVolume.clamp(0.0, 1.0));
   }
 
   Future<void> _applyBoothState(Track track) async {
@@ -406,128 +391,26 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
     }
 
+    // DJ-voice overlay layering requires a second simultaneous audio stream,
+    // which just_audio_background does not support on mobile. Keep the music at
+    // full volume rather than ducking for an overlay that cannot be heard.
     await _applyMainVolumeForTrack(track);
-
-    final overlay = track.djOverlay;
-    if (overlay?.active == true &&
-        overlay!.hlsUrl != null &&
-        overlay.hlsUrl!.isNotEmpty) {
-      if (_djOverlayLoadedUrl != overlay.hlsUrl) {
-        await _djOverlayPlayer.setUrl(overlay.hlsUrl!);
-        _djOverlayLoadedUrl = overlay.hlsUrl;
-      }
-      await _djOverlayPlayer.setVolume(1.0);
-      if (!_djOverlayPlayer.playing) {
-        await _djOverlayPlayer.play();
-      }
-    } else {
-      _djOverlayLoadedUrl = null;
-      if (_djOverlayPlayer.playing) {
-        await _djOverlayPlayer.stop();
-      }
-    }
   }
 
-  MediaItem _mediaItemForTrack(Track track) {
-    return MediaItem(
-      id: track.id,
-      title: track.title,
-      artist: track.artistName,
-      artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty
-          ? Uri.tryParse(track.artworkUrl!)
-          : null,
-    );
-  }
-
+  /// Transition to [track]. just_audio_background only supports a single player
+  /// instance, so a true crossfade (two overlapping players) is not possible on
+  /// mobile; we hand off directly. Kept as a named method because the sync path
+  /// calls it when the live track changes mid-playback.
   Future<void> _crossfadeToTrack(
     Track track,
     TrackFetchResult result, {
     bool reportPlay = true,
   }) async {
-    final url = track.audioUrl.trim();
-    if (_crossfadeInProgress || url.contains('.m3u8')) {
-      await _loadAndPlay(track, result, reportPlay: reportPlay);
-      return;
-    }
-
-    _crossfadeInProgress = true;
-    final mainVolume = _userVolume;
-    try {
-      await _crossfadePlayer.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          tag: _mediaItemForTrack(track),
-        ),
-      );
-      if (track.positionSeconds > 0) {
-        await _crossfadePlayer.seek(Duration(seconds: track.positionSeconds));
-      }
-      await _crossfadePlayer.setVolume(0);
-      await _crossfadePlayer.play();
-
-      const steps = 30;
-      final stepMs = radioCrossfadeMs ~/ steps;
-      for (var i = 1; i <= steps; i++) {
-        if (!mounted) return;
-        final t = i / steps;
-        await _crossfadePlayer.setVolume(mainVolume * t);
-        await _audioPlayer.setVolume(mainVolume * (1 - t));
-        await Future<void>.delayed(Duration(milliseconds: stepMs));
-      }
-
-      final handoffPosition = _crossfadePlayer.position;
-      await _audioPlayer.stop();
-      await _audioPlayer.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          tag: _mediaItemForTrack(track),
-        ),
-      );
-      await _audioPlayer.seek(handoffPosition);
-      await _applyMainVolumeForTrack(track);
-      await _crossfadePlayer.stop();
-      await _audioPlayer.play();
-
-      if (reportPlay) {
-        await _radioService.reportPlay(track.id, radioId: _radioId);
-      }
-      if (!mounted) return;
-
-      final playId = track.playId;
-      final alreadyVoted =
-          playId != null && playId.isNotEmpty && playId == _lastVotedPlayId;
-
-      setState(() {
-        _currentTrack = track;
-        _isPlaying = true;
-        _isLoading = false;
-        _hasVoted = alreadyVoted;
-        if (!alreadyVoted) {
-          _selectedReaction = null;
-        }
-      });
-      _scheduleTrackBoundarySync(track);
-      _presenceTick();
-    } finally {
-      _crossfadeInProgress = false;
-      if (mounted) {
-        await _applyMainVolumeForTrack(_currentTrack);
-      }
-    }
-  }
-
-  Future<void> _beginCrossfadeToUpcoming(Track currentTrack) async {
-    if (!mounted || _crossfadeInProgress) return;
-    final peek = await _radioService.peekNextTrack(radioId: _radioId);
-    if (!mounted || peek.noContent || peek.track == null) return;
-    if (peek.track!.id == currentTrack.id) return;
-    if (!_isPlaying) return;
-    await _crossfadeToTrack(peek.track!, peek, reportPlay: false);
+    await _loadAndPlay(track, result, reportPlay: reportPlay);
   }
 
   void _scheduleTrackBoundarySync(Track track) {
     _trackBoundaryTimer?.cancel();
-    _crossfadeEarlyTimer?.cancel();
     var remainingMs = track.timeRemainingMs;
     if (remainingMs <= 0 && track.durationSeconds > 0) {
       final estimated = (track.durationSeconds - track.positionSeconds).clamp(
@@ -537,14 +420,6 @@ class _PlayerScreenState extends State<PlayerScreen>
       remainingMs = estimated * 1000;
     }
     if (remainingMs <= 0) return;
-
-    if (remainingMs > radioCrossfadeMs) {
-      final crossfadeEarlyMs =
-          (remainingMs - radioCrossfadeMs).clamp(500, remainingMs).toInt();
-      _crossfadeEarlyTimer = Timer(Duration(milliseconds: crossfadeEarlyMs), () {
-        unawaited(_beginCrossfadeToUpcoming(track));
-      });
-    }
 
     final safeMs = (remainingMs + 250).clamp(500, 15 * 60 * 1000).toInt();
     _trackBoundaryTimer = Timer(Duration(milliseconds: safeMs), () {
@@ -808,9 +683,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     _presenceTimer?.cancel();
     _trackSyncTimer?.cancel();
     _trackBoundaryTimer?.cancel();
-    _crossfadeEarlyTimer?.cancel();
-    unawaited(_crossfadePlayer.dispose());
-    unawaited(_djOverlayPlayer.dispose());
     StationEventsService().stop();
     _rippleController.dispose();
     super.dispose();
