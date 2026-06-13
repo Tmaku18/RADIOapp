@@ -97,26 +97,26 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
   return (
     <>
       {/* Trending Now — songs with playable Discover clips */}
-      <section className="relative overflow-hidden py-16 sm:py-20 border-b border-border bg-muted">
+      <section className="relative overflow-hidden py-16 sm:py-20 bg-primary text-primary-foreground border-b border-primary-foreground/10">
         <ButterflyPattern
           className="absolute inset-0"
-          colorClassName="text-primary"
-          tile={140}
-          opacity={0.1}
+          colorClassName="text-primary-foreground"
+          tile={160}
+          opacity={0.12}
         />
         <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-end justify-between gap-4 mb-8">
             <div>
-              <h2 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-bold text-primary-foreground tracking-tight">
                 Trending Now
               </h2>
-              <p className="mt-2 text-muted-foreground">
+              <p className="mt-2 text-primary-foreground/80">
                 The songs the people are voting up right now. Tap play to hear a clip.
               </p>
             </div>
             <Link
               href="/signup"
-              className="hidden sm:inline text-sm font-medium text-primary hover:underline shrink-0"
+              className="hidden sm:inline text-sm font-medium text-primary-foreground hover:underline shrink-0"
             >
               See all
             </Link>
@@ -131,7 +131,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                   key={song.id}
                   className="snap-start shrink-0 w-44 sm:w-48 group"
                 >
-                  <div className="relative aspect-square rounded-xl overflow-hidden bg-muted ring-1 ring-border">
+                  <div className="relative aspect-square rounded-xl overflow-hidden bg-primary-foreground/10 ring-1 ring-primary-foreground/20">
                     {song.artworkUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
@@ -141,7 +141,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                         loading="lazy"
                       />
                     ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-primary/30 to-primary/5" />
+                      <div className="h-full w-full bg-gradient-to-br from-primary-foreground/30 to-primary-foreground/5" />
                     )}
                     <button
                       type="button"
@@ -154,7 +154,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                           : 'bg-black/30 opacity-0 group-hover:opacity-100'
                       } ${playable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
                     >
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg">
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-foreground text-primary shadow-lg">
                         <PlayIcon playing={isPlaying} />
                       </span>
                     </button>
@@ -165,13 +165,13 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                     </div>
                   </div>
                   <div className="mt-3">
-                    <div className="font-semibold text-foreground truncate" title={song.title}>
+                    <div className="font-semibold text-primary-foreground truncate" title={song.title}>
                       {song.title}
                     </div>
-                    <div className="text-sm text-muted-foreground truncate" title={song.artistName}>
+                    <div className="text-sm text-primary-foreground/80 truncate" title={song.artistName}>
                       {song.artistName}
                     </div>
-                    <div className="mt-1 text-xs text-muted-foreground/80">
+                    <div className="mt-1 text-xs text-primary-foreground/70">
                       ▶ {formatCount(song.playCount)} · ♥ {formatCount(song.likeCount)}
                     </div>
                   </div>
