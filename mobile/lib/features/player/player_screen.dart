@@ -151,7 +151,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _crossfadeInProgress = false;
   bool _globalTransportPaused = false;
   /// User-facing volume (0..1). DJ ducking applies on top of this, never compounds.
-  double _userVolume = 1.0;
+  final double _userVolume = 1.0;
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
