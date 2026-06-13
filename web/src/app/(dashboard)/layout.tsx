@@ -569,7 +569,9 @@ export default function DashboardLayout({
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className={isListenPage ? 'h-svh overflow-hidden' : undefined}>
+      <SidebarInset
+        className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
+      >
         <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4 md:px-8 bg-card">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
@@ -640,7 +642,7 @@ export default function DashboardLayout({
         </header>
 
         <div
-          className={`flex-1 min-h-0 bg-muted/30 flex flex-col ${
+          className={`flex-1 min-h-0 bg-transparent flex flex-col ${
             isListenPage
               ? 'overflow-hidden p-0 pb-0'
               : 'overflow-auto p-4 sm:p-6 md:p-8 pb-24'

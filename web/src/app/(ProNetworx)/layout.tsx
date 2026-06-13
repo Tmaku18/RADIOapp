@@ -23,7 +23,7 @@ export default function ProNetworxLayout({
   const { user, loading } = useAuth();
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="min-h-screen flex flex-col bg-transparent">
       <header className="border-b border-border bg-card">
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-16">
