@@ -65,10 +65,13 @@ dependencies:
   # Local notifications (for foreground FCM)
   flutter_local_notifications: ^17.2.2
 
-  # Audio playback
+  # Audio playback. We use audio_service (custom NetworxAudioHandler) for the
+  # media notification, NOT just_audio_background — the latter replaces
+  # just_audio's platform with a single-player implementation and its native
+  # plugin competes with audio_service for the media session / audio focus,
+  # which garbles playback. Keep it out of the dependency tree entirely.
   just_audio: ^0.9.42
   audio_service: ^0.18.13
-  just_audio_background: ^0.0.1-beta.17
   audio_session: ^0.1.20
 
   # HTTP & API
