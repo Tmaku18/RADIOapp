@@ -40,7 +40,11 @@ const List<String> _radioBrandFallbackLogos = <String>[
 
 String _brandLogoForSeed(String seed) {
   final safeSeed = seed.isEmpty ? 'networx' : seed;
-  final index = safeSeed.hashCode.abs() % _radioBrandFallbackLogos.length;
+  // Seed a PRNG with the song id so each song gets a well-shuffled (but stable,
+  // flicker-free) cover from the pool rather than clustering via hashCode % n.
+  final index = math.Random(
+    safeSeed.hashCode,
+  ).nextInt(_radioBrandFallbackLogos.length);
   return _radioBrandFallbackLogos[index];
 }
 
