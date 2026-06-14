@@ -18,7 +18,11 @@ import 'package:just_audio/just_audio.dart';
 /// metadata to `audio_service` for the lock screen / media notification.
 class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   NetworxAudioHandler() {
+    // Guarantee a known full-volume baseline for the radio music. Without this
+    // the music could be perceived as quiet (notably quieter than web).
+    music.setVolume(1.0);
     _wireMusicToNotification();
+    _wireVoiceAutoRestore();
   }
 
   /// Primary content player (radio + previews). Exposed via
@@ -76,6 +80,29 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
         mediaItem.add(
           duration != null ? tag.copyWith(duration: duration) : tag,
         );
+      }
+    });
+  }
+
+  /// Safety net: if the DJ voice player stops, completes, or errors out (e.g. a
+  /// missed `mic_off`, the live HLS ending, or a network drop), make sure the
+  /// music is restored to the user's base volume. Otherwise a ducked overlay
+  /// that is no longer audible would leave the radio stuck playing quietly.
+  void _wireVoiceAutoRestore() {
+    voice.playerStateStream.listen((state) {
+      final hasStopped = !state.playing &&
+          (state.processingState == ProcessingState.idle ||
+              state.processingState == ProcessingState.completed);
+      if (hasStopped && _overlayActive) {
+        _overlayActive = false;
+        _overlayUrl = null;
+        music.setVolume(_baseMusicVolume);
+      }
+    }, onError: (Object _, StackTrace _) {
+      if (_overlayActive) {
+        _overlayActive = false;
+        _overlayUrl = null;
+        music.setVolume(_baseMusicVolume);
       }
     });
   }
