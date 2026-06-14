@@ -185,7 +185,10 @@ export default function ChatSidebar({
         );
         setMessages((prev) => mergeMessages(prev, fetched));
         setChatEnabled(statusRes.data.enabled ?? true);
-        // Polling succeeded: reflect healthy chat even if realtime socket is flaky.
+        // Polling succeeded: the backend is reachable again, so clear any stale
+        // "can't reach chat server" error left over from a cold-start timeout
+        // and reflect healthy chat even if the realtime socket is flaky.
+        setError(null);
         setConnectionStatus((prev) =>
           prev === 'connected' ? prev : 'connected',
         );
