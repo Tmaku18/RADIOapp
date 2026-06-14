@@ -1399,6 +1399,7 @@ export class SongsService {
       songCount: number;
       likeCount: number;
       playCount: number;
+      earsReached: number;
     }>;
     temperature: { average: number; top: number };
   }> {
@@ -1435,10 +1436,15 @@ export class SongsService {
       profile_play_count: number | null;
     }>;
 
+    // Rank by the "ears reached" metric (unique listeners) plus likes — NOT
+    // raw play counts. Ears are fetched for every candidate up front so the
+    // ranking itself can use them. A like is a stronger, intentional signal
+    // than a passive ear, so it is weighted more heavily.
+    const allSongIds = allSongs.map((s) => s.id);
+    const earsBySong = await this.getEarsReachedBySongId(allSongIds);
+
     const score = (s: (typeof allSongs)[number]) =>
-      (s.like_count ?? 0) * 2 +
-      (s.play_count ?? 0) +
-      (s.profile_play_count ?? 0);
+      (earsBySong.get(s.id) ?? 0) + (s.like_count ?? 0) * 5;
 
     const ranked = [...allSongs]
       .sort((a, b) => score(b) - score(a))
@@ -1446,7 +1452,6 @@ export class SongsService {
 
     const songIds = ranked.map((s) => s.id);
     const temperatureBySong = await this.getTemperatureBySongId(songIds);
-    const earsBySong = await this.getEarsReachedBySongId(songIds);
 
     const songs = await Promise.all(
       ranked.map(async (s) => {
@@ -1473,32 +1478,41 @@ export class SongsService {
       }),
     );
 
-    // Aggregate the artists behind the trending songs.
+    // Aggregate the artists behind the trending songs, ranked by the same
+    // ears-reached + likes metric (no raw plays) used for songs above.
     const artistAgg = new Map<
       string,
-      { likeCount: number; playCount: number; songCount: number; name: string }
+      {
+        likeCount: number;
+        playCount: number;
+        earsReached: number;
+        songCount: number;
+        name: string;
+      }
     >();
     for (const s of allSongs) {
       if (!s.artist_id) continue;
       const current = artistAgg.get(s.artist_id) ?? {
         likeCount: 0,
         playCount: 0,
+        earsReached: 0,
         songCount: 0,
         name: s.artist_name,
       };
       current.likeCount += s.like_count ?? 0;
       current.playCount += (s.play_count ?? 0) + (s.profile_play_count ?? 0);
+      current.earsReached += earsBySong.get(s.id) ?? 0;
       current.songCount += 1;
       artistAgg.set(s.artist_id, current);
     }
 
+    const artistScore = (agg: {
+      likeCount: number;
+      earsReached: number;
+    }) => agg.earsReached + agg.likeCount * 5;
+
     const topArtistEntries = [...artistAgg.entries()]
-      .sort(
-        (a, b) =>
-          b[1].likeCount * 2 +
-          b[1].playCount -
-          (a[1].likeCount * 2 + a[1].playCount),
-      )
+      .sort((a, b) => artistScore(b[1]) - artistScore(a[1]))
       .slice(0, Math.min(limit, 12));
 
     const artistIds = topArtistEntries.map(([id]) => id);
@@ -1527,6 +1541,7 @@ export class SongsService {
       songCount: agg.songCount,
       likeCount: agg.likeCount,
       playCount: agg.playCount,
+      earsReached: agg.earsReached,
     }));
 
     const temps = songs.map((s) => s.temperaturePercent);

@@ -27,6 +27,7 @@ export type TrendingArtist = {
   songCount: number;
   likeCount: number;
   playCount: number;
+  earsReached: number;
 };
 
 export type TrendingData = {
@@ -222,7 +223,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                     {artist.displayName}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    ♥ {formatCount(artist.likeCount)}
+                    🎧 {formatCount(artist.earsReached ?? 0)} · ♥ {formatCount(artist.likeCount)}
                   </div>
                 </Link>
               ))}
