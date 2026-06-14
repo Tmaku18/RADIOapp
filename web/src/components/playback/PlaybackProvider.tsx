@@ -67,6 +67,11 @@ type PlaybackContextValue = {
   radioPlayerUiActive: boolean;
   /** Call on mount; returned function unregisters on unmount. */
   registerRadioPlayerUi: () => () => void;
+  /**
+   * True when the server's reported "current" track is one we already crossfaded
+   * past (server hasn't rotated yet). Pollers use this to avoid jumping backward.
+   */
+  isStaleRadioServerTrack: (trackId: string | null | undefined) => boolean;
 };
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null);
@@ -122,6 +127,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const isCrossfadingRef = useRef(false);
   const crossfadeIncomingSlotRef = useRef<AudioSlot | null>(null);
   const crossfadePrefetchTrackIdRef = useRef<string | null>(null);
+  // When a crossfade prefetch (via /radio/peek) advances us to the upcoming
+  // song before it ends, the server still reports the *previous* song as
+  // current for a few seconds. We record what we advanced away from so pollers
+  // don't revert to it (which would jump the listener backward = skipping).
+  const recentlyAdvancedFromRef = useRef<{ id: string; at: number } | null>(null);
   const isCrossfadePrefetchingRef = useRef(false);
   const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const overlayHlsRef = useRef<Hls | null>(null);
@@ -335,6 +345,19 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;
   }, []);
+
+  // True if `serverTrackId` is a song we just crossfaded away from within the
+  // last few seconds. Pollers use this to avoid reverting to the server's
+  // not-yet-rotated "current" track and jumping the listener backward.
+  const isStaleRadioServerTrack = useCallback(
+    (serverTrackId: string | null | undefined) => {
+      if (!serverTrackId) return false;
+      const adv = recentlyAdvancedFromRef.current;
+      if (!adv || adv.id !== serverTrackId) return false;
+      return Date.now() - adv.at < 12000;
+    },
+    [],
+  );
 
   const attachSourceToSlot = useCallback(
     (
@@ -695,6 +718,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
 
       const previousTrackId = trackIdRef.current;
+      if (source === 'radio' && previousTrackId && previousTrackId !== track.id) {
+        recentlyAdvancedFromRef.current = { id: previousTrackId, at: Date.now() };
+      }
       const shouldCrossfade =
         source === 'radio' &&
         sourceRef.current === 'radio' &&
@@ -993,6 +1019,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     setOnRadioTrackEnded,
     radioPlayerUiActive,
     registerRadioPlayerUi,
+    isStaleRadioServerTrack,
   };
 
   return (

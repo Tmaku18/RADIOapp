@@ -145,7 +145,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
-  const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi } = usePlayback();
+  const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi, isStaleRadioServerTrack } = usePlayback();
   const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
   const playRef = useRef<(() => Promise<void>) | null>(null);
@@ -479,7 +479,18 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
 
         const isStaleResponse = !!trackData?.stale;
 
-        if (trackIdentityChanged || (shouldReloadCurrentTrack && !isStaleResponse)) {
+        // If we already crossfaded ahead to the next song (via /radio/peek) but
+        // the server still reports the previous song as current, ignore it so we
+        // don't jump the listener backward (perceived as skipping).
+        const serverLaggingBehindCrossfade =
+          trackIdentityChanged && isStaleRadioServerTrack(track.id);
+
+        if (serverLaggingBehindCrossfade) {
+          actions.applyServerBoothState({
+            transportPaused: !!trackData.transport_paused,
+            djOverlay: parseDjOverlay(trackData.dj_overlay),
+          });
+        } else if (trackIdentityChanged || (shouldReloadCurrentTrack && !isStaleResponse)) {
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
             state.source === 'radio' &&
@@ -546,6 +557,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     effectiveRadioId,
     coerceListenerCount,
     updateTemperatureFromCounts,
+    isStaleRadioServerTrack,
   ]);
 
   const getVoteKey = useCallback(

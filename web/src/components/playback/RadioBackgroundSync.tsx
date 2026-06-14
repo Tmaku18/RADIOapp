@@ -47,6 +47,7 @@ export function RadioBackgroundSync() {
   const state = playback?.state;
   const setOnRadioTrackEnded = playback?.setOnRadioTrackEnded;
   const radioPlayerUiActive = playback?.radioPlayerUiActive ?? false;
+  const isStaleRadioServerTrack = playback?.isStaleRadioServerTrack;
 
   const isListenPage = pathname === '/listen';
   const isDjBoothPage = pathname.startsWith('/admin/dj-booth');
@@ -81,6 +82,9 @@ export function RadioBackgroundSync() {
       });
 
       if (currentId !== track.id) {
+        // Server may still report the previous song while we've already
+        // crossfaded ahead via /radio/peek. Don't revert (jump backward).
+        if (isStaleRadioServerTrack?.(track.id)) return;
         actions.loadTrack(track, 'radio', autoPlay && !transportPaused);
         actions.syncToPosition(serverPosition);
         return;
@@ -88,7 +92,7 @@ export function RadioBackgroundSync() {
 
       actions.syncToPosition(serverPosition);
     },
-    [radioId],
+    [radioId, isStaleRadioServerTrack],
   );
 
   const syncCurrentTrack = useCallback(async () => {
