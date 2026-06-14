@@ -15,6 +15,7 @@ import 'core/theme/networx_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'widgets/login_screen.dart';
 import 'widgets/home_screen.dart';
+import 'widgets/splash_loading_screen.dart';
 import 'features/welcome/welcome_landing_screen.dart';
 import 'firebase_options.dart';
 
@@ -191,11 +192,9 @@ class AuthWrapper extends StatelessWidget {
               'AuthWrapper: connectionState=${snapshot.connectionState}, hasData=${snapshot.hasData}, data=${snapshot.data}',
             );
 
-            // Show loading indicator while checking auth state
+            // Show branded loading screen while checking auth state
             if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                body: Center(child: CircularProgressIndicator()),
-              );
+              return const SplashLoadingScreen();
             }
 
             // Handle errors
