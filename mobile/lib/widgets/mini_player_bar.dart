@@ -11,6 +11,10 @@ const List<String> _radioBrandFallbackLogos = <String>[
   'assets/images/branding/logo_0.png',
   'assets/images/branding/logo_1.png',
   'assets/images/branding/nx_0.png',
+  'assets/images/branding/og-flyer.png',
+  'assets/images/branding/networx-logo-cyan.png',
+  'assets/images/branding/networx-logo-cyan-light.png',
+  'assets/images/branding/cover-background.png',
 ];
 
 String _brandLogoForSeed(String seed) {
