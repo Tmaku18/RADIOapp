@@ -15,6 +15,8 @@ import '../../core/models/track.dart';
 import '../../core/models/track_fetch_result.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/radio_service.dart';
+import '../../core/services/songs_service.dart';
+import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
@@ -128,7 +130,11 @@ class _PlayerScreenState extends State<PlayerScreen>
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
+  final SongsService _songs = SongsService();
+  final PaymentsService _payments = PaymentsService();
   Track? _currentTrack;
+  SongAccess? _songAccess;
+  bool _isBuying = false;
   bool _isPlaying = false;
   bool _isLoading = true;
   bool _hasVoted = false;
@@ -271,6 +277,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       _isVoting = false;
       _noContent = false;
       _noContentMessage = null;
+      _songAccess = null;
     });
     await _persistStationSelection(station.id);
     await _audioPlayer.stop();
@@ -367,10 +374,65 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (!alreadyVoted) {
         _selectedReaction = null;
       }
+      _songAccess = null;
     });
     _scheduleTrackBoundarySync(track);
     _presenceTick();
+    _loadSongAccess(track.id);
     await _applyBoothState(track);
+  }
+
+  /// Fetch purchase/sale status for the current song so the player can show a
+  /// "Buy" button (or an "Owned" badge), mirroring the web RadioPlayer.
+  Future<void> _loadSongAccess(String songId) async {
+    if (songId.isEmpty) return;
+    try {
+      final access = await _songs.getAccess(songId);
+      if (!mounted || _currentTrack?.id != songId) return;
+      setState(() => _songAccess = access);
+    } catch (_) {
+      if (!mounted || _currentTrack?.id != songId) return;
+      setState(() => _songAccess = null);
+    }
+  }
+
+  Future<void> _buySong() async {
+    final track = _currentTrack;
+    if (track == null || _isBuying) return;
+    if (_me == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to buy songs.')),
+      );
+      return;
+    }
+    setState(() => _isBuying = true);
+    try {
+      final res = await _payments.buySong(songId: track.id);
+      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
+      if (url == null || url.isEmpty) {
+        throw Exception('Could not start checkout.');
+      }
+      final uri = Uri.tryParse(url);
+      if (uri != null && await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete your purchase in the browser. Your song unlocks once payment finishes.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
+    } finally {
+      if (mounted) setState(() => _isBuying = false);
+    }
   }
 
   /// React immediately to live DJ booth events (pushed over Supabase Realtime)
@@ -815,6 +877,9 @@ class _PlayerScreenState extends State<PlayerScreen>
                         shitVotes: _currentTrack?.shitVotes ?? 0,
                         temperaturePercent:
                             _currentTrack?.temperaturePercent ?? 0,
+                        songAccess: _songAccess,
+                        isBuying: _isBuying,
+                        onBuy: _buySong,
                         onReact: _react,
                         onPlayPause: _togglePlayPause,
                         onEnterRoom: () => _openRoom(providerContext),
@@ -1067,6 +1132,9 @@ class _PlayerBody extends StatelessWidget {
   final int fireVotes;
   final int shitVotes;
   final int temperaturePercent;
+  final SongAccess? songAccess;
+  final bool isBuying;
+  final VoidCallback onBuy;
   final Future<void> Function(String reaction) onReact;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
@@ -1086,6 +1154,9 @@ class _PlayerBody extends StatelessWidget {
     required this.fireVotes,
     required this.shitVotes,
     required this.temperaturePercent,
+    required this.songAccess,
+    required this.isBuying,
+    required this.onBuy,
     required this.onReact,
     required this.onPlayPause,
     required this.onEnterRoom,
@@ -1180,6 +1251,59 @@ class _PlayerBody extends StatelessWidget {
             ),
             child: child,
           ),
+        ),
+      );
+    }
+
+    Widget buyAction() {
+      final access = songAccess;
+      if (access?.owned == true) {
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.30)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.check_circle, size: 18, color: scheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Owned · in your library',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      }
+
+      final forSale = access?.forSale != false;
+      final label = isBuying
+          ? 'Starting…'
+          : !forSale
+          ? 'Not for sale'
+          : access != null
+          ? 'Buy ${_formatSongPrice(access.priceCents)}'
+          : 'Buy song';
+
+      return SizedBox(
+        width: double.infinity,
+        child: FilledButton.tonalIcon(
+          onPressed: (!forSale || isBuying) ? null : onBuy,
+          icon: isBuying
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.shopping_cart_outlined, size: 18),
+          label: Text(label),
         ),
       );
     }
@@ -1462,6 +1586,8 @@ class _PlayerBody extends StatelessWidget {
                 ),
               ),
               SizedBox(height: afterProgressGap),
+              buyAction(),
+              SizedBox(height: afterProgressGap),
               Row(
                 children: [
                   IconButton(
@@ -1557,6 +1683,13 @@ String _formatMmSs(Duration d) {
   final m = d.inMinutes;
   final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
   return '$m:$s';
+}
+
+/// Formats a cents amount as a dollar price, dropping a trailing ".00"
+/// (e.g. 99 → "$0.99", 100 → "$1"). Mirrors the web RadioPlayer's price label.
+String _formatSongPrice(int cents) {
+  final text = (cents / 100).toStringAsFixed(2);
+  return '\$${text.endsWith('.00') ? text.substring(0, text.length - 3) : text}';
 }
 
 // ---------------------------------------------------------------------------
