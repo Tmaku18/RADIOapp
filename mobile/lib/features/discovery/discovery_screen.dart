@@ -31,6 +31,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   bool _loading = true;
   bool _loadingMore = false;
   String? _nextCursor;
+  String? _loadError;
   List<BrowseFeedItem> _items = <BrowseFeedItem>[];
 
   String? _likingId;
@@ -73,7 +74,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     if (append) {
       setState(() => _loadingMore = true);
     } else {
-      setState(() => _loading = true);
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
     }
 
     try {
@@ -86,7 +90,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
       setState(() {
         _items = append ? [..._items, ...page.items] : page.items;
         _nextCursor = page.nextCursor;
+        _loadError = null;
       });
+    } catch (_) {
+      // The feed can transiently fail (e.g. backend cold start). Surface a
+      // friendly retry state instead of letting the exception go unhandled.
+      // A failed "load more" keeps the existing items and just stops paging.
+      if (!mounted) return;
+      if (!append) {
+        setState(() => _loadError =
+            "Couldn't load the feed. Pull to refresh or tap retry.");
+      }
     } finally {
       if (mounted) {
         setState(() {
@@ -295,6 +309,47 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
             const _DiscoverListTab(),
             _loading && _items.isEmpty
                 ? const Center(child: CircularProgressIndicator())
+                : (_loadError != null && _items.isEmpty)
+                ? RefreshIndicator(
+                    onRefresh: () => _loadPage(append: false),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        SizedBox(
+                          height: MediaQuery.of(context).size.height * 0.6,
+                          child: Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.cloud_off_outlined,
+                                    size: 48,
+                                    color: surfaces.textSecondary,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _loadError!,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: surfaces.textSecondary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  FilledButton.icon(
+                                    onPressed: () => _loadPage(append: false),
+                                    icon: const Icon(Icons.refresh),
+                                    label: const Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
                 : _items.isEmpty
                 ? Center(
                     child: Text(
