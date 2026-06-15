@@ -2,6 +2,15 @@
 
 This document defines the user-facing product terminology and logo used across the web app, marketing copy, and documentation. Backend (API paths, DB columns, role values) may still use technical names for compatibility.
 
+## Truth-safe positioning (read first)
+
+Per the NETWORX Updated Truth-Safe Branding Document, public copy must advertise what is active now and describe future capability as roadmap only. NETWORX is a **music discovery marketplace and creative networking platform** (music = 30-second previews + purchased full-track access; PRO-NETWORX = creative services/networking).
+
+- "Radio" is allowed as a **brand/discovery concept** ("NETWORX Radio is our music discovery side"). Do **not** imply a licensed radio station/broadcaster.
+- Use "community rankings" / "leaderboards", not "charts" — never imply **official chart reporting** (Billboard/Luminate/SoundExchange) or **radio royalties**.
+- Avoid outcome guarantees (fame, income, guaranteed listeners). Hedge discovery metrics ("target", "roughly").
+- Prefer "radio-style shared listening" over "real radio"; prefer "Artist Discovery Placement" over "buy airtime".
+
 ## The three metaphor systems
 
 All Networx terminology hangs off three connected metaphors. This grouping is the source of truth for the "Language of Networx" glossary shown on the web landing page (`web/src/app/(marketing)/page.tsx`) and the mobile About screen (`mobile/lib/features/about/about_screen.dart`). Keep all three in sync.
@@ -114,6 +123,24 @@ Detailed entries for each term follow below.
 - **Where used**: Marketing glossary ("Mining" group), About screen.
 - **Technical**: Conceptual umbrella over radio playback + Prospector/Refinery engagement.
 
+## Live Sync Chat (real-time room)
+
+- **Term**: **Live Sync Chat**
+- **Meaning**: Real-time chat where fans join an artist or DJ "in the room" during a livestream or live session.
+- **Where used**: Marketing (For Gems), FAQ, player/livestream UI.
+
+## Artist Discovery Placement (paid promotion)
+
+- **Term**: **Artist Discovery Placement** (a.k.a. discovery placement)
+- **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of verified listener exposures. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
+- **Where used**: Marketing (For Gems), FAQ, pricing, artist dashboard.
+
+## Ears Reached (discovery metric)
+
+- **Term**: **Ears Reached**
+- **Meaning**: A live discovery metric for how many listeners a track/stream has reached.
+- **Where used**: Marketing landing live stats, mobile About stats strip.
+
 ## Summary table
 
 | User-facing term | Technical / backend |
@@ -129,5 +156,8 @@ Detailed entries for each term follow below.
 | Metamorphosis    | narrative (Gem -> Diamond progression) |
 | Mining the Frequency | radio + Prospector/Refinery engagement |
 | Songs            | song, songs         |
+| Live Sync Chat   | live chat / livestream room |
+| Artist Discovery Placement | discovery placement / promotion |
+| Ears Reached     | live discovery reach metric |
 
-Last updated: June 2026.
+Last updated: June 2026 (truth-safe positioning added).
