@@ -125,9 +125,13 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
 
-  // New station = new listener session; avoids stale heartbeats and forces stream reload when song id matches.
+  // Keep the stream token stable for the tab's lifetime. Regenerating it on
+  // every station change made the server count each switch as a brand-new
+  // listener (stale tokens linger in the active-listener window), inflating the
+  // live count as the user flipped stations. Stream reloads on station change
+  // are already handled by fetchCurrentTrack, so the token does not need to
+  // change here — we only reset the check-in session marker.
   useEffect(() => {
-    streamTokenRef.current = Math.random().toString(36).slice(2);
     lastHeartbeatSessionIdRef.current = null;
   }, [effectiveRadioId]);
 
