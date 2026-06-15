@@ -141,6 +141,16 @@ export function RadioBackgroundSync() {
     return () => clearInterval(interval);
   }, [shouldSync, syncCurrentTrack]);
 
+  // Background tabs throttle the interval above; re-sync promptly on refocus.
+  useEffect(() => {
+    if (!shouldSync || typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void syncCurrentTrack();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [shouldSync, syncCurrentTrack]);
+
   useEffect(() => {
     if (!shouldSync || !radioId) return;
     return subscribeDjBoothEvents(radioId, (event) => {

@@ -110,6 +110,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC = 12;
   const LIVE_SYNC_SEEK_COOLDOWN_MS = 30000;
   const [state, setState] = useState<PlaybackState>(initialPlaybackState);
+  // Mirror of the latest state for use inside event handlers (e.g. visibility
+  // recovery) without re-subscribing the listener on every state change.
+  const stateRef = useRef(state);
+  stateRef.current = state;
   const audioPairRef = useRef<{ a: HTMLAudioElement; b: HTMLAudioElement } | null>(null);
   const activeSlotRef = useRef<AudioSlot>('a');
   const hlsBySlotRef = useRef<{ a: Hls | null; b: Hls | null }>({ a: null, b: null });
@@ -819,6 +823,37 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     state.source,
     state.track,
   ]);
+
+  // Recover playback when returning to a backgrounded tab. Browsers throttle
+  // timers and frequently stall media in hidden tabs, which can leave the radio
+  // paused/buffering even though the UI shows the correct song — previously this
+  // only recovered on a manual refresh. On refocus, if we should be playing but
+  // the active audio is stalled, reload the current track's source and resume.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (sourceRef.current !== 'radio') return;
+      if (isCrossfadingRef.current || isLoadingTrackRef.current) return;
+      const s = stateRef.current;
+      if (!s.isPlaying || s.pausedAt || !s.track) return;
+      const audio = getActiveAudio();
+      if (!audio) return;
+      const stalled =
+        audio.paused ||
+        audio.ended ||
+        audio.readyState < 2 /* HAVE_CURRENT_DATA */ ||
+        audio.networkState === 3 /* NETWORK_NO_SOURCE */;
+      if (!stalled) return;
+      const resumeAt =
+        Number.isFinite(audio.currentTime) && audio.currentTime > 0
+          ? audio.currentTime
+          : null;
+      loadTrackImmediate(s.track, 'radio', true, resumeAt);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [getActiveAudio, loadTrackImmediate]);
 
   const play = useCallback(async () => {
     const audio = getActiveAudio();

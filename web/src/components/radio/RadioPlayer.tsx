@@ -646,6 +646,20 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     return () => clearInterval(interval);
   }, [fetchCurrentTrack, hasUserInteracted, noContent]);
 
+  // Background tabs throttle the poll above, so re-sync immediately on refocus
+  // to realign with the live track/position (and let the provider resume any
+  // audio that stalled while hidden).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        fetchCurrentTrack(true, hasUserInteracted);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [fetchCurrentTrack, hasUserInteracted]);
+
   useEffect(() => {
     if (state.source && state.source !== 'radio') return;
     return subscribeDjBoothEvents(effectiveRadioId, (event) => {
