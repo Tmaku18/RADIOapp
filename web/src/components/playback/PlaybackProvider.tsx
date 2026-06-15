@@ -735,6 +735,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !outgoing.ended &&
         outgoing.currentTime > 0 &&
         !isIosSafari() &&
+        // rAF-based crossfade can't run in a hidden tab; switch instantly.
+        !(typeof document !== 'undefined' && document.hidden) &&
         (autoPlay ?? true);
 
       if (shouldCrossfade) {
@@ -751,6 +753,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   useEffect(() => {
     if (state.source !== 'radio') return;
     if (!state.isPlaying || state.pausedAt) return;
+    // Never crossfade-ahead while the tab is hidden. requestAnimationFrame is
+    // paused in background tabs, so a crossfade started here would never
+    // complete (jamming the player), and peeking ahead without the server
+    // rotating its queue causes the just-played song to replay on `ended`.
+    // While hidden we let the song play to its end and advance via the
+    // `ended` handler (an authoritative server force-advance) instead.
+    if (typeof document !== 'undefined' && document.hidden) return;
     const track = state.track;
     if (!track?.id || !track.radioId) return;
 
@@ -834,9 +843,20 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
       if (sourceRef.current !== 'radio') return;
-      if (isCrossfadingRef.current || isLoadingTrackRef.current) return;
       const s = stateRef.current;
       if (!s.isPlaying || s.pausedAt || !s.track) return;
+
+      // A crossfade that began just before the tab was hidden can stall because
+      // requestAnimationFrame is paused in background tabs. On refocus, finalize
+      // it by cancelling and reloading the intended (incoming) track so playback
+      // resumes cleanly instead of jamming mid-transition.
+      if (isCrossfadingRef.current) {
+        cancelCrossfade();
+        loadTrackImmediate(s.track, 'radio', true, null);
+        return;
+      }
+      if (isLoadingTrackRef.current) return;
+
       const audio = getActiveAudio();
       if (!audio) return;
       const stalled =
@@ -853,7 +873,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [getActiveAudio, loadTrackImmediate]);
+  }, [cancelCrossfade, getActiveAudio, loadTrackImmediate]);
 
   const play = useCallback(async () => {
     const audio = getActiveAudio();

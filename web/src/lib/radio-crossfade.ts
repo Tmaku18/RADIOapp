@@ -33,13 +33,40 @@ export function runAudioCrossfade(
   const targetVolume = Math.max(0, Math.min(1, options.targetVolume));
   const start = performance.now();
   let rafId = 0;
+  let safetyTimer: ReturnType<typeof setTimeout> | null = null;
   let cancelled = false;
+  let finished = false;
 
   incoming.volume = 0;
   incoming.muted = targetVolume <= 0.001;
 
+  const clearTimers = () => {
+    cancelAnimationFrame(rafId);
+    if (safetyTimer) {
+      clearTimeout(safetyTimer);
+      safetyTimer = null;
+    }
+  };
+
+  // Complete the crossfade exactly once. This is invoked both by the normal
+  // rAF ramp and by a safety timer, because requestAnimationFrame is paused in
+  // background/hidden tabs — without the timer the swap would never happen and
+  // the player would jam mid-transition.
+  const finish = () => {
+    if (cancelled || finished) return;
+    finished = true;
+    clearTimers();
+    if (!isIosSafari()) {
+      outgoing.volume = 0;
+      outgoing.muted = true;
+      incoming.volume = targetVolume;
+      incoming.muted = targetVolume <= 0.001;
+    }
+    options.onComplete();
+  };
+
   const tick = (now: number) => {
-    if (cancelled) return;
+    if (cancelled || finished) return;
     const elapsed = now - start;
     const t = Math.min(1, elapsed / durationMs);
     const outVol = targetVolume * (1 - t);
@@ -53,18 +80,20 @@ export function runAudioCrossfade(
     }
 
     if (t >= 1) {
-      options.onComplete();
+      finish();
       return;
     }
     rafId = requestAnimationFrame(tick);
   };
 
   rafId = requestAnimationFrame(tick);
+  // Guarantee completion even when rAF is throttled or fully paused (hidden tab).
+  safetyTimer = setTimeout(finish, durationMs + 250);
 
   return () => {
-    if (cancelled) return;
+    if (cancelled || finished) return;
     cancelled = true;
-    cancelAnimationFrame(rafId);
+    clearTimers();
     options.onCancel?.();
   };
 }
