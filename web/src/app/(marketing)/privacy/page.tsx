@@ -1,164 +1,123 @@
+import { LegalLayout, LegalSection, P, Bullets } from '@/components/legal/LegalLayout';
+
+export const metadata = {
+  title: 'Privacy Policy — NETWORX',
+  description: 'How DISCOVERMERADIO GROUP LLC / NETWORX collects, uses, shares, and protects information.',
+};
+
 export default function PrivacyPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-      <header>
-        <h1 className="text-4xl font-bold text-foreground">Privacy Policy</h1>
-        <p className="text-muted-foreground mt-3">
-          Effective date: March 29, 2026
-        </p>
-      </header>
+    <LegalLayout
+      title="Privacy Policy"
+      effectiveDate="June 14, 2026"
+      intro="This Privacy Policy explains how DISCOVERMERADIO GROUP LLC / NETWORX collects, uses, shares, and protects information when users access NETWORX, PRO-NETWORX, the website, mobile apps, marketplace, beta features, or related services."
+    >
+      <LegalSection title="1. Information We Collect">
+        <Bullets
+          items={[
+            'Account information such as name, username, email, profile photo, artist name, service provider name, and login details.',
+            'Creator profile information such as bio, links, portfolio items, service listings, music metadata, artwork, pricing, and social links.',
+            'Marketplace information such as purchases, transaction IDs, order history, payout status, refunds, and chargebacks. Payment card details are processed by third-party payment providers and are not intended to be stored directly by NETWORX.',
+            'Content and communications such as posts, comments, messages, reports, livestream materials, feedback, and support requests.',
+            'Usage and technical data such as device information, IP address, browser, app version, logs, crash data, Sentry events, analytics, and approximate location based on technical data.',
+            'Legal and safety data such as copyright complaints, dispute records, counter-notices, verification information, policy violations, and moderation history.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <p className="text-muted-foreground">
-          This Privacy Policy explains how DISCOVERMERADIO GROUP LLC
-          (&quot;NETWORX,&quot; &quot;we,&quot; &quot;us,&quot; &quot;our&quot;) collects, uses, discloses, and
-          protects information when you use NETWORX applications, websites, and
-          related services (collectively, the &quot;Services&quot;).
-        </p>
-      </section>
+      <LegalSection title="2. How We Use Information">
+        <Bullets
+          items={[
+            'To create and manage accounts and profiles.',
+            'To operate music previews, purchases, libraries, downloads, and creative listings.',
+            'To process transactions, refunds, payouts, and marketplace records.',
+            'To provide customer support, safety reviews, fraud prevention, copyright enforcement, and moderation.',
+            'To improve product features, debug errors, analyze usage, and understand creator/listener engagement.',
+            'To send transactional emails, beta notices, product updates, support messages, and marketing messages where allowed.',
+            'To comply with legal obligations and enforce our policies.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Information We Collect</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Account data (email, display name, role, authentication identifiers).</li>
-          <li>
-            Content and activity (uploads, messages, reactions, comments, and profile data).
-          </li>
-          <li>Payment and purchase metadata used for transaction processing and verification.</li>
-          <li>
-            Device and usage information (logs, crash diagnostics, app interactions).
-          </li>
-          <li>
-            Approximate/precise location data when you use nearby discovery features.
-          </li>
-          <li>
-            Push token and notification interaction data for artist/listener notifications.
-          </li>
-        </ul>
-      </section>
+      <LegalSection title="3. How We Share Information">
+        <P>
+          NETWORX may share information with service providers that help operate the platform,
+          including hosting, database, storage, analytics, payments, email, monitoring, and customer
+          support providers. NETWORX may share transaction or payout information with payment
+          processors, tax or compliance providers, and marketplace participants as needed to complete
+          transactions.
+        </P>
+        <P>
+          NETWORX may disclose information if required by law, legal process, safety concerns, rights
+          enforcement, fraud prevention, or business transfers.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">How We Use Information</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Provide and secure the service, including account authentication.</li>
-          <li>Enable radio playback, creator tools, messaging, and analytics features.</li>
-          <li>Process purchases and detect fraud, abuse, and policy violations.</li>
-          <li>Send transactional and product notifications.</li>
-          <li>Comply with legal obligations and enforce our terms and policies.</li>
-        </ul>
-      </section>
+      <LegalSection title="4. Public Content">
+        <P>
+          Profiles, artist pages, service listings, posts, portfolios, music previews, links,
+          comments, and other public-facing content may be visible to other users or the public.
+          Users should not post private or sensitive information they do not want others to see.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Legal Bases and Consent</h2>
-        <p className="text-muted-foreground">
-          Depending on your location, we process personal data under one or more legal
-          bases: your consent, performance of a contract, legitimate interests, and
-          legal obligations. You can withdraw consent for optional processing at any
-          time by changing app/device settings where available.
-        </p>
-      </section>
+      <LegalSection title="5. Children and Teens">
+        <P>
+          NETWORX is not directed to children under 13. We do not knowingly collect personal
+          information from children under 13. If we learn that a child under 13 has provided personal
+          information, we may delete the account and information. Users under the age of majority
+          should use NETWORX with permission from a parent or guardian.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Creator Content, Safety, and Explicit Labels</h2>
-        <p className="text-muted-foreground">
-          NETWORX supports creator-uploaded audio and community interactions. We process
-          creator metadata, including explicit-content labels, to help provide appropriate
-          station experiences and enforce safety standards. We may review, moderate, remove,
-          or restrict content and accounts for legal, policy, or safety reasons.
-        </p>
-      </section>
+      <LegalSection title="6. Cookies and Similar Technologies">
+        <P>
+          NETWORX may use cookies, pixels, local storage, device identifiers, and similar
+          technologies for login, security, analytics, preferences, advertising measurement, and
+          product improvement.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Sharing of Information</h2>
-        <p className="text-muted-foreground">
-          We may share data with service providers that help operate authentication,
-          infrastructure, analytics, notifications, and payments. We may also disclose
-          data when required by law, to enforce rights, or in connection with a business
-          transfer.
-        </p>
-      </section>
+      <LegalSection title="7. Data Retention">
+        <P>
+          We keep information for as long as needed to operate the platform, comply with legal
+          obligations, resolve disputes, prevent fraud, enforce agreements, and maintain business
+          records. Copyright and transaction records may be retained after account closure where
+          needed for compliance, safety, or dispute purposes.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">International Transfers</h2>
-        <p className="text-muted-foreground">
-          We and our service providers may process data in the United States and other
-          countries that may have different data protection laws than your country.
-          Where required, we use appropriate safeguards for cross-border data transfers.
-        </p>
-      </section>
+      <LegalSection title="8. Security">
+        <P>
+          NETWORX uses reasonable administrative, technical, and organizational safeguards designed to
+          protect information. No system is completely secure, and users are responsible for
+          protecting their account credentials.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Data Retention</h2>
-        <p className="text-muted-foreground">
-          We retain personal data only as long as needed for business, legal, and security
-          purposes. Some records may be retained after account closure where required by
-          law or for fraud/security prevention.
-        </p>
-      </section>
+      <LegalSection title="9. User Choices">
+        <Bullets
+          items={[
+            'Users may update certain account/profile information in the app.',
+            'Users may request account deletion or data access by contacting support, subject to legal, safety, and transaction record limitations.',
+            'Users may opt out of non-essential marketing emails using available unsubscribe options.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Your Rights and Choices</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Access, update, or delete your account information where available.</li>
-          <li>Control push notifications in app settings.</li>
-          <li>Control location permission at the device level.</li>
-          <li>
-            Request account deletion by contacting support at
-            {' '}
-            <a className="text-primary hover:underline" href="mailto:support@networxradio.com">
-              support@networxradio.com
-            </a>
-            .
-          </li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Account Deletion</h2>
-        <p className="text-muted-foreground">
-          You may request deletion of your account and associated personal data by
-          contacting support. We may retain limited information as required by law,
-          to resolve disputes, or for fraud and security prevention.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Security</h2>
-        <p className="text-muted-foreground">
-          We use reasonable administrative, technical, and organizational measures to
-          protect personal data. No system is perfectly secure, and we cannot guarantee
-          absolute security.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Changes To This Policy</h2>
-        <p className="text-muted-foreground">
-          We may update this Privacy Policy from time to time. If we make material changes,
-          we will update the effective date and provide notice where required by law.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Children&apos;s Privacy</h2>
-        <p className="text-muted-foreground">
-          NETWORX is not directed to children under 13, and we do not knowingly collect
-          personal data from children under 13.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Contact</h2>
-        <p className="text-muted-foreground">
-          DISCOVERMERADIO GROUP LLC
-          <br />
-          Email:
-          {' '}
+      <LegalSection title="10. Contact">
+        <P>
+          Privacy questions may be sent to{' '}
           <a className="text-primary hover:underline" href="mailto:legal@networxradio.com">
             legal@networxradio.com
+          </a>{' '}
+          or{' '}
+          <a className="text-primary hover:underline" href="mailto:support@networxradio.com">
+            support@networxradio.com
           </a>
-        </p>
-      </section>
-    </div>
+          .
+        </P>
+      </LegalSection>
+    </LegalLayout>
   );
 }

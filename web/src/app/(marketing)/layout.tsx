@@ -179,6 +179,8 @@ export default function MarketingLayout({
                 <li><a href="mailto:mjones@networxradio.com" className="text-muted-foreground hover:text-foreground transition-colors">Merquise (COO)</a></li>
                 <li><Link href="/privacy" className="text-muted-foreground hover:text-foreground transition-colors">Privacy Policy</Link></li>
                 <li><Link href="/terms" className="text-muted-foreground hover:text-foreground transition-colors">Terms of Service</Link></li>
+                <li><Link href="/dmca" className="text-muted-foreground hover:text-foreground transition-colors">DMCA &amp; Copyright</Link></li>
+                <li><Link href="/community-guidelines" className="text-muted-foreground hover:text-foreground transition-colors">Community Guidelines</Link></li>
                 <li><Link href="/legal" className="text-muted-foreground hover:text-foreground transition-colors">Legal Center</Link></li>
               </ul>
             </div>

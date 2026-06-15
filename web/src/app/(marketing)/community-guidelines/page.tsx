@@ -1,60 +1,52 @@
+import { LegalLayout, LegalSection, P, Bullets } from '@/components/legal/LegalLayout';
+
+export const metadata = {
+  title: 'Community Guidelines — NETWORX',
+  description: 'The behavior we expect from artists, listeners, service providers, and fans on NETWORX.',
+};
+
 export default function CommunityGuidelinesPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-      <header>
-        <h1 className="text-4xl font-bold text-foreground">Community Guidelines</h1>
-        <p className="text-muted-foreground mt-3">
-          Effective date: March 18, 2026
-        </p>
-      </header>
+    <LegalLayout
+      title="Community Guidelines"
+      effectiveDate="June 14, 2026"
+      intro="NETWORX exists to help hidden talent get seen, supported, and paid. The community should be creative, respectful, ambitious, and safe for artists, listeners, service providers, and fans."
+    >
+      <LegalSection title="1. Expected Behavior">
+        <Bullets
+          items={[
+            'Respect artists, fans, creators, buyers, and service providers.',
+            'Give honest feedback without harassment or abuse.',
+            'Only post content and services you have rights to share.',
+            'Be clear and truthful in profiles, listings, prices, and service descriptions.',
+            'Honor service agreements, deadlines, payment obligations, and communication commitments.',
+            'Report copyright, safety, fraud, or abuse concerns through the proper tools.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <p className="text-muted-foreground">
-          NETWORX is built for artists, listeners, and collaborators. These guidelines
-          define behavior expected across content uploads, chat, comments, and profiles.
-        </p>
-      </section>
+      <LegalSection title="2. Prohibited Behavior">
+        <Bullets
+          items={[
+            'Harassment, threats, intimidation, stalking, bullying, or targeted abuse.',
+            'Hate speech, dehumanizing language, or attacks based on protected characteristics.',
+            'Sexual exploitation, coercion, non-consensual intimate content, or content involving minors.',
+            'Fraud, scams, impersonation, fake engagement, fake reviews, or payment abuse.',
+            'Uploading stolen songs, beats, samples, artwork, photos, videos, or services.',
+            'Spam, bots, scraping, platform manipulation, or unauthorized automation.',
+            'Posting private information without permission.',
+            'Violating the Prohibited Content Policy or Terms of Service.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Do</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Respect other users and engage constructively.</li>
-          <li>Upload content you have rights to distribute.</li>
-          <li>Report abuse, harassment, scams, or impersonation.</li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Do Not</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Post hateful, threatening, violent, or sexually exploitative content.</li>
-          <li>Harass, dox, or bully other users.</li>
-          <li>Upload infringing content or misleading metadata.</li>
-          <li>Use bots, spam, or manipulation of votes/engagement.</li>
-          <li>Sell illegal goods/services or engage in fraud.</li>
-        </ul>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Enforcement</h2>
-        <p className="text-muted-foreground">
-          Violations may result in content removal, account restrictions, suspensions, or
-          termination. We may take immediate action for severe abuse or legal risk.
-        </p>
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Report a Violation</h2>
-        <p className="text-muted-foreground">
-          Contact
-          {' '}
-          <a className="text-primary hover:underline" href="mailto:trust@networxradio.com">
-            trust@networxradio.com
-          </a>
-          {' '}
-          with screenshots, links, and context.
-        </p>
-      </section>
-    </div>
+      <LegalSection title="3. Enforcement">
+        <P>
+          NETWORX may remove content, issue warnings, reduce visibility, restrict features, pause
+          sales, pause payouts, suspend accounts, terminate accounts, or contact authorities where
+          appropriate.
+        </P>
+      </LegalSection>
+    </LegalLayout>
   );
 }

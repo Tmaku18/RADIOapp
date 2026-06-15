@@ -1,149 +1,169 @@
+import { LegalLayout, LegalSection, P, Bullets } from '@/components/legal/LegalLayout';
+
+export const metadata = {
+  title: 'Terms of Service — NETWORX',
+  description: 'The Terms of Service governing your use of NETWORX, the music marketplace, and PRO-NETWORX.',
+};
+
 export default function TermsPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-      <header>
-        <h1 className="text-4xl font-bold text-foreground">Terms of Service</h1>
-        <p className="text-muted-foreground mt-3">
-          Effective date: March 29, 2026
-        </p>
-      </header>
+    <LegalLayout title="Terms of Service" effectiveDate="June 14, 2026">
+      <LegalSection title="1. Acceptance of Terms">
+        <P>
+          By accessing or using NETWORX, including the website, mobile app, music marketplace,
+          PRO-NETWORX services, social features, livestream features, beta features, or any related
+          services, you agree to these Terms of Service (the &ldquo;Terms&rdquo;). If you do not
+          agree, do not use NETWORX.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <p className="text-muted-foreground">
-          These Terms of Service govern your use of NETWORX products and services
-          operated by DISCOVERMERADIO GROUP LLC. By using NETWORX, you agree to these
-          terms.
-        </p>
-      </section>
+      <LegalSection title="2. Platform Overview">
+        <P>
+          NETWORX is a music discovery marketplace and creative networking platform. Current
+          marketplace features may include artist profiles, 30-second music previews, full-track
+          purchases, purchased libraries, creative profiles, service listings, social engagement, and
+          related discovery tools. PRO-NETWORX is the creative services and networking side of the
+          platform.
+        </P>
+        <P>
+          NETWORX is not currently advertising itself as an official chart-reporting service or fully
+          licensed public radio broadcaster. Future radio, reporting, and additional monetization
+          features may be added under separate terms or policies.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Eligibility and Accounts</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>You must be at least 13 years old to use the service.</li>
-          <li>You must provide accurate account information and keep it current.</li>
-          <li>You are responsible for safeguarding account credentials.</li>
-          <li>You are responsible for activity under your account.</li>
-        </ul>
-      </section>
+      <LegalSection title="3. Accounts and Eligibility">
+        <P>
+          You must provide accurate account information and keep your login credentials secure. You
+          are responsible for activity under your account. NETWORX is intended for users age 13 and
+          older. If you are under the age of majority in your jurisdiction, you may use NETWORX only
+          with permission from a parent or legal guardian.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">User Content and Rights</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>You retain ownership of content you submit to NETWORX.</li>
-          <li>
-            You grant us a non-exclusive license to host, display, distribute, and
-            process your content to operate and improve the service.
-          </li>
-          <li>
-            You represent that you have the rights required to upload and use your
-            content.
-          </li>
-        </ul>
-      </section>
+      <LegalSection title="4. User Content">
+        <P>
+          Users may upload, post, sell, display, preview, stream, promote, list, message, or
+          otherwise submit content such as music, artwork, images, profiles, posts, services,
+          livestreams, comments, and listings (&ldquo;User Content&rdquo;). You retain ownership of
+          your User Content, but you grant NETWORX the limited rights needed to operate, display,
+          host, promote, distribute, preview, sell, deliver, and support your User Content through the
+          platform.
+        </P>
+        <P>
+          You are solely responsible for making sure you have the rights needed to upload and use your
+          User Content.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">User Safety and Moderation</h2>
-        <p className="text-muted-foreground">
-          NETWORX supports creator-uploaded audio and community interactions. We may
-          monitor, moderate, remove, or restrict content/accounts that violate these
-          terms, our policies, legal requirements, or safety standards.
-        </p>
-      </section>
+      <LegalSection title="5. Music Marketplace">
+        <P>
+          Artists and rights holders may make music available through 30-second previews and
+          full-track purchase access. Buyers receive a personal-use license to access purchased tracks
+          under the Buyer License Terms. Unless a separate agreement says otherwise, sales on NETWORX
+          do not transfer copyright ownership to buyers.
+        </P>
+        <P>
+          NETWORX may remove, restrict, or pause access to any music if a copyright issue, payment
+          issue, policy violation, or legal concern arises.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Payments</h2>
-        <p className="text-muted-foreground">
-          Paid features may include one-time purchases and subscriptions. Charges are
-          processed by third-party payment processors or platform stores. Pricing,
-          availability, and feature entitlements may change over time.
-        </p>
-      </section>
+      <LegalSection title="6. PRO-NETWORX Services">
+        <P>
+          PRO-NETWORX allows creative service providers to list, promote, and connect around creative
+          services. NETWORX is not a party to every service relationship unless expressly stated.
+          Users are responsible for their own agreements, deliverables, communications, taxes, and
+          compliance with applicable laws.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Prohibited Conduct</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>No copyright infringement, piracy, or rights violations.</li>
-          <li>No harassment, hate speech, threats, or abusive behavior.</li>
-          <li>No unauthorized access, scraping, fraud, or service disruption.</li>
-          <li>No use of NETWORX to violate laws or third-party rights.</li>
-        </ul>
-      </section>
+      <LegalSection title="7. Payments, Fees, Refunds, and Payouts">
+        <P>
+          Payments may be processed by third-party providers such as Stripe, Apple, Google, or other
+          providers depending on the purchase type and platform. NETWORX may charge platform fees,
+          service fees, subscription fees, transaction fees, listing fees, or other fees disclosed at
+          the time of purchase or listing.
+        </P>
+        <P>
+          Refunds, chargebacks, digital purchases, seller payouts, and payout holds are governed by
+          the Refund &amp; Chargeback Policy and Marketplace Payout Policy.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Intellectual Property</h2>
-        <p className="text-muted-foreground">
-          The NETWORX service, branding, software, and related materials are owned by
-          DISCOVERMERADIO GROUP LLC or its licensors and are protected by applicable
-          intellectual property laws. Except as permitted by law, you may not copy,
-          modify, reverse engineer, or distribute service materials without permission.
-        </p>
-      </section>
+      <LegalSection title="8. Prohibited Conduct">
+        <Bullets
+          items={[
+            'Do not upload content you do not own or have permission to use.',
+            'Do not sell stolen music, beats, artwork, photos, videos, or services.',
+            'Do not harass, threaten, impersonate, defraud, spam, scrape, hack, or abuse other users.',
+            'Do not attempt to manipulate rankings, reviews, purchases, discovery metrics, votes, likes, or engagement.',
+            'Do not use NETWORX for illegal, unsafe, deceptive, hateful, or exploitative activity.',
+          ]}
+        />
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Termination</h2>
-        <p className="text-muted-foreground">
-          We may suspend or terminate access for terms or policy violations, legal risk,
-          abuse, or security concerns. You may stop using the service at any time.
-        </p>
-      </section>
+      <LegalSection title="9. Copyright and Takedowns">
+        <P>
+          NETWORX follows a copyright complaint process described in the DMCA &amp; Copyright Policy.
+          NETWORX may remove content, pause sales, suspend payouts, restrict uploads, or terminate
+          accounts when content is alleged to infringe rights or violates platform policy.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Changes to the Service</h2>
-        <p className="text-muted-foreground">
-          We may modify, suspend, or discontinue all or part of the service at any time,
-          with or without notice, as permitted by law.
-        </p>
-      </section>
+      <LegalSection title="10. Beta Features and Changes">
+        <P>
+          NETWORX may release beta, experimental, or early-access features. Beta features may change,
+          break, disappear, or be limited at any time. Free beta premium access does not guarantee
+          permanent free access or future pricing.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Disclaimers and Liability Limits</h2>
-        <p className="text-muted-foreground">
-          The service is provided &quot;as is&quot; and &quot;as available.&quot; To the maximum extent
-          allowed by law, DISCOVERMERADIO GROUP LLC disclaims warranties and limits
-          liability for indirect, incidental, special, consequential, or punitive damages.
-        </p>
-      </section>
+      <LegalSection title="11. No Guarantees">
+        <P>
+          NETWORX does not guarantee fame, income, bookings, sales, streams, followers, placements,
+          chart recognition, radio royalties, or specific business outcomes. NETWORX is built to
+          create visibility, tools, and opportunity, but users are responsible for their own content,
+          business decisions, and legal rights.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Indemnification</h2>
-        <p className="text-muted-foreground">
-          To the extent permitted by law, you agree to indemnify and hold harmless
-          DISCOVERMERADIO GROUP LLC and its affiliates from claims, damages, losses, and
-          expenses arising from your content, your use of the service, or your violation
-          of these terms or applicable law.
-        </p>
-      </section>
+      <LegalSection title="12. Disclaimers and Limitation of Liability">
+        <P>
+          NETWORX is provided &ldquo;as is&rdquo; and &ldquo;as available.&rdquo; To the maximum
+          extent allowed by law, NETWORX disclaims warranties and is not liable for indirect,
+          incidental, consequential, special, punitive, or lost-profit damages.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Governing Law</h2>
-        <p className="text-muted-foreground">
-          These terms are governed by applicable law in the United States and the State
-          of Georgia, without regard to conflict-of-law rules, unless otherwise required
-          by non-waivable consumer law.
-        </p>
-      </section>
+      <LegalSection title="13. Account Suspension or Termination">
+        <P>
+          NETWORX may suspend, restrict, or terminate accounts that violate these Terms, fail
+          verification, trigger fraud concerns, create legal risk, abuse other users, or repeatedly
+          infringe rights.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Changes to These Terms</h2>
-        <p className="text-muted-foreground">
-          We may update these Terms of Service from time to time. If we make material
-          changes, we will update the effective date and provide notice where required
-          by law.
-        </p>
-      </section>
+      <LegalSection title="14. Governing Law">
+        <P>
+          These Terms are governed by the laws of the State of Georgia, unless applicable law requires
+          otherwise.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Contact</h2>
-        <p className="text-muted-foreground">
-          DISCOVERMERADIO GROUP LLC
-          <br />
-          Email:
-          {' '}
+      <LegalSection title="15. Contact">
+        <P>
+          Questions about these Terms may be sent to{' '}
           <a className="text-primary hover:underline" href="mailto:legal@networxradio.com">
             legal@networxradio.com
+          </a>{' '}
+          or{' '}
+          <a className="text-primary hover:underline" href="mailto:support@networxradio.com">
+            support@networxradio.com
           </a>
-        </p>
-      </section>
-    </div>
+          .
+        </P>
+      </LegalSection>
+    </LegalLayout>
   );
 }

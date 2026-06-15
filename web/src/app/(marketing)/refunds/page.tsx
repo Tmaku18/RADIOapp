@@ -1,63 +1,67 @@
+import { LegalLayout, LegalSection, P } from '@/components/legal/LegalLayout';
+
+export const metadata = {
+  title: 'Refund & Chargeback Policy — NETWORX',
+  description: 'How refunds, chargebacks, and payout impacts work for purchases on NETWORX.',
+};
+
 export default function RefundsPage() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-8">
-      <header>
-        <h1 className="text-4xl font-bold text-foreground">Refund Policy</h1>
-        <p className="text-muted-foreground mt-3">
-          Effective date: March 18, 2026
-        </p>
-      </header>
+    <LegalLayout
+      title="Refund & Chargeback Policy"
+      effectiveDate="June 14, 2026"
+      intro="This Refund & Chargeback Policy applies to purchases, digital music sales, services, subscriptions, listing fees, event payments, and other payments on NETWORX, unless a different policy is displayed at checkout."
+    >
+      <LegalSection title="1. Digital Music Purchases">
+        <P>
+          Digital music purchases are generally final once the buyer receives access to the full
+          track, download, or purchased library item. NETWORX may issue refunds case-by-case for
+          duplicate payments, technical inability to access purchased content, accidental duplicate
+          purchases, confirmed unauthorized charges, or content removed before delivery.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <p className="text-muted-foreground">
-          This Refund Policy applies to paid products and services offered by
-          DISCOVERMERADIO GROUP LLC through NETWORX.
-        </p>
-      </section>
+      <LegalSection title="2. Services and PRO-NETWORX Purchases">
+        <P>
+          For services purchased from or through PRO-NETWORX, refunds depend on the service agreement,
+          provider policy, work performed, and whether NETWORX processed the payment. NETWORX may help
+          facilitate disputes but does not guarantee refunds for third-party services unless expressly
+          stated.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">General Policy</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>Digital purchases are generally non-refundable once consumed or delivered.</li>
-          <li>
-            Refunds may be issued at our discretion for duplicate charges, technical
-            errors, or unauthorized transactions.
-          </li>
-        </ul>
-      </section>
+      <LegalSection title="3. Chargebacks">
+        <P>
+          If a buyer disputes a charge with their payment provider, NETWORX may restrict account
+          access, reverse purchases, pause seller payouts, collect evidence, and offset chargeback
+          costs against seller balances where allowed. Repeated chargeback abuse may result in account
+          suspension.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">Platform-Specific Payments</h2>
-        <ul className="list-disc pl-6 text-muted-foreground space-y-2">
-          <li>
-            Google Play purchases: refund handling may be subject to Google Play billing
-            policies and timelines.
-          </li>
-          <li>
-            Stripe/web purchases: requests are reviewed by NETWORX support using the
-            criteria above.
-          </li>
-        </ul>
-      </section>
+      <LegalSection title="4. Refund Request Process">
+        <P>
+          Email support with your account email, order ID, purchase date, content title, and reason
+          for the request. NETWORX may ask for screenshots or additional information.
+        </P>
+      </LegalSection>
 
-      <section className="space-y-3">
-        <h2 className="text-2xl font-semibold">How to Request a Refund</h2>
-        <p className="text-muted-foreground">
-          Email
-          {' '}
-          <a className="text-primary hover:underline" href="mailto:billing@networxradio.com">
-            billing@networxradio.com
+      <LegalSection title="5. Payout Impact">
+        <P>
+          Refunds, reversals, disputes, chargebacks, taxes, processor fees, and fraud concerns may
+          reduce seller payout amounts or delay payouts.
+        </P>
+      </LegalSection>
+
+      <LegalSection title="6. Contact">
+        <P>
+          Refund requests may be sent to{' '}
+          <a className="text-primary hover:underline" href="mailto:support@networxradio.com">
+            support@networxradio.com
           </a>
-          {' '}
-          with your account email, transaction identifier, date, and reason for request.
-          We aim to respond within 5 business days.
-        </p>
-      </section>
-
-      <p className="text-sm text-muted-foreground border-t border-border pt-6">
-        Legal review note: this policy should be reviewed by counsel and harmonized with
-        platform store terms before final launch.
-      </p>
-    </div>
+          .
+        </P>
+      </LegalSection>
+    </LegalLayout>
   );
 }
