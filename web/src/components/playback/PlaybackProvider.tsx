@@ -126,6 +126,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const isLoadingTrackRef = useRef(false);
   const pendingSeekRef = useRef<number | null>(null);
   const trackIdRef = useRef<string | null>(null);
+  const trackRadioIdRef = useRef<string | null>(null);
   const volumeRef = useRef(1);
   const crossfadeCancelRef = useRef<(() => void) | null>(null);
   const isCrossfadingRef = useRef(false);
@@ -315,6 +316,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   useEffect(() => {
     trackIdRef.current = state.track?.id ?? null;
   }, [state.track?.id]);
+
+  useEffect(() => {
+    trackRadioIdRef.current = state.track?.radioId ?? null;
+  }, [state.track?.radioId]);
 
   // Pause radio when discover clips, sample previews, or other page audio starts.
   useEffect(() => {
@@ -722,6 +727,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
 
       const previousTrackId = trackIdRef.current;
+      // A station switch is a user-initiated cut, not a natural in-station
+      // track transition — switching stations should change songs immediately
+      // rather than overlapping the previous station's song for the full
+      // crossfade window.
+      const previousRadioId = trackRadioIdRef.current;
+      const stationChanged =
+        source === 'radio' &&
+        sourceRef.current === 'radio' &&
+        !!previousRadioId &&
+        !!track.radioId &&
+        previousRadioId !== track.radioId;
       if (source === 'radio' && previousTrackId && previousTrackId !== track.id) {
         recentlyAdvancedFromRef.current = { id: previousTrackId, at: Date.now() };
       }
@@ -730,6 +746,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         sourceRef.current === 'radio' &&
         !!previousTrackId &&
         previousTrackId !== track.id &&
+        !stationChanged &&
         isCrossfadeSupportedUrl(url) &&
         !outgoing.paused &&
         !outgoing.ended &&
