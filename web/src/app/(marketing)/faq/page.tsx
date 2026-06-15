@@ -19,7 +19,7 @@ const faqs = [
     questions: [
       {
         q: 'What is Networx?',
-        a: 'Networx is a "By Artists, For Artists" live radio, music discovery, and creative marketplace. It combines democratic radio, artist livestreams, live chat, community up/down voting, direct-to-fan song sales, and the ProNetworx growth hub - so listeners discover and engage in real time while artists prove demand and get paid.',
+        a: 'Networx is a "By Artists, For Artists" music discovery marketplace and creative networking platform. It combines radio-style shared listening, artist livestreams, live chat, community up/down voting, direct-to-fan song sales, and the ProNetworx growth hub - so listeners discover and engage in real time while artists prove demand and get paid.',
       },
       {
         q: 'Is Networx free to use?',
@@ -27,7 +27,7 @@ const faqs = [
       },
       {
         q: 'How is this different from Spotify or SoundCloud?',
-        a: 'Networx operates like real radio: everyone hears the same stream, creating shared discovery moments. We add community up/down voting, artist livestreams, Live Sync Chat, a direct-to-fan marketplace, and ProNetworx mentorship pathways so careers can grow beyond streams. Our charts are earned, not bought.',
+        a: 'Networx works like radio-style shared listening: everyone hears the same stream, creating shared discovery moments. We add community up/down voting, artist livestreams, Live Sync Chat, a direct-to-fan marketplace, and ProNetworx mentorship pathways so careers can grow beyond streams. Our community rankings are earned, not bought.',
       },
       {
         q: 'What are Live Events?',

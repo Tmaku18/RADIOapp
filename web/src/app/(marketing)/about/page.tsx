@@ -53,7 +53,7 @@ export default function AboutPage() {
         <h2 className="text-2xl font-bold text-foreground mt-12 mb-4">The Networx Values (The Code)</h2>
         <ul className="list-disc pl-6 text-muted-foreground space-y-3 mb-6">
           <li><strong className="text-foreground">Potential in Everyone:</strong> We believe talent is universal, but opportunity is not. We are here to fix the distribution.</li>
-          <li><strong className="text-foreground">The &quot;Trial by Fire&quot; Democracy:</strong> True representation matters. Our charts aren&apos;t bought; they are earned. Votes reflect the true opinion of the people, pushing every artist to constantly improve through healthy competition.</li>
+          <li><strong className="text-foreground">The &quot;Trial by Fire&quot; Democracy:</strong> True representation matters. Our community rankings aren&apos;t bought; they are earned. Votes reflect the true opinion of the people, pushing every artist to constantly improve through healthy competition.</li>
           <li><strong className="text-foreground">Always Free to Listen:</strong> Listening is free, and it always will be. Light, non-intrusive ads&mdash;alongside artist promotions and marketplace sales&mdash;keep the frequency open to everyone, so discovery never sits behind a paywall.</li>
           <li><strong className="text-foreground">Human Connectivity:</strong> We reject the &quot;enigma&quot; model. We encourage community interaction. If your song is playing, you should be in the room with your fans.</li>
           <li><strong className="text-foreground">Mentorship over Monopoly:</strong> We believe the experienced have a duty to guide the inexperienced. Our platform is a professional hub designed to foster guidance, not gatekeeping.</li>
