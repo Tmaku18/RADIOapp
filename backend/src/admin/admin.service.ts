@@ -1484,6 +1484,106 @@ export class AdminService {
     return { deleted: true };
   }
 
+  /**
+   * Completed song purchases the platform collected on the artist's behalf
+   * (payout_status = 'pending'), grouped per artist with totals owed. These are
+   * the manual payouts an admin still needs to settle.
+   */
+  async getPendingPayouts() {
+    const supabase = getSupabaseClient();
+
+    const { data: rows, error } = await supabase
+      .from('song_purchases')
+      .select(
+        `id, artist_id, song_id, amount_cents, platform_fee_cents,
+         artist_amount_cents, currency, status, payout_status, created_at,
+         songs(title),
+         users!song_purchases_artist_id_fkey(display_name, email)`,
+      )
+      .eq('payout_status', 'pending')
+      .eq('status', 'completed')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      throw new BadRequestException(
+        `Failed to fetch pending payouts: ${error.message}`,
+      );
+    }
+
+    type Row = {
+      id: string;
+      artist_id: string | null;
+      song_id: string | null;
+      amount_cents: number | null;
+      artist_amount_cents: number | null;
+      currency: string | null;
+      created_at: string;
+      songs?: { title?: string | null } | null;
+      users?: { display_name?: string | null; email?: string | null } | null;
+    };
+
+    const byArtist = new Map<
+      string,
+      {
+        artistId: string;
+        artistName: string;
+        artistEmail: string | null;
+        currency: string;
+        owedCents: number;
+        grossCents: number;
+        purchaseCount: number;
+        purchases: Array<{
+          id: string;
+          songId: string | null;
+          songTitle: string;
+          amountCents: number;
+          artistAmountCents: number;
+          createdAt: string;
+        }>;
+      }
+    >();
+
+    for (const raw of (rows ?? []) as Row[]) {
+      const artistId = raw.artist_id ?? 'unknown';
+      const entry = byArtist.get(artistId) ?? {
+        artistId,
+        artistName: raw.users?.display_name ?? 'Unknown artist',
+        artistEmail: raw.users?.email ?? null,
+        currency: (raw.currency ?? 'usd').toUpperCase(),
+        owedCents: 0,
+        grossCents: 0,
+        purchaseCount: 0,
+        purchases: [],
+      };
+      entry.owedCents += raw.artist_amount_cents ?? 0;
+      entry.grossCents += raw.amount_cents ?? 0;
+      entry.purchaseCount += 1;
+      entry.purchases.push({
+        id: raw.id,
+        songId: raw.song_id,
+        songTitle: raw.songs?.title ?? 'Unknown song',
+        amountCents: raw.amount_cents ?? 0,
+        artistAmountCents: raw.artist_amount_cents ?? 0,
+        createdAt: raw.created_at,
+      });
+      byArtist.set(artistId, entry);
+    }
+
+    const artists = Array.from(byArtist.values()).sort(
+      (a, b) => b.owedCents - a.owedCents,
+    );
+    const totalOwedCents = artists.reduce((sum, a) => sum + a.owedCents, 0);
+    const totalGrossCents = artists.reduce((sum, a) => sum + a.grossCents, 0);
+
+    return {
+      totalOwedCents,
+      totalGrossCents,
+      artistCount: artists.length,
+      purchaseCount: (rows ?? []).length,
+      artists,
+    };
+  }
+
   async getAnalytics() {
     const supabase = getSupabaseClient();
 

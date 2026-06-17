@@ -247,6 +247,16 @@ export default function AdminDashboardPage() {
         </Card>
 
         <Card>
+          <Link href="/admin/payouts">
+            <CardContent className="pt-6 hover:bg-muted/50 transition-colors">
+              <div className="mb-4"><span className="text-3xl">💸</span></div>
+              <h3 className="text-lg font-semibold text-foreground">Artist Payouts</h3>
+              <p className="text-muted-foreground text-sm mt-1">Funds the platform owes un-onboarded artists</p>
+            </CardContent>
+          </Link>
+        </Card>
+
+        <Card>
           <CardContent className="pt-6">
             <div className="mb-4"><span className="text-3xl">📊</span></div>
             <h3 className="text-lg font-semibold text-foreground">Analytics</h3>

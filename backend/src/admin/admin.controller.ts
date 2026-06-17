@@ -157,6 +157,16 @@ export class AdminController {
     return this.adminService.getAnalytics();
   }
 
+  /**
+   * Outstanding artist payouts: completed song purchases where the platform
+   * collected the funds because the artist wasn't Stripe-Connect onboarded
+   * (payout_status = 'pending'). Grouped per artist with totals owed.
+   */
+  @Get('payouts/pending')
+  async getPendingPayouts() {
+    return this.adminService.getPendingPayouts();
+  }
+
   @Get('users')
   async getUsers(
     @Query('role') role?: string,

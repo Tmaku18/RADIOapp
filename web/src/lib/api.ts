@@ -1483,6 +1483,30 @@ export const paymentsApi = {
 
 export const adminApi = {
   getAnalytics: () => api.get('/admin/analytics'),
+  getPendingPayouts: () =>
+    api.get<{
+      totalOwedCents: number;
+      totalGrossCents: number;
+      artistCount: number;
+      purchaseCount: number;
+      artists: Array<{
+        artistId: string;
+        artistName: string;
+        artistEmail: string | null;
+        currency: string;
+        owedCents: number;
+        grossCents: number;
+        purchaseCount: number;
+        purchases: Array<{
+          id: string;
+          songId: string | null;
+          songTitle: string;
+          amountCents: number;
+          artistAmountCents: number;
+          createdAt: string;
+        }>;
+      }>;
+    }>('/admin/payouts/pending'),
   getSongs: (params?: { 
     status?: string; 
     search?: string;
