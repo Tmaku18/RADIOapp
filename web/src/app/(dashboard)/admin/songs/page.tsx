@@ -512,22 +512,27 @@ export default function AdminSongsPage() {
   // Approve a previously rejected song (manual override). Surfaces the
   // copyright match in the confirm prompt so the admin reviews before
   // overriding an automated copyright rejection.
-  const handleApproveRejected = async (song: Song) => {
+  const handleApproveRejected = (song: Song) => {
     const match = song.copyright_match;
     const matchLabel = match?.title
       ? `"${match.title}"${match.artists?.length ? ` by ${match.artists.join(', ')}` : ''}${
           typeof match.score === 'number' ? ` (${Math.round(match.score)}% match)` : ''
         }`
       : null;
-    const confirmed = window.confirm(
+    const message =
       song.copyright_status === 'flagged'
         ? `"${song.title}" was auto-rejected for a possible copyright match${
             matchLabel ? `: ${matchLabel}` : ''
           }.\n\nApprove it anyway and publish it?`
-        : `Approve "${song.title}" and override its rejection? It will be published.`,
-    );
-    if (!confirmed) return;
-    await handleApprove(song.id);
+        : `Approve "${song.title}" and override its rejection? It will be published.`;
+    // Defer the native confirm out of Radix's DropdownMenuItem.onSelect cycle.
+    // Running window.confirm synchronously inside onSelect lets the menu's
+    // close/focus-restore handling swallow the dialog, so the click appears to
+    // do nothing. A timeout lets the menu fully close before we prompt.
+    setTimeout(() => {
+      if (!window.confirm(message)) return;
+      void handleApprove(song.id);
+    }, 0);
   };
 
   const openRejectModal = (songId: string) => {
