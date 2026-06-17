@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../widgets/require_gem_capability.dart';
 import 'pro_portfolio_screen.dart';
 
 class ProMyServicesScreen extends StatefulWidget {
@@ -14,12 +17,29 @@ class ProMyServicesScreen extends StatefulWidget {
 class _ProMyServicesScreenState extends State<ProMyServicesScreen> {
   final ProNetworxService _service = ProNetworxService();
   bool _loading = true;
+  bool _roleResolved = false;
+  bool _allowed = false;
   List<ProServiceListing> _items = const [];
 
   @override
   void initState() {
     super.initState();
+    _loadRole();
     _refresh();
+  }
+
+  Future<void> _loadRole() async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      if (!mounted) return;
+      setState(() {
+        _allowed = RequireGemCapability.allowsRole(profile?.role);
+        _roleResolved = true;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _roleResolved = true);
+    }
   }
 
   Future<void> _refresh() async {
@@ -71,6 +91,32 @@ class _ProMyServicesScreenState extends State<ProMyServicesScreen> {
     }
   }
 
+  Widget _buildCreatorGate(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.workspace_premium_outlined, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Listing services is for creators',
+              style: Theme.of(context).textTheme.titleMedium,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Listing services on Pro-Networx is for creators. Switch to an '
+              'artist or service-provider account to start listing.',
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -86,16 +132,19 @@ class _ProMyServicesScreenState extends State<ProMyServicesScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            tooltip: 'New listing',
-            onPressed: () => _openEditor(),
-          ),
+          if (_allowed)
+            IconButton(
+              icon: const Icon(Icons.add),
+              tooltip: 'New listing',
+              onPressed: () => _openEditor(),
+            ),
         ],
       ),
-      body: _loading
+      body: (_loading || !_roleResolved)
           ? const Center(child: CircularProgressIndicator())
-          : _items.isEmpty
+          : !_allowed
+              ? _buildCreatorGate(context)
+              : _items.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),

@@ -426,12 +426,10 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                               ),
                               _LeaderboardList(
                                 songs: _listens,
-                                trailingLabel: (s) {
-                                  final total = s.totalListenCount > 0
-                                      ? s.totalListenCount
-                                      : (s.playCount + s.profilePlayCount);
-                                  return '$total listens';
-                                },
+                                // Backend returns Ears Reached as totalListenCount
+                                // so this matches the web "ears reached" number.
+                                trailingLabel: (s) =>
+                                    '${s.totalListenCount} listens',
                               ),
                               _LeaderboardList(
                                 songs: _positiveVotes,

@@ -164,7 +164,41 @@ export class LeaderboardService {
   }
 
   /**
-   * Songs ordered by combined listens: radio plays + profile listens.
+   * Per-song unique "Ears Reached" via the get_song_ears_reached RPC. Mirrors
+   * the platform-wide ears definition the web uses. Best-effort: returns an
+   * empty map if the function is unavailable (callers default to 0).
+   */
+  private async getEarsReachedBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_ears_reached', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        ears: number | string | null;
+      }>) {
+        const value = Number(row.ears);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment; callers fall back to 0.
+    }
+    return result;
+  }
+
+  /**
+   * Songs ordered by listens. "Listens" mirrors the web "Ears Reached" metric
+   * (unique listeners reached via radio) so the app and web show the same
+   * number; falls back to radio plays + profile listens only when the ears RPC
+   * is unavailable.
    */
   async getSongsByListens(
     limit: number,
@@ -172,8 +206,11 @@ export class LeaderboardService {
   ): Promise<LeaderboardSong[]> {
     const songs = await this.getApprovedSongsBase();
     const songIds = songs.map((song) => song.id);
-    const { saveCounts, playCounts, profileListenCounts } =
-      await this.getEngagementCountsBySongId(songIds);
+    const [{ saveCounts, playCounts, profileListenCounts }, earsBySong] =
+      await Promise.all([
+        this.getEngagementCountsBySongId(songIds),
+        this.getEarsReachedBySongId(songIds),
+      ]);
 
     const ranked = songs
       .map((song) => {
@@ -181,6 +218,11 @@ export class LeaderboardService {
         const profilePlayCount =
           profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
+        // Ears Reached is the canonical "listens" number; fall back to the
+        // play/profile sum only when the ears RPC returns nothing.
+        const earsReached = earsBySong.get(song.id);
+        const listenCount =
+          earsReached != null ? earsReached : playCount + profilePlayCount;
         return {
           id: song.id,
           title: song.title,
@@ -191,7 +233,7 @@ export class LeaderboardService {
           saveCount,
           playCount,
           profilePlayCount,
-          totalListenCount: playCount + profilePlayCount,
+          totalListenCount: listenCount,
           spotlightListenCount: song.spotlight_listen_count ?? 0,
         } satisfies LeaderboardSong;
       })
