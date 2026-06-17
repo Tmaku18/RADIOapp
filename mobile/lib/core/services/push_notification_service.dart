@@ -75,7 +75,7 @@ class PushNotificationService {
     );
 
     await _localNotifications.initialize(
-      initSettings,
+      settings: initSettings,
       onDidReceiveNotificationResponse: (response) {
         // Handle notification tap from foreground (payload may be JSON with type + playId)
         if (response.payload != null && response.payload!.isNotEmpty) {
@@ -179,10 +179,10 @@ class PushNotificationService {
     // Show local notification for foreground messages
     if (notification != null) {
       _localNotifications.show(
-        notification.hashCode,
-        notification.title,
-        notification.body,
-        NotificationDetails(
+        id: notification.hashCode,
+        title: notification.title,
+        body: notification.body,
+        notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
             'radio_alerts',
             'Radio Alerts',

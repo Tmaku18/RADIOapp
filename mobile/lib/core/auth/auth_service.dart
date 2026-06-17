@@ -24,7 +24,14 @@ class ProfileSetupRequiredException implements Exception {
 class AuthService extends ChangeNotifier {
   final bool firebaseInitialized;
   FirebaseAuth? _auth;
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
+  // google_sign_in v7 is a singleton and must be initialized once before use.
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  Future<void>? _googleInit;
+  // OAuth web/server client ID for this Firebase project (client_type 3 in
+  // google-services.json). Used so the returned idToken is minted for the
+  // Firebase project and accepted by signInWithCredential.
+  static const String _googleServerClientId =
+      '479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
 
   AuthService({this.firebaseInitialized = true}) {
@@ -130,21 +137,34 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Initialize the google_sign_in singleton exactly once (v7 requirement).
+  Future<void> _ensureGoogleSignInInitialized() {
+    return _googleInit ??= _googleSignIn
+        .initialize(serverClientId: _googleServerClientId)
+        .catchError((Object e) {
+      _googleInit = null;
+      throw e;
+    });
+  }
+
   Future<app_user.User?> signInWithGoogle() async {
     if (_auth == null || !firebaseInitialized) {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
     }
     try {
-      final GoogleSignInAccount? googleUser = await _googleSignIn
-          .signIn()
-          .timeout(const Duration(seconds: 20));
-      if (googleUser == null) return null;
+      await _ensureGoogleSignInInitialized();
 
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser.authentication;
+      // v7: authenticate() drives the native picker and throws
+      // GoogleSignInException(code: canceled) if the user backs out.
+      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate(
+        scopeHint: const <String>['email'],
+      );
+
+      // v7: authentication is a synchronous getter exposing only idToken;
+      // Firebase's Google credential only needs the idToken.
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
 
       final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
@@ -175,6 +195,11 @@ class AuthService extends ChangeNotifier {
       return null;
     } on ProfileSetupRequiredException {
       rethrow;
+    } on GoogleSignInException catch (e) {
+      // User dismissed the account picker — treat as a no-op cancel.
+      if (e.code == GoogleSignInExceptionCode.canceled) return null;
+      debugPrint('[GoogleSignIn] exception: code=${e.code} ${e.description}');
+      throw Exception('Google sign in failed: ${e.description ?? e.code}');
     } on TimeoutException {
       throw Exception('Google sign in timed out. Please try again.');
     } catch (e, st) {

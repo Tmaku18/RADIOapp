@@ -272,7 +272,7 @@ class _AddPortfolioSheetState extends State<_AddPortfolioSheet> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: _extensionsForType(),
     );

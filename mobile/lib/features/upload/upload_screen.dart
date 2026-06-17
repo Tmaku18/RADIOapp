@@ -38,7 +38,7 @@ class _UploadScreenState extends State<UploadScreen> {
   static const int _kDiscoverClipMax = 15;
 
   Future<void> _pickAudioFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'webm'],
     );
