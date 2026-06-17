@@ -1250,11 +1250,10 @@ export class PaymentsService {
     const chargesEnabled =
       (artist as { stripe_connect_charges_enabled?: boolean })
         ?.stripe_connect_charges_enabled === true;
-    if (!destinationAccountId || !chargesEnabled) {
-      throw new Error(
-        'This artist is not yet set up to receive payments. Check back soon.',
-      );
-    }
+    // If the artist hasn't finished Stripe Connect onboarding we don't block the
+    // sale — the platform collects the funds directly and owes the artist a
+    // manual payout (tracked via song_purchases.payout_status = 'pending').
+    const artistCanReceiveDirectly = !!destinationAccountId && chargesEnabled;
 
     const amountCents = Math.max(
       50,
@@ -1274,19 +1273,25 @@ export class PaymentsService {
       .single();
 
     const base = this.getWebBaseUrl();
+    const payoutStatus = artistCanReceiveDirectly ? 'transferred' : 'pending';
     const metadata: Record<string, string> = {
       purpose: 'song_purchase',
       songId: song.id,
       buyerUserId,
       artistId: song.artist_id,
+      payoutStatus,
     };
     const session =
       await this.stripeService.createSongPurchaseCheckoutSession({
         amountCents,
         productName: `${song.title}`,
         productDescription: `Buy "${song.title}" by ${song.artist_name ?? 'artist'}`,
-        destinationAccountId,
-        applicationFeeCents,
+        // Only route a destination charge when the artist is onboarded;
+        // otherwise the platform collects and pays out manually later.
+        destinationAccountId: artistCanReceiveDirectly
+          ? destinationAccountId
+          : null,
+        applicationFeeCents: artistCanReceiveDirectly ? applicationFeeCents : 0,
         metadata,
         customerEmail: (buyer as { email?: string | null })?.email ?? null,
         successUrl:
@@ -1296,6 +1301,8 @@ export class PaymentsService {
       });
 
     // Record a pending purchase keyed by the checkout session for fulfillment.
+    // artist_amount_cents always reflects what the artist is owed; when the
+    // platform collected the funds, payout_status='pending' flags the debt.
     await supabase.from('song_purchases').upsert(
       {
         user_id: buyerUserId,
@@ -1307,6 +1314,7 @@ export class PaymentsService {
         currency: 'usd',
         stripe_checkout_session_id: session.id,
         status: 'pending',
+        payout_status: payoutStatus,
       },
       { onConflict: 'user_id,song_id' },
     );

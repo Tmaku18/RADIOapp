@@ -227,8 +227,15 @@ export default function BrowseSavedPage() {
       } else {
         toast.error('Could not start checkout. Try again.');
       }
-    } catch {
-      toast.error('Could not start checkout. Try again.');
+    } catch (e) {
+      const serverMessage = (
+        e as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
+      toast.error(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not start checkout. Try again.',
+      );
     } finally {
       setBuyingId(null);
     }

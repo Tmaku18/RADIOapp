@@ -330,13 +330,31 @@ export class StripeService {
     amountCents: number;
     productName: string;
     productDescription: string;
-    destinationAccountId: string;
-    applicationFeeCents: number;
+    // When the artist has an onboarded Connect account we route funds straight
+    // to them (destination charge). When it's null/undefined the platform
+    // collects the full amount and owes the artist a manual payout later.
+    destinationAccountId?: string | null;
+    applicationFeeCents?: number;
     metadata: Record<string, string>;
     successUrl: string;
     cancelUrl: string;
     customerEmail?: string | null;
   }): Promise<Stripe.Checkout.Session> {
+    const paymentIntentData: Stripe.Checkout.SessionCreateParams.PaymentIntentData =
+      { metadata: args.metadata };
+    if (args.destinationAccountId) {
+      paymentIntentData.transfer_data = {
+        destination: args.destinationAccountId,
+      };
+      // application_fee_amount is only valid alongside a transfer destination.
+      if (
+        typeof args.applicationFeeCents === 'number' &&
+        args.applicationFeeCents > 0
+      ) {
+        paymentIntentData.application_fee_amount = args.applicationFeeCents;
+      }
+    }
+
     return this.stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -354,11 +372,7 @@ export class StripeService {
           quantity: 1,
         },
       ],
-      payment_intent_data: {
-        application_fee_amount: args.applicationFeeCents,
-        transfer_data: { destination: args.destinationAccountId },
-        metadata: args.metadata,
-      },
+      payment_intent_data: paymentIntentData,
       metadata: args.metadata,
       success_url: args.successUrl,
       cancel_url: args.cancelUrl,

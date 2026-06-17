@@ -864,7 +864,14 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
       }
     } catch (error) {
       console.error('Failed to start song checkout:', error);
-      setReactionError('Could not start checkout. Try again.');
+      const serverMessage = (
+        error as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
+      setReactionError(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not start checkout. Try again.',
+      );
       setIsBuying(false);
     }
   };
