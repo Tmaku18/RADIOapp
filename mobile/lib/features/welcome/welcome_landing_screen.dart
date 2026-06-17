@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/services/songs_service.dart';
 import '../../core/theme/networx_tokens.dart';
 
 /// Public pre-login landing for Networx Radio. Mirrors the web marketing home
@@ -19,20 +21,29 @@ class WelcomeLandingScreen extends StatefulWidget {
 
 class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
   final AnalyticsService _analytics = AnalyticsService();
+  final SongsService _songs = SongsService();
   Map<String, dynamic>? _stats;
+  TrendingData? _trending;
 
   @override
   void initState() {
     super.initState();
-    _loadStats();
+    _loadHomeData();
   }
 
-  Future<void> _loadStats() async {
+  Future<void> _loadHomeData() async {
     try {
-      final stats = await _analytics.getPlatformStats();
-      if (mounted && stats != null) setState(() => _stats = stats);
+      final results = await Future.wait([
+        _analytics.getPlatformStats(),
+        _songs.getPublicTrending(limit: 12),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _stats = results[0] as Map<String, dynamic>?;
+        _trending = results[1] as TrendingData?;
+      });
     } catch (_) {
-      // Non-fatal: the stats strip simply stays hidden if this fails.
+      // Non-fatal: stats/trending sections stay hidden on failure.
     }
   }
 
@@ -70,6 +81,13 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                 children: [
                   if (_stats != null) ...[
                     _StatsStrip(stats: _stats!),
+                    const SizedBox(height: 28),
+                  ],
+                  if (_trending != null && _trending!.songs.isNotEmpty) ...[
+                    _TrendingShowcase(
+                      data: _trending!,
+                      onGetStarted: _goToSignUp,
+                    ),
                     const SizedBox(height: 28),
                   ],
                   Text(
@@ -446,6 +464,249 @@ class _FeatureRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+String _formatTrendingCount(int n) {
+  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+  return n.toString();
+}
+
+Color _tempColor(int t) {
+  if (t >= 75) return Colors.orange;
+  if (t >= 50) return Colors.amber;
+  return Colors.lightBlue;
+}
+
+class _TrendingShowcase extends StatelessWidget {
+  const _TrendingShowcase({
+    required this.data,
+    required this.onGetStarted,
+  });
+
+  final TrendingData data;
+  final VoidCallback onGetStarted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Trending Now',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontFamily: 'Lora',
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'The songs the people are voting up right now.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            TextButton(onPressed: onGetStarted, child: const Text('See all')),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 210,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: data.songs.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final song = data.songs[index];
+              return SizedBox(
+                width: 148,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AspectRatio(
+                      aspectRatio: 1,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            if (song.artworkUrl != null &&
+                                song.artworkUrl!.isNotEmpty)
+                              CachedNetworkImage(
+                                imageUrl: song.artworkUrl!,
+                                fit: BoxFit.cover,
+                                errorWidget: (_, __, ___) =>
+                                    _ArtworkFallback(title: song.title),
+                              )
+                            else
+                              _ArtworkFallback(title: song.title),
+                            Positioned(
+                              top: 8,
+                              right: 8,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '🔥 ${song.temperaturePercent}°',
+                                  style: TextStyle(
+                                    color: _tempColor(song.temperaturePercent),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      song.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      song.artistName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                    Text(
+                      '🎧 ${_formatTrendingCount(song.earsReached)} ears · '
+                      '♥ ${_formatTrendingCount(song.likeCount)}',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: cs.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (data.artists.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Text(
+            'Trending Artists',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+              fontFamily: 'Lora',
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 130,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: data.artists.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
+              itemBuilder: (context, index) {
+                final artist = data.artists[index];
+                return SizedBox(
+                  width: 96,
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: cs.primary.withValues(alpha: 0.12),
+                        backgroundImage:
+                            artist.avatarUrl != null &&
+                                    artist.avatarUrl!.isNotEmpty
+                                ? CachedNetworkImageProvider(artist.avatarUrl!)
+                                : null,
+                        child: artist.avatarUrl == null ||
+                                artist.avatarUrl!.isEmpty
+                            ? Text(
+                                artist.displayName.isNotEmpty
+                                    ? artist.displayName[0].toUpperCase()
+                                    : '?',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  color: cs.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              )
+                            : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        artist.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      Text(
+                        '🎧 ${_formatTrendingCount(artist.earsReached)} · '
+                        '♥ ${_formatTrendingCount(artist.likeCount)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _ArtworkFallback extends StatelessWidget {
+  const _ArtworkFallback({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            cs.primary.withValues(alpha: 0.35),
+            cs.primary.withValues(alpha: 0.08),
+          ],
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Icon(Icons.music_note, color: cs.primary, size: 40),
     );
   }
 }

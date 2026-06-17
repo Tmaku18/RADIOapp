@@ -1,6 +1,152 @@
 import '../models/song.dart';
 import 'api_service.dart';
 
+class TrendingSong {
+  final String id;
+  final String title;
+  final String? artistId;
+  final String artistName;
+  final String? artworkUrl;
+  final String? clipUrl;
+  final int clipDurationSeconds;
+  final int? durationSeconds;
+  final int likeCount;
+  final int playCount;
+  final int earsReached;
+  final int temperaturePercent;
+
+  const TrendingSong({
+    required this.id,
+    required this.title,
+    required this.artistId,
+    required this.artistName,
+    required this.artworkUrl,
+    required this.clipUrl,
+    required this.clipDurationSeconds,
+    required this.durationSeconds,
+    required this.likeCount,
+    required this.playCount,
+    required this.earsReached,
+    required this.temperaturePercent,
+  });
+
+  factory TrendingSong.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    return TrendingSong(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      artistId: (json['artistId'] ?? json['artist_id'])?.toString(),
+      artistName: (json['artistName'] ?? json['artist_name'] ?? '').toString(),
+      artworkUrl: (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
+      clipUrl: (json['clipUrl'] ?? json['clip_url'])?.toString(),
+      clipDurationSeconds: parseInt(
+        json['clipDurationSeconds'] ?? json['clip_duration_seconds'],
+        fallback: 30,
+      ),
+      durationSeconds: json['durationSeconds'] != null ||
+              json['duration_seconds'] != null
+          ? parseInt(json['durationSeconds'] ?? json['duration_seconds'])
+          : null,
+      likeCount: parseInt(json['likeCount'] ?? json['like_count']),
+      playCount: parseInt(json['playCount'] ?? json['play_count']),
+      earsReached: parseInt(json['earsReached'] ?? json['ears_reached']),
+      temperaturePercent: parseInt(
+        json['temperaturePercent'] ?? json['temperature_percent'],
+        fallback: 50,
+      ),
+    );
+  }
+}
+
+class TrendingArtist {
+  final String id;
+  final String displayName;
+  final String? avatarUrl;
+  final int songCount;
+  final int likeCount;
+  final int playCount;
+  final int earsReached;
+
+  const TrendingArtist({
+    required this.id,
+    required this.displayName,
+    required this.avatarUrl,
+    required this.songCount,
+    required this.likeCount,
+    required this.playCount,
+    required this.earsReached,
+  });
+
+  factory TrendingArtist.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    return TrendingArtist(
+      id: (json['id'] ?? '').toString(),
+      displayName:
+          (json['displayName'] ?? json['display_name'] ?? 'Artist').toString(),
+      avatarUrl: (json['avatarUrl'] ?? json['avatar_url'])?.toString(),
+      songCount: parseInt(json['songCount'] ?? json['song_count']),
+      likeCount: parseInt(json['likeCount'] ?? json['like_count']),
+      playCount: parseInt(json['playCount'] ?? json['play_count']),
+      earsReached: parseInt(json['earsReached'] ?? json['ears_reached']),
+    );
+  }
+}
+
+class TrendingData {
+  final List<TrendingSong> songs;
+  final List<TrendingArtist> artists;
+  final int averageTemperature;
+  final int topTemperature;
+
+  const TrendingData({
+    required this.songs,
+    required this.artists,
+    required this.averageTemperature,
+    required this.topTemperature,
+  });
+
+  factory TrendingData.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    final temp = json['temperature'];
+    final tempMap = temp is Map
+        ? temp.map((k, v) => MapEntry(k.toString(), v))
+        : const <String, dynamic>{};
+
+    List<T> parseList<T>(
+      dynamic raw,
+      T Function(Map<String, dynamic>) fromJson,
+    ) {
+      if (raw is! List) return const [];
+      return raw
+          .whereType<Map>()
+          .map((e) => fromJson(e.map((k, v) => MapEntry(k.toString(), v))))
+          .toList();
+    }
+
+    return TrendingData(
+      songs: parseList(json['songs'], TrendingSong.fromJson),
+      artists: parseList(json['artists'], TrendingArtist.fromJson),
+      averageTemperature: parseInt(tempMap['average'], fallback: 50),
+      topTemperature: parseInt(tempMap['top'], fallback: 50),
+    );
+  }
+}
+
 class SongLikeUser {
   final String userId;
   final String? displayName;
@@ -355,6 +501,26 @@ class SongsService {
         'discoverBackgroundUrl': discoverBackgroundUrl,
     });
     if (res is Map<String, dynamic>) return res;
+    return null;
+  }
+
+  /// Public homepage showcase: trending songs, artists, and temperature.
+  /// Mirrors web GET /api/songs/public/trending (no auth required).
+  Future<TrendingData?> getPublicTrending({int limit = 12}) async {
+    final safeLimit = limit.clamp(1, 24);
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final res = await _api.get(
+          'songs/public/trending?limit=$safeLimit',
+        );
+        if (res is Map<String, dynamic>) {
+          final data = TrendingData.fromJson(res);
+          if (data.songs.isNotEmpty) return data;
+        }
+      } catch (_) {
+        // Retry once — this endpoint can be slow on a cold backend.
+      }
+    }
     return null;
   }
 }
