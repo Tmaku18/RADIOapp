@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
 
 export type DirectoryItem = {
   userId: string;
@@ -36,13 +37,9 @@ export type DirectoryItem = {
 
 const PAGE_SIZE = 24;
 
-// Brand marks used as a fallback when a profile has no media preview.
-const FALLBACK_LOGOS = [
-  '/images/networx-logo-icon.png',
-  '/images/Logo_0.png',
-  '/images/Logo_1.png',
-  '/images/NX_0.png',
-] as const;
+// Brand mark used as a fallback when a profile has no media preview. Uses the
+// official cyan wordmark; the old blue/wordless logos were retired.
+const FALLBACK_LOGOS = [NETWORX_LOGO] as const;
 
 function shouldUnoptimizeImage(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);

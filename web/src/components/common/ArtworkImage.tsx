@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
 
 type ArtworkImageProps = {
   src?: string | null;
@@ -9,15 +10,12 @@ type ArtworkImageProps = {
   fallbackSrc?: string;
 };
 
+// Coverless songs fall back to the official cyan wordmark plus on-brand
+// illustrative art. The old blue/wordless logos (Logo_0/1, NX_0, Eye_*, and the
+// "Studio Network" mark) were retired in favor of the cyan branding.
 const DEFAULT_ALBUM_ART_FALLBACKS = [
-  '/images/ChatGPT%20Image%20Feb%2017%2C%202026%2C%2002_00_58%20AM.png',
-  '/images/Eye_0.png',
-  '/images/Eye_1.png',
-  '/images/Eye_2.png',
-  '/images/Eye_3.png',
-  '/images/Logo_0.png',
-  '/images/Logo_1.png',
-  '/images/NX_0.png',
+  NETWORX_LOGO,
+  '/images/og-flyer.png',
   '/images/welcome-to-the-networx.png',
 ];
 
