@@ -7,7 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { Toaster } from '@/components/ui/sonner';
 import { PlaybackLayout } from '@/components/playback';
 import { getSiteUrl } from '@/lib/site-url';
-import { NETWORX_APP_ICON } from '@/lib/brand-assets';
+import { NETWORX_APP_ICON, NETWORX_LOGO } from '@/lib/brand-assets';
 
 const APP_NAME = 'Networx';
 const APP_DESCRIPTION =
@@ -69,10 +69,10 @@ export const metadata: Metadata = {
     siteName: APP_NAME,
     images: [
       {
-        url: '/images/og-flyer.png',
+        url: NETWORX_LOGO,
         width: 1536,
         height: 1024,
-        alt: 'NETWORX — The Butterfly Effect: one connection can change everything.',
+        alt: 'NETWORX RADIO — The Butterfly Effect',
       },
     ],
   },
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Networx - Underground Music Radio',
     description: APP_DESCRIPTION,
-    images: ['/images/og-flyer.png'],
+    images: [NETWORX_LOGO],
   },
 };
 

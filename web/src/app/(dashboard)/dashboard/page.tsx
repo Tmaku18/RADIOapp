@@ -6,8 +6,9 @@ import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsApi, prospectorApi, usersApi } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
+import { NETWORX_LOGO } from '@/lib/brand-assets';
 
-const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
+const WELCOME_HERO_IMAGE = NETWORX_LOGO;
 
 interface DashboardStats {
   platform?: {

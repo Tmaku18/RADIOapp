@@ -1,8 +1,8 @@
 # Static images
 
-Place the **Welcome to the Networx** hero asset here for the dashboard:
+Official NETWORX branding:
 
-- **Filename:** `welcome-to-the-networx.png`
-- **Full path:** `web/public/images/welcome-to-the-networx.png`
+- **`networx-logo-cyan.png`** — full cyan wordmark (dark background)
+- **`networx-logo-cyan-light.png`** — light-mode wordmark
 
-The dashboard hero at the top of the signed-in dashboard uses this image. If the file is missing, the hero still shows the "Welcome to the Networx!" heading and tagline.
+The dashboard hero and social previews use the cyan wordmark from `@/lib/brand-assets`.
