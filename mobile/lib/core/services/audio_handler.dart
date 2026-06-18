@@ -4,6 +4,8 @@ import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../brand/brand_assets.dart';
+
 /// App-wide audio handler that owns two [AudioPlayer]s so the live DJ voice
 /// can be layered on top of the radio music:
 ///
@@ -64,6 +66,14 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   final ValueNotifier<bool> userPausedNotifier = ValueNotifier(false);
 
+  MediaItem _withBrandArtwork(MediaItem item) {
+    final uri = item.artUri?.toString();
+    if (uri != null && !BrandAssets.isDeprecatedArtwork(uri)) {
+      return item;
+    }
+    return item.copyWith(artUri: BrandAssets.mediaArtUri(uri));
+  }
+
   /// Mirror the music player's state + current [MediaItem] into `audio_service`
   /// so the system media notification shows track info and play/pause works.
   void _wireMusicToNotification() {
@@ -83,9 +93,12 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       final source = state.currentSource;
       final tag = source?.tag;
       if (tag is MediaItem) {
+        final branded = _withBrandArtwork(tag);
         final duration = music.duration;
         mediaItem.add(
-          duration != null ? tag.copyWith(duration: duration) : tag,
+          duration != null
+              ? branded.copyWith(duration: duration)
+              : branded,
         );
       }
     });

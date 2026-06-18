@@ -16,6 +16,7 @@ import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
 
 class ArtistProfileScreen extends StatefulWidget {
@@ -217,9 +218,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
           id: s.id,
           title: s.title,
           artist: s.artistName,
-          artUri: (s.artworkUrl ?? '').isNotEmpty
-              ? Uri.tryParse(s.artworkUrl!)
-              : null,
+          artUri: BrandAssets.mediaArtUri(s.artworkUrl),
         ),
       ),
     );

@@ -1,32 +1,12 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../core/services/audio_player_service.dart';
+import '../core/brand/brand_assets.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
-
-const List<String> _radioBrandFallbackLogos = <String>[
-  'assets/images/branding/logo_0.png',
-  'assets/images/branding/logo_1.png',
-  'assets/images/branding/nx_0.png',
-  'assets/images/branding/og-flyer.png',
-  'assets/images/branding/networx-logo-cyan.png',
-  'assets/images/branding/networx-logo-cyan-light.png',
-  'assets/images/branding/cover-background.png',
-];
-
-String _brandLogoForSeed(String seed) {
-  final safeSeed = seed.isEmpty ? 'networx' : seed;
-  // Seed a PRNG with the song id so each song gets a well-shuffled (but stable,
-  // flicker-free) cover from the pool rather than clustering via hashCode % n.
-  final index = math.Random(
-    safeSeed.hashCode,
-  ).nextInt(_radioBrandFallbackLogos.length);
-  return _radioBrandFallbackLogos[index];
-}
 
 /// Spotify-style persistent mini-player bar. Shown when there is a current
 /// track/source. Tap opens full [PlayerScreen].
@@ -140,35 +120,28 @@ class _Artwork extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final artUri = mediaItem.artUri;
     const size = 48.0;
+    final artworkUrl = BrandAssets.displayArtworkUrl(mediaItem.artUri?.toString());
 
-    if (artUri != null && artUri.toString().isNotEmpty) {
+    if (artworkUrl != null) {
       return CachedNetworkImage(
-        imageUrl: artUri.toString(),
+        imageUrl: artworkUrl,
         width: size,
         height: size,
         fit: BoxFit.cover,
-        placeholder: (context, url) => _Placeholder(
-          size: size,
-          seed: mediaItem.id,
-        ),
-        errorWidget: (context, url, error) => _Placeholder(
-          size: size,
-          seed: mediaItem.id,
-        ),
+        placeholder: (context, url) => const _Placeholder(size: size),
+        errorWidget: (context, url, error) => const _Placeholder(size: size),
       );
     }
 
-    return _Placeholder(size: size, seed: mediaItem.id);
+    return const _Placeholder(size: size);
   }
 }
 
 class _Placeholder extends StatelessWidget {
-  const _Placeholder({required this.size, required this.seed});
+  const _Placeholder({required this.size});
 
   final double size;
-  final String seed;
 
   @override
   Widget build(BuildContext context) {
@@ -176,7 +149,7 @@ class _Placeholder extends StatelessWidget {
       width: size,
       height: size,
       child: Image.asset(
-        _brandLogoForSeed(seed),
+        BrandAssets.logoCyanAsset,
         fit: BoxFit.cover,
       ),
     );

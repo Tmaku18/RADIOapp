@@ -24,29 +24,11 @@ import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
 import '../../core/env.dart';
+import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
-const List<String> _radioBrandFallbackLogos = <String>[
-  'assets/images/branding/logo_0.png',
-  'assets/images/branding/logo_1.png',
-  'assets/images/branding/nx_0.png',
-  'assets/images/branding/og-flyer.png',
-  'assets/images/branding/networx-logo-cyan.png',
-  'assets/images/branding/networx-logo-cyan-light.png',
-  'assets/images/branding/cover-background.png',
-];
-
-String _brandLogoForSeed(String seed) {
-  final safeSeed = seed.isEmpty ? 'networx' : seed;
-  // Seed a PRNG with the song id so each song gets a well-shuffled (but stable,
-  // flicker-free) cover from the pool rather than clustering via hashCode % n.
-  final index = math.Random(
-    safeSeed.hashCode,
-  ).nextInt(_radioBrandFallbackLogos.length);
-  return _radioBrandFallbackLogos[index];
-}
 
 class _StationOption {
   const _StationOption({
@@ -359,9 +341,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           id: track.id,
           title: track.title,
           artist: track.artistName,
-          artUri: track.artworkUrl != null && track.artworkUrl!.isNotEmpty
-              ? Uri.tryParse(track.artworkUrl!)
-              : null,
+          artUri: BrandAssets.mediaArtUri(track.artworkUrl),
         ),
       ),
     );
@@ -1288,19 +1268,19 @@ class _PlayerBody extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(gradient: surfaces.signatureGradient),
               ),
-              if (track.artworkUrl != null && track.artworkUrl!.isNotEmpty)
+              if (BrandAssets.displayArtworkUrl(track.artworkUrl) != null)
                 CachedNetworkImage(
-                  imageUrl: track.artworkUrl!,
+                  imageUrl: BrandAssets.displayArtworkUrl(track.artworkUrl)!,
                   fit: BoxFit.cover,
                   placeholder: (context, url) =>
                       const Center(child: CircularProgressIndicator()),
                   errorWidget: (context, url, error) => Image.asset(
-                    _brandLogoForSeed(track.id),
+                    BrandAssets.logoCyanAsset,
                     fit: BoxFit.cover,
                   ),
                 )
               else
-                Image.asset(_brandLogoForSeed(track.id), fit: BoxFit.cover),
+                Image.asset(BrandAssets.logoCyanAsset, fit: BoxFit.cover),
               if (track.isLiveBroadcast)
                 Positioned(
                   top: 12,
