@@ -534,7 +534,10 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
               (shouldReloadCurrentTrack && hasUserInteracted) ||
               resumeAfterStationOrTrackSwitch ||
               naturalRadioTransition);
-          actions.loadTrack(track, 'radio', shouldAutoPlay);
+          // Join at the live server offset (true-radio sync) so every device
+          // plays the same song at the same position. Without this, each device
+          // starts the track at 0:00, drifts, and ends up on a different song.
+          actions.loadTrack(track, 'radio', shouldAutoPlay, serverPosition);
           actions.syncToPosition(serverPosition);
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,

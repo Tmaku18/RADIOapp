@@ -110,10 +110,13 @@ export function RadioBackgroundSync() {
           return;
         }
 
+        // Join at the live server offset so background/mini-player listeners
+        // stay aligned with everyone else (true-radio sync).
         actions.loadTrack(
           track,
           'radio',
           autoPlay && !transportPaused && pausedAt == null,
+          serverPosition,
         );
         actions.syncToPosition(serverPosition);
         return;

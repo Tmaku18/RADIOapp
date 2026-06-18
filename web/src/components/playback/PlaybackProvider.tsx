@@ -32,8 +32,17 @@ import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { setLastRadioStationId } from '@/lib/playback-preferences';
 
 type PlaybackActions = {
-  /** Load and optionally play a track. Stops any current playback (single session rule). */
-  loadTrack: (track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => void;
+  /**
+   * Load and optionally play a track. Stops any current playback (single session rule).
+   * `seekSeconds` joins the listener at the radio's live position (true-radio sync)
+   * so every device plays the same song at the same offset.
+   */
+  loadTrack: (
+    track: PlaybackTrack,
+    source: PlaybackSource,
+    autoPlay?: boolean,
+    seekSeconds?: number | null,
+  ) => void;
   play: () => Promise<void>;
   pause: () => void;
   togglePlay: () => Promise<void>;
@@ -755,10 +764,25 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   );
 
   const loadTrack = useCallback(
-    (track: PlaybackTrack, source: PlaybackSource, autoPlay?: boolean) => {
+    (
+      track: PlaybackTrack,
+      source: PlaybackSource,
+      autoPlay?: boolean,
+      seekSeconds?: number | null,
+    ) => {
       const pair = audioPairRef.current;
       const outgoing = getActiveAudio();
       if (!pair || !outgoing) return;
+
+      // Join the radio at its live offset so all listeners stay aligned. Ignore
+      // tiny/zero offsets (natural start-of-song or non-radio loads).
+      const joinSeek =
+        source === 'radio' &&
+        typeof seekSeconds === 'number' &&
+        Number.isFinite(seekSeconds) &&
+        seekSeconds > 1
+          ? seekSeconds
+          : null;
 
       if (loadTimeoutRef.current) {
         clearTimeout(loadTimeoutRef.current);
@@ -810,11 +834,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         (autoPlay ?? true);
 
       if (shouldCrossfade) {
-        startRadioCrossfade(track, source, null);
+        startRadioCrossfade(track, source, joinSeek);
         return;
       }
 
-      loadTrackImmediate(track, source, !!autoPlay, null);
+      loadTrackImmediate(track, source, !!autoPlay, joinSeek);
     },
     [getActiveAudio, loadTrackImmediate, startRadioCrossfade],
   );
