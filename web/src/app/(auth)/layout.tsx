@@ -55,9 +55,9 @@ export default function AuthLayout({
           <Image
             src={LOGO_SRC}
             alt="NETWORX Radio — The Butterfly Effect"
-            width={220}
-            height={64}
-            className="h-12 sm:h-14 w-auto max-w-[min(220px,55vw)] object-contain object-left shrink-0"
+            width={280}
+            height={280}
+            className="h-14 sm:h-16 w-auto max-w-[min(280px,60vw)] object-contain object-left shrink-0"
             priority
             unoptimized
           />

@@ -106,7 +106,7 @@ const moreNav = [
 ];
 const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
 
-import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
+import { NETWORX_LOGO, NETWORX_LOGO_LIGHT, NETWORX_APP_ICON } from '@/lib/brand-assets';
 
 /**
  * Auto-collapse the mobile sidebar overlay whenever the route changes, so
@@ -123,9 +123,23 @@ function AutoCollapseSidebarOnNavigate() {
 }
 
 function DashboardSidebarLogo() {
-  // Render the full official wordmark (light + dark variants). When the
-  // sidebar collapses to icon mode, the wordmark scales down with the slot
-  // so the butterfly + start of "NETWORX" remain visible.
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
+
+  if (collapsed) {
+    return (
+      <Image
+        src={NETWORX_APP_ICON}
+        alt="NETWORX Radio"
+        width={32}
+        height={32}
+        className="size-8 object-contain shrink-0"
+        priority
+        unoptimized
+      />
+    );
+  }
+
   return (
     <>
       <Image
@@ -133,7 +147,7 @@ function DashboardSidebarLogo() {
         alt="NETWORX Radio — The Butterfly Effect"
         width={200}
         height={56}
-        className="hidden dark:block h-10 w-auto object-contain object-left shrink-0"
+        className="hidden dark:block h-11 w-auto object-contain object-left shrink-0"
         priority
         unoptimized
       />
@@ -142,7 +156,7 @@ function DashboardSidebarLogo() {
         alt="NETWORX Radio — The Butterfly Effect"
         width={200}
         height={56}
-        className="block dark:hidden h-10 w-auto object-contain object-left shrink-0"
+        className="block dark:hidden h-11 w-auto object-contain object-left shrink-0"
         priority
         unoptimized
       />
