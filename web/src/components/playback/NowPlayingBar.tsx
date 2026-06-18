@@ -30,7 +30,7 @@ export function NowPlayingBar() {
   const hasTrack = !!state?.track;
   const track = state?.track;
   const activeRadioId = track?.radioId?.trim() || null;
-  const isPlaying = state?.isPlaying ?? false;
+  const isPlaying = (state?.isPlaying ?? false) && !state?.pausedAt;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
   const isListenPage = pathname === '/listen';
   const showBar = !isListenPage;

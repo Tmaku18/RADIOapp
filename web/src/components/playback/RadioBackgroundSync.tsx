@@ -119,7 +119,9 @@ export function RadioBackgroundSync() {
         return;
       }
 
-      actions.syncToPosition(serverPosition);
+      if (state?.pausedAt == null) {
+        actions.syncToPosition(serverPosition);
+      }
     },
     [radioId, isStaleRadioServerTrack, state?.isPlaying, state?.pausedAt, state?.currentTime, state?.duration, state?.track?.durationSeconds],
   );
@@ -137,7 +139,7 @@ export function RadioBackgroundSync() {
     } finally {
       isFetchingRef.current = false;
     }
-  }, [radioId, applyServerTrack, state?.isPlaying]);
+  }, [radioId, applyServerTrack, state?.isPlaying, state?.pausedAt]);
 
   const fetchNextTrack = useCallback(async () => {
     if (!actionsRef.current || !radioIdRef.current || isFetchingRef.current) return;

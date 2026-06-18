@@ -210,9 +210,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           pair?.a.pause();
           pair?.b.pause();
           setState((s) => ({ ...s, isPlaying: false }));
-        } else if (sourceRef.current === 'radio' && !userSoftPaused) {
+        } else if (
+          sourceRef.current === 'radio' &&
+          !userSoftPaused &&
+          stateRef.current.isPlaying
+        ) {
           // Admin lifted a global transport pause — do not resume when the
-          // listener intentionally soft-paused (pause button).
+          // listener intentionally paused (pause button) or is not playing.
           const main = getActiveAudio();
           if (main && main.paused) {
             main.play().catch(() => undefined);
@@ -958,14 +962,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     setState((s) => ({ ...s, isPlaying: false }));
   }, [cancelCrossfade]);
 
-  const togglePlay = useCallback(async () => {
-    if (state.isPlaying) {
-      pause();
-    } else {
-      await play();
-    }
-  }, [state.isPlaying, pause, play]);
-
   const setVolume = useCallback(
     (vol: number) => {
       const v = Math.max(0, Math.min(1, vol));
@@ -1077,14 +1073,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const softResume = useCallback(async () => {
     const audio = getActiveAudio();
     if (!audio) return;
-    const pausedAt = state.pausedAt;
+    const pausedAt = stateRef.current.pausedAt;
     const pauseDuration = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
     if (pauseDuration <= 30) {
       try {
         setState((s) => ({ ...s, isPlaying: true, error: null }));
-        if (audio) {
-          audio.muted = false;
-        }
+        audio.muted = false;
         const pair = audioPairRef.current;
         pair?.a.pause();
         pair?.b.pause();
@@ -1095,7 +1089,26 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, isPlaying: false }));
       }
     }
-  }, [getActiveAudio, refreshMainVolume, state.pausedAt]);
+  }, [getActiveAudio, refreshMainVolume]);
+
+  const togglePlay = useCallback(async () => {
+    const s = stateRef.current;
+    if (s.source === 'radio') {
+      if (s.isPlaying && !s.pausedAt) {
+        softPause();
+      } else if (s.pausedAt) {
+        await softResume();
+      } else {
+        await play();
+      }
+      return;
+    }
+    if (s.isPlaying) {
+      pause();
+    } else {
+      await play();
+    }
+  }, [pause, play, softPause, softResume]);
 
   const jumpToLive = useCallback(
     async (positionSeconds: number) => {
