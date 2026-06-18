@@ -6,6 +6,7 @@ import { radioApi } from '@/lib/api';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 import { isNearRadioTrackEnd, isServerAheadMidSong } from '@/lib/radio-sync';
 import type { PlaybackTrack } from './types';
+import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { usePlaybackOptional } from './PlaybackProvider';
 
 const BACKGROUND_POLL_MS = 10000;
@@ -25,7 +26,9 @@ function trackFromPayload(
     artistOriginState: (trackData.artist_origin_state as string | null) ?? null,
     artistId: (trackData.artist_id as string | null) ?? null,
     radioId,
-    artworkUrl: (trackData.artwork_url as string | null) ?? null,
+    artworkUrl: resolveTrackArtworkUrl(
+      (trackData.artwork_url as string | null) ?? null,
+    ),
     audioUrl,
     durationSeconds: Number(trackData.duration_seconds) || 180,
     playId: (trackData.play_id as string | null) ?? null,

@@ -28,6 +28,7 @@ import {
   type DjBoothEvent,
   type DjOverlayState,
 } from '@/lib/dj-booth-listener';
+import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 
 type PlaybackActions = {
   /** Load and optionally play a track. Stops any current playback (single session rule). */
@@ -867,7 +868,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           artistOriginState: (trackData.artist_origin_state as string | null) ?? null,
           artistId: (trackData.artist_id as string | null) ?? null,
           radioId,
-          artworkUrl: (trackData.artwork_url as string | null) ?? null,
+          artworkUrl: resolveTrackArtworkUrl(
+            (trackData.artwork_url as string | null) ?? null,
+          ),
           audioUrl,
           durationSeconds: Number(trackData.duration_seconds) || 180,
           playId: (trackData.play_id as string | null) ?? null,

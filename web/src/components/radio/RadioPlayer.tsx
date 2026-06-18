@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -253,7 +254,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
           artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
           radioId: effectiveRadioId,
-          artworkUrl: trackData.artwork_url,
+          artworkUrl: resolveTrackArtworkUrl(trackData.artwork_url as string | null),
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
           playId: trackData.play_id ?? null,
@@ -449,7 +450,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
           artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
           radioId: effectiveRadioId,
-          artworkUrl: trackData.artwork_url,
+          artworkUrl: resolveTrackArtworkUrl(trackData.artwork_url as string | null),
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
           playId: trackData.play_id ?? null,
