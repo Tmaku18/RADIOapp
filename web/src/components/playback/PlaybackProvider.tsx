@@ -543,7 +543,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           audio.volume = 0;
           audio.muted = true;
         }
-        setState((s) => ({ ...s, isPlaying: true }));
+        // Playback recovered — clear any stale "Failed to load audio" banner.
+        setState((s) => ({ ...s, isPlaying: true, error: null }));
       };
       const onPause = () => {
         if (activeSlotRef.current !== slot || isLoadingTrackRef.current || isCrossfadingRef.current) {
@@ -571,7 +572,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           if (sourceRef.current === 'radio' && onRadioTrackEndedRef.current) {
             onRadioTrackEndedRef.current();
           }
-        }, 12000);
+          // Mobile networks need more headroom, especially when joining a song
+          // mid-way (the browser must buffer from the live offset before it can
+          // play). 12s skipped good songs too eagerly; 20s is far more tolerant.
+        }, 20000);
       };
       const onCanPlay = () => {
         if (activeSlotRef.current !== slot && crossfadeIncomingSlotRef.current !== slot) return;
@@ -582,7 +586,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           pendingSeekRef.current = null;
           audio.currentTime = seekTo;
         }
-        setState((s) => ({ ...s, isLoading: false }));
+        // Source loaded successfully — clear any stale error from a prior blip.
+        setState((s) => ({ ...s, isLoading: false, error: null }));
         if (mutedByUserRef.current && activeSlotRef.current === slot) {
           // Stay live but silent — keep the stream advancing while muted.
           autoPlayPendingRef.current = false;
@@ -609,22 +614,49 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         const mediaError = audio.error;
         const isUnsupported =
           mediaError?.code === 4 || mediaError?.message?.includes('supported source');
+
+        // Radio: transient mobile-network blips (MEDIA_ERR_NETWORK / decode)
+        // are common and recover on a reload. Retry the SAME source once before
+        // surfacing an error or skipping — otherwise flaky mobile connections
+        // produce a stream of "Failed to load audio" banners and skip good songs.
+        if (sourceRef.current === 'radio') {
+          if (!hasRetriedAfterErrorRef.current) {
+            hasRetriedAfterErrorRef.current = true;
+            try {
+              audio.load();
+              const resumePos = stateRef.current.serverPosition || 0;
+              const onRetryReady = () => {
+                if (resumePos > 0) {
+                  try { audio.currentTime = resumePos; } catch {}
+                }
+                if (mutedByUserRef.current) {
+                  audio.volume = 0;
+                  audio.muted = true;
+                }
+                audio.play().catch(() => onRadioTrackEndedRef.current?.());
+              };
+              audio.addEventListener('canplay', onRetryReady, { once: true });
+            } catch {
+              onRadioTrackEndedRef.current?.();
+            }
+            // Don't flash an error while the retry is in flight.
+            return;
+          }
+          // Retry already failed — surface a transient message and advance.
+          setState((s) => ({
+            ...s,
+            error: isUnsupported ? 'Audio source not available.' : 'Failed to load audio',
+            isLoading: false,
+          }));
+          onRadioTrackEndedRef.current?.();
+          return;
+        }
+
         setState((s) => ({
           ...s,
           error: isUnsupported ? 'Audio source not available.' : 'Failed to load audio',
           isLoading: false,
         }));
-        if (isUnsupported && sourceRef.current === 'radio') {
-          if (!hasRetriedAfterErrorRef.current) {
-            hasRetriedAfterErrorRef.current = true;
-            audio.load();
-            audio.play().catch(() => {
-              onRadioTrackEndedRef.current?.();
-            });
-          } else {
-            onRadioTrackEndedRef.current?.();
-          }
-        }
       };
       const onEnded = () => {
         if (isCrossfadingRef.current) return;
