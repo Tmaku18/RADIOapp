@@ -101,7 +101,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [shitVotes, setShitVotes] = useState(0);
   const TEMP_BASELINE = 50;
   const [temperaturePercent, setTemperaturePercent] = useState(TEMP_BASELINE);
-  const [showJumpToLive, setShowJumpToLive] = useState(false);
   const [hasUserInteracted, setHasUserInteracted] = useState(autoplay);
   const [noContent, setNoContent] = useState(false);
   const [noContentMessage, setNoContentMessage] = useState<string | null>(null);
@@ -782,23 +781,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     setListenerCount,
   ]);
 
-  // Check for "Jump to Live" state when paused
-  useEffect(() => {
-    if (!state.pausedAt) {
-      setShowJumpToLive(false);
-      return;
-    }
-    
-    // Check every second if we've exceeded 30s pause
-    const checkInterval = setInterval(() => {
-      if (actions.needsJumpToLive()) {
-        setShowJumpToLive(true);
-      }
-    }, 1000);
-    
-    return () => clearInterval(checkInterval);
-  }, [state.pausedAt, actions]);
-
   // Handle soft pause toggle
   const handlePauseToggle = async () => {
     // Mark that user has interacted - enables auto-play for subsequent tracks
@@ -815,16 +797,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     } else {
       await actions.softResume();
     }
-  };
-
-  // Handle jump to live
-  const handleJumpToLive = async () => {
-    if (!hasUserInteracted) {
-      setHasUserInteracted(true);
-    }
-    await fetchCurrentTrack(false, true);
-    await actions.jumpToLive(lastServerPosition.current);
-    setShowJumpToLive(false);
   };
 
   const handleReaction = async (reaction: 'fire' | 'shit') => {
@@ -1146,6 +1118,13 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
             >
               Return to Live Radio
             </Button>
+          ) : state.isMuted ? (
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-full">
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16.5 12A4.5 4.5 0 0014 7.97v2.21l2.45 2.45c.03-.2.05-.42.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.8 8.8 0 0021 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a8.99 8.99 0 003.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+              </svg>
+              <span className="font-semibold text-sm">Muted · still live</span>
+            </span>
           ) : state.isLive && state.isPlaying ? (
             <span className="badge-live inline-flex items-center gap-2">
               <span className="relative flex h-3 w-3">
@@ -1154,13 +1133,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
               </span>
               LIVE
             </span>
-          ) : showJumpToLive ? (
-            <Button onClick={handleJumpToLive} className="rounded-full">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z" />
-              </svg>
-              <span className="font-semibold text-sm">Jump to Live</span>
-            </Button>
           ) : state.isLoading ? (
             <div className="flex items-center gap-2 px-4 py-2 bg-muted text-muted-foreground rounded-full">
               <span className="font-semibold text-sm">Loading…</span>
@@ -1242,15 +1214,11 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
             💩
           </button>
 
-          {/* Pause/Resume Button (Soft Pause) */}
+          {/* Pause/Mute toggle (radio stays live while muted, no time limit) */}
           <button
             onClick={handlePauseToggle}
             disabled={!state.track || state.isLoading}
-            className={`w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 ${
-              showJumpToLive 
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'bg-primary text-primary-foreground hover:bg-primary/90'
-            }`}
+            className="w-16 h-16 rounded-full flex items-center justify-center transition-colors disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90"
           >
             {state.isPlaying && !state.isMuted ? (
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
