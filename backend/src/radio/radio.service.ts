@@ -3156,7 +3156,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     return {
       id: song.id,
       title: song.title,
+      artist_id: song.artist_id ?? null,
       artist_name: song.artist_name,
+      artist_origin_city: song.artist_origin_city ?? null,
+      artist_origin_state: song.artist_origin_state ?? null,
       audio_url: audioUrl,
       artwork_url: song.artwork_url,
       duration_seconds: durationSeconds,
