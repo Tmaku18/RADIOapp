@@ -32,7 +32,8 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { artistProfilePath } from '@/lib/artist-links';
 import { StationNetworkSelector } from '@/components/discovery/StationNetworkSelector';
-import { getStationAutoplayEnabled } from '@/lib/playback-preferences';
+import { getStationAutoplayEnabled, getLastRadioStationId } from '@/lib/playback-preferences';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 
 const DiscoveryHeatMap = dynamic(
   () =>
@@ -114,6 +115,11 @@ export default function DiscoverPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuth();
+  const playback = usePlaybackOptional();
+  const playingStationId =
+    playback?.state.source === 'radio'
+      ? playback.state.track?.radioId?.trim() || null
+      : null;
   const isCatalyst = profile?.role === 'service_provider' || profile?.role === 'admin';
   const initialTabParam = searchParams.get('tab');
   const initialStationParam = searchParams.get('station')?.trim() || DEFAULT_STATION_ID;
@@ -138,6 +144,20 @@ export default function DiscoverPage() {
     'station' | 'map' | 'feed' | 'artist' | 'service_provider'
   >(initialTab);
   const [selectedStationId, setSelectedStationId] = useState(initialStationParam);
+
+  // Highlight the station that is actually playing, not a stale URL/default.
+  useEffect(() => {
+    if (playingStationId) {
+      setSelectedStationId(playingStationId);
+      return;
+    }
+    const urlStation = searchParams.get('station')?.trim();
+    if (urlStation) return;
+    const last = getLastRadioStationId();
+    if (last) setSelectedStationId(last);
+  }, [playingStationId, searchParams]);
+
+  const activeStationId = playingStationId ?? selectedStationId;
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -178,11 +198,11 @@ export default function DiscoverPage() {
       typeof window !== 'undefined' ? window.location.search : '',
     );
     params.set('tab', activeTab);
-    params.set('station', selectedStationId);
+    params.set('station', activeStationId);
     if (search.trim()) params.set('q', search.trim());
     else params.delete('q');
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [activeTab, pathname, router, search, selectedStationId]);
+  }, [activeTab, pathname, router, search, activeStationId]);
 
   const loadFeed = useCallback(async (append: boolean, cursor?: string | null) => {
     if (append) setFeedLoadingMore(true);
@@ -359,7 +379,7 @@ export default function DiscoverPage() {
               Tap a station to start listening right away.
             </p>
             <StationNetworkSelector
-              stationId={selectedStationId}
+              stationId={activeStationId}
               onSelectStation={handleSelectStation}
             />
             <div className="flex gap-2">

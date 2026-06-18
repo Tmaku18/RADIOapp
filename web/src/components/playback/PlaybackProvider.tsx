@@ -29,6 +29,7 @@ import {
   type DjOverlayState,
 } from '@/lib/dj-booth-listener';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
+import { setLastRadioStationId } from '@/lib/playback-preferences';
 
 type PlaybackActions = {
   /** Load and optionally play a track. Stops any current playback (single session rule). */
@@ -350,7 +351,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
   useEffect(() => {
     trackRadioIdRef.current = state.track?.radioId ?? null;
-  }, [state.track?.radioId]);
+    if (state.source === 'radio' && state.track?.radioId?.trim()) {
+      setLastRadioStationId(state.track.radioId);
+    }
+  }, [state.source, state.track?.radioId]);
 
   // Pause radio when discover clips, sample previews, or other page audio starts.
   useEffect(() => {

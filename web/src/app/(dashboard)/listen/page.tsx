@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import { Button } from '@/components/ui/button';
@@ -24,6 +25,7 @@ type RisingStarStationEvent = {
 
 export default function ListenPage() {
   const searchParams = useSearchParams();
+  const playback = usePlaybackOptional();
   const stationId = searchParams.get('station');
   const autoplay = searchParams.get('autoplay') === '1';
   const resolvedStationId = useMemo(() => {
@@ -46,6 +48,10 @@ export default function ListenPage() {
   const [showChat, setShowChat] = useState(false);
 
   const currentStation = getStationById(resolvedStationId) ?? null;
+  const switcherStationId =
+    playback?.state.source === 'radio' && playback.state.track?.radioId?.trim()
+      ? playback.state.track.radioId.trim()
+      : resolvedStationId;
 
   useEffect(() => {
     if (!supabaseUrl || !supabaseAnonKey) return;
@@ -90,7 +96,9 @@ export default function ListenPage() {
                 {currentStation.genre}
               </p>
               <Button variant="ghost" size="sm" asChild>
-                <Link href="/discover?tab=station">Change station</Link>
+                <Link href={`/discover?tab=station&station=${encodeURIComponent(switcherStationId)}`}>
+                  Change station
+                </Link>
               </Button>
             </div>
           )}
