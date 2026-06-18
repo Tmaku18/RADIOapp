@@ -968,7 +968,24 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const delta = positionSeconds - audio.currentTime;
       const needsForwardCatchup = delta > LIVE_SYNC_FORWARD_SEEK_THRESHOLD_SEC;
       const needsBackwardCorrection = delta < -LIVE_SYNC_BACKWARD_SEEK_THRESHOLD_SEC;
+
+      // Server clock can run ahead of the decoded file. Don't leap forward while
+      // substantial audio remains or songs feel like they're skipping.
+      const decodedDuration =
+        Number.isFinite(audio.duration) && audio.duration > 0
+          ? audio.duration
+          : 0;
+      const localRemaining =
+        decodedDuration > 0 ? decodedDuration - audio.currentTime : 0;
+      const blockForwardCatchup =
+        needsForwardCatchup && localRemaining > 12;
+
       if (!needsForwardCatchup && !needsBackwardCorrection) {
+        setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+        return;
+      }
+
+      if (blockForwardCatchup) {
         setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
         return;
       }

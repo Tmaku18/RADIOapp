@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { radioApi } from '@/lib/api';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
+import { isNearRadioTrackEnd, isServerAheadMidSong } from '@/lib/radio-sync';
 import type { PlaybackTrack } from './types';
 import { usePlaybackOptional } from './PlaybackProvider';
 
@@ -85,6 +86,27 @@ export function RadioBackgroundSync() {
         // Server may still report the previous song while we've already
         // crossfaded ahead via /radio/peek. Don't revert (jump backward).
         if (isStaleRadioServerTrack?.(track.id)) return;
+
+        const playing = state?.isPlaying ?? false;
+        const pausedAt = state?.pausedAt ?? null;
+        const currentTime = state?.currentTime ?? 0;
+        const duration = state?.duration ?? 0;
+        const fallbackDuration = state?.track?.durationSeconds;
+
+        if (
+          currentId &&
+          isServerAheadMidSong({
+            trackIdentityChanged: true,
+            isPlaying: playing,
+            pausedAt,
+            currentTime,
+            duration,
+            fallbackDurationSeconds: fallbackDuration,
+          })
+        ) {
+          return;
+        }
+
         actions.loadTrack(track, 'radio', autoPlay && !transportPaused);
         actions.syncToPosition(serverPosition);
         return;
@@ -92,7 +114,7 @@ export function RadioBackgroundSync() {
 
       actions.syncToPosition(serverPosition);
     },
-    [radioId, isStaleRadioServerTrack],
+    [radioId, isStaleRadioServerTrack, state?.isPlaying, state?.pausedAt, state?.currentTime, state?.duration, state?.track?.durationSeconds],
   );
 
   const syncCurrentTrack = useCallback(async () => {
@@ -116,7 +138,7 @@ export function RadioBackgroundSync() {
     try {
       const response = await radioApi.getNextTrack({
         radio: radioIdRef.current,
-        force: false,
+        force: true,
       });
       const trackData = response.data as Record<string, unknown>;
       if (trackData?.no_content || !trackData?.id) return;

@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
+import { isServerAheadMidSong } from '@/lib/radio-sync';
 
 type PinnedCatalyst = {
   userId: string;
@@ -494,6 +495,23 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
             transportPaused: !!trackData.transport_paused,
             djOverlay: parseDjOverlay(trackData.dj_overlay),
           });
+        } else if (
+          trackIdentityChanged &&
+          isServerAheadMidSong({
+            trackIdentityChanged: true,
+            isPlaying: state.isPlaying,
+            pausedAt: state.pausedAt,
+            currentTime: state.currentTime,
+            duration: state.duration,
+            fallbackDurationSeconds: state.track?.durationSeconds,
+          })
+        ) {
+          // Server queue moved on but we're still mid-song locally — stay on
+          // the current track until natural end (handled by `ended` + force next).
+          actions.applyServerBoothState({
+            transportPaused: !!trackData.transport_paused,
+            djOverlay: parseDjOverlay(trackData.dj_overlay),
+          });
         } else if (trackIdentityChanged || (shouldReloadCurrentTrack && !isStaleResponse)) {
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
@@ -557,6 +575,8 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     state.error,
     state.isPlaying,
     state.pausedAt,
+    state.currentTime,
+    state.duration,
     hasUserInteracted,
     effectiveRadioId,
     coerceListenerCount,
