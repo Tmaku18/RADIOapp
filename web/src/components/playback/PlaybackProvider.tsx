@@ -153,6 +153,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const overlayHlsRef = useRef<Hls | null>(null);
   const djOverlayRef = useRef<DjOverlayState | null>(null);
   const globalTransportPausedRef = useRef(false);
+  // True when the listener muted the radio via the pause button. The stream
+  // keeps playing/advancing and stays synced to live; only output is silenced.
+  const mutedByUserRef = useRef(false);
   const radioPlayerUiCountRef = useRef(0);
   const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
 
@@ -192,7 +195,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const refreshMainVolume = useCallback(() => {
     const main = getActiveAudio();
     const ctrl = getOverlayController();
-    if (stateRef.current.pausedAt != null) {
+    if (mutedByUserRef.current || stateRef.current.pausedAt != null) {
       if (main) {
         main.volume = 0;
         main.muted = true;
@@ -211,7 +214,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
   const applyServerBoothState = useCallback(
     (opts: { transportPaused?: boolean; djOverlay?: DjOverlayState | null }) => {
-      const userSoftPaused = stateRef.current.pausedAt != null;
+      // A user mute keeps the stream live (we just silence output), so admin
+      // transport changes should still drive playback while muted. Only a
+      // legacy hard pause (pausedAt) blocks an admin-initiated resume.
+      const hardPaused = stateRef.current.pausedAt != null;
+      const userSoftPaused = hardPaused || mutedByUserRef.current;
 
       if (typeof opts.transportPaused === 'boolean') {
         globalTransportPausedRef.current = opts.transportPaused;
@@ -222,14 +229,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           setState((s) => ({ ...s, isPlaying: false }));
         } else if (
           sourceRef.current === 'radio' &&
-          !userSoftPaused &&
+          !hardPaused &&
           stateRef.current.isPlaying
         ) {
           // Admin lifted a global transport pause — do not resume when the
-          // listener intentionally paused (pause button) or is not playing.
+          // listener hard-paused or is not playing. If the listener has muted,
+          // keep the stream live but silent.
           const main = getActiveAudio();
           if (main && main.paused) {
             main.play().catch(() => undefined);
+            if (mutedByUserRef.current) refreshMainVolume();
             setState((s) => ({ ...s, isPlaying: true }));
           }
         }
@@ -433,6 +442,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (seekSeconds !== null && seekSeconds > 0) {
           audio.currentTime = seekSeconds;
         }
+        // Muted = stay live but silent: keep the stream playing so it never
+        // drifts off the live position; just silence the output.
+        if (mutedByUserRef.current) {
+          audio.volume = 0;
+          audio.muted = true;
+          audio.play().catch(() => {});
+          return;
+        }
         if (stateRef.current.pausedAt != null) {
           audio.volume = 0;
           audio.muted = true;
@@ -466,12 +483,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
       } else {
         audio.src = url;
-        if (autoPlay) {
+        if (autoPlay || mutedByUserRef.current) {
           audio.addEventListener(
             'canplay',
             () => {
               if (seekSeconds !== null && seekSeconds > 0) {
                 audio.currentTime = seekSeconds;
+              }
+              // Stay live but silent while muted.
+              if (mutedByUserRef.current) {
+                audio.volume = 0;
+                audio.muted = true;
               }
               audio.play().catch(() => {});
             },
@@ -508,12 +530,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
       const onPlay = () => {
         if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        // Legacy hard pause: keep it stopped.
         if (stateRef.current.pausedAt != null) {
           audio.pause();
           audio.volume = 0;
           audio.muted = true;
           setState((s) => ({ ...s, isPlaying: false }));
           return;
+        }
+        // Muted: stream stays live, just silence output (don't pause).
+        if (mutedByUserRef.current) {
+          audio.volume = 0;
+          audio.muted = true;
         }
         setState((s) => ({ ...s, isPlaying: true }));
       };
@@ -555,6 +583,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           audio.currentTime = seekTo;
         }
         setState((s) => ({ ...s, isLoading: false }));
+        if (mutedByUserRef.current && activeSlotRef.current === slot) {
+          // Stay live but silent — keep the stream advancing while muted.
+          autoPlayPendingRef.current = false;
+          audio.volume = 0;
+          audio.muted = true;
+          audio.play().catch(() => {});
+          return;
+        }
         if (autoPlayPendingRef.current && activeSlotRef.current === slot) {
           autoPlayPendingRef.current = false;
           if (stateRef.current.pausedAt != null) {
@@ -774,6 +810,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const outgoing = getActiveAudio();
       if (!pair || !outgoing) return;
 
+      // Switching away from radio (e.g. discography/refinery) clears the radio
+      // mute so other sources aren't silenced.
+      if (source !== 'radio' && mutedByUserRef.current) {
+        mutedByUserRef.current = false;
+        setState((s) => ({ ...s, isMuted: false }));
+      }
+
       // Join the radio at its live offset so all listeners stay aligned. Ignore
       // tiny/zero offsets (natural start-of-song or non-radio loads).
       const joinSeek =
@@ -824,6 +867,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !!previousTrackId &&
         previousTrackId !== track.id &&
         !stationChanged &&
+        // While muted there's no audio to blend; hard-cut (loadTrackImmediate
+        // keeps it muted+playing) and skip the volume-ramping crossfade.
+        !mutedByUserRef.current &&
         isCrossfadeSupportedUrl(url) &&
         !outgoing.paused &&
         !outgoing.ended &&
@@ -1071,11 +1117,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     [getActiveAudio],
   );
 
+  // Radio "pause" = mute while staying live. The stream keeps playing and
+  // advancing on the server timeline (so every device stays in sync); we only
+  // silence the output. Unmuting rejoins instantly with no catch-up/DVR drift.
   const softPause = useCallback(() => {
+    mutedByUserRef.current = true;
+    // Stop any in-flight crossfade volume ramp so it can't un-silence us.
     cancelCrossfade();
     const pair = audioPairRef.current;
-    pair?.a.pause();
-    pair?.b.pause();
     if (pair?.a) {
       pair.a.volume = 0;
       pair.a.muted = true;
@@ -1085,47 +1134,42 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       pair.b.muted = true;
     }
     const overlay = overlayAudioRef.current;
-    overlay?.pause();
     if (overlay) {
       overlay.volume = 0;
       overlay.muted = true;
     }
-    setState((s) => ({
-      ...s,
-      isPlaying: false,
-      pausedAt: Date.now(),
-      isLive: false,
-    }));
-  }, [cancelCrossfade]);
+    // Keep the audio progressing so we stay glued to the live position.
+    const audio = getActiveAudio();
+    if (audio && audio.paused && !globalTransportPausedRef.current) {
+      audio.play().catch(() => {});
+    }
+    setState((s) => ({ ...s, isMuted: true, isLive: true }));
+  }, [cancelCrossfade, getActiveAudio]);
 
   const softResume = useCallback(async () => {
+    mutedByUserRef.current = false;
+    setState((s) => ({ ...s, isMuted: false, error: null, isLive: true }));
     const audio = getActiveAudio();
+    refreshMainVolume();
     if (!audio) return;
-    const pausedAt = stateRef.current.pausedAt;
-    const pauseDuration = pausedAt ? (Date.now() - pausedAt) / 1000 : 0;
-    if (pauseDuration <= 30) {
-      try {
-        setState((s) => ({ ...s, isPlaying: true, error: null }));
-        audio.muted = false;
-        const pair = audioPairRef.current;
-        pair?.a.pause();
-        pair?.b.pause();
-        refreshMainVolume();
+    audio.muted = volumeRef.current <= 0.001;
+    try {
+      if (audio.paused && !globalTransportPausedRef.current) {
         await audio.play();
-        setState((s) => ({ ...s, isPlaying: true, pausedAt: null }));
-      } catch {
-        setState((s) => ({ ...s, isPlaying: false }));
       }
+      setState((s) => ({ ...s, isPlaying: true }));
+    } catch {
+      setState((s) => ({ ...s, isPlaying: false }));
     }
   }, [getActiveAudio, refreshMainVolume]);
 
   const togglePlay = useCallback(async () => {
     const s = stateRef.current;
     if (s.source === 'radio') {
-      if (s.isPlaying && !s.pausedAt) {
-        softPause();
-      } else if (s.pausedAt) {
+      if (s.isMuted) {
         await softResume();
+      } else if (s.isPlaying) {
+        softPause();
       } else {
         await play();
       }

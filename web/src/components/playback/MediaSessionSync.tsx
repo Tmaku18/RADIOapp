@@ -67,8 +67,8 @@ export function MediaSessionSync() {
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
     navigator.mediaSession.playbackState =
-      state?.isPlaying && !state?.pausedAt ? 'playing' : 'paused';
-  }, [state?.isPlaying, state?.pausedAt]);
+      state?.isPlaying && !state?.pausedAt && !state?.isMuted ? 'playing' : 'paused';
+  }, [state?.isPlaying, state?.pausedAt, state?.isMuted]);
 
   return null;
 }

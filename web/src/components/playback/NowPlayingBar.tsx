@@ -31,6 +31,9 @@ export function NowPlayingBar() {
   const track = state?.track;
   const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = (state?.isPlaying ?? false) && !state?.pausedAt;
+  // The radio stays live (and counted) while muted; the control just reflects
+  // whether audio is audible so the icon shows play when muted.
+  const showAsPlaying = isPlaying && !state?.isMuted;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
   const isListenPage = pathname === '/listen';
   const showBar = !isListenPage;
@@ -182,9 +185,9 @@ export function NowPlayingBar() {
                 size="icon"
                 onClick={() => void actions.togglePlay()}
                 disabled={!hasTrack && !state?.source}
-                aria-label={isPlaying ? 'Pause' : 'Play'}
+                aria-label={showAsPlaying ? 'Pause' : 'Play'}
               >
-                {isPlaying ? (
+                {showAsPlaying ? (
                   <span className="text-lg">⏸</span>
                 ) : (
                   <span className="text-lg">▶</span>

@@ -33,8 +33,14 @@ export interface PlaybackState {
   error: string | null;
   /** Radio: server position for True Radio sync */
   serverPosition: number;
-  /** Radio: timestamp when paused (soft pause) */
+  /** Radio: timestamp when paused (legacy DVR soft pause; unused for the live mute model) */
   pausedAt: number | null;
+  /**
+   * Radio: listener muted via the pause button. The stream keeps playing and
+   * stays synced to the live position — only the audio output is silenced — so
+   * unmuting rejoins instantly with no catch-up.
+   */
+  isMuted: boolean;
   /** Radio: synced to live */
   isLive: boolean;
 }
@@ -50,5 +56,6 @@ export const initialPlaybackState: PlaybackState = {
   error: null,
   serverPosition: 0,
   pausedAt: null,
+  isMuted: false,
   isLive: true,
 };

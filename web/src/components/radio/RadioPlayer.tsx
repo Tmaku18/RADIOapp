@@ -806,12 +806,12 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
       setHasUserInteracted(true);
     }
     
-    if (state.isPlaying) {
+    if (state.isMuted) {
+      // Unmute and rejoin the live stream (it never stopped, so no catch-up).
+      await actions.softResume();
+    } else if (state.isPlaying) {
+      // Pause = mute but keep the stream live and synced.
       actions.softPause();
-    } else if (showJumpToLive) {
-      await fetchCurrentTrack(false, true);
-      await actions.jumpToLive(lastServerPosition.current);
-      setShowJumpToLive(false);
     } else {
       await actions.softResume();
     }
@@ -1252,13 +1252,9 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
                 : 'bg-primary text-primary-foreground hover:bg-primary/90'
             }`}
           >
-            {state.isPlaying ? (
+            {state.isPlaying && !state.isMuted ? (
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z" />
-              </svg>
-            ) : showJumpToLive ? (
-              <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M4 18l8.5-6L4 6v12zM13 6v12l8.5-6L13 6z" />
               </svg>
             ) : (
               <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24">
