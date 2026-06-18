@@ -220,6 +220,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private emptyStations = new Map<string, number>();
   private readonly emptyStationRecheckMs = 10 * 60 * 1000;
   private readonly advanceLocks = new Map<string, Promise<any>>();
+  // Coalesces concurrent getCurrentTrack passes per radio. At each song boundary
+  // the SWR snapshot expires, so every listener's poll would otherwise fire a
+  // full (DB-heavy) getCurrentTrack at the same instant — a thundering herd that
+  // grows with the listener count and makes fresh page loads time out. Sharing
+  // one in-flight pass keeps DB load flat regardless of how many are tuned in.
+  private readonly currentTrackInflight = new Map<string, Promise<any>>();
 
   // Short-lived caches to reduce Supabase Disk IO. Each entry: { value, at }.
   // Values are safe to return stale for TTL; no per-request freshness is required.
@@ -1302,6 +1308,23 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     } catch (e) {
       this.logger.warn(`Failed to send go-live nudge: ${e?.message ?? e}`);
     }
+  }
+
+  /**
+   * Concurrency-safe entry point for "what's playing right now". Multiple
+   * simultaneous callers (every listener polling, plus the SWR background
+   * refresh) share a single in-flight getCurrentTrack pass so a burst of polls
+   * — especially at song boundaries when the cache snapshot has expired —
+   * doesn't fan out into N expensive DB passes.
+   */
+  async getCurrentTrackCoalesced(radioId: string = DEFAULT_RADIO_ID) {
+    const inflight = this.currentTrackInflight.get(radioId);
+    if (inflight) return inflight;
+    const promise = this.getCurrentTrack(radioId).finally(() => {
+      this.currentTrackInflight.delete(radioId);
+    });
+    this.currentTrackInflight.set(radioId, promise);
+    return promise;
   }
 
   /**

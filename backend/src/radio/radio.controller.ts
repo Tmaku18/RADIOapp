@@ -75,7 +75,7 @@ export class RadioController {
         this.swrInFlight.add(id);
         this.swrLastRefreshAt.set(id, now);
         this.radioService
-          .getCurrentTrack(id)
+          .getCurrentTrackCoalesced(id)
           .catch((e) =>
             this.logger.warn(`Background refresh for ${id} failed: ${e?.message}`),
           )
@@ -86,7 +86,7 @@ export class RadioController {
 
     try {
       return await this.withTimeout(
-        this.radioService.getCurrentTrack(id),
+        this.radioService.getCurrentTrackCoalesced(id),
         `getCurrentTrack(${id})`,
       );
     } catch (err) {
