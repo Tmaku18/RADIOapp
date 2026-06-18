@@ -220,6 +220,13 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   private emptyStations = new Map<string, number>();
   private readonly emptyStationRecheckMs = 10 * 60 * 1000;
   private readonly advanceLocks = new Map<string, Promise<any>>();
+  // Timestamp of the last queue advance per radio. Used to debounce force
+  // advances so that when synced devices all hit end-of-song together (e.g. a
+  // track whose encoded audio is shorter than its catalog duration), only the
+  // first advance moves the queue — the rest converge on that same next song
+  // instead of each skipping ahead and landing everyone on different tracks.
+  private readonly lastAdvanceAt = new Map<string, number>();
+  private readonly advanceDebounceMs = 8000;
   // Coalesces concurrent getCurrentTrack passes per radio. At each song boundary
   // the SWR snapshot expires, so every listener's poll would otherwise fire a
   // full (DB-heavy) getCurrentTrack at the same instant — a thundering herd that
@@ -2342,6 +2349,17 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const now = Date.now();
     const trial = isTrialByFireActiveAt(new Date(now));
 
+    // Debounce force advances: if the queue advanced moments ago, a forced
+    // advance from another synced device hitting end-of-song at the same time
+    // should NOT skip again — fall back to non-force so it returns the song the
+    // queue just moved to, keeping every listener on the same track.
+    if (forceAdvance) {
+      const lastAdv = this.lastAdvanceAt.get(radioId) ?? 0;
+      if (now - lastAdv < this.advanceDebounceMs) {
+        forceAdvance = false;
+      }
+    }
+
     const [isLive, currentState] = await Promise.all([
       this.withTimeoutFallback(this.isLiveBroadcastActive(), false, 4000, 'isLiveBroadcastActive'),
       this.getQueueState(radioId),
@@ -2447,6 +2465,10 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         }
       }
     }
+
+    // Past the "current song still playing" early return — we are committing to
+    // an advance. Record it so near-simultaneous force advances are debounced.
+    this.lastAdvanceAt.set(radioId, now);
 
     const currentSongId = currentState?.songId;
     this.nextSongNotifiedFor.delete(radioId);

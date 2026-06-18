@@ -217,16 +217,27 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     const endedTrackId = playingTrackIdRef.current;
 
     try {
-      // Do NOT force-advance here. The radio queue is shared across every
-      // listener; if each device force-advanced when its local copy ended, the
-      // queue would skip multiple songs and devices would land on different
-      // tracks. A normal (non-force) fetch advances the shared queue exactly
-      // once (server-side, lock-protected) and returns the same next song to
-      // everyone, keeping all devices in sync.
-      const response = await radioApi.getNextTrack({
-        radio: effectiveRadioId,
-      });
-      const trackData = response.data;
+      // Advance the shared queue. Start non-force: that returns the song the
+      // queue is currently on (the next track, or — for a normal-length song —
+      // the freshly-advanced one), keeping every device in sync without each
+      // one independently skipping. If the server still reports the song that
+      // JUST ended (its clock lags because the encoded audio is shorter than
+      // the catalog duration), nudge it once with a force-advance. The server
+      // debounces concurrent nudges so synced devices converge on one song
+      // instead of skipping ahead.
+      const firstResp = await radioApi.getNextTrack({ radio: effectiveRadioId });
+      let trackData = firstResp.data;
+      if (
+        trackData?.id &&
+        endedTrackId &&
+        trackData.id === endedTrackId
+      ) {
+        const forcedResp = await radioApi.getNextTrack({
+          radio: effectiveRadioId,
+          force: true,
+        });
+        trackData = forcedResp.data ?? trackData;
+      }
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
       const nextShitVotes = coerceListenerCount(trackData?.shit_votes);
@@ -275,16 +286,6 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
 
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
-
-        // If the server hasn't advanced yet (it still reports the song that
-        // just ended, e.g. because the encoded audio is slightly shorter than
-        // the catalog duration), don't reload it — that would restart it near
-        // the end and loop. The regular poll will pick up the real next song
-        // once the shared queue advances, keeping every device on the same one.
-        const serverTimeRemainingMs = Number(trackData?.time_remaining_ms) || 0;
-        if (endedTrackId && track.id === endedTrackId && serverTimeRemainingMs > 3000) {
-          return;
-        }
 
         // Join at the live server offset (true-radio sync) so this device plays
         // the same song at the same position as everyone else. Passing the seek
