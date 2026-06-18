@@ -491,13 +491,14 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
         const serverLaggingBehindCrossfade =
           trackIdentityChanged && isStaleRadioServerTrack(track.id);
 
-        if (serverLaggingBehindCrossfade) {
+        if (serverLaggingBehindCrossfade && !stationChanged) {
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,
             djOverlay: parseDjOverlay(trackData.dj_overlay),
           });
         } else if (
           trackIdentityChanged &&
+          !stationChanged &&
           isServerAheadMidSong({
             trackIdentityChanged: true,
             isPlaying: state.isPlaying,
@@ -509,11 +510,15 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
         ) {
           // Server queue moved on but we're still mid-song locally — stay on
           // the current track until natural end (handled by `ended` + force next).
+          // Never apply this guard when the listener switched stations.
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,
             djOverlay: parseDjOverlay(trackData.dj_overlay),
           });
-        } else if (trackIdentityChanged || (shouldReloadCurrentTrack && !isStaleResponse)) {
+        } else if (
+          trackIdentityChanged ||
+          (shouldReloadCurrentTrack && (stationChanged || !isStaleResponse))
+        ) {
           const resumeAfterStationOrTrackSwitch =
             hasUserInteracted &&
             state.source === 'radio' &&
@@ -638,6 +643,19 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
       setHasUserInteracted(true);
     }
   }, [autoplay]);
+
+  // Station switch: bypass poll backoff and fetch the new tower immediately.
+  const prevRadioIdRef = useRef(effectiveRadioId);
+  useEffect(() => {
+    if (prevRadioIdRef.current === effectiveRadioId) return;
+    prevRadioIdRef.current = effectiveRadioId;
+    nextFetchAllowedAtRef.current = 0;
+    consecutiveFetchFailuresRef.current = 0;
+    isFetchingCurrentTrackRef.current = false;
+    setNoContent(false);
+    setNoContentMessage(null);
+    void fetchCurrentTrack(true, hasUserInteracted || state.isPlaying);
+  }, [effectiveRadioId, fetchCurrentTrack, hasUserInteracted, state.isPlaying]);
 
   // Reset vote state when the current vote key changes.
   useEffect(() => {
