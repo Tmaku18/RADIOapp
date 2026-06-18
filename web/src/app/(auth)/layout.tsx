@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
+import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 
 import { NETWORX_LOGO } from '@/lib/brand-assets';
 
@@ -37,8 +38,14 @@ export default function AuthLayout({
   // Show loading while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-foreground"></div>
+      <div className="relative overflow-hidden min-h-screen bg-primary text-primary-foreground flex items-center justify-center">
+        <ButterflyPattern
+          className="absolute inset-0"
+          colorClassName="text-primary-foreground"
+          tile={150}
+          opacity={0.14}
+        />
+        <div className="relative z-10 animate-spin rounded-full h-12 w-12 border-b-2 border-primary-foreground" />
       </div>
     );
   }
@@ -49,8 +56,15 @@ export default function AuthLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary via-primary/90 to-primary/80 flex flex-col">
-      <header className="p-4 flex items-center justify-between gap-3">
+    <div className="relative overflow-hidden min-h-screen bg-primary text-primary-foreground flex flex-col">
+      <ButterflyPattern
+        className="absolute inset-0"
+        colorClassName="text-primary-foreground"
+        tile={150}
+        opacity={0.14}
+      />
+
+      <header className="relative z-10 p-4 flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center text-primary-foreground">
           <Image
             src={LOGO_SRC}
@@ -65,13 +79,13 @@ export default function AuthLayout({
         <ThemeToggle triggerClassName="border-primary-foreground/30 bg-transparent text-primary-foreground hover:bg-primary-foreground/10 hover:text-primary-foreground" />
       </header>
 
-      <main className="flex-1 flex items-center justify-center p-4">
+      <main className="relative z-10 flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md">
           {children}
         </div>
       </main>
 
-      <footer className="p-4 text-center text-primary-foreground/70 text-sm">
+      <footer className="relative z-10 p-4 text-center text-primary-foreground/70 text-sm">
         <p>&copy; {new Date().getFullYear()} Networx. All rights reserved.</p>
       </footer>
     </div>
