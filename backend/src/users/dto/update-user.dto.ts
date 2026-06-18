@@ -10,7 +10,6 @@ import {
   Min,
   Max,
   IsArray,
-  ArrayMaxSize,
 } from 'class-validator';
 import {
   normalizeInstagramUrl,
@@ -63,7 +62,6 @@ export class UpdateUserDto {
   /** Genre ids from onboarding (e.g. hip-hop, rap, country). */
   @IsArray()
   @IsString({ each: true })
-  @ArrayMaxSize(12)
   @IsOptional()
   favoriteGenres?: string[];
 

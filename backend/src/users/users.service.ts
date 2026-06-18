@@ -604,7 +604,7 @@ export class UsersService {
             .map((g) => g.trim().toLowerCase())
             .filter(Boolean),
         ),
-      ].slice(0, 12);
+      ];
       updatePayload.favorite_genres = normalized;
     }
     if (updateUserDto.completeGenreOnboarding === true) {

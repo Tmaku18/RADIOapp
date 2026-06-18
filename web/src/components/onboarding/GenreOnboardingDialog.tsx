@@ -62,10 +62,16 @@ export function GenreOnboardingDialog({
     setSelectedGenres((prev) =>
       prev.includes(genreId)
         ? prev.filter((g) => g !== genreId)
-        : prev.length >= 8
-          ? prev
-          : [...prev, genreId],
+        : [...prev, genreId],
     );
+  };
+
+  const selectAllGenres = () => {
+    setSelectedGenres(GENRE_OPTIONS.map((g) => g.id));
+  };
+
+  const clearGenres = () => {
+    setSelectedGenres([]);
   };
 
   const finishOnboarding = useCallback(
@@ -143,6 +149,34 @@ export function GenreOnboardingDialog({
               </DialogDescription>
             </DialogHeader>
 
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {selectedGenres.length === 0
+                  ? 'Select all genres you enjoy.'
+                  : `${selectedGenres.length} selected`}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={selectAllGenres}
+                  disabled={selectedGenres.length === GENRE_OPTIONS.length}
+                >
+                  Select all
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearGenres}
+                  disabled={selectedGenres.length === 0}
+                >
+                  Clear
+                </Button>
+              </div>
+            </div>
+
             <div className="flex flex-wrap gap-2 py-2">
               {GENRE_OPTIONS.map((genre) => {
                 const active = selectedGenres.includes(genre.id);
@@ -163,9 +197,6 @@ export function GenreOnboardingDialog({
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Select up to 8 genres.
-            </p>
 
             {error && (
               <p className="text-sm text-destructive" role="alert">
