@@ -47,8 +47,11 @@ class MiniPlayerBar extends StatelessWidget {
         return StreamBuilder<PlayerState>(
           stream: audio.player.playerStateStream,
           builder: (context, playerSnapshot) {
+            return ValueListenableBuilder<bool>(
+              valueListenable: AudioPlayerService.handler.userPausedNotifier,
+              builder: (context, userPaused, _) {
             final playerState = playerSnapshot.data ?? audio.player.playerState;
-            final isPlaying = playerState.playing;
+            final isPlaying = !userPaused && playerState.playing;
             final processingState = playerState.processingState;
 
             // Hide when no track is loaded (no current source with tag)
@@ -110,12 +113,9 @@ class MiniPlayerBar extends StatelessWidget {
                           icon: Icon(
                             isPlaying ? Icons.pause_circle : Icons.play_circle,
                           ),
-                          onPressed: () {
-                            if (isPlaying) {
-                              audio.player.pause();
-                            } else {
-                              audio.player.play();
-                            }
+                          onPressed: () async {
+                            final handler = AudioPlayerService.handler;
+                            await handler.setUserPaused(isPlaying);
                           },
                         ),
                       ],
@@ -123,6 +123,8 @@ class MiniPlayerBar extends StatelessWidget {
                   ),
                 ),
               ),
+            );
+              },
             );
           },
         );

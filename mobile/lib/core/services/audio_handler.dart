@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 /// App-wide audio handler that owns two [AudioPlayer]s so the live DJ voice
@@ -56,6 +57,12 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   bool _overlayActive = false;
   String? _overlayUrl;
   double _overlayDuckVolume = 0.25;
+  bool _userPaused = false;
+
+  /// True when the listener tapped pause — audio is paused and muted until resume.
+  bool get userPaused => _userPaused;
+
+  final ValueNotifier<bool> userPausedNotifier = ValueNotifier(false);
 
   /// Mirror the music player's state + current [MediaItem] into `audio_service`
   /// so the system media notification shows track info and play/pause works.
@@ -73,7 +80,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       }
     });
     music.sequenceStateStream.listen((state) {
-      final source = state?.currentSource;
+      final source = state.currentSource;
       final tag = source?.tag;
       if (tag is MediaItem) {
         final duration = music.duration;
@@ -96,19 +103,23 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       if (hasStopped && _overlayActive) {
         _overlayActive = false;
         _overlayUrl = null;
-        music.setVolume(_baseMusicVolume);
+        if (!_userPaused) {
+          music.setVolume(_baseMusicVolume);
+        }
       }
     }, onError: (Object _, StackTrace _) {
       if (_overlayActive) {
         _overlayActive = false;
         _overlayUrl = null;
-        music.setVolume(_baseMusicVolume);
+        if (!_userPaused) {
+          music.setVolume(_baseMusicVolume);
+        }
       }
     });
   }
 
   void _broadcastMusicState(PlaybackEvent event) {
-    final playing = music.playing;
+    final playing = music.playing && !_userPaused;
     playbackState.add(
       playbackState.value.copyWith(
         controls: [
@@ -148,11 +159,41 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   // --- Media notification controls delegate to the music player ---
 
-  @override
-  Future<void> play() => music.play();
+  /// Pause and mute all playback (music + DJ voice). Used when pause() alone
+  /// does not stop live/HLS sources audibly.
+  Future<void> setUserPaused(bool paused) async {
+    _userPaused = paused;
+    userPausedNotifier.value = paused;
+    if (paused) {
+      await music.pause();
+      await music.setVolume(0);
+      try {
+        await voice.pause();
+        await voice.setVolume(0);
+      } catch (_) {}
+    } else {
+      if (_overlayActive) {
+        await music.setVolume(_overlayDuckVolume);
+      } else {
+        await music.setVolume(_baseMusicVolume);
+      }
+      try {
+        if (_overlayActive) {
+          await voice.setVolume(1.0);
+        }
+      } catch (_) {}
+      await music.play();
+    }
+    _broadcastMusicState(
+      PlaybackEvent(processingState: music.processingState, updatePosition: music.position),
+    );
+  }
 
   @override
-  Future<void> pause() => music.pause();
+  Future<void> play() => setUserPaused(false);
+
+  @override
+  Future<void> pause() => setUserPaused(true);
 
   @override
   Future<void> seek(Duration position) => music.seek(position);
@@ -171,6 +212,10 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   /// only update the stored base.
   Future<void> setBaseMusicVolume(double volume) async {
     _baseMusicVolume = volume.clamp(0.0, 1.0);
+    if (_userPaused) {
+      await music.setVolume(0);
+      return;
+    }
     if (!_overlayActive) {
       await music.setVolume(_baseMusicVolume);
     }
@@ -183,6 +228,8 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     String url, {
     double duckVolume = 0.25,
   }) async {
+    if (_userPaused) return;
+
     final duck = duckVolume.clamp(0.0, 1.0);
     _overlayDuckVolume = duck;
 

@@ -107,7 +107,11 @@ export function RadioBackgroundSync() {
           return;
         }
 
-        actions.loadTrack(track, 'radio', autoPlay && !transportPaused);
+        actions.loadTrack(
+          track,
+          'radio',
+          autoPlay && !transportPaused && pausedAt == null,
+        );
         actions.syncToPosition(serverPosition);
         return;
       }
@@ -124,7 +128,7 @@ export function RadioBackgroundSync() {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data as Record<string, unknown>;
       if (trackData?.no_content) return;
-      applyServerTrack(trackData, state?.isPlaying ?? false);
+      applyServerTrack(trackData, (state?.isPlaying ?? false) && state?.pausedAt == null);
     } catch {
       // Background sync should not interrupt playback UX.
     } finally {
@@ -142,13 +146,13 @@ export function RadioBackgroundSync() {
       });
       const trackData = response.data as Record<string, unknown>;
       if (trackData?.no_content || !trackData?.id) return;
-      applyServerTrack(trackData, true);
+      applyServerTrack(trackData, state?.pausedAt == null);
     } catch {
       // Retry on next poll.
     } finally {
       isFetchingRef.current = false;
     }
-  }, [applyServerTrack]);
+  }, [applyServerTrack, state?.pausedAt]);
 
   useEffect(() => {
     if (!shouldSync || !setOnRadioTrackEnded) return;

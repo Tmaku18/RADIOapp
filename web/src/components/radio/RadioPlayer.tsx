@@ -523,10 +523,11 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
             hasUserInteracted &&
             !state.pausedAt;
           const shouldAutoPlay =
-            (autoPlay && hasUserInteracted) ||
-            (shouldReloadCurrentTrack && hasUserInteracted) ||
-            resumeAfterStationOrTrackSwitch ||
-            naturalRadioTransition;
+            !state.pausedAt &&
+            ((autoPlay && hasUserInteracted) ||
+              (shouldReloadCurrentTrack && hasUserInteracted) ||
+              resumeAfterStationOrTrackSwitch ||
+              naturalRadioTransition);
           actions.loadTrack(track, 'radio', shouldAutoPlay);
           actions.syncToPosition(serverPosition);
           actions.applyServerBoothState({

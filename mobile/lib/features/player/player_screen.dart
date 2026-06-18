@@ -215,10 +215,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
     _djBoothSub = StationEventsService().djBoothStream.listen(_onDjBoothEvent);
     _playerStateSub = _audioPlayer.playerStateStream.listen((state) {
-      if (mounted && _isPlaying != state.playing) {
+      final handler = AudioPlayerService.handler;
+      if (mounted && !handler.userPaused && _isPlaying != state.playing) {
         setState(() => _isPlaying = state.playing);
       }
-      if (state.processingState == ProcessingState.completed) {
+      if (state.processingState == ProcessingState.completed &&
+          !handler.userPaused) {
         _handleTrackEnded();
       }
     });
@@ -368,7 +370,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
     }
     await _applyMainVolumeForTrack(track);
-    await _audioPlayer.play();
+    if (!AudioPlayerService.handler.userPaused) {
+      await _audioPlayer.play();
+    } else {
+      await _audioPlayer.setVolume(0);
+    }
     if (reportPlay) {
       await _radioService.reportPlay(track.id, radioId: _radioId);
     }
@@ -482,6 +488,12 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _applyBoothState(Track track) async {
+    if (AudioPlayerService.handler.userPaused) {
+      await AudioPlayerService.handler.setUserPaused(true);
+      if (mounted) setState(() => _isPlaying = false);
+      return;
+    }
+
     if (track.transportPaused) {
       _globalTransportPaused = true;
       if (_audioPlayer.playing) {
@@ -863,21 +875,18 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _togglePlayPause() async {
-    final shouldPlay = !_audioPlayer.playing;
-    // Optimistic UI update; stream listener will reconcile with actual player state.
-    if (mounted) {
-      setState(() => _isPlaying = shouldPlay);
-    }
+    final handler = AudioPlayerService.handler;
+    final shouldPlay = handler.userPaused;
     try {
+      await handler.setUserPaused(!shouldPlay);
+      if (!mounted) return;
+      setState(() => _isPlaying = shouldPlay);
       if (shouldPlay) {
-        await _audioPlayer.play();
         _presenceTick();
-      } else {
-        await _audioPlayer.pause();
       }
     } catch (_) {
       if (mounted) {
-        setState(() => _isPlaying = _audioPlayer.playing);
+        setState(() => _isPlaying = !handler.userPaused && _audioPlayer.playing);
       }
     }
   }

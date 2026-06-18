@@ -181,13 +181,27 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const refreshMainVolume = useCallback(() => {
     const main = getActiveAudio();
     const ctrl = getOverlayController();
+    if (stateRef.current.pausedAt != null) {
+      if (main) {
+        main.volume = 0;
+        main.muted = true;
+      }
+      const inactive = getInactiveAudio();
+      if (inactive) {
+        inactive.volume = 0;
+        inactive.muted = true;
+      }
+      return;
+    }
     if (main && ctrl) applyDuckToMain(main, volumeRef.current, ctrl);
     else if (main) applyVolumeToAudio(main, volumeRef.current);
     if (ctrl) applyOverlayVolume(ctrl, ctrl.micActive);
-  }, [getActiveAudio, getOverlayController]);
+  }, [getActiveAudio, getInactiveAudio, getOverlayController]);
 
   const applyServerBoothState = useCallback(
     (opts: { transportPaused?: boolean; djOverlay?: DjOverlayState | null }) => {
+      const userSoftPaused = stateRef.current.pausedAt != null;
+
       if (typeof opts.transportPaused === 'boolean') {
         globalTransportPausedRef.current = opts.transportPaused;
         const pair = audioPairRef.current;
@@ -195,7 +209,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           pair?.a.pause();
           pair?.b.pause();
           setState((s) => ({ ...s, isPlaying: false }));
-        } else if (sourceRef.current === 'radio') {
+        } else if (sourceRef.current === 'radio' && !userSoftPaused) {
+          // Admin lifted a global transport pause — do not resume when the
+          // listener intentionally soft-paused (pause button).
           const main = getActiveAudio();
           if (main && main.paused) {
             main.play().catch(() => undefined);
@@ -206,6 +222,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (opts.djOverlay !== undefined) {
         djOverlayRef.current = opts.djOverlay;
         const ctrl = getOverlayController();
+        if (userSoftPaused) {
+          const overlay = overlayAudioRef.current;
+          overlay?.pause();
+          if (overlay) {
+            overlay.volume = 0;
+            overlay.muted = true;
+          }
+          refreshMainVolume();
+          return;
+        }
         if (ctrl) {
           syncOverlayHls(ctrl, opts.djOverlay, true);
         }
@@ -389,6 +415,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (seekSeconds !== null && seekSeconds > 0) {
           audio.currentTime = seekSeconds;
         }
+        if (stateRef.current.pausedAt != null) {
+          audio.volume = 0;
+          audio.muted = true;
+          return;
+        }
         if (autoPlay) {
           audio.play().catch(() => {});
         }
@@ -459,6 +490,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
       const onPlay = () => {
         if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        if (stateRef.current.pausedAt != null) {
+          audio.pause();
+          audio.volume = 0;
+          audio.muted = true;
+          setState((s) => ({ ...s, isPlaying: false }));
+          return;
+        }
         setState((s) => ({ ...s, isPlaying: true }));
       };
       const onPause = () => {
@@ -501,6 +539,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, isLoading: false }));
         if (autoPlayPendingRef.current && activeSlotRef.current === slot) {
           autoPlayPendingRef.current = false;
+          if (stateRef.current.pausedAt != null) {
+            audio.volume = 0;
+            audio.muted = true;
+            return;
+          }
           audio.play().catch(() => {});
         }
       };
@@ -604,8 +647,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         isLoading: true,
         error: null,
         serverPosition: seekSeconds ?? 0,
-        pausedAt: null,
-        isLive: true,
+        pausedAt: autoPlay ? null : s.pausedAt,
+        isLive: autoPlay || s.pausedAt == null,
+        isPlaying: autoPlay && s.pausedAt == null,
       }));
 
       attachSourceToSlot(activeSlot, url, seekSeconds, autoPlay, source);
@@ -1005,6 +1049,20 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const pair = audioPairRef.current;
     pair?.a.pause();
     pair?.b.pause();
+    if (pair?.a) {
+      pair.a.volume = 0;
+      pair.a.muted = true;
+    }
+    if (pair?.b) {
+      pair.b.volume = 0;
+      pair.b.muted = true;
+    }
+    const overlay = overlayAudioRef.current;
+    overlay?.pause();
+    if (overlay) {
+      overlay.volume = 0;
+      overlay.muted = true;
+    }
     setState((s) => ({
       ...s,
       isPlaying: false,
@@ -1021,13 +1079,20 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     if (pauseDuration <= 30) {
       try {
         setState((s) => ({ ...s, isPlaying: true, error: null }));
+        if (audio) {
+          audio.muted = false;
+        }
+        const pair = audioPairRef.current;
+        pair?.a.pause();
+        pair?.b.pause();
+        refreshMainVolume();
         await audio.play();
         setState((s) => ({ ...s, isPlaying: true, pausedAt: null }));
       } catch {
         setState((s) => ({ ...s, isPlaying: false }));
       }
     }
-  }, [getActiveAudio, state.pausedAt]);
+  }, [getActiveAudio, refreshMainVolume, state.pausedAt]);
 
   const jumpToLive = useCallback(
     async (positionSeconds: number) => {
