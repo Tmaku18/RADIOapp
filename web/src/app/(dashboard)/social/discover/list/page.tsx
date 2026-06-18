@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { discoverAudioApi, type DiscoverAudioSongCard } from '@/lib/api';
@@ -16,6 +16,14 @@ export default function DiscoverListPage() {
   const [error, setError] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const [removingSongId, setRemovingSongId] = useState<string | null>(null);
+  const currentAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  const handleClipPlay = useCallback((el: HTMLAudioElement) => {
+    if (currentAudioRef.current && currentAudioRef.current !== el) {
+      currentAudioRef.current.pause();
+    }
+    currentAudioRef.current = el;
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -163,7 +171,13 @@ export default function DiscoverListPage() {
                     {new Date(item.likedAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                   </TableCell>
                   <TableCell className="min-w-[260px]">
-                    <audio controls preload="metadata" src={item.clipUrl} className="w-full" />
+                    <audio
+                      controls
+                      preload="metadata"
+                      src={item.clipUrl}
+                      className="w-full"
+                      onPlay={(e) => handleClipPlay(e.currentTarget)}
+                    />
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
