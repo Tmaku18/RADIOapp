@@ -168,7 +168,11 @@ class _PlayerScreenState extends State<PlayerScreen>
   StreamSubscription<PlayerState>? _playerStateSub;
   bool _presenceTickInFlight = false;
   bool _trackSyncInFlight = false;
+  bool _trackAdvanceInFlight = false;
   DateTime _lastSyncSeekAt = DateTime(2000);
+  /// Song we just advanced away from; ignore server "current" for ~12s so pollers
+  /// don't jump the listener backward (or reload mid-crossfade).
+  ({String id, DateTime at})? _recentlyAdvancedFrom;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
   final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
@@ -215,7 +219,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         setState(() => _isPlaying = state.playing);
       }
       if (state.processingState == ProcessingState.completed) {
-        _syncCurrentTrack(forceReload: true);
+        _handleTrackEnded();
       }
     });
     _startPresenceTimer();
@@ -523,6 +527,74 @@ class _PlayerScreenState extends State<PlayerScreen>
     await _loadAndPlay(track, result, reportPlay: reportPlay);
   }
 
+  void _markAdvancedFrom(String? trackId) {
+    if (trackId == null || trackId.isEmpty) return;
+    _recentlyAdvancedFrom = (id: trackId, at: DateTime.now());
+  }
+
+  bool _isStaleServerTrack(String serverTrackId) {
+    final adv = _recentlyAdvancedFrom;
+    if (adv == null || adv.id != serverTrackId) return false;
+    return DateTime.now().difference(adv.at).inSeconds < 12;
+  }
+
+  bool _isNearLocalTrackEnd({int thresholdSeconds = 8}) {
+    final track = _currentTrack;
+    if (track == null) return true;
+    final duration =
+        _audioPlayer.duration?.inSeconds ?? track.durationSeconds;
+    if (duration <= 0) return true;
+    final position = _audioPlayer.position.inSeconds;
+    return position >= duration - thresholdSeconds;
+  }
+
+  /// Authoritative end-of-song advance — mirrors web `handleTrackEnded` + force next.
+  Future<void> _handleTrackEnded() async {
+    if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
+    _trackAdvanceInFlight = true;
+    _trackBoundaryTimer?.cancel();
+    try {
+      final res = await _radioService.getNextTrack(
+        radioId: _radioId,
+        force: true,
+      );
+      if (!mounted) return;
+
+      if (res.noContent) {
+        setState(() {
+          _isLoading = false;
+          _isPlaying = false;
+          _currentTrack = null;
+          _noContent = true;
+          _noContentMessage = res.message;
+        });
+        return;
+      }
+
+      final track = res.track;
+      if (track == null || track.audioUrl.trim().isEmpty) return;
+
+      final previousId = _currentTrack?.id;
+      if (previousId != null && previousId != track.id) {
+        _markAdvancedFrom(previousId);
+      }
+
+      setState(() {
+        _isLoading = true;
+        _noContent = false;
+        _noContentMessage = null;
+        _hasVoted = false;
+        _selectedReaction = null;
+        _isVoting = false;
+      });
+      await _crossfadeToTrack(track, res, reportPlay: true);
+    } catch (_) {
+      // Keep playing; periodic sync will retry.
+    } finally {
+      _trackAdvanceInFlight = false;
+    }
+  }
+
   void _scheduleTrackBoundarySync(Track track) {
     _trackBoundaryTimer?.cancel();
     var remainingMs = track.timeRemainingMs;
@@ -537,7 +609,15 @@ class _PlayerScreenState extends State<PlayerScreen>
 
     final safeMs = (remainingMs + 250).clamp(500, 15 * 60 * 1000).toInt();
     _trackBoundaryTimer = Timer(Duration(milliseconds: safeMs), () {
-      _syncCurrentTrack(forceReload: true);
+      if (!mounted) return;
+      // Only rotate when local playback is actually near the end. The server clock
+      // can run ahead of the device decoder and would otherwise cut songs short.
+      if (_isNearLocalTrackEnd()) {
+        _handleTrackEnded();
+      } else {
+        final local = _currentTrack;
+        if (local != null) _scheduleTrackBoundarySync(local);
+      }
     });
   }
 
@@ -548,8 +628,8 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
   }
 
-  Future<void> _syncCurrentTrack({bool forceReload = false}) async {
-    if (!mounted || _trackSyncInFlight) return;
+  Future<void> _syncCurrentTrack() async {
+    if (!mounted || _trackSyncInFlight || _trackAdvanceInFlight) return;
     _trackSyncInFlight = true;
     try {
       final res = await _radioService.getCurrentTrack(radioId: _radioId);
@@ -570,9 +650,22 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (serverTrack == null || serverTrack.audioUrl.trim().isEmpty) return;
 
       final localTrack = _currentTrack;
-      if (forceReload ||
-          localTrack == null ||
-          localTrack.id != serverTrack.id) {
+
+      if (_isStaleServerTrack(serverTrack.id)) {
+        await _applyBoothState(serverTrack);
+        return;
+      }
+
+      final trackChanged =
+          localTrack == null || localTrack.id != serverTrack.id;
+
+      if (trackChanged) {
+        // Server queue moved on but we're still mid-song locally — don't jump.
+        if (localTrack != null && !_isNearLocalTrackEnd()) {
+          await _applyBoothState(serverTrack);
+          return;
+        }
+
         setState(() {
           _isLoading = true;
           _noContent = false;
@@ -581,9 +674,8 @@ class _PlayerScreenState extends State<PlayerScreen>
           _selectedReaction = null;
           _isVoting = false;
         });
-        await (_isPlaying &&
-                localTrack != null &&
-                localTrack.id != serverTrack.id
+        _markAdvancedFrom(localTrack?.id);
+        await (_isPlaying && localTrack != null
             ? _crossfadeToTrack(
                 serverTrack,
                 res,

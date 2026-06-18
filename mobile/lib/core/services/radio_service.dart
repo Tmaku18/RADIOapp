@@ -39,9 +39,14 @@ class RadioService {
 
   Future<TrackFetchResult> getNextTrack({
     String radioId = defaultRadioId,
+    bool force = false,
   }) async {
     try {
-      final response = await _apiService.get(_withRadio('radio/next', radioId));
+      var endpoint = _withRadio('radio/next', radioId);
+      if (force) {
+        endpoint = '$endpoint&force=true';
+      }
+      final response = await _apiService.get(endpoint);
       if (response == null) return const TrackFetchResult(track: null);
       if (response is Map<String, dynamic>) {
         if (response['no_content'] == true) {
