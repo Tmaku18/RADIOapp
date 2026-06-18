@@ -114,6 +114,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastVoteKeyRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
+  const playingTrackIdRef = useRef<string | null>(null);
   const isFetchingNextTrack = useRef(false);
   const isFetchingCurrentTrackRef = useRef(false);
   const consecutiveFetchFailuresRef = useRef(0);
@@ -152,11 +153,17 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
   const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi, isStaleRadioServerTrack } = usePlayback();
-  const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean) => void) | null>(null);
+  const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean, seekSeconds?: number | null) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
   const playRef = useRef<(() => Promise<void>) | null>(null);
 
   useEffect(() => registerRadioPlayerUi(), [registerRadioPlayerUi]);
+
+  // Track the currently playing track id so handleTrackEnded (which is memoized
+  // without state.track) can tell whether the server has actually advanced.
+  useEffect(() => {
+    playingTrackIdRef.current = state.track?.id ?? null;
+  }, [state.track?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -168,7 +175,8 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   }, []);
 
   useEffect(() => {
-    loadTrackRef.current = (t: PlaybackTrack, autoPlay?: boolean) => actions.loadTrack(t, 'radio', autoPlay);
+    loadTrackRef.current = (t: PlaybackTrack, autoPlay?: boolean, seekSeconds?: number | null) =>
+      actions.loadTrack(t, 'radio', autoPlay, seekSeconds);
     syncToPositionRef.current = actions.syncToPosition;
     playRef.current = actions.play;
   }, [actions]);
@@ -206,12 +214,18 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     // Prevent multiple concurrent fetches
     if (isFetchingNextTrack.current) return;
     isFetchingNextTrack.current = true;
-    
+
+    const endedTrackId = playingTrackIdRef.current;
+
     try {
-      // Force-advance so a broken source can't keep re-serving the same track.
+      // Do NOT force-advance here. The radio queue is shared across every
+      // listener; if each device force-advanced when its local copy ended, the
+      // queue would skip multiple songs and devices would land on different
+      // tracks. A normal (non-force) fetch advances the shared queue exactly
+      // once (server-side, lock-protected) and returns the same next song to
+      // everyone, keeping all devices in sync.
       const response = await radioApi.getNextTrack({
         radio: effectiveRadioId,
-        force: true,
       });
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
@@ -263,7 +277,21 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
 
-        if (loadTrackRef.current) loadTrackRef.current(track, true);
+        // If the server hasn't advanced yet (it still reports the song that
+        // just ended, e.g. because the encoded audio is slightly shorter than
+        // the catalog duration), don't reload it — that would restart it near
+        // the end and loop. The regular poll will pick up the real next song
+        // once the shared queue advances, keeping every device on the same one.
+        const serverTimeRemainingMs = Number(trackData?.time_remaining_ms) || 0;
+        if (endedTrackId && track.id === endedTrackId && serverTimeRemainingMs > 3000) {
+          return;
+        }
+
+        // Join at the live server offset (true-radio sync) so this device plays
+        // the same song at the same position as everyone else. Passing the seek
+        // into loadTrack (rather than a separate syncToPosition after load)
+        // avoids the race where the track starts at 0:00 and then jumps.
+        if (loadTrackRef.current) loadTrackRef.current(track, true, serverPosition);
         if (syncToPositionRef.current) syncToPositionRef.current(serverPosition);
       }
     } catch (error) {

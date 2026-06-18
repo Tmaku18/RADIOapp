@@ -540,15 +540,22 @@ class _PlayerScreenState extends State<PlayerScreen>
     return position >= duration - thresholdSeconds;
   }
 
-  /// Authoritative end-of-song advance — mirrors web `handleTrackEnded` + force next.
+  /// End-of-song advance — mirrors web `handleTrackEnded`.
+  ///
+  /// Does NOT force-advance. The radio queue is shared across every listener;
+  /// if each device force-advanced when its local copy ended, the queue would
+  /// skip multiple songs and devices would land on different tracks. A normal
+  /// (non-force) fetch advances the shared queue exactly once (server-side,
+  /// lock-protected) and returns the same next song to everyone, keeping all
+  /// devices in sync.
   Future<void> _handleTrackEnded() async {
     if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
     _trackAdvanceInFlight = true;
     _trackBoundaryTimer?.cancel();
+    final endedId = _currentTrack?.id;
     try {
       final res = await _radioService.getNextTrack(
         radioId: _radioId,
-        force: true,
       );
       if (!mounted) return;
 
@@ -565,6 +572,17 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) return;
+
+      // If the server hasn't advanced yet (it still reports the song that just
+      // ended, e.g. because the encoded audio is slightly shorter than the
+      // catalog duration), don't reload it — that would restart it near the end
+      // and loop. The periodic sync will pick up the real next song once the
+      // shared queue advances, keeping every device on the same one.
+      if (endedId != null &&
+          track.id == endedId &&
+          track.timeRemainingMs > 3000) {
+        return;
+      }
 
       final previousId = _currentTrack?.id;
       if (previousId != null && previousId != track.id) {
