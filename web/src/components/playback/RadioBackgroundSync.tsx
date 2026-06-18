@@ -7,6 +7,8 @@ import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener'
 import { isNearRadioTrackEnd, isServerAheadMidSong } from '@/lib/radio-sync';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
+import { getLastRadioStationId } from '@/lib/playback-preferences';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
 const BACKGROUND_POLL_MS = 10000;
@@ -45,6 +47,7 @@ export function RadioBackgroundSync() {
   const isFetchingRef = useRef(false);
   const trackIdRef = useRef<string | null>(null);
   const radioIdRef = useRef<string | null>(null);
+  const initAttemptedRef = useRef(false);
   const actionsRef = useRef(playback?.actions);
   actionsRef.current = playback?.actions;
 
@@ -184,6 +187,49 @@ export function RadioBackgroundSync() {
     document.addEventListener('visibilitychange', onVisible);
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [shouldSync, syncCurrentTrack]);
+
+  // Populate the persistent now-playing bar with the current live track for
+  // everyone — including logged-out visitors on marketing pages — so the radio
+  // is one tap away from anywhere. Loads without autoplay (browsers require a
+  // user gesture); the play button in the bar starts audio. The full /listen
+  // RadioPlayer manages its own loading, so skip there.
+  useEffect(() => {
+    if (initAttemptedRef.current) return;
+    if (radioPlayerUiActive) return;
+    // Don't clobber a non-radio source (e.g. discography) or an existing track.
+    if (state?.track || (state?.source && state.source !== 'radio')) return;
+
+    initAttemptedRef.current = true;
+    let cancelled = false;
+    void (async () => {
+      const stationId = getLastRadioStationId() || DEFAULT_STATION_ID;
+      try {
+        const response = await radioApi.getCurrentTrack(stationId);
+        if (cancelled) return;
+        const trackData = response.data as Record<string, unknown>;
+        if (trackData?.no_content || !trackData?.id) {
+          initAttemptedRef.current = false;
+          return;
+        }
+        const track = trackFromPayload(trackData, stationId);
+        const actions = actionsRef.current;
+        if (track && actions) {
+          actions.loadTrack(
+            track,
+            'radio',
+            false,
+            Number(trackData.position_seconds) || null,
+          );
+        }
+      } catch {
+        // Allow a retry on a later render if the first attempt failed.
+        initAttemptedRef.current = false;
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [radioPlayerUiActive, state?.track, state?.source]);
 
   useEffect(() => {
     if (!shouldSync || !radioId) return;
