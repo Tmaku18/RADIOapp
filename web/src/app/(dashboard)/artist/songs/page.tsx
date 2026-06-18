@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
+import { usePlayback } from '@/components/playback';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -158,9 +159,11 @@ function getStatusVariant(status: string): 'default' | 'secondary' | 'destructiv
 
 export default function MySongsPage() {
   const router = useRouter();
+  const { actions } = usePlayback();
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null);
   const [refineryToggling, setRefineryToggling] = useState<string | null>(null);
   const [refinerySubmitSong, setRefinerySubmitSong] = useState<Song | null>(null);
   const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
@@ -295,6 +298,39 @@ export default function MySongsPage() {
       setError('Failed to update song visibility');
     } finally {
       setVisibilityToggling(null);
+    }
+  };
+
+  // Play the owner's own full track. The backend entitles the uploader, so the
+  // stream endpoint returns a signed full-length URL (not the 30s sample).
+  const playFull = async (song: Song) => {
+    if (playingSongId) return;
+    setPlayingSongId(song.id);
+    setError(null);
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) {
+        setError('Could not play this song.');
+        return;
+      }
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: song.title,
+          artistName: song.artistName,
+          artistId: '',
+          artworkUrl: song.artworkUrl ?? null,
+          audioUrl: url,
+          durationSeconds: song.durationSeconds ?? 0,
+        },
+        'discography',
+      );
+      await actions.play();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not play this song.'));
+    } finally {
+      setPlayingSongId(null);
     }
   };
 
@@ -615,11 +651,29 @@ export default function MySongsPage() {
                   <TableRow key={song.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
-                        <ArtworkImage
-                          src={song.artworkUrl}
-                          alt={song.title}
-                          className="h-10 w-10 rounded-lg object-cover flex-shrink-0"
-                        />
+                        <div className="group relative h-10 w-10 flex-shrink-0">
+                          <ArtworkImage
+                            src={song.artworkUrl}
+                            alt={song.title}
+                            className="h-10 w-10 rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void playFull(song)}
+                            disabled={!song.audioUrl || playingSongId === song.id}
+                            className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/55 text-white opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-0"
+                            aria-label={`Play ${song.title} in full`}
+                            title="Play full song"
+                          >
+                            {playingSongId === song.id ? (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                            ) : (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
                         <div className="min-w-0">
                           <div className="text-sm font-medium text-foreground truncate">
                             {song.title}
