@@ -350,10 +350,15 @@ class _PlayerScreenState extends State<PlayerScreen>
       await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
     }
     await _applyMainVolumeForTrack(track);
-    if (!AudioPlayerService.handler.userPaused) {
-      await _audioPlayer.play();
-    } else {
+    if (AudioPlayerService.handler.userPaused) {
+      // Muted: keep the stream live & advancing (silent) so this device stays
+      // synced with everyone else. Don't start if admin transport is paused.
       await _audioPlayer.setVolume(0);
+      if (!_globalTransportPaused) {
+        await _audioPlayer.play();
+      }
+    } else {
+      await _audioPlayer.play();
     }
     if (reportPlay) {
       await _radioService.reportPlay(track.id, radioId: _radioId);
@@ -738,7 +743,10 @@ class _PlayerScreenState extends State<PlayerScreen>
   Future<void> _presenceTick() async {
     if (!mounted || _presenceTickInFlight) return;
     final track = _currentTrack;
-    if (!_isPlaying || track == null || track.id.isEmpty) return;
+    // A muted listener is still tuned in (the stream stays live), so keep
+    // counting them — mirror the web behavior.
+    final isTunedIn = _isPlaying || AudioPlayerService.handler.userPaused;
+    if (!isTunedIn || track == null || track.id.isEmpty) return;
 
     _presenceTickInFlight = true;
     try {

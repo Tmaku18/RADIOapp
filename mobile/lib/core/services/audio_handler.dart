@@ -172,13 +172,16 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   // --- Media notification controls delegate to the music player ---
 
-  /// Pause and mute all playback (music + DJ voice). Used when pause() alone
-  /// does not stop live/HLS sources audibly.
+  /// "Pause" the radio = stay live but mute. The music stream keeps playing and
+  /// advancing on the live server timeline (so every device stays in sync); we
+  /// only silence the output. Unmuting rejoins instantly with no catch-up. The
+  /// DJ voice overlay is paused+muted since it shouldn't accumulate while muted.
   Future<void> setUserPaused(bool paused) async {
     _userPaused = paused;
     userPausedNotifier.value = paused;
     if (paused) {
-      await music.pause();
+      // Do NOT pause the music — keep it playing silently so it never drifts
+      // off the live position.
       await music.setVolume(0);
       try {
         await voice.pause();
