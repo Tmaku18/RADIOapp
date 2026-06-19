@@ -1,0 +1,183 @@
+{
+  "theme": "Dark",
+  "archetype": "7 (Electric & Neon)",
+  "colors": {
+    "background": {
+      "base": "#050505",
+      "surface": "#0a0a0c",
+      "glass": "rgba(10, 10, 12, 0.6)"
+    },
+    "text": {
+      "primary": "#ffffff",
+      "secondary": "#a0a0ab",
+      "muted": "#5e5e66"
+    },
+    "accents": {
+      "primary": "#00F0FF",
+      "secondary": "#FF007F",
+      "tertiary": "#F4D03F"
+    },
+    "border": {
+      "default": "rgba(255, 255, 255, 0.1)",
+      "neon_glow": "rgba(0, 240, 255, 0.5)"
+    }
+  },
+  "typography": {
+    "headings": {
+      "fontFamily": "'Unbounded', sans-serif",
+      "weights": [700, 900],
+      "letterSpacing": "tracking-tighter",
+      "textTransform": "uppercase"
+    },
+    "body": {
+      "fontFamily": "'Outfit', sans-serif",
+      "weights": [300, 400, 500],
+      "letterSpacing": "tracking-normal"
+    },
+    "mono_labels": {
+      "fontFamily": "'JetBrains Mono', monospace",
+      "weights": [400, 700],
+      "letterSpacing": "tracking-[0.2em]",
+      "textTransform": "uppercase"
+    }
+  },
+  "spacing_and_layout": {
+    "philosophy": "Generous Spacing with Bento Grids and The Control Room strategy for Player",
+    "bento_grid": "MODE A: THE TETRIS GRID for Home and About. MODE B: THE CONTROL ROOM GRID for Player and Shows.",
+    "container_padding": "p-8 md:p-12 lg:p-24",
+    "gap": "gap-8 lg:gap-12"
+  },
+  "surfaces_and_effects": {
+    "glassmorphism": {
+      "background": "bg-black/60",
+      "blur": "backdrop-blur-2xl",
+      "border": "border border-white/10",
+      "shadow": "shadow-[0_8px_32px_rgba(0,240,255,0.05)]",
+      "saturate": "backdrop-saturate-150"
+    },
+    "neon_glow": {
+      "box_shadow": "drop-shadow-[0_0_15px_rgba(0,240,255,0.5)]",
+      "text_shadow": "drop-shadow-[0_0_10px_rgba(255,0,127,0.8)]"
+    },
+    "tracing_beam": "Dynamic border with neon cyan gradient moving around critical cards like 'Trending Now'."
+  },
+  "components": {
+    "hero": {
+      "type": "Custom HTML/Tailwind + R3F",
+      "description": "Hero with full-screen 3D canvas overlaying dark void. `<Float>`ing Butterfly DNA Helix using React Three Fiber. Massive `<h1 className=\"text-5xl md:text-6xl+ font-black tracking-tighter\">`."
+    },
+    "radio_player": {
+      "type": "Shadcn UI (Customized)",
+      "description": "Fixed bottom Glassmorphism bar. Custom sliders for volume/timeline using neon cyan track. Fake visualizer with audio-reactive bars. Use Lucide icons for play/pause/skip."
+    },
+    "cards": {
+      "type": "Glassmorphic Bento Cells",
+      "description": "Hover effects: `-translate-y-2`, `shadow-[0_10px_40px_rgba(0,240,255,0.2)]`, border turns to `border-cyan-500/50`. Used for 'Gems', 'Prospectors'."
+    },
+    "buttons": {
+      "type": "Terminal/Retro-Future",
+      "description": "Solid black bg, neon cyan border `border-cyan-500`, neon text. Hover: add inner glow or invert to cyan bg with black text."
+    }
+  },
+  "pages_and_sections": {
+    "home": [
+      {
+        "id": "hero",
+        "name": "The Wake",
+        "description": "3D Canvas Hero, Butterfly DNA Helix, call to action 'Mine the Frequency'."
+      },
+      {
+        "id": "trending",
+        "name": "Gems & Diamonds",
+        "description": "Bento Grid of trending songs. Each song shows 'temperature' %, 'ears' (listens), and 'likes'. Uses tracing beam effect."
+      },
+      {
+        "id": "metamorphosis",
+        "name": "Metamorphosis",
+        "description": "Transformation/Ripples thematic block with scroll-triggered text reveal."
+      }
+    ],
+    "radio": [
+      {
+        "id": "live-player",
+        "name": "The Refinery",
+        "description": "Audio player UI, visualizer, tracklist. High density 'Control Room' grid."
+      }
+    ],
+    "shows": [
+      {
+        "id": "artists",
+        "name": "Catalysts",
+        "description": "Floating 3D album art cards and DJ avatars using Drei's PresentationControls."
+      }
+    ],
+    "schedule": [
+      {
+        "id": "schedule",
+        "name": "Mining Timeline",
+        "description": "List of upcoming shows with neon timeline indicators."
+      }
+    ],
+    "about": [
+      {
+        "id": "lore",
+        "name": "Butterfly Effect",
+        "description": "Lore and mission, heavy text with JetBrains Mono accents, glitch text effects."
+      }
+    ],
+    "contact": [
+      {
+        "id": "contact",
+        "name": "Transmit",
+        "description": "Cyberpunk terminal-style form."
+      }
+    ]
+  },
+  "motion_and_3d": {
+    "libraries": [
+      "react-three-fiber",
+      "@react-three/drei",
+      "three",
+      "framer-motion",
+      "lenis",
+      "lucide-react"
+    ],
+    "3d_guidelines": {
+      "hero_object": "Use `<Float>` and `<PresentationControls>` for rotating Butterfly/DNA Waveform.",
+      "background": "Use `<Points>` or `<Instances>` for floating particles (The Yield). Optional neon grid floor via Three.js GridHelper.",
+      "lighting": "Use dark ambient light, `<SpotLight>` with neon pink (#FF007F) and cyan (#00F0FF) pointing at the hero object.",
+      "cards": "Use Framer Motion 3D or R3F HTML to render floating 3D album art that tilts on mousemove (Parallax)."
+    },
+    "ui_animations": {
+      "scroll": "Lenis for smooth momentum scrolling.",
+      "page_transition": "Framer Motion fade and scale.",
+      "glitch": "CSS keyframes for glitch effects on headings.",
+      "hover": "All interactive elements MUST have transition effects. Explicit hover text colors."
+    }
+  },
+  "media": {
+    "image_urls": [
+      {
+        "url": "https://images.pexels.com/photos/18569238/pexels-photo-18569238.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Cyberpunk DJ neon lights",
+        "category": "hero_background"
+      },
+      {
+        "url": "https://images.pexels.com/photos/28494632/pexels-photo-28494632.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Vibrant 3D abstract glowing geometric",
+        "category": "abstract_3d"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1765539160785-e7953620488f?crop=entropy&cs=srgb&fm=jpg&q=85",
+        "description": "Music producer in dark studio",
+        "category": "dj_avatar"
+      },
+      {
+        "url": "https://images.pexels.com/photos/29450016/pexels-photo-29450016.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Digital artwork luminous 3D geometric shapes",
+        "category": "album_art_placeholder"
+      }
+    ]
+  },
+  "instructions_to_main_agent": "Implement dark mode cyberpunk theme. Use .js/.jsx extensions ONLY. Ensure all interactive elements have data-testid attributes using kebab-case role-based names (e.g., data-testid='play-radio-button'). Implement 3D elements using @react-three/fiber and @react-three/drei. Do not use Inter or Roboto fonts. Stick to Unbounded, Outfit, and JetBrains Mono. Use framer-motion for UI interactions. Use lucide-react for icons. Apply glassmorphism on top of the 3D canvas so the 3D scene acts as the background."
+}
