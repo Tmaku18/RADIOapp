@@ -1,0 +1,34 @@
+{
+  "summary": "Frontend regression after RadioPlayer/hero overlap fix. 13/14 functional checks pass. Hero CTA is now clickable (elementFromPoint = hero-mine-frequency-btn anchor, no interception). Navigation, artists (12), schedule (7 rows/7 remind), about (Butterfly heading + 3 pillar cards rendering), contact form submit (button text -> 'TRANSMITTED \u2713'), bottom RadioPlayer play/next/prev/volume all work. Zero uncaught JS pageerrors across all 6 pages. FloatingAlbum & HeroScene canvases mount.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Radio page queue selection vs global player",
+        "issue": "Clicking queue-item-2 (or any queue-item-*) updates RadioPage's local state (NOW PLAYING in 3D overlay updates), but does NOT update the bottom RadioPlayer's player-song-title. RadioPage and RadioPlayer maintain independent useState idx; there is no shared state/context. Spec expected player-song-title to update.",
+        "affected_selectors": ["[data-testid='queue-item-2']", "[data-testid='player-song-title']"]
+      }
+    ],
+    "design_issues": [
+      {"screen": "AboutPage", "issues": ["3 pillar cards render correctly via glossary.map but lack data-testid (e.g., pillar-0/1/2). Testability gap, not a visual bug."]}
+    ]
+  },
+  "test_report_links": ["/app/test_reports/iteration_2.json"],
+  "action_items": [
+    "Lift idx state out of RadioPage into a shared context (e.g., PlayerContext) or move queue rendering into RadioPlayer so queue-item-* clicks update player-song-title in the bottom player (currently they are decoupled).",
+    "Add data-testid=\"pillar-{i}\" or about-pillar-{i} to the 3 cards in /app/frontend/src/pages/AboutPage.jsx (line 35 div) for testability."
+  ],
+  "critical_code_review_comments": [
+    "RadioPage.jsx and RadioPlayer.jsx both own a 'current song' useState (idx). This duplication is the root cause of the queue->player sync gap. Use a single source of truth (Context or a Zustand/Jotai atom).",
+    "Several mappable lists in AboutPage and parts of RadioPage lack data-testids on iterated items, hindering automated regression. Consistent testid pattern (already present in ArtistsPage, SchedulePage, RadioPage queue) should be applied everywhere.",
+    "RadioPlayer FixedBottom: 'glass-strong' overlay had previously intercepted hero CTA. Current fix (main pb-28 + hero min-h-[calc(100vh-7rem)]) works; consider also adding pointer-events guard / z-index documentation to avoid regressions."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "skipped", "frontend": "92% (13/14 functional assertions)"},
+  "seed_data_creation": "none - all data is local mock from /app/frontend/src/data/mockData.js",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Hero CTA overlap is FIXED and verified (elementFromPoint returns the anchor itself). Remaining open bug: queue-item-* click on /radio does not update bottom RadioPlayer's player-song-title because RadioPage and RadioPlayer have independent useState. After main agent introduces shared state (context/store), retest: navigate to /radio, read initial player-song-title, click queue-item-2, assert player-song-title changed and equals trendingSongs[2].title. All other spec items already pass.",
+  "rca of the issue": "RadioPage.jsx (line 8: const [idx, setIdx] = useState(0)) and RadioPlayer.jsx (line 7: const [idx, setIdx] = useState(0)) each maintain their own idx. Queue button onClick only calls RadioPage's setIdx, so RadioPlayer never re-renders with new song. Mitigation: create PlayerContext at App.js level wrapping Layout, expose {idx,setIdx,playing,setPlaying,volume,setVolume}, consume in both RadioPage and RadioPlayer."
+}

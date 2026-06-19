@@ -10,7 +10,7 @@ export default function Home() {
   return (
     <div className="relative" data-testid="home-page">
       {/* HERO */}
-      <section className="relative min-h-screen flex items-center overflow-hidden">
+      <section className="relative min-h-[calc(100vh-7rem)] flex items-center overflow-hidden">
         <div className="absolute inset-0">
           <Suspense fallback={<div className="absolute inset-0 bg-black" />}>
             <HeroScene />

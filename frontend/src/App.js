@@ -23,7 +23,7 @@ function Layout({ children }) {
         <div className="absolute bottom-0 left-1/3 w-[500px] h-[500px] rounded-full bg-yellow-500/5 blur-[120px]" />
       </div>
       <Nav />
-      <main className="relative z-10">{children}</main>
+      <main className="relative z-10 pb-28">{children}</main>
       <Footer />
       <RadioPlayer />
     </div>
