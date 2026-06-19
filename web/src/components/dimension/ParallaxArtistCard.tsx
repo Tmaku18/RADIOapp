@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Headphones, Heart } from 'lucide-react';
 import type { TrendingArtist } from '@/components/marketing/TrendingShowcase';
+import { useArtistProfileHref } from '@/hooks/useArtistProfileHref';
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -19,6 +20,7 @@ export function ParallaxArtistCard({
   artist: TrendingArtist;
   index: number;
 }) {
+  const profileHref = useArtistProfileHref(artist.id);
   const ref = useRef<HTMLDivElement>(null);
   const mx = useMotionValue(0.5);
   const my = useMotionValue(0.5);
@@ -51,7 +53,7 @@ export function ParallaxArtistCard({
   };
 
   return (
-    <Link href={`/artists/${artist.id}`} className="shrink-0">
+    <Link href={profileHref} className="shrink-0">
       <motion.div
         ref={ref}
         data-testid={`catalyst-card-${index}`}

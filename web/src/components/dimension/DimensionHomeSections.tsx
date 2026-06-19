@@ -8,6 +8,8 @@ import { Reveal } from './Reveal';
 import { DimensionSongCard } from './DimensionSongCard';
 import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
 import type { TrendingData } from '@/components/marketing/TrendingShowcase';
+import { useAuth } from '@/contexts/AuthContext';
+import { resolveArtistProfileHref } from '@/lib/artist-links';
 
 type HomeStats = {
   totalUsers: number;
@@ -30,6 +32,7 @@ export function DimensionHomeSections({
   stats: HomeStats;
   trending: TrendingData;
 }) {
+  const { profile } = useAuth();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
@@ -224,7 +227,7 @@ export function DimensionHomeSections({
             {[...trending.artists, ...trending.artists].map((a, i) => (
               <Link
                 key={`${a.id}-${i}`}
-                href="/pro-directory"
+                href={resolveArtistProfileHref(a.id, !!profile)}
                 className="tilt shrink-0 w-56 rounded-xl glass p-4 flex items-center gap-3"
               >
                 <div className="w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-cyan-400/20 to-pink-500/20 border border-white/10 flex items-center justify-center shrink-0">
