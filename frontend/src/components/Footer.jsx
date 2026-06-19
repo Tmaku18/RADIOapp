@@ -9,8 +9,8 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-6 lg:px-10 py-14 pb-28 grid grid-cols-2 md:grid-cols-4 gap-8">
         <div className="col-span-2">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 glow-cyan">
-              <Radio className="w-4 h-4 text-cyan-300" />
+            <div className="w-9 h-9 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 glow-cyan overflow-hidden p-1">
+              <img src="/brand/networx-logo.png" alt="Networx" className="w-full h-full object-contain" />
             </div>
             <div className="font-unbounded font-black tracking-tighter text-xl">NETWORX</div>
           </div>

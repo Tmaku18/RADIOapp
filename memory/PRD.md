@@ -66,3 +66,14 @@
 - **Scroll-locked Metamorphosis story** on `/about` — pinned 400vh section. 3D `MetamorphosisScene` (react-three-fiber) morphs through 4 stages driven by scroll progress: Caterpillar (5 segmented spheres) → Cocoon (pink ellipsoid pulse) → Butterfly (cyan + pink extruded wings flapping) → Diamond (octahedron crystallizing). Crossfaded text panels (GEM / RIPPLE / WINGS / DIAMOND) sync to each stage with neon stage-progress rail.
 - **Sticky-positioning fix**: removed `overflow-x-hidden` from Layout; replaced with `overflow-x: clip` on html/body so ancestors don't break `position: sticky`. `useTransform` for x uses numeric pixels (computed via `rail.scrollWidth - window.innerWidth` in useEffect) — the prior `calc()` string interpolation didn't work.
 - **Tested (iteration_4.json): 100% pass** — 13/13 spec checks. Zero JS/React errors. Rail transform verified: matrix translate -134px at scroll=500 → -2887px at scroll=3500. Stage panel opacities: [1,0,0,0] at top → [0,1,0,0] at scroll=1500 → panel-3 emerging at deep scroll. Bottom RadioPlayer + queue sync regression-clean. Subsequently tightened panel-opacity keyframes to eliminate the minor text-overlap during stage-2↔stage-3 crossfade.
+
+## Update — 2026-01-19 (Logo-Matched Butterfly Hero)
+- Replaced the torus-knot helix with a **procedurally-built cyan Networx butterfly** that matches the user-provided logo:
+  - 28 emissive audio-bar columns per wing (upper + lower halves), each bobbing with its own sine phase
+  - Two prominent cyan tube arches per wing (top + bottom) built from CubicBezierCurve3
+  - Cyan capsule body + tiny head sphere
+  - **Wings flap** by hinging each wing group around the body axis (sin(t*4.4))
+  - **Cyan particle dust** (600 additive points) drifting upward and respawning
+  - **Music notes** ♪♫♬♩ as canvas-textured sprites, floating up + side-to-side, fading in/out
+  - Butterfly translated to right side of hero so it doesn't overlap headline text
+- Brand logo image saved to `/app/frontend/public/brand/networx-logo.png` — now used in Nav (with "THE BUTTERFLY EFFECT" tagline) and Footer.

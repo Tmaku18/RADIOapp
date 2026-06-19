@@ -22,15 +22,19 @@ export default function Nav() {
             data-testid="nav-logo"
             className="flex items-center gap-3 group"
           >
-            <div className="w-9 h-9 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 glow-cyan">
-              <Radio className="w-5 h-5 text-cyan-300" />
+            <div className="w-10 h-10 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 glow-cyan overflow-hidden p-1">
+              <img
+                src="/brand/networx-logo.png"
+                alt="Networx"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div className="leading-none">
               <div className="font-unbounded font-black tracking-tighter text-lg">
                 NETWORX
               </div>
               <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300/80">
-                UNDERGROUND.RADIO
+                THE BUTTERFLY EFFECT
               </div>
             </div>
           </Link>
