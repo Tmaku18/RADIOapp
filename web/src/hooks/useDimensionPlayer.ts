@@ -63,10 +63,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     : '/listen';
 
   useEffect(() => {
-    if (state?.source && state.source !== 'radio') {
-      setTemperature(null);
-      return;
-    }
+    if (state?.source && state.source !== 'radio') return;
     let cancelled = false;
     const refreshTemperature = async () => {
       try {
@@ -129,6 +126,9 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     [actions, duration, state?.source],
   );
 
+  const displayTemperature =
+    state?.source && state.source !== 'radio' ? null : temperature;
+
   return useMemo(
     (): DimensionPlayerModel => ({
       title: track?.title ?? 'Radio',
@@ -143,7 +143,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
       elapsedLabel: formatTime(currentTime),
       totalLabel: duration > 0 ? formatTime(duration) : '—',
       volume: Math.round((state?.volume ?? 1) * 100),
-      temperature,
+      temperature: displayTemperature,
       canTransport: !!actions && (!!track || !!state?.source),
       canSkip,
       togglePlay,
@@ -163,7 +163,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
       duration,
       state?.volume,
       state?.source,
-      temperature,
+      displayTemperature,
       actions,
       canSkip,
       togglePlay,
