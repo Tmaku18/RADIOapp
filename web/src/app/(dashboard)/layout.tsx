@@ -373,9 +373,11 @@ export default function DashboardLayout({
   return (
     <div
       data-brand={brandMode}
-      className={isListenPage ? 'h-svh overflow-hidden' : 'min-h-screen'}
+      data-dimension
+      className={isListenPage ? 'h-svh overflow-hidden relative' : 'min-h-screen relative'}
     >
-      <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden' : undefined}>
+      <div className="pointer-events-none fixed inset-0 z-0 cyber-grid opacity-[0.04]" aria-hidden />
+      <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden relative z-10' : 'relative z-10'}>
         <AutoCollapseSidebarOnNavigate />
         <Sidebar>
         <SidebarHeader>
@@ -586,7 +588,7 @@ export default function DashboardLayout({
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border px-4 md:px-8 bg-card">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">

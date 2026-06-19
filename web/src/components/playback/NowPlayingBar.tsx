@@ -132,19 +132,17 @@ export function NowPlayingBar() {
       )}
       <footer
         className={cn(
-          'group fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/80',
+          'group fixed bottom-0 left-0 right-0 z-50 border-t border-cyan-400/20 glass-strong',
           'transition-transform duration-300 ease-out',
-          // When a track is loaded, keep the bar fully visible (it sits in the
-          // BAR_HEIGHT of bottom padding the layout reserves, so it never covers
-          // page content/buttons). When empty, tuck it away to a thin strip that
-          // reveals on hover/focus so it doesn't clutter the page.
           hasTrack || showExpandedPlayer
             ? 'translate-y-0'
             : 'translate-y-[calc(100%-10px)] hover:translate-y-0 focus-within:translate-y-0',
         )}
         style={{ height: BAR_HEIGHT }}
         aria-label="Now playing"
+        data-dimension
       >
+        <div className="neon-line absolute top-0 left-0 right-0" aria-hidden />
         {/* Hover handle shown when the bar is tucked away. */}
         <div
           aria-hidden
@@ -173,10 +171,10 @@ export function NowPlayingBar() {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-medium truncate text-sm text-foreground">
+            <p className="font-unbounded font-medium truncate text-sm text-white">
               {track?.title ?? 'Radio'}
             </p>
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-white/60 truncate font-dim-mono">
               {artistOriginLabel
                 ? `${track?.artistName ?? 'Unknown artist'} • ${artistOriginLabel}`
                 : track?.artistName ?? 'Tap to open player'}

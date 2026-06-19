@@ -8,8 +8,8 @@ import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { RadioPlayer } from '@/components/radio/RadioPlayer';
 import ChatSidebar from '@/components/chat/ChatSidebar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
+import { RefineryHero } from '@/components/dimension/RefineryHero';
 import { DEFAULT_STATION_ID, getStationById } from '@/data/station-map';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -85,17 +85,17 @@ export default function ListenPage() {
   }, []);
 
   return (
-    <div className="relative flex h-full min-h-0 overflow-hidden">
+    <div className="relative flex h-full min-h-0 overflow-hidden" data-dimension>
       <ButterflyPulseOverlay active={pulseActive} />
       <div className="flex-1 min-h-0 overflow-hidden p-2 sm:p-3 lg:p-4 [overflow-anchor:none]">
         <div className="h-full flex flex-col items-center">
-        <div className="max-w-xl w-full h-full min-h-0 flex flex-col overscroll-contain pr-1 [overflow-anchor:none]">
+        <div className="max-w-5xl w-full h-full min-h-0 flex flex-col overscroll-contain pr-1 [overflow-anchor:none]">
           {currentStation && (
-            <div className="mb-1 flex items-center justify-between gap-2 shrink-0">
-              <p className="text-sm text-muted-foreground">
+            <div className="mb-2 flex items-center justify-between gap-2 shrink-0">
+              <p className="text-sm text-white/60 font-dim-mono text-[11px] tracking-wider uppercase">
                 {currentStation.genre}
               </p>
-              <Button variant="ghost" size="sm" asChild>
+              <Button variant="ghost" size="sm" asChild className="text-cyan-300 hover:text-white">
                 <Link href={`/discover?tab=station&station=${encodeURIComponent(switcherStationId)}`}>
                   Change station
                 </Link>
@@ -103,27 +103,23 @@ export default function ListenPage() {
             </div>
           )}
           {risingStar && (
-            <div className="mb-1 rounded-xl border border-primary/30 bg-primary/10 px-3 py-1.5 shrink-0">
-              <div className="text-xs uppercase tracking-widest text-primary/90">Butterfly Ripple</div>
-              <div className="text-sm font-semibold text-foreground mt-0.5">{risingStar.title}</div>
-              <div className="text-sm text-muted-foreground mt-0.5">{risingStar.body}</div>
+            <div className="mb-2 rounded-xl glass border border-cyan-400/30 px-3 py-2 shrink-0">
+              <div className="text-xs uppercase tracking-widest text-cyan-300 font-dim-mono">Butterfly Ripple</div>
+              <div className="text-sm font-semibold text-white mt-0.5">{risingStar.title}</div>
+              <div className="text-sm text-white/60 mt-0.5">{risingStar.body}</div>
             </div>
           )}
-          <div className="text-center mb-1 shrink-0">
-            <h1 className="text-base sm:text-lg font-bold text-foreground">Now Playing</h1>
-          </div>
 
-          <div className="relative flex-1 min-h-0 w-full flex items-start justify-center">
-            <div className="listener-glow absolute -inset-10 blur-3xl opacity-80 pointer-events-none" />
-            <Card className="relative now-playing-deck w-full max-h-full overflow-hidden py-0 gap-0">
-              <CardContent className="flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
+          <div className="relative flex-1 min-h-0 w-full overflow-y-auto">
+            <RefineryHero>
+              <div className="rounded-2xl glass p-2 sm:p-3">
                 <RadioPlayer
                   radioId={resolvedStationId}
                   autoplay={autoplay}
-                  cardClassName="py-0 gap-2"
+                  cardClassName="py-0 gap-2 border-0 bg-transparent shadow-none"
                 />
-              </CardContent>
-            </Card>
+              </div>
+            </RefineryHero>
           </div>
 
           <div className="mt-2 text-center lg:hidden shrink-0">

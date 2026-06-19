@@ -76,6 +76,9 @@ export default function MarketingLayout({
                   <Link href="/pricing">Pricing</Link>
                 </Button>
                 <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                  <Link href="/artists">Artists</Link>
+                </Button>
+                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
                   <Link href="/about">About</Link>
                 </Button>
                 <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
