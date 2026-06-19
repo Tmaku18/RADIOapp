@@ -60,3 +60,9 @@
   - About: glitch hero (split spans) + lore + 3 pillars
   - Contact: hero + form + 3 side info cards
 - Tested (iteration_3.json): 100% pass — 0 React/JS errors, all reveals fire correctly, queue↔player sync, contact submit, all flows intact.
+
+## Update — 2026-01-19 (Cinematic Pass 2: Horizontal Gallery + Metamorphosis Story)
+- **Horizontal-scroll Catalysts gallery** on `/artists` — pinned 420vh section, vertical scroll drives horizontal translate of a 12-card rail. Each `ParallaxArtistCard` uses mouse-tracked `useMotionValue` + `useSpring` for 3D tilt (rotateX/Y on perspective: 900px) with twin radial-shine highlights (cyan + pink) that follow the cursor. Progress meter at the bottom + "End of Frequency" cap card.
+- **Scroll-locked Metamorphosis story** on `/about` — pinned 400vh section. 3D `MetamorphosisScene` (react-three-fiber) morphs through 4 stages driven by scroll progress: Caterpillar (5 segmented spheres) → Cocoon (pink ellipsoid pulse) → Butterfly (cyan + pink extruded wings flapping) → Diamond (octahedron crystallizing). Crossfaded text panels (GEM / RIPPLE / WINGS / DIAMOND) sync to each stage with neon stage-progress rail.
+- **Sticky-positioning fix**: removed `overflow-x-hidden` from Layout; replaced with `overflow-x: clip` on html/body so ancestors don't break `position: sticky`. `useTransform` for x uses numeric pixels (computed via `rail.scrollWidth - window.innerWidth` in useEffect) — the prior `calc()` string interpolation didn't work.
+- **Tested (iteration_4.json): 100% pass** — 13/13 spec checks. Zero JS/React errors. Rail transform verified: matrix translate -134px at scroll=500 → -2887px at scroll=3500. Stage panel opacities: [1,0,0,0] at top → [0,1,0,0] at scroll=1500 → panel-3 emerging at deep scroll. Bottom RadioPlayer + queue sync regression-clean. Subsequently tightened panel-opacity keyframes to eliminate the minor text-overlap during stage-2↔stage-3 crossfade.

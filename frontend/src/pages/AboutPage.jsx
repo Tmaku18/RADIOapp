@@ -49,12 +49,11 @@ export default function AboutPage() {
     return () => unsub();
   }, [scrollYProgress]);
 
-  // Stage opacities for the 4 panels — bell curves around 0.125, 0.375, 0.625, 0.875
-  // Unrolled to satisfy react-hooks rules (no hooks inside .map)
-  const op0 = useTransform(scrollYProgress, [0.0, 0.05, 0.18, 0.27], [1, 1, 1, 0]);
-  const op1 = useTransform(scrollYProgress, [0.18, 0.3, 0.42, 0.55], [0, 1, 1, 0]);
-  const op2 = useTransform(scrollYProgress, [0.45, 0.57, 0.7, 0.82], [0, 1, 1, 0]);
-  const op3 = useTransform(scrollYProgress, [0.72, 0.85, 0.95, 1.0], [0, 1, 1, 1]);
+  // Stage opacities for the 4 panels — clean handoff, no two panels share visibility
+  const op0 = useTransform(scrollYProgress, [0.0, 0.05, 0.2, 0.27], [1, 1, 1, 0]);
+  const op1 = useTransform(scrollYProgress, [0.22, 0.32, 0.45, 0.52], [0, 1, 1, 0]);
+  const op2 = useTransform(scrollYProgress, [0.47, 0.57, 0.7, 0.77], [0, 1, 1, 0]);
+  const op3 = useTransform(scrollYProgress, [0.72, 0.82, 0.95, 1.0], [0, 1, 1, 1]);
   const panelOpacities = [op0, op1, op2, op3];
 
   const y0 = useTransform(scrollYProgress, [0, 0.125, 0.25], [40, 0, -40]);
