@@ -28,13 +28,13 @@ export default function MarketingLayout({
   return (
     <div
       data-dimension
-      className="relative min-h-screen flex flex-col bg-[#050505] text-white font-outfit overflow-x-clip"
+      className="relative min-h-screen flex flex-col bg-[var(--dim-bg-base)] text-[var(--dim-text-primary)] font-outfit overflow-x-clip"
     >
       <SmoothScroll />
       <CyberBackdrop />
 
       {/* Navigation */}
-      <header className="relative z-20 border-b border-white/10 glass-strong">
+      <header className="relative z-20 border-b border-white/10 glass-strong dimension-chrome">
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-20">
             <Link href="/" className="flex items-center shrink-0 gap-3 self-stretch">
@@ -62,32 +62,32 @@ export default function MarketingLayout({
                   />
                 </>
               ) : null}
-              <span className="hidden lg:inline font-dim-mono text-[10px] tracking-[0.35em] text-cyan-300/90 uppercase whitespace-nowrap">
+              <span className="hidden lg:inline font-dim-mono text-[10px] tracking-[0.35em] text-cyan-300/90 dark:text-cyan-300/90 uppercase whitespace-nowrap">
                 THE BUTTERFLY EFFECT
               </span>
             </Link>
 
             <div className="flex items-center gap-2">
               <div className="hidden md:flex items-center space-x-1">
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/features">Features</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/pricing">Pricing</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/artists">Artists</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/about">About</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/faq">FAQ</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/pro-directory">Pro-Directory</Link>
                 </Button>
-                <Button variant="ghost" className="text-white/80 hover:text-cyan-300 hover:bg-white/5" asChild>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/contact">Contact</Link>
                 </Button>
               </div>
@@ -95,7 +95,7 @@ export default function MarketingLayout({
               <Button asChild className="bg-cyan-400 text-black font-dim-mono text-xs tracking-wider uppercase hover:bg-white glow-cyan">
                 <Link href="/signup">Sign Up/Login</Link>
               </Button>
-              <Button asChild variant="outline" className="border-white/20 text-white hover:border-pink-400 hover:text-pink-400 font-dim-mono text-xs tracking-wider uppercase">
+              <Button asChild variant="outline" className="dim-outline-btn font-dim-mono text-xs tracking-wider uppercase">
                 <a href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx`}>ProNetworx</a>
               </Button>
             </div>
@@ -107,7 +107,7 @@ export default function MarketingLayout({
       <main className="relative z-10 flex-1 pb-28">{children}</main>
 
       {/* Footer */}
-      <footer className="relative z-10 border-t border-white/10 glass-strong">
+      <footer className="relative z-10 border-t border-white/10 glass-strong dimension-chrome">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="space-y-4 min-w-0">

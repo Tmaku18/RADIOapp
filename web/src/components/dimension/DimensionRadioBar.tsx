@@ -53,7 +53,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="font-dim-mono text-[10px] tracking-[0.25em] text-white/40">
+                <span className="font-dim-mono text-[10px] tracking-[0.25em] dim-text-subtle">
                   NETWORX
                 </span>
               </div>
@@ -77,7 +77,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               onClick={player.seekPrev}
               disabled={!player.canSkip}
               data-testid="player-prev-btn"
-              className="text-white/70 hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="dim-text-muted hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
               aria-label={
                 player.canSkip
                   ? 'Seek back 10 seconds'
@@ -105,7 +105,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               onClick={player.seekNext}
               disabled={!player.canSkip}
               data-testid="player-next-btn"
-              className="text-white/70 hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              className="dim-text-muted hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
               aria-label={
                 player.canSkip
                   ? 'Seek forward 10 seconds'
@@ -128,12 +128,12 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             </div>
           </div>
           <div className="w-full max-w-2xl flex items-center gap-3">
-            <span className="font-dim-mono text-[10px] text-white/40 w-8 text-right shrink-0">
+            <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
               {player.elapsedLabel}
             </span>
             <button
               type="button"
-              className="relative flex-1 h-1 bg-white/10 rounded-full overflow-hidden"
+              className="relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden"
               onClick={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pct = ((e.clientX - rect.left) / rect.width) * 100;
@@ -146,7 +146,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 style={{ width: `${player.progress}%` }}
               />
             </button>
-            <span className="font-dim-mono text-[10px] text-white/40 w-8 shrink-0">
+            <span className="font-dim-mono text-[10px] dim-text-subtle w-8 shrink-0">
               {player.totalLabel}
             </span>
           </div>
@@ -155,7 +155,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
         <div className="hidden lg:flex items-center gap-4 w-72 justify-end shrink-0">
           <div className="flex items-center gap-2">
             <Radio className="w-4 h-4 text-cyan-300" />
-            <span className="font-dim-mono text-[10px] tracking-[0.2em] text-white/60">
+            <span className="font-dim-mono text-[10px] tracking-[0.2em] dim-text-muted">
               TEMP
             </span>
             <span className="font-unbounded font-black text-cyan-300 text-sm">
@@ -163,7 +163,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             </span>
           </div>
           <div className="flex items-center gap-2 w-32">
-            <Volume2 className="w-4 h-4 text-white/60 shrink-0" />
+            <Volume2 className="w-4 h-4 dim-text-muted shrink-0" />
             <input
               type="range"
               min="0"

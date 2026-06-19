@@ -588,7 +588,7 @@ export default function DashboardLayout({
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dim-text">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dimension-chrome dim-text">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">
