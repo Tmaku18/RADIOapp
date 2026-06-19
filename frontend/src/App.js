@@ -15,7 +15,7 @@ import ContactPage from "@/pages/ContactPage";
 
 function Layout({ children }) {
   return (
-    <div className="relative min-h-screen bg-black text-white overflow-x-hidden" data-testid="app-shell">
+    <div className="relative min-h-screen bg-black text-white" data-testid="app-shell">
       {/* Static cyber grid backdrop visible on all pages */}
       <div className="fixed inset-0 z-0 pointer-events-none">
         <div className="absolute inset-0 cyber-grid opacity-30" />
