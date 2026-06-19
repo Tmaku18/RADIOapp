@@ -4,6 +4,7 @@ import "@/App.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import RadioPlayer from "@/components/RadioPlayer";
+import { PlayerProvider } from "@/context/PlayerContext";
 import Home from "@/pages/Home";
 import RadioPage from "@/pages/RadioPage";
 import ArtistsPage from "@/pages/ArtistsPage";
@@ -32,17 +33,19 @@ function Layout({ children }) {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/radio" element={<RadioPage />} />
-          <Route path="/artists" element={<ArtistsPage />} />
-          <Route path="/schedule" element={<SchedulePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/contact" element={<ContactPage />} />
-        </Routes>
-      </Layout>
-    </BrowserRouter>
+    <PlayerProvider>
+      <BrowserRouter>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/radio" element={<RadioPage />} />
+            <Route path="/artists" element={<ArtistsPage />} />
+            <Route path="/schedule" element={<SchedulePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contact" element={<ContactPage />} />
+          </Routes>
+        </Layout>
+      </BrowserRouter>
+    </PlayerProvider>
   );
 }

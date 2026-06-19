@@ -1,13 +1,12 @@
-import React, { Suspense, lazy, useState } from "react";
+import React, { Suspense, lazy } from "react";
 import { Play, Pause, Headphones, Heart, Flame, Radio } from "lucide-react";
 import { trendingSongs, platformStats } from "@/data/mockData";
+import { usePlayer } from "@/context/PlayerContext";
 
 const FloatingAlbum = lazy(() => import("@/three/FloatingAlbum"));
 
 export default function RadioPage() {
-  const [idx, setIdx] = useState(0);
-  const [playing, setPlaying] = useState(false);
-  const song = trendingSongs[idx];
+  const { idx, setIdx, playing, setPlaying, song } = usePlayer();
 
   return (
     <div className="relative pt-28 pb-40 min-h-screen" data-testid="radio-page">

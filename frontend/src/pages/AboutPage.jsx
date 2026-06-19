@@ -32,7 +32,7 @@ export default function AboutPage() {
           {glossary.map((g, i) => {
             const color = g.color === "cyan" ? "cyan-300" : g.color === "pink" ? "pink-400" : "yellow-300";
             return (
-              <div key={g.group} className="rounded-2xl glass p-6 tracing-border">
+              <div key={g.group} data-testid={`about-pillar-${i}`} className="rounded-2xl glass p-6 tracing-border">
                 <div className={`font-mono text-[10px] tracking-[0.3em] text-${color} mb-3`}>
                   PILLAR {String(i + 1).padStart(2, "0")}
                 </div>
