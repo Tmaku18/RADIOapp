@@ -48,3 +48,15 @@
 - Scroll-triggered reveals (Framer Motion)
 - Audio-reactive visualizer using Web Audio API analyser when real audio is added
 - Custom cursor in 3D zones
+
+## Update — 2026-01-19 (Cinematic Pass)
+- Added **Lenis smooth scroll** (`/app/frontend/src/components/SmoothScroll.jsx`) mounted at App root; momentum scrolling with exponential easing.
+- Added **Reveal** component (`/app/frontend/src/components/Reveal.jsx`) — framer-motion `useInView` driven, animates `opacity + y + blur` on scroll-into-view; `once:true` so first reveal sticks.
+- Applied staggered Reveal across all 6 pages:
+  - Home: hero badge / each headline line / paragraph / CTAs / stats / section headers / 12 song cards (4-col stagger) / artists header / 3 glossary pillars / CTA
+  - Radio: hero + 3D album + control room + live stats + queue items
+  - Artists: 12 cards with 4-col stagger
+  - Schedule: 7 rows with sequential stagger
+  - About: glitch hero (split spans) + lore + 3 pillars
+  - Contact: hero + form + 3 side info cards
+- Tested (iteration_3.json): 100% pass — 0 React/JS errors, all reveals fire correctly, queue↔player sync, contact submit, all flows intact.
