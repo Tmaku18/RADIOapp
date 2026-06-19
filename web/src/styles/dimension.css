@@ -1,0 +1,239 @@
+/* =============================================================================
+   NETWORX Dimension — Emergent 3D cyber aesthetic (integrate branch)
+   Scoped utilities for marketing / listen chrome. Does not override dashboard tokens.
+   ============================================================================= */
+
+[data-dimension] {
+  --dim-bg-base: #050505;
+  --dim-bg-surface: #0a0a0c;
+  --dim-neon-cyan: #00f0ff;
+  --dim-neon-pink: #ff007f;
+  --dim-neon-yellow: #f4d03f;
+  --dim-text-primary: #ffffff;
+  --dim-text-secondary: #a0a0ab;
+  --dim-text-muted: #5e5e66;
+}
+
+[data-dimension] ::selection {
+  background: var(--dim-neon-cyan);
+  color: #000;
+}
+
+.font-unbounded {
+  font-family: var(--font-unbounded), "Unbounded", sans-serif;
+}
+
+.font-outfit {
+  font-family: var(--font-outfit), "Outfit", sans-serif;
+}
+
+.font-dim-mono {
+  font-family: var(--font-jetbrains-mono), "JetBrains Mono", monospace;
+}
+
+/* Glassmorphism */
+[data-dimension] .glass {
+  background: rgba(10, 10, 12, 0.55);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+[data-dimension] .glass-strong {
+  background: rgba(8, 8, 10, 0.8);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Neon glow */
+[data-dimension] .glow-cyan {
+  box-shadow:
+    0 0 20px rgba(0, 240, 255, 0.35),
+    0 0 60px rgba(0, 240, 255, 0.15);
+}
+
+[data-dimension] .glow-pink {
+  box-shadow:
+    0 0 20px rgba(255, 0, 127, 0.35),
+    0 0 60px rgba(255, 0, 127, 0.15);
+}
+
+[data-dimension] .text-glow-cyan {
+  text-shadow: 0 0 14px rgba(0, 240, 255, 0.7);
+}
+
+[data-dimension] .text-glow-pink {
+  text-shadow: 0 0 14px rgba(255, 0, 127, 0.8);
+}
+
+[data-dimension] .neon-line {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #00f0ff 30%, #ff007f 70%, transparent);
+  background-size: 200% 100%;
+  animation: dim-line-sweep 4s linear infinite;
+}
+
+@keyframes dim-line-sweep {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Glitch text */
+[data-dimension] .glitch {
+  position: relative;
+  display: inline-block;
+}
+
+[data-dimension] .glitch::before,
+[data-dimension] .glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.75;
+}
+
+[data-dimension] .glitch::before {
+  color: #00f0ff;
+  transform: translate(-2px, 0);
+  mix-blend-mode: screen;
+  animation: dim-glitch-anim 3.5s infinite linear alternate-reverse;
+}
+
+[data-dimension] .glitch::after {
+  color: #ff007f;
+  transform: translate(2px, 0);
+  mix-blend-mode: screen;
+  animation: dim-glitch-anim2 2.7s infinite linear alternate-reverse;
+}
+
+@keyframes dim-glitch-anim {
+  0%, 100% { clip-path: inset(0 0 85% 0); }
+  25% { clip-path: inset(45% 0 30% 0); }
+  50% { clip-path: inset(70% 0 10% 0); }
+  75% { clip-path: inset(15% 0 65% 0); }
+}
+
+@keyframes dim-glitch-anim2 {
+  0%, 100% { clip-path: inset(80% 0 5% 0); }
+  25% { clip-path: inset(30% 0 55% 0); }
+  50% { clip-path: inset(5% 0 80% 0); }
+  75% { clip-path: inset(55% 0 25% 0); }
+}
+
+/* Tracing beam border */
+[data-dimension] .tracing-border {
+  position: relative;
+  isolation: isolate;
+}
+
+[data-dimension] .tracing-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--angle, 0deg),
+    transparent 65%,
+    #00f0ff 80%,
+    #ff007f 95%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: dim-spin-border 6s linear infinite;
+  pointer-events: none;
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes dim-spin-border {
+  to { --angle: 360deg; }
+}
+
+[data-dimension] .scroll-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+[data-dimension] .scroll-x::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes dim-vbar {
+  0%, 100% { transform: scaleY(0.2); }
+  50% { transform: scaleY(1); }
+}
+
+[data-dimension] .vbar {
+  transform-origin: bottom;
+  animation: dim-vbar 0.9s ease-in-out infinite;
+}
+
+@keyframes dim-live-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255, 0, 127, 0.7); }
+  50% { box-shadow: 0 0 0 8px rgba(255, 0, 127, 0); }
+}
+
+[data-dimension] .live-dot {
+  animation: dim-live-pulse 1.8s ease-out infinite;
+}
+
+[data-dimension] .tilt {
+  transition:
+    transform 400ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 400ms;
+}
+
+[data-dimension] .tilt:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 12px 40px rgba(0, 240, 255, 0.18),
+    0 0 0 1px rgba(0, 240, 255, 0.35);
+}
+
+[data-dimension] .marquee {
+  display: flex;
+  width: max-content;
+  animation: dim-marquee 30s linear infinite;
+}
+
+@keyframes dim-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+[data-dimension] .cyber-grid {
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+  background-size: 56px 56px;
+}
+
+[data-dimension] .bg-gradient-radial-dim {
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.4) 50%, #000 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-dimension] .marquee,
+  [data-dimension] .neon-line,
+  [data-dimension] .glitch::before,
+  [data-dimension] .glitch::after,
+  [data-dimension] .tracing-border::before,
+  [data-dimension] .vbar,
+  [data-dimension] .live-dot {
+    animation: none;
+  }
+}

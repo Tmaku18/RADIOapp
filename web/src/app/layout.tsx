@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Inter, Space_Grotesk, Geist_Mono, Lora, Caveat } from 'next/font/google';
+import { Inter, Space_Grotesk, Geist_Mono, Lora, Caveat, Unbounded, Outfit, JetBrains_Mono } from 'next/font/google';
 import { ThemeProvider } from 'next-themes';
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import './globals.css';
@@ -40,6 +40,24 @@ const story = Caveat({
   variable: '--font-story',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+});
+
+const unbounded = Unbounded({
+  variable: '--font-unbounded',
+  subsets: ['latin'],
+  weight: ['400', '700', '800', '900'],
+});
+
+const outfit = Outfit({
+  variable: '--font-outfit',
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600', '700'],
+});
+
+const jetbrainsMono = JetBrains_Mono({
+  variable: '--font-jetbrains-mono',
+  subsets: ['latin'],
+  weight: ['400', '500', '700'],
 });
 
 export const metadata: Metadata = {
@@ -96,7 +114,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${inter.variable} ${spaceGrotesk.variable} ${lora.variable} ${geistMono.variable} ${story.variable} antialiased font-sans`}
+        className={`${inter.variable} ${spaceGrotesk.variable} ${lora.variable} ${geistMono.variable} ${story.variable} ${unbounded.variable} ${outfit.variable} ${jetbrainsMono.variable} antialiased font-sans`}
         suppressHydrationWarning
       >
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem storageKey="networx-theme" disableTransitionOnChange>
