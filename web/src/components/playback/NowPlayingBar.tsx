@@ -171,10 +171,10 @@ export function NowPlayingBar() {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="font-unbounded font-medium truncate text-sm text-white">
+            <p className="font-unbounded font-medium truncate text-sm dim-text">
               {track?.title ?? 'Radio'}
             </p>
-            <p className="text-xs text-white/60 truncate font-dim-mono">
+            <p className="text-xs dim-text-muted truncate font-dim-mono">
               {artistOriginLabel
                 ? `${track?.artistName ?? 'Unknown artist'} • ${artistOriginLabel}`
                 : track?.artistName ?? 'Tap to open player'}

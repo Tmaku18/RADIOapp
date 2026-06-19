@@ -379,7 +379,7 @@ export default function DashboardLayout({
       <div className="pointer-events-none fixed inset-0 z-0 cyber-grid opacity-[0.04]" aria-hidden />
       <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden relative z-10' : 'relative z-10'}>
         <AutoCollapseSidebarOnNavigate />
-        <Sidebar>
+        <Sidebar className="[&_[data-slot=sidebar-inner]]:glass-strong [&_[data-slot=sidebar-inner]]:border-r [&_[data-slot=sidebar-inner]]:border-white/10">
         <SidebarHeader>
           <SidebarMenu>
             <SidebarMenuItem>
@@ -588,7 +588,7 @@ export default function DashboardLayout({
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dim-text">
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">

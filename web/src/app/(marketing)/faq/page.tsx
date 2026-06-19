@@ -1,13 +1,19 @@
 import { Metadata } from 'next';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
+import {
+  MarketingHero,
+  DimensionSection,
+  DimensionCard,
+  DimensionCtaPrimary,
+  DimensionCtaOutline,
+} from '@/components/marketing/MarketingHero';
+import { Reveal } from '@/components/dimension/Reveal';
 
 export const metadata: Metadata = {
   title: 'FAQ - Networx',
-  description: 'Frequently asked questions about Networx: democratic radio, artist livestreams, ProNetworx mentorship, and a by-artists-for-artists ecosystem.',
+  description:
+    'Frequently asked questions about Networx: democratic radio, artist livestreams, ProNetworx mentorship, and a by-artists-for-artists ecosystem.',
 };
 
 export const revalidate = 3600;
@@ -80,20 +86,12 @@ const faqs = [
         a: 'You can listen without an account, but creating a free account lets you send ripples to tracks, follow gems, and access the mobile app.',
       },
       {
-        q: 'Can I vote songs down, not just up?',
-        a: 'Yes - and that is the difference-maker. You can vote songs up or down. Both directions count, giving artists honest feedback and helping the strongest songs rise on merit.',
+        q: 'What is a Ripple?',
+        a: 'A Ripple is your vote or like on a track. Every Ripple carries an artist\'s sound a little further across the network — the Butterfly Effect in action.',
       },
       {
-        q: 'How do I buy a song?',
-        a: 'Every track has a free 30-second preview. When you find one you love, purchase the full song to unlock complete playback and downloads. No subscription needed - hear it, love it, own it.',
-      },
-      {
-        q: 'Can I earn as a listener?',
-        a: 'Yes. Through The Yield, Prospectors can earn rewards from verified engagement - refining songs, completing surveys, and leaving structured feedback in The Refinery. Your ears help shape what the market hears next.',
-      },
-      {
-        q: 'Can I skip songs?',
-        a: 'Yes, you can skip to the next track at any time. However, since this is a radio-style experience, you cannot go back to previous songs.',
+        q: 'What is The Yield?',
+        a: 'The Yield is your rewards as a Prospector — steady earnings from verified engagement like refinement, surveys, and feedback in The Refinery.',
       },
       {
         q: 'Is there a mobile app?',
@@ -128,76 +126,61 @@ export default function FAQPage() {
   return (
     <div>
       <MarketingHero
-        title="Frequently Asked Questions"
+        sectionLabel="◤ SUPPORT"
+        title={
+          <>
+            Frequently asked <span className="text-glow-pink text-pink-400">questions</span>
+          </>
+        }
         subtitle="Everything you need to know about Networx and ProNetworx."
       />
 
-      <section className="relative overflow-hidden py-16">
-        <MarketingBodyPattern />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="space-y-6">
-        {faqs.map((section) => (
-          <Card key={section.category}>
-            <CardHeader>
-              <CardTitle className="text-2xl">{section.category}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <Accordion
-                type="single"
-                collapsible
-                className="w-full border-0 rounded-xl bg-transparent shadow-none"
-              >
-                {section.questions.map((faq, index) => (
-                  <AccordionItem
-                    key={index}
-                    value={`${section.category}-${index}`}
-                    className="border-border"
-                  >
-                    <AccordionTrigger className="text-left">
-                      {faq.q}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <p className="text-muted-foreground">{faq.a}</p>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card className="mt-16">
-        <CardContent className="pt-8 text-center">
-          <h3 className="text-xl font-semibold text-foreground mb-2">
-            Still have questions?
-          </h3>
-          <p className="text-muted-foreground mb-4">
-            We&apos;re here to help. Reach out to our support team.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button asChild>
-              <Link href="/contact">Contact Us</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <a
-                href={SUPPORT_DISCORD_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Join Support Discord
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/pro-networx">
-                Explore ProNetworx
-              </Link>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <DimensionSection>
+        <div className="space-y-6 max-w-4xl mx-auto">
+          {faqs.map((section, si) => (
+            <Reveal key={section.category} delay={si * 0.05}>
+              <DimensionCard>
+                <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-3">
+                  ◤ {section.category.toUpperCase()}
+                </div>
+                <h2 className="font-unbounded font-black text-2xl text-white mb-4">
+                  {section.category}
+                </h2>
+                <Accordion type="single" collapsible className="w-full">
+                  {section.questions.map((faq, index) => (
+                    <AccordionItem
+                      key={index}
+                      value={`${section.category}-${index}`}
+                      className="border-white/10"
+                    >
+                      <AccordionTrigger className="text-left text-white hover:text-cyan-300 hover:no-underline">
+                        {faq.q}
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <p className="text-white/60 leading-relaxed">{faq.a}</p>
+                      </AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </DimensionCard>
+            </Reveal>
+          ))}
         </div>
-      </section>
+
+        <Reveal delay={0.2}>
+          <DimensionCard className="mt-12 text-center max-w-2xl mx-auto">
+            <h3 className="font-unbounded font-bold text-xl text-white mb-2">Still have questions?</h3>
+            <p className="text-white/60 mb-6">We&apos;re here to help. Reach out to our support team.</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <DimensionCtaPrimary href="/contact">Contact Us</DimensionCtaPrimary>
+              <DimensionCtaOutline href={SUPPORT_DISCORD_URL} external>
+                Join Support Discord
+              </DimensionCtaOutline>
+              <DimensionCtaOutline href="/pro-networx">Explore ProNetworx</DimensionCtaOutline>
+            </div>
+          </DimensionCard>
+        </Reveal>
+      </DimensionSection>
     </div>
   );
 }

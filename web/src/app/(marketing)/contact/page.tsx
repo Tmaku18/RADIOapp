@@ -1,12 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -14,10 +11,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { MarketingHero, MarketingBodyPattern } from '@/components/marketing/MarketingHero';
+import {
+  MarketingHero,
+  DimensionSection,
+  DimensionCard,
+  DimensionCtaPrimary,
+  DimensionCtaOutline,
+} from '@/components/marketing/MarketingHero';
 
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
+
+const inputClass =
+  'bg-black/40 border-white/15 text-white placeholder:text-white/40 focus-visible:border-cyan-400/50';
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -32,18 +37,15 @@ export default function ContactPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
-    // TODO: Implement actual form submission
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000));
     setSubmitted(true);
     setIsSubmitting(false);
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [e.target.name]: e.target.value,
     }));
@@ -51,167 +53,173 @@ export default function ContactPage() {
 
   if (submitted) {
     return (
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-16 text-center">
-        <Alert className="py-8">
+      <DimensionSection>
+        <DimensionCard className="max-w-2xl mx-auto text-center py-12">
           <div className="text-5xl mb-4">✅</div>
-          <AlertTitle className="text-2xl">Message Sent!</AlertTitle>
-          <AlertDescription className="mt-2 text-base">
+          <h2 className="font-unbounded font-black text-2xl text-white">Message Sent!</h2>
+          <p className="mt-2 text-white/60">
             Thank you for reaching out. We&apos;ll get back to you within 24-48 hours.
-          </AlertDescription>
-          <Button asChild className="mt-6">
-            <Link href="/">Back to Home</Link>
-          </Button>
-        </Alert>
-      </div>
+          </p>
+          <div className="mt-6">
+            <DimensionCtaPrimary href="/">Back to Home</DimensionCtaPrimary>
+          </div>
+        </DimensionCard>
+      </DimensionSection>
     );
   }
 
   return (
     <div>
       <MarketingHero
-        title="Contact Us"
+        sectionLabel="◤ CONTACT"
+        title={
+          <>
+            Get in <span className="text-glow-cyan text-cyan-300">touch</span>
+          </>
+        }
         subtitle="Have a question, partnership idea, or support request? We'd love to hear from you."
       />
 
-      <section className="relative overflow-hidden py-16">
-        <MarketingBodyPattern />
-        <div className="relative z-10 max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-      <Card className="mb-8 border-primary/30 bg-primary/5">
-        <CardContent className="pt-6">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Looking for ProNetworx?</h2>
-          <p className="text-muted-foreground mb-4">
-            If you are seeking mentors, collaborators, or Catalysts (service providers) for your artist journey, you can explore ProNetworx directly.
-          </p>
-          <Button variant="outline" asChild>
-            <Link href="/pro-networx">Open ProNetworx</Link>
-          </Button>
-        </CardContent>
-      </Card>
+      <DimensionSection>
+        <div className="max-w-2xl mx-auto space-y-6">
+          <DimensionCard>
+            <h2 className="font-unbounded font-bold text-lg text-white mb-2">
+              Looking for ProNetworx?
+            </h2>
+            <p className="text-white/60 text-sm mb-4">
+              Seeking mentors, collaborators, or Catalysts? Explore ProNetworx directly.
+            </p>
+            <DimensionCtaOutline href="/pro-networx">Open ProNetworx</DimensionCtaOutline>
+          </DimensionCard>
 
-      <Card className="mb-8 border-primary/30">
-        <CardContent className="pt-6">
-          <h2 className="text-lg font-semibold text-foreground mb-2">Need support right now?</h2>
-          <p className="text-muted-foreground mb-4">
-            Join our Discord support channel for faster help with account, upload, and billing questions.
-          </p>
-          <Button variant="outline" asChild>
-            <a
-              href={SUPPORT_DISCORD_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+          <DimensionCard>
+            <h2 className="font-unbounded font-bold text-lg text-white mb-2">
+              Need support right now?
+            </h2>
+            <p className="text-white/60 text-sm mb-4">
+              Join our Discord for faster help with account, upload, and billing questions.
+            </p>
+            <DimensionCtaOutline href={SUPPORT_DISCORD_URL} external>
               Open Support Discord
-            </a>
-          </Button>
-        </CardContent>
-      </Card>
+            </DimensionCtaOutline>
+          </DimensionCard>
 
-      <Card>
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input
-                id="name"
-                name="name"
-                required
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="Your name"
-              />
-            </div>
+          <DimensionCard>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-white/80 font-dim-mono text-xs tracking-wider">
+                  NAME
+                </Label>
+                <Input
+                  id="name"
+                  name="name"
+                  required
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Your name"
+                  className={inputClass}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="you@example.com"
-              />
-            </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-white/80 font-dim-mono text-xs tracking-wider">
+                  EMAIL
+                </Label>
+                <Input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="you@example.com"
+                  className={inputClass}
+                />
+              </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="subject">Subject</Label>
-              <Select
-                required
-                value={formData.subject || ''}
-                onValueChange={(v) => setFormData((p) => ({ ...p, subject: v }))}
+              <div className="space-y-2">
+                <Label className="text-white/80 font-dim-mono text-xs tracking-wider">SUBJECT</Label>
+                <Select
+                  required
+                  value={formData.subject || ''}
+                  onValueChange={(v) => setFormData((p) => ({ ...p, subject: v }))}
+                >
+                  <SelectTrigger className={`w-full ${inputClass}`}>
+                    <SelectValue placeholder="Select a subject" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General Inquiry</SelectItem>
+                    <SelectItem value="support">Technical Support</SelectItem>
+                    <SelectItem value="artist">Gem Questions</SelectItem>
+                    <SelectItem value="payments">Billing & Payments</SelectItem>
+                    <SelectItem value="feedback">Feedback</SelectItem>
+                    <SelectItem value="partnership">Partnership</SelectItem>
+                    <SelectItem value="pronetworx">ProNetworx / Mentorship</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="message" className="text-white/80 font-dim-mono text-xs tracking-wider">
+                  MESSAGE
+                </Label>
+                <Textarea
+                  id="message"
+                  name="message"
+                  required
+                  rows={6}
+                  value={formData.message}
+                  onChange={handleChange}
+                  placeholder="Your message..."
+                  className={inputClass}
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full py-3.5 rounded-full bg-cyan-400 text-black font-dim-mono text-xs tracking-[0.2em] uppercase font-bold glow-cyan hover:bg-white transition-colors disabled:opacity-60"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General Inquiry</SelectItem>
-                  <SelectItem value="support">Technical Support</SelectItem>
-                  <SelectItem value="artist">Gem Questions</SelectItem>
-                  <SelectItem value="payments">Billing & Payments</SelectItem>
-                  <SelectItem value="feedback">Feedback</SelectItem>
-                  <SelectItem value="partnership">Partnership</SelectItem>
-                  <SelectItem value="pronetworx">ProNetworx / Mentorship</SelectItem>
-                </SelectContent>
-              </Select>
+                {isSubmitting ? 'Sending...' : 'Send Message'}
+              </button>
+            </form>
+          </DimensionCard>
+
+          <div className="pt-6">
+            <h2 className="font-unbounded font-black text-2xl text-white mb-2">
+              Leadership &amp; Contact
+            </h2>
+            <p className="text-white/60 mb-6 text-sm">
+              Reach out directly. We typically respond within 24–48 hours.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {[
+                {
+                  name: 'Tanaka Makuvaza',
+                  role: 'CEO · Chief Architect · Cofounder',
+                  email: 'tmakuvaza1@networxradio.com',
+                },
+                {
+                  name: 'Merquise Jones',
+                  role: 'COO · Head of Artist Relations & Talent Discovery',
+                  email: 'mjones@networxradio.com',
+                },
+              ].map((person) => (
+                <DimensionCard key={person.email}>
+                  <h3 className="font-unbounded font-bold text-lg text-white">{person.name}</h3>
+                  <p className="text-sm text-white/50 mt-1">{person.role}</p>
+                  <a
+                    href={`mailto:${person.email}`}
+                    className="mt-3 inline-block text-cyan-300 font-medium hover:text-white text-sm"
+                  >
+                    {person.email}
+                  </a>
+                </DimensionCard>
+              ))}
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="message">Message</Label>
-              <Textarea
-                id="message"
-                name="message"
-                required
-                rows={6}
-                value={formData.message}
-                onChange={handleChange}
-                placeholder="Your message..."
-              />
-            </div>
-
-            <Button type="submit" disabled={isSubmitting} className="w-full">
-              {isSubmitting ? 'Sending...' : 'Send Message'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <section className="mt-12">
-        <h2 className="text-2xl font-bold text-foreground mb-6">Leadership & Contact</h2>
-        <p className="text-muted-foreground mb-6">Reach out to our team directly. We typically respond within 24–48 hours.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-foreground text-lg">Tanaka Makuvaza</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                CEO · Chief Architect · Cofounder · Managing Member
-              </p>
-              <a
-                href="mailto:tmakuvaza1@networxradio.com"
-                className="mt-3 inline-block text-primary font-medium hover:underline"
-              >
-                tmakuvaza1@networxradio.com
-              </a>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="font-semibold text-foreground text-lg">Merquise Jones</h3>
-              <p className="text-sm text-muted-foreground mt-1">
-                COO · Head of Artist Relations and Talent Discovery · Director of Growth and Community Engagement
-              </p>
-              <a
-                href="mailto:mjones@networxradio.com"
-                className="mt-3 inline-block text-primary font-medium hover:underline"
-              >
-                mjones@networxradio.com
-              </a>
-            </CardContent>
-          </Card>
+          </div>
         </div>
-      </section>
-        </div>
-      </section>
+      </DimensionSection>
     </div>
   );
 }

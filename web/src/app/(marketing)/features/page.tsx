@@ -1,9 +1,13 @@
 import { Metadata } from 'next';
-import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
+import {
+  MarketingHero,
+  DimensionSection,
+  DimensionCard,
+  DimensionCtaPrimary,
+  DimensionCtaOutline,
+} from '@/components/marketing/MarketingHero';
+import { Reveal } from '@/components/dimension/Reveal';
 
 export const metadata: Metadata = {
   title: 'Features - Networx',
@@ -114,117 +118,95 @@ const ROADMAP: Feature[] = [
 export default function FeaturesPage() {
   return (
     <div>
-      {/* Hero */}
-      <section className="relative overflow-hidden py-20 sm:py-24 bg-primary text-primary-foreground">
-        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={150} opacity={0.14} />
-        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
-            One ecosystem. Every tool to be discovered.
-          </h1>
-          <p className="mt-6 text-lg sm:text-xl text-primary-foreground/90 max-w-2xl mx-auto">
-            Networx combines live radio, community voting, a direct-to-fan
-            marketplace, livestreaming, talent development, and the ProNetworx
-            creative marketplace into one people-powered platform. Here is
-            everything it does.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
-              <Link href="/signup">Get Started Free</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
-              <Link href="/pricing">See pricing</Link>
-            </Button>
-          </div>
-          <p className="mt-4 text-sm text-primary-foreground/80">
-            Listening is free, forever - supported by light, non-intrusive ads, not listener fees.
-          </p>
-        </div>
-      </section>
+      <MarketingHero
+        sectionLabel="◤ CAPABILITIES"
+        title={
+          <>
+            One ecosystem.
+            <br />
+            <span className="text-glow-cyan text-cyan-300">Every tool to be discovered.</span>
+          </>
+        }
+        subtitle="Networx combines live radio, community voting, a direct-to-fan marketplace, livestreaming, talent development, and ProNetworx into one people-powered platform."
+        footnote="Listening is free, forever — supported by light ads, not listener fees."
+      >
+        <DimensionCtaPrimary href="/signup">Get Started Free</DimensionCtaPrimary>
+        <DimensionCtaOutline href="/pricing">See pricing</DimensionCtaOutline>
+      </MarketingHero>
 
-      {/* Feature groups by audience */}
       {GROUPS.map((group, idx) => (
-        <section
-          key={group.audience}
-          className={idx % 2 === 1 ? 'py-16 bg-muted/30' : 'py-16'}
-        >
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <DimensionSection key={group.audience} className={idx % 2 === 1 ? 'border-y border-white/5' : ''}>
+          <Reveal>
             <div className="mb-10 text-center sm:text-left">
-              <h2 className="text-3xl font-bold text-foreground">{group.audience}</h2>
-              <p className="text-muted-foreground mt-2 text-lg">{group.tagline}</p>
+              <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
+                ◤ {group.audience.toUpperCase()}
+              </div>
+              <h2 className="font-unbounded font-black text-3xl text-white">{group.audience}</h2>
+              <p className="text-white/60 mt-2 text-lg">{group.tagline}</p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {group.features.map((f) => (
-                <Card key={f.title} className="h-full">
-                  <CardContent className="pt-6">
-                    {f.tag && (
-                      <Badge variant="secondary" className="mb-3">
-                        {f.tag}
-                      </Badge>
-                    )}
-                    <h3 className="text-lg font-semibold text-foreground">{f.title}</h3>
-                    <p className="text-muted-foreground mt-2 leading-relaxed">{f.body}</p>
-                    {f.points && (
-                      <ul className="list-disc pl-5 mt-3 space-y-1 text-sm text-muted-foreground">
-                        {f.points.map((p) => (
-                          <li key={p}>{p}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          </Reveal>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {group.features.map((f, i) => (
+              <Reveal key={f.title} delay={(i % 3) * 0.06}>
+                <DimensionCard>
+                  {f.tag && (
+                    <Badge variant="secondary" className="mb-3 bg-cyan-400/10 text-cyan-300 border-cyan-400/30">
+                      {f.tag}
+                    </Badge>
+                  )}
+                  <h3 className="font-unbounded font-bold text-lg text-white">{f.title}</h3>
+                  <p className="text-white/60 mt-2 leading-relaxed text-sm">{f.body}</p>
+                </DimensionCard>
+              </Reveal>
+            ))}
           </div>
-        </section>
+        </DimensionSection>
       ))}
 
-      {/* Roadmap / Coming soon */}
-      <section className="relative overflow-hidden py-16 bg-muted/30">
-        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={140} opacity={0.08} />
-        <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <DimensionSection className="border-t border-white/5">
+        <Reveal>
           <div className="mb-10 text-center">
-            <h2 className="text-3xl font-bold text-foreground">On the roadmap</h2>
-            <p className="text-muted-foreground mt-2 text-lg">
+            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400 mb-2">
+              ◤ ROADMAP
+            </div>
+            <h2 className="font-unbounded font-black text-3xl text-white">On the horizon</h2>
+            <p className="text-white/60 mt-2 text-lg">
               Building toward a community-powered label and creative economy.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-            {ROADMAP.map((f) => (
-              <Card key={f.title} className="h-full border-dashed">
-                <CardContent className="pt-6">
-                  <Badge className="mb-3">Coming soon</Badge>
-                  <h3 className="text-lg font-semibold text-foreground">{f.title}</h3>
-                  <p className="text-muted-foreground mt-2 leading-relaxed">{f.body}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-          <div className="mt-8 text-center">
-            <Button variant="outline" asChild>
-              <Link href="/contact">Want in early? Get in touch</Link>
-            </Button>
-          </div>
+        </Reveal>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+          {ROADMAP.map((f, i) => (
+            <Reveal key={f.title} delay={i * 0.1}>
+              <DimensionCard className="border-dashed border-white/15">
+                <Badge className="mb-3 bg-pink-500/20 text-pink-300 border-pink-400/30">Coming soon</Badge>
+                <h3 className="font-unbounded font-bold text-lg text-white">{f.title}</h3>
+                <p className="text-white/60 mt-2 leading-relaxed text-sm">{f.body}</p>
+              </DimensionCard>
+            </Reveal>
+          ))}
         </div>
-      </section>
+        <div className="mt-8 text-center">
+          <DimensionCtaOutline href="/contact">Want in early? Get in touch</DimensionCtaOutline>
+        </div>
+      </DimensionSection>
 
-      {/* People-powered label vision + CTA */}
-      <section className="relative overflow-hidden py-20 bg-primary text-primary-foreground">
-        <ButterflyPattern className="absolute inset-0" colorClassName="text-primary-foreground" tile={160} opacity={0.13} />
-        <div className="relative z-10 max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold">The people-powered label</h2>
-          <p className="mt-4 text-lg text-primary-foreground/90">
-            Instead of executives alone deciding who gets a chance, Networx lets
-            the audience help identify demand - giving artists a direct path from
-            discovery to revenue. The mission is simple: no more wasted talent.
-          </p>
-          <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" variant="secondary" className="border-2 border-primary-foreground/90 shadow-md !text-black" asChild>
-              <Link href="/signup">Join the movement</Link>
-            </Button>
-            <Button size="lg" variant="outline" className="border-2 border-primary-foreground/80 text-primary-foreground hover:bg-primary-foreground/15" asChild>
-              <Link href="/pro-networx">Explore ProNetworx</Link>
-            </Button>
-          </div>
+      <section className="relative overflow-hidden py-20 border-t border-white/10">
+        <div className="absolute inset-0 cyber-grid opacity-20" />
+        <div className="relative z-10 max-w-3xl mx-auto px-6 lg:px-10 text-center">
+          <Reveal>
+            <h2 className="font-unbounded font-black text-3xl sm:text-4xl text-white">
+              The people-powered label
+            </h2>
+            <p className="mt-4 text-lg text-white/70 leading-relaxed">
+              Instead of executives alone deciding who gets a chance, Networx lets the audience help
+              identify demand — giving artists a direct path from discovery to revenue.
+            </p>
+            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center">
+              <DimensionCtaPrimary href="/signup">Join the movement</DimensionCtaPrimary>
+              <DimensionCtaOutline href="/pro-networx">Explore ProNetworx</DimensionCtaOutline>
+            </div>
+          </Reveal>
         </div>
       </section>
     </div>

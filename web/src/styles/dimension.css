@@ -226,6 +226,84 @@
   background: radial-gradient(ellipse at center, transparent 0%, rgba(0, 0, 0, 0.4) 50%, #000 100%);
 }
 
+/* Readable text tokens (dashboard light/dark) */
+[data-dimension] .dim-text {
+  color: var(--dim-text-primary);
+}
+
+[data-dimension] .dim-text-muted {
+  color: var(--dim-text-secondary);
+}
+
+[data-dimension] .dim-text-subtle {
+  color: var(--dim-text-muted);
+}
+
+/* Marketing content cards */
+[data-dimension] .dimension-card {
+  background: rgba(10, 10, 12, 0.55);
+  backdrop-filter: blur(24px) saturate(150%);
+  -webkit-backdrop-filter: blur(24px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+}
+
+[data-dimension] .dimension-card-highlight {
+  box-shadow:
+    0 0 20px rgba(0, 240, 255, 0.2),
+    inset 0 0 0 1px rgba(0, 240, 255, 0.25);
+}
+
+/* ---------- Light mode (dashboard + theme toggle) ---------- */
+.light [data-dimension] {
+  --dim-bg-base: #f4f6fb;
+  --dim-bg-surface: #ffffff;
+  --dim-text-primary: #0f172a;
+  --dim-text-secondary: #334155;
+  --dim-text-muted: #64748b;
+}
+
+.light [data-dimension] .glass {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 8px 32px rgba(15, 23, 42, 0.06);
+}
+
+.light [data-dimension] .glass-strong {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.05);
+}
+
+.light [data-dimension] .cyber-grid {
+  background-image:
+    linear-gradient(rgba(14, 154, 167, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 154, 167, 0.06) 1px, transparent 1px);
+}
+
+.light [data-dimension] .text-glow-cyan {
+  text-shadow: 0 0 10px rgba(14, 154, 167, 0.35);
+}
+
+.light [data-dimension] .text-glow-pink {
+  text-shadow: 0 0 10px rgba(219, 39, 119, 0.35);
+}
+
+.light [data-dimension] .glow-cyan {
+  box-shadow:
+    0 0 16px rgba(14, 154, 167, 0.22),
+    0 0 40px rgba(14, 154, 167, 0.08);
+}
+
+.light [data-dimension] .dimension-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.light [data-dimension] .bg-gradient-radial-dim {
+  background: radial-gradient(ellipse at center, transparent 0%, rgba(244, 246, 251, 0.5) 50%, #f4f6fb 100%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   [data-dimension] .marquee,
   [data-dimension] .neon-line,
