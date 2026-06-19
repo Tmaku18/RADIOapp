@@ -155,6 +155,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// Song we just advanced away from; ignore server "current" for ~12s so pollers
   /// don't jump the listener backward (or reload mid-crossfade).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
+  int _stationSwitchGeneration = 0;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
   final String _streamToken = 'mobile-${DateTime.now().millisecondsSinceEpoch}';
   late final AnimationController _rippleController;
@@ -212,9 +213,32 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _initializeStationAndPlayback() async {
     await _restoreStationSelection();
-    await _loadInitialTrack();
-    await _loadVenueAd();
-    await StationEventsService().start(stationId: _radioId);
+    final trackFuture = _radioService.getCurrentTrack(radioId: _radioId);
+    final adFuture = _venueAds.getCurrent(stationId: _radioId);
+    final eventsFuture = StationEventsService().start(stationId: _radioId);
+    final results = await Future.wait<Object?>([
+      trackFuture,
+      adFuture,
+      eventsFuture,
+    ]);
+    if (!mounted) return;
+    final ad = results[1] as VenueAd?;
+    setState(() => _ad = ad);
+    final res = results[0] as TrackFetchResult;
+    if (res.noContent) {
+      setState(() {
+        _isLoading = false;
+        _noContent = true;
+        _noContentMessage = res.message;
+      });
+      return;
+    }
+    final track = res.track;
+    if (track == null || track.audioUrl.trim().isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+    await _loadAndPlay(track, res);
   }
 
   Future<void> _restoreStationSelection() async {
@@ -250,18 +274,12 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  Future<void> _loadVenueAd() async {
-    try {
-      final ad = await _venueAds.getCurrent(stationId: _radioId);
-      if (!mounted) return;
-      setState(() => _ad = ad);
-    } catch (_) {
-      // ignore
-    }
-  }
-
   Future<void> _changeStation(_StationOption station) async {
     if (station.id == _radioId) return;
+    final switchId = ++_stationSwitchGeneration;
+    _trackBoundaryTimer?.cancel();
+    _recentlyAdvancedFrom = null;
+
     setState(() {
       _radioId = station.id;
       _isLoading = true;
@@ -275,13 +293,48 @@ class _PlayerScreenState extends State<PlayerScreen>
       _noContentMessage = null;
       _songAccess = null;
     });
-    await _persistStationSelection(station.id);
-    await _audioPlayer.stop();
-    StationEventsService().stop();
-    await StationEventsService().start(stationId: station.id);
-    await _loadVenueAd();
-    await _loadInitialTrack();
-    if (!mounted) return;
+
+    unawaited(_persistStationSelection(station.id));
+    // Drop any live DJ overlay; setAudioSource below replaces the music stream
+    // without a full stop() so ExoPlayer keeps its decoder warm.
+    unawaited(AudioPlayerService.handler.stopVoiceOverlay());
+
+    final trackFuture = _radioService.getCurrentTrack(radioId: station.id);
+    final adFuture = _venueAds.getCurrent(stationId: station.id);
+    final eventsFuture = StationEventsService().switchStation(station.id);
+
+    final results = await Future.wait<Object?>([
+      trackFuture,
+      adFuture,
+      eventsFuture,
+    ]);
+    if (!mounted || switchId != _stationSwitchGeneration) return;
+
+    final res = results[0] as TrackFetchResult;
+    final ad = results[1] as VenueAd?;
+    setState(() => _ad = ad);
+
+    if (res.noContent) {
+      setState(() {
+        _isLoading = false;
+        _noContent = true;
+        _noContentMessage = res.message;
+      });
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Tuned to ${station.genre} (${station.city})')),
+      );
+      return;
+    }
+
+    final track = res.track;
+    if (track == null || track.audioUrl.trim().isEmpty) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    await _loadAndPlay(track, res);
+    if (!mounted || switchId != _stationSwitchGeneration) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('Tuned to ${station.genre} (${station.city})')),
     );
@@ -361,7 +414,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       await _audioPlayer.play();
     }
     if (reportPlay) {
-      await _radioService.reportPlay(track.id, radioId: _radioId);
+      unawaited(_radioService.reportPlay(track.id, radioId: _radioId));
     }
     if (!mounted) return;
 
@@ -380,9 +433,9 @@ class _PlayerScreenState extends State<PlayerScreen>
       _songAccess = null;
     });
     _scheduleTrackBoundarySync(track);
-    _presenceTick();
-    _loadSongAccess(track.id);
-    await _applyBoothState(track);
+    unawaited(_presenceTick());
+    unawaited(_loadSongAccess(track.id));
+    unawaited(_applyBoothState(track));
   }
 
   /// Fetch purchase/sale status for the current song so the player can show a

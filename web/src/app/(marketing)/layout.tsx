@@ -104,7 +104,7 @@ export default function MarketingLayout({
         <div className="neon-line" />
       </header>
 
-      <main className="relative z-10 flex-1">{children}</main>
+      <main className="relative z-10 flex-1 pb-28">{children}</main>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 glass-strong">

@@ -40,8 +40,10 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       androidLoadControl: AndroidLoadControl(
         minBufferDuration: Duration(seconds: 30),
         maxBufferDuration: Duration(seconds: 60),
-        bufferForPlaybackDuration: Duration(seconds: 5),
-        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 10),
+        // Lower start threshold so station switches begin playback sooner; the
+        // larger min/max buffers still protect against mid-song stalls.
+        bufferForPlaybackDuration: Duration(seconds: 2),
+        bufferForPlaybackAfterRebufferDuration: Duration(seconds: 5),
         prioritizeTimeOverSizeThresholds: true,
       ),
       darwinLoadControl: DarwinLoadControl(

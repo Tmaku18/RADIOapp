@@ -1,52 +1,30 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { usePlaybackOptional } from './PlaybackProvider';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { ArtworkImage } from '@/components/common/ArtworkImage';
-import { RadioPlayer } from '@/components/radio/RadioPlayer';
+import { DimensionRadioBar, DIMENSION_RADIO_BAR_HEIGHT } from '@/components/dimension/DimensionRadioBar';
+import { useDimensionPlayer } from '@/hooks/useDimensionPlayer';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { radioApi } from '@/lib/api';
 
-const BAR_HEIGHT = 72;
-
 /**
- * Spotify-style persistent mini-player bar. Visible on all pages when wrapped in PlaybackProvider.
- * Clicking the bar expands to the full Listen page (/listen).
+ * Persistent Emergent bottom radio bar. Visible on all pages when wrapped in PlaybackProvider.
+ * Wired to PlaybackProvider via useDimensionPlayer (not mock PlayerContext).
  */
 export function NowPlayingBar() {
-  const [expanded, setExpanded] = useState(false);
   const pathname = usePathname();
   const { profile } = useAuth();
   const playback = usePlaybackOptional();
   const state = playback?.state;
-  const actions = playback?.actions;
+  const player = useDimensionPlayer();
   const streamTokenRef = useRef<string | null>(null);
 
-  const hasTrack = !!state?.track;
   const track = state?.track;
   const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = (state?.isPlaying ?? false) && !state?.pausedAt;
-  // The radio stays live (and counted) while muted; the control just reflects
-  // whether audio is audible so the icon shows play when muted.
-  const showAsPlaying = isPlaying && !state?.isMuted;
   const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
-  const isListenPage = pathname === '/listen';
-  const showBar = !isListenPage;
-  const canExpandInlinePlayer = !isListenPage;
-  const showExpandedPlayer = expanded && canExpandInlinePlayer;
-  const artistOriginLabel = (() => {
-    const city = track?.artistOriginCity?.trim() ?? '';
-    const stateLabel = track?.artistOriginState?.trim() ?? '';
-    if (city && stateLabel) return `${city}, ${stateLabel}`;
-    if (city) return city;
-    if (stateLabel) return stateLabel;
-    return null;
-  })();
 
   useEffect(() => {
     if (streamTokenRef.current) return;
@@ -114,122 +92,8 @@ export function NowPlayingBar() {
     activeRadioId,
   ]);
 
-  return (
-    <>
-      {!showBar ? null : (
-        <>
-      {showExpandedPlayer && (
-        <div className="fixed inset-x-0 bottom-[72px] z-40 max-h-[82vh] overflow-auto border-t border-border bg-background">
-          <div className="mx-auto w-full max-w-xl p-3">
-            <div className="mb-2 flex justify-end">
-              <Button size="sm" variant="outline" onClick={() => setExpanded(false)}>
-                Collapse
-              </Button>
-            </div>
-            <RadioPlayer radioId={activeRadioId ?? undefined} />
-          </div>
-        </div>
-      )}
-      <footer
-        className={cn(
-          'group fixed bottom-0 left-0 right-0 z-50 border-t border-cyan-400/20 glass-strong',
-          'transition-transform duration-300 ease-out',
-          hasTrack || showExpandedPlayer
-            ? 'translate-y-0'
-            : 'translate-y-[calc(100%-10px)] hover:translate-y-0 focus-within:translate-y-0',
-        )}
-        style={{ height: BAR_HEIGHT }}
-        aria-label="Now playing"
-        data-dimension
-      >
-        <div className="neon-line absolute top-0 left-0 right-0" aria-hidden />
-        {/* Hover handle shown when the bar is tucked away. */}
-        <div
-          aria-hidden
-          className={cn(
-            'pointer-events-none absolute left-1/2 top-0.5 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/40 transition-opacity duration-200 group-hover:opacity-0 group-focus-within:opacity-0',
-            (hasTrack || showExpandedPlayer) && 'opacity-0',
-          )}
-        />
-        <div className="h-full px-4 flex items-center gap-3 max-w-full">
-          <button
-            type="button"
-            onClick={() => {
-              if (canExpandInlinePlayer) setExpanded((v) => !v);
-            }}
-          className={cn(
-            'flex items-center gap-3 min-w-0 flex-1 rounded-md transition-colors',
-            hasTrack && 'hover:bg-muted/50',
-          )}
-          aria-label={expanded ? 'Collapse player' : 'Expand player'}
-        >
-          <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted/60 shrink-0 flex items-center justify-center">
-            <ArtworkImage
-              src={track?.artworkUrl}
-              alt=""
-              className="object-cover w-full h-full"
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="font-unbounded font-medium truncate text-sm dim-text">
-              {track?.title ?? 'Radio'}
-            </p>
-            <p className="text-xs dim-text-muted truncate font-dim-mono">
-              {artistOriginLabel
-                ? `${track?.artistName ?? 'Unknown artist'} • ${artistOriginLabel}`
-                : track?.artistName ?? 'Tap to open player'}
-            </p>
-          </div>
-          </button>
-
-          {actions && (
-            <div className="flex items-center gap-1 shrink-0">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => void actions.togglePlay()}
-                disabled={!hasTrack && !state?.source}
-                aria-label={showAsPlaying ? 'Pause' : 'Play'}
-              >
-                {showAsPlaying ? (
-                  <span className="text-lg">⏸</span>
-                ) : (
-                  <span className="text-lg">▶</span>
-                )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (canExpandInlinePlayer) setExpanded((v) => !v);
-                }}
-                disabled={!canExpandInlinePlayer}
-                aria-label={expanded ? 'Collapse player' : 'Expand player'}
-              >
-                {expanded ? 'Hide' : 'Expand'}
-              </Button>
-              <Button variant="ghost" size="sm" asChild aria-label="Open full player page">
-                <Link
-                  href={
-                    activeRadioId
-                      ? `/listen?station=${encodeURIComponent(activeRadioId)}`
-                      : '/listen'
-                  }
-                >
-                  Page
-                </Link>
-              </Button>
-            </div>
-          )}
-        </div>
-      </footer>
-        </>
-      )}
-    </>
-  );
+  return <DimensionRadioBar player={player} />;
 }
 
 /** Height of the now-playing bar for layout padding. */
-export const NOW_PLAYING_BAR_HEIGHT = BAR_HEIGHT;
+export const NOW_PLAYING_BAR_HEIGHT = DIMENSION_RADIO_BAR_HEIGHT;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/foundation.dart';
@@ -30,7 +31,7 @@ class AuthService extends ChangeNotifier {
   // OAuth web/server client ID for this Firebase project (client_type 3 in
   // google-services.json). Used so the returned idToken is minted for the
   // Firebase project and accepted by signInWithCredential.
-  static const String _googleServerClientId =
+  static const String googleServerClientId =
       '479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
 
@@ -138,9 +139,23 @@ class AuthService extends ChangeNotifier {
   }
 
   /// Initialize the google_sign_in singleton exactly once (v7 requirement).
+  /// Call during app startup so [signInWithGoogle] can invoke [authenticate]
+  /// immediately from the button handler (Android Credential Manager requires
+  /// minimal async delay between the tap and the auth UI).
+  Future<void> ensureGoogleSignInInitialized() {
+    return _ensureGoogleSignInInitialized();
+  }
+
+  /// Startup helper — safe to call from [main] before [AuthService] exists.
+  static Future<void> warmUpGoogleSignIn() async {
+    if (Firebase.apps.isEmpty) return;
+    final signIn = GoogleSignIn.instance;
+    await signIn.initialize(serverClientId: googleServerClientId);
+  }
+
   Future<void> _ensureGoogleSignInInitialized() {
     return _googleInit ??= _googleSignIn
-        .initialize(serverClientId: _googleServerClientId)
+        .initialize(serverClientId: googleServerClientId)
         .catchError((Object e) {
       _googleInit = null;
       throw e;
@@ -154,18 +169,37 @@ class AuthService extends ChangeNotifier {
     try {
       await _ensureGoogleSignInInitialized();
 
-      // v7: authenticate() drives the native picker and throws
-      // GoogleSignInException(code: canceled) if the user backs out.
-      final GoogleSignInAccount googleUser = await _googleSignIn.authenticate(
-        scopeHint: const <String>['email'],
+      // On a real device the user is often already signed into Google — try the
+      // low-friction path first, then fall back to the full account picker.
+      GoogleSignInAccount? googleUser;
+      final lightweight = _googleSignIn.attemptLightweightAuthentication();
+      if (lightweight != null) {
+        googleUser = await lightweight;
+      }
+      googleUser ??= await _googleSignIn.authenticate(
+        scopeHint: const <String>['email', 'openid'],
       );
 
-      // v7: authentication is a synchronous getter exposing only idToken;
-      // Firebase's Google credential only needs the idToken.
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception(
+          'Google did not return a sign-in token. Confirm the web OAuth client '
+          'and SHA-1 fingerprints are registered in Firebase for '
+          'com.tmaktechnologies.networxradio.',
+        );
+      }
+
+      String? accessToken;
+      try {
+        final clientAuth = await googleUser.authorizationClient
+            .authorizationForScopes(const ['email', 'openid']);
+        accessToken = clientAuth?.accessToken;
+      } catch (_) {}
 
       final credential = GoogleAuthProvider.credential(
-        idToken: googleAuth.idToken,
+        idToken: idToken,
+        accessToken: accessToken,
       );
 
       final userCredential = await _auth!.signInWithCredential(credential);
@@ -196,9 +230,23 @@ class AuthService extends ChangeNotifier {
     } on ProfileSetupRequiredException {
       rethrow;
     } on GoogleSignInException catch (e) {
-      // User dismissed the account picker — treat as a no-op cancel.
-      if (e.code == GoogleSignInExceptionCode.canceled) return null;
-      debugPrint('[GoogleSignIn] exception: code=${e.code} ${e.description}');
+      debugPrint(
+        '[GoogleSignIn] exception: code=${e.code} '
+        'description=${e.description} details=${e.details}',
+      );
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        // Credential Manager often reports OAuth/SHA misconfiguration as
+        // "canceled" after account selection — don't blame the user.
+        throw Exception(
+          'Google sign-in did not complete. On a physical device, common fixes:\n'
+          '• Reinstall after code changes: flutter run (USB debug) or a fresh APK\n'
+          '• Update Google Play services on the phone\n'
+          '• If installed from Play Store, add the Play App Signing SHA-1 in '
+          'Firebase (Play Console → App integrity → App signing key)\n'
+          '• If OAuth consent is in Testing mode, add your Google account as a '
+          'test user in Google Cloud Console',
+        );
+      }
       throw Exception('Google sign in failed: ${e.description ?? e.code}');
     } on TimeoutException {
       throw Exception('Google sign in timed out. Please try again.');

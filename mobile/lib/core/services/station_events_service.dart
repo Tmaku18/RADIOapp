@@ -37,6 +37,7 @@ class StationEventsService {
   RealtimeChannel? _channel;
   RealtimeChannel? _djBoothChannel;
   bool _started = false;
+  String _stationId = 'global';
 
   void _emitBoothEvent(dynamic raw) {
     try {
@@ -59,7 +60,54 @@ class StationEventsService {
     }
   }
 
+  Future<void> _subscribeDjBooth(SupabaseClient client) async {
+    _djBoothChannel = client
+        .channel('dj-booth:$_stationId')
+        .onBroadcast(
+          event: 'dj_booth_event',
+          callback: (payload) => _emitBoothEvent(payload),
+        )
+        .subscribe((status, error) {
+      if (error != null) {
+        debugPrint('StationEventsService: dj-booth subscribe error: $error');
+      }
+    });
+  }
+
+  /// Re-point realtime subscriptions at [stationId] without tearing down the
+  /// shared rising-star channel (uses [_stationId] in the callback filter).
+  Future<void> switchStation(String stationId) async {
+    final trimmed = stationId.trim();
+    if (trimmed.isEmpty) return;
+    if (_started && _stationId == trimmed) return;
+
+    _stationId = trimmed;
+
+    SupabaseClient client;
+    try {
+      client = Supabase.instance.client;
+    } catch (e) {
+      debugPrint('StationEventsService: Supabase not initialized: $e');
+      return;
+    }
+
+    if (!_started) {
+      await start(stationId: trimmed);
+      return;
+    }
+
+    final oldBooth = _djBoothChannel;
+    _djBoothChannel = null;
+    if (oldBooth != null) {
+      try {
+        await client.removeChannel(oldBooth);
+      } catch (_) {}
+    }
+    await _subscribeDjBooth(client);
+  }
+
   Future<void> start({String stationId = 'global'}) async {
+    _stationId = stationId.trim().isEmpty ? 'global' : stationId.trim();
     if (_started) return;
     _started = true;
 
@@ -73,17 +121,7 @@ class StationEventsService {
 
     // DJ booth live events (mic on/off, duck volume) so listeners hear the
     // admin go live immediately instead of waiting for the 30s radio poll.
-    _djBoothChannel = client
-        .channel('dj-booth:$stationId')
-        .onBroadcast(
-          event: 'dj_booth_event',
-          callback: (payload) => _emitBoothEvent(payload),
-        )
-        .subscribe((status, error) {
-      if (error != null) {
-        debugPrint('StationEventsService: dj-booth subscribe error: $error');
-      }
-    });
+    await _subscribeDjBooth(client);
 
     _channel = client
         .channel('station-events')
@@ -100,7 +138,9 @@ class StationEventsService {
             try {
               final row = payload.newRecord;
               if (row.isEmpty) return;
-              if ((row['station_id']?.toString() ?? 'global') != stationId) return;
+              if ((row['station_id']?.toString() ?? 'global') != _stationId) {
+                return;
+              }
               final rawPayload = row['payload'];
               if (rawPayload is Map<String, dynamic>) {
                 _risingStarController.add(RisingStarEvent.fromPayload(rawPayload));

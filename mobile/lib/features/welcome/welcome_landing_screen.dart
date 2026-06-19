@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
@@ -480,7 +483,7 @@ Color _tempColor(int t) {
   return Colors.lightBlue;
 }
 
-class _TrendingShowcase extends StatelessWidget {
+class _TrendingShowcase extends StatefulWidget {
   const _TrendingShowcase({
     required this.data,
     required this.onGetStarted,
@@ -490,9 +493,69 @@ class _TrendingShowcase extends StatelessWidget {
   final VoidCallback onGetStarted;
 
   @override
+  State<_TrendingShowcase> createState() => _TrendingShowcaseState();
+}
+
+class _TrendingShowcaseState extends State<_TrendingShowcase> {
+  final AudioPlayer _clipPlayer = AudioPlayer();
+  String? _playingId;
+  StreamSubscription<PlayerState>? _playerStateSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _playerStateSub = _clipPlayer.playerStateStream.listen((state) {
+      if (!mounted) return;
+      if (state.processingState == ProcessingState.completed) {
+        setState(() => _playingId = null);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSub?.cancel();
+    unawaited(_clipPlayer.dispose());
+    super.dispose();
+  }
+
+  bool _isPlaying(TrendingSong song) =>
+      _playingId == song.id && _clipPlayer.playing;
+
+  Future<void> _toggleClip(TrendingSong song) async {
+    final url = song.clipUrl?.trim();
+    if (url == null || url.isEmpty) return;
+
+    if (_playingId == song.id && _clipPlayer.playing) {
+      await _clipPlayer.pause();
+      if (mounted) setState(() => _playingId = null);
+      return;
+    }
+
+    if (_playingId == song.id && !_clipPlayer.playing) {
+      await _clipPlayer.play();
+      if (mounted) setState(() => _playingId = song.id);
+      return;
+    }
+
+    try {
+      await _clipPlayer.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await _clipPlayer.seek(Duration.zero);
+      await _clipPlayer.play();
+      if (mounted) setState(() => _playingId = song.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not play this clip.')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final data = widget.data;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,7 +576,7 @@ class _TrendingShowcase extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'The songs the people are voting up right now.',
+                    'The songs the people are voting up right now. Tap play to hear a clip.',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: cs.onSurfaceVariant,
                     ),
@@ -521,7 +584,10 @@ class _TrendingShowcase extends StatelessWidget {
                 ],
               ),
             ),
-            TextButton(onPressed: onGetStarted, child: const Text('See all')),
+            TextButton(
+              onPressed: widget.onGetStarted,
+              child: const Text('See all'),
+            ),
           ],
         ),
         const SizedBox(height: 12),
@@ -533,6 +599,9 @@ class _TrendingShowcase extends StatelessWidget {
             separatorBuilder: (_, __) => const SizedBox(width: 12),
             itemBuilder: (context, index) {
               final song = data.songs[index];
+              final playable =
+                  song.clipUrl != null && song.clipUrl!.trim().isNotEmpty;
+              final isPlaying = _isPlaying(song);
               return SizedBox(
                 width: 148,
                 child: Column(
@@ -555,6 +624,47 @@ class _TrendingShowcase extends StatelessWidget {
                               )
                             else
                               _ArtworkFallback(title: song.title),
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: playable ? () => _toggleClip(song) : null,
+                                child: AnimatedOpacity(
+                                  duration: const Duration(milliseconds: 150),
+                                  opacity: isPlaying || playable ? 1 : 0.5,
+                                  child: Container(
+                                    color: isPlaying
+                                        ? Colors.black45
+                                        : Colors.black26,
+                                    alignment: Alignment.center,
+                                    child: Container(
+                                      width: 44,
+                                      height: 44,
+                                      decoration: BoxDecoration(
+                                        color: cs.surface,
+                                        shape: BoxShape.circle,
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            blurRadius: 8,
+                                            color: Colors.black26,
+                                          ),
+                                        ],
+                                      ),
+                                      child: Icon(
+                                        isPlaying
+                                            ? Icons.pause_rounded
+                                            : Icons.play_arrow_rounded,
+                                        color: playable
+                                            ? cs.primary
+                                            : cs.onSurface.withValues(
+                                                alpha: 0.38,
+                                              ),
+                                        size: 28,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
                             Positioned(
                               top: 8,
                               right: 8,

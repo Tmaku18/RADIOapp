@@ -125,35 +125,31 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleGoogleSignIn() async {
     if (_isSubmitting) return;
     final authService = Provider.of<AuthService>(context, listen: false);
-    setState(() => _isSubmitting = true);
+    // Avoid setState/rebuild before authenticate() — Android Credential Manager
+    // expects the auth UI to open promptly from the button tap.
+    _isSubmitting = true;
     try {
       final user = await authService.signInWithGoogle();
-      if (mounted && (user != null || authService.currentUser != null)) {
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      if (user != null || authService.currentUser != null) {
         Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Google sign-in was canceled or did not complete.'),
-          ),
-        );
       }
     } on ProfileSetupRequiredException catch (setup) {
-      // New OAuth user: a display name is mandatory before the account is
-      // created. Collect one (pre-filled with the Google name) and finish.
+      if (mounted) setState(() => _isSubmitting = false);
       await _completeOAuthSetup(authService, setup);
     } catch (e) {
-      if (mounted) {
-        // Firebase may still have signed in (e.g. backend /users/me failed)
-        if (authService.currentUser != null) {
-          Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Google sign in failed: $e')),
-          );
-        }
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      if (authService.currentUser != null) {
+        Navigator.of(context).pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
       }
     } finally {
-      if (mounted) {
+      if (mounted && _isSubmitting) {
         setState(() => _isSubmitting = false);
       }
     }
