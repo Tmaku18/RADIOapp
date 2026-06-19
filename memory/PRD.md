@@ -77,3 +77,14 @@
   - **Music notes** ♪♫♬♩ as canvas-textured sprites, floating up + side-to-side, fading in/out
   - Butterfly translated to right side of hero so it doesn't overlap headline text
 - Brand logo image saved to `/app/frontend/public/brand/networx-logo.png` — now used in Nav (with "THE BUTTERFLY EFFECT" tagline) and Footer.
+
+## Update — 2026-01-19 (Butterfly Burst Interaction)
+- Butterfly is now **interactive** — large invisible plane mesh acts as the hit area; cursor turns into pointer on hover.
+- **Hover or click** triggers a 1.4s burst:
+  - Wings throw wide open (sin-eased to ~77° beyond flap) then snap back
+  - Body flashes with a +2.4 emissive boost
+  - Butterfly briefly scales up ~14%
+  - **NoteBurst**: 56 music-note sprites spawn radially with random tangential velocities + gentle gravity arc, fading in fast / out slow over 2.2s
+- Hover is rate-limited to once / 4s, click to once / 0.6s — no spam.
+- "CLICK THE BUTTERFLY" hint badge added bottom-right of hero so users discover the interaction.
+- Time base unified to `performance.now() / 1000` to keep event-time and render-time comparable.

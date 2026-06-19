@@ -162,7 +162,7 @@ function Wing({ side = 1 }) {
 // ─────────────────────────────────────────────────────────────────────
 // The flapping butterfly (wings hinge around body axis)
 // ─────────────────────────────────────────────────────────────────────
-function Butterfly() {
+function Butterfly({ burstTimeRef, onBurst }) {
   const leftHinge = useRef();
   const rightHinge = useRef();
   const body = useRef();
@@ -170,21 +170,52 @@ function Butterfly() {
 
   useFrame((state) => {
     const t = state.clock.elapsedTime;
-    const flap = Math.sin(t * 4.4) * 0.6 + 0.2; // bias forward
-    if (rightHinge.current) rightHinge.current.rotation.y = -flap;
-    if (leftHinge.current) leftHinge.current.rotation.y = flap;
+    const now = performance.now() / 1000;
+    // Burst progress 0..1 over 1.4s
+    const since = now - (burstTimeRef.current ?? -10);
+    const bp = Math.min(Math.max(since / 1.4, 0), 1);
+    // Burst eases: wings throw WIDE, then snap back
+    const burstAngle = bp > 0 && bp < 1 ? Math.sin(bp * Math.PI) * 1.35 : 0;
+    const burstScale = bp > 0 && bp < 1 ? 1 + Math.sin(bp * Math.PI) * 0.14 : 1;
+    const burstFlash = bp > 0 && bp < 1 ? Math.sin(bp * Math.PI) * 2.4 : 0;
+
+    const flap = Math.sin(t * 4.4) * 0.6 + 0.2;
+    if (rightHinge.current) rightHinge.current.rotation.y = -flap - burstAngle;
+    if (leftHinge.current) leftHinge.current.rotation.y = flap + burstAngle;
     if (root.current) {
       root.current.position.y = Math.sin(t * 1.6) * 0.18;
       root.current.rotation.z = Math.sin(t * 0.8) * 0.04;
+      root.current.scale.setScalar(burstScale);
     }
     if (body.current) {
       const mat = body.current.material;
-      if (mat) mat.emissiveIntensity = 1.6 + Math.sin(t * 4.4) * 0.4;
+      if (mat) mat.emissiveIntensity = 1.6 + Math.sin(t * 4.4) * 0.4 + burstFlash;
     }
   });
 
+  // Generous invisible hit area so users can click/hover anywhere on the butterfly
+  const hitHandlers = {
+    onPointerOver: (e) => {
+      e.stopPropagation();
+      document.body.style.cursor = "pointer";
+      onBurst("hover");
+    },
+    onPointerOut: () => {
+      document.body.style.cursor = "auto";
+    },
+    onClick: (e) => {
+      e.stopPropagation();
+      onBurst("click");
+    },
+  };
+
   return (
     <group ref={root}>
+      {/* Invisible hit area sized to the whole butterfly */}
+      <mesh {...hitHandlers} position={[0, 0, 0.1]}>
+        <planeGeometry args={[5.2, 2.6]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
       {/* Body */}
       <mesh ref={body}>
         <capsuleGeometry args={[0.05, 1.4, 8, 16]} />
@@ -215,6 +246,76 @@ function Butterfly() {
       <group ref={leftHinge}>
         <Wing side={-1} />
       </group>
+    </group>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// NoteBurst — radial cloud of music notes triggered on butterfly interaction
+// ─────────────────────────────────────────────────────────────────────
+function NoteBurst({ burstTimeRef, count = 56 }) {
+  const refs = useRef([]);
+  const textures = useMemo(() => NOTE_CHARS.map(makeNoteTexture), []);
+  const seeds = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < count; i++) {
+      const angle = (i / count) * Math.PI * 2 + Math.random() * 0.4;
+      const speed = 3.2 + Math.random() * 3.0;
+      arr.push({
+        tex: textures[i % textures.length],
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed * 0.85 + 0.6,
+        vz: (Math.random() - 0.5) * 1.5,
+        size: 0.55 + Math.random() * 0.5,
+        spin: (Math.random() - 0.5) * 5,
+      });
+    }
+    return arr;
+  }, [count, textures]);
+
+  useFrame((state) => {
+    const now = performance.now() / 1000;
+    const since = now - (burstTimeRef.current ?? -10);
+    const active = since >= 0 && since < 2.2;
+    refs.current.forEach((sprite, i) => {
+      if (!sprite) return;
+      if (!active) {
+        sprite.visible = false;
+        return;
+      }
+      sprite.visible = true;
+      const s = seeds[i];
+      const tau = since; // seconds since burst
+      sprite.position.x = s.vx * tau;
+      sprite.position.y = s.vy * tau - 0.4 * tau * tau; // gentle gravity arc
+      sprite.position.z = s.vz * tau;
+      const life = THREE.MathUtils.clamp(tau / 2.0, 0, 1);
+      // fade in fast, fade out slow
+      const fade = life < 0.1 ? life / 0.1 : 1 - (life - 0.1) / 0.9;
+      sprite.material.opacity = Math.max(0, fade);
+      sprite.scale.setScalar(s.size * (0.6 + fade * 0.7));
+      sprite.material.rotation = s.spin * tau;
+    });
+  });
+
+  return (
+    <group>
+      {seeds.map((s, i) => (
+        <sprite
+          key={i}
+          ref={(el) => (refs.current[i] = el)}
+          visible={false}
+        >
+          <spriteMaterial
+            map={s.tex}
+            transparent
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+            opacity={0}
+          />
+        </sprite>
+      ))}
     </group>
   );
 }
@@ -373,14 +474,26 @@ function StarField() {
 // ─────────────────────────────────────────────────────────────────────
 // The exported scene
 // ─────────────────────────────────────────────────────────────────────
-export default function HeroScene() {
+// ─────────────────────────────────────────────────────────────────────
+// The exported scene
+// ─────────────────────────────────────────────────────────────────────
+function SceneContents() {
+  const burstTimeRef = useRef(-10);
+  const lastBurstHoverRef = useRef(-10);
+
+  const triggerBurst = (kind) => {
+    const now = performance.now() / 1000;
+    const since = now - burstTimeRef.current;
+    if (kind === "hover" && since < 1.6) return;
+    if (kind === "click" && since < 0.6) return;
+    // make hover rarer so cursor wiggle doesn't spam bursts
+    if (kind === "hover" && now - lastBurstHoverRef.current < 4) return;
+    if (kind === "hover") lastBurstHoverRef.current = now;
+    burstTimeRef.current = now;
+  };
+
   return (
-    <Canvas
-      dpr={[1, 1.8]}
-      camera={{ position: [0, 0.2, 6.4], fov: 45 }}
-      gl={{ antialias: true, alpha: true }}
-      style={{ position: "absolute", inset: 0 }}
-    >
+    <>
       <color attach="background" args={["#050505"]} />
       <fog attach="fog" args={["#050505", 9, 22]} />
       <ambientLight intensity={0.25} />
@@ -390,9 +503,23 @@ export default function HeroScene() {
       <StarField />
       <group position={[2.4, 0.2, 0]}>
         <ParticleDust />
-        <Butterfly />
+        <Butterfly burstTimeRef={burstTimeRef} onBurst={triggerBurst} />
         <MusicNotes />
+        <NoteBurst burstTimeRef={burstTimeRef} />
       </group>
+    </>
+  );
+}
+
+export default function HeroScene() {
+  return (
+    <Canvas
+      dpr={[1, 1.8]}
+      camera={{ position: [0, 0.2, 6.4], fov: 45 }}
+      gl={{ antialias: true, alpha: true }}
+      style={{ position: "absolute", inset: 0 }}
+    >
+      <SceneContents />
     </Canvas>
   );
 }

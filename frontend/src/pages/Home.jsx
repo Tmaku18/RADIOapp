@@ -92,6 +92,14 @@ export default function Home() {
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-[0.4em] text-white/30 animate-pulse">
           SCROLL ▾
         </div>
+
+        {/* Butterfly interaction hint — only visible on lg+ */}
+        <div className="hidden lg:flex absolute bottom-10 right-10 items-center gap-3 px-4 py-2 rounded-full glass animate-pulse pointer-events-none">
+          <span className="text-cyan-300 text-base">🦋</span>
+          <span className="font-mono text-[10px] tracking-[0.3em] text-cyan-300">
+            CLICK THE BUTTERFLY
+          </span>
+        </div>
       </section>
 
       {/* TRENDING NOW */}
