@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from "react";
 import { Play, Pause, Headphones, Heart, Flame, Radio } from "lucide-react";
 import { trendingSongs, platformStats } from "@/data/mockData";
 import { usePlayer } from "@/context/PlayerContext";
+import Reveal from "@/components/Reveal";
 
 const FloatingAlbum = lazy(() => import("@/three/FloatingAlbum"));
 
@@ -11,21 +12,24 @@ export default function RadioPage() {
   return (
     <div className="relative pt-28 pb-40 min-h-screen" data-testid="radio-page">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="mb-8">
-          <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
-            ◤ THE REFINERY
+        <Reveal>
+          <div className="mb-8">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
+              ◤ THE REFINERY
+            </div>
+            <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
+              Live <span className="text-glow-cyan text-cyan-300">Radio</span>
+            </h1>
+            <p className="text-white/60 mt-3 max-w-xl">
+              The portal where Prospectors rank, survey, and comment to refine songs before they break out.
+            </p>
           </div>
-          <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
-            Live <span className="text-glow-cyan text-cyan-300">Radio</span>
-          </h1>
-          <p className="text-white/60 mt-3 max-w-xl">
-            The portal where Prospectors rank, survey, and comment to refine songs before they break out.
-          </p>
-        </div>
+        </Reveal>
 
         <div className="grid lg:grid-cols-12 gap-6">
           {/* 3D floating album */}
-          <div className="lg:col-span-7 rounded-2xl overflow-hidden glass relative aspect-square lg:aspect-auto lg:min-h-[560px]">
+          <Reveal delay={0.1} className="lg:col-span-7">
+            <div className="rounded-2xl overflow-hidden glass relative aspect-square lg:aspect-auto lg:min-h-[560px]">
             <div className="absolute inset-0 cyber-grid opacity-40" />
             <Suspense
               fallback={
@@ -61,11 +65,13 @@ export default function RadioPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
+          </Reveal>
 
           {/* Control Room */}
           <div className="lg:col-span-5 space-y-5">
-            <div className="rounded-2xl glass p-6">
+            <Reveal delay={0.2}>
+              <div className="rounded-2xl glass p-6">
               <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-4">
                 CONTROL ROOM
               </div>
@@ -106,51 +112,57 @@ export default function RadioPage() {
                 ))}
               </div>
             </div>
+            </Reveal>
 
-            <div className="rounded-2xl glass p-6">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-4">
-                LIVE STATS
+            <Reveal delay={0.3}>
+              <div className="rounded-2xl glass p-6">
+                <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-4">
+                  LIVE STATS
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { l: "Listeners now", v: platformStats.liveListeners },
+                    { l: "Ears reached", v: platformStats.earsReached },
+                    { l: "Total ripples", v: platformStats.ripples },
+                    { l: "Avg temperature", v: `${platformStats.avgTemp}°` },
+                  ].map((s) => (
+                    <div key={s.l} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
+                      <span className="font-mono text-[11px] tracking-[0.15em] text-white/60 uppercase">{s.l}</span>
+                      <span className="font-unbounded font-bold text-cyan-300">{s.v}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="space-y-3">
-                {[
-                  { l: "Listeners now", v: platformStats.liveListeners },
-                  { l: "Ears reached", v: platformStats.earsReached },
-                  { l: "Total ripples", v: platformStats.ripples },
-                  { l: "Avg temperature", v: `${platformStats.avgTemp}°` },
-                ].map((s) => (
-                  <div key={s.l} className="flex items-center justify-between py-2 border-b border-white/5 last:border-0">
-                    <span className="font-mono text-[11px] tracking-[0.15em] text-white/60 uppercase">{s.l}</span>
-                    <span className="font-unbounded font-bold text-cyan-300">{s.v}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            </Reveal>
           </div>
         </div>
 
         {/* Up Next */}
         <div className="mt-12">
-          <div className="flex items-center gap-3 mb-5">
-            <Radio className="w-4 h-4 text-cyan-300" />
-            <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300">UP NEXT IN THE QUEUE</div>
-          </div>
+          <Reveal>
+            <div className="flex items-center gap-3 mb-5">
+              <Radio className="w-4 h-4 text-cyan-300" />
+              <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300">UP NEXT IN THE QUEUE</div>
+            </div>
+          </Reveal>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {trendingSongs.slice(0, 6).map((s, i) => (
-              <button
-                key={s.id}
-                onClick={() => setIdx(i)}
-                data-testid={`queue-item-${i}`}
-                className={`text-left tilt rounded-xl p-3 glass flex items-center gap-3 ${
-                  i === idx ? "border-cyan-400/50" : ""
-                }`}
-              >
-                <img src={s.img} alt={s.title} className="w-14 h-14 rounded object-cover" />
-                <div className="min-w-0 flex-1">
-                  <div className="font-unbounded font-bold text-sm truncate">{s.title}</div>
-                  <div className="font-mono text-[10px] text-white/50">{s.artist}</div>
-                </div>
-                <div className="font-mono text-[10px] text-cyan-300">{s.temp}°</div>
-              </button>
+              <Reveal key={s.id} delay={(i % 3) * 0.08}>
+                <button
+                  onClick={() => setIdx(i)}
+                  data-testid={`queue-item-${i}`}
+                  className={`text-left tilt rounded-xl p-3 glass flex items-center gap-3 w-full ${
+                    i === idx ? "border-cyan-400/50" : ""
+                  }`}
+                >
+                  <img src={s.img} alt={s.title} className="w-14 h-14 rounded object-cover" />
+                  <div className="min-w-0 flex-1">
+                    <div className="font-unbounded font-bold text-sm truncate">{s.title}</div>
+                    <div className="font-mono text-[10px] text-white/50">{s.artist}</div>
+                  </div>
+                  <div className="font-mono text-[10px] text-cyan-300">{s.temp}°</div>
+                </button>
+              </Reveal>
             ))}
           </div>
         </div>

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Mail, Send, Terminal } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
@@ -18,18 +19,21 @@ export default function ContactPage() {
   return (
     <div className="relative pt-28 pb-40 min-h-screen" data-testid="contact-page">
       <div className="max-w-5xl mx-auto px-6 lg:px-10">
-        <div className="mb-12">
-          <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-2">◤ TRANSMIT</div>
-          <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
-            Get in <span className="text-glow-pink text-pink-400">touch</span>
-          </h1>
-          <p className="text-white/60 mt-3 max-w-xl">
-            Send us a frequency. Pitch your show. Tell us what's bumping. We read everything.
-          </p>
-        </div>
+        <Reveal>
+          <div className="mb-12">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-2">◤ TRANSMIT</div>
+            <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
+              Get in <span className="text-glow-pink text-pink-400">touch</span>
+            </h1>
+            <p className="text-white/60 mt-3 max-w-xl">
+              Send us a frequency. Pitch your show. Tell us what's bumping. We read everything.
+            </p>
+          </div>
+        </Reveal>
 
         <div className="grid lg:grid-cols-5 gap-6">
-          <div className="lg:col-span-3 rounded-2xl glass p-6 md:p-8">
+          <Reveal delay={0.1} className="lg:col-span-3">
+            <div className="rounded-2xl glass p-6 md:p-8">
             <div className="flex items-center gap-2 font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-6">
               <Terminal className="w-3 h-3" /> /networx/transmit
             </div>
@@ -81,27 +85,34 @@ export default function ContactPage() {
                 {sent ? "Transmitted ✓" : <>Transmit <Send className="w-4 h-4" /></>}
               </button>
             </form>
-          </div>
+            </div>
+          </Reveal>
 
           <aside className="lg:col-span-2 space-y-4">
-            <div className="rounded-2xl glass p-6">
-              <Mail className="w-5 h-5 text-cyan-300 mb-3" />
-              <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-1">DIRECT LINE</div>
-              <div className="font-unbounded font-bold text-lg">hello@networxradio.com</div>
-            </div>
-            <div className="rounded-2xl glass p-6">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-3">PITCH A SHOW</div>
-              <p className="text-white/70 text-sm leading-relaxed">
-                Are you a DJ, producer, or curator with a sound that bends the frequency?
-                Slide into our DMs. We're always digging for catalysts.
-              </p>
-            </div>
-            <div className="rounded-2xl glass p-6">
-              <div className="font-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-3">FOLLOW THE WAKE</div>
-              <p className="text-white/70 text-sm leading-relaxed">
-                @networxradio across the socials. Watch the temperature rise in real time.
-              </p>
-            </div>
+            <Reveal delay={0.2}>
+              <div className="rounded-2xl glass p-6">
+                <Mail className="w-5 h-5 text-cyan-300 mb-3" />
+                <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-1">DIRECT LINE</div>
+                <div className="font-unbounded font-bold text-lg">hello@networxradio.com</div>
+              </div>
+            </Reveal>
+            <Reveal delay={0.3}>
+              <div className="rounded-2xl glass p-6">
+                <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-3">PITCH A SHOW</div>
+                <p className="text-white/70 text-sm leading-relaxed">
+                  Are you a DJ, producer, or curator with a sound that bends the frequency?
+                  Slide into our DMs. We're always digging for catalysts.
+                </p>
+              </div>
+            </Reveal>
+            <Reveal delay={0.4}>
+              <div className="rounded-2xl glass p-6">
+                <div className="font-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-3">FOLLOW THE WAKE</div>
+                <p className="text-white/70 text-sm leading-relaxed">
+                  @networxradio across the socials. Watch the temperature rise in real time.
+                </p>
+              </div>
+            </Reveal>
           </aside>
         </div>
       </div>

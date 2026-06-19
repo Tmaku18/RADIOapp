@@ -4,6 +4,7 @@ import "@/App.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
 import RadioPlayer from "@/components/RadioPlayer";
+import SmoothScroll from "@/components/SmoothScroll";
 import { PlayerProvider } from "@/context/PlayerContext";
 import Home from "@/pages/Home";
 import RadioPage from "@/pages/RadioPage";
@@ -35,6 +36,7 @@ export default function App() {
   return (
     <PlayerProvider>
       <BrowserRouter>
+        <SmoothScroll />
         <Layout>
           <Routes>
             <Route path="/" element={<Home />} />

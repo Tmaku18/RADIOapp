@@ -1,28 +1,31 @@
 import React from "react";
 import { trendingArtists } from "@/data/mockData";
 import { Headphones, Heart } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 export default function ArtistsPage() {
   return (
     <div className="relative pt-28 pb-40 min-h-screen" data-testid="artists-page">
       <div className="max-w-7xl mx-auto px-6 lg:px-10">
-        <div className="mb-12">
-          <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-2">◤ CATALYSTS</div>
-          <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
-            The <span className="text-glow-pink text-pink-400">Gems</span>
-          </h1>
-          <p className="text-white/60 mt-3 max-w-xl">
-            Hidden talent refined under pressure. These are the artists currently mining the frequency.
-          </p>
-        </div>
+        <Reveal>
+          <div className="mb-12">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-pink-400 mb-2">◤ CATALYSTS</div>
+            <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
+              The <span className="text-glow-pink text-pink-400">Gems</span>
+            </h1>
+            <p className="text-white/60 mt-3 max-w-xl">
+              Hidden talent refined under pressure. These are the artists currently mining the frequency.
+            </p>
+          </div>
+        </Reveal>
 
         <div className="grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {trendingArtists.map((a, i) => (
-            <div
-              key={a.name}
-              data-testid={`artist-card-${i}`}
-              className="tilt group rounded-2xl glass overflow-hidden cursor-pointer"
-            >
+            <Reveal key={a.name} delay={(i % 4) * 0.08} y={36}>
+              <div
+                data-testid={`artist-card-${i}`}
+                className="tilt group rounded-2xl glass overflow-hidden cursor-pointer h-full"
+              >
               <div className="aspect-[4/5] relative overflow-hidden bg-gradient-to-br from-cyan-400/10 to-pink-500/10">
                 {a.img ? (
                   <img
@@ -53,7 +56,8 @@ export default function ArtistsPage() {
                   </div>
                 </div>
               </div>
-            </div>
+              </div>
+            </Reveal>
           ))}
         </div>
       </div>

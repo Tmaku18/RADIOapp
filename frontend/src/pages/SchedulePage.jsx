@@ -1,31 +1,34 @@
 import React from "react";
 import { schedule } from "@/data/mockData";
 import { Clock, Radio } from "lucide-react";
+import Reveal from "@/components/Reveal";
 
 export default function SchedulePage() {
   return (
     <div className="relative pt-28 pb-40 min-h-screen" data-testid="schedule-page">
       <div className="max-w-5xl mx-auto px-6 lg:px-10">
-        <div className="mb-12">
-          <div className="font-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-2">◤ MINING TIMELINE</div>
-          <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
-            Weekly <span className="text-glow-cyan text-cyan-300">Schedule</span>
-          </h1>
-          <p className="text-white/60 mt-3 max-w-xl">
-            Every show is a fresh dig through the frequency. Tune in when your sound calls.
-          </p>
-        </div>
+        <Reveal>
+          <div className="mb-12">
+            <div className="font-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-2">◤ MINING TIMELINE</div>
+            <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-7xl">
+              Weekly <span className="text-glow-cyan text-cyan-300">Schedule</span>
+            </h1>
+            <p className="text-white/60 mt-3 max-w-xl">
+              Every show is a fresh dig through the frequency. Tune in when your sound calls.
+            </p>
+          </div>
+        </Reveal>
 
         <div className="relative">
           {/* Vertical neon timeline */}
           <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-cyan-400 via-pink-500 to-yellow-300 opacity-60" />
           <ul className="space-y-4">
             {schedule.map((s, i) => (
-              <li
-                key={s.day}
-                data-testid={`schedule-row-${i}`}
-                className="tilt relative pl-16 pr-6 py-5 rounded-xl glass group"
-              >
+              <Reveal key={s.day} delay={i * 0.06} y={20}>
+                <li
+                  data-testid={`schedule-row-${i}`}
+                  className="tilt relative pl-16 pr-6 py-5 rounded-xl glass group"
+                >
                 <div className="absolute left-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-black border-2 border-cyan-400 flex items-center justify-center glow-cyan">
                   <span className="font-mono text-[10px] font-bold text-cyan-300">{s.day}</span>
                 </div>
@@ -49,6 +52,7 @@ export default function SchedulePage() {
                   </button>
                 </div>
               </li>
+              </Reveal>
             ))}
           </ul>
         </div>
