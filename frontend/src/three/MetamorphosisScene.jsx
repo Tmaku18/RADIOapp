@@ -1,170 +1,730 @@
-import React, { useRef, useMemo } from "react";
+import React, { useRef, useMemo, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { Points, PointMaterial } from "@react-three/drei";
 import * as THREE from "three";
 
-/**
- * MorphScene — four shapes (caterpillar capsule -> cocoon ellipsoid -> butterfly wings -> diamond octahedron)
- * Driven by a scroll progress 0..1 ref passed via prop. We blend visibility + scale + rotation.
- */
-function ShapeStage({ progressRef }) {
-  const caterpillar = useRef();
-  const cocoon = useRef();
-  const butterflyL = useRef();
-  const butterflyR = useRef();
-  const diamond = useRef();
-  const group = useRef();
+const CYAN = "#00F0FF";
+const PINK = "#FF007F";
+const YELLOW = "#F4D03F";
+const WHITE = "#ffffff";
+
+// =====================================================================
+// Helpers
+// =====================================================================
+function smoothstep(edge0, edge1, x) {
+  const t = THREE.MathUtils.clamp((x - edge0) / (edge1 - edge0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
+// Apply opacity to all meshes inside a group
+function applyOpacity(group, alpha) {
+  if (!group) return;
+  group.traverse((c) => {
+    if (c.isMesh && c.material) {
+      c.material.transparent = alpha < 0.999;
+      c.material.opacity = alpha;
+      c.material.depthWrite = alpha > 0.95;
+    } else if (c.isPoints && c.material) {
+      c.material.opacity = alpha;
+    }
+  });
+}
+
+// =====================================================================
+// STAGE 1 — HIDDEN GEM: pickaxe mines rock, gem glows underneath
+// =====================================================================
+function Stage1Gem({ activeRef, progressRef }) {
+  const root = useRef();
+  const pickaxe = useRef();
+  const gem = useRef();
+  const sparksRef = useRef();
+  const sparkVelocities = useRef([]);
+  const lastStrike = useRef(-99);
+
+  // Build pickaxe geometry once
+  const pickaxeNode = useMemo(() => {
+    const g = new THREE.Group();
+    // Handle
+    const handle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.05, 1.5, 16),
+      new THREE.MeshStandardMaterial({
+        color: "#8B5A2B",
+        emissive: "#3a1f0a",
+        emissiveIntensity: 0.3,
+        roughness: 0.85,
+        metalness: 0.1,
+      })
+    );
+    handle.rotation.z = Math.PI / 4;
+    g.add(handle);
+    // Head — two prongs as a horizontal capsule + spike
+    const headMat = new THREE.MeshStandardMaterial({
+      color: "#cdd6dc",
+      emissive: "#202830",
+      emissiveIntensity: 0.4,
+      roughness: 0.25,
+      metalness: 0.95,
+    });
+    const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.16, 0.22), headMat);
+    head.position.set(0.53, 0.53, 0);
+    head.rotation.z = -Math.PI / 4;
+    g.add(head);
+    // Pointy tip
+    const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 8), headMat);
+    tip.position.set(0.93, 0.93, 0);
+    tip.rotation.z = -Math.PI / 2 - Math.PI / 4;
+    g.add(tip);
+    return g;
+  }, []);
+
+  // Build rock chunks
+  const rocks = useMemo(() => {
+    const arr = [];
+    for (let i = 0; i < 9; i++) {
+      const angle = (i / 9) * Math.PI * 2;
+      const r = 0.6 + Math.random() * 0.3;
+      arr.push({
+        x: Math.cos(angle) * r,
+        y: -0.7 + Math.random() * 0.2,
+        z: Math.sin(angle) * r * 0.3,
+        scale: 0.22 + Math.random() * 0.22,
+        rot: Math.random() * Math.PI,
+      });
+    }
+    return arr;
+  }, []);
+
+  // Spark particles
+  useEffect(() => {
+    const v = [];
+    for (let i = 0; i < 40; i++) {
+      v.push({
+        vx: (Math.random() - 0.5) * 4,
+        vy: 1.5 + Math.random() * 3,
+        vz: (Math.random() - 0.5) * 2,
+        life: -1,
+      });
+    }
+    sparkVelocities.current = v;
+  }, []);
+
+  const sparkPositions = useMemo(() => new Float32Array(40 * 3), []);
 
   useFrame((state, dt) => {
+    const a = activeRef.current;
     const p = progressRef.current ?? 0;
-    const t = state.clock.elapsedTime;
+    if (!root.current) return;
 
-    // 4 stages: 0..0.25, 0.25..0.5, 0.5..0.75, 0.75..1
-    const stage1 = THREE.MathUtils.smoothstep(p, 0.0, 0.22);    // caterpillar fades out
-    const stage2In = THREE.MathUtils.smoothstep(p, 0.18, 0.4);  // cocoon appears
-    const stage2Out = THREE.MathUtils.smoothstep(p, 0.45, 0.6); // cocoon fades
-    const stage3 = THREE.MathUtils.smoothstep(p, 0.55, 0.78);   // butterfly appears
-    const stage3Out = THREE.MathUtils.smoothstep(p, 0.78, 0.9); // butterfly morphs
-    const stage4 = THREE.MathUtils.smoothstep(p, 0.82, 1.0);    // diamond crystallizes
+    // Local stage progress 0..1 inside its visible window (roughly first 25% of overall scroll)
+    const local = THREE.MathUtils.clamp(p / 0.22, 0, 1);
 
-    if (caterpillar.current) {
-      const s = THREE.MathUtils.lerp(1, 0.0, stage1);
-      caterpillar.current.scale.setScalar(s);
-      caterpillar.current.rotation.z += dt * 0.4;
-      caterpillar.current.position.y = Math.sin(t * 1.3) * 0.15;
+    // Position & opacity
+    root.current.scale.setScalar(THREE.MathUtils.lerp(0.6, 1, a));
+    applyOpacity(root.current, a);
+
+    // Pickaxe swing cycle
+    const cycle = 1.4;
+    const time = state.clock.elapsedTime;
+    const t = (time % cycle) / cycle; // 0..1
+    // Easing: anticipation (wind-up) -> strike -> recovery
+    const swing = t < 0.55
+      ? -1.0 + 1.3 * smoothstep(0, 0.55, t)        // wind up to 0.3
+      : 0.3 - 1.3 * smoothstep(0.55, 0.72, t);     // strike down to -1.0
+    if (pickaxe.current) {
+      pickaxe.current.rotation.z = swing + 0.4;
+      pickaxe.current.position.x = -0.7;
+      pickaxe.current.position.y = 0.55;
     }
-    if (cocoon.current) {
-      cocoon.current.scale.setScalar(THREE.MathUtils.lerp(0.1, 1, stage2In) * (1 - stage2Out * 0.6));
-      cocoon.current.material.opacity = stage2In * (1 - stage2Out);
-      cocoon.current.rotation.y = t * 0.6;
-      const pulse = 1 + Math.sin(t * 4) * 0.04 * (stage2In - stage2Out);
-      cocoon.current.scale.multiplyScalar(pulse);
+
+    // Strike detection — emit sparks on the down-strike frame
+    const isStrikeFrame = t > 0.7 && t < 0.74;
+    if (isStrikeFrame && time - lastStrike.current > 0.6) {
+      lastStrike.current = time;
+      // re-init spark velocities & lifetimes
+      sparkVelocities.current.forEach((s, i) => {
+        s.vx = (Math.random() - 0.5) * 5;
+        s.vy = 1.5 + Math.random() * 4;
+        s.vz = (Math.random() - 0.5) * 2;
+        s.life = 0;
+        sparkPositions[i * 3] = 0;
+        sparkPositions[i * 3 + 1] = -0.55;
+        sparkPositions[i * 3 + 2] = 0;
+      });
     }
-    if (butterflyL.current && butterflyR.current) {
-      const op = stage3 * (1 - stage3Out * 0.9);
-      butterflyL.current.material.opacity = op;
-      butterflyR.current.material.opacity = op;
-      const flap = Math.sin(t * 4.5) * 0.7 * stage3;
-      butterflyL.current.rotation.y = -0.4 - flap;
-      butterflyR.current.rotation.y = 0.4 + flap;
-      const lift = THREE.MathUtils.lerp(0, 0.6, stage3);
-      butterflyL.current.position.y = lift + Math.sin(t * 2) * 0.05;
-      butterflyR.current.position.y = lift + Math.sin(t * 2) * 0.05;
-      const s = THREE.MathUtils.lerp(0.6, 1, stage3);
-      butterflyL.current.scale.setScalar(s);
-      butterflyR.current.scale.setScalar(s);
+
+    // Advance sparks
+    sparkVelocities.current.forEach((s, i) => {
+      if (s.life < 0) return;
+      s.life += dt;
+      sparkPositions[i * 3] += s.vx * dt;
+      sparkPositions[i * 3 + 1] += (s.vy - s.life * 6) * dt;
+      sparkPositions[i * 3 + 2] += s.vz * dt;
+      if (s.life > 0.7) s.life = -1;
+    });
+    if (sparksRef.current) {
+      sparksRef.current.geometry.attributes.position.needsUpdate = true;
+      const liveCount = sparkVelocities.current.filter((s) => s.life >= 0).length;
+      sparksRef.current.material.opacity = (liveCount / 40) * a;
     }
-    if (diamond.current) {
-      diamond.current.material.opacity = stage4;
-      diamond.current.scale.setScalar(THREE.MathUtils.lerp(0.2, 1.4, stage4));
-      diamond.current.rotation.x = t * 0.5;
-      diamond.current.rotation.y = t * 0.7;
-    }
-    if (group.current) {
-      group.current.rotation.y = THREE.MathUtils.lerp(group.current.rotation.y, p * Math.PI * 0.3, 0.05);
+
+    // Gem glow rises with each strike (driven by 1 - dist to strike)
+    if (gem.current) {
+      const sinceStrike = time - lastStrike.current;
+      const flash = Math.max(0, 1 - sinceStrike / 0.5);
+      const baseGlow = 0.6 + local * 0.6;
+      gem.current.material.emissiveIntensity = baseGlow + flash * 2;
+      gem.current.position.y = -0.55 + Math.sin(time * 1.6) * 0.02;
+      gem.current.rotation.y = time * 0.5;
     }
   });
 
-  // Butterfly wing geometry — extruded plane heart-ish
-  const wingShape = useMemo(() => {
-    const s = new THREE.Shape();
-    s.moveTo(0, 0);
-    s.bezierCurveTo(0.4, 0.6, 1.4, 1.1, 1.6, 0.4);
-    s.bezierCurveTo(1.7, 0.0, 1.5, -0.4, 1.2, -0.5);
-    s.bezierCurveTo(0.9, -0.6, 0.4, -0.4, 0, 0);
-    return s;
-  }, []);
-
   return (
-    <group ref={group}>
-      {/* Caterpillar — segmented sphere chain */}
-      <group ref={caterpillar}>
-        {[-0.8, -0.4, 0, 0.4, 0.8].map((px, i) => (
-          <mesh key={i} position={[px, 0, 0]}>
-            <sphereGeometry args={[0.35 - Math.abs(px) * 0.08, 24, 24]} />
-            <meshStandardMaterial
-              color={i % 2 ? "#00F0FF" : "#F4D03F"}
-              emissive={i % 2 ? "#00F0FF" : "#F4D03F"}
-              emissiveIntensity={0.4}
-              roughness={0.4}
-              metalness={0.6}
-            />
-          </mesh>
-        ))}
+    <group ref={root}>
+      {/* Ground plate */}
+      <mesh position={[0, -0.95, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <circleGeometry args={[1.6, 48]} />
+        <meshStandardMaterial color="#161616" roughness={1} metalness={0.1} />
+      </mesh>
+
+      {/* Rock chunks around the gem */}
+      {rocks.map((r, i) => (
+        <mesh
+          key={i}
+          position={[r.x, r.y, r.z]}
+          rotation={[r.rot, r.rot * 0.7, r.rot * 0.4]}
+          scale={r.scale}
+        >
+          <dodecahedronGeometry args={[1, 0]} />
+          <meshStandardMaterial
+            color="#2d2d35"
+            roughness={0.9}
+            metalness={0.15}
+            flatShading
+          />
+        </mesh>
+      ))}
+
+      {/* The gem — small octahedron buried/peeking */}
+      <mesh ref={gem} position={[0, -0.55, 0]}>
+        <octahedronGeometry args={[0.34, 0]} />
+        <meshStandardMaterial
+          color={YELLOW}
+          emissive={YELLOW}
+          emissiveIntensity={0.8}
+          roughness={0.15}
+          metalness={0.6}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Glow ring under the gem */}
+      <mesh position={[0, -0.7, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.32, 0.55, 48]} />
+        <meshBasicMaterial
+          color={YELLOW}
+          transparent
+          opacity={0.35}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Pickaxe — swinging in from the left */}
+      <group ref={pickaxe} position={[-0.7, 0.55, 0]}>
+        <primitive object={pickaxeNode} />
       </group>
 
-      {/* Cocoon — elongated ellipsoid */}
-      <mesh ref={cocoon} scale={[0.6, 1.2, 0.6]}>
-        <sphereGeometry args={[0.8, 32, 32]} />
-        <meshStandardMaterial
-          color="#FF007F"
-          emissive="#FF007F"
-          emissiveIntensity={0.7}
+      {/* Sparks */}
+      <points ref={sparksRef}>
+        <bufferGeometry>
+          <bufferAttribute
+            attach="attributes-position"
+            count={40}
+            array={sparkPositions}
+            itemSize={3}
+          />
+        </bufferGeometry>
+        <pointsMaterial
+          size={0.08}
+          color={YELLOW}
           transparent
           opacity={0}
-          roughness={0.15}
-          metalness={0.85}
-          wireframe={false}
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
         />
-      </mesh>
-
-      {/* Butterfly wings */}
-      <mesh ref={butterflyL} position={[-0.2, 0, 0]} rotation={[0, -0.4, 0]}>
-        <extrudeGeometry args={[wingShape, { depth: 0.04, bevelEnabled: false, curveSegments: 24 }]} />
-        <meshStandardMaterial
-          color="#00F0FF"
-          emissive="#00F0FF"
-          emissiveIntensity={0.8}
-          transparent
-          opacity={0}
-          roughness={0.2}
-          metalness={0.7}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-      <mesh ref={butterflyR} position={[0.2, 0, 0]} rotation={[0, Math.PI + 0.4, 0]} scale={[-1, 1, 1]}>
-        <extrudeGeometry args={[wingShape, { depth: 0.04, bevelEnabled: false, curveSegments: 24 }]} />
-        <meshStandardMaterial
-          color="#FF007F"
-          emissive="#FF007F"
-          emissiveIntensity={0.8}
-          transparent
-          opacity={0}
-          roughness={0.2}
-          metalness={0.7}
-          side={THREE.DoubleSide}
-        />
-      </mesh>
-
-      {/* Diamond */}
-      <mesh ref={diamond}>
-        <octahedronGeometry args={[1, 0]} />
-        <meshStandardMaterial
-          color="#ffffff"
-          emissive="#00F0FF"
-          emissiveIntensity={0.5}
-          transparent
-          opacity={0}
-          roughness={0.05}
-          metalness={1.0}
-        />
-      </mesh>
+      </points>
     </group>
   );
 }
 
+// =====================================================================
+// STAGE 2 — RIPPLE: growing concentric waves
+// =====================================================================
+function RippleRing({ delay, color }) {
+  const ref = useRef();
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    const cycle = 3.0;
+    const local = ((t + delay) % cycle) / cycle; // 0..1
+    if (ref.current) {
+      const scale = 0.05 + local * 2.4;
+      ref.current.scale.set(scale, scale, scale);
+      const op = (1 - local) * 0.85;
+      ref.current.material.opacity = op;
+      ref.current.rotation.z = local * 0.6;
+    }
+  });
+  return (
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]}>
+      <ringGeometry args={[0.96, 1.0, 96]} />
+      <meshBasicMaterial
+        color={color}
+        transparent
+        opacity={0}
+        side={THREE.DoubleSide}
+        toneMapped={false}
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+      />
+    </mesh>
+  );
+}
+
+function Stage2Ripple({ activeRef }) {
+  const root = useRef();
+  const core = useRef();
+  const halo = useRef();
+
+  useFrame((state) => {
+    const a = activeRef.current;
+    if (!root.current) return;
+    root.current.scale.setScalar(THREE.MathUtils.lerp(0.6, 1, a));
+    applyOpacity(root.current, a);
+
+    const t = state.clock.elapsedTime;
+    if (core.current) {
+      const pulse = 1 + Math.sin(t * 4.5) * 0.12;
+      core.current.scale.set(pulse, pulse, pulse);
+      core.current.material.emissiveIntensity = 1.5 + Math.sin(t * 4.5) * 0.6;
+    }
+    if (halo.current) {
+      halo.current.rotation.z = t * 0.6;
+    }
+  });
+
+  return (
+    <group ref={root}>
+      {/* Central pulsing core sphere */}
+      <mesh ref={core}>
+        <sphereGeometry args={[0.32, 32, 32]} />
+        <meshStandardMaterial
+          color="#ffe4f0"
+          emissive={PINK}
+          emissiveIntensity={1.6}
+          roughness={0.15}
+          metalness={0.5}
+          toneMapped={false}
+        />
+      </mesh>
+      {/* Halo behind core */}
+      <mesh ref={halo} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[0.45, 0.55, 64]} />
+        <meshBasicMaterial
+          color={PINK}
+          transparent
+          opacity={0.35}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+      {/* Concentric ripple rings, staggered */}
+      {[0, 0.55, 1.1, 1.6, 2.15].map((d, i) => (
+        <RippleRing
+          key={i}
+          delay={d}
+          color={i % 2 === 0 ? PINK : "#ff66b0"}
+        />
+      ))}
+    </group>
+  );
+}
+
+// =====================================================================
+// STAGE 3 — WINGS UNFOLD: butterfly wings with proper unfold animation
+// =====================================================================
+function ButterflyWing({ side = 1, unfoldRef }) {
+  const barsRef = useRef([]);
+  const archRef = useRef();
+
+  const bars = useMemo(() => {
+    const arr = [];
+    const cols = 12;
+    for (let i = 0; i < cols; i++) {
+      const t = i / (cols - 1);
+      const x = THREE.MathUtils.lerp(0.18, 1.6, t) * side;
+      const env = Math.sin(t * Math.PI);
+      arr.push({ x, row: 1, baseH: 0.14 + env * 0.78, phase: i * 0.31 });
+      arr.push({ x, row: -1, baseH: 0.12 + env * 0.5, phase: i * 0.37 });
+    }
+    return arr;
+  }, [side]);
+
+  const archGeom = useMemo(() => {
+    const w = 1.75;
+    const topCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(0, 0.1, 0),
+      new THREE.Vector3(0.55, 1.05, 0),
+      new THREE.Vector3(w * 0.9, 0.8, 0),
+      new THREE.Vector3(w, 0.0, 0)
+    );
+    const botCurve = new THREE.CubicBezierCurve3(
+      new THREE.Vector3(0, -0.1, 0),
+      new THREE.Vector3(0.55, -1.05, 0),
+      new THREE.Vector3(w * 0.9, -0.8, 0),
+      new THREE.Vector3(w, 0.0, 0)
+    );
+    return {
+      top: new THREE.TubeGeometry(topCurve, 64, 0.055, 12, false),
+      bot: new THREE.TubeGeometry(botCurve, 64, 0.055, 12, false),
+    };
+  }, []);
+
+  useFrame((state) => {
+    const t = state.clock.elapsedTime;
+    const unfold = unfoldRef.current; // 0..1
+    barsRef.current.forEach((m, i) => {
+      if (!m) return;
+      const def = bars[i];
+      // Bars are flat (h=0.01) when folded, blossom out when unfolded
+      const wobble = 0.6 + Math.sin(t * 6 + def.phase) * 0.4;
+      const h = THREE.MathUtils.lerp(0.02, def.baseH * wobble, unfold);
+      m.scale.y = h;
+      m.position.y = def.row * (h / 2 + 0.03);
+      if (m.material) m.material.emissiveIntensity = (1.1 + Math.sin(t * 6 + def.phase) * 0.6) * unfold;
+    });
+    if (archRef.current) {
+      // Arch scales out from the body — x scale grows with unfold
+      archRef.current.scale.x = THREE.MathUtils.lerp(0.08, 1, unfold);
+      const mat = archRef.current.children?.[0]?.material;
+      if (mat) mat.emissiveIntensity = 1.5 + Math.sin(t * 2.4) * 0.25;
+    }
+  });
+
+  return (
+    <group scale={[side, 1, 1]}>
+      <group>
+        {bars.map((def, i) => (
+          <mesh
+            key={i}
+            ref={(el) => (barsRef.current[i] = el)}
+            position={[Math.abs(def.x), 0, 0]}
+          >
+            <boxGeometry args={[0.07, 1, 0.07]} />
+            <meshStandardMaterial
+              color="#22D3EE"
+              emissive={CYAN}
+              emissiveIntensity={1.4}
+              roughness={0.25}
+              metalness={0.4}
+              toneMapped={false}
+            />
+          </mesh>
+        ))}
+      </group>
+      <group ref={archRef}>
+        <mesh geometry={archGeom.top}>
+          <meshStandardMaterial
+            color="#A6FBFF"
+            emissive={CYAN}
+            emissiveIntensity={1.6}
+            roughness={0.15}
+            metalness={0.7}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh geometry={archGeom.bot}>
+          <meshStandardMaterial
+            color="#A6FBFF"
+            emissive={CYAN}
+            emissiveIntensity={1.6}
+            roughness={0.15}
+            metalness={0.7}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+function Stage3Wings({ activeRef, progressRef }) {
+  const root = useRef();
+  const left = useRef();
+  const right = useRef();
+  const body = useRef();
+  const unfoldRef = useRef(0);
+
+  useFrame((state) => {
+    const a = activeRef.current;
+    const p = progressRef.current ?? 0;
+    if (!root.current) return;
+
+    // Map overall scroll [0.5, 0.78] to unfold local 0..1
+    const unfold = smoothstep(0.5, 0.78, p);
+    unfoldRef.current = unfold;
+
+    root.current.scale.setScalar(THREE.MathUtils.lerp(0.6, 1.05, a));
+    applyOpacity(root.current, a);
+
+    const t = state.clock.elapsedTime;
+    // Smooth, asymmetric flap with anticipation pause
+    const flapBase = (Math.sin(t * 3.6) * 0.5 + Math.sin(t * 7.2) * 0.12) * unfold;
+    // Initial unfold pose: wings start at -π/2 (folded back), rotate to flap range
+    const foldedAngle = THREE.MathUtils.lerp(Math.PI / 2, 0, unfold);
+
+    if (right.current) right.current.rotation.y = -foldedAngle - flapBase;
+    if (left.current) left.current.rotation.y = foldedAngle + flapBase;
+    if (body.current) {
+      const mat = body.current.material;
+      if (mat) mat.emissiveIntensity = 1.5 + Math.sin(t * 3.6) * 0.35;
+      body.current.position.y = Math.sin(t * 1.4) * 0.08 * unfold;
+    }
+    if (root.current) {
+      root.current.rotation.z = Math.sin(t * 0.8) * 0.04 * unfold;
+    }
+  });
+
+  return (
+    <group ref={root}>
+      {/* Body */}
+      <mesh ref={body}>
+        <capsuleGeometry args={[0.05, 1.3, 8, 16]} />
+        <meshStandardMaterial
+          color="#A6FBFF"
+          emissive={CYAN}
+          emissiveIntensity={1.5}
+          roughness={0.2}
+          metalness={0.6}
+          toneMapped={false}
+        />
+      </mesh>
+      <mesh position={[0, 0.72, 0]}>
+        <sphereGeometry args={[0.07, 16, 16]} />
+        <meshStandardMaterial
+          color="#A6FBFF"
+          emissive={CYAN}
+          emissiveIntensity={1.8}
+          toneMapped={false}
+        />
+      </mesh>
+      <group ref={right}>
+        <ButterflyWing side={1} unfoldRef={unfoldRef} />
+      </group>
+      <group ref={left}>
+        <ButterflyWing side={-1} unfoldRef={unfoldRef} />
+      </group>
+    </group>
+  );
+}
+
+// =====================================================================
+// STAGE 4 — DIAMOND: proper faceted diamond with sparkles
+// =====================================================================
+function diamondGeometry() {
+  // Build a brilliant-cut-ish geometry: top pyramid (crown), middle band (girdle), bottom inverted pyramid (pavilion)
+  const verts = [];
+  const idx = [];
+  const sides = 10;
+  const crownRadius = 1.0;
+  const girdleY = 0.0;
+  const crownTopY = 0.55;
+  const pavilionTipY = -1.1;
+  // top center
+  verts.push(0, crownTopY, 0); // 0
+  // crown ring around girdle - slightly above girdle level
+  const crownRingY = girdleY + 0.05;
+  for (let i = 0; i < sides; i++) {
+    const a = (i / sides) * Math.PI * 2;
+    verts.push(Math.cos(a) * crownRadius, crownRingY, Math.sin(a) * crownRadius);
+  }
+  // pavilion tip
+  verts.push(0, pavilionTipY, 0); // index = 1 + sides
+  const tipIdx = 1 + sides;
+  // crown faces (top -> ring i, ring i+1)
+  for (let i = 0; i < sides; i++) {
+    const a = 1 + i;
+    const b = 1 + ((i + 1) % sides);
+    idx.push(0, a, b);
+  }
+  // pavilion faces (ring i, tip, ring i+1)
+  for (let i = 0; i < sides; i++) {
+    const a = 1 + i;
+    const b = 1 + ((i + 1) % sides);
+    idx.push(a, tipIdx, b);
+  }
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  geom.setIndex(idx);
+  geom.computeVertexNormals();
+  return geom;
+}
+
+function Stage4Diamond({ activeRef }) {
+  const root = useRef();
+  const dia = useRef();
+  const innerDia = useRef();
+  const sparkleRef = useRef();
+  const geom = useMemo(() => diamondGeometry(), []);
+  const wireGeom = useMemo(() => diamondGeometry(), []);
+
+  // Sparkles around the diamond
+  const sparklePositions = useMemo(() => {
+    const arr = new Float32Array(120 * 3);
+    for (let i = 0; i < 120; i++) {
+      const r = 1.6 + Math.random() * 1.4;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      arr[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      arr[i * 3 + 2] = r * Math.cos(phi);
+    }
+    return arr;
+  }, []);
+
+  useFrame((state) => {
+    const a = activeRef.current;
+    if (!root.current) return;
+    root.current.scale.setScalar(THREE.MathUtils.lerp(0.3, 1.05, a));
+    applyOpacity(root.current, a);
+
+    const t = state.clock.elapsedTime;
+    if (dia.current) {
+      dia.current.rotation.y = t * 0.6;
+      dia.current.rotation.x = Math.sin(t * 0.5) * 0.15;
+      const mat = dia.current.material;
+      if (mat) mat.emissiveIntensity = 0.4 + Math.sin(t * 2.2) * 0.25;
+    }
+    if (innerDia.current) {
+      innerDia.current.rotation.y = -t * 0.4;
+      innerDia.current.rotation.x = Math.cos(t * 0.5) * 0.15;
+    }
+    if (sparkleRef.current) {
+      sparkleRef.current.rotation.y = t * 0.2;
+      sparkleRef.current.material.opacity = a * (0.7 + Math.sin(t * 3) * 0.3);
+    }
+  });
+
+  return (
+    <group ref={root}>
+      {/* Outer faceted shell */}
+      <mesh ref={dia} geometry={geom}>
+        <meshPhysicalMaterial
+          color="#E6FCFF"
+          emissive={CYAN}
+          emissiveIntensity={0.5}
+          roughness={0.05}
+          metalness={0.8}
+          clearcoat={1}
+          clearcoatRoughness={0.05}
+          flatShading
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Inner reverse-rotating diamond for refraction feel */}
+      <mesh ref={innerDia} geometry={wireGeom} scale={0.78}>
+        <meshBasicMaterial
+          color={CYAN}
+          transparent
+          opacity={0.25}
+          wireframe
+          toneMapped={false}
+        />
+      </mesh>
+
+      {/* Halo ring around the girdle */}
+      <mesh rotation={[Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.18, 1.32, 64]} />
+        <meshBasicMaterial
+          color={CYAN}
+          transparent
+          opacity={0.25}
+          side={THREE.DoubleSide}
+          toneMapped={false}
+          blending={THREE.AdditiveBlending}
+        />
+      </mesh>
+
+      {/* Sparkles */}
+      <Points
+        ref={sparkleRef}
+        positions={sparklePositions}
+        stride={3}
+        frustumCulled={false}
+      >
+        <PointMaterial
+          transparent
+          color={WHITE}
+          size={0.06}
+          sizeAttenuation
+          depthWrite={false}
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </Points>
+    </group>
+  );
+}
+
+// =====================================================================
+// Driver — receives external scrollYProgress via progressRef (0..1)
+// =====================================================================
+function StageDriver({ progressRef }) {
+  // active refs are written each frame from progressRef
+  const a1 = useRef(0);
+  const a2 = useRef(0);
+  const a3 = useRef(0);
+  const a4 = useRef(0);
+
+  useFrame(() => {
+    const p = progressRef.current ?? 0;
+    // Same handoff windows as the text panels in AboutPage
+    a1.current = THREE.MathUtils.clamp(1 - smoothstep(0.18, 0.27, p), 0, 1);
+    a2.current = smoothstep(0.22, 0.32, p) * (1 - smoothstep(0.47, 0.55, p));
+    a3.current = smoothstep(0.5, 0.6, p) * (1 - smoothstep(0.74, 0.82, p));
+    a4.current = smoothstep(0.76, 0.86, p);
+  });
+
+  return (
+    <>
+      <Stage1Gem activeRef={a1} progressRef={progressRef} />
+      <Stage2Ripple activeRef={a2} />
+      <Stage3Wings activeRef={a3} progressRef={progressRef} />
+      <Stage4Diamond activeRef={a4} />
+    </>
+  );
+}
+
+// =====================================================================
+// Exported scene
+// =====================================================================
 export default function MetamorphosisScene({ progressRef }) {
   return (
     <Canvas
       dpr={[1, 1.8]}
-      camera={{ position: [0, 0, 4.5], fov: 45 }}
+      camera={{ position: [0, 0.2, 4.6], fov: 45 }}
       gl={{ antialias: true, alpha: true }}
       style={{ position: "absolute", inset: 0 }}
     >
-      <ambientLight intensity={0.25} />
-      <pointLight position={[3, 3, 3]} intensity={2.5} color="#00F0FF" />
-      <pointLight position={[-3, -2, 2]} intensity={2.2} color="#FF007F" />
-      <pointLight position={[0, 4, -3]} intensity={1.4} color="#F4D03F" />
-      <ShapeStage progressRef={progressRef} />
+      <ambientLight intensity={0.3} />
+      <pointLight position={[3, 3, 3]} intensity={2.5} color={CYAN} />
+      <pointLight position={[-3, -2, 2]} intensity={2.2} color={PINK} />
+      <pointLight position={[0, 3, 1.5]} intensity={1.8} color={YELLOW} />
+      <pointLight position={[2, -2, 4]} intensity={1.4} color={WHITE} />
+      <StageDriver progressRef={progressRef} />
     </Canvas>
   );
 }

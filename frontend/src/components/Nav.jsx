@@ -7,6 +7,7 @@ const links = [
   { to: "/radio", label: "Live Radio" },
   { to: "/artists", label: "Artists" },
   { to: "/schedule", label: "Schedule" },
+  { to: "/pro", label: "Pro" },
   { to: "/about", label: "About" },
   { to: "/contact", label: "Contact" },
 ];

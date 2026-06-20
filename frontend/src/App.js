@@ -12,6 +12,8 @@ import ArtistsPage from "@/pages/ArtistsPage";
 import SchedulePage from "@/pages/SchedulePage";
 import AboutPage from "@/pages/AboutPage";
 import ContactPage from "@/pages/ContactPage";
+import ProPage from "@/pages/ProPage";
+import ProDirectoryPage from "@/pages/ProDirectoryPage";
 
 function Layout({ children }) {
   return (
@@ -45,6 +47,8 @@ export default function App() {
             <Route path="/schedule" element={<SchedulePage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/contact" element={<ContactPage />} />
+            <Route path="/pro" element={<ProPage />} />
+            <Route path="/pro/directory" element={<ProDirectoryPage />} />
           </Routes>
         </Layout>
       </BrowserRouter>

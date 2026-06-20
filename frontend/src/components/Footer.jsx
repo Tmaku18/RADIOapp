@@ -40,6 +40,8 @@ export default function Footer() {
             <li><Link className="hover:text-cyan-300" to="/radio">Live Radio</Link></li>
             <li><Link className="hover:text-cyan-300" to="/artists">Artists</Link></li>
             <li><Link className="hover:text-cyan-300" to="/schedule">Schedule</Link></li>
+            <li><Link className="hover:text-cyan-300" to="/pro">Pro-Networx</Link></li>
+            <li><Link className="hover:text-cyan-300" to="/pro/directory">Directory</Link></li>
             <li><Link className="hover:text-cyan-300" to="/about">About</Link></li>
           </ul>
         </div>
