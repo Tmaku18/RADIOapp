@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { ArrowLeft, Radio } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { ArrowLeft, LogOut, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +21,19 @@ export default function ProNetworxLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { user, loading } = useAuth();
+  const router = useRouter();
+  const { user, loading, signOut } = useAuth();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      router.push('/pro-networx');
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
@@ -72,6 +85,20 @@ export default function ProNetworxLayout({
                 </a>
               </Button>
               <ThemeToggle />
+              {!loading && user && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void handleSignOut()}
+                  disabled={isSigningOut}
+                  className="border-border text-muted-foreground hover:text-foreground"
+                >
+                  <LogOut className="h-4 w-4 sm:mr-1.5" />
+                  <span className="hidden sm:inline">
+                    {isSigningOut ? 'Signing out…' : 'Sign out'}
+                  </span>
+                </Button>
+              )}
               {!loading && !user && (
                 <>
                   <Button variant="ghost" size="sm" asChild>
