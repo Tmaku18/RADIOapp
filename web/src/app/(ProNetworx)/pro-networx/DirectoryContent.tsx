@@ -98,10 +98,11 @@ export function ProNetworxDirectoryContent({
   showEditProfile = true,
   smartRanking = false,
 }: Props) {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const [items, setItems] = useState<DirectoryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [location, setLocation] = useState('');
@@ -138,19 +139,24 @@ export function ProNetworxDirectoryContent({
   const load = useCallback(async (append: boolean, currentOffset: number) => {
     if (append) setLoadingMore(true);
     else setLoading(true);
+    setLoadError(null);
     try {
       const res = await proNetworxApi.listDirectory(params);
       const data = res.data as { items: DirectoryItem[]; total: number };
-      const page = (data.items ?? []).slice(currentOffset, currentOffset + PAGE_SIZE);
+      const allItems = data.items ?? [];
+      const page = allItems.slice(currentOffset, currentOffset + PAGE_SIZE);
       if (append) setItems((prev) => [...prev, ...page]);
       else setItems(page);
-      setTotal(data.total ?? data.items?.length ?? 0);
-      setHasMore(page.length === PAGE_SIZE);
+      setTotal(data.total ?? allItems.length);
+      setHasMore(currentOffset + page.length < allItems.length);
       setOffset(currentOffset + page.length);
     } catch (e) {
       console.error('Failed to load directory:', e);
-      if (!append) setItems([]);
-      setTotal(0);
+      if (!append) {
+        setItems([]);
+        setTotal(0);
+        setLoadError('Could not load catalysts. Check your connection and try again.');
+      }
       setHasMore(false);
     } finally {
       setLoading(false);
@@ -159,9 +165,10 @@ export function ProNetworxDirectoryContent({
   }, [params]);
 
   useEffect(() => {
+    if (authLoading) return;
     setOffset(0);
     load(false, 0);
-  }, [load]);
+  }, [load, authLoading]);
 
   const loadMore = () => {
     if (!hasMore || loadingMore) return;
@@ -275,11 +282,20 @@ export function ProNetworxDirectoryContent({
         </div>
       </Reveal>
 
+      {loadError && !loading && (
+        <div className="rounded-2xl border border-pink-400/30 glass p-6 text-center space-y-3">
+          <p className="text-white/80 text-sm">{loadError}</p>
+          <button type="button" className={dimBtnOutline} onClick={() => load(false, 0)}>
+            Retry
+          </button>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-16">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-cyan-400/30 border-t-cyan-400" />
         </div>
-      ) : (
+      ) : loadError ? null : (
         <>
           <p className="font-dim-mono text-[11px] tracking-[0.25em] text-white/50">
             {total} RESULTS

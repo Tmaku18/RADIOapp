@@ -136,12 +136,23 @@ api.interceptors.request.use(
       '/venue-ads/current',
       '/chat/history',
       '/chat/status',
+      '/pro-networx/public/directory',
     ];
     const isPublicEndpoint = publicEndpoints.some(endpoint => 
       config.url === endpoint && config.method?.toLowerCase() === 'get'
     );
     
-    if (!isPublicEndpoint) {
+    if (isPublicEndpoint) {
+      // Optional auth: attach token when available (e.g. follow state) but never block the request.
+      try {
+        const token = await getIdToken(false);
+        if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+      } catch {
+        // Public read — proceed without auth.
+      }
+    } else {
       try {
         // Do not force refresh on every request; queue/admin pages can burst many calls.
         // Firebase SDK auto-refreshes when needed.
@@ -1344,7 +1355,7 @@ export const proNetworxApi = {
     skillNames?: string[];
   }) => api.put('/pro-networx/me/profile', data),
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random' | 'smart'; seed?: string }) =>
-    api.get('/pro-networx/directory', { params: params ?? {} }),
+    api.get('/pro-networx/public/directory', { params: params ?? {} }),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
 
   // Resume PDF
