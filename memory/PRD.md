@@ -88,3 +88,22 @@
 - Hover is rate-limited to once / 4s, click to once / 0.6s — no spam.
 - "CLICK THE BUTTERFLY" hint badge added bottom-right of hero so users discover the interaction.
 - Time base unified to `performance.now() / 1000` to keep event-time and render-time comparable.
+
+## Update — 2026-01-19 (Pro-Networx Section)
+- Built **/pro** (Pro-Networx landing) and **/pro/directory** (creative directory) routes matching content scraped from www.pro-networx.com/pro-networx.
+- **/pro** structure:
+  - Hero (same butterfly 3D scene re-used) with split headline "THE NETWORKING APP FOR EVERY KIND OF CREATIVE" + glitch effect on "creative."
+  - Stats row: 159 Catalysts · 24 Countries · 8 Disciplines · 412 Matches/mo
+  - **Section 01 — Disciplines**: 8 cards (Graphic Designers, Photographers, Videographers, Illustrators, Lyricists, Beat Makers, Engineers, Stylists) with icon + active count
+  - **Section 02 — Toolkit**: 6 feature cards (LinkedIn-style profile, Instagram-style feed, Services marketplace, Direct messaging, Background radio, One account both worlds)
+  - **Section 03 — Subscription**: Free vs Pro pricing tiers ($4.99 first month then $9.99/mo) with gradient-bordered Pro card and checkmark perk lists
+  - Closing CTA "One profile. Two universes."
+- **/pro/directory**:
+  - Hero "HIRE A CATALYST."
+  - Search input + role filter chips (All, Graphic Designer, Photographer, …)
+  - Live filter (12 mock catalysts → search/filter combine) with empty-state card
+  - 4-col grid of verified catalyst cards with rate, location, skills chips, DM + SAVE actions
+  - Footer CTA to create profile
+- Added **'PRO'** nav link + Footer Pro/Directory links (now with `footer-link-*` testids).
+- Tailwind safelist added for dynamic `text-{color}-300/400` permutations used by ProPage.
+- Tested (iteration_5.json): **100% — 18/18** assertions. Zero console errors across all 8 routes. Search 'lagos' → 1 catalyst (Nova Lyra). Photographer filter → 2 catalysts. Regression-clean on all existing routes.

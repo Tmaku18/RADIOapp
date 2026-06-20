@@ -37,12 +37,12 @@ export default function Footer() {
             EXPLORE
           </div>
           <ul className="space-y-2 text-sm text-white/70">
-            <li><Link className="hover:text-cyan-300" to="/radio">Live Radio</Link></li>
-            <li><Link className="hover:text-cyan-300" to="/artists">Artists</Link></li>
-            <li><Link className="hover:text-cyan-300" to="/schedule">Schedule</Link></li>
-            <li><Link className="hover:text-cyan-300" to="/pro">Pro-Networx</Link></li>
-            <li><Link className="hover:text-cyan-300" to="/pro/directory">Directory</Link></li>
-            <li><Link className="hover:text-cyan-300" to="/about">About</Link></li>
+            <li><Link data-testid="footer-link-radio" className="hover:text-cyan-300" to="/radio">Live Radio</Link></li>
+            <li><Link data-testid="footer-link-artists" className="hover:text-cyan-300" to="/artists">Artists</Link></li>
+            <li><Link data-testid="footer-link-schedule" className="hover:text-cyan-300" to="/schedule">Schedule</Link></li>
+            <li><Link data-testid="footer-link-pro" className="hover:text-cyan-300" to="/pro">Pro-Networx</Link></li>
+            <li><Link data-testid="footer-link-directory" className="hover:text-cyan-300" to="/pro/directory">Directory</Link></li>
+            <li><Link data-testid="footer-link-about" className="hover:text-cyan-300" to="/about">About</Link></li>
           </ul>
         </div>
         <div>

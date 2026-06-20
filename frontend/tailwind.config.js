@@ -5,6 +5,12 @@ module.exports = {
     "./src/**/*.{js,jsx,ts,tsx}",
     "./public/index.html"
   ],
+  safelist: [
+    "text-cyan-300", "text-pink-400", "text-yellow-300",
+    "border-cyan-300/40", "border-pink-400/40", "border-yellow-300/40",
+    "border-cyan-300", "border-pink-400", "border-yellow-300",
+    "bg-cyan-300/10", "bg-pink-400/10", "bg-yellow-300/10",
+  ],
   theme: {
     extend: {
       borderRadius: {
