@@ -3236,43 +3236,99 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Get upcoming songs in the queue (for preview/admin purposes).
+   * Get upcoming songs in the queue (public preview for listen page).
+   * Uses the same free-rotation stack as live playback, not legacy credit sorting.
    */
   async getUpcomingQueue(
     limit: number = 10,
     radioId: string = DEFAULT_RADIO_ID,
-  ) {
-    const supabase = getSupabaseClient();
+  ): Promise<
+    Array<{
+      id: string;
+      title: string;
+      artist_name: string;
+      artwork_url?: string | null;
+      like_count?: number;
+      temperature_percent?: number;
+    }>
+  > {
+    const safeLimit = Math.min(Math.max(1, limit), 50);
+    await this.reconcileFreeRotationStack(radioId);
 
-    const currentState = await this.getQueueState(radioId);
-    const currentSongId = currentState?.songId;
+    const state = await this.getQueueState(radioId);
+    const currentSongId = state?.songId
+      ? this.normalizeStackSongId(state.songId)
+      : null;
 
-    // Get credited songs
-    const { data: creditedSongs } = await supabase
-      .from('songs')
-      .select(
-        'id, title, artist_name, artwork_url, credits_remaining, play_count, like_count, duration_seconds',
+    let stack = await this.radioStateService.getFreeRotationStack(radioId);
+    if (stack.length === 0) {
+      const played = new Set(
+        await this.radioStateService.getPlayedFreeRotation(radioId),
+      );
+      const eligible = await this.getAllFreeRotationSongs(radioId);
+      stack = eligible
+        .map((item) => item._stackId)
+        .filter((stackId) => {
+          const normalized = this.normalizeStackSongId(stackId);
+          return normalized !== currentSongId && !played.has(stackId);
+        });
+    }
+
+    const stackSlice = stack.slice(0, safeLimit);
+    const resolved = (
+      await Promise.all(
+        stackSlice.map(async (stackId) => {
+          const song = await this.getFreeRotationSongById(stackId, radioId);
+          if (!song?.id) return null;
+          return {
+            id: song.id as string,
+            title: (song.title as string) ?? 'Unknown',
+            artist_name: (song.artist_name as string) ?? 'Unknown artist',
+            artwork_url: (song.artwork_url as string | null) ?? null,
+            like_count:
+              typeof song.like_count === 'number'
+                ? Math.max(0, song.like_count)
+                : undefined,
+          };
+        }),
       )
-      .eq('status', 'approved')
-      .eq('is_public', true)
-      .gt('credits_remaining', 0);
-
-    // Filter eligible songs
-    const eligible = (creditedSongs || []).filter((song) => {
-      const creditsRequired = this.calculateCreditsRequired(
-        song.duration_seconds || DEFAULT_DURATION_SECONDS,
-      );
-      return (
-        song.credits_remaining >= creditsRequired && song.id !== currentSongId
-      );
-    });
-
-    // Sort by credits (higher first for preview)
-    eligible.sort(
-      (a, b) => (b.credits_remaining || 0) - (a.credits_remaining || 0),
+    ).filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        title: string;
+        artist_name: string;
+        artwork_url: string | null;
+        like_count: number | undefined;
+      } => !!row,
     );
 
-    return eligible.slice(0, limit);
+    if (resolved.length === 0) {
+      return [];
+    }
+
+    const supabase = getSupabaseClient();
+    const songIds = resolved.map((row) => row.id);
+    const { data: temperatureRows } = await supabase
+      .from('song_temperature')
+      .select('song_id, temperature_percent')
+      .in('song_id', songIds);
+
+    const temperatureBySongId = new Map(
+      (temperatureRows ?? []).map((row: { song_id: string; temperature_percent?: number | null }) => [
+        row.song_id,
+        Number.isFinite(Number(row.temperature_percent))
+          ? Math.max(0, Math.min(100, Math.round(Number(row.temperature_percent))))
+          : RadioService.TEMP_BASELINE,
+      ]),
+    );
+
+    return resolved.map((row) => ({
+      ...row,
+      temperature_percent:
+        temperatureBySongId.get(row.id) ?? RadioService.TEMP_BASELINE,
+    }));
   }
 
   /**

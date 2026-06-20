@@ -22,17 +22,22 @@ type RadioUpNextQueueProps = {
 export function RadioUpNextQueue({ radioId }: RadioUpNextQueueProps) {
   const [tracks, setTracks] = useState<QueueTrack[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
+        setLoadError(false);
         const res = await radioApi.getUpcomingQueue(radioId, 12);
         if (!cancelled) {
           setTracks(Array.isArray(res.data) ? res.data : []);
         }
       } catch {
-        if (!cancelled) setTracks([]);
+        if (!cancelled) {
+          setTracks([]);
+          setLoadError(true);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -61,7 +66,11 @@ export function RadioUpNextQueue({ radioId }: RadioUpNextQueueProps) {
             <div className="animate-spin rounded-full h-8 w-8 border-2 border-cyan-400 border-t-transparent" />
           </div>
         ) : tracks.length === 0 ? (
-          <p className="text-center text-white/50 text-sm py-6">Queue loading…</p>
+          <p className="text-center text-white/50 text-sm py-6">
+            {loadError
+              ? 'Could not load the queue right now.'
+              : 'No upcoming tracks in the rotation yet.'}
+          </p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {tracks.map((track, i) => (
