@@ -20,14 +20,15 @@ function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
   if (!player.canVote) return null;
 
   return (
-    <div className="flex items-center gap-1.5 shrink-0">
+    <div className="flex items-center gap-1 shrink-0">
       <button
         type="button"
         onClick={() => player.submitReaction('shit')}
         disabled={player.isVoting}
         data-testid="player-shit-btn"
         aria-label="Pass vote"
-        className={`h-9 w-9 rounded-full text-lg transition ${
+        title="Pass"
+        className={`h-8 w-8 rounded-full text-base leading-none transition ${
           player.selectedReaction === 'shit'
             ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
             : 'bg-white/5 hover:bg-emerald-600/10'
@@ -41,7 +42,8 @@ function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
         disabled={player.isVoting}
         data-testid="player-fire-btn"
         aria-label="Fire vote"
-        className={`h-9 w-9 rounded-full text-lg transition ${
+        title="Fire"
+        className={`h-8 w-8 rounded-full text-base leading-none transition ${
           player.selectedReaction === 'fire'
             ? 'bg-orange-500/20 ring-2 ring-orange-400'
             : 'bg-white/5 hover:bg-orange-500/10'
@@ -114,6 +116,12 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           </div>
         </Link>
 
+        {player.canVote ? (
+          <div className="hidden sm:flex shrink-0 border-l border-white/10 pl-3">
+            <ReactionButtons player={player} />
+          </div>
+        ) : null}
+
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="flex items-center gap-3">
             <button
@@ -170,9 +178,11 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 />
               ))}
             </div>
-            <div className="lg:hidden ml-1">
-              <ReactionButtons player={player} />
-            </div>
+            {player.canVote ? (
+              <div className="sm:hidden ml-1">
+                <ReactionButtons player={player} />
+              </div>
+            ) : null}
           </div>
           <div className="w-full max-w-2xl flex items-center gap-3">
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
@@ -199,8 +209,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-4 w-80 justify-end shrink-0">
-          <ReactionButtons player={player} />
+        <div className="hidden lg:flex items-center gap-4 w-72 justify-end shrink-0">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-yellow-300" />
             <span className="font-dim-mono text-[10px] tracking-[0.2em] dim-text-muted">

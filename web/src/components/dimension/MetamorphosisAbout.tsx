@@ -5,6 +5,7 @@ import { useRef, useEffect, Suspense } from 'react';
 import dynamic from 'next/dynamic';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { Reveal } from './Reveal';
+import { DIMENSION_RADIO_BAR_HEIGHT } from './DimensionRadioBar';
 
 const MetamorphosisScene = dynamic(
   () => import('./MetamorphosisScene').then((m) => m.MetamorphosisScene),
@@ -139,7 +140,10 @@ export function MetamorphosisAbout() {
             </div>
           </div>
 
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-[80vw] max-w-3xl">
+          <div
+            className="absolute left-1/2 -translate-x-1/2 w-[80vw] max-w-3xl pointer-events-none z-20"
+            style={{ bottom: DIMENSION_RADIO_BAR_HEIGHT + 20 }}
+          >
             <div className="flex items-center justify-between mb-2">
               {STAGES.map((s) => (
                 <span
