@@ -2,6 +2,17 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import {
+  Flame,
+  Headphones,
+  Heart,
+  Pause,
+  Play,
+  Radio as RadioIcon,
+  SkipBack,
+  SkipForward,
+  Volume2,
+} from 'lucide-react';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
@@ -22,6 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 import { isServerAheadMidSong } from '@/lib/radio-sync';
+import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 
 type PinnedCatalyst = {
   userId: string;
@@ -64,6 +76,8 @@ interface RadioPlayerProps {
   cardClassName?: string;
   /** When true, treat selection as a user gesture and start playback immediately. */
   autoplay?: boolean;
+  /** Networx 3d listen-page horizontal hero layout. */
+  layout?: 'default' | 'dimension';
 }
 
 const DEFAULT_RADIO_ID = DEFAULT_STATION_ID;
@@ -71,7 +85,12 @@ const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
 
 type StoredReactions = Record<string, 'fire' | 'shit'>;
 
-export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioPlayerProps = {}) {
+export function RadioPlayer({
+  radioId,
+  cardClassName,
+  autoplay = false,
+  layout = 'default',
+}: RadioPlayerProps = {}) {
   const effectiveRadioId = (radioId || DEFAULT_RADIO_ID).trim();
   const { profile } = useAuth();
   const [hasVoted, setHasVoted] = useState(false);
@@ -151,7 +170,8 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
   const [isSubmittingRefinery, setIsSubmittingRefinery] = useState(false);
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
-  const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi, isStaleRadioServerTrack } = usePlayback();
+  const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi, isStaleRadioServerTrack, bassRef } = usePlayback();
+  const artRef = useBassPulseRef(bassRef, { scale: 1.6, glowScale: 1.2 });
   const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean, seekSeconds?: number | null) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
   const playRef = useRef<(() => Promise<void>) | null>(null);
@@ -969,6 +989,248 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
     );
   }
 
+  const refineryDialog = (
+    <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
+      <DialogContent className="sm:max-w-[520px]">
+        <DialogHeader>
+          <DialogTitle>Refine that song (Prospector)</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="refineScore">Refinement (1–10)</Label>
+            <div className="flex items-center gap-3">
+              <input
+                id="refineScore"
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={refineScore}
+                onChange={(e) => setRefineScore(parseInt(e.target.value, 10))}
+                className="w-full"
+              />
+              <div className="w-10 text-right font-semibold tabular-nums">{refineScore}</div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="whereListen">Where would you listen?</Label>
+              <Input
+                id="whereListen"
+                value={whereListen}
+                onChange={(e) => setWhereListen(e.target.value)}
+                placeholder="Car, gym, party…"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="remindsOf">What artist does it remind you of?</Label>
+              <Input
+                id="remindsOf"
+                value={remindsOf}
+                onChange={(e) => setRemindsOf(e.target.value)}
+                placeholder="Artist / vibe"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="comments">Feedback (optional)</Label>
+            <Textarea
+              id="comments"
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
+              placeholder="What clicked? What didn’t?"
+            />
+          </div>
+        </div>
+
+        <DialogFooter className="flex gap-2 sm:gap-0">
+          <Button variant="outline" onClick={() => setRefineryOpen(false)} disabled={isSubmittingRefinery}>
+            Later
+          </Button>
+          <Button onClick={submitRefinery} disabled={isSubmittingRefinery}>
+            {isSubmittingRefinery ? 'Submitting…' : 'Submit'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  if (layout === 'dimension') {
+    const ears =
+      state.isPlaying && state.source === 'radio'
+        ? Math.max(listenerCount, 1)
+        : listenerCount;
+    const progressPct = state.duration
+      ? Math.min(100, (state.currentTime / state.duration) * 100)
+      : 0;
+    const isPlayingNow = state.isPlaying && !state.isMuted;
+
+    return (
+      <>
+        <div className={cn('relative', cardClassName)}>
+          {state.error && (
+            <Alert variant="destructive" className="mb-3 mx-6 mt-4">
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="relative p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center">
+            <div
+              ref={artRef}
+              className="relative w-56 h-56 md:w-72 md:h-72 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30 shrink-0 transition-[box-shadow,transform] duration-75 will-change-transform"
+            >
+              <ArtworkImage
+                src={state.track?.artworkUrl}
+                alt={state.track?.title || 'Album art'}
+                className="w-full h-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+              {isPlayingNow && (
+                <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/70 border border-pink-400/40 backdrop-blur">
+                  <span className="live-dot w-1.5 h-1.5 rounded-full bg-pink-500" />
+                  <span className="font-dim-mono text-[9px] tracking-[0.25em] text-pink-400">ON AIR</span>
+                </div>
+              )}
+              {state.isLoading && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-cyan-400 border-t-transparent" />
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-w-0 w-full">
+              <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-2">
+                NOW PLAYING
+              </div>
+              <div className="font-unbounded font-black text-3xl md:text-5xl tracking-tighter leading-none text-white truncate">
+                {state.track?.title || 'No track playing'}
+              </div>
+              {state.track?.artistId ? (
+                <Link
+                  href={artistProfilePath(state.track.artistId)}
+                  className="text-white/65 mt-1 block hover:text-cyan-300 transition-colors truncate"
+                >
+                  {state.track?.artistName || 'Unknown artist'}
+                </Link>
+              ) : (
+                <div className="text-white/65 mt-1 truncate">
+                  {state.track?.artistName || 'Unknown artist'}
+                </div>
+              )}
+
+              <div className="mt-4 flex items-center gap-5 text-xs text-white/60 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <Headphones className="w-3.5 h-3.5 text-cyan-300" /> {ears} ears
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-pink-400" /> {fireVotes} ripples
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Flame className="w-3.5 h-3.5 text-yellow-300" /> {temperaturePercent}°
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <RadioIcon className="w-3.5 h-3.5 text-cyan-300" /> {ears} listeners
+                </span>
+              </div>
+
+              <div className="mt-6 flex items-center gap-4 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => actions.seek(Math.max(0, state.currentTime - 10))}
+                  disabled={!state.track}
+                  data-testid="radio-prev"
+                  className="w-10 h-10 rounded-full border border-white/15 text-white/80 hover:text-cyan-300 hover:border-cyan-400/50 flex items-center justify-center disabled:opacity-40"
+                >
+                  <SkipBack className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePauseToggle}
+                  disabled={!state.track || state.isLoading}
+                  data-testid="radio-play-big"
+                  className="w-16 h-16 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-white disabled:opacity-40"
+                >
+                  {isPlayingNow ? (
+                    <Pause className="w-6 h-6" />
+                  ) : (
+                    <Play className="w-6 h-6 ml-1" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleTrackEnded()}
+                  disabled={!state.track || state.source !== 'radio'}
+                  data-testid="radio-next"
+                  className="w-10 h-10 rounded-full border border-white/15 text-white/80 hover:text-cyan-300 hover:border-cyan-400/50 flex items-center justify-center disabled:opacity-40"
+                >
+                  <SkipForward className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">
+                  <Volume2 className="w-4 h-4 text-white/50 shrink-0" />
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={Math.round(state.volume * 100)}
+                    onChange={(e) => handleVolumeInput(String(Number(e.target.value) / 100))}
+                    data-testid="radio-volume"
+                    className="w-full accent-cyan-400"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3">
+                <span className="font-dim-mono text-[10px] text-white/40 w-10 text-right">
+                  {formatTime(state.currentTime)}
+                </span>
+                <div className="relative flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <span className="font-dim-mono text-[10px] text-white/40 w-10">
+                  {formatTime(state.duration)}
+                </span>
+              </div>
+
+              <div className="mt-4 flex items-center justify-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => void handleReaction('shit')}
+                  disabled={!state.track || isVoting || state.source !== 'radio'}
+                  className={`h-10 w-10 rounded-full text-xl transition ${
+                    selectedReaction === 'shit'
+                      ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
+                      : 'bg-white/5 hover:bg-emerald-600/10'
+                  } disabled:opacity-40`}
+                >
+                  💩
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleReaction('fire')}
+                  disabled={!state.track || isVoting || state.source !== 'radio'}
+                  className={`h-10 w-10 rounded-full text-xl transition ${
+                    selectedReaction === 'fire'
+                      ? 'bg-orange-500/20 ring-2 ring-orange-400'
+                      : 'bg-white/5 hover:bg-orange-500/10'
+                  } disabled:opacity-40`}
+                >
+                  🔥
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        {refineryDialog}
+      </>
+    );
+  }
+
   return (
     <Card className={cn('overflow-hidden glass-panel border-border/80', cardClassName)}>
       {/* Album Art — subtle signature gradient behind */}
@@ -1299,72 +1561,7 @@ export function RadioPlayer({ radioId, cardClassName, autoplay = false }: RadioP
         )}
       </div>
 
-      <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
-        <DialogContent className="sm:max-w-[520px]">
-          <DialogHeader>
-            <DialogTitle>Refine that song (Prospector)</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="refineScore">Refinement (1–10)</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="refineScore"
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={refineScore}
-                  onChange={(e) => setRefineScore(parseInt(e.target.value, 10))}
-                  className="w-full"
-                />
-                <div className="w-10 text-right font-semibold tabular-nums">{refineScore}</div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="whereListen">Where would you listen?</Label>
-                <Input
-                  id="whereListen"
-                  value={whereListen}
-                  onChange={(e) => setWhereListen(e.target.value)}
-                  placeholder="Car, gym, party…"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="remindsOf">What artist does it remind you of?</Label>
-                <Input
-                  id="remindsOf"
-                  value={remindsOf}
-                  onChange={(e) => setRemindsOf(e.target.value)}
-                  placeholder="Artist / vibe"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="comments">Feedback (optional)</Label>
-              <Textarea
-                id="comments"
-                value={comments}
-                onChange={(e) => setComments(e.target.value)}
-                placeholder="What clicked? What didn’t?"
-              />
-            </div>
-          </div>
-
-          <DialogFooter className="flex gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setRefineryOpen(false)} disabled={isSubmittingRefinery}>
-              Later
-            </Button>
-            <Button onClick={submitRefinery} disabled={isSubmittingRefinery}>
-              {isSubmittingRefinery ? 'Submitting…' : 'Submit'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {refineryDialog}
     </Card>
   );
 }

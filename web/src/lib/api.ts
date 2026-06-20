@@ -226,6 +226,21 @@ export const radioApi = {
       params: radioId ? { radio: radioId } : undefined,
       timeout: RADIO_API_TIMEOUT_MS,
     }),
+  getUpcomingQueue: (radioId?: string, limit = 12) =>
+    api.get<
+      Array<{
+        id: string;
+        title: string;
+        artist_name: string;
+        artwork_url?: string | null;
+        like_count?: number;
+        play_count?: number;
+        temperature_percent?: number;
+      }>
+    >('/radio/queue', {
+      params: { radio: radioId, limit },
+      timeout: RADIO_API_TIMEOUT_MS,
+    }),
   getStream: (radioId?: string) =>
     api.get('/radio/stream', {
       params: radioId ? { radio: radioId } : undefined,

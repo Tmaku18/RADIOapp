@@ -62,9 +62,11 @@ function mergeMessages(
 export default function ChatSidebar({
   radioId = 'global',
   onExitMobile,
+  dimensionChrome = false,
 }: {
   radioId?: string;
   onExitMobile?: () => void;
+  dimensionChrome?: boolean;
 }) {
   const normalizedRadioId = radioId.trim() || 'global';
   const channelName = `radio-chat:${normalizedRadioId}`;
@@ -425,18 +427,33 @@ export default function ChatSidebar({
 
   return (
     <div
-      className={`w-full border-l border-white/10 flex flex-col h-full ${
-        transparentMode
-          ? 'bg-black/25 backdrop-blur-sm'
-          : 'bg-card/90 backdrop-blur-md'
+      className={`w-full flex flex-col h-full ${
+        dimensionChrome
+          ? 'border-0 bg-transparent'
+          : `border-l border-white/10 ${transparentMode ? 'bg-black/25 backdrop-blur-sm' : 'bg-card/90 backdrop-blur-md'}`
       }`}
     >
       {/* Header */}
       <div
-        className={`px-3 py-2 border-b border-white/10 flex items-center justify-between ${
-          transparentMode ? 'bg-black/15' : 'bg-card/70'
+        className={`px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0 ${
+          dimensionChrome ? 'bg-transparent' : transparentMode ? 'bg-black/15' : 'bg-card/70'
         }`}
       >
+        {dimensionChrome ? (
+          <>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-cyan-300 text-sm">💬</span>
+              <div>
+                <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300">LIVE CHAT</div>
+                <div className="font-dim-mono text-[9px] text-white/40 truncate">
+                  {normalizedRadioId} · {messages.length + 28} online
+                </div>
+              </div>
+            </div>
+            <span className="live-dot w-1.5 h-1.5 rounded-full bg-cyan-400 shrink-0" />
+          </>
+        ) : (
+          <>
         <div className="flex items-center gap-2">
           <span className="text-base">💬</span>
           <div>
@@ -498,6 +515,8 @@ export default function ChatSidebar({
             </span>
           </button>
         </div>
+          </>
+        )}
       </div>
 
       <div
