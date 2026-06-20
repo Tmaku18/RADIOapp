@@ -139,3 +139,20 @@
 - All new pages use `Reveal` for scroll-in animations and existing Lenis smooth scroll.
 
 All routes hand-verified via screenshot tool. Bottom RadioPlayer + queue sync remain intact across both app shells. Zero new console errors.
+
+## Update — 2026-01-20 (Audio-Reactive Visualizer)
+- Added `useAudioAnalyser` hook (`/app/frontend/src/hooks/useAudioAnalyser.js`):
+  - Lazy AudioContext (resumed on first user gesture per browser autoplay policy)
+  - `MediaElementSource → AnalyserNode (fftSize=128, smoothing=0.78) → destination` graph
+  - Per-frame `getByteFrequencyData` reduced to 32 bins with log-spaced bias toward the bass region (`pow(t, 1.6)`)
+  - When not playing, falls back to a gentle synthetic sine motion so the UI never looks dead
+  - Clean teardown of AudioContext + source + analyser
+- `NetxRadioPage` wired to real audio:
+  - Hidden `<audio crossOrigin="anonymous" preload="none">` element bound via `audioRef`
+  - Big page-level play button now calls `toggle()` which plays/pauses the actual stream
+  - Volume slider syncs to `audio.volume`
+  - Visualizer subscribes to the analyser's bin buffer via rAF and drives each bar's `height` directly
+  - Status chip flips: `STANDBY ■` → `TRANSMITTING ▶` → `ERR · …` on failure
+  - "LIVE FFT" / "NO STREAM" sub-label indicates whether a stream URL is configured
+- Default stream URL: `REACT_APP_RADIO_STREAM_URL=https://ice1.somafm.com/groovesalad-128-mp3` (SomaFM Groove Salad — free, CORS-enabled). Swap in your real Networx stream by editing `frontend/.env` and `sudo supervisorctl restart frontend`.
+- Verified live: after a single user click on play, `audio.paused = false`, `readyState = 4`, `currentTime` advances, and the bars take on a classic frequency-spectrum shape (bass-heavy left, dropping toward highs).

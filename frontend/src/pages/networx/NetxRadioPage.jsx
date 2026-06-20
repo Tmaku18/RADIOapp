@@ -1,24 +1,45 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { Play, Pause, SkipBack, SkipForward, Volume2, Send, MessageSquare, ChevronRight, Radio as RadioIcon, Headphones, Heart, Flame } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Send, MessageSquare, ChevronRight, Radio as RadioIcon, Headphones, Heart, Flame, Wifi, WifiOff } from "lucide-react";
 import { trendingSongs, platformStats } from "@/data/radioAppData";
 import { radioMe } from "@/data/radioAppData";
 import { usePlayer } from "@/context/PlayerContext";
 import Reveal from "@/components/Reveal";
+import useAudioAnalyser from "@/hooks/useAudioAnalyser";
 
-// 24-bar audio visualizer aligned underneath the player
-function Visualizer({ playing }) {
+const STREAM_URL = process.env.REACT_APP_RADIO_STREAM_URL || "";
+const BARS = 32;
+
+// Audio-reactive 32-bar visualizer driven by AnalyserNode FFT data
+function Visualizer({ dataRef, playing }) {
+  const barsRef = useRef([]);
+  useEffect(() => {
+    let raf;
+    const tick = () => {
+      const data = dataRef.current;
+      barsRef.current.forEach((el, i) => {
+        if (!el) return;
+        const v = (data[i] || 0) / 255; // 0..1
+        const h = Math.max(0.04, v);
+        el.style.height = `${h * 100}%`;
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [dataRef]);
+
   return (
     <div className="flex items-end justify-between gap-1.5 h-20 px-2" data-testid="netx-visualizer">
-      {Array.from({ length: 32 }).map((_, i) => (
+      {Array.from({ length: BARS }).map((_, i) => (
         <span
           key={i}
-          className="vbar flex-1 bg-gradient-to-t from-cyan-400 via-cyan-300 to-pink-500 rounded-sm min-w-[3px]"
-          style={{
-            height: "100%",
-            animationDelay: `${(i * 0.08) % 1.2}s`,
-            animationDuration: `${0.55 + (i % 6) * 0.08}s`,
-            animationPlayState: playing ? "running" : "paused",
-          }}
+          ref={(el) => (barsRef.current[i] = el)}
+          className={`flex-1 min-w-[3px] rounded-sm transition-[height] duration-75 ease-out ${
+            playing
+              ? "bg-gradient-to-t from-cyan-400 via-cyan-300 to-pink-500"
+              : "bg-gradient-to-t from-cyan-400/40 via-cyan-300/30 to-pink-500/40"
+          }`}
+          style={{ height: "4%" }}
         />
       ))}
     </div>
@@ -90,8 +111,14 @@ function LiveChat() {
 }
 
 export default function NetxRadioPage() {
-  const { song, playing, setPlaying, next, prev, idx, setIdx, volume, setVolume, progress } = usePlayer();
+  const { song, next, prev, idx, setIdx, volume, setVolume, progress } = usePlayer();
+  const { audioRef, playing, toggle, dataRef, error } = useAudioAnalyser(STREAM_URL, BARS);
   const cur = useMemo(() => `${Math.floor((progress / 100) * 141)}s`, [progress]);
+
+  // Keep <audio> element volume synced to slider
+  useEffect(() => {
+    if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
+  }, [volume, audioRef]);
 
   return (
     <div data-testid="netx-radio-page" className="space-y-5">
@@ -155,7 +182,7 @@ export default function NetxRadioPage() {
                     <SkipBack className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => setPlaying(!playing)}
+                    onClick={toggle}
                     data-testid="radio-play-big"
                     className="w-16 h-16 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-white"
                   >
@@ -189,13 +216,35 @@ export default function NetxRadioPage() {
               </div>
             </div>
 
-            {/* Visualizer — flush with player, full width, aligned */}
+            {/* Visualizer — flush with player, full width, aligned, audio-reactive */}
             <div className="relative border-t border-white/10 bg-black/40 px-6 md:px-8 py-5">
               <div className="flex items-center justify-between mb-2">
-                <div className="font-mono text-[10px] tracking-[0.3em] text-cyan-300">FREQUENCY VISUALIZER</div>
-                <div className="font-mono text-[10px] tracking-[0.25em] text-white/40">{playing ? "TRANSMITTING ▶" : "PAUSED ■"}</div>
+                <div className="flex items-center gap-3 font-mono text-[10px] tracking-[0.3em] text-cyan-300">
+                  <span>FREQUENCY VISUALIZER</span>
+                  {STREAM_URL ? (
+                    <span className="flex items-center gap-1 text-cyan-300/60">
+                      <Wifi className="w-3 h-3" /> LIVE FFT
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1 text-white/40">
+                      <WifiOff className="w-3 h-3" /> NO STREAM
+                    </span>
+                  )}
+                </div>
+                <div className="font-mono text-[10px] tracking-[0.25em] text-white/40">
+                  {error ? `ERR · ${String(error).slice(0, 30)}` : playing ? "TRANSMITTING ▶" : "STANDBY ■"}
+                </div>
               </div>
-              <Visualizer playing={playing} />
+              <Visualizer dataRef={dataRef} playing={playing} />
+              {/* Hidden audio element — actual stream source */}
+              <audio
+                ref={audioRef}
+                src={STREAM_URL}
+                crossOrigin="anonymous"
+                preload="none"
+                data-testid="radio-audio"
+                className="hidden"
+              />
             </div>
           </div>
         </Reveal>
