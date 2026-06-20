@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import {
+  Flame,
   Pause,
   Play,
-  Radio,
   SkipBack,
   SkipForward,
   Volume2,
@@ -15,6 +15,43 @@ import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
 
 const VBAR_DELAYS = [0.1, 0.3, 0.2, 0.4, 0.25, 0.35, 0.15, 0.5, 0.2];
+
+function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
+  if (!player.canVote) return null;
+
+  return (
+    <div className="flex items-center gap-1.5 shrink-0">
+      <button
+        type="button"
+        onClick={() => player.submitReaction('shit')}
+        disabled={player.isVoting}
+        data-testid="player-shit-btn"
+        aria-label="Pass vote"
+        className={`h-9 w-9 rounded-full text-lg transition ${
+          player.selectedReaction === 'shit'
+            ? 'bg-emerald-600/20 ring-2 ring-emerald-400'
+            : 'bg-white/5 hover:bg-emerald-600/10'
+        } disabled:opacity-40`}
+      >
+        💩
+      </button>
+      <button
+        type="button"
+        onClick={() => player.submitReaction('fire')}
+        disabled={player.isVoting}
+        data-testid="player-fire-btn"
+        aria-label="Fire vote"
+        className={`h-9 w-9 rounded-full text-lg transition ${
+          player.selectedReaction === 'fire'
+            ? 'bg-orange-500/20 ring-2 ring-orange-400'
+            : 'bg-white/5 hover:bg-orange-500/10'
+        } disabled:opacity-40`}
+      >
+        🔥
+      </button>
+    </div>
+  );
+}
 
 type DimensionRadioBarProps = {
   player: DimensionPlayerModel;
@@ -133,6 +170,9 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 />
               ))}
             </div>
+            <div className="lg:hidden ml-1">
+              <ReactionButtons player={player} />
+            </div>
           </div>
           <div className="w-full max-w-2xl flex items-center gap-3">
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
@@ -159,9 +199,10 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-4 w-72 justify-end shrink-0">
+        <div className="hidden lg:flex items-center gap-4 w-80 justify-end shrink-0">
+          <ReactionButtons player={player} />
           <div className="flex items-center gap-2">
-            <Radio className="w-4 h-4 text-cyan-300" />
+            <Flame className="w-4 h-4 text-yellow-300" />
             <span className="font-dim-mono text-[10px] tracking-[0.2em] dim-text-muted">
               TEMP
             </span>

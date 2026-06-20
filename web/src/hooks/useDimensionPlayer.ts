@@ -1,9 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
-import { radioApi } from '@/lib/api';
+import { leaderboardApi, radioApi, songsApi } from '@/lib/api';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
+
+const REACTION_STORAGE_KEY = 'radio:reactionByVoteKey';
+type StoredReactions = Record<string, 'fire' | 'shit'>;
 
 function formatTime(seconds: number): string {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00';
@@ -33,6 +36,10 @@ export type DimensionPlayerModel = {
   seekPrev: () => void;
   seekNext: () => void;
   seekToProgress: (percent: number) => void;
+  canVote: boolean;
+  selectedReaction: 'fire' | 'shit' | null;
+  isVoting: boolean;
+  submitReaction: (reaction: 'fire' | 'shit') => void;
 };
 
 export function useDimensionPlayer(): DimensionPlayerModel {
@@ -43,6 +50,128 @@ export function useDimensionPlayer(): DimensionPlayerModel {
   const track = state?.track ?? null;
   const radioId = track?.radioId?.trim() || DEFAULT_STATION_ID;
   const [temperature, setTemperature] = useState<number | null>(null);
+  const [selectedReaction, setSelectedReaction] = useState<'fire' | 'shit' | null>(null);
+  const [isVoting, setIsVoting] = useState(false);
+  const lastVoteKeyRef = useRef<string | null>(null);
+
+  const canVote = state?.source === 'radio' && !!track?.id;
+
+  const getVoteKey = useCallback(() => {
+    if (!track) return null;
+    return track.playId ?? `track:${track.id}`;
+  }, [track]);
+
+  const readStoredReaction = useCallback((voteKey: string | null) => {
+    if (!voteKey || typeof window === 'undefined') return null;
+    try {
+      const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as StoredReactions;
+      const reaction = parsed[voteKey];
+      return reaction === 'fire' || reaction === 'shit' ? reaction : null;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const persistReaction = useCallback(
+    (voteKey: string | null, reaction: 'fire' | 'shit') => {
+      if (!voteKey || typeof window === 'undefined') return;
+      try {
+        const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+        const parsed = raw ? (JSON.parse(raw) as StoredReactions) : {};
+        parsed[voteKey] = reaction;
+        window.sessionStorage.setItem(REACTION_STORAGE_KEY, JSON.stringify(parsed));
+      } catch {
+        // Ignore storage failures.
+      }
+    },
+    [],
+  );
+
+  const clearPersistedReaction = useCallback((voteKey: string | null) => {
+    if (!voteKey || typeof window === 'undefined') return;
+    try {
+      const raw = window.sessionStorage.getItem(REACTION_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as StoredReactions;
+      delete parsed[voteKey];
+      window.sessionStorage.setItem(REACTION_STORAGE_KEY, JSON.stringify(parsed));
+    } catch {
+      // Ignore storage failures.
+    }
+  }, []);
+
+  useEffect(() => {
+    const voteKey = getVoteKey();
+    if (!voteKey) {
+      setSelectedReaction(null);
+      return;
+    }
+    if (voteKey !== lastVoteKeyRef.current) {
+      lastVoteKeyRef.current = voteKey;
+      setSelectedReaction(readStoredReaction(voteKey));
+    }
+  }, [getVoteKey, readStoredReaction, track?.id, track?.playId]);
+
+  const refreshTemperature = useCallback(async () => {
+    if (state?.source && state.source !== 'radio') return;
+    try {
+      const res = await radioApi.getCurrentTrack(radioId);
+      const data = res.data;
+      if (!data || data.no_content) {
+        setTemperature(null);
+        return;
+      }
+      const t = Number(data.temperature_percent);
+      if (Number.isFinite(t)) {
+        setTemperature(Math.max(0, Math.min(100, Math.round(t))));
+      }
+    } catch {
+      // Temperature refresh should not affect playback UX.
+    }
+  }, [radioId, state?.source]);
+
+  const submitReaction = useCallback(
+    async (reaction: 'fire' | 'shit') => {
+      if (!track?.id || isVoting || state?.source !== 'radio') return;
+
+      setIsVoting(true);
+      try {
+        const voteRes = await leaderboardApi.addLeaderboardReaction(
+          track.id,
+          reaction,
+          track.playId ?? undefined,
+        );
+        const serverReaction = voteRes.data?.reaction ?? null;
+        const voteKey = getVoteKey();
+        lastVoteKeyRef.current = voteKey;
+        setSelectedReaction(serverReaction);
+        if (serverReaction) {
+          persistReaction(voteKey, serverReaction);
+        } else {
+          clearPersistedReaction(voteKey);
+        }
+        if (serverReaction === 'fire') {
+          await songsApi.like(track.id);
+        }
+        await refreshTemperature();
+      } catch (error) {
+        console.error('Failed to submit reaction:', error);
+      } finally {
+        setIsVoting(false);
+      }
+    },
+    [
+      track,
+      isVoting,
+      state?.source,
+      getVoteKey,
+      persistReaction,
+      clearPersistedReaction,
+      refreshTemperature,
+    ],
+  );
 
   const isPlaying = (state?.isPlaying ?? false) && !state?.pausedAt;
   const showAsPlaying = isPlaying && !state?.isMuted;
@@ -65,24 +194,11 @@ export function useDimensionPlayer(): DimensionPlayerModel {
   useEffect(() => {
     if (state?.source && state.source !== 'radio') return;
     let cancelled = false;
-    const refreshTemperature = async () => {
-      try {
-        const res = await radioApi.getCurrentTrack(radioId);
-        if (cancelled) return;
-        const data = res.data;
-        if (!data || data.no_content) {
-          setTemperature(null);
-          return;
-        }
-        const t = Number(data.temperature_percent);
-        if (Number.isFinite(t)) {
-          setTemperature(Math.max(0, Math.min(100, Math.round(t))));
-        }
-      } catch {
-        // Temperature refresh should not affect playback UX.
-      }
+    const load = async () => {
+      if (cancelled) return;
+      await refreshTemperature();
     };
-    void refreshTemperature();
+    void load();
     const interval = setInterval(() => {
       if (!cancelled) void refreshTemperature();
     }, 7000);
@@ -90,7 +206,7 @@ export function useDimensionPlayer(): DimensionPlayerModel {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [radioId, state?.source, track?.id]);
+  }, [radioId, state?.source, track?.id, refreshTemperature]);
 
   const togglePlay = useCallback(() => {
     if (!actions) return;
@@ -151,6 +267,12 @@ export function useDimensionPlayer(): DimensionPlayerModel {
       seekPrev,
       seekNext,
       seekToProgress,
+      canVote,
+      selectedReaction,
+      isVoting,
+      submitReaction: (reaction: 'fire' | 'shit') => {
+        void submitReaction(reaction);
+      },
     }),
     [
       track,
@@ -171,6 +293,10 @@ export function useDimensionPlayer(): DimensionPlayerModel {
       seekPrev,
       seekNext,
       seekToProgress,
+      canVote,
+      selectedReaction,
+      isVoting,
+      submitReaction,
     ],
   );
 }
