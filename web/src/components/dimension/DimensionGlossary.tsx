@@ -127,14 +127,14 @@ export function DimensionGlossarySection() {
       </div>
 
       <Reveal delay={0.3}>
-        <div className="mt-14 text-center">
-          <Button
-            size="lg"
-            className="bg-cyan-400 text-black font-dim-mono tracking-wider uppercase glow-cyan hover:bg-white"
-            asChild
+        <div className="mt-14 mb-8 text-center relative z-20">
+          <Link
+            href="/about"
+            scroll
+            className="inline-flex h-11 items-center justify-center px-6 rounded-full bg-cyan-400 text-black font-dim-mono text-xs tracking-wider uppercase font-bold glow-cyan hover:bg-white transition-colors"
           >
-            <Link href="/about">Read our full story</Link>
-          </Button>
+            Read our full story
+          </Link>
         </div>
       </Reveal>
     </section>
