@@ -1746,6 +1746,220 @@ export class UsersService {
     senderUserId: string,
     recipientUserId: string,
   ): Promise<boolean> {
+    if (await this.areUsersBlocked(senderUserId, recipientUserId)) {
+      return false;
+    }
     return this.isFollowingByIds(senderUserId, recipientUserId);
+  }
+
+  /** True when either user has blocked the other. */
+  async areUsersBlocked(userA: string, userB: string): Promise<boolean> {
+    if (userA === userB) return false;
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('user_blocks')
+      .select('id')
+      .or(
+        `and(blocker_user_id.eq.${userA},blocked_user_id.eq.${userB}),and(blocker_user_id.eq.${userB},blocked_user_id.eq.${userA})`,
+      )
+      .limit(1);
+    if (error) {
+      if (this.isMissingTableError(error, 'user_blocks')) return false;
+      throw new BadRequestException(
+        `Failed to check block status: ${error.message}`,
+      );
+    }
+    return (data ?? []).length > 0;
+  }
+
+  /** Author IDs the viewer should not see in feeds (both directions). */
+  async getHiddenAuthorIds(viewerUserId: string): Promise<Set<string>> {
+    const supabase = getSupabaseClient();
+    const [{ data: blocked }, { data: blockedBy }] = await Promise.all([
+      supabase
+        .from('user_blocks')
+        .select('blocked_user_id')
+        .eq('blocker_user_id', viewerUserId),
+      supabase
+        .from('user_blocks')
+        .select('blocker_user_id')
+        .eq('blocked_user_id', viewerUserId),
+    ]);
+    const hidden = new Set<string>();
+    for (const row of blocked ?? []) {
+      hidden.add(row.blocked_user_id as string);
+    }
+    for (const row of blockedBy ?? []) {
+      hidden.add(row.blocker_user_id as string);
+    }
+    return hidden;
+  }
+
+  async getBlockStatus(
+    firebaseUid: string,
+    targetUserId: string,
+  ): Promise<{ blockedByMe: boolean; blockedMe: boolean }> {
+    const viewerId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const targetId = await this.resolveUserId(targetUserId);
+    const supabase = getSupabaseClient();
+    const [{ data: byMe }, { data: me }] = await Promise.all([
+      supabase
+        .from('user_blocks')
+        .select('id')
+        .eq('blocker_user_id', viewerId)
+        .eq('blocked_user_id', targetId)
+        .maybeSingle(),
+      supabase
+        .from('user_blocks')
+        .select('id')
+        .eq('blocker_user_id', targetId)
+        .eq('blocked_user_id', viewerId)
+        .maybeSingle(),
+    ]);
+    return { blockedByMe: !!byMe, blockedMe: !!me };
+  }
+
+  async reportUser(
+    firebaseUid: string,
+    reportedUserId: string,
+    reason: string,
+    context?: { contextType?: string; contextId?: string },
+  ): Promise<{ reported: true }> {
+    const reporterId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const targetId = await this.resolveUserId(reportedUserId);
+    if (reporterId === targetId) {
+      throw new ForbiddenException('Cannot report yourself');
+    }
+    const trimmed = reason.trim().slice(0, 2000);
+    if (!trimmed) {
+      throw new BadRequestException('Report reason is required');
+    }
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from('user_reports').insert({
+      reporter_user_id: reporterId,
+      reported_user_id: targetId,
+      reason: trimmed,
+      context_type: context?.contextType?.trim() || null,
+      context_id: context?.contextId || null,
+    });
+    if (error) {
+      throw new BadRequestException(`Failed to submit report: ${error.message}`);
+    }
+    return { reported: true };
+  }
+
+  async blockUser(
+    firebaseUid: string,
+    blockedUserId: string,
+  ): Promise<{ blocked: true }> {
+    const blockerId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const targetId = await this.resolveUserId(blockedUserId);
+    if (blockerId === targetId) {
+      throw new ForbiddenException('Cannot block yourself');
+    }
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.from('user_blocks').upsert(
+      {
+        blocker_user_id: blockerId,
+        blocked_user_id: targetId,
+      },
+      { onConflict: 'blocker_user_id,blocked_user_id' },
+    );
+    if (error) {
+      throw new BadRequestException(`Failed to block user: ${error.message}`);
+    }
+    // Stop following in both directions when blocking.
+    await supabase
+      .from('user_follows')
+      .delete()
+      .or(
+        `and(follower_user_id.eq.${blockerId},followed_user_id.eq.${targetId}),and(follower_user_id.eq.${targetId},followed_user_id.eq.${blockerId})`,
+      );
+    await supabase
+      .from('artist_follows')
+      .delete()
+      .or(
+        `and(user_id.eq.${blockerId},artist_id.eq.${targetId}),and(user_id.eq.${targetId},artist_id.eq.${blockerId})`,
+      );
+    return { blocked: true };
+  }
+
+  async unblockUser(
+    firebaseUid: string,
+    blockedUserId: string,
+  ): Promise<{ unblocked: true }> {
+    const blockerId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const targetId = await this.resolveUserId(blockedUserId);
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('user_blocks')
+      .delete()
+      .eq('blocker_user_id', blockerId)
+      .eq('blocked_user_id', targetId);
+    if (error) {
+      throw new BadRequestException(`Failed to unblock user: ${error.message}`);
+    }
+    return { unblocked: true };
+  }
+
+  async listBlockedUsers(firebaseUid: string): Promise<{
+    items: Array<{
+      userId: string;
+      displayName: string | null;
+      username: string | null;
+      avatarUrl: string | null;
+      blockedAt: string;
+    }>;
+  }> {
+    const viewerId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const supabase = getSupabaseClient();
+    const { data: rows, error } = await supabase
+      .from('user_blocks')
+      .select('blocked_user_id, created_at')
+      .eq('blocker_user_id', viewerId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      throw new BadRequestException(
+        `Failed to load blocked users: ${error.message}`,
+      );
+    }
+    const ids = (rows ?? []).map((r) => r.blocked_user_id as string);
+    if (!ids.length) return { items: [] };
+    const { data: users, error: usersError } = await supabase
+      .from('users')
+      .select('id, display_name, username, avatar_url')
+      .in('id', ids);
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to load blocked profiles: ${usersError.message}`,
+      );
+    }
+    const byId = new Map((users ?? []).map((u) => [u.id as string, u]));
+    const items = (rows ?? []).map((row) => {
+      const u = byId.get(row.blocked_user_id as string);
+      return {
+        userId: row.blocked_user_id as string,
+        displayName: (u?.display_name as string | null) ?? null,
+        username: (u?.username as string | null) ?? null,
+        avatarUrl: (u?.avatar_url as string | null) ?? null,
+        blockedAt: row.created_at as string,
+      };
+    });
+    return { items };
+  }
+
+  private isMissingTableError(error: unknown, tableName: string): boolean {
+    const maybe = error as { code?: string; message?: string } | null;
+    const message = (maybe?.message ?? '').toLowerCase();
+    if (maybe?.code === '42P01') {
+      return message.includes(tableName.toLowerCase());
+    }
+    if (maybe?.code === 'PGRST205') {
+      return (
+        message.includes(`'${tableName.toLowerCase()}'`) ||
+        message.includes(tableName.toLowerCase())
+      );
+    }
+    return false;
   }
 }

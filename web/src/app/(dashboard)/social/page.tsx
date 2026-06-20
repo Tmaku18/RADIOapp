@@ -163,6 +163,9 @@ export default function SocialFeedPage() {
               key={post.id}
               post={post}
               onChange={handlePostUpdate}
+              onHidden={() =>
+                setPosts((prev) => prev.filter((p) => p.id !== post.id))
+              }
             />
           ))}
           <div ref={sentinelRef} className="h-1" />

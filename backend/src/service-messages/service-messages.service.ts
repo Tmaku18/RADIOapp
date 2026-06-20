@@ -11,6 +11,7 @@ import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-n
 import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-network-subscription.constants';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { UsersService } from '../users/users.service';
 
 export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'post_share';
 
@@ -95,6 +96,7 @@ export class ServiceMessagesService {
     private readonly notificationService: NotificationService,
     private readonly pushNotification: PushNotificationService,
     private readonly proNetworkSubscription: ProNetworkSubscriptionService,
+    private readonly usersService: UsersService,
   ) {}
 
   private isMissingUserFollowsTable(error: unknown): boolean {
@@ -527,6 +529,14 @@ export class ServiceMessagesService {
     }
     if (input.senderId === input.recipientId) {
       throw new BadRequestException('Cannot message yourself');
+    }
+    if (
+      await this.usersService.areUsersBlocked(
+        input.senderId,
+        input.recipientId,
+      )
+    ) {
+      throw new ForbiddenException('You cannot message this user.');
     }
 
     // Validate the shared post exists up front so we don't persist a dangling

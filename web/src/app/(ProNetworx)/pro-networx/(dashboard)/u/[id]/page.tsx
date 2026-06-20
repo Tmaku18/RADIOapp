@@ -19,6 +19,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
 
 type ProviderListing = {
   id: string;
@@ -98,8 +99,8 @@ function formatPriceCents(
 export default function ProNetworxProfilePage() {
   const params = useParams();
   const id = params.id as string;
-  const { user } = useAuth();
-  const isMe = !!user && user.uid === id;
+  const { user, profile } = useAuth();
+  const isMe = profile?.id === id;
 
   const [data, setData] = useState<ProPublicProfile | null>(null);
   const [loadedId, setLoadedId] = useState<string | null>(null);
@@ -108,6 +109,10 @@ export default function ProNetworxProfilePage() {
   const [portfolioPosts, setPortfolioPosts] = useState<DiscoverFeedPost[]>([]);
   const [following, setFollowing] = useState<boolean | null>(null);
   const [followBusy, setFollowBusy] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<{
+    blockedByMe: boolean;
+    blockedMe: boolean;
+  } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -169,6 +174,30 @@ export default function ProNetworxProfilePage() {
       })
       .catch(() => {
         if (alive) setFollowing(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id, user, isMe]);
+
+  useEffect(() => {
+    if (!user || isMe) {
+      setBlockStatus(null);
+      return;
+    }
+    let alive = true;
+    usersApi
+      .getBlockStatus(id)
+      .then((res) => {
+        if (alive) {
+          setBlockStatus({
+            blockedByMe: !!res.data?.blockedByMe,
+            blockedMe: !!res.data?.blockedMe,
+          });
+        }
+      })
+      .catch(() => {
+        if (alive) setBlockStatus({ blockedByMe: false, blockedMe: false });
       });
     return () => {
       alive = false;
@@ -298,41 +327,56 @@ export default function ProNetworxProfilePage() {
                     </div>
                   </div>
                 </div>
-                <div className="hidden sm:flex gap-2 shrink-0 ml-auto">
+                <div className="hidden sm:flex gap-2 shrink-0 ml-auto items-center">
                   {isMe ? (
                     <Button asChild>
                       <Link href="/pro-networx/me">Edit profile</Link>
                     </Button>
                   ) : (
                     <>
-                      <Button
-                        variant={following ? 'outline' : 'default'}
-                        onClick={handleToggleFollow}
-                        disabled={followBusy || following == null}
-                        className={
-                          following
-                            ? 'inline-flex items-center gap-1'
-                            : 'bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1'
+                      {!blockStatus?.blockedByMe && (
+                        <>
+                          <Button
+                            variant={following ? 'outline' : 'default'}
+                            onClick={handleToggleFollow}
+                            disabled={followBusy || following == null}
+                            className={
+                              following
+                                ? 'inline-flex items-center gap-1'
+                                : 'bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1'
+                            }
+                          >
+                            {following ? (
+                              <>
+                                <UserCheck className="h-4 w-4" /> Following
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-4 w-4" /> Follow
+                              </>
+                            )}
+                          </Button>
+                          <Button asChild variant="outline">
+                            <Link
+                              href={`/messages?to=${data.userId}`}
+                              className="inline-flex items-center gap-1"
+                            >
+                              <MessageSquare className="h-4 w-4" /> Message
+                            </Link>
+                          </Button>
+                        </>
+                      )}
+                      <UserSafetyMenu
+                        userId={data.userId}
+                        displayName={data.displayName}
+                        blockedByMe={blockStatus?.blockedByMe}
+                        onBlocked={() =>
+                          setBlockStatus({ blockedByMe: true, blockedMe: false })
                         }
-                      >
-                        {following ? (
-                          <>
-                            <UserCheck className="h-4 w-4" /> Following
-                          </>
-                        ) : (
-                          <>
-                            <UserPlus className="h-4 w-4" /> Follow
-                          </>
-                        )}
-                      </Button>
-                      <Button asChild variant="outline">
-                        <Link
-                          href={`/messages?to=${data.userId}`}
-                          className="inline-flex items-center gap-1"
-                        >
-                          <MessageSquare className="h-4 w-4" /> Message
-                        </Link>
-                      </Button>
+                        onUnblocked={() =>
+                          setBlockStatus({ blockedByMe: false, blockedMe: false })
+                        }
+                      />
                     </>
                   )}
                   {data.resumeUrl && (
@@ -352,6 +396,17 @@ export default function ProNetworxProfilePage() {
             </CardContent>
           </Card>
 
+          {!isMe && blockStatus?.blockedByMe && (
+            <Card className="border-destructive/30 bg-destructive/5">
+              <CardContent className="py-4 text-sm text-muted-foreground">
+                You blocked {data.displayName || 'this user'}. Unblock them from
+                the menu above or in Settings → Blocked accounts to see their
+                profile and posts again.
+              </CardContent>
+            </Card>
+          )}
+
+          {(!blockStatus?.blockedByMe || isMe) && (
           <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
             <div className="space-y-6">
               {aboutText && (
@@ -664,37 +719,53 @@ export default function ProNetworxProfilePage() {
               )}
             </div>
           </div>
+          )}
 
-          <div className="mt-6 flex sm:hidden gap-2">
+          <div className="mt-6 flex sm:hidden gap-2 items-center">
             {isMe ? (
               <Button asChild className="flex-1">
                 <Link href="/pro-networx/me">Edit profile</Link>
               </Button>
             ) : (
               <>
-                <Button
-                  variant={following ? 'outline' : 'default'}
-                  onClick={handleToggleFollow}
-                  disabled={followBusy || following == null}
-                  className={
-                    following
-                      ? 'flex-1 inline-flex items-center justify-center gap-1'
-                      : 'flex-1 bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-1'
+                {!blockStatus?.blockedByMe && (
+                  <>
+                    <Button
+                      variant={following ? 'outline' : 'default'}
+                      onClick={handleToggleFollow}
+                      disabled={followBusy || following == null}
+                      className={
+                        following
+                          ? 'flex-1 inline-flex items-center justify-center gap-1'
+                          : 'flex-1 bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center justify-center gap-1'
+                      }
+                    >
+                      {following ? (
+                        <>
+                          <UserCheck className="h-4 w-4" /> Following
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="h-4 w-4" /> Follow
+                        </>
+                      )}
+                    </Button>
+                    <Button asChild variant="outline" className="flex-1">
+                      <Link href={`/messages?to=${data.userId}`}>Message</Link>
+                    </Button>
+                  </>
+                )}
+                <UserSafetyMenu
+                  userId={data.userId}
+                  displayName={data.displayName}
+                  blockedByMe={blockStatus?.blockedByMe}
+                  onBlocked={() =>
+                    setBlockStatus({ blockedByMe: true, blockedMe: false })
                   }
-                >
-                  {following ? (
-                    <>
-                      <UserCheck className="h-4 w-4" /> Following
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus className="h-4 w-4" /> Follow
-                    </>
-                  )}
-                </Button>
-                <Button asChild variant="outline" className="flex-1">
-                  <Link href={`/messages?to=${data.userId}`}>Message</Link>
-                </Button>
+                  onUnblocked={() =>
+                    setBlockStatus({ blockedByMe: false, blockedMe: false })
+                  }
+                />
               </>
             )}
           </div>

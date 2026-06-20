@@ -42,6 +42,7 @@ const settingsSections = [
     title: 'Security & Privacy',
     items: [
       { label: 'Security & Privacy', description: 'Discoverability, delete account', href: '/settings/security', icon: LockIcon },
+      { label: 'Blocked accounts', description: 'Manage people you have blocked', href: '/settings/blocked', icon: LockIcon },
     ],
   },
   {

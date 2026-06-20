@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { CLEAN_RAP_STATION_ID } from '../radio/station.constants';
+import { UsersService } from '../users/users.service';
 
 export interface DiscoveryProfile {
   id: string;
@@ -87,6 +88,18 @@ type MapRoleFilter = 'artist' | 'service_provider' | 'all';
 
 @Injectable()
 export class DiscoveryService {
+  constructor(private readonly usersService: UsersService) {}
+
+  private async filterBlockedPosts(
+    items: DiscoverFeedPost[],
+    viewerUserId?: string | null,
+  ): Promise<DiscoverFeedPost[]> {
+    if (!viewerUserId || items.length === 0) return items;
+    const hidden = await this.usersService.getHiddenAuthorIds(viewerUserId);
+    if (!hidden.size) return items;
+    return items.filter((post) => !hidden.has(post.authorUserId));
+  }
+
   private inferFeedMediaType(url: string): 'image' | 'video' {
     const normalized = url.toLowerCase();
     if (
@@ -886,12 +899,50 @@ export class DiscoveryService {
     const nextCursor =
       hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
 
-    const items = await this.hydrateFeedPosts(
-      slice,
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(slice, params.viewerUserId ?? null),
       params.viewerUserId ?? null,
     );
 
     return { items, nextCursor };
+  }
+
+  /**
+   * Report a discover feed post for moderation review.
+   */
+  async reportPost(
+    viewerUserId: string,
+    postId: string,
+    reason: string,
+  ): Promise<{ reported: true }> {
+    const trimmed = reason.trim().slice(0, 2000);
+    if (!trimmed) {
+      throw new Error('Report reason is required');
+    }
+    const supabase = getSupabaseClient();
+    const { data: post, error: postError } = await supabase
+      .from('discover_feed_posts')
+      .select('id, author_user_id')
+      .eq('id', postId)
+      .maybeSingle();
+    if (postError || !post) {
+      throw new Error('Post not found');
+    }
+    if (post.author_user_id === viewerUserId) {
+      throw new Error('Cannot report your own post');
+    }
+    const { error } = await supabase.from('discover_feed_post_reports').upsert(
+      {
+        user_id: viewerUserId,
+        post_id: postId,
+        reason: trimmed,
+      },
+      { onConflict: 'user_id,post_id' },
+    );
+    if (error) {
+      throw new Error(`Failed to submit report: ${error.message}`);
+    }
+    return { reported: true };
   }
 
   /**
@@ -935,8 +986,8 @@ export class DiscoveryService {
     const slice = hasMore ? list.slice(0, limit) : list;
     const nextCursor =
       hasMore && slice.length > 0 ? slice[slice.length - 1].created_at : null;
-    const items = await this.hydrateFeedPosts(
-      slice,
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(slice, params.viewerUserId ?? null),
       params.viewerUserId ?? null,
     );
     return { items, nextCursor };
@@ -1106,8 +1157,11 @@ export class DiscoveryService {
       headline: u.headline ?? null,
       role: u.role ?? null,
     }));
-    const posts = await this.hydrateFeedPosts(
-      (postsRes.data ?? []) as any[],
+    const posts = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(
+        (postsRes.data ?? []) as any[],
+        viewerUserId ?? null,
+      ),
       viewerUserId ?? null,
     );
 
@@ -1154,8 +1208,11 @@ export class DiscoveryService {
         this.deterministicSeededRank(b.id, seed),
     );
 
-    const items = await this.hydrateFeedPosts(
-      ranked.slice(0, limit),
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(
+        ranked.slice(0, limit),
+        params.viewerUserId ?? null,
+      ),
       params.viewerUserId ?? null,
     );
     return { items };
@@ -1232,8 +1289,8 @@ export class DiscoveryService {
     }
 
     const slice = ranked.slice(offset, offset + limit);
-    const items = await this.hydrateFeedPosts(
-      slice,
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(slice, params.viewerUserId ?? null),
       params.viewerUserId ?? null,
     );
     const nextOffset = offset + slice.length;
@@ -1365,7 +1422,10 @@ export class DiscoveryService {
     const postRows = slice
       .map((r) => r.discover_feed_posts)
       .filter(Boolean) as any[];
-    const items = await this.hydrateFeedPosts(postRows, params.viewerUserId);
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(postRows, params.viewerUserId),
+      params.viewerUserId,
+    );
     return { items, nextCursor };
   }
 
@@ -1412,7 +1472,10 @@ export class DiscoveryService {
     const postRows = slice
       .map((r) => r.discover_feed_posts)
       .filter(Boolean) as any[];
-    const items = await this.hydrateFeedPosts(postRows, params.viewerUserId);
+    const items = await this.filterBlockedPosts(
+      await this.hydrateFeedPosts(postRows, params.viewerUserId),
+      params.viewerUserId,
+    );
     return { items, nextCursor };
   }
 

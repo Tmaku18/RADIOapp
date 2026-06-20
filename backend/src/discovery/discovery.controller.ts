@@ -165,6 +165,21 @@ export class DiscoveryController {
     return { ok: true };
   }
 
+  /** Report a feed post for moderation review. */
+  @Post('feed/posts/:id/report')
+  async reportPost(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') postId: string,
+    @Body() body: { reason?: string },
+  ) {
+    const reason = (body?.reason ?? '').trim();
+    if (!reason) {
+      throw new BadRequestException('Report reason is required');
+    }
+    const viewerUserId = await this.getUserId(user.uid);
+    return this.discovery.reportPost(viewerUserId, postId, reason);
+  }
+
   /** Posts the viewer has saved (Saved screen). */
   @Get('feed/bookmarks')
   async listBookmarks(

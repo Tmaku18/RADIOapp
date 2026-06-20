@@ -789,6 +789,27 @@ export const usersApi = {
       `/users/${id}/friends`,
       { params: params ?? {} },
     ),
+  getBlockStatus: (id: string) =>
+    api.get<{ blockedByMe: boolean; blockedMe: boolean }>(
+      `/users/${id}/block-status`,
+    ),
+  reportUser: (
+    id: string,
+    data: { reason: string; contextType?: string; contextId?: string },
+  ) => api.post<{ reported: true }>(`/users/${id}/report`, data),
+  blockUser: (id: string) => api.post<{ blocked: true }>(`/users/${id}/block`),
+  unblockUser: (id: string) =>
+    api.delete<{ unblocked: true }>(`/users/${id}/block`),
+  listBlockedUsers: () =>
+    api.get<{
+      items: Array<{
+        userId: string;
+        displayName: string | null;
+        username: string | null;
+        avatarUrl: string | null;
+        blockedAt: string;
+      }>;
+    }>('/users/me/blocks'),
   getArtistProfile: (id: string) => api.get(`/users/${id}/artist-profile`),
   create: (data: { email: string; displayName: string; role?: 'listener' | 'artist' | 'service_provider' }) => 
     api.post('/users', data),
@@ -990,6 +1011,10 @@ export const discoveryApi = {
     ),
   deleteComment: (commentId: string) =>
     api.delete<{ ok: true }>(`/discovery/feed/comments/${commentId}`),
+  reportPost: (postId: string, reason: string) =>
+    api.post<{ reported: true }>(`/discovery/feed/posts/${postId}/report`, {
+      reason,
+    }),
   searchFeed: (q: string) =>
     api.get<DiscoverFeedSearchResult>('/discovery/feed/search', {
       params: { q },

@@ -127,6 +127,12 @@ export class UsersController {
     );
   }
 
+  /** Users the current account has blocked. */
+  @Get('me/blocks')
+  async listBlockedUsers(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.listBlockedUsers(user.uid);
+  }
+
   /**
    * Upload and set profile picture. Accepts JPEG, PNG, WebP up to 15MB.
    */
@@ -215,6 +221,40 @@ export class UsersController {
     @Param('id') id: string,
   ) {
     return this.usersService.isFollowingUser(user.uid, id);
+  }
+
+  @Get(':id/block-status')
+  async getBlockStatus(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.getBlockStatus(user.uid, id);
+  }
+
+  @Post(':id/report')
+  async reportUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+    @Body()
+    body: { reason?: string; contextType?: string; contextId?: string },
+  ) {
+    return this.usersService.reportUser(user.uid, id, body?.reason ?? '', {
+      contextType: body?.contextType,
+      contextId: body?.contextId,
+    });
+  }
+
+  @Post(':id/block')
+  async blockUser(@CurrentUser() user: FirebaseUser, @Param('id') id: string) {
+    return this.usersService.blockUser(user.uid, id);
+  }
+
+  @Delete(':id/block')
+  async unblockUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.unblockUser(user.uid, id);
   }
 
   @Public()

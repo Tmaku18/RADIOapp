@@ -15,6 +15,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { SharePostDialog } from './SharePostDialog';
 import { PaywallCard } from './PaywallCard';
+import { useAuth } from '@/contexts/AuthContext';
+import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
 
 function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
@@ -23,10 +25,13 @@ function shouldUnoptimize(url?: string | null): boolean {
 interface FeedPostCardProps {
   post: DiscoverFeedPost;
   onChange?: (next: DiscoverFeedPost) => void;
+  onHidden?: () => void;
   variant?: 'feed' | 'detail';
 }
 
-export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardProps) {
+export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: FeedPostCardProps) {
+  const { profile } = useAuth();
+  const isOwnPost = profile?.id === post.authorUserId;
   const [likedByMe, setLikedByMe] = useState(post.likedByMe);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [commentCount, setCommentCount] = useState(post.commentCount);
@@ -147,35 +152,46 @@ export function FeedPostCard({ post, onChange, variant = 'feed' }: FeedPostCardP
 
   return (
     <article className="bg-background border border-border rounded-lg overflow-hidden">
-      <Link
-        href={`/pro-networx/u/${post.authorUserId}`}
-        className="flex items-center gap-3 p-3 border-b border-border/60"
-      >
-        {post.authorAvatarUrl ? (
-          <Image
-            src={post.authorAvatarUrl}
-            alt={post.authorDisplayName ?? 'Avatar'}
-            width={36}
-            height={36}
-            className="rounded-full object-cover"
-            unoptimized={shouldUnoptimize(post.authorAvatarUrl)}
-          />
-        ) : (
-          <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">🎨</div>
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-sm text-foreground truncate">
-            {post.authorDisplayName || 'Creator'}
-          </p>
-          {post.authorUsername ? (
-            <p className="text-xs text-muted-foreground truncate">@{post.authorUsername}</p>
+      <div className="flex items-center gap-3 p-3 border-b border-border/60">
+        <Link
+          href={`/pro-networx/u/${post.authorUserId}`}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
+          {post.authorAvatarUrl ? (
+            <Image
+              src={post.authorAvatarUrl}
+              alt={post.authorDisplayName ?? 'Avatar'}
+              width={36}
+              height={36}
+              className="rounded-full object-cover"
+              unoptimized={shouldUnoptimize(post.authorAvatarUrl)}
+            />
           ) : (
-            post.authorHeadline && (
-              <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
-            )
+            <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">🎨</div>
           )}
-        </div>
-      </Link>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-sm text-foreground truncate">
+              {post.authorDisplayName || 'Creator'}
+            </p>
+            {post.authorUsername ? (
+              <p className="text-xs text-muted-foreground truncate">@{post.authorUsername}</p>
+            ) : (
+              post.authorHeadline && (
+                <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+              )
+            )}
+          </div>
+        </Link>
+        {!isOwnPost && (
+          <UserSafetyMenu
+            userId={post.authorUserId}
+            displayName={post.authorDisplayName}
+            postId={post.id}
+            onPostHidden={onHidden}
+            onBlocked={onHidden}
+          />
+        )}
+      </div>
 
       <div className="relative w-full bg-muted aspect-square">
         {post.mediaType === 'video' ? (
