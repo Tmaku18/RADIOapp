@@ -162,6 +162,36 @@ class AuthService extends ChangeNotifier {
     });
   }
 
+  Future<GoogleSignInAccount> _authenticateWithGoogle() async {
+    try {
+      return await _googleSignIn.authenticate(
+        scopeHint: const <String>['email', 'openid'],
+      );
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) rethrow;
+      // One retry after clearing any stale Google session.
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      return _googleSignIn.authenticate(
+        scopeHint: const <String>['email', 'openid'],
+      );
+    }
+  }
+
+  String _googleSignInCanceledMessage(GoogleSignInException e) {
+    final detail = e.description?.trim();
+    final detailSuffix =
+        detail != null && detail.isNotEmpty ? '\n($detail)' : '';
+    return 'Google sign-in did not complete.$detailSuffix\n\n'
+        'If you installed from Play Store:\n'
+        '• Update to the latest internal-test build (1.0.0+11 or newer)\n'
+        '• In Google Cloud Console → OAuth consent screen, add your Gmail '
+        'under Test users (required while app is in Testing)\n'
+        '• Confirm Play App Signing SHA-1 is in Firebase for '
+        'com.tmaktechnologies.networxradio';
+  }
+
   Future<app_user.User?> signInWithGoogle() async {
     if (_auth == null || !firebaseInitialized) {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
@@ -169,16 +199,9 @@ class AuthService extends ChangeNotifier {
     try {
       await _ensureGoogleSignInInitialized();
 
-      // On a real device the user is often already signed into Google — try the
-      // low-friction path first, then fall back to the full account picker.
-      GoogleSignInAccount? googleUser;
-      final lightweight = _googleSignIn.attemptLightweightAuthentication();
-      if (lightweight != null) {
-        googleUser = await lightweight;
-      }
-      googleUser ??= await _googleSignIn.authenticate(
-        scopeHint: const <String>['email', 'openid'],
-      );
+      // Use the full account picker — lightweight auth often returns "canceled"
+      // on Play Store builds even when OAuth is configured correctly.
+      GoogleSignInAccount googleUser = await _authenticateWithGoogle();
 
       final GoogleSignInAuthentication googleAuth = googleUser.authentication;
       final idToken = googleAuth.idToken;
@@ -235,17 +258,7 @@ class AuthService extends ChangeNotifier {
         'description=${e.description} details=${e.details}',
       );
       if (e.code == GoogleSignInExceptionCode.canceled) {
-        // Credential Manager often reports OAuth/SHA misconfiguration as
-        // "canceled" after account selection — don't blame the user.
-        throw Exception(
-          'Google sign-in did not complete. On a physical device, common fixes:\n'
-          '• Reinstall after code changes: flutter run (USB debug) or a fresh APK\n'
-          '• Update Google Play services on the phone\n'
-          '• If installed from Play Store, add the Play App Signing SHA-1 in '
-          'Firebase (Play Console → App integrity → App signing key)\n'
-          '• If OAuth consent is in Testing mode, add your Google account as a '
-          'test user in Google Cloud Console',
-        );
+        throw Exception(_googleSignInCanceledMessage(e));
       }
       throw Exception('Google sign in failed: ${e.description ?? e.code}');
     } on TimeoutException {
