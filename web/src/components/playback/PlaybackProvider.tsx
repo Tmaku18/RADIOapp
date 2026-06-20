@@ -33,10 +33,13 @@ import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { setLastRadioStationId } from '@/lib/playback-preferences';
 import {
   ANALYSER_BARS,
+  configureMobileAudioElement,
   createAnalyserBarsBuffer,
   ensureMediaElementAnalyser,
   fillIdleBars,
+  playMediaElement,
   reduceFrequencyBins,
+  unlockWebAudioContext,
   updateBassRef,
   type AnalyserSlot,
 } from '@/lib/audio-analyser';
@@ -180,6 +183,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     a: {},
     b: {},
   });
+  const playAudioRef = useRef<(audio: HTMLAudioElement) => Promise<void>>(() =>
+    Promise.resolve(),
+  );
+  playAudioRef.current = (audio) => playMediaElement(audio, analyserCtxRef);
+
+  const playAudio = useCallback((audio: HTMLAudioElement) => playAudioRef.current(audio), []);
+
+  const notifyUserPlaybackGesture = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent('radio:user-playback-gesture'));
+  }, []);
 
   const registerRadioPlayerUi = useCallback(() => {
     radioPlayerUiCountRef.current += 1;
@@ -259,7 +273,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           // keep the stream live but silent.
           const main = getActiveAudio();
           if (main && main.paused) {
-            main.play().catch(() => undefined);
+            void playAudio(main).catch(() => undefined);
             if (mutedByUserRef.current) refreshMainVolume();
             setState((s) => ({ ...s, isPlaying: true }));
           }
@@ -284,7 +298,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         refreshMainVolume();
       }
     },
-    [getActiveAudio, getOverlayController, refreshMainVolume],
+    [getActiveAudio, getOverlayController, playAudio, refreshMainVolume],
   );
 
   const handleDjBoothEvent = useCallback(
@@ -334,6 +348,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const overlay = new Audio();
+    configureMobileAudioElement(overlay);
     overlayAudioRef.current = overlay;
     return () => {
       overlay.pause();
@@ -469,7 +484,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (mutedByUserRef.current) {
           audio.volume = 0;
           audio.muted = true;
-          audio.play().catch(() => {});
+          void playAudio(audio).catch(() => {});
           return;
         }
         if (stateRef.current.pausedAt != null) {
@@ -478,7 +493,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           return;
         }
         if (autoPlay) {
-          audio.play().catch(() => {});
+          void playAudio(audio).catch(() => {});
         }
       };
 
@@ -517,7 +532,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
                 audio.volume = 0;
                 audio.muted = true;
               }
-              audio.play().catch(() => {});
+              void playAudio(audio).catch(() => {});
             },
             { once: true },
           );
@@ -532,7 +547,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
       }
     },
-    [destroyHlsForSlot],
+    [destroyHlsForSlot, playAudio],
   );
 
   // Dual audio elements and event wiring
@@ -615,7 +630,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           autoPlayPendingRef.current = false;
           audio.volume = 0;
           audio.muted = true;
-          audio.play().catch(() => {});
+          void playAudio(audio).catch(() => {});
           return;
         }
         if (autoPlayPendingRef.current && activeSlotRef.current === slot) {
@@ -625,7 +640,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
             audio.muted = true;
             return;
           }
-          audio.play().catch(() => {});
+          void playAudio(audio).catch(() => {});
         }
       };
       const onError = () => {
@@ -655,7 +670,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
                   audio.volume = 0;
                   audio.muted = true;
                 }
-                audio.play().catch(() => onRadioTrackEndedRef.current?.());
+                void playAudio(audio).catch(() => onRadioTrackEndedRef.current?.());
               };
               audio.addEventListener('canplay', onRetryReady, { once: true });
             } catch {
@@ -711,6 +726,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
     const audioA = new Audio();
     const audioB = new Audio();
+    configureMobileAudioElement(audioA);
+    configureMobileAudioElement(audioB);
     audioA.crossOrigin = 'anonymous';
     audioB.crossOrigin = 'anonymous';
     audioPairRef.current = { a: audioA, b: audioB };
@@ -740,6 +757,22 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       destroyHlsForSlot('b');
     };
   }, [cancelCrossfade, destroyHlsForSlot]);
+
+  // Unlock Web Audio on first touch — iOS routes playback through AudioContext
+  // (MediaElementSource) and stays silent until the context is resumed.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const unlock = () => {
+      void unlockWebAudioContext(analyserCtxRef);
+    };
+    const opts: AddEventListenerOptions = { once: true, passive: true, capture: true };
+    document.addEventListener('touchstart', unlock, opts);
+    document.addEventListener('pointerdown', unlock, opts);
+    return () => {
+      document.removeEventListener('touchstart', unlock, opts);
+      document.removeEventListener('pointerdown', unlock, opts);
+    };
+  }, []);
 
   // FFT visualizer loop — samples active audio slot or idle motion when paused
   useEffect(() => {
@@ -839,7 +872,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (seekSeconds !== null && seekSeconds > 0) {
           incoming.currentTime = seekSeconds;
         }
-        incoming.play().catch(() => {});
+        void playAudio(incoming).catch(() => {});
         isLoadingTrackRef.current = false;
         setState((s) => ({ ...s, isLoading: false, isPlaying: true }));
 
@@ -887,6 +920,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       getActiveAudio,
       getInactiveSlot,
       loadTrackImmediate,
+      playAudio,
     ],
   );
 
@@ -1111,13 +1145,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const play = useCallback(async () => {
     const audio = getActiveAudio();
     if (!audio) return;
+    notifyUserPlaybackGesture();
     setState((s) => ({ ...s, isPlaying: true, error: null }));
     try {
-      await audio.play();
+      await playAudio(audio);
     } catch {
-      setState((s) => ({ ...s, isPlaying: false, error: 'Failed to play.' }));
+      setState((s) => ({
+        ...s,
+        isPlaying: false,
+        error: 'Failed to play. Tap play to start audio.',
+      }));
     }
-  }, [getActiveAudio]);
+  }, [getActiveAudio, notifyUserPlaybackGesture, playAudio]);
 
   const pause = useCallback(() => {
     cancelCrossfade();
@@ -1232,13 +1271,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     // Keep the audio progressing so we stay glued to the live position.
     const audio = getActiveAudio();
     if (audio && audio.paused && !globalTransportPausedRef.current) {
-      audio.play().catch(() => {});
+      void playAudio(audio).catch(() => {});
     }
     setState((s) => ({ ...s, isMuted: true, isLive: true }));
-  }, [cancelCrossfade, getActiveAudio]);
+  }, [cancelCrossfade, getActiveAudio, playAudio]);
 
   const softResume = useCallback(async () => {
     mutedByUserRef.current = false;
+    notifyUserPlaybackGesture();
     setState((s) => ({ ...s, isMuted: false, error: null, isLive: true }));
     const audio = getActiveAudio();
     refreshMainVolume();
@@ -1246,23 +1286,32 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     audio.muted = volumeRef.current <= 0.001;
     try {
       if (audio.paused && !globalTransportPausedRef.current) {
-        await audio.play();
+        await playAudio(audio);
       }
       setState((s) => ({ ...s, isPlaying: true }));
     } catch {
-      setState((s) => ({ ...s, isPlaying: false }));
+      setState((s) => ({
+        ...s,
+        isPlaying: false,
+        error: 'Failed to play. Tap play to start audio.',
+      }));
     }
-  }, [getActiveAudio, refreshMainVolume]);
+  }, [getActiveAudio, notifyUserPlaybackGesture, playAudio, refreshMainVolume]);
 
   const togglePlay = useCallback(async () => {
     const s = stateRef.current;
     if (s.source === 'radio') {
+      await unlockWebAudioContext(analyserCtxRef);
       if (s.isMuted) {
         await softResume();
-      } else if (s.isPlaying) {
+        return;
+      }
+      const audio = getActiveAudio();
+      const actuallyPlaying = !!(audio && !audio.paused && !audio.ended);
+      if (s.isPlaying && actuallyPlaying) {
         softPause();
       } else {
-        await play();
+        await softResume();
       }
       return;
     }
@@ -1271,7 +1320,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     } else {
       await play();
     }
-  }, [pause, play, softPause, softResume]);
+  }, [getActiveAudio, pause, play, softPause, softResume]);
 
   const jumpToLive = useCallback(
     async (positionSeconds: number) => {
@@ -1281,7 +1330,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       audio.currentTime = positionSeconds;
       setState((s) => ({ ...s, isPlaying: true, error: null }));
       try {
-        await audio.play();
+        await playAudio(audio);
         setState((s) => ({
           ...s,
           isPlaying: true,
@@ -1293,7 +1342,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, isPlaying: false }));
       }
     },
-    [cancelCrossfade, getActiveAudio],
+    [cancelCrossfade, getActiveAudio, playAudio],
   );
 
   const needsJumpToLive = useCallback(() => {

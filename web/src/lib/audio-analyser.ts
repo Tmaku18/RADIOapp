@@ -43,6 +43,37 @@ export type AnalyserSlot = {
   analyser?: AnalyserNode;
 };
 
+/** iOS Safari requires inline playback and often blocks audio until a user gesture. */
+export function configureMobileAudioElement(audio: HTMLAudioElement): void {
+  audio.preload = 'auto';
+  audio.setAttribute('playsinline', '');
+  audio.setAttribute('webkit-playsinline', 'true');
+  (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+}
+
+export async function unlockWebAudioContext(
+  ctxRef: { current: AudioContext | null },
+): Promise<boolean> {
+  const ctx = ctxRef.current;
+  if (!ctx) return true;
+  if (ctx.state === 'running') return true;
+  try {
+    await ctx.resume();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Resume Web Audio (required on iOS when using MediaElementSource) then play. */
+export async function playMediaElement(
+  audio: HTMLAudioElement,
+  ctxRef: { current: AudioContext | null },
+): Promise<void> {
+  await unlockWebAudioContext(ctxRef);
+  await audio.play();
+}
+
 export function ensureMediaElementAnalyser(
   audio: HTMLAudioElement,
   slot: AnalyserSlot,
@@ -68,8 +99,6 @@ export function ensureMediaElementAnalyser(
       return slot.analyser ?? null;
     }
   }
-  if (ctx.state === 'suspended') {
-    void ctx.resume();
-  }
+  void unlockWebAudioContext(ctxRef);
   return slot.analyser ?? null;
 }

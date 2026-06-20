@@ -193,6 +193,14 @@ export function RadioPlayer({
     setIsIosVolumeLocked(isIosDevice);
   }, []);
 
+  // Bottom bar / mini-player play counts as user intent for auto-play on track changes.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onGesture = () => setHasUserInteracted(true);
+    window.addEventListener('radio:user-playback-gesture', onGesture);
+    return () => window.removeEventListener('radio:user-playback-gesture', onGesture);
+  }, []);
+
   useEffect(() => {
     loadTrackRef.current = (t: PlaybackTrack, autoPlay?: boolean, seekSeconds?: number | null) =>
       actions.loadTrack(t, 'radio', autoPlay, seekSeconds);
