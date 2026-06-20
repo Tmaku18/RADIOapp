@@ -114,11 +114,35 @@ export default function NetxRadioPage() {
   const { song, next, prev, idx, setIdx, volume, setVolume, progress } = usePlayer();
   const { audioRef, playing, toggle, dataRef, error } = useAudioAnalyser(STREAM_URL, BARS);
   const cur = useMemo(() => `${Math.floor((progress / 100) * 141)}s`, [progress]);
+  const artRef = useRef(null);
 
   // Keep <audio> element volume synced to slider
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = Math.max(0, Math.min(1, volume / 100));
   }, [volume, audioRef]);
+
+  // Bass-pulse the album art using the lowest 4 FFT bins of THIS page's analyser
+  useEffect(() => {
+    let raf;
+    let smoothed = 0;
+    const tick = () => {
+      const d = dataRef?.current;
+      if (d && d.length) {
+        const raw = ((d[0] || 0) + (d[1] || 0) + (d[2] || 0) + (d[3] || 0)) / 4 / 255;
+        smoothed = smoothed * 0.7 + raw * 0.3;
+      } else {
+        smoothed = smoothed * 0.95;
+      }
+      const i = Math.min(1, smoothed * 1.6);
+      if (artRef.current) {
+        artRef.current.style.boxShadow = `0 0 ${20 + i * 60}px rgba(0,240,255,${0.3 + i * 0.55}), 0 0 ${50 + i * 120}px rgba(255,0,127,${0.08 + i * 0.35})`;
+        artRef.current.style.transform = `scale(${1 + i * 0.03})`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [dataRef]);
 
   return (
     <div data-testid="netx-radio-page" className="space-y-5">
@@ -150,8 +174,11 @@ export default function NetxRadioPage() {
             <div className="absolute -bottom-24 -right-24 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl pointer-events-none" />
 
             <div className="relative p-6 md:p-8 flex flex-col md:flex-row gap-6 md:gap-8 items-center">
-              {/* Album art — large but not dominating */}
-              <div className="relative w-56 h-56 md:w-72 md:h-72 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30 shrink-0">
+              {/* Album art — large but not dominating, bass-pulsed aura */}
+              <div
+                ref={artRef}
+                className="relative w-56 h-56 md:w-72 md:h-72 rounded-2xl overflow-hidden ring-1 ring-cyan-400/30 shrink-0 transition-[box-shadow,transform] duration-75 will-change-transform"
+              >
                 <img src={song.img} alt={song.title} className="w-full h-full object-cover" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                 <div className="absolute top-3 left-3 inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/70 border border-pink-400/40 backdrop-blur">

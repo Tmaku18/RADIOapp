@@ -156,3 +156,21 @@ All routes hand-verified via screenshot tool. Bottom RadioPlayer + queue sync re
   - "LIVE FFT" / "NO STREAM" sub-label indicates whether a stream URL is configured
 - Default stream URL: `REACT_APP_RADIO_STREAM_URL=https://ice1.somafm.com/groovesalad-128-mp3` (SomaFM Groove Salad — free, CORS-enabled). Swap in your real Networx stream by editing `frontend/.env` and `sudo supervisorctl restart frontend`.
 - Verified live: after a single user click on play, `audio.paused = false`, `readyState = 4`, `currentTime` advances, and the bars take on a classic frequency-spectrum shape (bass-heavy left, dropping toward highs).
+
+
+## Update — 2026-02-20 (Bass-Pulsing UI + Miner Figure)
+- `PlayerContext` now exposes a smoothed `bassRef` (lowest 4 FFT bins → 0..1, 70/30 smoothing) consumable from any component.
+- **Nav butterfly logo** (`/app/frontend/src/components/Nav.jsx`): rAF loop binds `bassRef` → box-shadow + border color + image scale + drop-shadow on every kick.
+- **Page-edge neon glow** (`/app/frontend/src/App.js` `Layout`): the three background blob blurs (cyan/pink/yellow) now breathe with the bass via opacity + scale transforms.
+- **Album art on `/networx/app/radio`** (`NetxRadioPage.jsx`): rAF loop reads the local page analyser's `dataRef[0..3]` and pulses the album art container with a cyan→pink dual-aura box-shadow.
+- **Bottom global `RadioPlayer`** (`/app/frontend/src/components/RadioPlayer.jsx`):
+  - Mini album art now has a cyan border + bass-driven box-shadow tied to global `bassRef`.
+  - Play button now calls `toggle()` (was incorrectly calling `setPlaying(!playing)` which only flipped UI state without controlling the audio element).
+- **Metamorphosis Stage 1 – Hidden Gem** (`/app/frontend/src/three/MetamorphosisScene.jsx`): replaced the floating pickaxe with a stylized miner figure (cyan-glow silhouette: helmet w/ yellow lamp, helmet rim, torso, two legs, free left arm, swinging right arm holding the pickaxe). The pickaxe pivot is now anchored at the miner's hand, with anticipation→strike→recovery easing, torso lean on impact, and sparks emitted at the strike frame.
+- Verified via screenshot: live FFT visualizer playing, miner figure clearly recognizable as a humanoid on the About page Stage 1 scene.
+
+## Remaining Backlog (post-2026-02-20)
+- P1: Replace placeholder SomaFM `REACT_APP_RADIO_STREAM_URL` with the real Networx Radio stream once user supplies it.
+- P2: Unify NetxRadioPage's local `useAudioAnalyser` with the global `PlayerContext` audio element (currently two `<audio>` elements coexist; only one plays at a time, but they fight for the `play` button reflection in the bottom bar).
+- P2: Real backend + auth (everything is mocked: `mockData.js`, `proAppData.js`, `radioAppData.js`).
+- P3: Suppress harmless `@mediapipe/tasks-vision` source-map warnings in webpack dev config.

@@ -3,7 +3,23 @@ import { Play, Pause, SkipBack, SkipForward, Volume2, Radio } from "lucide-react
 import { usePlayer } from "@/context/PlayerContext";
 
 export default function RadioPlayer() {
-  const { song, playing, setPlaying, next, prev, volume, setVolume, progress } = usePlayer();
+  const { song, playing, toggle, next, prev, volume, setVolume, progress, bassRef } = usePlayer();
+
+  // Bass-pulse the bottom mini album art
+  const artRef = React.useRef(null);
+  React.useEffect(() => {
+    let raf;
+    const tick = () => {
+      const b = bassRef?.current ?? 0;
+      if (artRef.current) {
+        const i = Math.min(1, b * 1.5);
+        artRef.current.style.boxShadow = `0 0 ${6 + i * 22}px rgba(0,240,255,${0.25 + i * 0.55})`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [bassRef]);
 
   return (
     <div
@@ -13,7 +29,7 @@ export default function RadioPlayer() {
       <div className="neon-line" />
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-4">
         <div className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72">
-          <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10 shrink-0">
+          <div ref={artRef} className="relative w-12 h-12 rounded overflow-hidden border border-cyan-400/40 shrink-0 transition-shadow duration-75">
             <img src={song.img} alt={song.title} className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
           </div>
@@ -35,7 +51,7 @@ export default function RadioPlayer() {
               <SkipBack className="w-4 h-4" />
             </button>
             <button
-              onClick={() => setPlaying(!playing)}
+              onClick={toggle}
               data-testid="player-play-btn"
               className="w-10 h-10 rounded-full bg-cyan-400 text-black flex items-center justify-center glow-cyan hover:bg-cyan-300 transition-colors"
               aria-label="play"

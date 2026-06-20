@@ -31,22 +31,25 @@ function applyOpacity(group, alpha) {
 }
 
 // =====================================================================
-// STAGE 1 — HIDDEN GEM: pickaxe mines rock, gem glows underneath
+// STAGE 1 — HIDDEN GEM: miner figure swings pickaxe, gem glows underneath
 // =====================================================================
 function Stage1Gem({ activeRef, progressRef }) {
   const root = useRef();
+  const armRef = useRef();      // pivots the arm + pickaxe together
+  const torsoRef = useRef();    // slight bob to match strike
+  const headRef = useRef();
   const pickaxe = useRef();
   const gem = useRef();
   const sparksRef = useRef();
   const sparkVelocities = useRef([]);
   const lastStrike = useRef(-99);
 
-  // Build pickaxe geometry once
+  // Build pickaxe geometry once — pivot at the bottom of the handle (so it rotates from the hand)
   const pickaxeNode = useMemo(() => {
     const g = new THREE.Group();
-    // Handle
+    // Handle — pivot at y=0 (hand grip), extends up to y=1.0
     const handle = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.06, 0.05, 1.5, 16),
+      new THREE.CylinderGeometry(0.055, 0.045, 1.1, 16),
       new THREE.MeshStandardMaterial({
         color: "#8B5A2B",
         emissive: "#3a1f0a",
@@ -55,25 +58,98 @@ function Stage1Gem({ activeRef, progressRef }) {
         metalness: 0.1,
       })
     );
-    handle.rotation.z = Math.PI / 4;
+    handle.position.y = 0.55;
     g.add(handle);
-    // Head — two prongs as a horizontal capsule + spike
+    // Head capsule across the top of the handle
     const headMat = new THREE.MeshStandardMaterial({
       color: "#cdd6dc",
       emissive: "#202830",
-      emissiveIntensity: 0.4,
-      roughness: 0.25,
+      emissiveIntensity: 0.45,
+      roughness: 0.2,
       metalness: 0.95,
     });
     const head = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.16, 0.22), headMat);
-    head.position.set(0.53, 0.53, 0);
-    head.rotation.z = -Math.PI / 4;
+    head.position.set(0, 1.1, 0);
+    head.rotation.z = Math.PI / 2;
     g.add(head);
-    // Pointy tip
+    // Pointy tip (the striking end)
     const tip = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.34, 8), headMat);
-    tip.position.set(0.93, 0.93, 0);
-    tip.rotation.z = -Math.PI / 2 - Math.PI / 4;
+    tip.position.set(0.55, 1.1, 0);
+    tip.rotation.z = -Math.PI / 2;
     g.add(tip);
+    return g;
+  }, []);
+
+  // Build the miner — stylized cyan-glow silhouette so it fits the cyber aesthetic
+  const minerNode = useMemo(() => {
+    const g = new THREE.Group();
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: "#0a0a0f",
+      emissive: CYAN,
+      emissiveIntensity: 0.45,
+      roughness: 0.35,
+      metalness: 0.55,
+      toneMapped: false,
+    });
+    const trimMat = new THREE.MeshStandardMaterial({
+      color: "#A6FBFF",
+      emissive: CYAN,
+      emissiveIntensity: 1.2,
+      roughness: 0.2,
+      metalness: 0.7,
+      toneMapped: false,
+    });
+
+    // Torso (slightly hunched capsule)
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.42, 6, 14), bodyMat);
+    torso.position.y = 0.15;
+    g.add(torso);
+
+    // Hip belt (cyan trim)
+    const belt = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.025, 8, 24), trimMat);
+    belt.position.y = -0.1;
+    belt.rotation.x = Math.PI / 2;
+    g.add(belt);
+
+    // Legs
+    const legGeom = new THREE.CapsuleGeometry(0.07, 0.42, 4, 10);
+    const legL = new THREE.Mesh(legGeom, bodyMat);
+    legL.position.set(-0.1, -0.42, 0.02);
+    legL.rotation.z = 0.05;
+    g.add(legL);
+    const legR = new THREE.Mesh(legGeom, bodyMat);
+    legR.position.set(0.1, -0.42, -0.05);
+    legR.rotation.z = -0.05;
+    g.add(legR);
+
+    // Left (free) arm — slight outward bend
+    const armGeom = new THREE.CapsuleGeometry(0.06, 0.38, 4, 10);
+    const armL = new THREE.Mesh(armGeom, bodyMat);
+    armL.position.set(-0.22, 0.18, 0.05);
+    armL.rotation.z = 0.45;
+    g.add(armL);
+
+    // Helmet (head + miner lamp ring)
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 18), bodyMat);
+    head.position.y = 0.5;
+    g.add(head);
+    const helmRim = new THREE.Mesh(new THREE.TorusGeometry(0.16, 0.022, 8, 24), trimMat);
+    helmRim.position.y = 0.48;
+    helmRim.rotation.x = Math.PI / 2;
+    g.add(helmRim);
+    // Lamp glow on the helmet front
+    const lamp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.045, 12, 12),
+      new THREE.MeshStandardMaterial({
+        color: "#FFFFFF",
+        emissive: YELLOW,
+        emissiveIntensity: 2.4,
+        toneMapped: false,
+      })
+    );
+    lamp.position.set(0, 0.54, 0.14);
+    g.add(lamp);
+
     return g;
   }, []);
 
@@ -115,32 +191,45 @@ function Stage1Gem({ activeRef, progressRef }) {
     const p = progressRef.current ?? 0;
     if (!root.current) return;
 
-    // Local stage progress 0..1 inside its visible window (roughly first 25% of overall scroll)
+    // Local stage progress 0..1 inside its visible window (first ~25% of overall scroll)
     const local = THREE.MathUtils.clamp(p / 0.22, 0, 1);
 
     // Position & opacity
     root.current.scale.setScalar(THREE.MathUtils.lerp(0.6, 1, a));
     applyOpacity(root.current, a);
 
-    // Pickaxe swing cycle
+    // Pickaxe + arm swing cycle (anticipation → strike → recovery)
     const cycle = 1.4;
     const time = state.clock.elapsedTime;
-    const t = (time % cycle) / cycle; // 0..1
-    // Easing: anticipation (wind-up) -> strike -> recovery
-    const swing = t < 0.55
-      ? -1.0 + 1.3 * smoothstep(0, 0.55, t)        // wind up to 0.3
-      : 0.3 - 1.3 * smoothstep(0.55, 0.72, t);     // strike down to -1.0
-    if (pickaxe.current) {
-      pickaxe.current.rotation.z = swing + 0.4;
-      pickaxe.current.position.x = -0.7;
-      pickaxe.current.position.y = 0.55;
+    const t = (time % cycle) / cycle;
+    // arm rotation: wind back overhead, then strike forward+down toward gem
+    // 0..0.55 -> wind up from rest (-0.3) to peak (-2.1 rad, overhead-back)
+    // 0.55..0.72 -> strike from -2.1 down to 0.6 rad (forward-down into gem)
+    // 0.72..1   -> ease back to rest (-0.3)
+    let armAngle;
+    if (t < 0.55) {
+      armAngle = THREE.MathUtils.lerp(-0.3, -2.1, smoothstep(0, 0.55, t));
+    } else if (t < 0.72) {
+      armAngle = THREE.MathUtils.lerp(-2.1, 0.6, smoothstep(0.55, 0.72, t));
+    } else {
+      armAngle = THREE.MathUtils.lerp(0.6, -0.3, smoothstep(0.72, 1, t));
+    }
+    if (armRef.current) armRef.current.rotation.z = armAngle;
+
+    // Torso bob — small forward lean on strike
+    if (torsoRef.current) {
+      const lean = t > 0.55 && t < 0.78 ? smoothstep(0.55, 0.72, t) * (1 - smoothstep(0.72, 0.85, t)) : 0;
+      torsoRef.current.rotation.z = lean * 0.18;
+      torsoRef.current.position.y = -lean * 0.04;
+    }
+    if (headRef.current) {
+      headRef.current.rotation.x = -0.15 - (t > 0.55 && t < 0.85 ? 0.1 : 0);
     }
 
-    // Strike detection — emit sparks on the down-strike frame
+    // Strike detection — emit sparks at the moment the pickaxe hits the gem
     const isStrikeFrame = t > 0.7 && t < 0.74;
     if (isStrikeFrame && time - lastStrike.current > 0.6) {
       lastStrike.current = time;
-      // re-init spark velocities & lifetimes
       sparkVelocities.current.forEach((s, i) => {
         s.vx = (Math.random() - 0.5) * 5;
         s.vy = 1.5 + Math.random() * 4;
@@ -167,7 +256,7 @@ function Stage1Gem({ activeRef, progressRef }) {
       sparksRef.current.material.opacity = (liveCount / 40) * a;
     }
 
-    // Gem glow rises with each strike (driven by 1 - dist to strike)
+    // Gem glow rises with each strike
     if (gem.current) {
       const sinceStrike = time - lastStrike.current;
       const flash = Math.max(0, 1 - sinceStrike / 0.5);
@@ -204,7 +293,7 @@ function Stage1Gem({ activeRef, progressRef }) {
         </mesh>
       ))}
 
-      {/* The gem — small octahedron buried/peeking */}
+      {/* The gem — small octahedron peeking out of the ground */}
       <mesh ref={gem} position={[0, -0.55, 0]}>
         <octahedronGeometry args={[0.34, 0]} />
         <meshStandardMaterial
@@ -229,9 +318,30 @@ function Stage1Gem({ activeRef, progressRef }) {
         />
       </mesh>
 
-      {/* Pickaxe — swinging in from the left */}
-      <group ref={pickaxe} position={[-0.7, 0.55, 0]}>
-        <primitive object={pickaxeNode} />
+      {/* Miner figure — stands to the left, swings the pickaxe at the gem */}
+      <group position={[-1.0, -0.3, 0]}>
+        <group ref={torsoRef}>
+          <primitive object={minerNode} />
+          {/* Arm pivot at the right shoulder, holding the pickaxe */}
+          <group ref={armRef} position={[0.18, 0.32, 0.05]}>
+            {/* Right arm (capsule) extending from shoulder downward; pickaxe attached at the hand */}
+            <mesh position={[0.18, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+              <capsuleGeometry args={[0.06, 0.38, 4, 10]} />
+              <meshStandardMaterial
+                color="#0a0a0f"
+                emissive={CYAN}
+                emissiveIntensity={0.45}
+                roughness={0.35}
+                metalness={0.55}
+                toneMapped={false}
+              />
+            </mesh>
+            {/* Pickaxe — pivots from the hand (end of arm) */}
+            <group ref={pickaxe} position={[0.4, 0, 0]} rotation={[0, 0, -Math.PI / 2]}>
+              <primitive object={pickaxeNode} />
+            </group>
+          </group>
+        </group>
       </group>
 
       {/* Sparks */}

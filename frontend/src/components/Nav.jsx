@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Link, NavLink } from "react-router-dom";
-import { Radio, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { usePlayer } from "@/context/PlayerContext";
 
 const links = [
   { to: "/", label: "Home" },
@@ -14,6 +15,30 @@ const links = [
 
 export default function Nav() {
   const [open, setOpen] = useState(false);
+  const { bassRef } = usePlayer();
+  const logoRef = useRef(null);
+  const imgRef = useRef(null);
+
+  // Bass-pulse the butterfly logo: scale + neon glow on every kick
+  useEffect(() => {
+    let raf;
+    const tick = () => {
+      const b = bassRef?.current ?? 0;
+      const i = Math.min(1, b * 1.5);
+      if (logoRef.current) {
+        logoRef.current.style.boxShadow = `0 0 ${8 + i * 28}px rgba(0,240,255,${0.35 + i * 0.55}), 0 0 ${18 + i * 60}px rgba(0,240,255,${0.1 + i * 0.35})`;
+        logoRef.current.style.borderColor = `rgba(0,240,255,${0.4 + i * 0.55})`;
+      }
+      if (imgRef.current) {
+        imgRef.current.style.transform = `scale(${1 + i * 0.12})`;
+        imgRef.current.style.filter = `drop-shadow(0 0 ${4 + i * 14}px rgba(0,240,255,${0.4 + i * 0.5}))`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [bassRef]);
+
   return (
     <header className="fixed top-0 left-0 right-0 z-40" data-testid="site-nav">
       <div className="glass-strong border-b border-white/5">
@@ -23,11 +48,15 @@ export default function Nav() {
             data-testid="nav-logo"
             className="flex items-center gap-3 group"
           >
-            <div className="w-10 h-10 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 glow-cyan overflow-hidden p-1">
+            <div
+              ref={logoRef}
+              className="w-10 h-10 rounded-md flex items-center justify-center bg-black border border-cyan-400/40 overflow-hidden p-1 transition-[box-shadow,border-color] duration-75"
+            >
               <img
+                ref={imgRef}
                 src="/brand/networx-logo.png"
                 alt="Networx"
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain transition-[transform,filter] duration-75"
               />
             </div>
             <div className="leading-none">
