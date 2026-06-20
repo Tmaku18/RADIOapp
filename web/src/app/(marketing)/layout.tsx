@@ -45,54 +45,34 @@ export default function MarketingLayout({
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-20">
             <Link href="/" className="flex items-center shrink-0 gap-3 self-stretch">
-              <BassPulseLogo className="w-10 h-10 flex items-center justify-center bg-black p-1 shrink-0 hidden sm:flex">
+              <BassPulseLogo className="h-14 flex items-center justify-center bg-black px-2 py-1 shrink-0">
                 {!headerLogoError ? (
                   <>
                     <Image
                       src={LOGO_SRC}
-                      alt=""
-                      width={32}
-                      height={32}
-                      className="hidden dark:block w-full h-full object-contain"
+                      alt="NETWORX Radio — The Butterfly Effect"
+                      width={220}
+                      height={220}
+                      className="hidden dark:block h-12 w-auto max-w-[min(200px,40vw)] object-contain object-left"
+                      priority
                       unoptimized
                       onError={() => setHeaderLogoError(true)}
                     />
                     <Image
                       src={LOGO_SRC_LIGHT}
-                      alt=""
-                      width={32}
-                      height={32}
-                      className="block dark:hidden w-full h-full object-contain"
+                      alt="NETWORX Radio — The Butterfly Effect"
+                      width={220}
+                      height={220}
+                      className="block dark:hidden h-12 w-auto max-w-[min(200px,40vw)] object-contain object-left"
+                      priority
                       unoptimized
                       onError={() => setHeaderLogoError(true)}
                     />
                   </>
-                ) : null}
+                ) : (
+                  <span className="text-lg font-bold px-2">NETWORX</span>
+                )}
               </BassPulseLogo>
-              {!headerLogoError ? (
-                <>
-                  <Image
-                    src={LOGO_SRC}
-                    alt="NETWORX Radio — The Butterfly Effect"
-                    width={220}
-                    height={220}
-                    className="hidden dark:block sm:hidden h-14 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
-                    priority
-                    unoptimized
-                    onError={() => setHeaderLogoError(true)}
-                  />
-                  <Image
-                    src={LOGO_SRC_LIGHT}
-                    alt="NETWORX Radio — The Butterfly Effect"
-                    width={220}
-                    height={220}
-                    className="block dark:hidden sm:hidden h-14 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
-                    priority
-                    unoptimized
-                    onError={() => setHeaderLogoError(true)}
-                  />
-                </>
-              ) : null}
               <span className="hidden lg:inline font-dim-mono text-[10px] tracking-[0.35em] text-cyan-300/90 uppercase whitespace-nowrap">
                 THE BUTTERFLY EFFECT
               </span>
