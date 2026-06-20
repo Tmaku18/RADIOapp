@@ -2640,52 +2640,57 @@ export class SongsService {
     const librarySongs = (
       await Promise.all(
         rows.map(async (r) => {
-          const song = songsById.get(r.song_id) ?? null;
-          const fallback = adminFallbackById.get(r.song_id) ?? null;
-          if (song && song.status !== 'approved') return null;
-          if (!song && !fallback) return null;
-          // Liked = 30-second sample only. Real songs play their signed sample
-          // (null until rendered, so the full track never leaks); admin
-          // fallback/radio content has no sample, so sign its full audio.
-          const audioUrl = song
-            ? (await signSongAudioUrl(song.sample_url ?? null)) ?? null
-            : (await signSongAudioUrl(fallback!.audio_url)) ??
-              fallback!.audio_url;
-          // Discover clip (signed) is available only for real songs that have
-          // discover enabled with a rendered clip.
-          const discoverEnabled = !!song?.discover_enabled;
-          const discoverClipUrl =
-            song && discoverEnabled
-              ? (await signSongAudioUrl(song.discover_clip_url ?? null)) ?? null
-              : null;
-          const id = song?.id ?? fallback!.id;
-          return {
-            id,
-            title: song?.title ?? fallback!.title,
-            artistName:
-              song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
-            artistId: song?.artist_id ?? '',
-            artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
-            audioUrl,
-            // Explicit sample url (same signed 30s sample as audioUrl for real
-            // songs; admin/radio fallback has no sample).
-            sampleUrl: song ? audioUrl : null,
-            durationSeconds:
-              song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
-            likeCount: song?.like_count ?? 0,
-            playCount: song?.play_count ?? 0,
-            // Sales + ownership so the library can offer Buy / full playback.
-            priceCents: song?.price_cents ?? 99,
-            forSale: song ? song.for_sale !== false : false,
-            owned: ownedSongIds.has(id),
-            // Discover clip for in-library preview.
-            discoverEnabled,
-            discoverClipUrl,
-            discoverClipStartSeconds: song?.discover_clip_start_seconds ?? null,
-            discoverClipEndSeconds: song?.discover_clip_end_seconds ?? null,
-            likedAt:
-              likedAtBySongId.get(id) ?? new Date().toISOString(),
-          };
+          try {
+            const song = songsById.get(r.song_id) ?? null;
+            const fallback = adminFallbackById.get(r.song_id) ?? null;
+            if (song && song.status !== 'approved') return null;
+            if (!song && !fallback) return null;
+            // Liked = 30-second sample only. Real songs play their signed sample
+            // (null until rendered, so the full track never leaks); admin
+            // fallback/radio content has no sample, so sign its full audio.
+            const audioUrl = song
+              ? (await signSongAudioUrl(song.sample_url ?? null)) ?? null
+              : (await signSongAudioUrl(fallback!.audio_url)) ??
+                fallback!.audio_url;
+            // Discover clip (signed) is available only for real songs that have
+            // discover enabled with a rendered clip.
+            const discoverEnabled = !!song?.discover_enabled;
+            const discoverClipUrl =
+              song && discoverEnabled
+                ? (await signSongAudioUrl(song.discover_clip_url ?? null)) ??
+                  null
+                : null;
+            const id = song?.id ?? fallback!.id;
+            return {
+              id,
+              title: song?.title ?? fallback!.title,
+              artistName:
+                song?.artist_name ?? fallback?.artist_name ?? 'Unknown artist',
+              artistId: song?.artist_id ?? '',
+              artworkUrl: song?.artwork_url ?? fallback?.artwork_url ?? null,
+              audioUrl,
+              // Explicit sample url (same signed 30s sample as audioUrl for real
+              // songs; admin/radio fallback has no sample).
+              sampleUrl: song ? audioUrl : null,
+              durationSeconds:
+                song?.duration_seconds ?? fallback?.duration_seconds ?? 180,
+              likeCount: song?.like_count ?? 0,
+              playCount: song?.play_count ?? 0,
+              // Sales + ownership so the library can offer Buy / full playback.
+              priceCents: song?.price_cents ?? 99,
+              forSale: song ? song.for_sale !== false : false,
+              owned: ownedSongIds.has(id),
+              // Discover clip for in-library preview.
+              discoverEnabled,
+              discoverClipUrl,
+              discoverClipStartSeconds: song?.discover_clip_start_seconds ?? null,
+              discoverClipEndSeconds: song?.discover_clip_end_seconds ?? null,
+              likedAt:
+                likedAtBySongId.get(id) ?? new Date().toISOString(),
+            };
+          } catch {
+            return null;
+          }
         }),
       )
     ).filter((song): song is NonNullable<typeof song> => song !== null);
@@ -2701,16 +2706,13 @@ export class SongsService {
         .from('likes')
         .select('song_id')
         .in('song_id', songIds);
-      if (likesCountError) {
-        throw new Error(
-          `Failed to load library like counts: ${likesCountError.message}`,
-        );
-      }
-      for (const row of (likeRows ?? []) as Array<{ song_id: string }>) {
-        likeCountsBySongId.set(
-          row.song_id,
-          (likeCountsBySongId.get(row.song_id) ?? 0) + 1,
-        );
+      if (!likesCountError) {
+        for (const row of (likeRows ?? []) as Array<{ song_id: string }>) {
+          likeCountsBySongId.set(
+            row.song_id,
+            (likeCountsBySongId.get(row.song_id) ?? 0) + 1,
+          );
+        }
       }
 
       const { data: temperatureRows, error: temperatureError } = await supabase
@@ -2741,33 +2743,28 @@ export class SongsService {
           );
         }
       } else if (temperatureError && !missingSongTemperatureTable) {
-        throw new Error(
-          `Failed to load song temperatures: ${temperatureError.message}`,
-        );
+        // Non-fatal: library still loads without temperature aggregates.
       } else {
         const { data: reactionsRows, error: reactionsError } = await supabase
           .from('leaderboard_likes')
           .select('song_id, reaction')
           .in('song_id', songIds);
-        if (reactionsError) {
-          throw new Error(
-            `Failed to load song temperatures: ${reactionsError.message}`,
-          );
-        }
-        for (const row of (reactionsRows ?? []) as Array<{
-          song_id: string;
-          reaction: string | null;
-        }>) {
-          if (row.reaction === 'shit') {
-            shitVotesBySongId.set(
-              row.song_id,
-              (shitVotesBySongId.get(row.song_id) ?? 0) + 1,
-            );
-          } else {
-            fireVotesBySongId.set(
-              row.song_id,
-              (fireVotesBySongId.get(row.song_id) ?? 0) + 1,
-            );
+        if (!reactionsError) {
+          for (const row of (reactionsRows ?? []) as Array<{
+            song_id: string;
+            reaction: string | null;
+          }>) {
+            if (row.reaction === 'shit') {
+              shitVotesBySongId.set(
+                row.song_id,
+                (shitVotesBySongId.get(row.song_id) ?? 0) + 1,
+              );
+            } else {
+              fireVotesBySongId.set(
+                row.song_id,
+                (fireVotesBySongId.get(row.song_id) ?? 0) + 1,
+              );
+            }
           }
         }
       }

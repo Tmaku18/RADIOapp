@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { songsApi, songSalesApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePlayback } from '@/components/playback';
 import { artistProfilePath } from '@/lib/artist-links';
 import {
@@ -58,16 +59,34 @@ type PurchasedSong = {
   currency: string;
 };
 
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const serverMessage = (
+    err as { response?: { data?: { message?: string } } }
+  )?.response?.data?.message;
+  if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
+    return serverMessage;
+  }
+  if (err instanceof Error && err.message.trim().length > 0) {
+    return err.message;
+  }
+  return fallback;
+}
+
 export default function BrowseSavedPage() {
   const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
   const { actions } = usePlayback();
   const [tab, setTab] = useState<'liked' | 'music'>(
     searchParams.get('tab') === 'music' ? 'music' : 'liked',
   );
   const [loading, setLoading] = useState(true);
   const [songs, setSongs] = useState<LibrarySong[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
   const [purchases, setPurchases] = useState<PurchasedSong[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(true);
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const libraryRequestRef = useRef(0);
+  const purchasesRequestRef = useRef(0);
   const [pendingRemove, setPendingRemove] = useState<LibrarySong | null>(null);
   const [removing, setRemoving] = useState(false);
   const [sortBy, setSortBy] = useState<
@@ -81,51 +100,65 @@ export default function BrowseSavedPage() {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      try {
-        const res = await songsApi.getLibrary();
-        if (!cancelled) {
-          setSongs((res.data ?? []) as LibrarySong[]);
-        }
-      } catch {
-        if (!cancelled) {
-          setSongs([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+  const loadLibrary = useCallback(async () => {
+    const requestId = ++libraryRequestRef.current;
+    setLoading(true);
+    setLibraryError(null);
+    try {
+      const res = await songsApi.getLibrary();
+      if (requestId !== libraryRequestRef.current) return;
+      const list = res.data;
+      setSongs(Array.isArray(list) ? (list as LibrarySong[]) : []);
+    } catch (err) {
+      if (requestId !== libraryRequestRef.current) return;
+      const message = apiErrorMessage(err, 'Could not load your liked songs.');
+      setLibraryError(message);
+      setSongs([]);
+      toast.error(message);
+    } finally {
+      if (requestId === libraryRequestRef.current) {
+        setLoading(false);
       }
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    }
+  }, []);
+
+  const loadPurchases = useCallback(async () => {
+    const requestId = ++purchasesRequestRef.current;
+    setPurchasesLoading(true);
+    setPurchasesError(null);
+    try {
+      const res = await songsApi.getPurchases();
+      if (requestId !== purchasesRequestRef.current) return;
+      const list = res.data;
+      setPurchases(Array.isArray(list) ? (list as PurchasedSong[]) : []);
+    } catch (err) {
+      if (requestId !== purchasesRequestRef.current) return;
+      const message = apiErrorMessage(err, 'Could not load your purchased music.');
+      setPurchasesError(message);
+      setPurchases([]);
+    } finally {
+      if (requestId === purchasesRequestRef.current) {
+        setPurchasesLoading(false);
+      }
+    }
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setPurchasesLoading(true);
-      try {
-        const res = await songsApi.getPurchases();
-        if (!cancelled) {
-          setPurchases((res.data ?? []) as PurchasedSong[]);
-        }
-      } catch {
-        if (!cancelled) setPurchases([]);
-      } finally {
-        if (!cancelled) setPurchasesLoading(false);
+    if (!authLoading && user?.uid) {
+      void loadLibrary();
+      void loadPurchases();
+    }
+  }, [authLoading, user?.uid, loadLibrary, loadPurchases]);
+
+  useEffect(() => {
+    const refreshLibrary = () => {
+      if (!authLoading && user?.uid) {
+        void loadLibrary();
       }
     };
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    window.addEventListener('library-changed', refreshLibrary);
+    return () => window.removeEventListener('library-changed', refreshLibrary);
+  }, [authLoading, user?.uid, loadLibrary]);
 
   const playPurchased = async (song: PurchasedSong) => {
     try {
@@ -264,6 +297,9 @@ export default function BrowseSavedPage() {
     try {
       await songsApi.unlike(pendingRemove.id);
       setSongs((prev) => prev.filter((s) => s.id !== pendingRemove.id));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('library-changed'));
+      }
       toast.success('Removed from your library');
       setPendingRemove(null);
     } catch {
@@ -336,8 +372,20 @@ export default function BrowseSavedPage() {
             <CardTitle className="text-base">Purchased Music</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {purchasesLoading ? (
+            {authLoading || (purchasesLoading && !purchasesError) ? (
               <p className="text-sm text-muted-foreground">Loading your music…</p>
+            ) : purchasesError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{purchasesError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadPurchases()}
+                >
+                  Try again
+                </Button>
+              </div>
             ) : purchases.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 You haven&apos;t bought any songs yet. Buy a song from an
@@ -397,8 +445,20 @@ export default function BrowseSavedPage() {
           <CardTitle className="text-base">Liked Songs</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {loading ? (
+          {authLoading || (loading && !libraryError) ? (
             <p className="text-sm text-muted-foreground">Loading library...</p>
+          ) : libraryError ? (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{libraryError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadLibrary()}
+              >
+                Try again
+              </Button>
+            </div>
           ) : sortedSongs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
               No liked songs yet. Give a song 🔥 on the radio to add it here.

@@ -154,6 +154,9 @@ export function useDimensionPlayer(): DimensionPlayerModel {
         }
         if (serverReaction === 'fire') {
           await songsApi.like(track.id);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('library-changed'));
+          }
         }
         await refreshTemperature();
       } catch (error) {

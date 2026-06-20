@@ -1015,20 +1015,10 @@ export class SongsController {
 
   @Get('library')
   @UseGuards(RolesGuard)
-  @Roles('listener', 'artist', 'service_provider', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin', 'dj', 'musician')
   async getLibrarySongs(@CurrentUser() user: FirebaseUser) {
-    const supabase = getSupabaseClient();
-    const { data: userData } = await supabase
-      .from('users')
-      .select('id')
-      .eq('firebase_uid', user.uid)
-      .single();
-
-    if (!userData) {
-      throw new NotFoundException('User not found');
-    }
-
-    return this.songsService.getLibrarySongs(userData.id);
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getLibrarySongs(id);
   }
 
   // ─── Song sales: samples, purchases, entitled playback/download ──────
@@ -1624,7 +1614,7 @@ export class SongsController {
       throw new NotFoundException('User not found');
     }
 
-    return this.songsService.toggleLike(userData.id, songId);
+    return this.songsService.likeSong(userData.id, songId);
   }
 
   @Delete(':id/like')

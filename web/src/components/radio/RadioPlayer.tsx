@@ -846,6 +846,9 @@ export function RadioPlayer({
       if (serverReaction === 'fire') {
         // Persist to song library using the existing like endpoint.
         await songsApi.like(state.track.id);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('library-changed'));
+        }
       }
       lastVoteKeyRef.current = getVoteKey(state.track);
       setHasVoted(serverReaction !== null);
