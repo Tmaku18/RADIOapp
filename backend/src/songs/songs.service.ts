@@ -2544,7 +2544,7 @@ export class SongsService {
       play_count: number | null;
       status: string | null;
       price_cents: number | null;
-      for_sale: boolean | null;
+      is_for_sale: boolean | null;
       discover_enabled: boolean | null;
       discover_clip_url: string | null;
       discover_clip_start_seconds: number | null;
@@ -2584,7 +2584,7 @@ export class SongsService {
       const { data: songRows, error: songsError } = await supabase
         .from('songs')
         .select(
-          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, status, price_cents, for_sale, discover_enabled, discover_clip_url, discover_clip_start_seconds, discover_clip_end_seconds',
+          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, status, price_cents, is_for_sale, discover_enabled, discover_clip_url, discover_clip_start_seconds, discover_clip_end_seconds',
         )
         .in('id', uniqueSongIds);
       if (songsError) {
@@ -2678,7 +2678,7 @@ export class SongsService {
               playCount: song?.play_count ?? 0,
               // Sales + ownership so the library can offer Buy / full playback.
               priceCents: song?.price_cents ?? 99,
-              forSale: song ? song.for_sale !== false : false,
+              forSale: song ? song.is_for_sale !== false : false,
               owned: ownedSongIds.has(id),
               // Discover clip for in-library preview.
               discoverEnabled,
