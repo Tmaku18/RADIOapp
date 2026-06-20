@@ -752,7 +752,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (rawAnalyserDataRef.current.length !== an.frequencyBinCount) {
           rawAnalyserDataRef.current = new Uint8Array(an.frequencyBinCount);
         }
-        an.getByteFrequencyData(rawAnalyserDataRef.current);
+        an.getByteFrequencyData(rawAnalyserDataRef.current as Uint8Array<ArrayBuffer>);
         reduceFrequencyBins(rawAnalyserDataRef.current, barsRef.current);
       } else {
         fillIdleBars(barsRef.current, performance.now() / 1000);

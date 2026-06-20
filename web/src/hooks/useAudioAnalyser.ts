@@ -37,7 +37,7 @@ export function useAudioAnalyser(url: string | null | undefined, bars = ANALYSER
         if (rawDataRef.current.length !== an.frequencyBinCount) {
           rawDataRef.current = new Uint8Array(an.frequencyBinCount);
         }
-        an.getByteFrequencyData(rawDataRef.current);
+        an.getByteFrequencyData(rawDataRef.current as Uint8Array<ArrayBuffer>);
         reduceFrequencyBins(rawDataRef.current, dataRef.current);
       } else {
         fillIdleBars(dataRef.current, performance.now() / 1000);

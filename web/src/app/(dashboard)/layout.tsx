@@ -428,7 +428,7 @@ export default function DashboardLayout({
                           </a>
                         </SidebarMenuButton>
                       ) : (
-                        <SidebarMenuButton asChild isActive={isActive}>
+                        <SidebarMenuButton asChild isActive={isActive} className={isActive ? 'bg-cyan-400/10 ring-1 ring-cyan-400/30 rounded-full' : undefined}>
                           <Link href={item.href} className="flex items-center">
                             <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
                             <span>{item.name}</span>
@@ -588,7 +588,8 @@ export default function DashboardLayout({
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
       >
-        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dimension-chrome dim-text">
+        <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/10 px-4 md:px-8 glass-strong dimension-chrome dim-text relative">
+          <div className="neon-line absolute bottom-0 left-0 right-0" aria-hidden />
           <SidebarTrigger className="-ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
           <h1 className="text-xl font-semibold text-foreground">
@@ -596,22 +597,24 @@ export default function DashboardLayout({
           </h1>
 
           <div className="ml-auto flex items-center gap-2">
-            <Button asChild className="amplify-btn hover:opacity-90">
-              <Link href={isArtistMode ? '/artist/upload' : '/competition'}>
-                {isArtistMode ? 'Upload' : 'Amplify'}
-              </Link>
-            </Button>
+            <Link
+              href={isArtistMode ? '/artist/upload' : '/competition'}
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-cyan-400 text-black font-dim-mono text-[10px] tracking-[0.2em] uppercase font-bold glow-cyan hover:bg-white transition-colors"
+            >
+              {isArtistMode ? 'Upload' : 'Amplify'}
+            </Link>
 
-            <Button variant="outline" size="icon" asChild>
-              <Link href="/notifications" className="relative">
-                <span className="chrome-icon text-sm">🔔</span>
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Link>
-            </Button>
+            <Link
+              href="/notifications"
+              className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/40 hover:border-cyan-400/40 transition-colors"
+            >
+              <span className="chrome-icon text-sm">🔔</span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-cyan-400 text-black text-[10px] rounded-full flex items-center justify-center font-dim-mono font-bold ring-2 ring-black">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Link>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

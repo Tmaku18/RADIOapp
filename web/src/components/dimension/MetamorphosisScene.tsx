@@ -1,4 +1,6 @@
-// @ts-nocheck ? ported from 3d MetamorphosisScene.jsx; typed at export boundary only.
+/* eslint-disable react-hooks/purity -- ported 3d scene uses Math.random in useMemo for stable mesh layout */
+/* eslint-disable @typescript-eslint/ban-ts-comment -- large 3d port; typed at export boundary */
+// @ts-nocheck
 'use client';
 
 import { useRef, useMemo, useEffect, type MutableRefObject } from 'react';
