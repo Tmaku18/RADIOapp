@@ -62,9 +62,16 @@ export default function Nav() {
 
           <div className="hidden lg:flex items-center gap-3">
             <Link
+              to="/networx/app"
+              data-testid="nav-dashboard-btn"
+              className="px-5 py-2 rounded-full bg-cyan-400 text-black font-mono text-[11px] tracking-[0.25em] uppercase font-bold hover:bg-white transition-colors glow-cyan"
+            >
+              Dashboard
+            </Link>
+            <Link
               to="/radio"
               data-testid="nav-tune-in-btn"
-              className="px-5 py-2 rounded-full bg-black border border-cyan-400 text-cyan-300 font-mono text-[11px] tracking-[0.25em] uppercase hover:bg-cyan-400 hover:text-black transition-colors glow-cyan"
+              className="px-5 py-2 rounded-full bg-black border border-cyan-400 text-cyan-300 font-mono text-[11px] tracking-[0.25em] uppercase hover:bg-cyan-400 hover:text-black transition-colors"
             >
               Tune In
             </Link>

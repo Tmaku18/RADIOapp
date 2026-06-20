@@ -91,6 +91,9 @@ body {
 .text-glow-pink {
     text-shadow: 0 0 14px rgba(255, 0, 127, 0.8);
 }
+.text-glow-yellow {
+    text-shadow: 0 0 14px rgba(244, 208, 63, 0.7);
+}
 
 /* Animated neon gradient line */
 .neon-line {

@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "@/App.css";
 import Nav from "@/components/Nav";
 import Footer from "@/components/Footer";
@@ -14,6 +14,17 @@ import AboutPage from "@/pages/AboutPage";
 import ContactPage from "@/pages/ContactPage";
 import ProPage from "@/pages/ProPage";
 import ProDirectoryPage from "@/pages/ProDirectoryPage";
+import ProAppShell from "@/pages/pro/ProAppShell";
+import FeedPage from "@/pages/pro/FeedPage";
+import ExplorePage from "@/pages/pro/ExplorePage";
+import ServicesPage from "@/pages/pro/ServicesPage";
+import MessagesPage from "@/pages/pro/MessagesPage";
+import ProfileEditorPage from "@/pages/pro/ProfileEditorPage";
+import NetworxAppShell from "@/pages/networx/NetworxAppShell";
+import DashboardPage from "@/pages/networx/DashboardPage";
+import NetxRadioPage from "@/pages/networx/NetxRadioPage";
+import { LiveDJPage, LivePerformancesPage, LibraryPage } from "@/pages/networx/NetxMiscPages";
+import { FeedPage as NetxFeedPage, DiscoverPage, UploadsPage, AnalyticsPage, RefineryPage, RewardsPage, AdminHomePage, StubPage } from "@/pages/networx/NetxAppPages";
 
 function Layout({ children }) {
   return (
@@ -49,6 +60,34 @@ export default function App() {
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/pro" element={<ProPage />} />
             <Route path="/pro/directory" element={<ProDirectoryPage />} />
+            <Route path="/pro/app" element={<ProAppShell />}>
+              <Route index element={<Navigate to="feed" replace />} />
+              <Route path="feed" element={<FeedPage />} />
+              <Route path="explore" element={<ExplorePage />} />
+              <Route path="services" element={<ServicesPage />} />
+              <Route path="messages" element={<MessagesPage />} />
+              <Route path="profile" element={<ProfileEditorPage />} />
+            </Route>
+            <Route path="/networx/app" element={<NetworxAppShell />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="radio" element={<NetxRadioPage />} />
+              <Route path="live-dj" element={<LiveDJPage />} />
+              <Route path="live-performances" element={<LivePerformancesPage />} />
+              <Route path="library" element={<LibraryPage />} />
+              <Route path="feed" element={<NetxFeedPage />} />
+              <Route path="discover" element={<DiscoverPage />} />
+              <Route path="uploads" element={<UploadsPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="refinery" element={<RefineryPage />} />
+              <Route path="rewards" element={<RewardsPage />} />
+              <Route path="profile" element={<ProfileEditorPage />} />
+              <Route path="settings" element={<StubPage title="Settings" body="Account, notifications, audio preferences." />} />
+              <Route path="notifications" element={<StubPage title="Notifications" body="Your alerts and mentions." />} />
+              <Route path="help" element={<StubPage title="Help & Support" body="Guides, FAQ and direct support." />} />
+              <Route path="admin" element={<AdminHomePage />} />
+              <Route path="admin/users" element={<StubPage title="Admin · Users" body="Manage prospectors, catalysts and DJs." />} />
+              <Route path="admin/queue" element={<StubPage title="Admin · Submission Queue" body="Approve, reject, and refine incoming uploads." />} />
+            </Route>
           </Routes>
         </Layout>
       </BrowserRouter>

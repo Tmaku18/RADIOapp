@@ -107,3 +107,35 @@
 - Added **'PRO'** nav link + Footer Pro/Directory links (now with `footer-link-*` testids).
 - Tailwind safelist added for dynamic `text-{color}-300/400` permutations used by ProPage.
 - Tested (iteration_5.json): **100% — 18/18** assertions. Zero console errors across all 8 routes. Search 'lagos' → 1 catalyst (Nova Lyra). Photographer filter → 2 catalysts. Regression-clean on all existing routes.
+
+## Update — 2026-01-20 (Logged-In App Shells)
+### Pro-Networx App (/pro/app)
+- 5-tab shell with collapsible sidebar (lg) / icon-only rail (sm): **Feed**, **Explore**, **Services**, **Messages**, **Profile**
+- **Feed** — Instagram-style scrollable cards with like/comment/save/Ripples count, right-rail with own profile stats + suggested catalysts to follow
+- **Explore** — Pinterest-style asymmetric tile grid (28 mock posts; tall/wide/square spans), search filter, hover reveals @handle + likes + view count
+- **Services** — Marketplace cards with role chip, verified badge, hour rate, ETA, perk tags, Hire CTA + category tab filter (All/Design/Photo/Video/Audio/Words) + "List a service" button
+- **Messages** — 2-pane DM: conversations list (online dots, unread badges, last preview, time) + chat pane (typing indicators, cyan vs glass bubble styles, send a message updates state live)
+- **Profile editor** — Banner + avatar with edit buttons, Pro badge, editable headline/about, skill chip add+remove, experience CRUD (add/edit/delete), resume PDF panel, socials grid (IG/X/Behance/Web), "The Wake" stats grid, sticky Save bar with "Saved · HH:MM" feedback
+
+### Networx Radio App (/networx/app)
+- Matches user-supplied screenshot exactly: full sidebar with circular icon buttons + text labels, NETWORX RADIO logo card at top, Tanaka/Admin user card, Support + Sign out at bottom, collapsible "More" and "Admin" sections, sidebar collapse toggle.
+- Top bar: cyan **Upload** CTA + bell with **9+** badge + avatar.
+- **Dashboard** (`/networx/app`): hero with big butterfly logo + "Hey Tanaka. Mine the frequency.", stats row (Songs/Members/Ripples/Heat), Quick Actions grid, Trending Tonight list.
+- **Radio** (`/networx/app/radio`): big now-playing card with album art + play button + Up Next queue (syncs with global PlayerContext).
+- **Live DJ** (`/live-dj`): 4 DJ cards with ON AIR badges + listener counts.
+- **Live Performances** (`/live-performances`): show cards with venue, date, ticket-progress bar + "Tickets" CTA.
+- **Library**, **Feed**, **Discover** — landing tabs with appropriate copy.
+- **My Uploaded Songs** (`/uploads`): table with song, plays, ripples, heat, status (live/review/draft) chip, view/edit/delete actions.
+- **Analytics** (`/analytics`): "The Wake" — totals row (5,244 plays · 532 ripples · 1,735 ears) + 7-day daily-plays bar chart.
+- **The Refinery** (`/refinery`): rate-1-to-5 song queue with $1.25-per-song earnings flow.
+- **Rewards** (`/rewards`): gradient available-balance card ($248.75), pending, total earned + "Recent Yield" history feed.
+- **Admin** (`/admin`) Mission Control: members/pending-uploads/reports stats; sub-tabs Users + Submission Queue (stub pages).
+- **Settings / Notifications / Help & Support** — stub pages with "Coming online soon" cards.
+- Routes all wired in App.js using nested `<Route>` with `<NetworxAppShell />` parent.
+
+### Plumbing
+- Added "Dashboard" CTA in top-nav (alongside Tune In) → `/networx/app`.
+- Profile editor reused across both Pro-App and Networx-App `/networx/app/profile`.
+- All new pages use `Reveal` for scroll-in animations and existing Lenis smooth scroll.
+
+All routes hand-verified via screenshot tool. Bottom RadioPlayer + queue sync remain intact across both app shells. Zero new console errors.

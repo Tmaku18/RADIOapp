@@ -64,20 +64,27 @@ export default function ProPage() {
             <Reveal delay={0.85}>
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link
-                  to="/pro/directory"
-                  data-testid="pro-hero-create-profile"
+                  to="/pro/app"
+                  data-testid="pro-hero-open-app"
                   className="group inline-flex items-center gap-3 px-7 py-4 rounded-full bg-cyan-400 text-black font-mono text-[12px] tracking-[0.25em] uppercase font-bold glow-cyan hover:bg-white transition-colors"
                 >
                   <Sparkles className="w-4 h-4" />
-                  Create your profile — free
+                  Open the app
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
                   to="/pro/directory"
-                  data-testid="pro-hero-directory"
+                  data-testid="pro-hero-create-profile"
                   className="inline-flex items-center gap-3 px-7 py-4 rounded-full border border-white/20 text-white font-mono text-[12px] tracking-[0.25em] uppercase hover:border-pink-400 hover:text-pink-400 transition-colors"
                 >
-                  Explore the directory
+                  Create your profile — free
+                </Link>
+                <Link
+                  to="/pro/directory"
+                  data-testid="pro-hero-directory"
+                  className="inline-flex items-center gap-3 px-7 py-4 rounded-full border border-white/20 text-white font-mono text-[12px] tracking-[0.25em] uppercase hover:border-cyan-400 hover:text-cyan-300 transition-colors"
+                >
+                  Explore directory
                 </Link>
               </div>
             </Reveal>
