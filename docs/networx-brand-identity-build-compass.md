@@ -1,6 +1,6 @@
 # NETWORX Brand Identity & Build Compass
 
-**Version:** June 2026 (updated to match shipped product)  
+**Version:** June 2026 (Dimension Cyber palette — aligned to origin/3d)  
 **Replaces:** `NETWORX_Brand_Identity_30_Day_Build_Compass (1).pdf` (June 2026 draft — partially aspirational)
 
 The creator operating system, live discovery network, and music marketplace for independent audio creators — **plus Pro-Networx**, the professional networking layer for every kind of creative.
@@ -158,45 +158,90 @@ Celebrate business progress and cultural momentum:
 - Pro-Networx profile published  
 - First Catalyst booking  
 
-Visual: premium achievement cards — dark background, clean metrics, subtle cyan/cobalt glow, shareable square/story formats.
+Visual: premium achievement cards — dark glass background, clean metrics, **Neon Cyan / Signal Pink** glow, shareable square/story formats.
 
 ---
 
 ## 7. Visual Identity & Aesthetic (shipped tokens)
 
-**Theme strategy:** Neo-Minimalist Noir (dark) + Daylight Studio (light) — see `web/src/app/globals.css`.
+**Theme strategy:** **Dimension Cyber** (origin/3d, shipped on web `integrate`) for marketing, dashboard shell, Live Radio, and Pro pages — layered on **Neo-Minimalist Noir** core tokens in `web/src/app/globals.css`. Dimension tokens live in `web/src/styles/dimension.css` under `[data-dimension]`.
 
-### Sovereign Operator — production palette
+**Source of truth (code):** `web/src/styles/dimension.css` · `web/src/components/dimension/MetamorphosisScene.tsx` (3D accent constants)
+
+### Dimension Cyber — production palette (dark)
+
+| Token | Hex | CSS variable | Use |
+|-------|-----|--------------|-----|
+| Void Black | `#050505` | `--dim-bg-base` | Base background, deepest void |
+| Surface Glass | `#0A0A0C` | `--dim-bg-surface` | Glass panels, cards (often at 55–80% + blur) |
+| Neon Cyan | `#00F0FF` | `--dim-neon-cyan` | Primary accent — CTAs, active nav, play controls, FFT base, links |
+| Signal Pink | `#FF007F` | `--dim-neon-pink` | Live/on-air badges, queue headers, secondary accent, live-dot pulse |
+| Pulse Yellow | `#F4D03F` | `--dim-neon-yellow` | Temperature, yield highlights, tertiary accent |
+| Signal White | `#FFFFFF` | `--dim-text-primary` | Headlines, track titles |
+| Muted Silver | `#A0A0AB` | `--dim-text-secondary` | Body copy, nav labels |
+| Ash Muted | `#5E5E66` | `--dim-text-muted` | Timestamps, meta labels |
+
+### Dimension Cyber — light mode (Daylight Studio)
+
+| Token | Hex | CSS variable | Use |
+|-------|-----|--------------|-----|
+| Frost Canvas | `#E8EDF4` | `--dim-bg-base` | Base background |
+| Frost Surface | `#F1F5F9` | `--dim-bg-surface` | Glass panels |
+| Studio Teal | `#0E7490` | `--dim-neon-cyan` | Primary accent (maps Neon Cyan) |
+| Studio Rose | `#BE185D` | `--dim-neon-pink` | Secondary accent (maps Signal Pink) |
+| Slate Ink | `#0F172A` | `--dim-text-primary` | Primary text |
+| Slate Body | `#334155` | `--dim-text-secondary` | Secondary text |
+| Slate Muted | `#64748B` | `--dim-text-muted` | Tertiary text |
+
+### Gradients, glow & effects (shipped)
+
+| Effect | Values | Use |
+|--------|--------|-----|
+| Progress / FFT bar | `#00F0FF` → `#FF007F` | Player progress, frequency visualizer |
+| Neon sweep line | cyan 30% → pink 70% | Header dividers (`.neon-line`) |
+| Cyan glow | `rgba(0, 240, 255, 0.35)` outer | Play button, primary pills (`.glow-cyan`) |
+| Pink glow | `rgba(255, 0, 127, 0.35)` outer | Live states (`.glow-pink`) |
+| Glass border | `rgba(255, 255, 255, 0.08)` | Panel edges (`.glass`) |
+| Cyber grid | `rgba(0, 240, 255, 0.07)` lines | Hero backgrounds (`.cyber-grid`) |
+
+### Core app tokens (globals.css — forms, charts, legacy surfaces)
 
 | Color | Hex | Use |
 |-------|-----|-----|
-| Obsidian Night | `#0A0A0A` | Base app background (dark) |
+| Obsidian Night | `#0A0A0A` | Shadcn `--background` (dark) |
 | Surface / Card | `#101010` | Cards, sidebar (dark) |
-| Daylight Canvas | `#F4F6FB` | Base background (light) |
-| Butterfly Electric | `#00F5FF` | Primary accent (dark mode) |
-| Studio Teal | `#0E9AA7` | Primary accent (light mode) |
+| Butterfly Electric | `#00F5FF` | Shadcn `--primary` (dark) — **±1 step from Neon Cyan; prefer `#00F0FF` on dimension surfaces** |
 | Deep Cobalt | `#1A237E` | Verified / trust / secondary accent |
+| Daylight Canvas | `#F4F6FB` | Base background (light) |
+| Studio Teal (core) | `#0E9AA7` | Shadcn `--primary` (light) |
 | Cloud Dancer | `#F5F5F5` | Primary text (dark mode) |
-| Slate Ink | `#0F172A` | Primary text (light mode) |
-| Success Green | `#2ECC71` / `#15803D` | Growth, Yield, revenue (theme-aware) |
+| Success Green | `#2ECC71` / `#15803D` | Growth, Yield, revenue |
 | Error Red | `#EB5757` / `#DC2626` | Warnings, errors |
 
-**Note:** The June 2026 PDF draft listed Royal Amethyst `#6A0DAD` as primary — **not used in production UI**. Shipped accent is Butterfly Electric / Studio Teal + Deep Cobalt.
+**Note:** The June 2026 PDF draft listed Royal Amethyst `#6A0DAD` as primary — **not used in production UI**. Shipped accent system is **Neon Cyan + Signal Pink** (Dimension Cyber), with Deep Cobalt retained for trust/verified states only.
 
 ### UI style (shipped)
 
-- Dark command-center layouts with light mode parity  
-- Glass panels, subtle grain texture, butterfly pattern on marketing heroes  
-- Bold data tiles in The Wake and admin  
+- Dark command-center layouts with light-mode parity (`[data-dimension]` remaps hardcoded white/cyan utilities in `.light`)  
+- **Glassmorphism:** blur 24–40px, semi-transparent `#0A0A0C` surfaces, subtle white borders  
+- **Cyber grid** overlays and radial void vignettes on hero panels  
+- **Bass-reactive** album art pulse (audio analyser → artwork glow)  
+- **32-bar FFT visualizer** — cyan-to-pink gradient bars on Live Radio  
+- Rounded-3xl hero cards, cyan filled pills with glow, pink live-dot pulse  
 - Mobile-first Flutter app + Next.js web  
 - Logo: full NETWORX wordmark (butterfly + NETWORX RADIO + tagline) in chrome; never cropped mark-only in headers  
 
 ### Typography (shipped)
 
+- **Display / dimension heroes:** Unbounded (uppercase, tight tracking)  
 - **UI sans:** Inter  
-- **Headings:** Space Grotesk  
+- **Headings (dashboard):** Space Grotesk  
+- **Mono / status labels:** JetBrains Mono — `font-dim-mono`, 10px, tracking 0.25–0.3em (ON AIR, UP NEXT, LIVE CHAT)  
+- **Body alt (dimension):** Outfit  
 - **Serif / campaign:** Lora (*The Language of Networx*, hero moments)  
 - **Story / 4 AM:** Caveat  
+
+**Code:** `--font-unbounded`, `--font-jetbrains-mono`, `--font-outfit` in `web/src/app/layout.tsx`
 
 ---
 
@@ -204,9 +249,10 @@ Visual: premium achievement cards — dark background, clean metrics, subtle cya
 
 | World | Use | Mood |
 |-------|-----|------|
-| **Sovereign Operator** | App UI, dashboards, onboarding, earnings | Premium, operational, trusted |
+| **Dimension Cyber** | App UI, Live Radio, marketing heroes, dashboard shell, Pro pages | Glass noir, neon cyan/pink, bass-reactive, esports-real-time |
+| **Sovereign Operator** | The Wake, admin, earnings tables | Premium, operational, trusted |
 | **Samurai Signal** | Launch posters, Founding 100, social art | Discipline, arena, craft |
-| **Ranked Mode Neon** | Trial by Fire, leaderboards, voting | Esports, high stakes, real-time |
+| **Ranked Mode Neon** | Trial by Fire, leaderboards, voting | High stakes, temperature, competition |
 | **4 AM Signal** | Founder story, documentary content | Late-night, hungry, real |
 
 ---
@@ -349,3 +395,4 @@ NETWORX creates the culture. NETWORX runs the backend. The creator keeps the pow
 |------|--------|
 | June 2026 (original PDF) | Storefront-first 30-day MVP compass; Royal Amethyst palette; no Pro-Networx / Refinery / Yield |
 | June 13, 2026 | Aligned to shipped product, design tokens, terminology, and honest build status |
+| June 18, 2026 | Visual palette aligned to origin/3d **Dimension Cyber** (`#00F0FF` / `#FF007F` / `#F4D03F`); typography adds Unbounded + JetBrains Mono |

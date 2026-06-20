@@ -53,7 +53,7 @@ def build_pdf(out_path: Path) -> None:
         parent=styles["Heading1"],
         fontSize=14,
         leading=18,
-        textColor=colors.HexColor("#1A237E"),
+        textColor=colors.HexColor("#FF007F"),
         spaceBefore=14,
         spaceAfter=8,
     )
@@ -62,7 +62,7 @@ def build_pdf(out_path: Path) -> None:
         parent=styles["Heading2"],
         fontSize=11,
         leading=14,
-        textColor=colors.HexColor("#0E9AA7"),
+        textColor=colors.HexColor("#00F0FF"),
         spaceBefore=10,
         spaceAfter=6,
     )
@@ -225,21 +225,24 @@ def build_pdf(out_path: Path) -> None:
         story.append(p(f"• {line}", body))
 
     # 7. Visual Identity
-    story.append(p("7. Visual Identity (shipped tokens)", h1))
+    story.append(p("7. Visual Identity (Dimension Cyber — shipped tokens)", h1))
     palette = [
-        ["Color", "Hex", "Use"],
-        ["Obsidian Night", "#0A0A0A", "Base background (dark)"],
-        ["Butterfly Electric", "#00F5FF", "Primary accent (dark)"],
-        ["Studio Teal", "#0E9AA7", "Primary accent (light)"],
-        ["Deep Cobalt", "#1A237E", "Trust / verified accent"],
-        ["Daylight Canvas", "#F4F6FB", "Base background (light)"],
+        ["Token", "Hex", "Use"],
+        ["Void Black", "#050505", "Base background (dark)"],
+        ["Surface Glass", "#0A0A0C", "Glass panels / cards"],
+        ["Neon Cyan", "#00F0FF", "Primary accent (dark)"],
+        ["Signal Pink", "#FF007F", "Live / secondary accent"],
+        ["Pulse Yellow", "#F4D03F", "Temperature / highlights"],
+        ["Studio Teal", "#0E7490", "Primary accent (light)"],
+        ["Studio Rose", "#BE185D", "Secondary accent (light)"],
+        ["Frost Canvas", "#E8EDF4", "Base background (light)"],
     ]
     pt = Table(palette, colWidths=[1.5 * inch, 1.0 * inch, 3.0 * inch])
     pt.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1A237E")),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#00F0FF")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#050505")),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), 8.5),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#CBD5E1")),
@@ -250,7 +253,8 @@ def build_pdf(out_path: Path) -> None:
     story.append(
         p(
             "<b>Note:</b> Prior draft used Royal Amethyst #6A0DAD as primary — <b>not used</b> in production UI. "
-            "Typography: Inter (UI), Space Grotesk (headings), Lora (campaign), Caveat (4 AM story).",
+            "Core shadcn tokens in globals.css still use Butterfly Electric #00F5FF; dimension surfaces prefer #00F0FF. "
+            "Typography: Unbounded (display), Inter (UI), JetBrains Mono (labels), Space Grotesk (headings), Lora (campaign).",
             small,
         )
     )
