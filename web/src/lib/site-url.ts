@@ -31,6 +31,15 @@ export function getProNetworxAppUrl(): string {
   }
 }
 
+/** Default in-app landing after Pro-Networx sign-in (Discover Catalysts). */
+export const PRO_NETWORX_APP_HOME = '/pro-networx/home';
+
+export function isProNetworxAppHost(hostname?: string): boolean {
+  const host =
+    hostname ?? (typeof window !== 'undefined' ? window.location.hostname : '');
+  return host === 'pro-networx.com' || host === 'www.pro-networx.com';
+}
+
 /** Marketing/legal pages that should appear in the sitemap. */
 export const PUBLIC_MARKETING_PATHS = [
   '/',

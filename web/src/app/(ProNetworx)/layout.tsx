@@ -10,7 +10,7 @@ import { CyberBackdrop, SmoothScroll } from '@/components/dimension';
 import { BassPulseLogo } from '@/components/dimension/BassPulseLogo';
 import { useAuth } from '@/contexts/AuthContext';
 import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
-import { getSiteUrl } from '@/lib/site-url';
+import { PRO_NETWORX_APP_HOME, getSiteUrl } from '@/lib/site-url';
 
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
 const NETWORX_RADIO_ORIGIN = getSiteUrl();
@@ -124,7 +124,7 @@ export default function ProNetworxLayout({
                     Login
                   </Link>
                   <Link
-                    href={`/signup?redirect=${encodeURIComponent('/pro-networx/home')}`}
+                    href={`/signup?redirect=${encodeURIComponent(PRO_NETWORX_APP_HOME)}`}
                     className="inline-flex px-4 py-2 rounded-full bg-cyan-400 text-black font-dim-mono text-[10px] tracking-[0.25em] uppercase font-bold hover:bg-white transition-colors glow-cyan"
                   >
                     Join free

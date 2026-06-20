@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
 
 function SignupForm() {
   const router = useRouter();
@@ -24,12 +25,11 @@ function SignupForm() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // On pro-networx.com, default to ProNetworx app (directory) so users land in the app after signup
+  // On pro-networx.com, land in the app home (Discover Catalysts) after signup
   useEffect(() => {
     if (redirectParam) return;
-    const host = typeof window !== 'undefined' ? window.location.hostname : '';
-    if (host === 'pro-networx.com' || host === 'www.pro-networx.com') {
-      setRedirectTo('/pro-networx/directory');
+    if (isProNetworxAppHost()) {
+      setRedirectTo(PRO_NETWORX_APP_HOME);
     }
   }, [redirectParam]);
 

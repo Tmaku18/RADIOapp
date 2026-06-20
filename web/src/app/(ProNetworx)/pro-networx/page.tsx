@@ -1,5 +1,5 @@
-import { ProNetworxLanding } from '@/components/dimension/ProNetworxLanding';
+import { ProNetworxRootPage } from './ProNetworxRootPage';
 
 export default function ProNetworxLandingPage() {
-  return <ProNetworxLanding variant="app" />;
+  return <ProNetworxRootPage />;
 }

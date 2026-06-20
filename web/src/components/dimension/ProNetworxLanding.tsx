@@ -33,13 +33,13 @@ import {
   proStats,
 } from '@/data/pro-marketing-data';
 import { useAuth } from '@/contexts/AuthContext';
-import { getProNetworxAppUrl, getSiteUrl } from '@/lib/site-url';
+import { PRO_NETWORX_APP_HOME, getProNetworxAppUrl, getSiteUrl } from '@/lib/site-url';
 
 type AccentColor = 'cyan' | 'pink' | 'yellow';
 
 export type ProNetworxLandingVariant = 'marketing' | 'app';
 
-const APP_HOME = '/pro-networx/home';
+const APP_HOME = PRO_NETWORX_APP_HOME;
 const SIGNUP_REDIRECT = `/signup?redirect=${encodeURIComponent(APP_HOME)}`;
 const LOGIN_REDIRECT = `/login?redirect=${encodeURIComponent(APP_HOME)}`;
 

@@ -9,6 +9,7 @@ import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
 
 import { NETWORX_LOGO } from '@/lib/brand-assets';
+import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
 
 // Auth header has a teal gradient background regardless of theme, so the
 // dark wordmark (white words) is correct for both light and dark mode here.
@@ -26,11 +27,11 @@ export default function AuthLayout({
   useEffect(() => {
     if (!loading && user) {
       const host = typeof window !== 'undefined' ? window.location.hostname : '';
-      const isDiscoverMe = host === 'pro-networx.com' || host === 'www.pro-networx.com';
+      const isDiscoverMe = isProNetworxAppHost(host);
       const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
       const redirectParam = params?.get('redirect') ?? null;
       const safeRedirect = redirectParam && redirectParam.startsWith('/') ? redirectParam : null;
-      const target = safeRedirect ?? (isDiscoverMe ? '/pro-networx/directory' : '/dashboard');
+      const target = safeRedirect ?? (isDiscoverMe ? PRO_NETWORX_APP_HOME : '/dashboard');
       router.push(target);
     }
   }, [loading, user, router]);
