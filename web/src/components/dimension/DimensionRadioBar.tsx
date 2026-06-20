@@ -10,6 +10,8 @@ import {
   Volume2,
 } from 'lucide-react';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
 
 const VBAR_DELAYS = [0.1, 0.3, 0.2, 0.4, 0.25, 0.35, 0.15, 0.5, 0.2];
@@ -19,6 +21,8 @@ type DimensionRadioBarProps = {
 };
 
 export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
+  const playback = usePlaybackOptional();
+  const artRef = useBassPulseRef(playback?.bassRef);
   const tempLabel =
     player.temperature != null ? `${player.temperature}°` : '—';
 
@@ -35,7 +39,10 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           href={player.listenHref}
           className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72 hover:opacity-90 transition-opacity"
         >
-          <div className="relative w-12 h-12 rounded overflow-hidden border border-white/10 shrink-0 bg-muted/40">
+          <div
+            ref={artRef}
+            className="relative w-12 h-12 rounded overflow-hidden border border-cyan-400/40 shrink-0 bg-muted/40 transition-shadow duration-75"
+          >
             <ArtworkImage
               src={player.artworkUrl}
               alt=""

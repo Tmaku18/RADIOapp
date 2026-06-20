@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import { CyberBackdrop, SmoothScroll } from '@/components/dimension';
+import { BassPulseLogo } from '@/components/dimension/BassPulseLogo';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
 
@@ -24,6 +26,12 @@ export default function MarketingLayout({
 }) {
   const [headerLogoError, setHeaderLogoError] = useState(false);
   const [footerLogoError, setFooterLogoError] = useState(false);
+  const { profile } = useAuth();
+
+  const dashboardHref = useMemo(
+    () => (profile?.id ? '/dashboard' : '/login?redirect=/dashboard'),
+    [profile?.id],
+  );
 
   return (
     <div
@@ -33,11 +41,34 @@ export default function MarketingLayout({
       <SmoothScroll />
       <CyberBackdrop />
 
-      {/* Navigation */}
       <header className="relative z-20 border-b border-white/10 glass-strong dimension-chrome">
         <nav className="w-full px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center gap-4 h-20">
             <Link href="/" className="flex items-center shrink-0 gap-3 self-stretch">
+              <BassPulseLogo className="w-10 h-10 flex items-center justify-center bg-black p-1 shrink-0 hidden sm:flex">
+                {!headerLogoError ? (
+                  <>
+                    <Image
+                      src={LOGO_SRC}
+                      alt=""
+                      width={32}
+                      height={32}
+                      className="hidden dark:block w-full h-full object-contain"
+                      unoptimized
+                      onError={() => setHeaderLogoError(true)}
+                    />
+                    <Image
+                      src={LOGO_SRC_LIGHT}
+                      alt=""
+                      width={32}
+                      height={32}
+                      className="block dark:hidden w-full h-full object-contain"
+                      unoptimized
+                      onError={() => setHeaderLogoError(true)}
+                    />
+                  </>
+                ) : null}
+              </BassPulseLogo>
               {!headerLogoError ? (
                 <>
                   <Image
@@ -45,7 +76,7 @@ export default function MarketingLayout({
                     alt="NETWORX Radio — The Butterfly Effect"
                     width={220}
                     height={220}
-                    className="hidden dark:block h-14 sm:h-16 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
+                    className="hidden dark:block sm:hidden h-14 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
                     priority
                     unoptimized
                     onError={() => setHeaderLogoError(true)}
@@ -55,14 +86,14 @@ export default function MarketingLayout({
                     alt="NETWORX Radio — The Butterfly Effect"
                     width={220}
                     height={220}
-                    className="block dark:hidden h-14 sm:h-16 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
+                    className="block dark:hidden sm:hidden h-14 w-auto max-w-[min(220px,44vw)] object-contain object-left shrink-0"
                     priority
                     unoptimized
                     onError={() => setHeaderLogoError(true)}
                   />
                 </>
               ) : null}
-              <span className="hidden lg:inline font-dim-mono text-[10px] tracking-[0.35em] text-cyan-300/90 dark:text-cyan-300/90 uppercase whitespace-nowrap">
+              <span className="hidden lg:inline font-dim-mono text-[10px] tracking-[0.35em] text-cyan-300/90 uppercase whitespace-nowrap">
                 THE BUTTERFLY EFFECT
               </span>
             </Link>
@@ -82,6 +113,9 @@ export default function MarketingLayout({
                   <Link href="/about">About</Link>
                 </Button>
                 <Button variant="ghost" className="dim-nav-link" asChild>
+                  <Link href="/pro">Pro</Link>
+                </Button>
+                <Button variant="ghost" className="dim-nav-link" asChild>
                   <Link href="/faq">FAQ</Link>
                 </Button>
                 <Button variant="ghost" className="dim-nav-link" asChild>
@@ -92,12 +126,26 @@ export default function MarketingLayout({
                 </Button>
               </div>
               <ThemeToggle />
-              <Button asChild className="bg-cyan-400 text-black font-dim-mono text-xs tracking-wider uppercase hover:bg-white glow-cyan">
-                <Link href="/signup">Sign Up/Login</Link>
-              </Button>
-              <Button asChild variant="outline" className="dim-outline-btn font-dim-mono text-xs tracking-wider uppercase">
-                <a href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx`}>ProNetworx</a>
-              </Button>
+              <Link
+                href={dashboardHref}
+                data-testid="nav-dashboard-btn"
+                className="hidden lg:inline-flex px-5 py-2 rounded-full bg-cyan-400 text-black font-dim-mono text-[11px] tracking-[0.25em] uppercase font-bold hover:bg-white transition-colors glow-cyan"
+              >
+                Dashboard
+              </Link>
+              <Link
+                href="/listen"
+                data-testid="nav-tune-in-btn"
+                className="hidden lg:inline-flex px-5 py-2 rounded-full bg-black border border-cyan-400 text-cyan-300 font-dim-mono text-[11px] tracking-[0.25em] uppercase hover:bg-cyan-400 hover:text-black transition-colors"
+              >
+                Tune In
+              </Link>
+              <Link
+                href="/signup"
+                className="inline-flex items-center justify-center rounded-md bg-cyan-400 px-4 py-2 text-black font-dim-mono text-xs tracking-wider uppercase hover:bg-white glow-cyan"
+              >
+                Sign Up/Login
+              </Link>
             </div>
           </div>
         </nav>
@@ -106,7 +154,6 @@ export default function MarketingLayout({
 
       <main className="relative z-10 flex-1 pb-28">{children}</main>
 
-      {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 glass-strong dimension-chrome">
         <div className="w-full px-4 sm:px-6 lg:px-10 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
@@ -151,14 +198,15 @@ export default function MarketingLayout({
                 <li><Link href="/features" className="text-white/60 hover:text-cyan-300 transition-colors">Features</Link></li>
                 <li><Link href="/pricing" className="text-white/60 hover:text-cyan-300 transition-colors">Pricing</Link></li>
                 <li><Link href="/about" className="text-white/60 hover:text-cyan-300 transition-colors">About</Link></li>
+                <li><Link href="/pro" className="text-white/60 hover:text-cyan-300 transition-colors">Pro-Networx</Link></li>
+                <li><Link href="/pro-directory" className="text-white/60 hover:text-cyan-300 transition-colors">Directory</Link></li>
                 <li><Link href="/faq" className="text-white/60 hover:text-cyan-300 transition-colors">FAQ</Link></li>
-                <li><Link href="/pro-directory" className="text-white/60 hover:text-cyan-300 transition-colors">Pro-Directory</Link></li>
                 <li>
                   <a
                     href={`${PRO_NETWORX_APP_ORIGIN}/pro-networx/directory`}
                     className="text-white/60 hover:text-cyan-300 transition-colors"
                   >
-                    ProNetworx
+                    Live Catalyst Directory
                   </a>
                 </li>
               </ul>

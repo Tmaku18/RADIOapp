@@ -67,6 +67,10 @@
   text-shadow: 0 0 14px rgba(255, 0, 127, 0.8);
 }
 
+[data-dimension] .text-glow-yellow {
+  text-shadow: 0 0 14px rgba(244, 208, 63, 0.7);
+}
+
 [data-dimension] .neon-line {
   height: 1px;
   background: linear-gradient(90deg, transparent, #00f0ff 30%, #ff007f 70%, transparent);
@@ -331,6 +335,10 @@
 
 .light [data-dimension] .text-glow-pink {
   text-shadow: 0 0 10px rgba(190, 24, 93, 0.25);
+}
+
+.light [data-dimension] .text-glow-yellow {
+  text-shadow: 0 0 10px rgba(180, 140, 20, 0.35);
 }
 
 .light [data-dimension] .glow-cyan {

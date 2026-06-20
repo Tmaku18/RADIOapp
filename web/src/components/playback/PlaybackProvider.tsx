@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MutableRefObject,
   type ReactNode,
 } from 'react';
 import Hls from 'hls.js';
@@ -30,6 +31,15 @@ import {
 } from '@/lib/dj-booth-listener';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { setLastRadioStationId } from '@/lib/playback-preferences';
+import {
+  ANALYSER_BARS,
+  createAnalyserBarsBuffer,
+  ensureMediaElementAnalyser,
+  fillIdleBars,
+  reduceFrequencyBins,
+  updateBassRef,
+  type AnalyserSlot,
+} from '@/lib/audio-analyser';
 
 type PlaybackActions = {
   /**
@@ -83,6 +93,10 @@ type PlaybackContextValue = {
    * past (server hasn't rotated yet). Pollers use this to avoid jumping backward.
    */
   isStaleRadioServerTrack: (trackId: string | null | undefined) => boolean;
+  /** Live FFT bar heights (0–255), updated each animation frame. */
+  barsRef: MutableRefObject<Uint8Array>;
+  /** Smoothed bass energy 0..1 from lowest FFT bins. */
+  bassRef: MutableRefObject<number>;
 };
 
 const PlaybackContext = createContext<PlaybackContextValue | null>(null);
@@ -158,6 +172,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const mutedByUserRef = useRef(false);
   const radioPlayerUiCountRef = useRef(0);
   const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
+  const barsRef = useRef(createAnalyserBarsBuffer(ANALYSER_BARS));
+  const bassRef = useRef(0);
+  const rawAnalyserDataRef = useRef(new Uint8Array(ANALYSER_BARS * 4));
+  const analyserCtxRef = useRef<AudioContext | null>(null);
+  const analyserSlotsRef = useRef<{ a: AnalyserSlot; b: AnalyserSlot }>({
+    a: {},
+    b: {},
+  });
 
   const registerRadioPlayerUi = useCallback(() => {
     radioPlayerUiCountRef.current += 1;
@@ -689,7 +711,21 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
     const audioA = new Audio();
     const audioB = new Audio();
+    audioA.crossOrigin = 'anonymous';
+    audioB.crossOrigin = 'anonymous';
     audioPairRef.current = { a: audioA, b: audioB };
+    ensureMediaElementAnalyser(
+      audioA,
+      analyserSlotsRef.current.a,
+      analyserCtxRef,
+      ANALYSER_BARS * 4,
+    );
+    ensureMediaElementAnalyser(
+      audioB,
+      analyserSlotsRef.current.b,
+      analyserCtxRef,
+      ANALYSER_BARS * 4,
+    );
     const cleanupA = wireAudio(audioA, 'a');
     const cleanupB = wireAudio(audioB, 'b');
 
@@ -704,6 +740,29 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       destroyHlsForSlot('b');
     };
   }, [cancelCrossfade, destroyHlsForSlot]);
+
+  // FFT visualizer loop — samples active audio slot or idle motion when paused
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const slot = activeSlotRef.current;
+      const an = analyserSlotsRef.current[slot]?.analyser;
+      const playing = stateRef.current.isPlaying && !stateRef.current.pausedAt;
+      if (an && playing) {
+        if (rawAnalyserDataRef.current.length !== an.frequencyBinCount) {
+          rawAnalyserDataRef.current = new Uint8Array(an.frequencyBinCount);
+        }
+        an.getByteFrequencyData(rawAnalyserDataRef.current);
+        reduceFrequencyBins(rawAnalyserDataRef.current, barsRef.current);
+      } else {
+        fillIdleBars(barsRef.current, performance.now() / 1000);
+      }
+      updateBassRef(barsRef.current, bassRef);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
   const loadTrackImmediate = useCallback(
     (
@@ -1294,6 +1353,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     radioPlayerUiActive,
     registerRadioPlayerUi,
     isStaleRadioServerTrack,
+    barsRef,
+    bassRef,
   };
 
   return (

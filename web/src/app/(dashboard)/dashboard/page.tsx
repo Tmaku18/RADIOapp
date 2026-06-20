@@ -1,11 +1,33 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import {
+  Award,
+  BarChart3,
+  Briefcase,
+  Calendar,
+  Flame,
+  FlaskConical,
+  Headphones,
+  Heart,
+  ListMusic,
+  MessageCircle,
+  Music,
+  Pickaxe,
+  RotateCcw,
+  Rss,
+  Settings,
+  Sparkles,
+  Trophy,
+  UploadCloud,
+  User,
+  Users,
+} from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsApi, prospectorApi, usersApi } from '@/lib/api';
-import { Card, CardContent } from '@/components/ui/card';
+import { Reveal } from '@/components/dimension/Reveal';
 
 const WELCOME_HERO_IMAGE = '/images/welcome-to-the-networx.png';
 
@@ -93,6 +115,61 @@ const ROLE_HOME: Record<
   },
 };
 
+const ACTION_ICONS: Record<
+  string,
+  { Icon: ElementType<{ className?: string }>; iconClass: string; borderClass: string }
+> = {
+  '🎵': { Icon: Music, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '🎶': { Icon: Music, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '🎧': { Icon: Headphones, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+  '✨': { Icon: Sparkles, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  '🏆': { Icon: Trophy, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  '💬': { Icon: MessageCircle, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+  '🔬': { Icon: FlaskConical, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '⛏️': { Icon: Pickaxe, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  '👤': { Icon: User, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '📤': { Icon: UploadCloud, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '📈': { Icon: BarChart3, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+  '📅': { Icon: Calendar, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  '💼': { Icon: Briefcase, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+  '⚙️': { Icon: Settings, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '👥': { Icon: Users, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+  '🧵': { Icon: ListMusic, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  '📱': { Icon: Rss, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+  '🔄': { Icon: RotateCcw, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+};
+
+const PLATFORM_STATS = [
+  {
+    label: 'Artists',
+    key: 'totalArtists' as const,
+    Icon: Music,
+    valueClass: 'text-cyan-300',
+    borderClass: 'border-cyan-400/40',
+  },
+  {
+    label: 'Songs',
+    key: 'totalSongs' as const,
+    Icon: Headphones,
+    valueClass: 'text-pink-400',
+    borderClass: 'border-pink-400/40',
+  },
+  {
+    label: 'Listens',
+    key: 'totalPlays' as const,
+    Icon: Heart,
+    valueClass: 'text-yellow-300',
+    borderClass: 'border-yellow-300/40',
+  },
+  {
+    label: 'Discoveries',
+    key: 'totalProfileClicks' as const,
+    Icon: Flame,
+    valueClass: 'text-cyan-300',
+    borderClass: 'border-cyan-400/40',
+  },
+];
+
 function readAdminRoleCookie(): boolean {
   if (typeof document === 'undefined') return false;
   const cookieRole = document.cookie
@@ -100,6 +177,54 @@ function readAdminRoleCookie(): boolean {
     .find((c) => c.startsWith('user_role='))
     ?.split('=')[1];
   return cookieRole?.toLowerCase() === 'admin';
+}
+
+function resolveActionIcon(emoji: string, index: number) {
+  const mapped = ACTION_ICONS[emoji];
+  if (mapped) return mapped;
+
+  const fallbacks = [
+    { Icon: Music, iconClass: 'text-cyan-300', borderClass: 'border-cyan-400/40' },
+    { Icon: Award, iconClass: 'text-pink-400', borderClass: 'border-pink-400/40' },
+    { Icon: BarChart3, iconClass: 'text-yellow-300', borderClass: 'border-yellow-300/40' },
+  ];
+  return fallbacks[index % fallbacks.length];
+}
+
+function DimensionStatCard({
+  label,
+  value,
+  Icon,
+  valueClass,
+  borderClass,
+}: {
+  label: string;
+  value: string | number;
+  Icon: ElementType<{ className?: string }>;
+  valueClass: string;
+  borderClass: string;
+}) {
+  return (
+    <div className="rounded-2xl glass p-4 flex items-center gap-3">
+      <span
+        className={`w-10 h-10 rounded-full bg-black border ${borderClass} flex items-center justify-center shrink-0`}
+      >
+        <Icon className={`w-4 h-4 ${valueClass}`} />
+      </span>
+      <div>
+        <div className={`font-unbounded font-black text-2xl ${valueClass}`}>{value}</div>
+        <div className="font-dim-mono text-[9px] tracking-[0.25em] text-white/50 uppercase">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="flex justify-center py-8">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-400" />
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -144,6 +269,7 @@ export default function DashboardPage() {
   const hasArtistStats = role === 'artist' || role === 'service_provider';
   const hasProspectorStats = role === 'listener';
   const roleResolved = !!role;
+  const displayName = profile?.displayName || 'Prospector';
 
   useEffect(() => {
     async function loadStats() {
@@ -213,165 +339,193 @@ export default function DashboardPage() {
   }, [profile?.id, hasArtistStats, hasProspectorStats]);
 
   return (
-    <div className="space-y-8">
-      {/* Welcome hero — image only, expanded and centered */}
-      <section className="relative w-full overflow-hidden rounded-xl border border-border bg-muted">
-        <div className="relative w-full aspect-[2/1] min-h-[240px] flex items-center justify-center">
-          <Image
-            src={WELCOME_HERO_IMAGE}
-            alt=""
-            fill
-            className="object-contain object-center"
-            sizes="100vw"
-            priority
-            unoptimized
-          />
-        </div>
-      </section>
-
-      <Card className="bg-primary text-primary-foreground border-0">
-        <CardContent className="pt-8">
-          {home ? (
-            <>
-              <h2 className="text-2xl font-bold mb-2">{home.title}</h2>
-              <p className="text-primary-foreground/90">{home.subtitle}</p>
-            </>
-          ) : (
-            <>
-              <div className="h-8 w-48 bg-primary-foreground/20 rounded animate-pulse mb-2" />
-              <div className="h-5 w-72 bg-primary-foreground/10 rounded animate-pulse" />
-            </>
-          )}
-        </CardContent>
-      </Card>
-
-      {roleResolved && home && (
-      <div>
-        <h2 className="text-xl font-semibold text-foreground mb-4">{home.title}</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {home.actions.map((action) => (
-            <Card key={action.href} className="hover:shadow-md transition-shadow">
-              {action.external ? (
-                <a href={action.href} target="_blank" rel="noopener noreferrer">
-                  <CardContent className="pt-6">
-                    <div className="chrome-icon text-base mb-4">{action.icon}</div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
-                    <p className="text-muted-foreground">{action.desc}</p>
-                  </CardContent>
-                </a>
+    <div data-dimension className="space-y-6">
+      {/* Glass hero */}
+      <Reveal>
+        <div className="relative rounded-3xl glass overflow-hidden">
+          <div className="absolute inset-0 cyber-grid opacity-30" aria-hidden />
+          <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full bg-cyan-500/15 blur-3xl" aria-hidden />
+          <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-pink-500/15 blur-3xl" aria-hidden />
+          <div className="relative grid md:grid-cols-[1fr_320px] gap-8 p-6 md:p-10 items-center">
+            <div>
+              <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-3">
+                ◤ DASHBOARD · WELCOME BACK
+              </div>
+              {home ? (
+                <>
+                  <h1 className="font-unbounded font-black tracking-tighter uppercase text-4xl md:text-5xl leading-[0.95]">
+                    Hey{' '}
+                    <span className="text-glow-cyan text-cyan-300">{displayName}.</span>
+                    <br />
+                    Mine the frequency.
+                  </h1>
+                  <p className="text-white/60 mt-4 max-w-md">{home.subtitle}</p>
+                </>
               ) : (
-                <Link href={action.href}>
-                  <CardContent className="pt-6">
-                    <div className="chrome-icon text-base mb-4">{action.icon}</div>
-                    <h3 className="text-lg font-semibold text-foreground mb-2">{action.title}</h3>
-                    <p className="text-muted-foreground">{action.desc}</p>
-                  </CardContent>
-                </Link>
+                <>
+                  <div className="h-12 w-64 bg-white/10 rounded animate-pulse mb-3" />
+                  <div className="h-5 w-72 bg-white/5 rounded animate-pulse" />
+                </>
               )}
-            </Card>
-          ))}
+            </div>
+            <div className="relative h-[220px] md:h-[280px] flex items-center justify-center">
+              <div className="absolute inset-0 rounded-2xl bg-black/40 border border-cyan-400/20 overflow-hidden">
+                <Image
+                  src={WELCOME_HERO_IMAGE}
+                  alt=""
+                  fill
+                  className="object-contain object-center p-2"
+                  sizes="320px"
+                  priority
+                  unoptimized
+                />
+              </div>
+            </div>
+          </div>
         </div>
+      </Reveal>
+
+      {/* Platform stats row */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {loading ? (
+          <div className="col-span-full">
+            <LoadingSpinner />
+          </div>
+        ) : (
+          PLATFORM_STATS.map((stat, index) => (
+            <Reveal key={stat.label} delay={index * 0.06}>
+              <DimensionStatCard
+                label={stat.label}
+                value={(stats.platform?.[stat.key] ?? 0).toLocaleString()}
+                Icon={stat.Icon}
+                valueClass={stat.valueClass}
+                borderClass={stat.borderClass}
+              />
+            </Reveal>
+          ))
+        )}
       </div>
+
+      {/* Quick actions */}
+      {roleResolved && home && (
+        <Reveal>
+          <div className="rounded-2xl glass p-6">
+            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-1">
+              QUICK ACTIONS
+            </div>
+            <h2 className="font-unbounded font-bold text-lg mb-4 dim-text">{home.title}</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {home.actions.map((action, index) => {
+                const { Icon, iconClass, borderClass } = resolveActionIcon(action.icon, index);
+                const tileClassName =
+                  'tilt rounded-xl border border-white/10 bg-black/40 p-4 flex items-center gap-3 hover:border-cyan-400/50 block h-full';
+                const content = (
+                  <>
+                    <span
+                      className={`w-10 h-10 rounded-full bg-black border ${borderClass} flex items-center justify-center shrink-0`}
+                    >
+                      <Icon className={`w-4 h-4 ${iconClass}`} />
+                    </span>
+                    <div>
+                      <div className="font-unbounded font-bold text-sm dim-text">{action.title}</div>
+                      <div className="text-xs text-white/50">{action.desc}</div>
+                    </div>
+                  </>
+                );
+
+                return action.external ? (
+                  <a
+                    key={action.href}
+                    href={action.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={tileClassName}
+                  >
+                    {content}
+                  </a>
+                ) : (
+                  <Link key={action.href} href={action.href} className={tileClassName}>
+                    {content}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </Reveal>
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Network Snapshot</h2>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              <div className="bg-primary/10 rounded-xl p-4">
-                <div className="text-sm text-primary font-medium">Artists</div>
-                <div className="text-3xl font-bold text-foreground mt-1">
-                  {(stats.platform?.totalArtists ?? 0).toLocaleString()}
-                </div>
-              </div>
-              <div className="bg-muted rounded-xl p-4">
-                <div className="text-sm text-muted-foreground font-medium">Songs</div>
-                <div className="text-3xl font-bold text-foreground mt-1">
-                  {(stats.platform?.totalSongs ?? 0).toLocaleString()}
-                </div>
-              </div>
-              <div className="bg-muted rounded-xl p-4">
-                <div className="text-sm text-muted-foreground font-medium">Listens</div>
-                <div className="text-3xl font-bold text-foreground mt-1">
-                  {(stats.platform?.totalPlays ?? 0).toLocaleString()}
-                </div>
-              </div>
-              <div className="bg-muted rounded-xl p-4">
-                <div className="text-sm text-muted-foreground font-medium">Discoveries</div>
-                <div className="text-3xl font-bold text-foreground mt-1">
-                  {(stats.platform?.totalProfileClicks ?? 0).toLocaleString()}
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {hasArtistStats && (
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Your Stats</h2>
+        <Reveal>
+          <div className="rounded-2xl glass p-6">
+            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400 mb-4">
+              YOUR STATS
+            </div>
             {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
+              <LoadingSpinner />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Your Listens</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalListenCount ?? stats.artist?.totalPlays ?? 0}</div>
-                </div>
-                <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Your Songs</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalSongs ?? 0}</div>
-                </div>
-                <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Your Likes</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">{stats.artist?.totalLikes ?? 0}</div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <DimensionStatCard
+                  label="Your Listens"
+                  value={stats.artist?.totalListenCount ?? stats.artist?.totalPlays ?? 0}
+                  Icon={Headphones}
+                  valueClass="text-cyan-300"
+                  borderClass="border-cyan-400/40"
+                />
+                <DimensionStatCard
+                  label="Your Songs"
+                  value={stats.artist?.totalSongs ?? 0}
+                  Icon={Music}
+                  valueClass="text-pink-400"
+                  borderClass="border-pink-400/40"
+                />
+                <DimensionStatCard
+                  label="Your Likes"
+                  value={stats.artist?.totalLikes ?? 0}
+                  Icon={Heart}
+                  valueClass="text-yellow-300"
+                  borderClass="border-yellow-300/40"
+                />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </Reveal>
       )}
 
       {hasProspectorStats && (
-        <Card>
-          <CardContent className="pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-6">Prospector Stats</h2>
+        <Reveal>
+          <div className="rounded-2xl glass p-6">
+            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-4">
+              PROSPECTOR STATS
+            </div>
             {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-              </div>
+              <LoadingSpinner />
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-primary/10 rounded-xl p-4">
-                  <div className="text-sm text-primary font-medium">Yield Balance</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">
-                    ${((stats.yield?.balanceCents ?? 0) / 100).toFixed(2)}
-                  </div>
-                </div>
-                <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Tier</div>
-                  <div className="text-3xl font-bold text-foreground mt-1 capitalize">
-                    {stats.yield?.tier ?? 'none'}
-                  </div>
-                </div>
-                <div className="bg-muted rounded-xl p-4">
-                  <div className="text-sm text-muted-foreground font-medium">Songs Refined</div>
-                  <div className="text-3xl font-bold text-foreground mt-1">
-                    {stats.yield?.songsRefinedCount ?? 0}
-                  </div>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <DimensionStatCard
+                  label="Yield Balance"
+                  value={`$${((stats.yield?.balanceCents ?? 0) / 100).toFixed(2)}`}
+                  Icon={Pickaxe}
+                  valueClass="text-cyan-300"
+                  borderClass="border-cyan-400/40"
+                />
+                <DimensionStatCard
+                  label="Tier"
+                  value={(stats.yield?.tier ?? 'none').replace(/^./, (c) => c.toUpperCase())}
+                  Icon={Award}
+                  valueClass="text-pink-400"
+                  borderClass="border-pink-400/40"
+                />
+                <DimensionStatCard
+                  label="Songs Refined"
+                  value={stats.yield?.songsRefinedCount ?? 0}
+                  Icon={FlaskConical}
+                  valueClass="text-yellow-300"
+                  borderClass="border-yellow-300/40"
+                />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </Reveal>
       )}
     </div>
   );
