@@ -12,3 +12,10 @@ export { ParallaxArtistCard } from './ParallaxArtistCard';
 export { ArtistsGallery } from './ArtistsGallery';
 export { RefineryHero, RefineryVisualizer } from './RefineryHero';
 export { DimensionRadioBar, DIMENSION_RADIO_BAR_HEIGHT } from './DimensionRadioBar';
+export {
+  DimensionNavCollapsible,
+  DimensionNavSubLink,
+  DimensionNavTab,
+  DimensionSidebarLogoCard,
+  DimensionSidebarUserFooter,
+} from './DimensionSidebarNav';

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,20 +23,12 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarGroup,
   SidebarHeader,
   SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { HugeiconsIcon } from '@hugeicons/react';
 import {
@@ -45,8 +36,31 @@ import {
   Sun01Icon,
   DarkModeIcon,
   ComputerIcon,
-  ArrowUp01Icon,
 } from '@hugeicons/core-free-icons';
+import {
+  Award,
+  BarChart3,
+  FileSearch,
+  Flame,
+  Headphones,
+  Library,
+  Megaphone,
+  Mic2,
+  Music,
+  Network,
+  Rss,
+  UploadCloud,
+  type LucideIcon,
+} from 'lucide-react';
+import {
+  DimensionNavCollapsible,
+  DimensionNavSubLink,
+  DimensionNavTab,
+  DimensionSidebarLogoCard,
+  DimensionSidebarUserFooter,
+  MoreHorizontal,
+  Shield,
+} from '@/components/dimension/DimensionSidebarNav';
 
 // Pro-Networx lives on a separate domain. Dashboard users are already
 // authenticated, so we route them through the cross-domain auth handoff: their
@@ -69,44 +83,54 @@ const PRO_NETWORX_INTERNAL_URL = `/auth-handoff?return_url=${encodeURIComponent(
   PRO_NETWORX_RETURN_URL,
 )}`;
 const SUPPORT_DISCORD_URL = 'https://discord.gg/a9S5m8fUJy';
-type MainNavItem = { name: string; href: string; icon: string; external?: boolean };
+type MainNavItem = { name: string; href: string; icon: LucideIcon; external?: boolean };
 
 const listenerNavigation: MainNavItem[] = [
-  { name: 'Radio', href: '/listen', icon: '🎵' },
-  { name: 'Live DJ', href: '/dj', icon: '🎧' },
-  { name: 'Live Performances', href: '/performances', icon: '🎤' },
-  { name: 'Library', href: '/browse/saved', icon: '💿' },
-  { name: 'Feed', href: '/social', icon: '📱' },
-  { name: 'Discover', href: '/social/discover', icon: '🔥' },
-  { name: 'Vote', href: '/competition', icon: '📢' },
-  { name: 'The Refinery', href: '/refinery', icon: '🔬' },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
-  { name: 'Rewards', href: '/yield', icon: '⛏️' },
+  { name: 'Radio', href: '/listen', icon: Music },
+  { name: 'Live DJ', href: '/dj', icon: Headphones },
+  { name: 'Live Performances', href: '/performances', icon: Mic2 },
+  { name: 'Library', href: '/browse/saved', icon: Library },
+  { name: 'Feed', href: '/social', icon: Rss },
+  { name: 'Discover', href: '/social/discover', icon: Flame },
+  { name: 'Vote', href: '/competition', icon: Megaphone },
+  { name: 'The Refinery', href: '/refinery', icon: FileSearch },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
+  { name: 'Rewards', href: '/yield', icon: Award },
 ];
 
 const artistNavigation: MainNavItem[] = [
-  { name: 'Radio', href: '/listen', icon: '🎵' },
-  { name: 'Live DJ', href: '/dj', icon: '🎧' },
-  { name: 'Live Performances', href: '/performances', icon: '🎤' },
-  { name: 'Library', href: '/browse/saved', icon: '💿' },
-  { name: 'Feed', href: '/social', icon: '📱' },
-  { name: 'Discover', href: '/social/discover', icon: '🔥' },
-  { name: 'My Uploaded Songs', href: '/artist/songs', icon: '🎙️' },
-  { name: 'Analytics', href: '/artist/stats', icon: '📈' },
-  { name: 'The Refinery', href: '/refinery', icon: '🔬' },
-  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: '💼' },
-  { name: 'Rewards', href: '/yield', icon: '⛏️' },
+  { name: 'Radio', href: '/listen', icon: Music },
+  { name: 'Live DJ', href: '/dj', icon: Headphones },
+  { name: 'Live Performances', href: '/performances', icon: Mic2 },
+  { name: 'Library', href: '/browse/saved', icon: Library },
+  { name: 'Feed', href: '/social', icon: Rss },
+  { name: 'Discover', href: '/social/discover', icon: Flame },
+  { name: 'My Uploaded Songs', href: '/artist/songs', icon: UploadCloud },
+  { name: 'Analytics', href: '/artist/stats', icon: BarChart3 },
+  { name: 'The Refinery', href: '/refinery', icon: FileSearch },
+  { name: 'Pro-Networx', href: PRO_NETWORX_INTERNAL_URL, icon: Network },
+  { name: 'Rewards', href: '/yield', icon: Award },
 ];
 
 const moreNav = [
-  { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-  { name: 'Profile', href: '/profile', icon: '👤' },
-  { name: 'Live', href: '/live', icon: '🔴' },
-  { name: 'Settings', href: '/settings', icon: '⚙️' },
+  { name: 'Dashboard', href: '/dashboard' },
+  { name: 'Profile', href: '/profile' },
+  { name: 'Live', href: '/live' },
+  { name: 'Settings', href: '/settings' },
 ];
-const streamerNav = { name: 'Stream settings', href: '/stream-settings', icon: '📡' };
+const streamerNav = { name: 'Stream settings', href: '/stream-settings' };
 
-import { NETWORX_LOGO, NETWORX_LOGO_LIGHT, NETWORX_APP_ICON } from '@/lib/brand-assets';
+const adminSubNavigation = [
+  { name: 'Songs', href: '/admin/songs' },
+  { name: 'Users', href: '/admin/users' },
+  { name: 'Swipe', href: '/admin/swipe' },
+  { name: 'Queue', href: '/admin/queue' },
+  { name: 'DJ Booth', href: '/admin/dj-booth' },
+  { name: 'Streamers', href: '/admin/streamers' },
+  { name: 'Feed', href: '/admin/feed' },
+  { name: 'Free Rotation', href: '/admin/free-rotation' },
+  { name: 'Listen', href: '/listen' },
+];
 
 /**
  * Auto-collapse the mobile sidebar overlay whenever the route changes, so
@@ -121,60 +145,6 @@ function AutoCollapseSidebarOnNavigate() {
   }, [pathname, isMobile, setOpenMobile]);
   return null;
 }
-
-function DashboardSidebarLogo() {
-  const { state } = useSidebar();
-  const collapsed = state === 'collapsed';
-
-  if (collapsed) {
-    return (
-      <Image
-        src={NETWORX_APP_ICON}
-        alt="NETWORX Radio"
-        width={32}
-        height={32}
-        className="size-8 object-contain shrink-0"
-        priority
-        unoptimized
-      />
-    );
-  }
-
-  return (
-    <>
-      <Image
-        src={NETWORX_LOGO}
-        alt="NETWORX Radio — The Butterfly Effect"
-        width={200}
-        height={56}
-        className="hidden dark:block h-11 w-auto object-contain object-left shrink-0"
-        priority
-        unoptimized
-      />
-      <Image
-        src={NETWORX_LOGO_LIGHT}
-        alt="NETWORX Radio — The Butterfly Effect"
-        width={200}
-        height={56}
-        className="block dark:hidden h-11 w-auto object-contain object-left shrink-0"
-        priority
-        unoptimized
-      />
-    </>
-  );
-}
-
-const adminSubNavigation = [
-  { name: 'Songs', href: '/admin/songs', icon: '🎶' },
-  { name: 'Users', href: '/admin/users', icon: '👥' },
-  { name: 'Swipe', href: '/admin/swipe', icon: '🃏' },
-  { name: 'Queue', href: '/admin/queue', icon: '🧵' },
-  { name: 'DJ Booth', href: '/admin/dj-booth', icon: '🎙️' },
-  { name: 'Streamers', href: '/admin/streamers', icon: '📡' },
-  { name: 'Feed', href: '/admin/feed', icon: '📱' },
-  { name: 'Free Rotation', href: '/admin/free-rotation', icon: '🔄' },
-  { name: 'Listen', href: '/listen', icon: '🎵' },
-];
 
 // Flattened nav for page title lookup
 function getPageTitle(pathname: string): string {
@@ -288,6 +258,8 @@ export default function DashboardLayout({
   }, []);
 
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [adminOpen, setAdminOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const { theme, setTheme } = useTheme();
 
@@ -346,6 +318,12 @@ export default function DashboardLayout({
     }
   }, [user, profile]);
 
+  useEffect(() => {
+    if (pathname.startsWith('/admin')) {
+      setAdminOpen(true);
+    }
+  }, [pathname]);
+
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
@@ -368,7 +346,17 @@ export default function DashboardLayout({
     return null;
   }
 
-  const isAdminPath = pathname.startsWith('/admin');
+  const navItems = isArtistMode ? artistNavigation : listenerNavigation;
+  const activeHref = navItems
+    .filter(
+      (it) =>
+        pathname === it.href ||
+        (it.href !== '/dashboard' && pathname.startsWith(`${it.href}/`)),
+    )
+    .reduce<string | null>(
+      (best, it) => (best && best.length >= it.href.length ? best : it.href),
+      null,
+    );
 
   return (
     <div
@@ -377,213 +365,140 @@ export default function DashboardLayout({
       className={isListenPage ? 'h-svh overflow-hidden relative' : 'min-h-screen relative'}
     >
       <div className="pointer-events-none fixed inset-0 z-0 cyber-grid opacity-[0.04]" aria-hidden />
-      <SidebarProvider className={isListenPage ? 'h-svh overflow-hidden relative z-10' : 'relative z-10'}>
+      <SidebarProvider
+        style={
+          {
+            '--sidebar-width': '17.5rem',
+            '--sidebar-width-icon': '5rem',
+          } as React.CSSProperties
+        }
+        className={isListenPage ? 'h-svh overflow-hidden relative z-10' : 'relative z-10'}
+      >
         <AutoCollapseSidebarOnNavigate />
-        <Sidebar className="[&_[data-slot=sidebar-inner]]:glass-strong [&_[data-slot=sidebar-inner]]:border-r [&_[data-slot=sidebar-inner]]:border-white/10">
-        <SidebarHeader>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Link href="/dashboard" className="flex items-center">
-                  <DashboardSidebarLogo />
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarHeader>
+        <Sidebar
+          variant="floating"
+          collapsible="icon"
+          className="[&_[data-slot=sidebar-inner]]:glass-strong [&_[data-slot=sidebar-inner]]:rounded-3xl [&_[data-slot=sidebar-inner]]:border [&_[data-slot=sidebar-inner]]:border-white/10 [&_[data-slot=sidebar-inner]]:shadow-none [&_[data-mobile=true]]:glass-strong [&_[data-mobile=true]]:border-white/10"
+        >
+          <SidebarHeader className="p-3 pb-2">
+            <DimensionSidebarLogoCard />
+          </SidebarHeader>
 
-        <SidebarContent>
-          <SidebarGroup>
-            <SidebarMenu>
-              {(() => {
-                const navItems = isArtistMode ? artistNavigation : listenerNavigation;
-                // Pick the *longest* href that matches so nested routes like
-                // /social/discover don't double-activate the parent (/social).
-                const activeHref = navItems
-                  .filter(
-                    (it) =>
-                      pathname === it.href ||
-                      (it.href !== '/dashboard' &&
-                        pathname.startsWith(`${it.href}/`)),
-                  )
-                  .reduce<string | null>(
-                    (best, it) =>
-                      best && best.length >= it.href.length ? best : it.href,
-                    null,
-                  );
-                return navItems.map((item) => {
-                  const isActive = activeHref === item.href;
-                  return (
-                    <SidebarMenuItem key={item.name}>
-                      {item.external ? (
-                        <SidebarMenuButton asChild isActive={false}>
-                          <a
-                            href={item.href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center"
-                          >
-                            <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
-                            <span>{item.name}</span>
-                          </a>
-                        </SidebarMenuButton>
-                      ) : (
-                        <SidebarMenuButton asChild isActive={isActive} className={isActive ? 'bg-cyan-400/10 ring-1 ring-cyan-400/30 rounded-full' : undefined}>
-                          <Link href={item.href} className="flex items-center">
-                            <span className="chrome-icon mr-3 text-sm">{item.icon}</span>
-                            <span>{item.name}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      )}
-                    </SidebarMenuItem>
-                  );
-                });
-              })()}
+          <SidebarContent className="px-2 overflow-y-auto">
+            <nav className="space-y-1">
+              {navItems.map((item) => (
+                <DimensionNavTab
+                  key={item.name}
+                  href={item.href}
+                  label={item.name}
+                  icon={item.icon}
+                  isActive={activeHref === item.href}
+                  external={item.external}
+                  testId={`sidebar-tab-${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+                />
+              ))}
 
-              <Collapsible defaultOpen={false} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton>
-                      <span className="chrome-icon mr-3 text-sm">⋯</span>
-                      <span>More</span>
-                      <HugeiconsIcon
-                        icon={ArrowUp01Icon}
-                        strokeWidth={2}
-                        className="ml-auto size-4 group-data-[state=closed]/collapsible:rotate-180"
+              <DimensionNavCollapsible
+                title="More"
+                icon={MoreHorizontal}
+                open={moreOpen}
+                onToggle={() => setMoreOpen((v) => !v)}
+              >
+                {moreNav.map((item) => (
+                  <DimensionNavSubLink
+                    key={item.name}
+                    href={item.href}
+                    label={item.name}
+                    isActive={
+                      pathname === item.href || pathname.startsWith(`${item.href}/`)
+                    }
+                  />
+                ))}
+                {hasArtistCapability(effectiveRole) && (
+                  <DimensionNavSubLink
+                    href={streamerNav.href}
+                    label={streamerNav.name}
+                    isActive={pathname.startsWith(streamerNav.href)}
+                  />
+                )}
+                {hasArtistCapability(effectiveRole) && (
+                  <>
+                    <DimensionNavSubLink
+                      href="/artist/songs"
+                      label="My Uploaded Songs"
+                      isActive={pathname.startsWith('/artist/songs')}
+                    />
+                    <DimensionNavSubLink
+                      href="/artist/upload"
+                      label="Upload"
+                      isActive={pathname.startsWith('/artist/upload')}
+                    />
+                    <DimensionNavSubLink
+                      href="/artist/payouts"
+                      label="Payouts"
+                      isActive={pathname.startsWith('/artist/payouts')}
+                    />
+                    <DimensionNavSubLink
+                      href="/artist/live-services"
+                      label="Live services"
+                      isActive={pathname.startsWith('/artist/live-services')}
+                    />
+                    {profile?.id && (
+                      <DimensionNavSubLink
+                        href={
+                          profile.role === 'service_provider'
+                            ? `/pro-networx/u/${profile.id}`
+                            : `/artist/${profile.id}`
+                        }
+                        label="View public profile"
+                        isActive={
+                          profile.role === 'service_provider'
+                            ? pathname.startsWith(`/pro-networx/u/${profile.id}`)
+                            : pathname.startsWith(`/artist/${profile.id}`)
+                        }
                       />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {moreNav.map((item) => (
-                        <SidebarMenuSubItem key={item.name}>
-                          <SidebarMenuSubButton asChild isActive={pathname === item.href || pathname.startsWith(item.href + '/')}>
-                            <Link href={item.href}>{item.name}</Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                      {hasArtistCapability(effectiveRole) && (
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname.startsWith(streamerNav.href)}>
-                            <Link href={streamerNav.href}>{streamerNav.name}</Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      )}
-                      {hasArtistCapability(effectiveRole) && (
-                        <>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/songs')}>
-                              <Link href="/artist/songs">My Uploaded Songs</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/upload')}>
-                              <Link href="/artist/upload">Upload</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/payouts')}>
-                              <Link href="/artist/payouts">Payouts</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith('/artist/live-services')}>
-                              <Link href="/artist/live-services">Live services</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                          {profile?.id && (
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={
-                                  profile.role === 'service_provider'
-                                    ? pathname.startsWith(`/pro-networx/u/${profile.id}`)
-                                    : pathname.startsWith(`/artist/${profile.id}`)
-                                }
-                              >
-                                <Link
-                                  href={
-                                    profile.role === 'service_provider'
-                                      ? `/pro-networx/u/${profile.id}`
-                                      : `/artist/${profile.id}`
-                                  }
-                                >
-                                  View public profile
-                                </Link>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          )}
-                        </>
-                      )}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+                    )}
+                  </>
+                )}
+              </DimensionNavCollapsible>
 
               {effectiveRole === 'admin' && (
-                <Collapsible defaultOpen={isAdminPath} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton>
-                        <span className="chrome-icon mr-3 text-sm">⚙️</span>
-                        <span>Admin</span>
-                        <HugeiconsIcon
-                          icon={ArrowUp01Icon}
-                          strokeWidth={2}
-                          className="ml-auto size-4 group-data-[state=closed]/collapsible:rotate-180"
-                        />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton asChild isActive={pathname === '/admin'}>
-                            <Link href="/admin">Overview</Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                        {adminSubNavigation.map((item) => (
-                          <SidebarMenuSubItem key={item.name}>
-                            <SidebarMenuSubButton asChild isActive={pathname.startsWith(item.href)}>
-                              <Link href={item.href}>{item.name}</Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )}
-            </SidebarMenu>
-          </SidebarGroup>
-        </SidebarContent>
-
-        <SidebarFooter className="pb-20 md:pb-2">
-          <div className="p-2">
-            <p className="text-sm text-foreground truncate px-2">{profile?.displayName || user.email}</p>
-            <p className="text-xs text-muted-foreground capitalize px-2">{effectiveRole || 'Loading...'}</p>
-          </div>
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <a
-                  href={SUPPORT_DISCORD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <DimensionNavCollapsible
+                  title="Admin"
+                  icon={Shield}
+                  open={adminOpen}
+                  onToggle={() => setAdminOpen((v) => !v)}
                 >
-                  <span className="chrome-icon mr-3 text-xs">🛟</span>
-                  <span>Support</span>
-                </a>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-            <SidebarMenuItem>
-              <SidebarMenuButton onClick={handleSignOut} disabled={isSigningOut}>
-                <span className="chrome-icon mr-3 text-xs">{isSigningOut ? '⏳' : '🚪'}</span>
-                <span>{isSigningOut ? 'Signing out...' : 'Sign Out'}</span>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        </SidebarFooter>
-      </Sidebar>
+                  <DimensionNavSubLink
+                    href="/admin"
+                    label="Overview"
+                    isActive={pathname === '/admin'}
+                  />
+                  {adminSubNavigation.map((item) => (
+                    <DimensionNavSubLink
+                      key={item.name}
+                      href={item.href}
+                      label={item.name}
+                      isActive={pathname.startsWith(item.href)}
+                    />
+                  ))}
+                </DimensionNavCollapsible>
+              )}
+            </nav>
+          </SidebarContent>
+
+          <SidebarFooter className="p-3 pb-20 md:pb-3">
+            <DimensionSidebarUserFooter
+              displayName={profile?.displayName || user.email || 'User'}
+              roleLabel={effectiveRole || 'member'}
+              avatarUrl={profile?.avatarUrl}
+              emailFallback={user.email}
+              isSigningOut={isSigningOut}
+              onSignOut={() => void handleSignOut()}
+              supportUrl={SUPPORT_DISCORD_URL}
+            />
+          </SidebarFooter>
+        </Sidebar>
 
       <SidebarInset
         className={`bg-transparent ${isListenPage ? 'h-svh overflow-hidden' : ''}`}
