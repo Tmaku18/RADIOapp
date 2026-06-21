@@ -1110,6 +1110,48 @@ export class UsersService {
       }
     }
 
+    const earsBySongId = new Map<string, number>();
+    if (songIds.length > 0) {
+      try {
+        const { data: earsRows, error: earsError } = await supabase.rpc(
+          'get_song_ears_reached',
+          { p_song_ids: songIds },
+        );
+        if (earsError) {
+          this.logger.warn(
+            `get_song_ears_reached RPC unavailable on artist profile: ${earsError.message}`,
+          );
+        } else {
+          for (const row of (earsRows ?? []) as Array<{
+            song_id: string;
+            ears: number | string | null;
+          }>) {
+            const value = Number(row.ears);
+            if (row.song_id && Number.isFinite(value)) {
+              earsBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+            }
+          }
+        }
+      } catch {
+        // RPC may not exist in this environment.
+      }
+    }
+
+    let artistEarsReached: number | null = null;
+    try {
+      const { data, error } = await supabase.rpc('get_artist_ears_reached', {
+        p_artist_id: resolvedUserId,
+      });
+      if (!error && data != null) {
+        const value = Number(data);
+        if (Number.isFinite(value)) {
+          artistEarsReached = Math.max(0, Math.round(value));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment.
+    }
+
     // Which of these songs has the viewer already purchased? Owners/admins see
     // all of their own tracks as owned; everyone else only the ones they bought.
     const purchasedSongIds = new Set<string>();
@@ -1135,7 +1177,10 @@ export class UsersService {
         const profilePlayCount = song.profile_play_count || 0;
         const likeCount =
           realLikesBySongId.get(song.id) ?? (song.like_count || 0);
-        const listenCount = realListenersBySongId.get(song.id) ?? 0;
+        const listenCount =
+          earsBySongId.get(song.id) ??
+          realListenersBySongId.get(song.id) ??
+          0;
         const popularityScore = listenCount + likeCount * 3 + playCount;
         const owned =
           requestingOwnProfile || purchasedSongIds.has(song.id);
@@ -1225,7 +1270,9 @@ export class UsersService {
     }
 
     const totalPlays = mappedSongs.reduce((sum, s) => sum + s.playCount, 0);
-    const totalListens = mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
+    const totalListens =
+      artistEarsReached ??
+      mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
 
     const userRow = user;
 

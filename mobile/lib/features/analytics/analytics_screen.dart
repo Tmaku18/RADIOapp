@@ -140,7 +140,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     childAspectRatio: 1.25,
                     children: [
                       _StatCard(
-                        label: 'Total listens',
+                        label: 'Listens (ears reached)',
                         value: _data!.totalListenCount.toString(),
                       ),
                       _StatCard(

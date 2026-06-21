@@ -65,6 +65,52 @@ export class AnalyticsService {
 
   constructor(private readonly radioStateService: RadioStateService) {}
 
+  /**
+   * Per-song unique "Ears Reached" via get_song_ears_reached. Best-effort.
+   */
+  private async getEarsReachedBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_ears_reached', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        ears: number | string | null;
+      }>) {
+        const value = Number(row.ears);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment.
+    }
+    return result;
+  }
+
+  /**
+   * Artist-level unique ears (deduplicated across all songs). Best-effort.
+   */
+  private async getArtistEarsReached(artistId: string): Promise<number | null> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_artist_ears_reached', {
+        p_artist_id: artistId,
+      });
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -425,10 +471,28 @@ export class AnalyticsService {
         }
       }
     }
-    const totalListenCount = [...listenCountBySongId.values()].reduce(
+
+    const earsBySongId = await this.getEarsReachedBySongId(songIds);
+    for (const songId of songIds) {
+      const ears = earsBySongId.get(songId);
+      if (ears != null) {
+        listenCountBySongId.set(songId, ears);
+      }
+    }
+
+    const artistEarsReached = await this.getArtistEarsReached(artistId);
+    const summedSongEars = [...earsBySongId.values()].reduce(
       (sum, value) => sum + value,
       0,
     );
+    const totalListenCount =
+      artistEarsReached ??
+      (summedSongEars > 0
+        ? summedSongEars
+        : [...listenCountBySongId.values()].reduce(
+            (sum, value) => sum + value,
+            0,
+          ));
     const totalPaidPlays = (songs || []).reduce(
       (sum, song) => sum + (song.paid_play_count || 0),
       0,

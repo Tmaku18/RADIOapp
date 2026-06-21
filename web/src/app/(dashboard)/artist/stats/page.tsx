@@ -183,9 +183,9 @@ export default function StatsPage() {
       <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Total listens</div>
+            <div className="text-sm text-muted-foreground font-medium">Listens (ears reached)</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">All time</div>
+            <div className="text-sm text-primary mt-2">Unique listeners, all time</div>
           </CardContent>
         </Card>
 

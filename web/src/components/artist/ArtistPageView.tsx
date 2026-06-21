@@ -555,7 +555,7 @@ export function ArtistPageView({
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Followers</p><p className="text-xl font-bold">{formatNumber(data.stats.followerCount)}</p></CardContent></Card>
-        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Total listens</p><p className="text-xl font-bold">{formatNumber(data.stats.totalListenCount ?? data.stats.totalPlayCount)}</p></CardContent></Card>
+        <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Listens (ears reached)</p><p className="text-xl font-bold">{formatNumber(data.stats.totalListenCount ?? data.stats.totalPlayCount)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Songs</p><p className="text-xl font-bold">{formatNumber(data.stats.totalSongs)}</p></CardContent></Card>
         <Card><CardContent className="pt-4"><p className="text-xs text-muted-foreground">Monthly listeners</p><p className="text-xl font-bold">{formatNumber(data.stats.monthlyListenerCount)}</p></CardContent></Card>
       </div>
