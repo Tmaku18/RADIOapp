@@ -114,6 +114,12 @@ export class ProNetworxController {
   }
 
   @Public()
+  @Get('public/marketing-stats')
+  async getPublicMarketingStats() {
+    return this.pro.getPublicMarketingStats();
+  }
+
+  @Public()
   @Get('public/profiles/:userId')
   async getPublicProfile(@Param('userId') userId: string) {
     return this.pro.getProfileByUserId(userId);

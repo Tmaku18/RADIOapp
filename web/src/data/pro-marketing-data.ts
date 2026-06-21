@@ -1,4 +1,11 @@
-export const proDisciplines = [
+export type ProDiscipline = {
+  icon: string;
+  label: string;
+  count: number;
+  color: 'cyan' | 'pink' | 'yellow';
+};
+
+export const proDisciplines: ProDiscipline[] = [
   { icon: 'Palette', label: 'Graphic Designers', count: 24, color: 'cyan' as const },
   { icon: 'Camera', label: 'Photographers', count: 31, color: 'pink' as const },
   { icon: 'Film', label: 'Videographers', count: 18, color: 'yellow' as const },

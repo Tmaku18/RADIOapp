@@ -36,6 +36,8 @@ interface DashboardStats {
     totalArtists: number;
     totalSongs: number;
     totalPlays: number;
+    totalListenCount: number;
+    earsReached: number;
     totalProfileClicks: number;
   };
   artist?: {
@@ -155,8 +157,8 @@ const PLATFORM_STATS = [
     borderClass: 'border-pink-400/40',
   },
   {
-    label: 'Listens',
-    key: 'totalPlays' as const,
+    label: 'Listens (ears reached)',
+    key: 'earsReached' as const,
     Icon: Heart,
     valueClass: 'text-yellow-300',
     borderClass: 'border-yellow-300/40',
@@ -282,12 +284,21 @@ export default function DashboardPage() {
             totalArtists?: number;
             totalSongs?: number;
             totalPlays?: number;
+            totalListenCount?: number;
+            earsReached?: number;
             totalProfileClicks?: number;
           };
+          const listenCount =
+            platform.earsReached ??
+            platform.totalListenCount ??
+            platform.totalPlays ??
+            0;
           next.platform = {
             totalArtists: platform.totalArtists ?? 0,
             totalSongs: platform.totalSongs ?? 0,
             totalPlays: platform.totalPlays ?? 0,
+            totalListenCount: listenCount,
+            earsReached: listenCount,
             totalProfileClicks: platform.totalProfileClicks ?? 0,
           };
         } catch (platformError) {
@@ -465,7 +476,7 @@ export default function DashboardPage() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <DimensionStatCard
-                  label="Your Listens"
+                  label="Listens (ears reached)"
                   value={stats.artist?.totalListenCount ?? stats.artist?.totalPlays ?? 0}
                   Icon={Headphones}
                   valueClass="text-cyan-300"

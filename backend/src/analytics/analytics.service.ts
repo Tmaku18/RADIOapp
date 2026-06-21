@@ -689,6 +689,7 @@ export class AnalyticsService {
       totalSongs: totalSongs || 0,
       totalApprovedSongs: totalApprovedSongs || 0,
       totalPlays: totalPlays || 0,
+      totalListenCount: earsReached,
       totalProfileClicks: totalProfileClicks || 0,
       totalLikes: totalLikes || 0,
       liveListeners,

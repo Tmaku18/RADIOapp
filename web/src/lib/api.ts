@@ -1381,6 +1381,19 @@ export const proNetworxApi = {
   }) => api.put('/pro-networx/me/profile', data),
   listDirectory: (params?: { skill?: string; availableForWork?: boolean; search?: string; location?: string; sort?: 'asc' | 'desc'; mode?: 'default' | 'random' | 'smart'; seed?: string }) =>
     api.get('/pro-networx/public/directory', { params: params ?? {} }),
+  getMarketingStats: () =>
+    api.get<{
+      catalysts: number;
+      countries: number;
+      disciplines: number;
+      matchesThisMonth: number;
+      disciplinesBreakdown: Array<{
+        icon: string;
+        label: string;
+        color: 'cyan' | 'pink' | 'yellow';
+        count: number;
+      }>;
+    }>('/pro-networx/public/marketing-stats'),
   getProfileByUserId: (userId: string) => api.get(`/pro-networx/profiles/${userId}`),
 
   // Resume PDF

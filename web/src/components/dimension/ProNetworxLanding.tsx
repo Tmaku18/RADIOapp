@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowRight,
@@ -31,7 +31,9 @@ import {
   proFeatures,
   proPricing,
   proStats,
+  type ProDiscipline,
 } from '@/data/pro-marketing-data';
+import { proNetworxApi } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRO_NETWORX_APP_HOME, getProNetworxAppUrl, getSiteUrl } from '@/lib/site-url';
 
@@ -147,6 +149,43 @@ export function ProNetworxLanding({
   const backToRadioHref = variant === 'app' ? `${getSiteUrl()}/` : '/';
   const loginFooterHref = variant === 'app' ? LOGIN_REDIRECT : '/signup';
 
+  const [disciplines, setDisciplines] = useState<ProDiscipline[]>(proDisciplines);
+  const [heroStats, setHeroStats] = useState(proStats);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await proNetworxApi.getMarketingStats();
+        const data = res.data;
+        if (cancelled || !data) return;
+
+        if (data.disciplinesBreakdown?.length) {
+          setDisciplines(
+            data.disciplinesBreakdown.map((d) => ({
+              icon: d.icon,
+              label: d.label,
+              count: d.count,
+              color: d.color,
+            })),
+          );
+        }
+
+        setHeroStats({
+          catalysts: data.catalysts ?? proStats.catalysts,
+          countries: data.countries ?? proStats.countries,
+          disciplines: data.disciplines ?? proStats.disciplines,
+          matchesThisMonth: data.matchesThisMonth ?? proStats.matchesThisMonth,
+        });
+      } catch (e) {
+        console.error('Failed to load Pro-Networx marketing stats:', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="relative" data-testid="pro-page">
       {/* Hero */}
@@ -213,10 +252,10 @@ export function ProNetworxLanding({
 
             <div className="mt-12 grid grid-cols-4 max-w-lg gap-4">
               {[
-                { v: proStats.catalysts, l: 'Catalysts' },
-                { v: proStats.countries, l: 'Countries' },
-                { v: proStats.disciplines, l: 'Disciplines' },
-                { v: proStats.matchesThisMonth, l: 'Matches/mo' },
+                { v: heroStats.catalysts, l: 'Catalysts' },
+                { v: heroStats.countries, l: 'Countries' },
+                { v: heroStats.disciplines, l: 'Disciplines' },
+                { v: heroStats.matchesThisMonth, l: 'Matches/mo' },
               ].map((s, i) => (
                 <Reveal key={s.l} delay={1.1 + i * 0.07}>
                   <div className="font-unbounded font-black text-2xl text-white">{s.v}</div>
@@ -251,7 +290,7 @@ export function ProNetworxLanding({
         </Reveal>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {proDisciplines.map((d, i) => {
+          {disciplines.map((d, i) => {
             const Icon = ICONS[d.icon];
             return (
               <Reveal key={d.label} delay={(i % 4) * 0.08} y={36}>

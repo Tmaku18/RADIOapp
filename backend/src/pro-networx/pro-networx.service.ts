@@ -800,4 +800,197 @@ export class ProNetworxService {
     // If user filtering removed some userIds, total should match visible list.
     return { items: filtered, total: filtered.length ?? count ?? 0 };
   }
+
+  /** Public marketing stats for Pro-Networx landing (discipline ACTIVE counts, etc.). */
+  async getPublicMarketingStats(): Promise<{
+    catalysts: number;
+    countries: number;
+    disciplines: number;
+    matchesThisMonth: number;
+    disciplinesBreakdown: Array<{
+      icon: string;
+      label: string;
+      color: 'cyan' | 'pink' | 'yellow';
+      count: number;
+    }>;
+  }> {
+    const supabase = getSupabaseClient();
+
+    const disciplineBuckets: Array<{
+      icon: string;
+      label: string;
+      color: 'cyan' | 'pink' | 'yellow';
+      skillNames: string[];
+      keywords: string[];
+    }> = [
+      {
+        icon: 'Palette',
+        label: 'Graphic Designers',
+        color: 'cyan',
+        skillNames: ['graphic_designer'],
+        keywords: ['graphic design', 'illustrator', 'illustration', 'designer'],
+      },
+      {
+        icon: 'Camera',
+        label: 'Photographers',
+        color: 'pink',
+        skillNames: ['photographer'],
+        keywords: ['photograph', 'photo'],
+      },
+      {
+        icon: 'Film',
+        label: 'Videographers',
+        color: 'yellow',
+        skillNames: ['videographer'],
+        keywords: ['videograph', 'video', 'film'],
+      },
+      {
+        icon: 'Brush',
+        label: 'Illustrators',
+        color: 'cyan',
+        skillNames: [],
+        keywords: ['illustrat', 'draw', 'sketch'],
+      },
+      {
+        icon: 'Mic',
+        label: 'Lyricists',
+        color: 'pink',
+        skillNames: ['artist'],
+        keywords: ['lyric', 'songwriter', 'writer', 'poet'],
+      },
+      {
+        icon: 'Drum',
+        label: 'Beat Makers',
+        color: 'yellow',
+        skillNames: ['producer'],
+        keywords: ['beat', 'producer', 'music produc'],
+      },
+      {
+        icon: 'SlidersHorizontal',
+        label: 'Engineers',
+        color: 'cyan',
+        skillNames: ['mixing', 'mastering', 'studio'],
+        keywords: ['engineer', 'mix', 'master', 'audio'],
+      },
+      {
+        icon: 'Shirt',
+        label: 'Stylists',
+        color: 'pink',
+        skillNames: [],
+        keywords: ['styl', 'fashion', 'wardrobe', 'hair', 'makeup'],
+      },
+    ];
+
+    const { data: profiles } = await supabase
+      .schema('pro_networx')
+      .from('profiles')
+      .select('user_id, skills_headline, available_for_work');
+
+    const userIds = (profiles || []).map((p: { user_id: string }) => p.user_id);
+    if (userIds.length === 0) {
+      return {
+        catalysts: 0,
+        countries: 0,
+        disciplines: 0,
+        matchesThisMonth: 0,
+        disciplinesBreakdown: disciplineBuckets.map((b) => ({
+          icon: b.icon,
+          label: b.label,
+          color: b.color,
+          count: 0,
+        })),
+      };
+    }
+
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, headline, location_region, is_banned')
+      .in('id', userIds)
+      .or('is_banned.eq.false,is_banned.is.null');
+
+    const activeUserIds = new Set((users || []).map((u: { id: string }) => u.id));
+    const profileByUserId = new Map(
+      (profiles || [])
+        .filter((p: { user_id: string }) => activeUserIds.has(p.user_id))
+        .map((p: { user_id: string; skills_headline?: string | null }) => [
+          p.user_id,
+          p,
+        ]),
+    );
+
+    const { data: skillRows } = await supabase
+      .schema('pro_networx')
+      .from('profile_skills')
+      .select('user_id, skills:skills!inner(name)')
+      .in('user_id', [...activeUserIds]);
+
+    const skillsByUserId = new Map<string, string[]>();
+    for (const row of skillRows || []) {
+      const uid = (row as { user_id: string }).user_id;
+      const name = (row as { skills?: { name?: string } }).skills?.name;
+      if (!name) continue;
+      const list = skillsByUserId.get(uid) ?? [];
+      list.push(name.toLowerCase());
+      skillsByUserId.set(uid, list);
+    }
+
+    const matchesBucket = (userId: string, bucket: (typeof disciplineBuckets)[0]) => {
+      const profile = profileByUserId.get(userId);
+      if (!profile) return false;
+      const user = (users || []).find((u: { id: string }) => u.id === userId) as
+        | { headline?: string | null }
+        | undefined;
+      const skills = skillsByUserId.get(userId) ?? [];
+      const haystack = [
+        profile.skills_headline ?? '',
+        user?.headline ?? '',
+        ...skills,
+      ]
+        .join(' ')
+        .toLowerCase();
+
+      if (bucket.skillNames.some((s) => skills.includes(s))) return true;
+      return bucket.keywords.some((kw) => haystack.includes(kw.toLowerCase()));
+    };
+
+    const disciplinesBreakdown = disciplineBuckets.map((bucket) => {
+      let count = 0;
+      for (const userId of activeUserIds) {
+        if (matchesBucket(userId, bucket)) count += 1;
+      }
+      return {
+        icon: bucket.icon,
+        label: bucket.label,
+        color: bucket.color,
+        count,
+      };
+    });
+
+    const countries = new Set(
+      (users || [])
+        .map((u: { location_region?: string | null }) =>
+          (u.location_region ?? '').trim(),
+        )
+        .filter(Boolean),
+    ).size;
+
+    const monthStart = new Date();
+    monthStart.setUTCDate(1);
+    monthStart.setUTCHours(0, 0, 0, 0);
+
+    const { count: matchesThisMonth } = await supabase
+      .from('user_follows')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', monthStart.toISOString());
+
+    const disciplinesWithProfiles = disciplinesBreakdown.filter((d) => d.count > 0).length;
+
+    return {
+      catalysts: activeUserIds.size,
+      countries,
+      disciplines: disciplinesWithProfiles,
+      matchesThisMonth: matchesThisMonth ?? 0,
+      disciplinesBreakdown,
+    };
+  }
 }
