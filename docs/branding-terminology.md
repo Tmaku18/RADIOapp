@@ -138,7 +138,7 @@ Detailed entries for each term follow below.
 ## Listens (discovery metric)
 
 - **Term**: **Listens**
-- **Meaning**: People who heard a song — counted once per song per person (unique song–listener pairs). Same account on three songs = three listens.
+- **Meaning**: People who heard a song — counted once per song per person (unique song–listener pairs). Same account on three songs = three listens. Includes radio, profile, and spotlight playback.
 - **Where used**: Dashboard, artist analytics, competition leaderboard, trending cards, marketing stats.
 
 ## Ears Reached (discovery metric)
