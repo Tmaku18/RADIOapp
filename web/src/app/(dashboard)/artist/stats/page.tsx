@@ -28,6 +28,11 @@ interface TopSong {
 interface ArtistAnalytics {
   totalPlays: number;
   totalListenCount?: number;
+  earsReached?: number;
+  playsThisWeek?: number;
+  playsThisMonth?: number;
+  earsReachedThisWeek?: number;
+  earsReachedThisMonth?: number;
   totalPaidPlays: number;
   totalFreePlays: number;
   totalSongs: number;
@@ -132,13 +137,18 @@ export default function StatsPage() {
     return {
       day: DAY_NAMES[day],
       ears: d.listens ?? 0,
+      plays: d.plays ?? 0,
     };
   });
-  const thisWeekEars = earsByDayForChart.reduce((sum, d) => sum + d.ears, 0);
-  const thisMonthEars =
-    analytics?.dailyPlays?.reduce((sum, d) => sum + (d.listens ?? 0), 0) ?? 0;
-  const totalEars = analytics?.totalListenCount ?? 0;
+  const totalEars =
+    analytics?.earsReached ?? analytics?.totalListenCount ?? 0;
+  const totalListens = analytics?.totalPlays ?? 0;
+  const earsThisWeek = analytics?.earsReachedThisWeek ?? 0;
+  const earsThisMonth = analytics?.earsReachedThisMonth ?? 0;
+  const listensThisWeek = analytics?.playsThisWeek ?? 0;
+  const listensThisMonth = analytics?.playsThisMonth ?? 0;
   const maxEars = Math.max(1, ...earsByDayForChart.map((d) => d.ears));
+  const maxPlays = Math.max(1, ...earsByDayForChart.map((d) => d.plays));
 
   if (loading) {
     return (
@@ -191,10 +201,10 @@ export default function StatsPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Listens (ears reached)</div>
+            <div className="text-sm text-muted-foreground font-medium">Ears Reached</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalEars.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Unique listeners, all time</div>
           </CardContent>
@@ -202,17 +212,43 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Listens</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Total plays, all time</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Ears This Week</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisWeekEars.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{earsThisWeek.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Unique listeners, last 7 days</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Listens This Week</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{listensThisWeek.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Total plays, last 7 days</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card>
+          <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Ears This Month</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisMonthEars.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{earsThisMonth.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Unique listeners, last 30 days</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-sm text-muted-foreground font-medium">Listens This Month</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{listensThisMonth.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Total plays, last 30 days</div>
           </CardContent>
         </Card>
 
@@ -231,7 +267,9 @@ export default function StatsPage() {
             <div className="text-sm text-primary mt-2">Trial/opt-in/fallback</div>
           </CardContent>
         </Card>
+      </div>
 
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Credits Used</div>
@@ -314,44 +352,85 @@ export default function StatsPage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">Ears Reached This Week</h2>
-          <p className="text-sm text-muted-foreground mb-6">
-            Unique listeners per day over the last 7 days
-          </p>
-          {earsByDayForChart.length > 0 ? (
-            <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
-              {earsByDayForChart.map((day, i) => {
-                const barHeight =
-                  day.ears > 0
-                    ? Math.max(12, Math.round((day.ears / maxEars) * 100))
-                    : 0;
-                return (
-                  <div
-                    key={`${day.day}-${i}`}
-                    className="flex-1 flex flex-col items-center min-w-0"
-                  >
-                    <div className="w-full h-40 flex items-end justify-center">
-                      <div
-                        className="w-full max-w-10 rounded-t-lg bg-primary transition-all hover:bg-primary/80"
-                        style={{ height: `${barHeight}%` }}
-                        title={`${day.ears.toLocaleString()} ears`}
-                      />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Ears Reached This Week</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Unique listeners per day over the last 7 days
+            </p>
+            {earsByDayForChart.length > 0 ? (
+              <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
+                {earsByDayForChart.map((day, i) => {
+                  const barHeight =
+                    day.ears > 0
+                      ? Math.max(12, Math.round((day.ears / maxEars) * 100))
+                      : 0;
+                  return (
+                    <div
+                      key={`ears-${day.day}-${i}`}
+                      className="flex-1 flex flex-col items-center min-w-0"
+                    >
+                      <div className="w-full h-40 flex items-end justify-center">
+                        <div
+                          className="w-full max-w-10 rounded-t-lg bg-primary transition-all hover:bg-primary/80"
+                          style={{ height: `${barHeight}%` }}
+                          title={`${day.ears.toLocaleString()} ears`}
+                        />
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
+                      <div className="text-sm font-semibold text-foreground tabular-nums">
+                        {day.ears.toLocaleString()}
+                      </div>
                     </div>
-                    <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
-                    <div className="text-sm font-semibold text-foreground tabular-nums">
-                      {day.ears.toLocaleString()}
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">No ears reached in the last 7 days.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+            <h2 className="text-xl font-semibold text-foreground mb-2">Listens This Week</h2>
+            <p className="text-sm text-muted-foreground mb-6">
+              Total plays per day over the last 7 days
+            </p>
+            {earsByDayForChart.length > 0 ? (
+              <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
+                {earsByDayForChart.map((day, i) => {
+                  const barHeight =
+                    day.plays > 0
+                      ? Math.max(12, Math.round((day.plays / maxPlays) * 100))
+                      : 0;
+                  return (
+                    <div
+                      key={`plays-${day.day}-${i}`}
+                      className="flex-1 flex flex-col items-center min-w-0"
+                    >
+                      <div className="w-full h-40 flex items-end justify-center">
+                        <div
+                          className="w-full max-w-10 rounded-t-lg bg-pink-500 transition-all hover:bg-pink-500/80"
+                          style={{ height: `${barHeight}%` }}
+                          title={`${day.plays.toLocaleString()} listens`}
+                        />
+                      </div>
+                      <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
+                      <div className="text-sm font-semibold text-foreground tabular-nums">
+                        {day.plays.toLocaleString()}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-sm">No ears reached in the last 7 days.</p>
-          )}
-        </CardContent>
-      </Card>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm">No listens in the last 7 days.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardContent className="pt-6">
@@ -394,7 +473,7 @@ export default function StatsPage() {
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {(song.totalListens ?? song.totalPlays).toLocaleString()} ears reached · {song.paidPlays.toLocaleString()} paid plays · {song.freePlays.toLocaleString()} free plays · {song.likeCount} ripples
+                      {(song.totalListens ?? 0).toLocaleString()} ears reached · {song.totalPlays.toLocaleString()} listens · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
                     </p>
                   </div>
                   <div className="text-right shrink-0">

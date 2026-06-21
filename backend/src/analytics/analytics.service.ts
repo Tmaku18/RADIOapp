@@ -42,8 +42,15 @@ export interface DiscoverSwipeAnalytics {
 }
 
 export interface ArtistAnalytics {
+  /** Total radio play events (how many times songs were spun). */
   totalPlays: number;
+  /** Unique listeners all-time (ears reached). */
   totalListenCount: number;
+  earsReached: number;
+  playsThisWeek: number;
+  playsThisMonth: number;
+  earsReachedThisWeek: number;
+  earsReachedThisMonth: number;
   totalPaidPlays: number;
   totalFreePlays: number;
   totalSongs: number;
@@ -103,6 +110,24 @@ export class AnalyticsService {
       const { data, error } = await supabase.rpc('get_artist_ears_reached', {
         p_artist_id: artistId,
       });
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getArtistEarsReachedSince(
+    artistId: string,
+    since: Date,
+  ): Promise<number | null> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_artist_ears_reached_since',
+        { p_artist_id: artistId, p_since: since.toISOString() },
+      );
       if (error || data == null) return null;
       const value = Number(data);
       return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
@@ -425,6 +450,11 @@ export class AnalyticsService {
       return {
         totalPlays: 0,
         totalListenCount: 0,
+        earsReached: 0,
+        playsThisWeek: 0,
+        playsThisMonth: 0,
+        earsReachedThisWeek: 0,
+        earsReachedThisMonth: 0,
         totalPaidPlays: 0,
         totalFreePlays: 0,
         totalSongs: 0,
@@ -541,7 +571,18 @@ export class AnalyticsService {
       days,
     );
 
-    // Top songs ranked by real listens, then plays, with real likes.
+    const last7Days = dailyPlays.slice(-7);
+    const playsThisWeek = last7Days.reduce((sum, d) => sum + d.plays, 0);
+    const playsThisMonth = dailyPlays.reduce((sum, d) => sum + d.plays, 0);
+
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 7);
+    const [earsReachedThisWeek, earsReachedThisMonth] = await Promise.all([
+      this.getArtistEarsReachedSince(artistId, weekStart),
+      this.getArtistEarsReachedSince(artistId, startDate),
+    ]);
+
+    // Top songs ranked by ears reached, then play count, with real likes.
     const topSongs: SongAnalytics[] = songs
       .slice()
       .sort((a, b) => {
@@ -597,6 +638,11 @@ export class AnalyticsService {
     return {
       totalPlays,
       totalListenCount,
+      earsReached: totalListenCount,
+      playsThisWeek,
+      playsThisMonth,
+      earsReachedThisWeek: earsReachedThisWeek ?? 0,
+      earsReachedThisMonth: earsReachedThisMonth ?? 0,
       totalPaidPlays,
       totalFreePlays,
       totalSongs: songs.length,
