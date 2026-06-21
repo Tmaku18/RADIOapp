@@ -2605,4 +2605,228 @@ export class AdminService {
       ? { approved: true, approvedAt: now }
       : { approved: false, rejectedAt: now };
   }
+
+  // ========== Discover feed reports (posts + users) ==========
+
+  async getDiscoverFeedPostReports(): Promise<{
+    items: Array<{
+      postId: string;
+      imageUrl: string;
+      mediaType: 'image' | 'video';
+      caption: string | null;
+      createdAt: string;
+      author: {
+        userId: string;
+        displayName: string | null;
+        username: string | null;
+      };
+      reportCount: number;
+      reports: Array<{
+        reason: string;
+        createdAt: string;
+        reporter: { userId: string; displayName: string | null };
+      }>;
+    }>;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data: reportRows, error: reportsError } = await supabase
+      .from('discover_feed_post_reports')
+      .select('post_id, user_id, reason, created_at')
+      .order('created_at', { ascending: false });
+    if (reportsError) {
+      if (this.isMissingRelationError(reportsError)) {
+        return { items: [] };
+      }
+      throw new BadRequestException(
+        `Failed to load post reports: ${reportsError.message}`,
+      );
+    }
+    if (!reportRows?.length) return { items: [] };
+
+    const postIds = [...new Set(reportRows.map((r) => r.post_id as string))];
+    const reporterIds = [
+      ...new Set(reportRows.map((r) => r.user_id as string)),
+    ];
+
+    const { data: posts, error: postsError } = await supabase
+      .from('discover_feed_posts')
+      .select(
+        'id, author_user_id, image_url, caption, created_at, users!author_user_id(display_name, username)',
+      )
+      .in('id', postIds);
+    if (postsError) {
+      throw new BadRequestException(
+        `Failed to load reported posts: ${postsError.message}`,
+      );
+    }
+
+    const { data: reporters } = await supabase
+      .from('users')
+      .select('id, display_name')
+      .in('id', reporterIds);
+    const reporterById = new Map(
+      (reporters ?? []).map((u) => [u.id as string, u]),
+    );
+
+    const postById = new Map(
+      (posts ?? []).map((p) => [p.id as string, p as any]),
+    );
+    const reportsByPost = new Map<
+      string,
+      Array<{ reason: string; createdAt: string; reporter: { userId: string; displayName: string | null } }>
+    >();
+    for (const row of reportRows) {
+      const postId = row.post_id as string;
+      const reporter = reporterById.get(row.user_id as string);
+      const list = reportsByPost.get(postId) ?? [];
+      list.push({
+        reason: row.reason as string,
+        createdAt: row.created_at as string,
+        reporter: {
+          userId: row.user_id as string,
+          displayName: (reporter?.display_name as string | null) ?? null,
+        },
+      });
+      reportsByPost.set(postId, list);
+    }
+
+    const inferMediaType = (url: string): 'image' | 'video' => {
+      const normalized = url.toLowerCase();
+      if (
+        normalized.includes('.mp4') ||
+        normalized.includes('.webm') ||
+        normalized.includes('.mov')
+      ) {
+        return 'video';
+      }
+      return 'image';
+    };
+
+    const items = postIds
+      .map((postId) => {
+        const post = postById.get(postId);
+        if (!post) return null;
+        const author = post.users ?? {};
+        const reports = reportsByPost.get(postId) ?? [];
+        return {
+          postId,
+          imageUrl: post.image_url as string,
+          mediaType: inferMediaType(String(post.image_url ?? '')),
+          caption: (post.caption as string | null) ?? null,
+          createdAt: post.created_at as string,
+          author: {
+            userId: post.author_user_id as string,
+            displayName: (author.display_name as string | null) ?? null,
+            username: (author.username as string | null) ?? null,
+          },
+          reportCount: reports.length,
+          reports,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item != null)
+      .sort((a, b) => b.reportCount - a.reportCount);
+
+    return { items };
+  }
+
+  async getUserReports(): Promise<{
+    items: Array<{
+      id: string;
+      reason: string;
+      createdAt: string;
+      contextType: string | null;
+      contextId: string | null;
+      reporter: { userId: string; displayName: string | null };
+      reportedUser: {
+        userId: string;
+        displayName: string | null;
+        username: string | null;
+        role: string | null;
+      };
+    }>;
+  }> {
+    const supabase = getSupabaseClient();
+    const { data: rows, error } = await supabase
+      .from('user_reports')
+      .select(
+        'id, reason, created_at, context_type, context_id, reporter_user_id, reported_user_id',
+      )
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (error) {
+      if (this.isMissingRelationError(error)) {
+        return { items: [] };
+      }
+      throw new BadRequestException(
+        `Failed to load user reports: ${error.message}`,
+      );
+    }
+    if (!rows?.length) return { items: [] };
+
+    const userIds = [
+      ...new Set(
+        rows.flatMap((r) => [
+          r.reporter_user_id as string,
+          r.reported_user_id as string,
+        ]),
+      ),
+    ];
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, display_name, username, role')
+      .in('id', userIds);
+    const userById = new Map(
+      (users ?? []).map((u) => [u.id as string, u as any]),
+    );
+
+    const items = rows.map((row) => {
+      const reporter = userById.get(row.reporter_user_id as string);
+      const reported = userById.get(row.reported_user_id as string);
+      return {
+        id: row.id as string,
+        reason: row.reason as string,
+        createdAt: row.created_at as string,
+        contextType: (row.context_type as string | null) ?? null,
+        contextId: (row.context_id as string | null) ?? null,
+        reporter: {
+          userId: row.reporter_user_id as string,
+          displayName: (reporter?.display_name as string | null) ?? null,
+        },
+        reportedUser: {
+          userId: row.reported_user_id as string,
+          displayName: (reported?.display_name as string | null) ?? null,
+          username: (reported?.username as string | null) ?? null,
+          role: (reported?.role as string | null) ?? null,
+        },
+      };
+    });
+
+    return { items };
+  }
+
+  async deleteDiscoverFeedPost(postId: string, adminId: string): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: post, error: loadError } = await supabase
+      .from('discover_feed_posts')
+      .select('id, image_url')
+      .eq('id', postId)
+      .single();
+    if (loadError || !post) {
+      throw new NotFoundException('Post not found');
+    }
+
+    if (post.image_url) {
+      await this.deleteFromStorage('feed', post.image_url as string);
+    }
+
+    const { error } = await supabase
+      .from('discover_feed_posts')
+      .delete()
+      .eq('id', postId);
+    if (error) {
+      throw new BadRequestException(`Failed to delete post: ${error.message}`);
+    }
+
+    this.logger.log(`Deleted discover feed post ${postId} by admin ${adminId}`);
+  }
 }

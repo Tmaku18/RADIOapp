@@ -1727,6 +1727,10 @@ export const adminApi = {
     api.get('/admin/feed-media', { params: reportedOnly ? { reportedOnly: 'true' } : undefined }),
   removeFromFeed: (contentId: string) => api.patch(`/admin/feed-media/${contentId}/remove`),
   deleteFeedMedia: (contentId: string) => api.delete(`/admin/feed-media/${contentId}`),
+  getPostReports: () => api.get('/admin/reports/posts'),
+  getUserReports: () => api.get('/admin/reports/users'),
+  deleteDiscoverFeedPost: (postId: string) =>
+    api.delete(`/admin/discover-feed-posts/${postId}`),
   getStreamerApplications: () =>
     api.get<{ applications: Array<{ userId: string; displayName: string | null; email: string | null; role: string | null; appliedAt: string }> }>('/admin/streamer-applications'),
   setStreamerApproval: (userId: string, action: 'approve' | 'reject') =>

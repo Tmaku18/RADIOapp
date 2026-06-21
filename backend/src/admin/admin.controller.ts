@@ -652,4 +652,27 @@ export class AdminController {
     await this.adminService.deleteFeedMedia(contentId, adminId);
     return { deleted: true };
   }
+
+  // ========== Discover feed reports (posts + users) ==========
+
+  @Get('reports/posts')
+  async getDiscoverFeedPostReports() {
+    return this.adminService.getDiscoverFeedPostReports();
+  }
+
+  @Get('reports/users')
+  async getUserReports() {
+    return this.adminService.getUserReports();
+  }
+
+  @Delete('discover-feed-posts/:postId')
+  async deleteDiscoverFeedPost(
+    @CurrentUser() admin: FirebaseUser,
+    @Param('postId') postId: string,
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    await this.adminService.deleteDiscoverFeedPost(postId, adminId);
+    return { deleted: true };
+  }
 }

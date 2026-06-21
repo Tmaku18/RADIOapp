@@ -247,6 +247,16 @@ export default function AdminDashboardPage() {
         </Card>
 
         <Card>
+          <Link href="/admin/reports">
+            <CardContent className="pt-6 hover:bg-muted/50 transition-colors">
+              <div className="mb-4"><span className="text-3xl">🚩</span></div>
+              <h3 className="text-lg font-semibold text-foreground">Reports</h3>
+              <p className="text-muted-foreground text-sm mt-1">Review reported posts and users</p>
+            </CardContent>
+          </Link>
+        </Card>
+
+        <Card>
           <Link href="/admin/payouts">
             <CardContent className="pt-6 hover:bg-muted/50 transition-colors">
               <div className="mb-4"><span className="text-3xl">💸</span></div>
