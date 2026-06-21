@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:flutter/foundation.dart';
@@ -33,6 +34,9 @@ class AuthService extends ChangeNotifier {
   // Firebase project and accepted by signInWithCredential.
   static const String googleServerClientId =
       '479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com';
+  /// Android OAuth client tied to Play App Signing SHA-1 in google-services.json.
+  static const String googlePlayAndroidClientId =
+      '479427085382-54r5hhj9t9lk7pq6o5h2og57jc6i19qt.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
 
   AuthService({this.firebaseInitialized = true}) {
@@ -150,12 +154,18 @@ class AuthService extends ChangeNotifier {
   static Future<void> warmUpGoogleSignIn() async {
     if (Firebase.apps.isEmpty) return;
     final signIn = GoogleSignIn.instance;
-    await signIn.initialize(serverClientId: googleServerClientId);
+    await signIn.initialize(
+      clientId: googlePlayAndroidClientId,
+      serverClientId: googleServerClientId,
+    );
   }
 
   Future<void> _ensureGoogleSignInInitialized() {
     return _googleInit ??= _googleSignIn
-        .initialize(serverClientId: googleServerClientId)
+        .initialize(
+          clientId: googlePlayAndroidClientId,
+          serverClientId: googleServerClientId,
+        )
         .catchError((Object e) {
       _googleInit = null;
       throw e;
@@ -184,12 +194,26 @@ class AuthService extends ChangeNotifier {
     final detailSuffix =
         detail != null && detail.isNotEmpty ? '\n($detail)' : '';
     return 'Google sign-in did not complete.$detailSuffix\n\n'
-        'If you installed from Play Store:\n'
-        '• Update to the latest internal-test build (1.0.0+11 or newer)\n'
-        '• In Google Cloud Console → OAuth consent screen, add your Gmail '
-        'under Test users (required while app is in Testing)\n'
-        '• Confirm Play App Signing SHA-1 is in Firebase for '
-        'com.tmaktechnologies.networxradio';
+        'Play Store builds need the Play App Signing SHA-1 in Firebase. '
+        'If OAuth is in Testing mode, add your Gmail under Test users in '
+        'Google Cloud Console → OAuth consent screen.';
+  }
+
+  String _googleDeveloperErrorMessage(PlatformException e) {
+    return 'Google Sign-In is misconfigured for this build (DEVELOPER_ERROR).\n\n'
+        'Emulator works with the debug SHA-1; Play Store uses Play App Signing.\n'
+        'In Firebase → Project settings → Android app '
+        '(com.tmaktechnologies.networxradio), confirm SHA-1 '
+        '19:BE:18:3C:57:9A:BF:10:DC:7C:3B:8F:4A:03:2A:B4:AB:E1:2A:7F is listed, '
+        'then re-download google-services.json and upload a new Play build.\n\n'
+        'Details: ${e.message ?? e.code}';
+  }
+
+  bool _isGoogleDeveloperError(Object e) {
+    final text = e.toString();
+    return text.contains('ApiException: 10') ||
+        text.contains('DEVELOPER_ERROR') ||
+        text.contains('sign_in_failed');
   }
 
   Future<app_user.User?> signInWithGoogle() async {
@@ -261,11 +285,24 @@ class AuthService extends ChangeNotifier {
         throw Exception(_googleSignInCanceledMessage(e));
       }
       throw Exception('Google sign in failed: ${e.description ?? e.code}');
+    } on PlatformException catch (e) {
+      debugPrint('[GoogleSignIn] platform: code=${e.code} message=${e.message}');
+      if (_isGoogleDeveloperError(e)) {
+        throw Exception(_googleDeveloperErrorMessage(e));
+      }
+      throw Exception('Google sign in failed: ${e.message ?? e.code}');
     } on TimeoutException {
       throw Exception('Google sign in timed out. Please try again.');
     } catch (e, st) {
       debugPrint('[GoogleSignIn] failed: type=${e.runtimeType} message=$e');
       debugPrint('[GoogleSignIn] stack: $st');
+      if (_isGoogleDeveloperError(e)) {
+        throw Exception(
+          'Google Sign-In is misconfigured for Play Store builds. '
+          'Confirm Play App Signing SHA-1 is in Firebase and OAuth test users '
+          'are set if the app is still in Testing mode.',
+        );
+      }
       throw Exception('Google sign in failed: $e');
     }
   }

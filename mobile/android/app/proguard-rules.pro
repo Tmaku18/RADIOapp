@@ -25,9 +25,12 @@
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 
-# Keep Google Sign-In
+# Keep Google Sign-In / Credential Manager
 -keep class com.google.android.gms.** { *; }
 -dontwarn com.google.android.gms.**
+-keep class androidx.credentials.** { *; }
+-keep class com.google.android.libraries.identity.googleid.** { *; }
+-dontwarn androidx.credentials.**
 
 # Keep Google Play Core (for deferred components - optional Flutter feature)
 -dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication

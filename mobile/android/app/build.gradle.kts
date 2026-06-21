@@ -46,6 +46,25 @@ android {
         targetSdk = maxOf(flutter.targetSdkVersion, 35)
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // Play App Signing SHA-1 (colon-free) must exist in google-services.json or
+        // Google Sign-In fails on Play Store builds while debug/emulator still works.
+        val googleServices = file("google-services.json")
+        if (!googleServices.exists()) {
+            throw GradleException(
+                "Missing android/app/google-services.json. Download from Firebase " +
+                    "(com.tmaktechnologies.networxradio) before release builds.",
+            )
+        }
+        val playSigningSha1 = "19be183c579abf10dc7c3b8f4a032ab4abe12a7f"
+        val jsonText = googleServices.readText()
+        if (!jsonText.contains(playSigningSha1)) {
+            throw GradleException(
+                "google-services.json is missing the Play App Signing SHA-1 " +
+                    "($playSigningSha1). Re-download from Firebase after adding the " +
+                    "Play Console app signing certificate fingerprint.",
+            )
+        }
     }
 
     signingConfigs {
