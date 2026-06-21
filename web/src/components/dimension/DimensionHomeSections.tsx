@@ -9,6 +9,7 @@ import { DimensionSongCard } from './DimensionSongCard';
 import { PlatformLiveStats } from '@/components/marketing/PlatformLiveStats';
 import type { TrendingData } from '@/components/marketing/TrendingShowcase';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlatformLiveStats } from '@/hooks/usePlatformLiveStats';
 import { resolveArtistProfileHref } from '@/lib/artist-links';
 
 type HomeStats = {
@@ -30,6 +31,11 @@ export function DimensionHomeSections({
   trending: TrendingData;
 }) {
   const { profile } = useAuth();
+  const liveStats = usePlatformLiveStats({
+    liveListeners: stats.liveListeners,
+    listens: stats.listens,
+    earsReached: stats.earsReached,
+  });
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
 
@@ -83,7 +89,7 @@ export function DimensionHomeSections({
                   BROADCASTING NOW
                 </span>
                 <span className="font-dim-mono text-[10px] text-white/50">
-                  · {stats.liveListeners} listeners
+                  · {liveStats.liveListeners} listeners
                 </span>
               </div>
             </Reveal>
@@ -263,11 +269,7 @@ export function DimensionHomeSections({
           </h2>
         </Reveal>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl">
-          <PlatformLiveStats
-            initialLiveListeners={stats.liveListeners}
-            initialListens={stats.listens}
-            initialEarsReached={stats.earsReached}
-          />
+          <PlatformLiveStats {...liveStats} />
         </div>
       </section>
     </>

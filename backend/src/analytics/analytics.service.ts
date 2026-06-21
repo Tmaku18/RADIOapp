@@ -214,6 +214,33 @@ export class AnalyticsService {
     }
   }
 
+  /** Active tuned-in listeners from heartbeats / presence (not stale Redis counters). */
+  private async getPlatformLiveListenerCount(): Promise<number> {
+    const windowSeconds = parseInt(
+      process.env.LISTENER_HEARTBEAT_ACTIVE_WINDOW_SECONDS || '120',
+      10,
+    );
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_radio_live_listeners', {
+        p_window_seconds: Number.isFinite(windowSeconds) ? windowSeconds : 120,
+      });
+      if (!error && data != null) {
+        const value = Number(data);
+        if (Number.isFinite(value)) return Math.max(0, Math.round(value));
+      }
+    } catch {
+      // Fall back to legacy Redis totals below.
+    }
+
+    const counts = await Promise.all(
+      STATION_IDS.map((stationId) =>
+        this.radioStateService.getListenerCount(stationId),
+      ),
+    );
+    return counts.reduce((sum, n) => sum + Math.max(0, n), 0);
+  }
+
   private isMissingTableError(error: unknown, tableName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -903,12 +930,7 @@ export class AnalyticsService {
     earsReached: number;
     listens: number;
   }> {
-    const counts = await Promise.all(
-      STATION_IDS.map((stationId) =>
-        this.radioStateService.getListenerCount(stationId),
-      ),
-    );
-    const liveListeners = counts.reduce((sum, n) => sum + Math.max(0, n), 0);
+    const liveListeners = await this.getPlatformLiveListenerCount();
 
     const supabase = getSupabaseClient();
     let earsReached = 0;

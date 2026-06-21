@@ -1,59 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ANALYTICS_METRICS, formatMetricCount } from '@/lib/analytics-metrics';
+import type { PlatformLiveStats as LiveStats } from '@/hooks/usePlatformLiveStats';
 
-const POLL_MS = 30_000;
-
-type PlatformLiveStatsProps = {
-  initialLiveListeners: number;
-  initialListens: number;
-  initialEarsReached: number;
-};
-
-type LiveStatsResponse = {
-  liveListeners?: number;
-  listens?: number;
-  earsReached?: number;
-};
-
-export function PlatformLiveStats({
-  initialLiveListeners,
-  initialListens,
-  initialEarsReached,
-}: PlatformLiveStatsProps) {
-  const [liveListeners, setLiveListeners] = useState(initialLiveListeners);
-  const [listens, setListens] = useState(initialListens);
-  const [earsReached, setEarsReached] = useState(initialEarsReached);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const poll = async () => {
-      try {
-        const response = await fetch('/api/analytics/platform/live', {
-          cache: 'no-store',
-        });
-        if (!response.ok || cancelled) return;
-        const data = (await response.json()) as LiveStatsResponse;
-        if (cancelled) return;
-        setLiveListeners(Math.max(0, Number(data.liveListeners) || 0));
-        setListens(Math.max(0, Number(data.listens) || 0));
-        setEarsReached(Math.max(0, Number(data.earsReached) || 0));
-      } catch {
-        // Keep last known values on transient errors.
-      }
-    };
-
-    void poll();
-    const interval = setInterval(() => void poll(), POLL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, []);
-
+export function PlatformLiveStats({ liveListeners, listens, earsReached }: LiveStats) {
   const stats = [
     {
       value: formatMetricCount(liveListeners),

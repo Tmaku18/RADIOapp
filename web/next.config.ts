@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
         { source: "/api/users/:path*", destination: "/api/users/:path*" },
         { source: "/api/discovery", destination: "/api/discovery" },
         { source: "/api/discovery/:path*", destination: "/api/discovery/:path*" },
+        { source: "/api/analytics", destination: "/api/analytics" },
+        { source: "/api/analytics/:path*", destination: "/api/analytics/:path*" },
         // All other /api/* go to the backend
         {
           source: "/api/:path*",

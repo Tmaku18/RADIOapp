@@ -11,12 +11,18 @@ export const metadata: Metadata = {
 export const revalidate = 60;
 
 async function getHomepageData() {
-  const fetchJsonWithTimeout = async <T,>(url: string, timeoutMs = 5000) => {
+  const fetchJsonWithTimeout = async <T,>(
+    url: string,
+    timeoutMs = 5000,
+    cache?: { revalidate?: number },
+  ) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const response = await fetch(url, {
-        next: { revalidate: 60 },
+        ...(cache?.revalidate != null
+          ? { next: { revalidate: cache.revalidate } }
+          : { cache: 'no-store' as const }),
         signal: controller.signal,
       });
       if (!response.ok) return null;
@@ -49,6 +55,7 @@ async function getHomepageData() {
       const result = await fetchJsonWithTimeout<TrendingData>(
         `${baseUrl}/api/songs/public/trending?limit=12`,
         12000,
+        { revalidate: 60 },
       );
       if (result && Array.isArray(result.songs) && result.songs.length > 0) {
         return result;
@@ -66,12 +73,12 @@ async function getHomepageData() {
           totalLikes?: number;
           totalListenCount?: number;
           listens?: number;
-        }>(`${baseUrl}/api/analytics/platform`),
+        }>(`${baseUrl}/api/analytics/platform`, 5000, { revalidate: 60 }),
         fetchJsonWithTimeout<{
           liveListeners?: number;
           listens?: number;
           earsReached?: number;
-        }>(`${baseUrl}/api/analytics/platform/live`),
+        }>(`${baseUrl}/api/analytics/platform/live`, 5000, { revalidate: 0 }),
         fetchTrending(baseUrl),
       ]);
       if (!platform && !live && !trending) continue;
