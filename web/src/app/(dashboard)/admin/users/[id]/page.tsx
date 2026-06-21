@@ -34,6 +34,7 @@ interface UserProfile {
   totalLikes: number;
   totalPlays: number;
   totalListenCount?: number;
+  earsReached?: number;
 }
 
 export default function AdminUserProfilePage() {
@@ -91,7 +92,7 @@ export default function AdminUserProfilePage() {
     );
   }
 
-  const { user, songs, totalLikes, totalPlays, totalListenCount } = profile;
+  const { user, songs, totalLikes, totalListenCount, earsReached } = profile;
   const userDisplayName = user.display_name || user.email || 'Unknown user';
   const userInitial = userDisplayName.charAt(0).toUpperCase();
 
@@ -131,7 +132,7 @@ export default function AdminUserProfilePage() {
       </Card>
 
       {(user.role === 'artist' || songs.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="pt-6">
               <p className="text-sm text-muted-foreground">Songs</p>
@@ -146,8 +147,14 @@ export default function AdminUserProfilePage() {
           </Card>
           <Card>
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Total listens</p>
-              <p className="text-2xl font-semibold text-foreground">{totalListenCount ?? totalPlays}</p>
+              <p className="text-sm text-muted-foreground">Listens</p>
+              <p className="text-2xl font-semibold text-foreground">{totalListenCount ?? 0}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">Ears Reached</p>
+              <p className="text-2xl font-semibold text-foreground">{earsReached ?? 0}</p>
             </CardContent>
           </Card>
         </div>

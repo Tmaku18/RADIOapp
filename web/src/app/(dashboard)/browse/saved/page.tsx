@@ -32,6 +32,7 @@ type LibrarySong = {
   durationSeconds: number;
   likeCount: number;
   playCount: number;
+  listenCount?: number;
   priceCents: number;
   forSale: boolean;
   owned: boolean;
@@ -54,6 +55,7 @@ type PurchasedSong = {
   durationSeconds: number;
   likeCount: number;
   playCount: number;
+  listenCount?: number;
   purchasedAt: string;
   amountCents: number;
   currency: string;
@@ -285,7 +287,9 @@ export default function BrowseSavedPage() {
       if (sortBy === 'artist') return a.artistName.localeCompare(b.artistName);
       if (sortBy === 'title') return a.title.localeCompare(b.title);
       if (sortBy === 'temperature') return b.temperaturePercent - a.temperaturePercent;
-      if (sortBy === 'plays') return b.playCount - a.playCount;
+      if (sortBy === 'plays') {
+        return (b.listenCount ?? b.playCount) - (a.listenCount ?? a.playCount);
+      }
       return b.likeCount - a.likeCount;
     });
     return list;
@@ -491,7 +495,7 @@ export default function BrowseSavedPage() {
                   <div className="flex shrink-0 items-center gap-2 sm:gap-3">
                     <div className="text-xs text-muted-foreground flex items-center gap-2 sm:gap-3">
                       <span title="Likes">♥ {song.likeCount}</span>
-                      <span title="Listens">🎧 {song.playCount}</span>
+                      <span title="Listens">🎧 {song.listenCount ?? song.playCount}</span>
                       <span title="Temperature">🌡 {song.temperaturePercent}%</span>
                     </div>
                     <Button

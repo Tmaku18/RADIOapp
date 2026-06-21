@@ -16,6 +16,7 @@ interface Analytics {
   totalSongs: number;
   totalPlays: number;
   totalListenCount?: number;
+  earsReached?: number;
   pendingSongs: number;
   approvedSongs: number;
   totalLikes: number;
@@ -176,10 +177,24 @@ export default function AdminDashboardPage() {
         <Card>
           <CardContent className="pt-6">
           <div className="flex items-center">
-            <span className="text-3xl mr-3">▶️</span>
+            <span className="text-3xl mr-3">🎧</span>
             <div>
-              <div className="text-sm text-muted-foreground">Listens (ears reached)</div>
-              <div className="text-2xl font-bold text-foreground">{(analytics?.totalListenCount ?? analytics?.totalPlays ?? 0).toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground">Listens</div>
+              <div className="text-2xl font-bold text-foreground">{(analytics?.totalListenCount ?? 0).toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">People who heard (once per song)</div>
+            </div>
+          </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="pt-6">
+          <div className="flex items-center">
+            <span className="text-3xl mr-3">👂</span>
+            <div>
+              <div className="text-sm text-muted-foreground">Ears Reached</div>
+              <div className="text-2xl font-bold text-foreground">{(analytics?.earsReached ?? 0).toLocaleString()}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">Unique accounts</div>
             </div>
           </div>
           </CardContent>

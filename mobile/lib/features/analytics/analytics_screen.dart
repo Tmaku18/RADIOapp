@@ -143,7 +143,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     childAspectRatio: 1.25,
                     children: [
                       _StatCard(
-                        label: 'Listens (ears reached)',
+                        label: 'Ears Reached',
+                        value: _data!.earsReached.toString(),
+                      ),
+                      _StatCard(
+                        label: 'Listens',
                         value: _data!.totalListenCount.toString(),
                       ),
                       _StatCard(
@@ -251,10 +255,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 children: _data!.dailyPlays
                                     .sublist(_data!.dailyPlays.length - 7)
                                     .map((day) {
-                                  final ears = day.listens;
+                                  final ears = day.ears;
                                   final maxEars = _data!.dailyPlays
                                       .sublist(_data!.dailyPlays.length - 7)
-                                      .map((d) => d.listens)
+                                      .map((d) => d.ears)
                                       .fold<int>(
                                           0, (m, v) => v > m ? v : m);
                                   final heightFactor = maxEars <= 0
@@ -448,7 +452,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                   fontWeight: FontWeight.w600),
                                             ),
                                             Text(
-                              '${s.totalListens} ears reached · ${s.paidPlays} paid plays · ${s.freePlays} free plays · ${s.likeCount} likes',
+                              '${s.totalListens} listens · ${s.totalPlays} spins · ${s.paidPlays} paid · ${s.freePlays} free · ${s.likeCount} likes',
                                               style: TextStyle(
                                                   color: surfaces.textSecondary,
                                                   fontSize: 12),

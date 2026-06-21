@@ -135,11 +135,23 @@ Detailed entries for each term follow below.
 - **Meaning**: A paid promotion that seeds a track into the discovery pipeline with a *target* (not guaranteed) delivery of verified listener exposures. Replaces any "buy airtime" framing to avoid radio-royalty confusion.
 - **Where used**: Marketing (For Gems), FAQ, pricing, artist dashboard.
 
+## Listens (discovery metric)
+
+- **Term**: **Listens**
+- **Meaning**: People who heard a song — counted once per song per person (unique song–listener pairs). Same account on three songs = three listens.
+- **Where used**: Dashboard, artist analytics, competition leaderboard, trending cards, marketing stats.
+
 ## Ears Reached (discovery metric)
 
 - **Term**: **Ears Reached**
-- **Meaning**: A live discovery metric for how many listeners a track/stream has reached.
-- **Where used**: Marketing landing live stats, mobile About stats strip.
+- **Meaning**: Unique listeners — each account or device counts once across the platform or an artist catalog, even if they heard many songs.
+- **Where used**: Marketing live stats, dashboard, artist analytics, mobile About/welcome strips.
+
+## Spins (internal / optional)
+
+- **Term**: **Spins** (not shown as “Listens”)
+- **Meaning**: Raw radio play events from the `plays` table.
+- **Where used**: Admin diagnostics, per-song “spins” line in analytics detail — not a user-facing “Listens” total.
 
 ## Summary table
 
@@ -158,6 +170,8 @@ Detailed entries for each term follow below.
 | Songs            | song, songs         |
 | Live Sync Chat   | live chat / livestream room |
 | Artist Discovery Placement | discovery placement / promotion |
-| Ears Reached     | live discovery reach metric |
+| Listens          | totalListenCount, get_radio_listen_count |
+| Ears Reached     | earsReached, get_radio_ears_reached |
+| Spins            | totalPlays, plays table |
 
 Last updated: June 2026 (truth-safe positioning added).

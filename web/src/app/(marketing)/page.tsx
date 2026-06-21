@@ -38,6 +38,7 @@ async function getHomepageData() {
       totalSongs: 0,
       totalLikes: 0,
       liveListeners: 0,
+      listens: 0,
       earsReached: 0,
     },
     trending: emptyTrending,
@@ -63,9 +64,12 @@ async function getHomepageData() {
           totalUsers?: number;
           totalSongs?: number;
           totalLikes?: number;
+          totalListenCount?: number;
+          listens?: number;
         }>(`${baseUrl}/api/analytics/platform`),
         fetchJsonWithTimeout<{
           liveListeners?: number;
+          listens?: number;
           earsReached?: number;
         }>(`${baseUrl}/api/analytics/platform/live`),
         fetchTrending(baseUrl),
@@ -78,6 +82,11 @@ async function getHomepageData() {
           totalSongs: platform?.totalSongs ?? 0,
           totalLikes: platform?.totalLikes ?? 0,
           liveListeners: live?.liveListeners ?? 0,
+          listens:
+            live?.listens ??
+            platform?.listens ??
+            platform?.totalListenCount ??
+            0,
           earsReached: live?.earsReached ?? 0,
         },
         trending: trending ?? emptyTrending,

@@ -12,6 +12,7 @@ class TrendingSong {
   final int? durationSeconds;
   final int likeCount;
   final int playCount;
+  final int listens;
   final int earsReached;
   final int temperaturePercent;
 
@@ -26,6 +27,7 @@ class TrendingSong {
     required this.durationSeconds,
     required this.likeCount,
     required this.playCount,
+    required this.listens,
     required this.earsReached,
     required this.temperaturePercent,
   });
@@ -54,6 +56,9 @@ class TrendingSong {
           : null,
       likeCount: parseInt(json['likeCount'] ?? json['like_count']),
       playCount: parseInt(json['playCount'] ?? json['play_count']),
+      listens: parseInt(
+        json['listens'] ?? json['earsReached'] ?? json['ears_reached'],
+      ),
       earsReached: parseInt(json['earsReached'] ?? json['ears_reached']),
       temperaturePercent: parseInt(
         json['temperaturePercent'] ?? json['temperature_percent'],
@@ -70,6 +75,7 @@ class TrendingArtist {
   final int songCount;
   final int likeCount;
   final int playCount;
+  final int listens;
   final int earsReached;
 
   const TrendingArtist({
@@ -79,6 +85,7 @@ class TrendingArtist {
     required this.songCount,
     required this.likeCount,
     required this.playCount,
+    required this.listens,
     required this.earsReached,
   });
 
@@ -97,6 +104,9 @@ class TrendingArtist {
       songCount: parseInt(json['songCount'] ?? json['song_count']),
       likeCount: parseInt(json['likeCount'] ?? json['like_count']),
       playCount: parseInt(json['playCount'] ?? json['play_count']),
+      listens: parseInt(
+        json['listens'] ?? json['earsReached'] ?? json['ears_reached'],
+      ),
       earsReached: parseInt(json['earsReached'] ?? json['ears_reached']),
     );
   }

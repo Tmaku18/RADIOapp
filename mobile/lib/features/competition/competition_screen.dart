@@ -426,8 +426,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
                               ),
                               _LeaderboardList(
                                 songs: _listens,
-                                // Backend returns Ears Reached as totalListenCount
-                                // so this matches the web "ears reached" number.
+                                // Per-song unique listeners (listens).
                                 trailingLabel: (s) =>
                                     '${s.totalListenCount} listens',
                               ),

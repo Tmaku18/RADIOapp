@@ -135,5 +135,7 @@ export interface Analytics {
   pendingSongs: number;
   approvedSongs: number;
   totalPlays: number;
+  totalListenCount?: number;
+  earsReached?: number;
   totalLikes: number;
 }

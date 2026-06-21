@@ -128,7 +128,7 @@ export default function Dashboard() {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <StatsCard
           title="Total Users"
           value={analytics?.totalUsers || 0}
@@ -145,14 +145,19 @@ export default function Dashboard() {
           icon="🎵"
         />
         <StatsCard
-          title="Discoveries"
-          value={analytics?.totalPlays?.toLocaleString() || 0}
-          icon="▶️"
+          title="Listens"
+          value={analytics?.totalListenCount?.toLocaleString() || 0}
+          icon="🎧"
+        />
+        <StatsCard
+          title="Ears Reached"
+          value={analytics?.earsReached?.toLocaleString() || 0}
+          icon="👂"
         />
       </div>
 
       {/* Secondary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <StatsCard
           title="Pending Approval"
           value={analytics?.pendingSongs || 0}
@@ -164,6 +169,11 @@ export default function Dashboard() {
           title="Approved Songs"
           value={analytics?.approvedSongs || 0}
           icon="✅"
+        />
+        <StatsCard
+          title="Spins"
+          value={analytics?.totalPlays?.toLocaleString() || 0}
+          icon="▶️"
         />
         <StatsCard
           title="Total Ripples"

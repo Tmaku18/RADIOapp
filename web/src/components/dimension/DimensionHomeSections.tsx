@@ -16,14 +16,11 @@ type HomeStats = {
   totalSongs: number;
   totalLikes: number;
   liveListeners: number;
+  listens: number;
   earsReached: number;
 };
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
-  return n.toLocaleString();
-}
+import { ANALYTICS_METRICS, formatMetricCount, resolveListens } from '@/lib/analytics-metrics';
 
 export function DimensionHomeSections({
   stats,
@@ -140,9 +137,9 @@ export function DimensionHomeSections({
 
             <div className="mt-14 grid grid-cols-3 max-w-lg gap-6">
               {[
-                { v: formatCount(stats.totalUsers), l: 'Members' },
-                { v: formatCount(stats.totalSongs), l: 'Songs' },
-                { v: formatCount(stats.totalLikes), l: 'Ripples' },
+                { v: formatMetricCount(stats.totalUsers), l: 'Members' },
+                { v: formatMetricCount(stats.totalSongs), l: 'Songs' },
+                { v: formatMetricCount(stats.totalLikes), l: 'Ripples' },
               ].map((s, i) => (
                 <Reveal key={s.l} delay={1 + i * 0.1}>
                   <div className="font-unbounded font-black text-3xl text-white">{s.v}</div>
@@ -188,7 +185,11 @@ export function DimensionHomeSections({
                   <Flame className="w-3 h-3 text-orange-400" /> AVG {Math.round(avgTemp)}°
                 </div>
                 <div className="flex items-center gap-2">
-                  <Headphones className="w-3 h-3 text-cyan-300" /> {formatCount(stats.earsReached)}{' '}
+                  <Headphones className="w-3 h-3 text-cyan-300" /> {formatMetricCount(stats.listens)}{' '}
+                  {ANALYTICS_METRICS.listens.label.toUpperCase()}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Headphones className="w-3 h-3 text-yellow-300" /> {formatMetricCount(stats.earsReached)}{' '}
                   EARS
                 </div>
               </div>
@@ -242,7 +243,7 @@ export function DimensionHomeSections({
                     {a.displayName}
                   </div>
                   <div className="font-dim-mono text-[10px] text-white/50">
-                    🎧 {formatCount(a.earsReached)} · ♥ {formatCount(a.likeCount)}
+                    🎧 {formatMetricCount(resolveListens(a))} · ♥ {formatMetricCount(a.likeCount)}
                   </div>
                 </div>
               </Link>
@@ -261,9 +262,10 @@ export function DimensionHomeSections({
             Radio <span className="text-glow-cyan text-cyan-300">now</span>
           </h2>
         </Reveal>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-3xl">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-5xl">
           <PlatformLiveStats
             initialLiveListeners={stats.liveListeners}
+            initialListens={stats.listens}
             initialEarsReached={stats.earsReached}
           />
         </div>

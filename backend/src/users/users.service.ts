@@ -1138,6 +1138,7 @@ export class UsersService {
     }
 
     let artistEarsReached: number | null = null;
+    let artistListenCount: number | null = null;
     try {
       const { data, error } = await supabase.rpc('get_artist_ears_reached', {
         p_artist_id: resolvedUserId,
@@ -1146,6 +1147,19 @@ export class UsersService {
         const value = Number(data);
         if (Number.isFinite(value)) {
           artistEarsReached = Math.max(0, Math.round(value));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment.
+    }
+    try {
+      const { data, error } = await supabase.rpc('get_artist_listen_count', {
+        p_artist_id: resolvedUserId,
+      });
+      if (!error && data != null) {
+        const value = Number(data);
+        if (Number.isFinite(value)) {
+          artistListenCount = Math.max(0, Math.round(value));
         }
       }
     } catch {
@@ -1271,8 +1285,9 @@ export class UsersService {
 
     const totalPlays = mappedSongs.reduce((sum, s) => sum + s.playCount, 0);
     const totalListens =
-      artistEarsReached ??
+      artistListenCount ??
       mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
+    const earsReached = artistEarsReached ?? 0;
 
     const userRow = user;
 
@@ -1304,6 +1319,7 @@ export class UsersService {
         monthlyListenerCount: monthlyListenerCount ?? 0,
         totalPlayCount: totalPlays,
         totalListenCount: totalListens,
+        earsReached,
       },
       popularSongs,
       librarySongs: mappedSongs,

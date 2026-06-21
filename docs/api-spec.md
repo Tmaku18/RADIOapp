@@ -205,7 +205,7 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 - **Auth:** required (Firebase bearer).
 - **Query `by`** (default `likes`):
   - **`likes`** — `songs.like_count` (persistent profile Ripples / saves)
-  - **`listens`** — combined radio + profile listens (`play_count` + `profile_play_count`, sorted by total)
+  - **`listens`** — unique (song, listener) pairs via `totalListenCount` / `get_song_ears_reached` (once per song per person; not raw spin count)
   - **`positive_votes`** — count of **`fire`** reactions in `leaderboard_likes` (ties broken with ratio / saves)
   - **`ratio`** — `positiveRatio` = fire / (fire + shit) from reaction stats
   - **`saves`** — rows in `likes` per song (library size)

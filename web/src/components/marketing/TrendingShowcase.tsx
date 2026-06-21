@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { resolveListens } from '@/lib/analytics-metrics';
 import { useEffect, useRef, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
@@ -16,6 +17,7 @@ export type TrendingSong = {
   durationSeconds: number | null;
   likeCount: number;
   playCount: number;
+  listens?: number;
   earsReached: number;
   temperaturePercent: number;
 };
@@ -27,6 +29,7 @@ export type TrendingArtist = {
   songCount: number;
   likeCount: number;
   playCount: number;
+  listens?: number;
   earsReached: number;
 };
 
@@ -174,7 +177,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                       {song.artistName}
                     </div>
                     <div className="mt-1 text-xs text-primary-foreground/70">
-                      🎧 {formatCount(song.earsReached ?? 0)} ears · ♥ {formatCount(song.likeCount)}
+                      🎧 {formatCount(resolveListens(song))} listens · ♥ {formatCount(song.likeCount)}
                     </div>
                   </div>
                 </div>
@@ -223,7 +226,7 @@ export function TrendingShowcase({ data }: { data: TrendingData }) {
                     {artist.displayName}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    🎧 {formatCount(artist.earsReached ?? 0)} · ♥ {formatCount(artist.likeCount)}
+                    🎧 {formatCount(resolveListens(artist))} listens · ♥ {formatCount(artist.likeCount)}
                   </div>
                 </Link>
               ))}

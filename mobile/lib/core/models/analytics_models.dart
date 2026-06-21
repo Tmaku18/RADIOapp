@@ -2,11 +2,13 @@ class DailyPlayCount {
   final String date;
   final int plays;
   final int listens;
+  final int ears;
 
   DailyPlayCount({
     required this.date,
     required this.plays,
     required this.listens,
+    required this.ears,
   });
 
   factory DailyPlayCount.fromJson(Map<String, dynamic> json) {
@@ -15,7 +17,8 @@ class DailyPlayCount {
     return DailyPlayCount(
       date: (json['date'] ?? '').toString(),
       plays: plays,
-      listens: toInt(json['listens'] ?? plays),
+      listens: toInt(json['listens'] ?? 0),
+      ears: toInt(json['ears'] ?? json['listens'] ?? 0),
     );
   }
 }
@@ -66,6 +69,11 @@ class TopSong {
 class ArtistAnalytics {
   final int totalPlays;
   final int totalListenCount;
+  final int earsReached;
+  final int listensThisWeek;
+  final int listensThisMonth;
+  final int earsReachedThisWeek;
+  final int earsReachedThisMonth;
   final int totalPaidPlays;
   final int totalFreePlays;
   final int totalSongs;
@@ -78,6 +86,11 @@ class ArtistAnalytics {
   ArtistAnalytics({
     required this.totalPlays,
     required this.totalListenCount,
+    required this.earsReached,
+    required this.listensThisWeek,
+    required this.listensThisMonth,
+    required this.earsReachedThisWeek,
+    required this.earsReachedThisMonth,
     required this.totalPaidPlays,
     required this.totalFreePlays,
     required this.totalSongs,
@@ -96,6 +109,15 @@ class ArtistAnalytics {
       totalPlays: toInt(json['totalPlays'] ?? json['total_plays']),
       totalListenCount:
           toInt(json['totalListenCount'] ?? json['total_listen_count']),
+      earsReached: toInt(json['earsReached'] ?? json['ears_reached']),
+      listensThisWeek:
+          toInt(json['listensThisWeek'] ?? json['listens_this_week']),
+      listensThisMonth:
+          toInt(json['listensThisMonth'] ?? json['listens_this_month']),
+      earsReachedThisWeek:
+          toInt(json['earsReachedThisWeek'] ?? json['ears_reached_this_week']),
+      earsReachedThisMonth:
+          toInt(json['earsReachedThisMonth'] ?? json['ears_reached_this_month']),
       totalPaidPlays:
           toInt(json['totalPaidPlays'] ?? json['total_paid_plays']),
       totalFreePlays:
@@ -119,4 +141,3 @@ class ArtistAnalytics {
     );
   }
 }
-

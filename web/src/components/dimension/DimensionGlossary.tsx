@@ -79,6 +79,16 @@ const GLOSSARY: Array<{
         definition:
           'A Prospector\u2019s rewards — steady earnings from verified engagement like refinement, surveys, and feedback.',
       },
+      {
+        term: 'Listens',
+        definition:
+          'People who heard a song — counted once per song per person. Three songs from the same account equals three Listens.',
+      },
+      {
+        term: 'Ears Reached',
+        definition:
+          'Unique listeners across the network — each account or device counts once, no matter how many songs they heard.',
+      },
     ],
   },
 ];

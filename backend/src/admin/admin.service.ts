@@ -1001,33 +1001,40 @@ export class AdminService {
 
     const songList = songs || [];
     const songIds = songList.map((song) => song.id as string);
+
+    let totalListenCount = 0;
+    let earsReached = 0;
     const listenCountBySongId = new Map<string, number>();
+
     if (songIds.length > 0) {
-      const { data: listens, error: listensError } = await supabase
-        .from('song_profile_listens')
-        .select('song_id, user_id')
-        .in('song_id', songIds);
-      if (listensError && !this.isMissingRelationError(listensError)) {
-        throw new BadRequestException(
-          `Failed to load user listen counts: ${listensError.message}`,
-        );
-      }
-      if (!listensError) {
-        const listenersBySongId = new Map<string, Set<string>>();
-        for (const row of (listens || []) as Array<{
+      try {
+        const [{ data: listens }, { data: ears }, { data: songListens }] =
+          await Promise.all([
+            supabase.rpc('get_artist_listen_count', { p_artist_id: userId }),
+            supabase.rpc('get_artist_ears_reached', { p_artist_id: userId }),
+            supabase.rpc('get_song_ears_reached', { p_song_ids: songIds }),
+          ]);
+        if (listens != null) {
+          totalListenCount = Math.max(0, Number(listens) || 0);
+        }
+        if (ears != null) {
+          earsReached = Math.max(0, Number(ears) || 0);
+        }
+        for (const row of (songListens ?? []) as Array<{
           song_id: string;
-          user_id: string | null;
+          ears: number | string | null;
         }>) {
-          if (!row.song_id || !row.user_id) continue;
-          const listeners = listenersBySongId.get(row.song_id) ?? new Set<string>();
-          listeners.add(row.user_id);
-          listenersBySongId.set(row.song_id, listeners);
+          if (!row?.song_id) continue;
+          listenCountBySongId.set(
+            row.song_id,
+            Math.max(0, Number(row.ears) || 0),
+          );
         }
-        for (const [songId, listeners] of listenersBySongId.entries()) {
-          listenCountBySongId.set(songId, listeners.size);
-        }
+      } catch {
+        // RPCs may be unavailable in some environments.
       }
     }
+
     const songsWithListenCounts = songList.map((song) => ({
       ...song,
       listen_count: listenCountBySongId.get(song.id) ?? 0,
@@ -1040,10 +1047,12 @@ export class AdminService {
       (sum, song) => sum + (song.play_count || 0),
       0,
     );
-    const totalListenCount = songsWithListenCounts.reduce(
-      (sum, song) => sum + (song.listen_count || 0),
-      0,
-    );
+    if (totalListenCount === 0) {
+      totalListenCount = songsWithListenCounts.reduce(
+        (sum, song) => sum + (song.listen_count || 0),
+        0,
+      );
+    }
 
     return {
       user: data,
@@ -1051,6 +1060,7 @@ export class AdminService {
       totalLikes,
       totalPlays,
       totalListenCount,
+      earsReached,
     };
   }
 
@@ -1656,13 +1666,17 @@ export class AdminService {
       );
     }
 
-    const { count: totalListenCount, error: listenCountError } = await supabase
-      .from('song_profile_listens')
-      .select('song_id', { count: 'exact', head: true });
-    if (listenCountError && !this.isMissingRelationError(listenCountError)) {
-      throw new BadRequestException(
-        `Failed to fetch listen analytics: ${listenCountError.message}`,
-      );
+    let totalListenCount = 0;
+    let earsReached = 0;
+    try {
+      const [{ data: listens }, { data: ears }] = await Promise.all([
+        supabase.rpc('get_radio_listen_count'),
+        supabase.rpc('get_radio_ears_reached'),
+      ]);
+      if (listens != null) totalListenCount = Math.max(0, Number(listens) || 0);
+      if (ears != null) earsReached = Math.max(0, Number(ears) || 0);
+    } catch {
+      // RPCs may be unavailable in some environments.
     }
 
     // Get total likes
@@ -1684,7 +1698,8 @@ export class AdminService {
       pendingSongs: pendingSongs || 0,
       approvedSongs: approvedSongs || 0,
       totalPlays: totalPlays || 0,
-      totalListenCount: totalListenCount || 0,
+      totalListenCount,
+      earsReached,
       totalLikes: totalLikes || 0,
     };
   }

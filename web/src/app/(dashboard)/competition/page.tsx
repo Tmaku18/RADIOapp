@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { resolveListens } from '@/lib/analytics-metrics';
 
 interface LeaderboardSong {
   id: string;
@@ -291,7 +292,7 @@ export default function CompetitionPage() {
                         </Link>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} radio listens</span>}
+                        {(s.playCount ?? 0) > 0 && <span className="text-xs text-muted-foreground">{s.playCount} spins</span>}
                         <Badge variant="secondary">{s.likeCount ?? 0} likes</Badge>
                       </div>
                     </li>
@@ -316,7 +317,7 @@ export default function CompetitionPage() {
                         </Link>
                       </div>
                       <Badge variant="secondary">
-                        {s.totalListenCount ?? ((s.playCount ?? 0) + (s.profilePlayCount ?? 0))} listens
+                        {resolveListens(s)} listens
                       </Badge>
                     </li>
                   ))}

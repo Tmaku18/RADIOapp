@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion';
 import { Headphones, Heart } from 'lucide-react';
 import type { TrendingArtist } from '@/components/marketing/TrendingShowcase';
+import { resolveListens } from '@/lib/analytics-metrics';
 import { useArtistProfileHref } from '@/hooks/useArtistProfileHref';
 
 function formatCount(n: number): string {
@@ -109,7 +110,7 @@ export function ParallaxArtistCard({
           </div>
           <div className="mt-3 flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5 text-cyan-300">
-              <Headphones className="w-3.5 h-3.5" /> {formatCount(artist.earsReached)} ears
+              <Headphones className="w-3.5 h-3.5" /> {formatCount(resolveListens(artist))} listens
             </span>
             <span className="flex items-center gap-1.5 text-pink-400">
               <Heart className="w-3.5 h-3.5" /> {formatCount(artist.likeCount)}

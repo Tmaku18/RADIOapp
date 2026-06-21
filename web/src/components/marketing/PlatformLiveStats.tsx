@@ -2,30 +2,29 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
+import { ANALYTICS_METRICS, formatMetricCount } from '@/lib/analytics-metrics';
 
 const POLL_MS = 30_000;
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M+`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K+`;
-  return n.toLocaleString();
-}
-
 type PlatformLiveStatsProps = {
   initialLiveListeners: number;
+  initialListens: number;
   initialEarsReached: number;
 };
 
 type LiveStatsResponse = {
   liveListeners?: number;
+  listens?: number;
   earsReached?: number;
 };
 
 export function PlatformLiveStats({
   initialLiveListeners,
+  initialListens,
   initialEarsReached,
 }: PlatformLiveStatsProps) {
   const [liveListeners, setLiveListeners] = useState(initialLiveListeners);
+  const [listens, setListens] = useState(initialListens);
   const [earsReached, setEarsReached] = useState(initialEarsReached);
 
   useEffect(() => {
@@ -40,6 +39,7 @@ export function PlatformLiveStats({
         const data = (await response.json()) as LiveStatsResponse;
         if (cancelled) return;
         setLiveListeners(Math.max(0, Number(data.liveListeners) || 0));
+        setListens(Math.max(0, Number(data.listens) || 0));
         setEarsReached(Math.max(0, Number(data.earsReached) || 0));
       } catch {
         // Keep last known values on transient errors.
@@ -56,15 +56,21 @@ export function PlatformLiveStats({
 
   const stats = [
     {
-      value: formatCount(liveListeners),
-      label: 'Live Listeners',
-      sub: '(tuned in now)',
+      value: formatMetricCount(liveListeners),
+      label: ANALYTICS_METRICS.liveListeners.label,
+      sub: `(${ANALYTICS_METRICS.liveListeners.shortSub})`,
       live: true,
     },
     {
-      value: formatCount(earsReached),
-      label: 'Ears Reached',
-      sub: '(all-time unique)',
+      value: formatMetricCount(listens),
+      label: ANALYTICS_METRICS.listens.label,
+      sub: `(${ANALYTICS_METRICS.listens.shortSub})`,
+      live: true,
+    },
+    {
+      value: formatMetricCount(earsReached),
+      label: ANALYTICS_METRICS.earsReached.label,
+      sub: `(${ANALYTICS_METRICS.earsReached.shortSub})`,
       live: true,
     },
   ];

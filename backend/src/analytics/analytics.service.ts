@@ -870,6 +870,7 @@ export class AnalyticsService {
   async getPlatformLiveStats(): Promise<{
     liveListeners: number;
     earsReached: number;
+    listens: number;
   }> {
     const counts = await Promise.all(
       STATION_IDS.map((stationId) =>
@@ -888,7 +889,10 @@ export class AnalyticsService {
       earsReached = 0;
     }
 
-    return { liveListeners, earsReached };
+    const platformListens = await this.getPlatformListenCount();
+    const listens = platformListens ?? 0;
+
+    return { liveListeners, earsReached, listens };
   }
 
   /**

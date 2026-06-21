@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { Flame, Headphones, Heart } from 'lucide-react';
 import type { TrendingSong } from '@/components/marketing/TrendingShowcase';
+import { resolveListens } from '@/lib/analytics-metrics';
 
 function formatCount(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -64,7 +65,7 @@ export function DimensionSongCard({ song, index, playing, onPlay }: DimensionSon
         <div className="font-dim-mono text-[11px] text-white/50 mt-0.5">{song.artistName}</div>
         <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/5">
           <div className="flex items-center gap-1 text-white/60 text-xs">
-            <Headphones className="w-3 h-3" /> {formatCount(song.earsReached)}
+            <Headphones className="w-3 h-3" /> {formatCount(resolveListens(song))} listens
           </div>
           <div className="flex items-center gap-1 text-pink-400 text-xs">
             <Heart className="w-3 h-3" /> {formatCount(song.likeCount)}

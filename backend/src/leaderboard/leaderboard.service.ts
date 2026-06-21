@@ -195,10 +195,8 @@ export class LeaderboardService {
   }
 
   /**
-   * Songs ordered by listens. "Listens" mirrors the web "Ears Reached" metric
-   * (unique listeners reached via radio) so the app and web show the same
-   * number; falls back to radio plays + profile listens only when the ears RPC
-   * is unavailable.
+   * Songs ordered by listens (unique listeners per song).
+   * Falls back to radio plays + profile listens when the ears RPC is unavailable.
    */
   async getSongsByListens(
     limit: number,
@@ -218,8 +216,7 @@ export class LeaderboardService {
         const profilePlayCount =
           profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
-        // Ears Reached is the canonical "listens" number; fall back to the
-        // play/profile sum only when the ears RPC returns nothing.
+        // Per-song unique listeners = one listen per person per song.
         const earsReached = earsBySong.get(song.id);
         const listenCount =
           earsReached != null ? earsReached : playCount + profilePlayCount;

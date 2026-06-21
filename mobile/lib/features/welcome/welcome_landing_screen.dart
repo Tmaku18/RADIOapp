@@ -709,7 +709,7 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
                       ),
                     ),
                     Text(
-                      '🎧 ${_formatTrendingCount(song.earsReached)} ears · '
+                      '🎧 ${_formatTrendingCount(song.listens > 0 ? song.listens : song.earsReached)} listens · '
                       '♥ ${_formatTrendingCount(song.likeCount)}',
                       style: theme.textTheme.labelSmall?.copyWith(
                         color: cs.onSurfaceVariant,
@@ -775,7 +775,7 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
                         ),
                       ),
                       Text(
-                        '🎧 ${_formatTrendingCount(artist.earsReached)} · '
+                        '🎧 ${_formatTrendingCount(artist.listens > 0 ? artist.listens : artist.earsReached)} listens · '
                         '♥ ${_formatTrendingCount(artist.likeCount)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -847,7 +847,7 @@ class _StatsStrip extends StatelessWidget {
       [_fmt(_val('totalUsers')), 'Members'],
       [_fmt(_val('totalSongs')), 'Songs'],
       [_fmt(_val('totalLikes')), 'Ripples'],
-      [_fmt(_val('totalPlays')), 'Plays'],
+      [_fmt(_val('totalListenCount')), 'Listens'],
       [_fmt(_val('liveListeners')), 'Live Listeners'],
       [_fmt(_val('earsReached')), 'Ears Reached'],
     ];

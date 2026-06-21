@@ -1436,10 +1436,7 @@ export class SongsService {
       profile_play_count: number | null;
     }>;
 
-    // Rank by the "ears reached" metric (unique listeners) plus likes — NOT
-    // raw play counts. Ears are fetched for every candidate up front so the
-    // ranking itself can use them. A like is a stronger, intentional signal
-    // than a passive ear, so it is weighted more heavily.
+    // Rank by unique listeners per song (listens) plus likes — NOT raw play counts.
     const allSongIds = allSongs.map((s) => s.id);
     const earsBySong = await this.getEarsReachedBySongId(allSongIds);
 
@@ -1472,6 +1469,7 @@ export class SongsService {
           durationSeconds: s.duration_seconds,
           likeCount: s.like_count ?? 0,
           playCount: (s.play_count ?? 0) + (s.profile_play_count ?? 0),
+          listens: earsBySong.get(s.id) ?? 0,
           earsReached: earsBySong.get(s.id) ?? 0,
           temperaturePercent: temperatureBySong.get(s.id) ?? 50,
         };
@@ -1541,6 +1539,7 @@ export class SongsService {
       songCount: agg.songCount,
       likeCount: agg.likeCount,
       playCount: agg.playCount,
+      listens: agg.earsReached,
       earsReached: agg.earsReached,
     }));
 
@@ -2700,8 +2699,11 @@ export class SongsService {
     const fireVotesBySongId = new Map<string, number>();
     const shitVotesBySongId = new Map<string, number>();
     const temperatureBySongId = new Map<string, number>();
+    let listensBySongId = new Map<string, number>();
 
     if (songIds.length > 0) {
+      listensBySongId = await this.getEarsReachedBySongId(songIds);
+
       const { data: likeRows, error: likesCountError } = await supabase
         .from('likes')
         .select('song_id')
@@ -2776,6 +2778,7 @@ export class SongsService {
       const totalVotes = fireVotes + shitVotes;
       return {
         ...song,
+        listenCount: listensBySongId.get(song.id) ?? 0,
         likeCount: likeCountsBySongId.get(song.id) ?? song.likeCount,
         fireVotes,
         shitVotes,
