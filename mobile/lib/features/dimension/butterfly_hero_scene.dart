@@ -105,10 +105,9 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
         clearColor: dimensionBgDark,
       ),
       onSetupComplete: () {
-        if (mounted) {
-          setState(() => _ready = true);
-          widget.onReady?.call();
-        }
+        if (!mounted) return;
+        setState(() => _ready = true);
+        widget.onReady?.call();
       },
       setup: _setup,
       loadingWidget: Container(
@@ -125,7 +124,13 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
 
   @override
   void dispose() {
-    threeJs.dispose();
+    if (_ready) {
+      try {
+        threeJs.dispose();
+      } catch (error) {
+        debugPrint('ButterflyHeroScene dispose skipped: $error');
+      }
+    }
     three.loading.clear();
     super.dispose();
   }

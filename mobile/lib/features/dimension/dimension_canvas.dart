@@ -18,10 +18,10 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
   @override
   void initState() {
     super.initState();
-    // flutter_angle needs a full app restart after adding the native plugin.
-    // Hot reload throws MissingPluginException and leaves a black void.
-    Future<void>.delayed(const Duration(seconds: 3), () {
-      if (!mounted || _sceneReady) return;
+    // flutter_angle can take several seconds on first launch; only fall back if
+    // setup never completes or explicitly fails.
+    Future<void>.delayed(const Duration(seconds: 12), () {
+      if (!mounted || _sceneReady || _useFallback) return;
       setState(() => _useFallback = true);
     });
   }

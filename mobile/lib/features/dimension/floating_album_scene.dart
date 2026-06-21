@@ -45,7 +45,13 @@ class _FloatingAlbumSceneState extends State<FloatingAlbumScene> {
 
   @override
   void dispose() {
-    threeJs.dispose();
+    if (_ready) {
+      try {
+        threeJs.dispose();
+      } catch (error) {
+        debugPrint('FloatingAlbumScene dispose skipped: $error');
+      }
+    }
     three.loading.clear();
     super.dispose();
   }

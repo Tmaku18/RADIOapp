@@ -341,7 +341,7 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
 
           Theme(
             data: Theme.of(context).copyWith(
-              tabBarTheme: TabBarTheme(
+              tabBarTheme: TabBarThemeData(
                 labelColor: DimensionTokens.cyan300,
                 unselectedLabelColor: DimensionTokens.textMuted,
                 indicatorColor: DimensionTokens.neonCyan,
