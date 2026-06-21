@@ -18,6 +18,7 @@ import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class ArtistProfileScreen extends StatefulWidget {
   final String artistId;
@@ -593,8 +594,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                             displayName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontFamily: 'SpaceGrotesk'),
+                            style: DimensionTypography.cardTitle(fontSize: 20),
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -704,9 +704,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
               const SizedBox(height: 16),
               Text(
                 'Songs',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontFamily: 'Lora'),
+                style: DimensionTypography.cardTitle(fontSize: 20),
               ),
               const SizedBox(height: 8),
               if (_tracks.isEmpty)

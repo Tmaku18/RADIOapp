@@ -7,6 +7,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/services/api_service.dart';
 import '../../core/services/job_board_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class JobBoardScreen extends StatefulWidget {
@@ -128,10 +129,7 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                 children: [
                   Text(
                     'Post a service request',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontFamily: 'Lora'),
+                    style: DimensionTypography.cardTitle(fontSize: 20),
                   ),
                   const SizedBox(height: 12),
                   TextField(
@@ -239,10 +237,8 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                     children: [
                       Text(
                         'Pro-Networx',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontFamily: 'Lora', color: Colors.white),
+                        style: DimensionTypography.cardTitle(fontSize: 18)
+                            .copyWith(color: Colors.white),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -573,10 +569,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
               children: [
                 Text(
                   req.title,
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontFamily: 'Lora'),
+                  style: DimensionTypography.cardTitle(fontSize: 18),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -601,10 +594,7 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
                   const SizedBox(height: 18),
                   Text(
                     'Applications',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontFamily: 'Lora'),
+                    style: DimensionTypography.cardTitle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),
                   if (_apps.isEmpty)

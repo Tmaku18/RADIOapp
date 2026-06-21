@@ -10,6 +10,7 @@ import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../widgets/dimension/dimension_radio_bar.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import 'dimension_home_sections.dart';
 
 /// Public pre-login landing for Networx Radio. Mirrors the web marketing home
@@ -93,10 +94,7 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                   children: [
                   Text(
                     'Build your audience, team, and career in one platform',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Lora',
-                    ),
+                    style: DimensionTypography.cardTitle(fontSize: 20),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -121,10 +119,7 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                   const SizedBox(height: 32),
                   Text(
                     'The Language of Networx',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Lora',
-                    ),
+                    style: DimensionTypography.cardTitle(fontSize: 20),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -146,9 +141,8 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                   Center(
                     child: Text(
                       'By Artists, For Artists.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: cs.onSurfaceVariant,
-                        fontFamily: 'Lora',
+                      style: DimensionTypography.bodyMuted().copyWith(
+                        fontStyle: FontStyle.italic,
                       ),
                     ),
                   ),
@@ -253,10 +247,7 @@ class _Hero extends StatelessWidget {
                     ),
                     Text(
                       'The Butterfly Effect',
-                      style: textTheme.bodySmall?.copyWith(
-                        color: NetworxTokens.electricCyan,
-                        fontFamily: 'Lora',
-                      ),
+                      style: DimensionTypography.accentCyan(fontSize: 13),
                     ),
                   ],
                 ),
@@ -394,10 +385,7 @@ class _FinalCta extends StatelessWidget {
         children: [
           Text(
             'Ready to get started?',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Lora',
-            ),
+            style: DimensionTypography.cardTitle(fontSize: 20),
           ),
           const SizedBox(height: 14),
           Row(
@@ -572,12 +560,11 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    'Trending Now',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                      fontFamily: 'Lora',
-                    ),
+                  const DimensionSectionTitle(
+                    prefix: 'Trending ',
+                    accent: 'now',
+                    accentIsPink: true,
+                    fontSize: 20,
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -728,12 +715,10 @@ class _TrendingShowcaseState extends State<_TrendingShowcase> {
         ),
         if (data.artists.isNotEmpty) ...[
           const SizedBox(height: 28),
-          Text(
-            'Trending Artists',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Lora',
-            ),
+          const DimensionSectionTitle(
+            prefix: 'Trending ',
+            accent: 'artists',
+            fontSize: 20,
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -1004,11 +989,7 @@ class _GlossaryGroup extends StatelessWidget {
         children: [
           Text(
             group.system,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: cs.primary,
-              fontWeight: FontWeight.w700,
-              fontFamily: 'Lora',
-            ),
+            style: DimensionTypography.accentCyan(fontSize: 16),
           ),
           const SizedBox(height: 2),
           Text(

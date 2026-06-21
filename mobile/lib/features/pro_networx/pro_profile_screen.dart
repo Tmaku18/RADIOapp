@@ -8,6 +8,7 @@ import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class ProNetworxProfileScreen extends StatefulWidget {
   final String userId;
@@ -186,7 +187,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                               displayName,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontFamily: 'SpaceGrotesk'),
+                              style: DimensionTypography.cardTitle(fontSize: 20),
                             ),
                           ),
                           if (available)
@@ -218,7 +219,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                         const SizedBox(height: 10),
                         Text(
                           serviceTitle,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontFamily: 'Lora'),
+                          style: DimensionTypography.cardTitle(fontSize: 16),
                         ),
                       ],
                       if (bio.trim().isNotEmpty) ...[

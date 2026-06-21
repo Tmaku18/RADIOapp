@@ -8,6 +8,10 @@ class DimensionTokens {
   static const Color neonCyan = Color(0xFF00F0FF);
   static const Color neonPink = Color(0xFFFF007F);
   static const Color neonYellow = Color(0xFFF4D03F);
+  /// Tailwind cyan-300 / web `text-cyan-300`
+  static const Color cyan300 = Color(0xFF67E8F9);
+  /// Tailwind pink-400 / web `text-pink-400`
+  static const Color pink400 = Color(0xFFF472B6);
   static const Color textPrimary = Color(0xFFFFFFFF);
   static const Color textSecondary = Color(0xFFA0A0AB);
   static const Color textMuted = Color(0xFF5E5E66);
@@ -59,4 +63,14 @@ class DimensionTokens {
           spreadRadius: 0,
         ),
       ];
+
+  /// Web `[data-dimension] .text-glow-cyan`
+  static List<Shadow> textGlowCyan = [
+    Shadow(color: neonCyan.withValues(alpha: 0.7), blurRadius: 14),
+  ];
+
+  /// Web `[data-dimension] .text-glow-pink`
+  static List<Shadow> textGlowPink = [
+    Shadow(color: neonPink.withValues(alpha: 0.8), blurRadius: 14),
+  ];
 }

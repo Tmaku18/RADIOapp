@@ -4,6 +4,7 @@ import '../../core/services/analytics_service.dart';
 import '../../core/services/credits_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/analytics/analytics_metrics.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -79,29 +80,26 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Analytics'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+    return DimensionScreenShell(
+      title: 'Analytics',
+      showNeonLine: true,
+      loading: _loading,
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 if (_playDetail != null) ...[
                   _PlayDetailCard(play: _playDetail!),
                   const SizedBox(height: 16),
                 ],
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
+                GlassCard(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -126,7 +124,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         ),
                       ],
                     ),
-                  ),
                 ),
                 const SizedBox(height: 16),
                 if (_data == null)
@@ -174,18 +171,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
+                  GlassCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'ROI',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontFamily: 'Lora'),
+                            style: DimensionTypography.cardTitle(fontSize: 16),
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -204,7 +197,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ),
                         ],
                       ),
-                    ),
                   ),
                   const SizedBox(height: 16),
                   if (_discoverSwipes != null) ...[
@@ -235,18 +227,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     const SizedBox(height: 16),
                   ],
                   if (_data!.dailyPlays.length >= 7) ...[
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
+                    GlassCard(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               '${AnalyticsMetrics.earsReached.label} This Week',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(fontFamily: 'Lora'),
+                              style: DimensionTypography.cardTitle(fontSize: 16),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
@@ -310,22 +298,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ),
                           ],
                         ),
-                      ),
                     ),
                     const SizedBox(height: 16),
                   ],
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
+                  GlassCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Listener Heatmap (by region)',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontFamily: 'Lora'),
+                            style: DimensionTypography.cardTitle(fontSize: 16),
                           ),
                           const SizedBox(height: 10),
                           if (_regions.isEmpty)
@@ -389,21 +372,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ],
                         ],
                       ),
-                    ),
                   ),
                   const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
+                  GlassCard(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             'Top Performing Songs',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(fontFamily: 'Lora'),
+                            style: DimensionTypography.cardTitle(fontSize: 16),
                           ),
                           const SizedBox(height: 10),
                           if (_data!.topSongs.isEmpty)
@@ -473,7 +451,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             ),
                         ],
                       ),
-                    ),
                   ),
                 ],
               ],
@@ -522,10 +499,9 @@ class _PlayDetailCard extends StatelessWidget {
       }
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -535,10 +511,7 @@ class _PlayDetailCard extends StatelessWidget {
                 Expanded(
                   child: Text(
                     'This play',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Lora',
-                        ),
+                    style: DimensionTypography.cardTitle(fontSize: 18),
                   ),
                 ),
               ],
@@ -590,7 +563,6 @@ class _PlayDetailCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
@@ -629,24 +601,15 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = context.networxSurfaces;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: TextStyle(color: surfaces.textSecondary)),
-            const Spacer(),
-            Text(
-              value,
-              style: Theme.of(context)
-                  .textTheme
-                  .headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-          ],
-        ),
+    return GlassCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: DimensionTypography.bodyMuted(fontSize: 12)),
+          const Spacer(),
+          Text(value, style: DimensionTypography.statValue(fontSize: 22)),
+        ],
       ),
     );
   }

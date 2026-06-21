@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/pro_networx_pricing.dart';
 import '../../core/navigation/app_routes.dart';
+import '../../core/theme/dimension_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Public marketing landing page for Pro Networks. Shown when not signed in
 /// or for users that haven't yet entered the authenticated shell.
@@ -10,19 +12,21 @@ class ProNetworxLandingScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('PRO-NETWORX'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
-            child: const Text('Sign in'),
+    return DimensionScreenShell(
+      title: 'PRO-NETWORX',
+      showNeonLine: true,
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
+          child: Text(
+            'Sign in',
+            style: DimensionTypography.monoCaps(
+              color: DimensionTokens.cyan300,
+              fontSize: 11,
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
@@ -31,77 +35,71 @@ class ProNetworxLandingScreen extends StatelessWidget {
             children: [
               Text(
                 'Networking, hiring, and showcasing for every kind of creative.',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  height: 1.2,
-                ),
+                style: DimensionTypography.pageTitle(fontSize: 22),
               ),
               const SizedBox(height: 12),
               Text(
                 'Graphic designers, photographers, videographers, illustrators, '
                 'lyricists, beat makers, producers, and more — Pro-Networx is '
                 'a LinkedIn-meets-Instagram space built for artists.',
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  color: cs.onSurfaceVariant,
-                ),
+                style: DimensionTypography.pageSubtitle(),
               ),
               const SizedBox(height: 24),
               Wrap(
                 spacing: 12,
                 runSpacing: 12,
                 children: [
-                  FilledButton(
-                    onPressed: () => Navigator.of(context).pushNamed(
-                      AppRoutes.login,
-                    ),
-                    child: const Text('Join free'),
+                  DimensionCtaButton(
+                    label: 'Join free',
+                    onPressed: () =>
+                        Navigator.of(context).pushNamed(AppRoutes.login),
                   ),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).pushReplacementNamed(
-                      AppRoutes.proNetworxShell,
-                    ),
-                    child: const Text('Continue as guest'),
+                  DimensionCtaButton(
+                    label: 'Continue as guest',
+                    variant: DimensionCtaVariant.secondary,
+                    onPressed: () => Navigator.of(context)
+                        .pushReplacementNamed(AppRoutes.proNetworxShell),
                   ),
                 ],
               ),
               const SizedBox(height: 36),
               _SectionHeader("What's inside"),
               const SizedBox(height: 12),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.work_outline,
                 title: 'LinkedIn-style profile',
                 description:
                     'Banner, headline, about, skills, experience, education, '
                     'social links, and a downloadable resume PDF.',
               ),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.grid_on,
                 title: 'Instagram-style portfolio',
                 description:
                     'Post your work to your grid. Followers see it on Home; '
                     'everyone discovers it on Search.',
               ),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.storefront_outlined,
                 title: 'Services marketplace',
                 description:
                     'List services with prices. Contact info is hidden from '
                     'non-subscribers and revealed once they subscribe.',
               ),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.chat_bubble_outline,
                 title: 'Direct messaging',
                 description:
                     'Subscribe once and message any creator on Pro-Networx.',
               ),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.radio,
                 title: 'Networks Radio in the background',
                 description:
                     'Keep underground music playing while you browse, post, '
                     'and message.',
               ),
-              _FeatureTile(
+              const _FeatureTile(
                 icon: Icons.account_circle_outlined,
                 title: 'Unified account',
                 description:
@@ -114,8 +112,7 @@ class ProNetworxLandingScreen extends StatelessWidget {
               Text(
                 'LinkedIn is a trademark of LinkedIn Corporation. Pro-Networx is not '
                 'affiliated with, sponsored by, or endorsed by LinkedIn.',
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
+                style: DimensionTypography.bodyMuted(fontSize: 12),
               ),
             ],
           ),
@@ -130,12 +127,7 @@ class _SectionHeader extends StatelessWidget {
   final String text;
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-    );
+    return Text(text, style: DimensionTypography.cardTitle(fontSize: 20));
   }
 }
 
@@ -151,36 +143,31 @@ class _FeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: cs.primary.withValues(alpha: 0.12),
-            child: Icon(icon, color: cs.primary, size: 20),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    )),
-                const SizedBox(height: 2),
-                Text(description,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: cs.onSurfaceVariant,
-                    )),
-              ],
+      child: GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: DimensionTokens.cyan300.withValues(alpha: 0.12),
+              child: Icon(icon, color: DimensionTokens.cyan300, size: 20),
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: DimensionTypography.cardTitle(fontSize: 16)),
+                  const SizedBox(height: 4),
+                  Text(description, style: DimensionTypography.body()),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -189,47 +176,37 @@ class _FeatureTile extends StatelessWidget {
 class _PricingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: cs.primary.withValues(alpha: 0.06),
-        border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
-      ),
+    return GlassCard(
+      strong: true,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Pro-Networx subscription',
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              )),
+          Text(
+            'Pro-Networx subscription',
+            style: DimensionTypography.cardTitle(fontSize: 20),
+          ),
           const SizedBox(height: 8),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '$proNetworxRegularDisplay/mo',
-                style: theme.textTheme.titleMedium?.copyWith(
+                style: DimensionTypography.bodyMuted().copyWith(
                   decoration: TextDecoration.lineThrough,
-                  color: cs.onSurfaceVariant,
                 ),
               ),
               const SizedBox(width: 10),
               Text(
                 proNetworxIntroDisplay,
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+                style: DimensionTypography.accentCyan(fontSize: 22),
               ),
               const SizedBox(width: 6),
               Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text(
                   'first month',
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(color: cs.onSurfaceVariant),
+                  style: DimensionTypography.bodyMuted(),
                 ),
               ),
             ],
@@ -237,18 +214,15 @@ class _PricingCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             'Then $proNetworxRegularDisplay/mo. Cancel anytime.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: cs.onSurfaceVariant,
-            ),
+            style: DimensionTypography.bodyMuted(),
           ),
           const SizedBox(height: 14),
-          FilledButton(
+          DimensionCtaButton(
+            label: 'Sign up to subscribe',
             onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
-            child: const Text('Sign up to subscribe'),
           ),
         ],
       ),
     );
   }
 }
-

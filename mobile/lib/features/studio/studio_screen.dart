@@ -8,6 +8,7 @@ import '../../core/services/refinery_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
 
 class StudioScreen extends StatefulWidget {
@@ -292,10 +293,7 @@ class _StudioScreenState extends State<StudioScreen> {
                     Expanded(
                       child: Text(
                         'Tracks',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontFamily: 'Lora'),
+                        style: DimensionTypography.cardTitle(fontSize: 20),
                       ),
                     ),
                     TextButton(

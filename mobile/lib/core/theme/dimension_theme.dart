@@ -32,7 +32,7 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
         letterSpacing: -0.5,
       ),
       sectionLabelStyle: GoogleFonts.jetBrainsMono(
-        color: DimensionTokens.neonCyan,
+        color: DimensionTokens.cyan300,
         fontSize: 10,
         letterSpacing: 3.2,
         fontWeight: FontWeight.w500,

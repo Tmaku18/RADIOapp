@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
@@ -7,13 +6,12 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/analytics/analytics_metrics.dart';
-import '../../core/brand/brand_assets.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
-import '../dimension/butterfly_hero_fallback.dart';
+import '../dimension/dimension_canvas.dart';
 
 /// Mobile port of web [DimensionHomeSections].
 class DimensionHomeSections extends StatefulWidget {
@@ -125,13 +123,10 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
           ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'TRENDING NOW',
-              style: GoogleFonts.unbounded(
-                color: DimensionTokens.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-              ),
+            child: DimensionSectionTitle(
+              prefix: 'Trending ',
+              accent: 'now',
+              accentIsPink: true,
             ),
           ),
           const SizedBox(height: 12),
@@ -169,9 +164,17 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
             child: SectionLabel(
               number: '02',
               title: 'CATALYSTS',
-              color: DimensionTokens.neonPink,
+              color: DimensionTokens.pink400,
             ),
           ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: DimensionSectionTitle(
+              prefix: 'Trending ',
+              accent: 'artists',
+            ),
+          ),
+          const SizedBox(height: 12),
           SizedBox(
             height: 120,
             child: ListView.builder(
@@ -227,10 +230,18 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
           child: SectionLabel(
             number: '03',
-            title: 'LIVE RADIO',
-            color: DimensionTokens.neonYellow,
+            title: 'LIVE FREQUENCY',
+            color: DimensionTokens.cyan300,
           ),
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: DimensionSectionTitle(
+            prefix: 'Radio ',
+            accent: 'now',
+          ),
+        ),
+        const SizedBox(height: 12),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: Row(
@@ -300,12 +311,23 @@ class _HeroSection extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           Positioned.fill(child: CyberBackdrop()),
-          Positioned(
-            right: -20,
-            top: 80,
-            width: 280,
-            height: 280,
-            child: ButterflyHeroFallback(),
+          const Positioned.fill(child: DimensionCanvas()),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.85),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
@@ -322,7 +344,7 @@ class _HeroSection extends StatelessWidget {
                       Text(
                         'BROADCASTING NOW · $liveListeners listeners',
                         style: GoogleFonts.jetBrainsMono(
-                          color: DimensionTokens.neonPink,
+                          color: DimensionTokens.pink400,
                           fontSize: 9,
                           letterSpacing: 1.5,
                         ),
@@ -331,29 +353,23 @@ class _HeroSection extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                GlitchText(
-                  text: 'network.',
-                  style: GoogleFonts.unbounded(
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
+                const DimensionHeadlineLine(text: 'Join the'),
+                const DimensionHeadlineLine(
+                  text: 'movement.',
+                  accent: DimensionHeadlineAccent.cyanGlow,
                 ),
-                Text(
-                  'Join the\nmovement.\nBuild your',
-                  style: GoogleFonts.unbounded(
-                    color: DimensionTokens.textPrimary,
-                    fontSize: 36,
-                    fontWeight: FontWeight.w900,
-                    height: 1.05,
-                  ),
+                const DimensionHeadlineLine(text: 'Build your'),
+                const DimensionHeadlineLine(
+                  text: 'network.',
+                  accent: DimensionHeadlineAccent.pinkGlitch,
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Whether you are a hidden gem, a Prospector, or a pro ready to mentor — '
-                  'Networx is the underground frequency where culture is mined.',
+                  'Whether you are a hidden gem ready to be heard, a Prospector discovering new '
+                  'talent, or a pro ready to mentor — Networx is the underground frequency where '
+                  'careers begin.',
                   style: GoogleFonts.outfit(
-                    color: DimensionTokens.textSecondary,
+                    color: DimensionTokens.textPrimary.withValues(alpha: 0.7),
                     fontSize: 15,
                     height: 1.5,
                   ),
@@ -364,14 +380,15 @@ class _HeroSection extends StatelessWidget {
                   onPressed: mining ? null : onMine,
                 ),
                 const SizedBox(height: 10),
-                Row(
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
                   children: [
                     DimensionCtaButton(
                       label: 'Get Started Free',
                       variant: DimensionCtaVariant.secondary,
                       onPressed: onGetStarted,
                     ),
-                    const SizedBox(width: 10),
                     DimensionCtaButton(
                       label: 'Explore Artists',
                       variant: DimensionCtaVariant.pink,
@@ -410,7 +427,7 @@ class _HeroStat extends StatelessWidget {
           Text(
             value,
             style: GoogleFonts.unbounded(
-              color: DimensionTokens.neonCyan,
+              color: DimensionTokens.cyan300,
               fontSize: 20,
               fontWeight: FontWeight.w800,
             ),

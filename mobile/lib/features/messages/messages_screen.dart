@@ -7,6 +7,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/services/api_service.dart';
 import '../../core/services/messages_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -654,10 +655,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 children: [
                   Text(
                     'Creator Network',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleSmall
-                        ?.copyWith(fontFamily: 'Lora'),
+                    style: DimensionTypography.cardTitle(fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(

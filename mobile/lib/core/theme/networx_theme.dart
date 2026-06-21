@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'dimension_theme.dart';
 import 'networx_extensions.dart';
 import 'networx_tokens.dart';
@@ -78,33 +79,34 @@ ThemeData buildNetworxTheme({
     dividerColor: border,
   );
 
-  // Typography: keep serif as “premium spice” via explicit styles. We wire
-  // font families later when assets are present; missing families fall back safely.
-  const fontSans = 'Inter';
-  // Systematic Glow: structured headings (Geist on web). Mobile uses SpaceGrotesk as the closest bundled asset.
-  const fontHeading = 'SpaceGrotesk';
-  const fontSerif = 'Lora';
-
-  final textTheme = base.textTheme.apply(
-    fontFamily: fontSans,
+  // Typography: Dimension / Emergent UI — Unbounded headings, Outfit body.
+  final textTheme = GoogleFonts.outfitTextTheme(base.textTheme).apply(
     bodyColor: textPrimary,
     displayColor: textPrimary,
   );
 
+  TextStyle? unbounded(TextStyle? style, {FontWeight weight = FontWeight.w800}) {
+    if (style == null) return null;
+    return GoogleFonts.unbounded(textStyle: style, fontWeight: weight);
+  }
+
   final heading = textTheme.copyWith(
-    headlineLarge: textTheme.headlineLarge?.copyWith(fontFamily: fontHeading),
-    headlineMedium: textTheme.headlineMedium?.copyWith(fontFamily: fontHeading),
-    headlineSmall: textTheme.headlineSmall?.copyWith(fontFamily: fontHeading),
-    titleLarge: textTheme.titleLarge?.copyWith(fontFamily: fontHeading),
-    titleMedium: textTheme.titleMedium?.copyWith(fontFamily: fontHeading),
-    titleSmall: textTheme.titleSmall?.copyWith(fontFamily: fontHeading),
+    displayLarge: unbounded(textTheme.displayLarge, weight: FontWeight.w900),
+    displayMedium: unbounded(textTheme.displayMedium, weight: FontWeight.w900),
+    displaySmall: unbounded(textTheme.displaySmall, weight: FontWeight.w800),
+    headlineLarge: unbounded(textTheme.headlineLarge),
+    headlineMedium: unbounded(textTheme.headlineMedium),
+    headlineSmall: unbounded(textTheme.headlineSmall),
+    titleLarge: unbounded(textTheme.titleLarge),
+    titleMedium: unbounded(textTheme.titleMedium, weight: FontWeight.w700),
+    titleSmall: unbounded(textTheme.titleSmall, weight: FontWeight.w700),
   );
 
-  // Serif “signature” style used for hero/spotlight titles.
-  final serifTitle = heading.displaySmall?.copyWith(
-    fontFamily: fontSerif,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.2,
+  final dialogTitle = GoogleFonts.unbounded(
+    fontSize: 20,
+    fontWeight: FontWeight.w800,
+    letterSpacing: -0.3,
+    color: textPrimary,
   );
 
   final surfaces = isDark ? NetworxSurfaces.dark() : NetworxSurfaces.light();
@@ -116,10 +118,10 @@ ThemeData buildNetworxTheme({
       foregroundColor: textPrimary,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: heading.titleLarge?.copyWith(
+      titleTextStyle: GoogleFonts.unbounded(
         color: textPrimary,
-        fontFamily: fontHeading,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700,
+        fontSize: 20,
       ),
       iconTheme: IconThemeData(color: textPrimary),
     ),
@@ -191,7 +193,7 @@ ThemeData buildNetworxTheme({
     dialogTheme: DialogThemeData(
       backgroundColor: surface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: serifTitle?.copyWith(color: textPrimary),
+      titleTextStyle: dialogTitle,
       contentTextStyle: heading.bodyMedium?.copyWith(color: textSecondary),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
     ),

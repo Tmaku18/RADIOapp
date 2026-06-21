@@ -108,6 +108,7 @@ dependencies:
   http_parser: ^4.1.2
   flutter_webrtc: ^1.4.1
   audio_metadata_reader: ^1.6.0
+  three_js: ^0.3.0
 
 dev_dependencies:
   flutter_test:

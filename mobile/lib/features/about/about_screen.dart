@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/analytics_service.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// About Networx — mission, story, values, and brand voice.
 class AboutScreen extends StatefulWidget {
@@ -49,10 +51,9 @@ class _AboutScreenState extends State<AboutScreen> {
             NetworxTokens.deepCobalt,
           ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('About Networx'),
-      ),
+    return DimensionScreenShell(
+      title: 'About Networx',
+      showNeonLine: true,
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -74,11 +75,7 @@ class _AboutScreenState extends State<AboutScreen> {
           const SizedBox(height: 8),
           Text(
             'Where the People have the Voice, and the Artist has the Power.',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w600,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.accentCyan(fontSize: 16),
           ),
           const SizedBox(height: 20),
           if (_stats != null) ...[
@@ -133,10 +130,7 @@ class _AboutScreenState extends State<AboutScreen> {
           ),
           Text(
             'The Language of Networx',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.cardTitle(fontSize: 20),
           ),
           const SizedBox(height: 6),
           Text(
@@ -150,10 +144,7 @@ class _AboutScreenState extends State<AboutScreen> {
           const SizedBox(height: 8),
           Text(
             'Legal',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.cardTitle(fontSize: 20),
           ),
           const SizedBox(height: 8),
           _LinkTile(
@@ -195,10 +186,7 @@ class _AboutScreenState extends State<AboutScreen> {
           const SizedBox(height: 16),
           Text(
             'Resources',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.cardTitle(fontSize: 20),
           ),
           const SizedBox(height: 8),
           _LinkTile(
@@ -235,10 +223,7 @@ class _AboutScreenState extends State<AboutScreen> {
                 children: [
                   Text(
                     'Join the movement',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          fontFamily: 'Lora',
-                        ),
+                    style: DimensionTypography.cardTitle(fontSize: 16),
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -318,16 +303,13 @@ class _Section extends StatelessWidget {
         children: [
           Text(
             title,
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.cardTitle(),
           ),
           const SizedBox(height: 10),
           if (body != null)
             Text(
               body!,
-              style: TextStyle(color: surfaces.textSecondary, height: 1.5),
+              style: DimensionTypography.body(),
             ),
           if (bullets != null) ...[
             const SizedBox(height: 8),
@@ -339,18 +321,12 @@ class _Section extends StatelessWidget {
                   children: [
                     Text(
                       '• ',
-                      style: TextStyle(
-                        color: surfaces.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: DimensionTypography.bodyPrimary(fontSize: 14),
                     ),
                     Expanded(
                       child: Text(
                         b,
-                        style: TextStyle(
-                          color: surfaces.textSecondary,
-                          height: 1.5,
-                        ),
+                        style: DimensionTypography.body(),
                       ),
                     ),
                   ],
@@ -510,11 +486,7 @@ class _GlossaryGroup extends StatelessWidget {
         children: [
           Text(
             group.system,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Lora',
-                ),
+            style: DimensionTypography.accentCyan(fontSize: 16),
           ),
           const SizedBox(height: 2),
           Text(

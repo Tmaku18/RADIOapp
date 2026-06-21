@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/api_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
 import 'package:just_audio/just_audio.dart';
 
@@ -362,10 +363,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       const SizedBox(height: 14),
                       Text(
                         'Ready for Rotation',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
-                            ?.copyWith(fontFamily: 'Lora'),
+                        style: DimensionTypography.cardTitle(fontSize: 18),
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -409,10 +407,7 @@ class _UploadScreenState extends State<UploadScreen> {
                 children: [
                   Text(
                     'Upload Song',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontFamily: 'Lora'),
+                    style: DimensionTypography.cardTitle(fontSize: 20),
                   ),
                   const SizedBox(height: 6),
                   Text(

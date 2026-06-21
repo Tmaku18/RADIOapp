@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { resolveListens } from '@/lib/analytics-metrics';
+import { Top7VotePicker, mergeVoteCandidates } from '@/components/competition/Top7VotePicker';
 
 interface LeaderboardSong {
   id: string;
@@ -129,6 +130,15 @@ export default function CompetitionPage() {
       ignore = true;
     };
   }, [profile?.id, profile?.suggestLocalArtists, profile?.region]);
+
+  const voteCandidates = mergeVoteCandidates([
+    leaderboardLikes,
+    leaderboardListens,
+    leaderboardPositiveVotes,
+    leaderboardRatios,
+    leaderboardSaves,
+    trialByFire,
+  ]);
 
   const handleVote = async () => {
     if (voteSongIds.length !== 7) {
@@ -485,15 +495,15 @@ export default function CompetitionPage() {
             <p className="text-xs text-muted-foreground">{voteSongIds.length}/7 selected</p>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">Select 7 songs from approved tracks (e.g. from Listen or Songs). Paste or type song IDs below (comma-separated) as your rank 1–7:</p>
-            <input
-              type="text"
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              placeholder="song-id-1, song-id-2, ..."
-              value={voteSongIds.join(', ')}
-              onChange={(e) => setVoteSongIds(e.target.value.split(/[\s,]+/).filter(Boolean))}
+            <p className="text-sm text-muted-foreground mb-4">
+              Select 7 songs from the leaderboard and drag to rank them 1–7 (top = #1).
+            </p>
+            <Top7VotePicker
+              candidates={voteCandidates}
+              selectedIds={voteSongIds}
+              onChange={setVoteSongIds}
             />
-            {voteError && <p className="text-destructive text-sm mt-2">{voteError}</p>}
+            {voteError && <p className="text-destructive text-sm mt-4">{voteError}</p>}
             <Button onClick={handleVote} disabled={voteSubmitting || voteSongIds.length !== 7} className="mt-4">
               {voteSubmitting ? 'Submitting…' : 'Submit vote'}
             </Button>

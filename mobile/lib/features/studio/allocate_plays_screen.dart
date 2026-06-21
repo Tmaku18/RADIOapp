@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/song.dart';
 import '../../core/services/api_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Standard minute bundles (credits = seconds / 5).
 class _Bundle {
@@ -198,10 +199,7 @@ class _AllocatePlaysScreenState extends State<AllocatePlaysScreen> {
                       children: [
                         Text(
                           widget.song.title,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontFamily: 'Lora'),
+                          style: DimensionTypography.cardTitle(fontSize: 20),
                         ),
                         const SizedBox(height: 4),
                         Text(

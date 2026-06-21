@@ -31,7 +31,7 @@ import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
-import '../dimension/butterfly_hero_fallback.dart';
+import '../dimension/floating_album_scene.dart';
 import 'widgets/frequency_visualizer.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
@@ -1195,9 +1195,7 @@ class _NoContent extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 'Station Offline',
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineSmall?.copyWith(fontFamily: 'Lora'),
+                style: DimensionTypography.cardTitle(fontSize: 18),
               ),
               const SizedBox(height: 8),
               Text(
@@ -1363,6 +1361,7 @@ class _PlayerBody extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
 
     Widget albumArt() {
+      final artworkUrl = BrandAssets.displayArtworkUrl(track.artworkUrl);
       return AspectRatio(
         aspectRatio: 1,
         child: ClipRRect(
@@ -1373,16 +1372,10 @@ class _PlayerBody extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(gradient: surfaces.signatureGradient),
               ),
-              if (BrandAssets.displayArtworkUrl(track.artworkUrl) != null)
-                CachedNetworkImage(
-                  imageUrl: BrandAssets.displayArtworkUrl(track.artworkUrl)!,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) =>
-                      const Center(child: CircularProgressIndicator()),
-                  errorWidget: (context, url, error) => Image.asset(
-                    BrandAssets.logoCyanAsset,
-                    fit: BoxFit.cover,
-                  ),
+              if (artworkUrl != null)
+                FloatingAlbumScene(
+                  key: ValueKey(artworkUrl),
+                  imageUrl: artworkUrl,
                 )
               else
                 Image.asset(BrandAssets.logoCyanAsset, fit: BoxFit.cover),
@@ -1598,9 +1591,7 @@ class _PlayerBody extends StatelessWidget {
                 track.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(
-                  context,
-                ).textTheme.headlineSmall?.copyWith(fontFamily: 'Lora'),
+                style: DimensionTypography.cardTitle(fontSize: 18),
               ),
               SizedBox(height: titleGap),
               GestureDetector(

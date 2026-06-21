@@ -8,7 +8,7 @@ class SectionLabel extends StatelessWidget {
     super.key,
     required this.number,
     required this.title,
-    this.color = DimensionTokens.neonCyan,
+    this.color = DimensionTokens.cyan300,
   });
 
   final String number;
