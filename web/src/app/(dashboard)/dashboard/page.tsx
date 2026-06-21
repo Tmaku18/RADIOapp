@@ -309,6 +309,7 @@ export default function DashboardPage() {
           const artist = artistAnalyticsResponse.data as {
             totalPlays?: number;
             totalListenCount?: number;
+            earsReached?: number;
             totalSongs?: number;
             totalLikes?: number;
           };
