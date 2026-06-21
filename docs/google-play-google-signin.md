@@ -15,7 +15,7 @@ These are **different fingerprints**. Google Sign-In rejects the Play build if o
 2. Select Android app **`com.tmaktechnologies.networxradio`**.
 3. Under **SHA certificate fingerprints**, ensure **both** are present:
    - **Debug** (local dev): `2B:A4:EF:54:A5:E1:1C:4C:31:2F:4B:8D:89:59:56:9C:B2:60:43:C2`
-   - **Play App Signing** (Play Store): `19:BE:18:3C:57:9A:BF:10:DC:7C:3B:8F:4A:03:2A:B4:AB:E1:2A:7F`
+   - **Play App Signing** (Play Store): `ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88`
 4. Add **SHA-256** for the Play App Signing cert as well (Play Console → App integrity → App signing key certificate).
 5. Download **`google-services.json`** and place at `mobile/android/app/google-services.json`.
 6. Rebuild and upload a **new** AAB (build number must increase).
@@ -41,7 +41,7 @@ This appears after picking a Google account when the **Android OAuth client** do
 ### Checklist
 
 1. **How did you install the app?**
-   - **Play Store / Internal testing** → Firebase must include **App signing** SHA-1: `19:BE:18:3C:57:9A:BF:10:DC:7C:3B:8F:4A:03:2A:B4:AB:E1:2A:7F` (and SHA-256 from Play Console → App integrity).
+   - **Play Store / Internal testing** → Firebase must include **App signing** SHA-1: `ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88` (and SHA-256 from Play Console → App integrity).
    - **Sideloaded release APK** → also add your **upload-key** SHA-1 (`e3:B8:59:…` in current `google-services.json`).
    - **Debug / `flutter run`** → debug SHA-1: `2B:A4:EF:54:…`
 

@@ -38,7 +38,7 @@ class AuthService extends ChangeNotifier {
   /// Do not pass this as [clientId] on Android — google-services.json selects the
   /// correct OAuth client for the current signing certificate automatically.
   static const String googlePlayAndroidClientId =
-      '479427085382-54r5hhj9t9lk7pq6o5h2og57jc6i19qt.apps.googleusercontent.com';
+      '479427085382-k3nmr3f99lg4hlne6u60naephqn4pu6i.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
 
   AuthService({this.firebaseInitialized = true}) {
@@ -198,7 +198,7 @@ class AuthService extends ChangeNotifier {
       return 'Google sign-in did not complete.$detailSuffix\n\n'
           'This usually means the OAuth client does not match how the app was signed:\n'
           '• Play Store install → Firebase must list the Play App Signing SHA-1 '
-          '(19:BE:18:3C:…)\n'
+          '(ED:16:9D:AB:…)\n'
           '• Sideloaded release APK → needs your upload-key SHA-1 in Firebase too\n'
           '• OAuth consent screen in Testing → add your Gmail under Test users\n'
           '• On device: Settings → Apps → Google Play services → Storage → Clear cache';
@@ -214,7 +214,7 @@ class AuthService extends ChangeNotifier {
         'Emulator works with the debug SHA-1; Play Store uses Play App Signing.\n'
         'In Firebase → Project settings → Android app '
         '(com.tmaktechnologies.networxradio), confirm SHA-1 '
-        '19:BE:18:3C:57:9A:BF:10:DC:7C:3B:8F:4A:03:2A:B4:AB:E1:2A:7F is listed, '
+        'ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88 is listed, '
         'then re-download google-services.json and upload a new Play build.\n\n'
         'Details: ${e.message ?? e.code}';
   }

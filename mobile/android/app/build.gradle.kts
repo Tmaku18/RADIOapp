@@ -56,7 +56,7 @@ android {
                     "(com.tmaktechnologies.networxradio) before release builds.",
             )
         }
-        val playSigningSha1 = "19be183c579abf10dc7c3b8f4a032ab4abe12a7f"
+        val playSigningSha1 = "ed169dab9dce885f08e5ad1deb41c9ede4ac1c88"
         val jsonText = googleServices.readText()
         if (!jsonText.contains(playSigningSha1)) {
             throw GradleException(
