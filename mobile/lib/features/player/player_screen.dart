@@ -41,73 +41,39 @@ class _StationOption {
   const _StationOption({
     required this.id,
     required this.genre,
-    required this.city,
   });
 
   final String id;
   final String genre;
-  final String city;
 }
 
 const List<_StationOption> _stationOptions = <_StationOption>[
-  _StationOption(
-    id: 'us-rap',
-    genre: 'New School Rap Radio',
-    city: 'New York',
-  ),
-  _StationOption(
-    id: 'us-old-school-rap',
-    genre: 'Old School Rap Radio',
-    city: 'Detroit',
-  ),
-  _StationOption(
-    id: 'us-rap-clean',
-    genre: 'Clean Rap Radio',
-    city: 'Charlotte',
-  ),
-  _StationOption(
-    id: 'us-ready-now-rap',
-    genre: 'Ready Now Radio',
-    city: 'Houston',
-  ),
-  _StationOption(id: 'us-hip-hop', genre: 'Hip Hop', city: 'Atlanta'),
-  _StationOption(id: 'us-country', genre: 'Country', city: 'Nashville'),
-  _StationOption(id: 'us-rock', genre: 'Rock', city: 'Chicago'),
-  _StationOption(id: 'us-metal', genre: 'Metal Radio', city: 'Cleveland'),
-  _StationOption(id: 'us-pop', genre: 'Pop', city: 'Los Angeles'),
-  _StationOption(id: 'us-edm', genre: 'EDM', city: 'Las Vegas'),
-  _StationOption(id: 'us-rnb', genre: 'R&B', city: 'New Orleans'),
-  _StationOption(id: 'us-podcasts', genre: 'Podcasts', city: 'Seattle'),
-  _StationOption(
-    id: 'us-spoken-word',
-    genre: 'Spoken Word',
-    city: 'Washington',
-  ),
-  _StationOption(id: 'us-comedian', genre: 'Comedian', city: 'Austin'),
-  _StationOption(id: 'us-gospel', genre: 'Gospel', city: 'Dallas'),
-  _StationOption(id: 'us-classical', genre: 'Classical Radio', city: 'Boston'),
-  _StationOption(id: 'us-emo', genre: 'Emo Radio', city: 'Denver'),
-  _StationOption(
-    id: 'us-ai-created',
-    genre: 'AI Created Radio',
-    city: 'San Francisco',
-  ),
-  _StationOption(id: 'us-beats', genre: 'Beats Radio', city: 'Miami'),
-  _StationOption(id: 'us-freestyle', genre: 'Freestyle Radio', city: 'Phoenix'),
-  _StationOption(
-    id: 'us-instrumental',
-    genre: 'Instrumental Radio',
-    city: 'Portland',
-  ),
-  _StationOption(id: 'us-lofi', genre: 'Lo-Fi Radio', city: 'San Diego'),
-  _StationOption(id: 'us-jazz', genre: 'Jazz Radio', city: 'Kansas City'),
-  _StationOption(
-    id: 'us-audiobook',
-    genre: 'Audiobook Radio',
-    city: 'Minneapolis',
-  ),
-  _StationOption(id: 'us-spanish', genre: 'Spanish Radio', city: 'Miami'),
-  _StationOption(id: 'us-afrobeats', genre: 'Afro-Beats Radio', city: 'Houston'),
+  _StationOption(id: 'us-rap', genre: 'New School Rap Radio'),
+  _StationOption(id: 'us-old-school-rap', genre: 'Old School Rap Radio'),
+  _StationOption(id: 'us-rap-clean', genre: 'Clean Rap Radio'),
+  _StationOption(id: 'us-ready-now-rap', genre: 'Ready Now Radio'),
+  _StationOption(id: 'us-hip-hop', genre: 'Hip Hop'),
+  _StationOption(id: 'us-country', genre: 'Country'),
+  _StationOption(id: 'us-rock', genre: 'Rock'),
+  _StationOption(id: 'us-metal', genre: 'Metal Radio'),
+  _StationOption(id: 'us-pop', genre: 'Pop'),
+  _StationOption(id: 'us-edm', genre: 'EDM'),
+  _StationOption(id: 'us-rnb', genre: 'R&B'),
+  _StationOption(id: 'us-podcasts', genre: 'Podcasts'),
+  _StationOption(id: 'us-spoken-word', genre: 'Spoken Word'),
+  _StationOption(id: 'us-comedian', genre: 'Comedian'),
+  _StationOption(id: 'us-gospel', genre: 'Gospel'),
+  _StationOption(id: 'us-classical', genre: 'Classical Radio'),
+  _StationOption(id: 'us-emo', genre: 'Emo Radio'),
+  _StationOption(id: 'us-ai-created', genre: 'AI Created Radio'),
+  _StationOption(id: 'us-beats', genre: 'Beats Radio'),
+  _StationOption(id: 'us-freestyle', genre: 'Freestyle Radio'),
+  _StationOption(id: 'us-instrumental', genre: 'Instrumental Radio'),
+  _StationOption(id: 'us-lofi', genre: 'Lo-Fi Radio'),
+  _StationOption(id: 'us-jazz', genre: 'Jazz Radio'),
+  _StationOption(id: 'us-audiobook', genre: 'Audiobook Radio'),
+  _StationOption(id: 'us-spanish', genre: 'Spanish Radio'),
+  _StationOption(id: 'us-afrobeats', genre: 'Afro-Beats Radio'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';
@@ -174,7 +140,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     return const _StationOption(
       id: 'us-ready-now-rap',
       genre: 'Ready Now Radio',
-      city: 'Houston',
     );
   }
 
@@ -333,7 +298,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tuned to ${station.genre} (${station.city})')),
+        SnackBar(content: Text('Tuned to ${station.genre}')),
       );
       return;
     }
@@ -347,7 +312,7 @@ class _PlayerScreenState extends State<PlayerScreen>
     await _loadAndPlay(track, res);
     if (!mounted || switchId != _stationSwitchGeneration) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Tuned to ${station.genre} (${station.city})')),
+      SnackBar(content: Text('Tuned to ${station.genre}')),
     );
   }
 
@@ -2021,10 +1986,10 @@ class _StationPickerSheetState extends State<_StationPickerSheet> {
                     title: Text(station.genre),
                     subtitle: Text(
                       _loadingCounts
-                          ? '${station.city} (National)'
+                          ? 'National'
                           : count > 0
-                              ? '$count song${count != 1 ? 's' : ''} · ${station.city}'
-                              : 'No songs yet · ${station.city}',
+                              ? '$count song${count != 1 ? 's' : ''}'
+                              : 'No songs yet',
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
