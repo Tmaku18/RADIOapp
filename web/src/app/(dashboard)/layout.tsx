@@ -396,6 +396,7 @@ export default function DashboardLayout({
                   icon={item.icon}
                   isActive={activeHref === item.href}
                   external={item.external}
+                  signalRadioIntent={item.href === '/listen'}
                   testId={`sidebar-tab-${item.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
                 />
               ))}
@@ -482,6 +483,7 @@ export default function DashboardLayout({
                       href={item.href}
                       label={item.name}
                       isActive={pathname.startsWith(item.href)}
+                      signalRadioIntent={item.href === '/listen'}
                     />
                   ))}
                 </DimensionNavCollapsible>

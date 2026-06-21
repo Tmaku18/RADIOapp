@@ -27,3 +27,20 @@ export function setStationAutoplayEnabled(enabled: boolean): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(STATION_AUTOPLAY_KEY, enabled ? '1' : '0');
 }
+
+const RADIO_NAV_INTENT_KEY = 'networx-radio-nav-intent';
+
+/** Call when the user taps a nav link to open the live radio page. */
+export function signalRadioNavIntent(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('radio:user-playback-gesture'));
+  window.sessionStorage.setItem(RADIO_NAV_INTENT_KEY, '1');
+}
+
+/** True once after a radio nav tap; clears the flag when read. */
+export function consumeRadioNavIntent(): boolean {
+  if (typeof window === 'undefined') return false;
+  const pending = window.sessionStorage.getItem(RADIO_NAV_INTENT_KEY) === '1';
+  if (pending) window.sessionStorage.removeItem(RADIO_NAV_INTENT_KEY);
+  return pending;
+}

@@ -12,6 +12,7 @@ import {
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
+import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
 
 const VBAR_DELAYS = [0.1, 0.3, 0.2, 0.4, 0.25, 0.35, 0.15, 0.5, 0.2];
@@ -76,6 +77,11 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
       <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 flex items-center gap-4">
         <Link
           href={player.listenHref}
+          onClick={() => {
+            if (player.listenHref.startsWith('/listen')) {
+              signalRadioNavIntent();
+            }
+          }}
           className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72 hover:opacity-90 transition-opacity"
         >
           <div

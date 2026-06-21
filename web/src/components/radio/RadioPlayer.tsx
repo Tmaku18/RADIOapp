@@ -34,6 +34,10 @@ import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 import { isServerAheadMidSong } from '@/lib/radio-sync';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
+import {
+  consumeRadioNavIntent,
+  getStationAutoplayEnabled,
+} from '@/lib/playback-preferences';
 
 type PinnedCatalyst = {
   userId: string;
@@ -131,6 +135,7 @@ export function RadioPlayer({
   } | null>(null);
   const [pinnedCatalysts, setPinnedCatalysts] = useState<PinnedCatalyst[]>([]);
   const lastVoteKeyRef = useRef<string | null>(null);
+  const audibleResumeKeyRef = useRef<string | null>(null);
   const lastServerPosition = useRef(0);
   const playingTrackIdRef = useRef<string | null>(null);
   const isFetchingNextTrack = useRef(false);
@@ -706,6 +711,41 @@ export function RadioPlayer({
       setHasUserInteracted(true);
     }
   }, [autoplay]);
+
+  // Opening the full radio page should resume audible playback (unmute / play).
+  useEffect(() => {
+    audibleResumeKeyRef.current = null;
+  }, [effectiveRadioId]);
+
+  useEffect(() => {
+    const wantsAudible =
+      autoplay || consumeRadioNavIntent() || getStationAutoplayEnabled();
+    if (!wantsAudible) return;
+
+    setHasUserInteracted(true);
+
+    if (state.source !== 'radio' || !state.track || state.isLoading) return;
+
+    const resumeKey = `${effectiveRadioId}:${state.track.id}`;
+    if (audibleResumeKeyRef.current === resumeKey) return;
+
+    const isAudible =
+      state.isPlaying && !state.isMuted && state.pausedAt == null;
+    audibleResumeKeyRef.current = resumeKey;
+    if (isAudible) return;
+
+    void actions.softResume();
+  }, [
+    autoplay,
+    effectiveRadioId,
+    actions,
+    state.source,
+    state.track?.id,
+    state.isLoading,
+    state.isMuted,
+    state.isPlaying,
+    state.pausedAt,
+  ]);
 
   // Station switch: bypass poll backoff and fetch the new tower immediately.
   const prevRadioIdRef = useRef(effectiveRadioId);

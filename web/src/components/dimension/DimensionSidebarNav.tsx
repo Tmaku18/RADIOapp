@@ -13,6 +13,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useSidebar } from '@/components/ui/sidebar';
 import { NETWORX_APP_ICON } from '@/lib/brand-assets';
+import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import { cn } from '@/lib/utils';
 
 export function DimensionSidebarLogoCard() {
@@ -57,6 +58,8 @@ type DimensionNavTabProps = {
   isActive: boolean;
   external?: boolean;
   testId?: string;
+  /** Fire playback-intent gesture before navigating to /listen. */
+  signalRadioIntent?: boolean;
 };
 
 export function DimensionNavTab({
@@ -66,9 +69,16 @@ export function DimensionNavTab({
   isActive,
   external,
   testId,
+  signalRadioIntent,
 }: DimensionNavTabProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+
+  const onNavigate = signalRadioIntent
+    ? () => {
+        signalRadioNavIntent();
+      }
+    : undefined;
 
   const className = cn(
     'group flex items-center gap-3 px-2.5 py-2 rounded-full transition-colors w-full',
@@ -108,6 +118,7 @@ export function DimensionNavTab({
         className={className}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={onNavigate}
       >
         {content}
       </a>
@@ -115,7 +126,7 @@ export function DimensionNavTab({
   }
 
   return (
-    <Link href={href} data-testid={testId} className={className}>
+    <Link href={href} data-testid={testId} className={className} onClick={onNavigate}>
       {content}
     </Link>
   );
@@ -174,14 +185,23 @@ export function DimensionNavSubLink({
   href,
   label,
   isActive,
+  signalRadioIntent,
 }: {
   href: string;
   label: string;
   isActive: boolean;
+  signalRadioIntent?: boolean;
 }) {
+  const onNavigate = signalRadioIntent
+    ? () => {
+        signalRadioNavIntent();
+      }
+    : undefined;
+
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       className={cn(
         'block py-1.5 px-3 text-xs font-outfit rounded-md transition-colors',
         isActive ? 'text-cyan-300 bg-cyan-400/5' : 'text-white/60 hover:text-white',

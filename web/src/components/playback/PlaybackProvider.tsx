@@ -1279,6 +1279,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const softResume = useCallback(async () => {
     mutedByUserRef.current = false;
     notifyUserPlaybackGesture();
+    await unlockWebAudioContext(analyserCtxRef);
     setState((s) => ({ ...s, isMuted: false, error: null, isLive: true }));
     const audio = getActiveAudio();
     refreshMainVolume();
