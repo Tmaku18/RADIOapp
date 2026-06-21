@@ -143,7 +143,6 @@ export function RadioPlayer({
   const consecutiveFetchFailuresRef = useRef(0);
   const nextFetchAllowedAtRef = useRef(0);
   const effectiveRadioIdRef = useRef(effectiveRadioId);
-  const playbackStateRef = useRef(state);
   const hasUserInteractedRef = useRef(hasUserInteracted);
   const fetchGenerationRef = useRef(0);
   const fetchCurrentTrackRef = useRef<
@@ -153,10 +152,6 @@ export function RadioPlayer({
   useEffect(() => {
     effectiveRadioIdRef.current = effectiveRadioId;
   }, [effectiveRadioId]);
-
-  useEffect(() => {
-    playbackStateRef.current = state;
-  }, [state]);
 
   useEffect(() => {
     hasUserInteractedRef.current = hasUserInteracted;
@@ -195,6 +190,12 @@ export function RadioPlayer({
   const [isIosVolumeLocked, setIsIosVolumeLocked] = useState(false);
   
   const { state, actions, setOnRadioTrackEnded, registerRadioPlayerUi, isStaleRadioServerTrack, bassRef } = usePlayback();
+  const playbackStateRef = useRef(state);
+
+  useEffect(() => {
+    playbackStateRef.current = state;
+  }, [state]);
+
   const artRef = useBassPulseRef(bassRef, { scale: 1.6, glowScale: 1.2 });
   const loadTrackRef = useRef<((t: PlaybackTrack, autoPlay?: boolean, seekSeconds?: number | null) => void) | null>(null);
   const syncToPositionRef = useRef<((pos: number) => void) | null>(null);
