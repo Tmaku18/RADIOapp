@@ -138,9 +138,11 @@ api.interceptors.request.use(
       '/chat/status',
       '/pro-networx/public/directory',
     ];
-    const isPublicEndpoint = publicEndpoints.some(endpoint => 
-      config.url === endpoint && config.method?.toLowerCase() === 'get'
-    );
+    const url = config.url ?? '';
+    const isPublicEndpoint =
+      config.method?.toLowerCase() === 'get' &&
+      (publicEndpoints.some((endpoint) => url === endpoint) ||
+        url.startsWith('/pro-networx/public/'));
     
     if (isPublicEndpoint) {
       // Optional auth: attach token when available (e.g. follow state) but never block the request.

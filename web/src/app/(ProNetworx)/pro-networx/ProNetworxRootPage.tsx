@@ -5,8 +5,13 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProNetworxLanding } from '@/components/dimension/ProNetworxLanding';
 import { PRO_NETWORX_APP_HOME } from '@/lib/site-url';
+import type { ProMarketingStats } from '@/lib/pro-networx-marketing-stats';
 
-export function ProNetworxRootPage() {
+export function ProNetworxRootPage({
+  initialMarketingStats,
+}: {
+  initialMarketingStats?: ProMarketingStats | null;
+}) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
@@ -24,5 +29,10 @@ export function ProNetworxRootPage() {
     );
   }
 
-  return <ProNetworxLanding variant="app" />;
+  return (
+    <ProNetworxLanding
+      variant="app"
+      initialMarketingStats={initialMarketingStats}
+    />
+  );
 }

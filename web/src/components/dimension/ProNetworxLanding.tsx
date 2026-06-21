@@ -33,7 +33,11 @@ import {
   proStats,
   type ProDiscipline,
 } from '@/data/pro-marketing-data';
-import { proNetworxApi } from '@/lib/api';
+import {
+  disciplinesFromMarketing,
+  heroStatsFromMarketing,
+  type ProMarketingStats,
+} from '@/lib/pro-networx-marketing-stats';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRO_NETWORX_APP_HOME, getProNetworxAppUrl, getSiteUrl } from '@/lib/site-url';
 
@@ -142,33 +146,35 @@ function ProLandingHeroCta({ variant }: { variant: ProNetworxLandingVariant }) {
 
 export function ProNetworxLanding({
   variant = 'marketing',
+  initialMarketingStats,
 }: {
   variant?: ProNetworxLandingVariant;
+  initialMarketingStats?: ProMarketingStats | null;
 }) {
   const directoryHref = variant === 'app' ? '/pro-networx/home' : '/pro-directory';
   const backToRadioHref = variant === 'app' ? `${getSiteUrl()}/` : '/';
   const loginFooterHref = variant === 'app' ? LOGIN_REDIRECT : '/signup';
 
-  const [disciplines, setDisciplines] = useState<ProDiscipline[]>(proDisciplines);
-  const [heroStats, setHeroStats] = useState(proStats);
+  const [disciplines, setDisciplines] = useState<ProDiscipline[]>(() =>
+    disciplinesFromMarketing(initialMarketingStats),
+  );
+  const [heroStats, setHeroStats] = useState(() =>
+    heroStatsFromMarketing(initialMarketingStats),
+  );
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = await proNetworxApi.getMarketingStats();
-        const data = res.data;
+        const response = await fetch('/api/pro-networx/public/marketing-stats', {
+          cache: 'no-store',
+        });
+        if (!response.ok || cancelled) return;
+        const data = (await response.json()) as ProMarketingStats;
         if (cancelled || !data) return;
 
         if (data.disciplinesBreakdown?.length) {
-          setDisciplines(
-            data.disciplinesBreakdown.map((d) => ({
-              icon: d.icon,
-              label: d.label,
-              count: d.count,
-              color: d.color,
-            })),
-          );
+          setDisciplines(data.disciplinesBreakdown);
         }
 
         setHeroStats({
