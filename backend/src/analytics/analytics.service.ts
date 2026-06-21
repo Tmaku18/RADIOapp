@@ -875,6 +875,31 @@ export class AnalyticsService {
       entry.plays = Number(row.plays_count) || 0;
       entry.listens = Number(row.listener_count_sum) || 0;
     }
+
+    try {
+      const { data: earsRows, error: earsError } = await supabase.rpc(
+        'get_artist_daily_ears_reached',
+        { p_song_ids: songIds, p_since: startDate.toISOString() },
+      );
+      if (earsError) {
+        this.logger.warn(
+          `get_artist_daily_ears_reached RPC unavailable: ${earsError.message}`,
+        );
+      } else {
+        for (const row of (earsRows ?? []) as Array<{
+          day: string;
+          ears_count: number | string | null;
+        }>) {
+          if (!row?.day) continue;
+          const entry = result.find((d) => d.date === row.day);
+          if (!entry) continue;
+          entry.listens = Number(row.ears_count) || 0;
+        }
+      }
+    } catch {
+      // Keep listener_count_sum fallback when daily ears RPC is unavailable.
+    }
+
     return result;
   }
 

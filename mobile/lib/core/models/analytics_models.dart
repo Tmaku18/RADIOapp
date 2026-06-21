@@ -1,13 +1,21 @@
 class DailyPlayCount {
   final String date;
   final int plays;
-  DailyPlayCount({required this.date, required this.plays});
+  final int listens;
+
+  DailyPlayCount({
+    required this.date,
+    required this.plays,
+    required this.listens,
+  });
 
   factory DailyPlayCount.fromJson(Map<String, dynamic> json) {
-    final p = json['plays'] ?? 0;
+    int toInt(dynamic v) => v is int ? v : int.tryParse(v.toString()) ?? 0;
+    final plays = toInt(json['plays']);
     return DailyPlayCount(
       date: (json['date'] ?? '').toString(),
-      plays: p is int ? p : int.tryParse(p.toString()) ?? 0,
+      plays: plays,
+      listens: toInt(json['listens'] ?? plays),
     );
   }
 }

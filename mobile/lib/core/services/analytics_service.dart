@@ -41,5 +41,11 @@ class AnalyticsService {
     }
     return const [];
   }
+
+  Future<Map<String, dynamic>?> getMyDiscoverSwipes({int days = 30}) async {
+    final res = await _api.get('analytics/me/discover-swipes?days=$days');
+    if (res is Map<String, dynamic>) return res;
+    return null;
+  }
 }
 

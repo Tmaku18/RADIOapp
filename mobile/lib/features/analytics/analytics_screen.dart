@@ -21,6 +21,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   Map<String, dynamic>? _playDetail;
   Map<String, dynamic>? _roi;
   List<Map<String, dynamic>> _regions = const [];
+  Map<String, dynamic>? _discoverSwipes;
   String? _playIdFromRoute;
 
   @override
@@ -57,6 +58,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         _analytics.getMyAnalytics(days: 30),
         _analytics.getMyRoi(days: 30),
         _analytics.getMyPlaysByRegion(days: 30),
+        _analytics.getMyDiscoverSwipes(days: 30),
       ]);
       if (!mounted) return;
       setState(() {
@@ -64,6 +66,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         _data = results[1] as ArtistAnalytics?;
         _roi = results[2] as Map<String, dynamic>?;
         _regions = (results[3] as List<Map<String, dynamic>>);
+        _discoverSwipes = results[4] as Map<String, dynamic>?;
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -199,6 +202,113 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (_discoverSwipes != null) ...[
+                    GridView.count(
+                      crossAxisCount: 3,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.1,
+                      children: [
+                        _StatCard(
+                          label: 'Right swipes',
+                          value: '${_discoverSwipes!['rightSwipes'] ?? 0}',
+                        ),
+                        _StatCard(
+                          label: 'Left swipes',
+                          value: '${_discoverSwipes!['leftSwipes'] ?? 0}',
+                        ),
+                        _StatCard(
+                          label: 'Avg swipe time',
+                          value: _discoverSwipes!['avgDecisionMs'] == null
+                              ? '—'
+                              : '${(((_discoverSwipes!['avgDecisionMs'] as num) / 1000)).toStringAsFixed(1)}s',
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  if (_data!.dailyPlays.length >= 7) ...[
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Ears Reached This Week',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontFamily: 'Lora'),
+                            ),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              height: 160,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: _data!.dailyPlays
+                                    .sublist(_data!.dailyPlays.length - 7)
+                                    .map((day) {
+                                  final ears = day.listens;
+                                  final maxEars = _data!.dailyPlays
+                                      .sublist(_data!.dailyPlays.length - 7)
+                                      .map((d) => d.listens)
+                                      .fold<int>(
+                                          0, (m, v) => v > m ? v : m);
+                                  final heightFactor = maxEars <= 0
+                                      ? 0.0
+                                      : (ears / maxEars).clamp(0.0, 1.0);
+                                  final weekday = _weekdayLabel(day.date);
+                                  return Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 3),
+                                      child: Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            '$ears',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: surfaces.textSecondary,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            height: 100 * heightFactor +
+                                                (ears > 0 ? 8 : 0),
+                                            decoration: BoxDecoration(
+                                              color: scheme.primary,
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                top: Radius.circular(6),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            weekday,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: surfaces.textMuted,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -293,7 +403,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           const SizedBox(height: 10),
                           if (_data!.topSongs.isEmpty)
                             Text(
-                              'No songs with listens yet.',
+                              'No ears reached yet.',
                               style: TextStyle(color: surfaces.textSecondary),
                             )
                           else
@@ -338,7 +448,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                                   fontWeight: FontWeight.w600),
                                             ),
                                             Text(
-                                              '${s.totalListens} listens · ${s.paidPlays} paid plays · ${s.freePlays} free plays · ${s.likeCount} likes',
+                              '${s.totalListens} ears reached · ${s.paidPlays} paid plays · ${s.freePlays} free plays · ${s.likeCount} likes',
                                               style: TextStyle(
                                                   color: surfaces.textSecondary,
                                                   fontSize: 12),
@@ -364,6 +474,16 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               ],
             ),
     );
+  }
+}
+
+String _weekdayLabel(String isoDate) {
+  try {
+    final date = DateTime.parse(isoDate);
+    const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return labels[date.weekday % 7];
+  } catch (_) {
+    return isoDate;
   }
 }
 

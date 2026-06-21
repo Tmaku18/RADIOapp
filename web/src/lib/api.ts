@@ -1817,6 +1817,10 @@ export const analyticsApi = {
   getSongAnalytics: (songId: string, days?: number) =>
     api.get(`/analytics/songs/${songId}`, { params: { days } }),
   getPlayById: (playId: string) => api.get(`/analytics/plays/${playId}`),
+  getMyDiscoverSwipes: (days?: number) =>
+    api.get<DiscoverSwipeAnalytics>('/analytics/me/discover-swipes', {
+      params: { days },
+    }),
   recordProfileClick: (songId: string) =>
     api.post('/analytics/profile-click', { songId }),
   // Platform stats (public)

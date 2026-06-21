@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { creditsApi, analyticsApi, discoverAudioApi, type DiscoverSwipeAnalytics } from '@/lib/api';
+import { creditsApi, analyticsApi, type DiscoverSwipeAnalytics } from '@/lib/api';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface DailyPlayCount {
@@ -93,18 +93,32 @@ export default function StatsPage() {
 
   const loadStats = async () => {
     try {
-      const [creditsRes, analyticsRes, roiRes, regionsRes, discoverRes] = await Promise.all([
-        creditsApi.getBalance(),
-        analyticsApi.getMyAnalytics(30),
-        analyticsApi.getMyRoi(30),
-        analyticsApi.getMyPlaysByRegion(30),
-        discoverAudioApi.getMySwipeAnalytics(30),
-      ]);
-      setCredits(creditsRes.data);
-      setAnalytics(analyticsRes.data as ArtistAnalytics);
-      setRoi(roiRes.data as RoiStats);
-      setRegions((regionsRes.data as RegionCount[]) ?? []);
-      setDiscoverSwipes(discoverRes.data as DiscoverSwipeAnalytics);
+      const [creditsRes, analyticsRes, roiRes, regionsRes, discoverRes] =
+        await Promise.allSettled([
+          creditsApi.getBalance(),
+          analyticsApi.getMyAnalytics(30),
+          analyticsApi.getMyRoi(30),
+          analyticsApi.getMyPlaysByRegion(30),
+          analyticsApi.getMyDiscoverSwipes(30),
+        ]);
+
+      if (creditsRes.status === 'fulfilled') {
+        setCredits(creditsRes.value.data);
+      }
+      if (analyticsRes.status === 'fulfilled') {
+        setAnalytics(analyticsRes.value.data as ArtistAnalytics);
+      }
+      if (roiRes.status === 'fulfilled') {
+        setRoi(roiRes.value.data as RoiStats);
+      }
+      if (regionsRes.status === 'fulfilled') {
+        setRegions((regionsRes.value.data as RegionCount[]) ?? []);
+      }
+      if (discoverRes.status === 'fulfilled') {
+        setDiscoverSwipes(discoverRes.value.data as DiscoverSwipeAnalytics);
+      } else {
+        console.error('Failed to load discover swipe analytics:', discoverRes.reason);
+      }
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
@@ -113,21 +127,18 @@ export default function StatsPage() {
   };
 
   const last7Days = analytics?.dailyPlays?.slice(-7) ?? [];
-  const thisWeekListens = last7Days.reduce(
-    (sum, d) => sum + (d.listens ?? d.plays ?? 0),
-    0,
-  );
-  const thisMonthListens =
-    analytics?.dailyPlays?.reduce(
-      (sum, d) => sum + (d.listens ?? d.plays ?? 0),
-      0,
-    ) ?? 0;
-  const totalListens = analytics?.totalListenCount ?? 0;
-  const listensByDayForChart = last7Days.map((d) => {
-    const day = new Date(d.date).getDay();
-    return { day: DAY_NAMES[day], listens: d.listens ?? d.plays ?? 0 };
+  const earsByDayForChart = last7Days.map((d) => {
+    const day = new Date(`${d.date}T12:00:00`).getDay();
+    return {
+      day: DAY_NAMES[day],
+      ears: d.listens ?? 0,
+    };
   });
-  const maxListens = Math.max(1, ...listensByDayForChart.map((d) => d.listens));
+  const thisWeekEars = earsByDayForChart.reduce((sum, d) => sum + d.ears, 0);
+  const thisMonthEars =
+    analytics?.dailyPlays?.reduce((sum, d) => sum + (d.listens ?? 0), 0) ?? 0;
+  const totalEars = analytics?.totalListenCount ?? 0;
+  const maxEars = Math.max(1, ...earsByDayForChart.map((d) => d.ears));
 
   if (loading) {
     return (
@@ -150,7 +161,7 @@ export default function StatsPage() {
     <div className="space-y-8">
       <div className="mb-2">
         <h1 className="text-2xl font-bold text-foreground tracking-tight">Analytics</h1>
-        <p className="text-muted-foreground mt-1">Track listens, engagement, and audience growth.</p>
+        <p className="text-muted-foreground mt-1">Track ears reached, engagement, and audience growth.</p>
       </div>
       {playDetail && (
         <Card className="border-primary/30 bg-primary/5">
@@ -184,24 +195,24 @@ export default function StatsPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Listens (ears reached)</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{totalEars.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">Unique listeners, all time</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">This Week</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisWeekListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Last 7 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Ears This Week</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{thisWeekEars.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Unique listeners, last 7 days</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">This Month</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{thisMonthListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Last 30 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Ears This Month</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{thisMonthEars.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Unique listeners, last 30 days</div>
           </CardContent>
         </Card>
 
@@ -305,23 +316,40 @@ export default function StatsPage() {
 
       <Card>
         <CardContent className="pt-6">
-          <h2 className="text-xl font-semibold text-foreground mb-6">Listens This Week</h2>
-          <div className="flex items-end justify-between h-48 gap-2 artist-chart-plays">
-            {listensByDayForChart.length > 0 ? (
-              listensByDayForChart.map((day, i) => (
-                <div key={`${day.day}-${i}`} className="flex-1 flex flex-col items-center">
+          <h2 className="text-xl font-semibold text-foreground mb-2">Ears Reached This Week</h2>
+          <p className="text-sm text-muted-foreground mb-6">
+            Unique listeners per day over the last 7 days
+          </p>
+          {earsByDayForChart.length > 0 ? (
+            <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
+              {earsByDayForChart.map((day, i) => {
+                const barHeight =
+                  day.ears > 0
+                    ? Math.max(12, Math.round((day.ears / maxEars) * 100))
+                    : 0;
+                return (
                   <div
-                    className="w-full bg-primary rounded-t-lg transition-all hover:bg-primary/80"
-                    style={{ height: `${(day.listens / maxListens) * 100}%` }}
-                  />
-                  <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
-                  <div className="text-xs text-muted-foreground">{day.listens}</div>
-                </div>
-              ))
-            ) : (
-              <p className="text-muted-foreground text-sm col-span-full">No listens in the last 7 days.</p>
-            )}
-          </div>
+                    key={`${day.day}-${i}`}
+                    className="flex-1 flex flex-col items-center min-w-0"
+                  >
+                    <div className="w-full h-40 flex items-end justify-center">
+                      <div
+                        className="w-full max-w-10 rounded-t-lg bg-primary transition-all hover:bg-primary/80"
+                        style={{ height: `${barHeight}%` }}
+                        title={`${day.ears.toLocaleString()} ears`}
+                      />
+                    </div>
+                    <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
+                    <div className="text-sm font-semibold text-foreground tabular-nums">
+                      {day.ears.toLocaleString()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-muted-foreground text-sm">No ears reached in the last 7 days.</p>
+          )}
         </CardContent>
       </Card>
 
@@ -366,7 +394,7 @@ export default function StatsPage() {
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {(song.totalListens ?? song.totalPlays).toLocaleString()} listens · {song.paidPlays.toLocaleString()} paid plays · {song.freePlays.toLocaleString()} free plays · {song.likeCount} ripples
+                      {(song.totalListens ?? song.totalPlays).toLocaleString()} ears reached · {song.paidPlays.toLocaleString()} paid plays · {song.freePlays.toLocaleString()} free plays · {song.likeCount} ripples
                     </p>
                   </div>
                   <div className="text-right shrink-0">
@@ -376,7 +404,7 @@ export default function StatsPage() {
                 </div>
               ))
             ) : (
-              <p className="text-muted-foreground py-4">No songs with listens yet. Upload and get your music on the radio to see stats here.</p>
+              <p className="text-muted-foreground py-4">No ears reached yet. Upload and get your music on the radio to see stats here.</p>
             )}
           </div>
         </CardContent>
