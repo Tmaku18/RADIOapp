@@ -48,6 +48,14 @@
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="radio_alerts"/>
+
+        <!-- Fallback when Credential Manager reauth fails ([16] on some devices). -->
+        <meta-data
+            android:name="com.google.android.gms.credentials.API_ENABLED"
+            android:value="false" />
+        <meta-data
+            android:name="androidx.credentials.CREDENTIAL_SERVICE_ENABLED"
+            android:value="false" />
         
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->

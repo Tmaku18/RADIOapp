@@ -34,6 +34,30 @@ Publishing the OAuth app to **Production** removes this restriction (may require
 
 Release Gradle config fails the build if `google-services.json` is missing or does not contain the Play App Signing SHA-1 hash. This prevents shipping an AAB that can only sign in on debug builds.
 
+## Error `[16] Account reauth failed`
+
+This appears after picking a Google account when the **Android OAuth client** does not match the **signing key** of the installed APK, or when **Credential Manager** fails on the device.
+
+### Checklist
+
+1. **How did you install the app?**
+   - **Play Store / Internal testing** → Firebase must include **App signing** SHA-1: `19:BE:18:3C:57:9A:BF:10:DC:7C:3B:8F:4A:03:2A:B4:AB:E1:2A:7F` (and SHA-256 from Play Console → App integrity).
+   - **Sideloaded release APK** → also add your **upload-key** SHA-1 (`e3:B8:59:…` in current `google-services.json`).
+   - **Debug / `flutter run`** → debug SHA-1: `2B:A4:EF:54:…`
+
+2. **OAuth consent screen (Testing mode)**  
+   Google Cloud → **APIs & Services** → **OAuth consent screen** → **Test users** → add every Gmail you sign in with (e.g. `tmaku12430@gmail.com`).  
+   Or publish the OAuth app to **Production**.
+
+3. **Re-download config**  
+   After adding fingerprints in Firebase, download a fresh `google-services.json` and rebuild (build number must increase).
+
+4. **On the phone**  
+   Settings → Apps → **Google Play services** → Storage → **Clear cache**, then retry.
+
+5. **Build 14+**  
+   Stops hardcoding the Play OAuth client on Android (auto-selects from `google-services.json`) and disables Credential Manager as a fallback for `[16]`.
+
 ## Upload checklist
 
 ```powershell

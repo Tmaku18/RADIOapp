@@ -35,6 +35,8 @@ class AuthService extends ChangeNotifier {
   static const String googleServerClientId =
       '479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com';
   /// Android OAuth client tied to Play App Signing SHA-1 in google-services.json.
+  /// Do not pass this as [clientId] on Android — google-services.json selects the
+  /// correct OAuth client for the current signing certificate automatically.
   static const String googlePlayAndroidClientId =
       '479427085382-54r5hhj9t9lk7pq6o5h2og57jc6i19qt.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
@@ -150,23 +152,20 @@ class AuthService extends ChangeNotifier {
     return _ensureGoogleSignInInitialized();
   }
 
+  static Future<void> _initializeGoogleSignIn(GoogleSignIn signIn) {
+    // Android: omit clientId — google-services.json matches debug, upload, or
+    // Play App Signing SHA-1. Hardcoding the Play client breaks other builds.
+    return signIn.initialize(serverClientId: googleServerClientId);
+  }
+
   /// Startup helper — safe to call from [main] before [AuthService] exists.
   static Future<void> warmUpGoogleSignIn() async {
     if (Firebase.apps.isEmpty) return;
-    final signIn = GoogleSignIn.instance;
-    await signIn.initialize(
-      clientId: googlePlayAndroidClientId,
-      serverClientId: googleServerClientId,
-    );
+    await _initializeGoogleSignIn(GoogleSignIn.instance);
   }
 
   Future<void> _ensureGoogleSignInInitialized() {
-    return _googleInit ??= _googleSignIn
-        .initialize(
-          clientId: googlePlayAndroidClientId,
-          serverClientId: googleServerClientId,
-        )
-        .catchError((Object e) {
+    return _googleInit ??= _initializeGoogleSignIn(_googleSignIn).catchError((Object e) {
       _googleInit = null;
       throw e;
     });
@@ -193,6 +192,17 @@ class AuthService extends ChangeNotifier {
     final detail = e.description?.trim();
     final detailSuffix =
         detail != null && detail.isNotEmpty ? '\n($detail)' : '';
+    final isReauthFailed =
+        detail != null && detail.toLowerCase().contains('reauth');
+    if (isReauthFailed) {
+      return 'Google sign-in did not complete.$detailSuffix\n\n'
+          'This usually means the OAuth client does not match how the app was signed:\n'
+          '• Play Store install → Firebase must list the Play App Signing SHA-1 '
+          '(19:BE:18:3C:…)\n'
+          '• Sideloaded release APK → needs your upload-key SHA-1 in Firebase too\n'
+          '• OAuth consent screen in Testing → add your Gmail under Test users\n'
+          '• On device: Settings → Apps → Google Play services → Storage → Clear cache';
+    }
     return 'Google sign-in did not complete.$detailSuffix\n\n'
         'Play Store builds need the Play App Signing SHA-1 in Firebase. '
         'If OAuth is in Testing mode, add your Gmail under Test users in '
