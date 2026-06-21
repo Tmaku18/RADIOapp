@@ -10,6 +10,7 @@ interface DailyPlayCount {
   date: string;
   plays: number;
   listens?: number;
+  ears?: number;
 }
 
 interface TopSong {
@@ -29,10 +30,12 @@ interface ArtistAnalytics {
   totalPlays: number;
   totalListenCount?: number;
   earsReached?: number;
-  playsThisWeek?: number;
-  playsThisMonth?: number;
+  listensThisWeek?: number;
+  listensThisMonth?: number;
   earsReachedThisWeek?: number;
   earsReachedThisMonth?: number;
+  playsThisWeek?: number;
+  playsThisMonth?: number;
   totalPaidPlays: number;
   totalFreePlays: number;
   totalSongs: number;
@@ -136,19 +139,20 @@ export default function StatsPage() {
     const day = new Date(`${d.date}T12:00:00`).getDay();
     return {
       day: DAY_NAMES[day],
-      ears: d.listens ?? 0,
-      plays: d.plays ?? 0,
+      ears: d.ears ?? 0,
+      listens: d.listens ?? 0,
     };
   });
-  const totalEars =
-    analytics?.earsReached ?? analytics?.totalListenCount ?? 0;
-  const totalListens = analytics?.totalPlays ?? 0;
+  const totalEars = analytics?.earsReached ?? 0;
+  const totalListens = analytics?.totalListenCount ?? 0;
   const earsThisWeek = analytics?.earsReachedThisWeek ?? 0;
   const earsThisMonth = analytics?.earsReachedThisMonth ?? 0;
-  const listensThisWeek = analytics?.playsThisWeek ?? 0;
-  const listensThisMonth = analytics?.playsThisMonth ?? 0;
+  const listensThisWeek =
+    analytics?.listensThisWeek ?? analytics?.playsThisWeek ?? 0;
+  const listensThisMonth =
+    analytics?.listensThisMonth ?? analytics?.playsThisMonth ?? 0;
   const maxEars = Math.max(1, ...earsByDayForChart.map((d) => d.ears));
-  const maxPlays = Math.max(1, ...earsByDayForChart.map((d) => d.plays));
+  const maxListens = Math.max(1, ...earsByDayForChart.map((d) => d.listens));
 
   if (loading) {
     return (
@@ -214,7 +218,7 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Listens</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Total plays, all time</div>
+            <div className="text-sm text-primary mt-2">People who heard your songs (once per song)</div>
           </CardContent>
         </Card>
 
@@ -230,7 +234,7 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Listens This Week</div>
             <div className="text-3xl font-bold text-foreground mt-1">{listensThisWeek.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Total plays, last 7 days</div>
+            <div className="text-sm text-primary mt-2">Song listens, last 7 days</div>
           </CardContent>
         </Card>
       </div>
@@ -248,7 +252,7 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <div className="text-sm text-muted-foreground font-medium">Listens This Month</div>
             <div className="text-3xl font-bold text-foreground mt-1">{listensThisMonth.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Total plays, last 30 days</div>
+            <div className="text-sm text-primary mt-2">Song listens, last 30 days</div>
           </CardContent>
         </Card>
 
@@ -357,7 +361,7 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-2">Ears Reached This Week</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Unique listeners per day over the last 7 days
+              Unique listeners per day (each account once)
             </p>
             {earsByDayForChart.length > 0 ? (
               <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
@@ -396,30 +400,30 @@ export default function StatsPage() {
           <CardContent className="pt-6">
             <h2 className="text-xl font-semibold text-foreground mb-2">Listens This Week</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Total plays per day over the last 7 days
+              Unique song listens per day (once per song per person)
             </p>
             {earsByDayForChart.length > 0 ? (
               <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
                 {earsByDayForChart.map((day, i) => {
                   const barHeight =
-                    day.plays > 0
-                      ? Math.max(12, Math.round((day.plays / maxPlays) * 100))
+                    day.listens > 0
+                      ? Math.max(12, Math.round((day.listens / maxListens) * 100))
                       : 0;
                   return (
                     <div
-                      key={`plays-${day.day}-${i}`}
+                      key={`listens-${day.day}-${i}`}
                       className="flex-1 flex flex-col items-center min-w-0"
                     >
                       <div className="w-full h-40 flex items-end justify-center">
                         <div
                           className="w-full max-w-10 rounded-t-lg bg-pink-500 transition-all hover:bg-pink-500/80"
                           style={{ height: `${barHeight}%` }}
-                          title={`${day.plays.toLocaleString()} listens`}
+                          title={`${day.listens.toLocaleString()} listens`}
                         />
                       </div>
                       <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
                       <div className="text-sm font-semibold text-foreground tabular-nums">
-                        {day.plays.toLocaleString()}
+                        {day.listens.toLocaleString()}
                       </div>
                     </div>
                   );
@@ -473,7 +477,7 @@ export default function StatsPage() {
                   <div className="flex-1 min-w-0">
                     <Link href={`/artist/songs/${song.songId}`} className="font-medium text-foreground hover:underline block truncate">{song.title}</Link>
                     <p className="text-sm text-muted-foreground">
-                      {(song.totalListens ?? 0).toLocaleString()} ears reached · {song.totalPlays.toLocaleString()} listens · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
+                      {(song.totalListens ?? 0).toLocaleString()} listens · {song.totalPlays.toLocaleString()} spins · {song.paidPlays.toLocaleString()} paid · {song.freePlays.toLocaleString()} free · {song.likeCount} ripples
                     </p>
                   </div>
                   <div className="text-right shrink-0">

@@ -43,6 +43,7 @@ interface DashboardStats {
   artist?: {
     totalPlays: number;
     totalListenCount?: number;
+    earsReached?: number;
     totalSongs: number;
     totalLikes: number;
   };
@@ -158,7 +159,7 @@ const PLATFORM_STATS = [
   },
   {
     label: 'Listens',
-    key: 'totalPlays' as const,
+    key: 'totalListenCount' as const,
     Icon: BarChart3,
     valueClass: 'text-cyan-300',
     borderClass: 'border-cyan-400/40',
@@ -285,19 +286,19 @@ export default function DashboardPage() {
             totalSongs?: number;
             totalPlays?: number;
             totalListenCount?: number;
+            listens?: number;
             earsReached?: number;
             totalProfileClicks?: number;
           };
-          const listenCount =
-            platform.earsReached ??
-            platform.totalListenCount ??
-            0;
           next.platform = {
             totalArtists: platform.totalArtists ?? 0,
             totalSongs: platform.totalSongs ?? 0,
             totalPlays: platform.totalPlays ?? 0,
-            totalListenCount: listenCount,
-            earsReached: listenCount,
+            totalListenCount:
+              platform.listens ??
+              platform.totalListenCount ??
+              0,
+            earsReached: platform.earsReached ?? 0,
             totalProfileClicks: platform.totalProfileClicks ?? 0,
           };
         } catch (platformError) {
@@ -315,8 +316,8 @@ export default function DashboardPage() {
           };
           next.artist = {
             totalPlays: artist.totalPlays ?? 0,
-            totalListenCount:
-              artist.totalListenCount ?? artist.earsReached ?? 0,
+            totalListenCount: artist.totalListenCount ?? 0,
+            earsReached: artist.earsReached ?? 0,
             totalSongs: artist.totalSongs ?? 0,
             totalLikes: artist.totalLikes ?? 0,
           };
@@ -478,14 +479,14 @@ export default function DashboardPage() {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <DimensionStatCard
                   label="Ears Reached"
-                  value={stats.artist?.totalListenCount ?? 0}
+                  value={stats.artist?.earsReached ?? 0}
                   Icon={Heart}
                   valueClass="text-yellow-300"
                   borderClass="border-yellow-300/40"
                 />
                 <DimensionStatCard
                   label="Listens"
-                  value={stats.artist?.totalPlays ?? 0}
+                  value={stats.artist?.totalListenCount ?? 0}
                   Icon={Headphones}
                   valueClass="text-cyan-300"
                   borderClass="border-cyan-400/40"

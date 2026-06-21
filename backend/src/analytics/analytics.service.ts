@@ -5,8 +5,12 @@ import { STATION_IDS } from '../radio/station.constants';
 
 export interface DailyPlayCount {
   date: string;
+  /** Radio spin / play events that day. */
   plays: number;
+  /** Unique (song, listener) pairs that day. */
   listens: number;
+  /** Unique listeners that day (each account once). */
+  ears: number;
 }
 
 interface SongAnalytics {
@@ -42,13 +46,14 @@ export interface DiscoverSwipeAnalytics {
 }
 
 export interface ArtistAnalytics {
-  /** Total radio play events (how many times songs were spun). */
+  /** Total radio play events (spins). */
   totalPlays: number;
-  /** Unique listeners all-time (ears reached). */
+  /** Unique listens: distinct (song, listener) pairs all-time. */
   totalListenCount: number;
+  /** Unique listeners (each account/device once). */
   earsReached: number;
-  playsThisWeek: number;
-  playsThisMonth: number;
+  listensThisWeek: number;
+  listensThisMonth: number;
   earsReachedThisWeek: number;
   earsReachedThisMonth: number;
   totalPaidPlays: number;
@@ -128,6 +133,50 @@ export class AnalyticsService {
         'get_artist_ears_reached_since',
         { p_artist_id: artistId, p_since: since.toISOString() },
       );
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getArtistListenCount(artistId: string): Promise<number | null> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_artist_listen_count', {
+        p_artist_id: artistId,
+      });
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getArtistListenCountSince(
+    artistId: string,
+    since: Date,
+  ): Promise<number | null> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc(
+        'get_artist_listen_count_since',
+        { p_artist_id: artistId, p_since: since.toISOString() },
+      );
+      if (error || data == null) return null;
+      const value = Number(data);
+      return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async getPlatformListenCount(): Promise<number | null> {
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_radio_listen_count');
       if (error || data == null) return null;
       const value = Number(data);
       return Number.isFinite(value) ? Math.max(0, Math.round(value)) : null;
@@ -451,8 +500,8 @@ export class AnalyticsService {
         totalPlays: 0,
         totalListenCount: 0,
         earsReached: 0,
-        playsThisWeek: 0,
-        playsThisMonth: 0,
+        listensThisWeek: 0,
+        listensThisMonth: 0,
         earsReachedThisWeek: 0,
         earsReachedThisMonth: 0,
         totalPaidPlays: 0,
@@ -511,18 +560,20 @@ export class AnalyticsService {
     }
 
     const artistEarsReached = await this.getArtistEarsReached(artistId);
+    const artistListenCount = await this.getArtistListenCount(artistId);
     const summedSongEars = [...earsBySongId.values()].reduce(
       (sum, value) => sum + value,
       0,
     );
     const totalListenCount =
-      artistEarsReached ??
+      artistListenCount ??
       (summedSongEars > 0
         ? summedSongEars
         : [...listenCountBySongId.values()].reduce(
             (sum, value) => sum + value,
             0,
           ));
+    const earsReached = artistEarsReached ?? 0;
     const totalPaidPlays = (songs || []).reduce(
       (sum, song) => sum + (song.paid_play_count || 0),
       0,
@@ -571,15 +622,18 @@ export class AnalyticsService {
       days,
     );
 
-    const last7Days = dailyPlays.slice(-7);
-    const playsThisWeek = last7Days.reduce((sum, d) => sum + d.plays, 0);
-    const playsThisMonth = dailyPlays.reduce((sum, d) => sum + d.plays, 0);
-
     const weekStart = new Date();
     weekStart.setDate(weekStart.getDate() - 7);
-    const [earsReachedThisWeek, earsReachedThisMonth] = await Promise.all([
+    const [
+      earsReachedThisWeek,
+      earsReachedThisMonth,
+      listensThisWeek,
+      listensThisMonth,
+    ] = await Promise.all([
       this.getArtistEarsReachedSince(artistId, weekStart),
       this.getArtistEarsReachedSince(artistId, startDate),
+      this.getArtistListenCountSince(artistId, weekStart),
+      this.getArtistListenCountSince(artistId, startDate),
     ]);
 
     // Top songs ranked by ears reached, then play count, with real likes.
@@ -638,9 +692,9 @@ export class AnalyticsService {
     return {
       totalPlays,
       totalListenCount,
-      earsReached: totalListenCount,
-      playsThisWeek,
-      playsThisMonth,
+      earsReached,
+      listensThisWeek: listensThisWeek ?? 0,
+      listensThisMonth: listensThisMonth ?? 0,
       earsReachedThisWeek: earsReachedThisWeek ?? 0,
       earsReachedThisMonth: earsReachedThisMonth ?? 0,
       totalPaidPlays,
@@ -780,6 +834,7 @@ export class AnalyticsService {
     // Best-effort: never let a transient radio/Redis issue fail the totals.
     let liveListeners = 0;
     let earsReached = 0;
+    let platformListenCount: number | null = null;
     try {
       const live = await this.getPlatformLiveStats();
       liveListeners = live.liveListeners;
@@ -791,6 +846,7 @@ export class AnalyticsService {
         }`,
       );
     }
+    platformListenCount = await this.getPlatformListenCount();
 
     return {
       totalUsers: totalUsers || 0,
@@ -799,11 +855,12 @@ export class AnalyticsService {
       totalSongs: totalSongs || 0,
       totalApprovedSongs: totalApprovedSongs || 0,
       totalPlays: totalPlays || 0,
-      totalListenCount: earsReached,
+      totalListenCount: platformListenCount ?? 0,
       totalProfileClicks: totalProfileClicks || 0,
       totalLikes: totalLikes || 0,
       liveListeners,
       earsReached,
+      listens: platformListenCount ?? 0,
     };
   }
 
@@ -851,6 +908,7 @@ export class AnalyticsService {
         date: date.toISOString().split('T')[0],
         plays: 0,
         listens: 0,
+        ears: 0,
       });
     }
     plays.forEach((play) => {
@@ -881,6 +939,7 @@ export class AnalyticsService {
         date: date.toISOString().split('T')[0],
         plays: 0,
         listens: 0,
+        ears: 0,
       });
     }
 
@@ -923,6 +982,30 @@ export class AnalyticsService {
     }
 
     try {
+      const { data: listenRows, error: listenError } = await supabase.rpc(
+        'get_artist_daily_listens',
+        { p_song_ids: songIds, p_since: startDate.toISOString() },
+      );
+      if (listenError) {
+        this.logger.warn(
+          `get_artist_daily_listens RPC unavailable: ${listenError.message}`,
+        );
+      } else {
+        for (const row of (listenRows ?? []) as Array<{
+          day: string;
+          listens_count: number | string | null;
+        }>) {
+          if (!row?.day) continue;
+          const entry = result.find((d) => d.date === row.day);
+          if (!entry) continue;
+          entry.listens = Number(row.listens_count) || 0;
+        }
+      }
+    } catch {
+      // Keep listener_count_sum fallback when daily listens RPC is unavailable.
+    }
+
+    try {
       const { data: earsRows, error: earsError } = await supabase.rpc(
         'get_artist_daily_ears_reached',
         { p_song_ids: songIds, p_since: startDate.toISOString() },
@@ -939,11 +1022,11 @@ export class AnalyticsService {
           if (!row?.day) continue;
           const entry = result.find((d) => d.date === row.day);
           if (!entry) continue;
-          entry.listens = Number(row.ears_count) || 0;
+          entry.ears = Number(row.ears_count) || 0;
         }
       }
     } catch {
-      // Keep listener_count_sum fallback when daily ears RPC is unavailable.
+      // Keep prior fallbacks when daily ears RPC is unavailable.
     }
 
     return result;
