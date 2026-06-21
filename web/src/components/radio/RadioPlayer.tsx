@@ -455,8 +455,12 @@ export function RadioPlayer({
   }, [canSendPresenceHeartbeat, state.track?.id, state.isPlaying, effectiveRadioId]);
 
   // Fetch current track on mount and periodically
-  const fetchCurrentTrack = useCallback(async (shouldSync = false, autoPlay = false) => {
-    if (state.source && state.source !== 'radio') return;
+  const fetchCurrentTrack = useCallback(async (
+    shouldSync = false,
+    autoPlay = false,
+    forceRadioTakeover = false,
+  ) => {
+    if (!forceRadioTakeover && state.source && state.source !== 'radio') return;
     if (isFetchingNextTrack.current) return;
     const nowMs = Date.now();
     if (nowMs < nextFetchAllowedAtRef.current) return;
@@ -713,8 +717,47 @@ export function RadioPlayer({
     isFetchingCurrentTrackRef.current = false;
     setNoContent(false);
     setNoContentMessage(null);
-    void fetchCurrentTrack(true, hasUserInteracted || state.isPlaying);
-  }, [effectiveRadioId, fetchCurrentTrack, hasUserInteracted, state.isPlaying]);
+    const forceTakeover = !!state.source && state.source !== 'radio';
+    void fetchCurrentTrack(
+      true,
+      hasUserInteracted || state.isPlaying,
+      forceTakeover,
+    );
+  }, [
+    effectiveRadioId,
+    fetchCurrentTrack,
+    hasUserInteracted,
+    state.isPlaying,
+    state.source,
+  ]);
+
+  // Library samples / discography previews keep global playback off-radio. The
+  // listen page owns live radio — resume the tower when we mount or return here.
+  useEffect(() => {
+    if (!state.source || state.source === 'radio') {
+      if (
+        state.source === 'radio' &&
+        state.track?.radioId &&
+        state.track.radioId !== effectiveRadioId
+      ) {
+        void fetchCurrentTrack(true, hasUserInteracted || autoplay, true);
+      }
+      return;
+    }
+    setHasUserInteracted(true);
+    const shouldAutoPlay =
+      autoplay || (state.isPlaying && !state.pausedAt) || hasUserInteracted;
+    void fetchCurrentTrack(true, shouldAutoPlay, true);
+  }, [
+    autoplay,
+    effectiveRadioId,
+    fetchCurrentTrack,
+    hasUserInteracted,
+    state.isPlaying,
+    state.pausedAt,
+    state.source,
+    state.track?.radioId,
+  ]);
 
   // Reset vote state when the current vote key changes.
   useEffect(() => {
@@ -952,7 +995,8 @@ export function RadioPlayer({
   };
 
   const handleBackToLiveRadio = useCallback(async () => {
-    await fetchCurrentTrack(false, true);
+    setHasUserInteracted(true);
+    await fetchCurrentTrack(false, true, true);
   }, [fetchCurrentTrack]);
 
   const formatTime = (seconds: number) => {

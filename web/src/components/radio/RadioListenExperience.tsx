@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
 import { Reveal } from '@/components/dimension/Reveal';
 import { DEFAULT_STATION_ID, getStationById } from '@/data/station-map';
-import { getLastRadioStationId } from '@/lib/playback-preferences';
+import { getLastRadioStationId, setLastRadioStationId } from '@/lib/playback-preferences';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -65,6 +65,10 @@ export function RadioListenExperience({
     () => (radioIdProp?.trim() ? radioIdProp.trim() : resolveStationId(stationParam)),
     [radioIdProp, stationParam],
   );
+
+  useEffect(() => {
+    if (resolvedStationId) setLastRadioStationId(resolvedStationId);
+  }, [resolvedStationId]);
 
   const [risingStar, setRisingStar] = useState<{ title: string; body: string } | null>(null);
   const [pulseActive, setPulseActive] = useState(false);
