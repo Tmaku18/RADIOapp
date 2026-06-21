@@ -194,6 +194,32 @@ export class LeaderboardService {
     return result;
   }
 
+  private async getListenCountBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_listen_count', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        listens: number | string | null;
+      }>) {
+        const value = Number(row.listens);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment.
+    }
+    return result;
+  }
+
   /**
    * Songs ordered by listens (unique listeners per song).
    * Falls back to radio plays + profile listens when the ears RPC is unavailable.
@@ -204,9 +230,10 @@ export class LeaderboardService {
   ): Promise<LeaderboardSong[]> {
     const songs = await this.getApprovedSongsBase();
     const songIds = songs.map((song) => song.id);
-    const [{ saveCounts, playCounts, profileListenCounts }, earsBySong] =
+    const [{ saveCounts, playCounts, profileListenCounts }, listensBySong, earsBySong] =
       await Promise.all([
         this.getEngagementCountsBySongId(songIds),
+        this.getListenCountBySongId(songIds),
         this.getEarsReachedBySongId(songIds),
       ]);
 
@@ -216,10 +243,10 @@ export class LeaderboardService {
         const profilePlayCount =
           profileListenCounts.get(song.id) ?? song.profile_play_count ?? 0;
         const saveCount = saveCounts.get(song.id) ?? song.like_count ?? 0;
-        // Per-song unique listeners = one listen per person per song.
-        const earsReached = earsBySong.get(song.id);
         const listenCount =
-          earsReached != null ? earsReached : playCount + profilePlayCount;
+          listensBySong.get(song.id) ??
+          earsBySong.get(song.id) ??
+          playCount + profilePlayCount;
         return {
           id: song.id,
           title: song.title,

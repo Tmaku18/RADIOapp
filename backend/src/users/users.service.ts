@@ -1111,25 +1111,29 @@ export class UsersService {
     }
 
     const earsBySongId = new Map<string, number>();
+    const listensBySongId = new Map<string, number>();
     if (songIds.length > 0) {
       try {
-        const { data: earsRows, error: earsError } = await supabase.rpc(
-          'get_song_ears_reached',
-          { p_song_ids: songIds },
-        );
-        if (earsError) {
-          this.logger.warn(
-            `get_song_ears_reached RPC unavailable on artist profile: ${earsError.message}`,
-          );
-        } else {
-          for (const row of (earsRows ?? []) as Array<{
-            song_id: string;
-            ears: number | string | null;
-          }>) {
-            const value = Number(row.ears);
-            if (row.song_id && Number.isFinite(value)) {
-              earsBySongId.set(row.song_id, Math.max(0, Math.round(value)));
-            }
+        const [{ data: earsRows }, { data: listenRows }] = await Promise.all([
+          supabase.rpc('get_song_ears_reached', { p_song_ids: songIds }),
+          supabase.rpc('get_song_listen_count', { p_song_ids: songIds }),
+        ]);
+        for (const row of (earsRows ?? []) as Array<{
+          song_id: string;
+          ears: number | string | null;
+        }>) {
+          const value = Number(row.ears);
+          if (row.song_id && Number.isFinite(value)) {
+            earsBySongId.set(row.song_id, Math.max(0, Math.round(value)));
+          }
+        }
+        for (const row of (listenRows ?? []) as Array<{
+          song_id: string;
+          listens: number | string | null;
+        }>) {
+          const value = Number(row.listens);
+          if (row.song_id && Number.isFinite(value)) {
+            listensBySongId.set(row.song_id, Math.max(0, Math.round(value)));
           }
         }
       } catch {
@@ -1192,6 +1196,7 @@ export class UsersService {
         const likeCount =
           realLikesBySongId.get(song.id) ?? (song.like_count || 0);
         const listenCount =
+          listensBySongId.get(song.id) ??
           earsBySongId.get(song.id) ??
           realListenersBySongId.get(song.id) ??
           0;
@@ -1284,9 +1289,14 @@ export class UsersService {
     }
 
     const totalPlays = mappedSongs.reduce((sum, s) => sum + s.playCount, 0);
-    const totalListens =
-      artistListenCount ??
-      mappedSongs.reduce((sum, s) => sum + s.listenCount, 0);
+    const summedSongListens = mappedSongs.reduce(
+      (sum, s) => sum + s.listenCount,
+      0,
+    );
+    const totalListens = Math.max(
+      artistListenCount ?? 0,
+      summedSongListens,
+    );
     const earsReached = artistEarsReached ?? 0;
 
     const userRow = user;

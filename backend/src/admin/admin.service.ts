@@ -1012,7 +1012,7 @@ export class AdminService {
           await Promise.all([
             supabase.rpc('get_artist_listen_count', { p_artist_id: userId }),
             supabase.rpc('get_artist_ears_reached', { p_artist_id: userId }),
-            supabase.rpc('get_song_ears_reached', { p_song_ids: songIds }),
+            supabase.rpc('get_song_listen_count', { p_song_ids: songIds }),
           ]);
         if (listens != null) {
           totalListenCount = Math.max(0, Number(listens) || 0);
@@ -1022,12 +1022,12 @@ export class AdminService {
         }
         for (const row of (songListens ?? []) as Array<{
           song_id: string;
-          ears: number | string | null;
+          listens: number | string | null;
         }>) {
           if (!row?.song_id) continue;
           listenCountBySongId.set(
             row.song_id,
-            Math.max(0, Number(row.ears) || 0),
+            Math.max(0, Number(row.listens) || 0),
           );
         }
       } catch {
@@ -1051,6 +1051,14 @@ export class AdminService {
       totalListenCount = songsWithListenCounts.reduce(
         (sum, song) => sum + (song.listen_count || 0),
         0,
+      );
+    } else {
+      totalListenCount = Math.max(
+        totalListenCount,
+        songsWithListenCounts.reduce(
+          (sum, song) => sum + (song.listen_count || 0),
+          0,
+        ),
       );
     }
 

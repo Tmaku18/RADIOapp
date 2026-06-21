@@ -1438,10 +1438,14 @@ export class SongsService {
 
     // Rank by unique listeners per song (listens) plus likes — NOT raw play counts.
     const allSongIds = allSongs.map((s) => s.id);
-    const earsBySong = await this.getEarsReachedBySongId(allSongIds);
+    const [earsBySong, listensBySong] = await Promise.all([
+      this.getEarsReachedBySongId(allSongIds),
+      this.getListenCountBySongId(allSongIds),
+    ]);
 
     const score = (s: (typeof allSongs)[number]) =>
-      (earsBySong.get(s.id) ?? 0) + (s.like_count ?? 0) * 5;
+      (listensBySong.get(s.id) ?? earsBySong.get(s.id) ?? 0) +
+      (s.like_count ?? 0) * 5;
 
     const ranked = [...allSongs]
       .sort((a, b) => score(b) - score(a))
@@ -1469,7 +1473,7 @@ export class SongsService {
           durationSeconds: s.duration_seconds,
           likeCount: s.like_count ?? 0,
           playCount: (s.play_count ?? 0) + (s.profile_play_count ?? 0),
-          listens: earsBySong.get(s.id) ?? 0,
+          listens: listensBySong.get(s.id) ?? earsBySong.get(s.id) ?? 0,
           earsReached: earsBySong.get(s.id) ?? 0,
           temperaturePercent: temperatureBySong.get(s.id) ?? 50,
         };
@@ -1484,6 +1488,7 @@ export class SongsService {
         likeCount: number;
         playCount: number;
         earsReached: number;
+        listens: number;
         songCount: number;
         name: string;
       }
@@ -1494,20 +1499,23 @@ export class SongsService {
         likeCount: 0,
         playCount: 0,
         earsReached: 0,
+        listens: 0,
         songCount: 0,
         name: s.artist_name,
       };
       current.likeCount += s.like_count ?? 0;
       current.playCount += (s.play_count ?? 0) + (s.profile_play_count ?? 0);
       current.earsReached += earsBySong.get(s.id) ?? 0;
+      current.listens +=
+        listensBySong.get(s.id) ?? earsBySong.get(s.id) ?? 0;
       current.songCount += 1;
       artistAgg.set(s.artist_id, current);
     }
 
     const artistScore = (agg: {
       likeCount: number;
-      earsReached: number;
-    }) => agg.earsReached + agg.likeCount * 5;
+      listens: number;
+    }) => agg.listens + agg.likeCount * 5;
 
     const topArtistEntries = [...artistAgg.entries()]
       .sort((a, b) => artistScore(b[1]) - artistScore(a[1]))
@@ -1539,7 +1547,7 @@ export class SongsService {
       songCount: agg.songCount,
       likeCount: agg.likeCount,
       playCount: agg.playCount,
-      listens: agg.earsReached,
+      listens: agg.listens,
       earsReached: agg.earsReached,
     }));
 
@@ -1610,6 +1618,35 @@ export class SongsService {
       }
     } catch {
       // RPC may not exist in this environment; callers fall back to 0.
+    }
+    return result;
+  }
+
+  /**
+   * Per-song unique listens (radio + profile + spotlight). Best-effort.
+   */
+  private async getListenCountBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_listen_count', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        listens: number | string | null;
+      }>) {
+        const value = Number(row.listens);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment; callers fall back to ears/plays.
     }
     return result;
   }
@@ -2702,7 +2739,10 @@ export class SongsService {
     let listensBySongId = new Map<string, number>();
 
     if (songIds.length > 0) {
-      listensBySongId = await this.getEarsReachedBySongId(songIds);
+      listensBySongId = await this.getListenCountBySongId(songIds);
+      if (listensBySongId.size === 0) {
+        listensBySongId = await this.getEarsReachedBySongId(songIds);
+      }
 
       const { data: likeRows, error: likesCountError } = await supabase
         .from('likes')

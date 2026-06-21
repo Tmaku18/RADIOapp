@@ -107,6 +107,35 @@ export class AnalyticsService {
   }
 
   /**
+   * Per-song unique listens (radio + profile + spotlight). Best-effort.
+   */
+  private async getListenCountBySongId(
+    songIds: string[],
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (songIds.length === 0) return result;
+    const supabase = getSupabaseClient();
+    try {
+      const { data, error } = await supabase.rpc('get_song_listen_count', {
+        p_song_ids: songIds,
+      });
+      if (error || !data) return result;
+      for (const row of data as Array<{
+        song_id: string;
+        listens: number | string | null;
+      }>) {
+        const value = Number(row.listens);
+        if (Number.isFinite(value)) {
+          result.set(row.song_id, Math.max(0, Math.round(value)));
+        }
+      }
+    } catch {
+      // RPC may not exist in this environment.
+    }
+    return result;
+  }
+
+  /**
    * Artist-level unique ears (deduplicated across all songs). Best-effort.
    */
   private async getArtistEarsReached(artistId: string): Promise<number | null> {
@@ -552,7 +581,13 @@ export class AnalyticsService {
     }
 
     const earsBySongId = await this.getEarsReachedBySongId(songIds);
+    const listensBySongId = await this.getListenCountBySongId(songIds);
     for (const songId of songIds) {
+      const listens = listensBySongId.get(songId);
+      if (listens != null) {
+        listenCountBySongId.set(songId, listens);
+        continue;
+      }
       const ears = earsBySongId.get(songId);
       if (ears != null) {
         listenCountBySongId.set(songId, ears);
@@ -561,18 +596,14 @@ export class AnalyticsService {
 
     const artistEarsReached = await this.getArtistEarsReached(artistId);
     const artistListenCount = await this.getArtistListenCount(artistId);
-    const summedSongEars = [...earsBySongId.values()].reduce(
+    const summedSongListens = [...listenCountBySongId.values()].reduce(
       (sum, value) => sum + value,
       0,
     );
-    const totalListenCount =
-      artistListenCount ??
-      (summedSongEars > 0
-        ? summedSongEars
-        : [...listenCountBySongId.values()].reduce(
-            (sum, value) => sum + value,
-            0,
-          ));
+    const totalListenCount = Math.max(
+      artistListenCount ?? 0,
+      summedSongListens,
+    );
     const earsReached = artistEarsReached ?? 0;
     const totalPaidPlays = (songs || []).reduce(
       (sum, song) => sum + (song.paid_play_count || 0),
@@ -982,7 +1013,6 @@ export class AnalyticsService {
       const entry = result.find((d) => d.date === row.day);
       if (!entry) continue;
       entry.plays = Number(row.plays_count) || 0;
-      entry.listens = Number(row.listener_count_sum) || 0;
     }
 
     try {

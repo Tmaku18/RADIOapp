@@ -219,6 +219,11 @@ export default function StatsPage() {
             <div className="text-sm text-muted-foreground font-medium">Listens</div>
             <div className="text-3xl font-bold text-foreground mt-1">{totalListens.toLocaleString()}</div>
             <div className="text-sm text-primary mt-2">People who heard your songs (once per song)</div>
+            {totalListens === totalEars && (analytics?.totalSongs ?? 0) <= 1 && (
+              <div className="text-xs text-muted-foreground mt-1">
+                With one song, each listener counts once in both metrics.
+              </div>
+            )}
           </CardContent>
         </Card>
 
