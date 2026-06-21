@@ -102,20 +102,46 @@ class RadioService {
     }
   }
 
-  Future<void> sendHeartbeat({
+  Future<Map<String, dynamic>?> sendHeartbeat({
     required String streamToken,
     required String songId,
     required String timestamp,
     String radioId = defaultRadioId,
   }) async {
     try {
-      await _apiService.post(_withRadio('radio/heartbeat', radioId), {
-        'streamToken': streamToken,
-        'songId': songId,
-        'timestamp': timestamp,
-      });
+      final response = await _apiService.post(
+        _withRadio('radio/heartbeat', radioId),
+        {
+          'streamToken': streamToken,
+          'songId': songId,
+          'timestamp': timestamp,
+        },
+      );
+      if (response is Map<String, dynamic>) return response;
+      return null;
     } catch (e) {
-      // Silently fail
+      return null;
+    }
+  }
+
+  /// Public endpoint — works for logged-out guests (live listener count).
+  Future<void> sendPresence({
+    required String streamToken,
+    required String songId,
+    required String timestamp,
+    String radioId = defaultRadioId,
+  }) async {
+    try {
+      await _apiService.post(
+        _withRadio('radio/presence', radioId),
+        {
+          'streamToken': streamToken,
+          'songId': songId,
+          'timestamp': timestamp,
+        },
+      );
+    } catch (e) {
+      // Best effort only.
     }
   }
 

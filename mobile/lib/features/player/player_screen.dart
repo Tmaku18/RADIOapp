@@ -20,13 +20,20 @@ import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
+import '../../core/services/radio_presence_service.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/venue_ad.dart';
 import '../../core/env.dart';
 import '../../core/brand/brand_assets.dart';
+import '../../core/analytics/analytics_metrics.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
+import '../dimension/butterfly_hero_fallback.dart';
+import 'widgets/frequency_visualizer.dart';
+import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
 
@@ -207,7 +214,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         _handleTrackEnded();
       }
     });
-    _startPresenceTimer();
+    _startTrackStatsTimer();
     _startTrackSyncTimer();
   }
 
@@ -269,6 +276,10 @@ class _PlayerScreenState extends State<PlayerScreen>
       final me = await auth.getUserProfile();
       if (!mounted) return;
       setState(() => _me = me);
+      RadioPresenceService.instance.configure(
+        userRole: me?.role,
+        radioId: _radioId,
+      );
     } catch (_) {
       // ignore
     }
@@ -433,7 +444,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       _songAccess = null;
     });
     _scheduleTrackBoundarySync(track);
-    unawaited(_presenceTick());
+    unawaited(_refreshTrackStats());
     unawaited(_loadSongAccess(track.id));
     unawaited(_applyBoothState(track));
   }
@@ -790,30 +801,21 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  void _startPresenceTimer() {
+  void _startTrackStatsTimer() {
     _presenceTimer?.cancel();
     _presenceTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      _presenceTick();
+      _refreshTrackStats();
     });
   }
 
-  Future<void> _presenceTick() async {
+  Future<void> _refreshTrackStats() async {
     if (!mounted || _presenceTickInFlight) return;
     final track = _currentTrack;
-    // A muted listener is still tuned in (the stream stays live), so keep
-    // counting them — mirror the web behavior.
-    final isTunedIn = _isPlaying || AudioPlayerService.handler.userPaused;
+    final isTunedIn = _isPlaying || AudioPlayerService.handler.userPausedNotifier.value;
     if (!isTunedIn || track == null || track.id.isEmpty) return;
 
     _presenceTickInFlight = true;
     try {
-      await _radioService.sendHeartbeat(
-        streamToken: _streamToken,
-        songId: track.id,
-        timestamp: DateTime.now().toUtc().toIso8601String(),
-        radioId: _radioId,
-      );
-
       final latest = await _radioService.getCurrentTrack(radioId: _radioId);
       final latestTrack = latest.track;
       if (!mounted || latestTrack == null || latestTrack.id != track.id) return;
@@ -827,7 +829,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         );
       });
     } catch (_) {
-      // Best effort only; do not block playback on presence errors.
+      // Best effort only.
     } finally {
       _presenceTickInFlight = false;
     }
@@ -945,7 +947,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (!mounted) return;
       setState(() => _isPlaying = shouldPlay);
       if (shouldPlay) {
-        _presenceTick();
+        _refreshTrackStats();
       }
     } catch (_) {
       if (mounted) {
@@ -1012,8 +1014,24 @@ class _PlayerScreenState extends State<PlayerScreen>
       child: Builder(
         builder: (providerContext) {
           return Scaffold(
+            backgroundColor: DimensionTokens.bgBase,
             appBar: AppBar(
-              title: Text('Radio · ${_activeStation.genre}'),
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              title: Row(
+                children: [
+                  const LiveDot(label: 'ON AIR'),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      _activeStation.genre,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
               actions: [
                 TextButton.icon(
                   onPressed: _openStationPicker,
@@ -1024,6 +1042,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             ),
             body: Stack(
               children: [
+                const Positioned.fill(child: CyberBackdrop()),
                 _isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : _noContent
@@ -1036,6 +1055,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                     ? const Center(child: Text('No track playing'))
                     : _PlayerBody(
                         track: _currentTrack!,
+                        radioId: _radioId,
                         stationLabel: _activeStation.genre,
                         onChangeStation: _openStationPicker,
                         risingStarText: _risingStarText,
@@ -1292,6 +1312,7 @@ class _VenueAdCard extends StatelessWidget {
 
 class _PlayerBody extends StatelessWidget {
   final Track track;
+  final String radioId;
   final String stationLabel;
   final VoidCallback onChangeStation;
   final String? risingStarText;
@@ -1314,6 +1335,7 @@ class _PlayerBody extends StatelessWidget {
 
   const _PlayerBody({
     required this.track,
+    required this.radioId,
     required this.stationLabel,
     required this.onChangeStation,
     required this.risingStarText,
@@ -1616,7 +1638,7 @@ class _PlayerBody extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    'Live listeners: ${isPlaying && track.listenerCount < 1 ? 1 : track.listenerCount}',
+                    '${AnalyticsMetrics.liveListeners.label}: ${isPlaying && track.listenerCount < 1 ? 1 : track.listenerCount}',
                     style: Theme.of(context).textTheme.labelMedium?.copyWith(
                       color: surfaces.textSecondary,
                     ),
@@ -1700,6 +1722,10 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
+              FrequencyVisualizer(isPlaying: isPlaying),
+              const SizedBox(height: 16),
+              RadioUpNextQueue(radioId: radioId, currentId: track.id),
+              const SizedBox(height: 16),
               SyncedLyricsPanel(
                 songId: track.id,
                 positionStream: audioPlayer.positionStream,

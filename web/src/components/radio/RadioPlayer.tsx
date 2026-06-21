@@ -159,8 +159,8 @@ export function RadioPlayer({
 
   // Prospector-only flows (yield/check-ins/refinery) stay listener-only.
   const isProspector = profile?.role === 'listener';
-  // Presence heartbeat should include all authenticated listener-capable roles.
-  const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
+  // Presence for all listeners; yield heartbeat only for signed-in Prospectors+.
+  const canSendAuthenticatedHeartbeat = hasListenerCapability(profile?.role);
   const streamTokenRef = useRef<string>(Math.random().toString(36).slice(2));
   const lastHeartbeatSessionIdRef = useRef<string | null>(null);
   const lastTrackIdRef = useRef<string | null>(null);
@@ -433,9 +433,8 @@ export function RadioPlayer({
   }, []);
 
   // Heartbeat presence: every 30s while playing so live listener count stays accurate.
-  // Yield accrual/check-ins are gated server-side and remain listener-only.
+  // Guests send presence only; signed-in users also heartbeat for yield/check-ins.
   useEffect(() => {
-    if (!canSendPresenceHeartbeat) return;
     if (state.source !== 'radio') return;
     if (!state.track?.id) return;
     if (!state.isPlaying) return;
@@ -452,6 +451,7 @@ export function RadioPlayer({
           },
           effectiveRadioId,
         );
+        if (!canSendAuthenticatedHeartbeat) return;
         const res = await radioApi.sendHeartbeat(
           {
             streamToken: streamTokenRef.current,
@@ -477,7 +477,7 @@ export function RadioPlayer({
       cancelled = true;
       clearInterval(interval);
     };
-  }, [canSendPresenceHeartbeat, state.track?.id, state.isPlaying, effectiveRadioId]);
+  }, [canSendAuthenticatedHeartbeat, state.source, state.track?.id, state.isPlaying, effectiveRadioId]);
 
   // Fetch current track on mount and periodically
   const fetchCurrentTrack = useCallback(async (

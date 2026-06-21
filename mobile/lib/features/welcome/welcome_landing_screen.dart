@@ -7,7 +7,10 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/songs_service.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../widgets/dimension/dimension_radio_bar.dart';
+import 'dimension_home_sections.dart';
 
 /// Public pre-login landing for Networx Radio. Mirrors the web marketing home
 /// (`web/src/app/(marketing)/page.tsx`): hero + value props + live platform
@@ -68,31 +71,26 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
     final cs = theme.colorScheme;
 
     return Scaffold(
-      body: SafeArea(
-        bottom: false,
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            _Hero(
-              onGetStarted: _goToSignUp,
-              onLogin: _goToLogin,
+      backgroundColor: DimensionTokens.bgBase,
+      body: Stack(
+        children: [
+          ListView(
+            padding: const EdgeInsets.only(
+              bottom: DimensionTokens.radioBarHeight + 32,
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_stats != null) ...[
-                    _StatsStrip(stats: _stats!),
-                    const SizedBox(height: 28),
-                  ],
-                  if (_trending != null && _trending!.songs.isNotEmpty) ...[
-                    _TrendingShowcase(
-                      data: _trending!,
-                      onGetStarted: _goToSignUp,
-                    ),
-                    const SizedBox(height: 28),
-                  ],
+            children: [
+              DimensionHomeSections(
+                stats: _stats,
+                trending: _trending,
+                onMineFrequency: () {},
+                onGetStarted: _goToSignUp,
+                onExploreArtists: _goToLogin,
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Text(
                     'Build your audience, team, and career in one platform',
                     style: theme.textTheme.titleLarge?.copyWith(
@@ -158,7 +156,14 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
               ),
             ),
           ],
-        ),
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: DimensionRadioBar(),
+          ),
+        ],
       ),
     );
   }

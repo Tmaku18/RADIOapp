@@ -95,6 +95,9 @@ dependencies:
   # UI
   cached_network_image: ^3.4.1
   shimmer: ^3.0.0
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.2
+  uuid: ^4.5.1
 
   # URL launcher for opening web views
   url_launcher: ^6.2.1

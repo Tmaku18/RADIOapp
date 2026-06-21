@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
-import '../../widgets/mini_player_bar.dart';
+import '../../widgets/dimension/dimension_radio_bar.dart';
 import 'pro_home_feed_screen.dart';
 import 'pro_radio_screen.dart';
 import 'pro_search_screen.dart';
@@ -77,7 +77,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
               ],
             ),
           ),
-          const MiniPlayerBar(),
+          const DimensionRadioBar(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

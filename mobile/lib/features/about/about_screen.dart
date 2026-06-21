@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/analytics/analytics_metrics.dart';
 import '../../core/theme/networx_tokens.dart';
 
 /// About Networx — mission, story, values, and brand voice.
@@ -389,9 +390,9 @@ class _StatsStrip extends StatelessWidget {
       [_fmt(_val('totalUsers')), 'Members'],
       [_fmt(_val('totalSongs')), 'Songs'],
       [_fmt(_val('totalLikes')), 'Ripples'],
-      [_fmt(_val('totalListenCount')), 'Listens'],
-      [_fmt(_val('liveListeners')), 'Live Listeners'],
-      [_fmt(_val('earsReached')), 'Ears Reached'],
+      [_fmt(_val('totalListenCount')), AnalyticsMetrics.listens.label],
+      [_fmt(_val('liveListeners')), AnalyticsMetrics.liveListeners.label],
+      [_fmt(_val('earsReached')), AnalyticsMetrics.earsReached.label],
     ];
     final scheme = Theme.of(context).colorScheme;
     return GridView.count(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dimension_theme.dart';
 import 'networx_extensions.dart';
 import 'networx_tokens.dart';
 
@@ -196,6 +197,7 @@ ThemeData buildNetworxTheme({
     ),
     extensions: <ThemeExtension<dynamic>>[
       surfaces,
+      DimensionTheme.dark(),
     ],
   );
 }

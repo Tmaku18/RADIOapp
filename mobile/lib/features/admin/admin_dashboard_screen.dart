@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
 import '../../core/services/admin_service.dart';
 
@@ -323,8 +324,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             SizedBox(width: 220, child: _metricTile('Total Users', _analytics['totalUsers'], Icons.people_alt_outlined)),
             SizedBox(width: 220, child: _metricTile('Total Artists', _analytics['totalArtists'], Icons.mic_outlined)),
             SizedBox(width: 220, child: _metricTile('Total Songs', _analytics['totalSongs'], Icons.music_note_outlined)),
-            SizedBox(width: 220, child: _metricTile('Ears reached', _analytics['earsReached'] ?? 0, Icons.favorite_border)),
-            SizedBox(width: 220, child: _metricTile('Listens', _analytics['totalListenCount'] ?? _analytics['listens'] ?? 0, Icons.hearing_outlined)),
+            SizedBox(width: 220, child: _metricTile(AnalyticsMetrics.earsReached.label, _analytics['earsReached'] ?? 0, Icons.favorite_border)),
+            SizedBox(width: 220, child: _metricTile(AnalyticsMetrics.listens.label, _analytics['totalListenCount'] ?? _analytics['listens'] ?? 0, Icons.hearing_outlined)),
             SizedBox(width: 220, child: _metricTile('Pending Songs', _analytics['pendingSongs'], Icons.hourglass_top_outlined)),
           ],
         ),

@@ -138,11 +138,15 @@ api.interceptors.request.use(
       '/chat/status',
       '/pro-networx/public/directory',
     ];
+    const publicWriteEndpoints = ['/radio/presence'];
     const url = config.url ?? '';
+    const method = config.method?.toLowerCase() ?? 'get';
     const isPublicEndpoint =
-      config.method?.toLowerCase() === 'get' &&
-      (publicEndpoints.some((endpoint) => url === endpoint) ||
-        url.startsWith('/pro-networx/public/'));
+      (method === 'get' &&
+        (publicEndpoints.some((endpoint) => url === endpoint) ||
+          url.startsWith('/pro-networx/public/'))) ||
+      (method === 'post' &&
+        publicWriteEndpoints.some((endpoint) => url === endpoint));
     
     if (isPublicEndpoint) {
       // Optional auth: attach token when available (e.g. follow state) but never block the request.

@@ -8,7 +8,7 @@ import '../features/competition/competition_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
-import 'mini_player_bar.dart';
+import 'dimension/dimension_radio_bar.dart';
 import '../core/models/user.dart' as app_user;
 
 class HomeScreen extends StatefulWidget {
@@ -341,46 +341,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
-    // Map indices based on role.
-    //
-    // Artist nav:   Radio[0], Feed[1], Discover[2], My Songs[3], Pro-Networx[4],   More[5]
-    // Listener nav: Radio[0], Feed[1], Discover[2], Competition[3], Pro-Networx[4], More[5]
-    //
-    // For listeners the Pro-Networx button (index 4) does not render an inline tab;
-    // it pushes the Pro-Networx shell route just like the "More" menu entry, so it
-    // never becomes the selected screen here.
-    Widget getCurrentScreen() {
-      if (isArtist) {
-        switch (_currentIndex) {
-          case 0:
-            return const PlayerScreen();
-          case 1:
-            return const SocialFeedScreen();
-          case 2:
-            return const DiscoveryScreen();
-          case 3:
-            return const StudioScreen();
-          case 4:
-            return const ProNetworxShellScreen();
-          default:
-            return const PlayerScreen();
-        }
-      } else {
-        switch (_currentIndex) {
-          case 0:
-            return const PlayerScreen();
-          case 1:
-            return const SocialFeedScreen();
-          case 2:
-            return const DiscoveryScreen();
-          case 3:
-            return const CompetitionScreen();
-          default:
-            return const PlayerScreen();
-        }
-      }
-    }
-
+    // Map indices based on role — bodies live in [IndexedStack] below.
     if (_isLoading) {
       return const Scaffold(
         body: Center(
@@ -390,11 +351,27 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Scaffold(
-      body: getCurrentScreen(),
+      body: IndexedStack(
+        index: _currentIndex.clamp(0, isArtist ? 4 : 3),
+        children: isArtist
+            ? const [
+                PlayerScreen(),
+                SocialFeedScreen(),
+                DiscoveryScreen(),
+                StudioScreen(),
+                ProNetworxShellScreen(),
+              ]
+            : const [
+                PlayerScreen(),
+                SocialFeedScreen(),
+                DiscoveryScreen(),
+                CompetitionScreen(),
+              ],
+      ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_currentIndex != 0) const MiniPlayerBar(),
+          if (_currentIndex != 0) const DimensionRadioBar(),
           NavigationBar(
             selectedIndex: _currentIndex,
             destinations: destinations,

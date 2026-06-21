@@ -24,7 +24,7 @@ export function NowPlayingBar() {
   const track = state?.track;
   const activeRadioId = track?.radioId?.trim() || null;
   const isPlaying = (state?.isPlaying ?? false) && !state?.pausedAt;
-  const canSendPresenceHeartbeat = hasListenerCapability(profile?.role);
+  const canSendAuthenticatedHeartbeat = hasListenerCapability(profile?.role);
 
   useEffect(() => {
     if (streamTokenRef.current) return;
@@ -40,9 +40,9 @@ export function NowPlayingBar() {
   }, []);
 
   // Keep listener presence alive when radio audio continues outside the /listen page.
+  // Guests (logged out) send presence only; signed-in Prospectors also heartbeat for yield.
   useEffect(() => {
     if (pathname === '/listen') return;
-    if (!canSendPresenceHeartbeat) return;
     if (state?.source !== 'radio') return;
     if (!isPlaying) return;
     const streamToken = streamTokenRef.current;
@@ -54,14 +54,6 @@ export function NowPlayingBar() {
     const heartbeatIntervalMs = 30000;
     const send = async () => {
       try {
-        await radioApi.sendHeartbeat(
-          {
-            streamToken,
-            songId,
-            timestamp: new Date().toISOString(),
-          },
-          activeRadioId ?? undefined,
-        );
         await radioApi.sendPresence(
           {
             streamToken,
@@ -70,6 +62,16 @@ export function NowPlayingBar() {
           },
           activeRadioId ?? undefined,
         );
+        if (canSendAuthenticatedHeartbeat) {
+          await radioApi.sendHeartbeat(
+            {
+              streamToken,
+              songId,
+              timestamp: new Date().toISOString(),
+            },
+            activeRadioId ?? undefined,
+          );
+        }
       } catch {
         // Presence heartbeat should not block playback UX.
       }
@@ -85,7 +87,7 @@ export function NowPlayingBar() {
     };
   }, [
     pathname,
-    canSendPresenceHeartbeat,
+    canSendAuthenticatedHeartbeat,
     state?.source,
     isPlaying,
     track?.id,

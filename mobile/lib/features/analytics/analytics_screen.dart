@@ -3,6 +3,7 @@ import '../../core/models/analytics_models.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/credits_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/analytics/analytics_metrics.dart';
 
 class AnalyticsScreen extends StatefulWidget {
   const AnalyticsScreen({super.key});
@@ -143,11 +144,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     childAspectRatio: 1.25,
                     children: [
                       _StatCard(
-                        label: 'Ears Reached',
+                        label: AnalyticsMetrics.earsReached.label,
                         value: _data!.earsReached.toString(),
                       ),
                       _StatCard(
-                        label: 'Listens',
+                        label: AnalyticsMetrics.listens.label,
                         value: _data!.totalListenCount.toString(),
                       ),
                       _StatCard(
@@ -241,7 +242,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Ears Reached This Week',
+                              '${AnalyticsMetrics.earsReached.label} This Week',
                               style: Theme.of(context)
                                   .textTheme
                                   .titleMedium
