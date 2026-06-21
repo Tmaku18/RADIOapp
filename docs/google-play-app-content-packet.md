@@ -9,6 +9,8 @@ production release forms.
 - Android package: `com.radioapp.radio_app`
 - Company: DISCOVERMERADIO GROUP LLC
 - Privacy policy URL: `https://www.networxradio.com/privacy` (publish and verify)
+- Child safety standards (CSAE) URL: `https://www.networxradio.com/child-safety` (publish and verify)
+- Child safety contact: `childsafety@networxradio.com`
 - Terms URL: `https://www.networxradio.com/terms` (publish and verify)
 - Legal center URL: `https://www.networxradio.com/legal` (publish and verify)
 - Community guidelines URL: `https://www.networxradio.com/community-guidelines`

@@ -52,6 +52,7 @@ export const PUBLIC_MARKETING_PATHS = [
   '/privacy',
   '/terms',
   '/legal',
+  '/child-safety',
   '/community-guidelines',
   '/copyright-policy',
   '/dmca',

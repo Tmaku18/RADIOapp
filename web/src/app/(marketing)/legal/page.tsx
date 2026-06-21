@@ -15,6 +15,7 @@ const groups: { heading: string; docs: Doc[] }[] = [
       { href: '/privacy', title: 'Privacy Policy', description: 'How we collect, use, share, and protect information.' },
       { href: '/community-guidelines', title: 'Community Guidelines', description: 'The behavior expected across the community.' },
       { href: '/prohibited-content', title: 'Prohibited Content Policy', description: 'Content and services that are not allowed.' },
+      { href: '/child-safety', title: 'Child Safety Standards (CSAE)', description: 'Standards against child sexual abuse and exploitation.' },
     ],
   },
   {

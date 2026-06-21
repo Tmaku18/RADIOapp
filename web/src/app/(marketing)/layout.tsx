@@ -209,6 +209,7 @@ export default function MarketingLayout({
                 <li><a href="mailto:tmakuvaza1@networxradio.com" className="text-white/60 hover:text-cyan-300 transition-colors">Tanaka (CEO)</a></li>
                 <li><a href="mailto:mjones@networxradio.com" className="text-white/60 hover:text-cyan-300 transition-colors">Merquise (COO)</a></li>
                 <li><Link href="/privacy" className="text-white/60 hover:text-cyan-300 transition-colors">Privacy Policy</Link></li>
+                <li><Link href="/child-safety" className="text-white/60 hover:text-cyan-300 transition-colors">Child Safety</Link></li>
                 <li><Link href="/terms" className="text-white/60 hover:text-cyan-300 transition-colors">Terms of Service</Link></li>
                 <li><Link href="/dmca" className="text-white/60 hover:text-cyan-300 transition-colors">DMCA &amp; Copyright</Link></li>
                 <li><Link href="/community-guidelines" className="text-white/60 hover:text-cyan-300 transition-colors">Community Guidelines</Link></li>
