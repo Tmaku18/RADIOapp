@@ -142,6 +142,25 @@ export function RadioPlayer({
   const isFetchingCurrentTrackRef = useRef(false);
   const consecutiveFetchFailuresRef = useRef(0);
   const nextFetchAllowedAtRef = useRef(0);
+  const effectiveRadioIdRef = useRef(effectiveRadioId);
+  const playbackStateRef = useRef(state);
+  const hasUserInteractedRef = useRef(hasUserInteracted);
+  const fetchGenerationRef = useRef(0);
+  const fetchCurrentTrackRef = useRef<
+    (shouldSync?: boolean, autoPlay?: boolean, forceRadioTakeover?: boolean) => Promise<void>
+  >(() => Promise.resolve());
+
+  useEffect(() => {
+    effectiveRadioIdRef.current = effectiveRadioId;
+  }, [effectiveRadioId]);
+
+  useEffect(() => {
+    playbackStateRef.current = state;
+  }, [state]);
+
+  useEffect(() => {
+    hasUserInteractedRef.current = hasUserInteracted;
+  }, [hasUserInteracted]);
 
   // Prospector-only flows (yield/check-ins/refinery) stay listener-only.
   const isProspector = profile?.role === 'listener';
@@ -465,15 +484,26 @@ export function RadioPlayer({
     autoPlay = false,
     forceRadioTakeover = false,
   ) => {
-    if (!forceRadioTakeover && state.source && state.source !== 'radio') return;
+    const s = playbackStateRef.current;
+    if (!forceRadioTakeover && s.source && s.source !== 'radio') return;
     if (isFetchingNextTrack.current) return;
     const nowMs = Date.now();
     if (nowMs < nextFetchAllowedAtRef.current) return;
     if (isFetchingCurrentTrackRef.current) return;
     isFetchingCurrentTrackRef.current = true;
 
+    const requestedRadioId = effectiveRadioIdRef.current;
+    const generationAtStart = fetchGenerationRef.current;
+
     try {
-      const response = await radioApi.getCurrentTrack(effectiveRadioId);
+      const response = await radioApi.getCurrentTrack(requestedRadioId);
+      if (
+        generationAtStart !== fetchGenerationRef.current ||
+        requestedRadioId !== effectiveRadioIdRef.current
+      ) {
+        return;
+      }
+
       const trackData = response.data;
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
@@ -514,7 +544,7 @@ export function RadioPlayer({
           artistOriginCity: trackData.artist_origin_city ?? null,
           artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
-          radioId: effectiveRadioId,
+          radioId: requestedRadioId,
           artworkUrl: resolveTrackArtworkUrl(trackData.artwork_url as string | null),
           audioUrl,
           durationSeconds: trackData.duration_seconds || 180,
@@ -525,28 +555,29 @@ export function RadioPlayer({
         const serverPosition = trackData.position_seconds || 0;
         lastServerPosition.current = serverPosition;
 
+        const live = playbackStateRef.current;
         const normalizeAudioSource = (url: string) =>
           url
             .split('?')[0]
             .replace('/storage/v1/object/sign/', '/storage/v1/object/public/');
         const sameTrackDifferentSourcePath =
-          !!state.track &&
-          state.track.id === track.id &&
-          normalizeAudioSource(state.track.audioUrl) !==
+          !!live.track &&
+          live.track.id === track.id &&
+          normalizeAudioSource(live.track.audioUrl) !==
             normalizeAudioSource(track.audioUrl);
 
         const stationChanged =
-          state.source === 'radio' &&
-          !!state.track &&
-          String(state.track.radioId ?? '') !== String(track.radioId ?? '');
+          live.source === 'radio' &&
+          !!live.track &&
+          String(live.track.radioId ?? '') !== String(track.radioId ?? '');
 
         // Reload same song when station changes (stream URL/play id differ), on error, or URL refresh.
         const shouldReloadCurrentTrack =
-          !!state.track &&
-          state.track.id === track.id &&
-          (!!state.error || sameTrackDifferentSourcePath || stationChanged);
+          !!live.track &&
+          live.track.id === track.id &&
+          (!!live.error || sameTrackDifferentSourcePath || stationChanged);
 
-        const trackIdentityChanged = !state.track || state.track.id !== track.id;
+        const trackIdentityChanged = !live.track || live.track.id !== track.id;
 
         const isStaleResponse = !!trackData?.stale;
 
@@ -566,11 +597,11 @@ export function RadioPlayer({
           !stationChanged &&
           isServerAheadMidSong({
             trackIdentityChanged: true,
-            isPlaying: state.isPlaying,
-            pausedAt: state.pausedAt,
-            currentTime: state.currentTime,
-            duration: state.duration,
-            fallbackDurationSeconds: state.track?.durationSeconds,
+            isPlaying: live.isPlaying,
+            pausedAt: live.pausedAt,
+            currentTime: live.currentTime,
+            duration: live.duration,
+            fallbackDurationSeconds: live.track?.durationSeconds,
           })
         ) {
           // Server queue moved on but we're still mid-song locally — stay on
@@ -584,21 +615,28 @@ export function RadioPlayer({
           trackIdentityChanged ||
           (shouldReloadCurrentTrack && (stationChanged || !isStaleResponse))
         ) {
+          if (
+            generationAtStart !== fetchGenerationRef.current ||
+            requestedRadioId !== effectiveRadioIdRef.current
+          ) {
+            return;
+          }
+
+          const interacted = hasUserInteractedRef.current;
           const resumeAfterStationOrTrackSwitch =
-            hasUserInteracted &&
-            state.source === 'radio' &&
-            state.isPlaying &&
+            interacted &&
+            live.source === 'radio' &&
+            live.isPlaying &&
             (stationChanged || trackIdentityChanged);
           const naturalRadioTransition =
-            trackIdentityChanged &&
-            hasUserInteracted &&
-            !state.pausedAt;
-          const shouldAutoPlay =
-            !state.pausedAt &&
-            ((autoPlay && hasUserInteracted) ||
-              (shouldReloadCurrentTrack && hasUserInteracted) ||
-              resumeAfterStationOrTrackSwitch ||
-              naturalRadioTransition);
+            trackIdentityChanged && interacted && !live.pausedAt;
+          const shouldAutoPlay = stationChanged
+            ? true
+            : !live.pausedAt &&
+              ((autoPlay && interacted) ||
+                (shouldReloadCurrentTrack && interacted) ||
+                resumeAfterStationOrTrackSwitch ||
+                naturalRadioTransition);
           // Join at the live server offset (true-radio sync) so every device
           // plays the same song at the same position. Without this, each device
           // starts the track at 0:00, drifts, and ends up on a different song.
@@ -608,7 +646,7 @@ export function RadioPlayer({
             transportPaused: !!trackData.transport_paused,
             djOverlay: parseDjOverlay(trackData.dj_overlay),
           });
-        } else if (shouldSync && state.isLive && !isStaleResponse) {
+        } else if (shouldSync && live.isLive && !isStaleResponse) {
           actions.syncToPosition(serverPosition);
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,
@@ -644,20 +682,14 @@ export function RadioPlayer({
     }
   }, [
     actions,
-    state.source,
-    state.track,
-    state.isLive,
-    state.error,
-    state.isPlaying,
-    state.pausedAt,
-    state.currentTime,
-    state.duration,
-    hasUserInteracted,
-    effectiveRadioId,
     coerceListenerCount,
     updateTemperatureFromCounts,
     isStaleRadioServerTrack,
   ]);
+
+  useEffect(() => {
+    fetchCurrentTrackRef.current = fetchCurrentTrack;
+  }, [fetchCurrentTrack]);
 
   const getVoteKey = useCallback(
     (track: PlaybackTrack | null) =>
@@ -725,6 +757,12 @@ export function RadioPlayer({
     setHasUserInteracted(true);
 
     if (state.source !== 'radio' || !state.track || state.isLoading) return;
+    if (
+      state.track.radioId &&
+      state.track.radioId !== effectiveRadioId
+    ) {
+      return;
+    }
 
     const resumeKey = `${effectiveRadioId}:${state.track.id}`;
     if (audibleResumeKeyRef.current === resumeKey) return;
@@ -747,43 +785,26 @@ export function RadioPlayer({
     state.pausedAt,
   ]);
 
-  // Station switch: bypass poll backoff and fetch the new tower immediately.
+  // Station switch: one authoritative fetch; ignore stale in-flight responses.
   const prevRadioIdRef = useRef(effectiveRadioId);
   useEffect(() => {
     if (prevRadioIdRef.current === effectiveRadioId) return;
     prevRadioIdRef.current = effectiveRadioId;
+    fetchGenerationRef.current += 1;
     nextFetchAllowedAtRef.current = 0;
     consecutiveFetchFailuresRef.current = 0;
     isFetchingCurrentTrackRef.current = false;
+    audibleResumeKeyRef.current = null;
     setNoContent(false);
     setNoContentMessage(null);
-    const forceTakeover = !!state.source && state.source !== 'radio';
-    void fetchCurrentTrack(
-      true,
-      hasUserInteracted || state.isPlaying,
-      forceTakeover,
-    );
-  }, [
-    effectiveRadioId,
-    fetchCurrentTrack,
-    hasUserInteracted,
-    state.isPlaying,
-    state.source,
-  ]);
+    setHasUserInteracted(true);
+    void fetchCurrentTrackRef.current(true, true, true);
+  }, [effectiveRadioId]);
 
   // Library samples / discography previews keep global playback off-radio. The
   // listen page owns live radio — resume the tower when we mount or return here.
   useEffect(() => {
-    if (!state.source || state.source === 'radio') {
-      if (
-        state.source === 'radio' &&
-        state.track?.radioId &&
-        state.track.radioId !== effectiveRadioId
-      ) {
-        void fetchCurrentTrack(true, hasUserInteracted || autoplay, true);
-      }
-      return;
-    }
+    if (!state.source || state.source === 'radio') return;
     setHasUserInteracted(true);
     const shouldAutoPlay =
       autoplay || (state.isPlaying && !state.pausedAt) || hasUserInteracted;
@@ -796,7 +817,6 @@ export function RadioPlayer({
     state.isPlaying,
     state.pausedAt,
     state.source,
-    state.track?.radioId,
   ]);
 
   // Reset vote state when the current vote key changes.

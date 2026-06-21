@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { ButterflyPulseOverlay } from '@/components/radio/ButterflyPulseOverlay';
 import { Reveal } from '@/components/dimension/Reveal';
 import { DEFAULT_STATION_ID, getStationById } from '@/data/station-map';
-import { getLastRadioStationId, getStationAutoplayEnabled, setLastRadioStationId } from '@/lib/playback-preferences';
+import { getLastRadioStationId, getStationAutoplayEnabled, setLastRadioStationId, signalRadioNavIntent } from '@/lib/playback-preferences';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
@@ -164,6 +164,9 @@ export function RadioListenExperience({
                     href={changeStationHref}
                     data-testid="change-station"
                     className={changeStationClassName}
+                    onClick={() => {
+                      signalRadioNavIntent();
+                    }}
                   >
                     Change station <ChevronRight className="w-3 h-3" />
                   </Link>

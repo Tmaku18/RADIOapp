@@ -828,6 +828,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         pausedAt: autoPlay ? null : s.pausedAt,
         isLive: autoPlay || s.pausedAt == null,
         isPlaying: autoPlay && s.pausedAt == null,
+        isMuted: mutedByUserRef.current,
       }));
 
       attachSourceToSlot(activeSlot, url, seekSeconds, autoPlay, source);
@@ -941,6 +942,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         mutedByUserRef.current = false;
         setState((s) => ({ ...s, isMuted: false }));
       }
+      // Tuning back into live radio (from library preview, etc.) should be audible.
+      if (source === 'radio' && sourceRef.current !== 'radio') {
+        mutedByUserRef.current = false;
+      }
 
       // Join the radio at its live offset so all listeners stay aligned. Ignore
       // tiny/zero offsets (natural start-of-song or non-radio loads).
@@ -983,6 +988,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !!previousRadioId &&
         !!track.radioId &&
         previousRadioId !== track.radioId;
+      if (stationChanged) {
+        mutedByUserRef.current = false;
+      }
       if (source === 'radio' && previousTrackId && previousTrackId !== track.id) {
         recentlyAdvancedFromRef.current = { id: previousTrackId, at: Date.now() };
       }

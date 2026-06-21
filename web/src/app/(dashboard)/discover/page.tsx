@@ -32,7 +32,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { artistProfilePath } from '@/lib/artist-links';
 import { StationNetworkSelector } from '@/components/discovery/StationNetworkSelector';
-import { getStationAutoplayEnabled, getLastRadioStationId } from '@/lib/playback-preferences';
+import { getStationAutoplayEnabled, getLastRadioStationId, signalRadioNavIntent } from '@/lib/playback-preferences';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 
 const DiscoveryHeatMap = dynamic(
@@ -185,6 +185,7 @@ export default function DiscoverPage() {
   const handleSelectStation = useCallback(
     (stationId: string) => {
       setSelectedStationId(stationId);
+      signalRadioNavIntent();
       const autoplay = getStationAutoplayEnabled() ? '&autoplay=1' : '';
       router.push(
         `/listen?station=${encodeURIComponent(stationId)}${autoplay}`,
