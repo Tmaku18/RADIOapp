@@ -3262,6 +3262,9 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     let stack = await this.radioStateService.getFreeRotationStack(radioId);
     if (stack.length === 0) {
+      stack = await this.startNewFreeRotationCycle(radioId);
+    }
+    if (stack.length === 0) {
       const played = new Set(
         await this.radioStateService.getPlayedFreeRotation(radioId),
       );
@@ -3274,7 +3277,12 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         });
     }
 
-    const stackSlice = stack.slice(0, safeLimit);
+    const stackSlice = stack
+      .filter(
+        (stackId) =>
+          this.normalizeStackSongId(stackId) !== currentSongId,
+      )
+      .slice(0, safeLimit);
     const resolved = (
       await Promise.all(
         stackSlice.map(async (stackId) => {

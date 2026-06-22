@@ -31,6 +31,9 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
   final SongsService _songs = SongsService();
   Map<String, dynamic>? _stats;
   TrendingData? _trending;
+  bool _loadingHome = true;
+  String? _homeLoadError;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -38,7 +41,17 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
     _loadHomeData();
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadHomeData() async {
+    setState(() {
+      _loadingHome = true;
+      _homeLoadError = null;
+    });
     try {
       final results = await Future.wait([
         _analytics.getPlatformStats(),
@@ -48,9 +61,14 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
       setState(() {
         _stats = results[0] as Map<String, dynamic>?;
         _trending = results[1] as TrendingData?;
+        _loadingHome = false;
       });
     } catch (_) {
-      // Non-fatal: stats/trending sections stay hidden on failure.
+      if (!mounted) return;
+      setState(() {
+        _loadingHome = false;
+        _homeLoadError = 'Could not load live stats and trending content.';
+      });
     }
   }
 
@@ -76,17 +94,42 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
       body: Stack(
         children: [
           ListView(
+            controller: _scrollController,
             padding: const EdgeInsets.only(
               bottom: DimensionTokens.radioBarHeight + 32,
             ),
             children: [
-              DimensionHomeSections(
-                stats: _stats,
-                trending: _trending,
-                onMineFrequency: () {},
-                onGetStarted: _goToSignUp,
-                onExploreArtists: _goToLogin,
-              ),
+              if (_loadingHome)
+                const Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_homeLoadError != null)
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      Text(
+                        _homeLoadError!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: cs.onSurface.withValues(alpha: 0.7)),
+                      ),
+                      const SizedBox(height: 12),
+                      OutlinedButton(
+                        onPressed: _loadHomeData,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                DimensionHomeSections(
+                  stats: _stats,
+                  trending: _trending,
+                  onMineFrequency: () {},
+                  onGetStarted: _goToSignUp,
+                  onExploreArtists: _goToLogin,
+                ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 child: Column(

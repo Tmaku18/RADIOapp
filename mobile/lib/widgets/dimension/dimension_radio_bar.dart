@@ -59,9 +59,16 @@ class DimensionRadioBar extends StatelessWidget {
                             children: [
                               LayoutBuilder(
                                 builder: (context, constraints) {
+                                  final shortestSide =
+                                      MediaQuery.sizeOf(context).shortestSide;
+                                  final isTablet = shortestSide >=
+                                      DimensionTokens.breakpointTablet;
                                   final narrow = constraints.maxWidth < 400;
                                   final showVbar = constraints.maxWidth >= 360;
                                   final showTemp = constraints.maxWidth >= 420;
+                                  final artSize = isTablet
+                                      ? 56.0
+                                      : (narrow ? 40.0 : 48.0);
 
                                   return Row(
                                     children: [
@@ -79,8 +86,8 @@ class DimensionRadioBar extends StatelessWidget {
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                                 child: SizedBox(
-                                                  width: narrow ? 40 : 48,
-                                                  height: narrow ? 40 : 48,
+                                                  width: artSize,
+                                                  height: artSize,
                                                   child: _Artwork(item: item),
                                                 ),
                                               ),

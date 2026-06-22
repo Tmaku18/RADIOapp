@@ -19,6 +19,12 @@ class DimensionTokens {
   /// Fixed bottom player height (web: DIMENSION_RADIO_BAR_HEIGHT).
   static const double radioBarHeight = 112;
 
+  /// Responsive breakpoints — mirrors web Tailwind tiers.
+  static const double breakpointTablet = 600;
+  static const double breakpointWide = 720;
+  static const double breakpointDesktop = 1024;
+  static const double maxContentWidth = 1100;
+
   static const double glassBlur = 24;
   static const double glassStrongBlur = 40;
 

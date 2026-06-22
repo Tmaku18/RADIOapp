@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
+import { resolveNextTrackAfterEnd } from '@/lib/radio-sync';
 import { isServerAheadMidSong } from '@/lib/radio-sync';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import {
@@ -276,18 +277,14 @@ export function RadioPlayer({
       // the catalog duration), nudge it once with a force-advance. The server
       // debounces concurrent nudges so synced devices converge on one song
       // instead of skipping ahead.
-      const firstResp = await radioApi.getNextTrack({ radio: effectiveRadioId });
-      let trackData = firstResp.data;
-      if (
-        trackData?.id &&
-        endedTrackId &&
-        trackData.id === endedTrackId
-      ) {
-        const forcedResp = await radioApi.getNextTrack({
-          radio: effectiveRadioId,
-          force: true,
-        });
-        trackData = forcedResp.data ?? trackData;
+      const trackData = await resolveNextTrackAfterEnd({
+        radioId: effectiveRadioId,
+        endedTrackId,
+        isStaleRadioServerTrack,
+        getNextTrack: (params) => radioApi.getNextTrack(params),
+      });
+      if (!trackData) {
+        return;
       }
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
@@ -351,11 +348,22 @@ export function RadioPlayer({
     } finally {
       isFetchingNextTrack.current = false;
     }
-  }, [effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts]);
+  }, [effectiveRadioId, coerceListenerCount, updateTemperatureFromCounts, isStaleRadioServerTrack]);
 
   useEffect(() => {
-    setOnRadioTrackEnded(handleTrackEnded);
-    return () => setOnRadioTrackEnded(null);
+    const registerEndedHandler = () => {
+      setOnRadioTrackEnded(handleTrackEnded);
+    };
+    registerEndedHandler();
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', registerEndedHandler);
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', registerEndedHandler);
+      }
+      setOnRadioTrackEnded(null);
+    };
   }, [setOnRadioTrackEnded, handleTrackEnded]);
 
   const handleCheckIn = async () => {

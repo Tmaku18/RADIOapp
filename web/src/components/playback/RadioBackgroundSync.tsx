@@ -4,7 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { radioApi } from '@/lib/api';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
-import { isNearRadioTrackEnd, isServerAheadMidSong } from '@/lib/radio-sync';
+import {
+  isNearRadioTrackEnd,
+  isServerAheadMidSong,
+  resolveNextTrackAfterEnd,
+} from '@/lib/radio-sync';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { getLastRadioStationId } from '@/lib/playback-preferences';
@@ -161,24 +165,32 @@ export function RadioBackgroundSync() {
     if (!actionsRef.current || !radioIdRef.current || isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      const response = await radioApi.getNextTrack({
-        radio: radioIdRef.current,
-        force: true,
+      const endedTrackId = trackIdRef.current;
+      const trackData = await resolveNextTrackAfterEnd({
+        radioId: radioIdRef.current,
+        endedTrackId,
+        isStaleRadioServerTrack:
+          isStaleRadioServerTrack ?? (() => false),
+        getNextTrack: (params) => radioApi.getNextTrack(params),
       });
-      const trackData = response.data as Record<string, unknown>;
-      if (trackData?.no_content || !trackData?.id) return;
-      applyServerTrack(trackData, state?.pausedAt == null && ((state?.isPlaying ?? false) || !!state?.isMuted));
+      if (!trackData || trackData.no_content || !trackData.id) return;
+      applyServerTrack(
+        trackData as Record<string, unknown>,
+        state?.pausedAt == null && ((state?.isPlaying ?? false) || !!state?.isMuted),
+      );
     } catch {
       // Retry on next poll.
     } finally {
       isFetchingRef.current = false;
     }
-  }, [applyServerTrack, state?.pausedAt]);
+  }, [applyServerTrack, isStaleRadioServerTrack, state?.isMuted, state?.isPlaying, state?.pausedAt]);
 
   useEffect(() => {
     if (!shouldSync || !setOnRadioTrackEnded) return;
     setOnRadioTrackEnded(fetchNextTrack);
-    return () => setOnRadioTrackEnded(null);
+    // Do not clear on cleanup — RadioPlayer re-registers on the listen page when
+    // visible; clearing here left onRadioTrackEnded null and caused ended tracks
+    // to replay from the start on one client.
   }, [shouldSync, setOnRadioTrackEnded, fetchNextTrack]);
 
   useEffect(() => {

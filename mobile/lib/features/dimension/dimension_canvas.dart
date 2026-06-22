@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'butterfly_hero_fallback.dart';
 import 'butterfly_hero_scene.dart';
 
-/// Butterfly hero canvas with 3D when available, 2D fallback otherwise.
+/// Butterfly hero canvas with 3D when available, 2D fallback underneath immediately.
 class DimensionCanvas extends StatefulWidget {
   const DimensionCanvas({super.key});
 
@@ -12,38 +12,47 @@ class DimensionCanvas extends StatefulWidget {
 }
 
 class _DimensionCanvasState extends State<DimensionCanvas> {
-  bool _useFallback = false;
+  bool _useFallbackOnly = false;
   bool _sceneReady = false;
 
   @override
   void initState() {
     super.initState();
-    // flutter_angle can take several seconds on first launch; only fall back if
-    // setup never completes or explicitly fails.
-    Future<void>.delayed(const Duration(seconds: 12), () {
-      if (!mounted || _sceneReady || _useFallback) return;
-      setState(() => _useFallback = true);
+    Future<void>.delayed(const Duration(seconds: 4), () {
+      if (!mounted || _sceneReady || _useFallbackOnly) return;
+      setState(() => _useFallbackOnly = true);
     });
   }
 
   void _onSceneReady() {
-    _sceneReady = true;
+    if (!mounted) return;
+    setState(() => _sceneReady = true);
   }
 
   void _onSceneFailed() {
     if (!mounted) return;
-    setState(() => _useFallback = true);
+    setState(() => _useFallbackOnly = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_useFallback) {
+    if (_useFallbackOnly) {
       return const ButterflyHeroFallback();
     }
 
-    return ButterflyHeroScene(
-      onReady: _onSceneReady,
-      onFailed: _onSceneFailed,
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        const ButterflyHeroFallback(),
+        AnimatedOpacity(
+          opacity: _sceneReady ? 1 : 0,
+          duration: const Duration(milliseconds: 600),
+          child: ButterflyHeroScene(
+            onReady: _onSceneReady,
+            onFailed: _onSceneFailed,
+          ),
+        ),
+      ],
     );
   }
 }

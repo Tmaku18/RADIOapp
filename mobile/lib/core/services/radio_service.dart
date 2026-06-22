@@ -87,6 +87,33 @@ class RadioService {
     }
   }
 
+  /// Upcoming rotation preview for the listen page queue panel.
+  Future<List<UpcomingQueueTrack>> getUpcomingQueue({
+    String radioId = defaultRadioId,
+    int limit = 12,
+  }) async {
+    final safeLimit = limit.clamp(1, 50);
+    try {
+      final endpoint =
+          '${_withRadio('radio/queue', radioId)}&limit=$safeLimit';
+      final response = await _apiService.get(endpoint);
+      if (response is List) {
+        return response
+            .whereType<Map>()
+            .map(
+              (row) => UpcomingQueueTrack.fromJson(
+                row.map((k, v) => MapEntry(k.toString(), v)),
+              ),
+            )
+            .where((row) => row.id.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    } catch (_) {
+      return const [];
+    }
+  }
+
   Future<void> reportPlay(
     String songId, {
     bool skipped = false,
@@ -265,5 +292,38 @@ class RadioService {
     } catch (_) {
       return null;
     }
+  }
+}
+
+class UpcomingQueueTrack {
+  const UpcomingQueueTrack({
+    required this.id,
+    required this.title,
+    required this.artistName,
+    this.artworkUrl,
+    this.likeCount,
+    this.temperaturePercent,
+  });
+
+  final String id;
+  final String title;
+  final String artistName;
+  final String? artworkUrl;
+  final int? likeCount;
+  final int? temperaturePercent;
+
+  factory UpcomingQueueTrack.fromJson(Map<String, dynamic> json) {
+    return UpcomingQueueTrack(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? 'Unknown').toString(),
+      artistName: (json['artist_name'] ?? 'Unknown artist').toString(),
+      artworkUrl: json['artwork_url']?.toString(),
+      likeCount: json['like_count'] is num
+          ? (json['like_count'] as num).toInt()
+          : null,
+      temperaturePercent: json['temperature_percent'] is num
+          ? (json['temperature_percent'] as num).round()
+          : null,
+    );
   }
 }

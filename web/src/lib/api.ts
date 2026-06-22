@@ -133,6 +133,8 @@ api.interceptors.request.use(
     // unavailable instead of failing with "Can't reach chat server".
     const publicEndpoints = [
       '/radio/current',
+      '/radio/queue',
+      '/radio/peek',
       '/venue-ads/current',
       '/chat/history',
       '/chat/status',

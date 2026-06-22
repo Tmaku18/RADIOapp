@@ -192,6 +192,7 @@ export class RadioController {
     }
   }
 
+  @Public()
   @Get('queue')
   async getUpcomingQueue(
     @Query('limit') limit?: string,

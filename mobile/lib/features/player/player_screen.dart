@@ -20,6 +20,7 @@ import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
+import '../../core/services/radio_background_sync_service.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/station_events_service.dart';
 import '../../core/navigation/app_routes.dart';
@@ -146,6 +147,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void initState() {
     super.initState();
+    RadioBackgroundSyncService.instance.playerScreenActive = true;
     _rippleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 950),
@@ -626,6 +628,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) return;
+      if (_isStaleServerTrack(track.id)) return;
 
       final previousId = _currentTrack?.id;
       if (previousId != null && previousId != track.id) {
@@ -928,13 +931,13 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void dispose() {
+    RadioBackgroundSyncService.instance.playerScreenActive = false;
     _playerStateSub?.cancel();
     _risingStarSub?.cancel();
     _djBoothSub?.cancel();
     _presenceTimer?.cancel();
     _trackSyncTimer?.cancel();
     _trackBoundaryTimer?.cancel();
-    StationEventsService().stop();
     _rippleController.dispose();
     super.dispose();
   }
@@ -1467,24 +1470,34 @@ class _PlayerBody extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 720;
-        final isShortScreen = !isWide && constraints.maxHeight < 760;
-        final panelPadding = isShortScreen ? 12.0 : 16.0;
-        final sectionGap = isShortScreen ? 8.0 : 12.0;
+        final isTablet = constraints.maxWidth >= DimensionTokens.breakpointTablet;
+        final isWide = constraints.maxWidth >= DimensionTokens.breakpointWide;
+        final isDesktop = constraints.maxWidth >= DimensionTokens.breakpointDesktop;
+        final isShortScreen =
+            constraints.maxHeight < 760 && !isDesktop;
+        final panelPadding = isShortScreen ? 12.0 : (isTablet ? 20.0 : 16.0);
+        final sectionGap = isShortScreen ? 8.0 : (isTablet ? 14.0 : 12.0);
         final titleGap = isShortScreen ? 4.0 : 6.0;
         final metaGap = isShortScreen ? 6.0 : 8.0;
-        final beforeProgressGap = isShortScreen ? 10.0 : 14.0;
-        final afterProgressGap = isShortScreen ? 8.0 : 10.0;
-        final outerPadding = isShortScreen ? 12.0 : 16.0;
-        final controlsIconSize = isShortScreen ? 48.0 : 52.0;
+        final beforeProgressGap = isShortScreen ? 10.0 : (isTablet ? 18.0 : 14.0);
+        final afterProgressGap = isShortScreen ? 8.0 : (isTablet ? 14.0 : 10.0);
+        final outerPadding = isShortScreen ? 12.0 : (isTablet ? 24.0 : 16.0);
+        final controlsIconSize = isShortScreen
+            ? 48.0
+            : (isTablet ? 64.0 : 52.0);
+        final wideArtWidth = isDesktop
+            ? 400.0
+            : isWide
+                ? 360.0
+                : 320.0;
         final compactTargetHeight =
             constraints.maxHeight * (ad != null ? 0.30 : 0.38);
         final compactArtSize = math.min(
           constraints.maxWidth,
-          compactTargetHeight.clamp(180.0, 340.0).toDouble(),
+          compactTargetHeight.clamp(180.0, isTablet ? 380.0 : 340.0).toDouble(),
         );
         final art = SizedBox(
-          width: isWide ? 320 : compactArtSize,
+          width: isWide ? wideArtWidth : compactArtSize,
           child: albumArt(),
         );
         final details = glassPanel(
@@ -1810,7 +1823,14 @@ class _PlayerBody extends StatelessWidget {
           ),
         );
 
-        return SingleChildScrollView(
+        return Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isWide
+                  ? DimensionTokens.maxContentWidth
+                  : double.infinity,
+            ),
+            child: SingleChildScrollView(
           padding: EdgeInsets.all(outerPadding),
           child: isWide
               ? Row(
@@ -1832,6 +1852,8 @@ class _PlayerBody extends StatelessWidget {
                     details,
                   ],
                 ),
+            ),
+          ),
         );
       },
     );

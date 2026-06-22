@@ -525,7 +525,7 @@ class SongsService {
         );
         if (res is Map<String, dynamic>) {
           final data = TrendingData.fromJson(res);
-          if (data.songs.isNotEmpty) return data;
+          if (data.songs.isNotEmpty || data.artists.isNotEmpty) return data;
         }
       } catch (_) {
         // Retry once — this endpoint can be slow on a cold backend.

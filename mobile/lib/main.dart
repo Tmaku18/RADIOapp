@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/env.dart';
 import 'core/services/audio_player_service.dart';
 import 'core/services/radio_presence_service.dart';
+import 'core/services/radio_background_sync_service.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
 import 'core/navigation/app_router.dart';
@@ -37,6 +38,7 @@ void main() async {
   // configures the audio session for background playback.
   await AudioPlayerService.ensureInitialized();
   RadioPresenceService.instance.start();
+  RadioBackgroundSyncService.instance.start();
 
   // Initialize Stripe
   final stripePublishableKey = env('STRIPE_PUBLISHABLE_KEY');

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/analytics/analytics_metrics.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/services/radio_presence_service.dart';
 import '../../core/services/songs_service.dart';
@@ -117,16 +118,22 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
           mining: _startingRadio,
         ),
         if (trending != null && trending.songs.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
-            child: SectionLabel(number: '01', title: 'GEMS & DIAMONDS'),
+          DimensionReveal(
+            animateImmediately: true,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 12),
+              child: SectionLabel(number: '01', title: 'GEMS & DIAMONDS'),
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: DimensionSectionTitle(
-              prefix: 'Trending ',
-              accent: 'now',
-              accentIsPink: true,
+          DimensionReveal(
+            delay: const Duration(milliseconds: 80),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: DimensionSectionTitle(
+                prefix: 'Trending ',
+                accent: 'now',
+                accentIsPink: true,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -139,106 +146,110 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
               separatorBuilder: (_, __) => const SizedBox(width: 12),
               itemBuilder: (context, i) {
                 final song = trending.songs[i];
-                return _DimensionSongCard(
-                  rank: i + 1,
-                  title: song.title,
-                  artist: song.artistName,
-                  artworkUrl: song.artworkUrl,
-                  temperature: song.temperaturePercent,
-                  listens: resolveListens({
-                    'listens': song.listens,
-                    'earsReached': song.earsReached,
-                    'playCount': song.playCount,
-                  }),
-                  ripples: song.likeCount,
-                  isPlaying: _playingId == song.id,
-                  onPlay: () => _toggleClip(song.id, song.clipUrl),
-                );
-              },
-            ),
-          ),
-        ],
-        if (trending != null && trending.artists.isNotEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-            child: SectionLabel(
-              number: '02',
-              title: 'CATALYSTS',
-              color: DimensionTokens.pink400,
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: DimensionSectionTitle(
-              prefix: 'Trending ',
-              accent: 'artists',
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 120,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: trending.artists.length,
-              itemBuilder: (context, i) {
-                final a = trending.artists[i];
-                return Padding(
-                  padding: const EdgeInsets.only(right: 12),
-                  child: GlassCard(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundImage: a.avatarUrl != null
-                              ? CachedNetworkImageProvider(a.avatarUrl!)
-                              : null,
-                          child: a.avatarUrl == null
-                              ? const Icon(Icons.person)
-                              : null,
-                        ),
-                        const SizedBox(width: 10),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              a.displayName,
-                              style: GoogleFonts.outfit(
-                                color: DimensionTokens.textPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            Text(
-                              '${formatMetricCount(a.listens)} ${AnalyticsMetrics.listens.label.toLowerCase()}',
-                              style: GoogleFonts.jetBrainsMono(
-                                color: DimensionTokens.textMuted,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                return DimensionReveal(
+                  delay: Duration(milliseconds: (i % 4) * 80),
+                  offsetY: 36,
+                  child: _DimensionSongCard(
+                    rank: i + 1,
+                    title: song.title,
+                    artist: song.artistName,
+                    artworkUrl: song.artworkUrl,
+                    temperature: song.temperaturePercent,
+                    listens: resolveListens({
+                      'listens': song.listens,
+                      'earsReached': song.earsReached,
+                      'playCount': song.playCount,
+                    }),
+                    ripples: song.likeCount,
+                    isPlaying: _playingId == song.id,
+                    onPlay: () => _toggleClip(song.id, song.clipUrl),
                   ),
                 );
               },
             ),
           ),
         ],
+        if (trending != null && trending.artists.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: DimensionTokens.textPrimary.withValues(alpha: 0.05),
+                ),
+                bottom: BorderSide(
+                  color: DimensionTokens.textPrimary.withValues(alpha: 0.05),
+                ),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 28),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DimensionReveal(
+                    animateImmediately: true,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                      child: SectionLabel(
+                        number: '02',
+                        title: 'CATALYSTS',
+                        color: DimensionTokens.pink400,
+                      ),
+                    ),
+                  ),
+                  DimensionReveal(
+                    delay: const Duration(milliseconds: 80),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: DimensionSectionTitle(
+                        prefix: 'Trending ',
+                        accent: 'artists',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 20),
+                    child: DimensionMarquee(
+                      height: 88,
+                      gap: 20,
+                      children: trending.artists
+                        .map(
+                          (a) => _TrendingArtistMarqueeCard(
+                            artist: a,
+                            onTap: () => Navigator.of(context).pushNamed(
+                              AppRoutes.artistProfile,
+                              arguments: a.id,
+                            ),
+                          ),
+                        )
+                        .toList(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
         Padding(
           padding: const EdgeInsets.fromLTRB(20, 28, 20, 12),
-          child: SectionLabel(
-            number: '03',
-            title: 'LIVE FREQUENCY',
-            color: DimensionTokens.cyan300,
+          child: DimensionReveal(
+            child: SectionLabel(
+              number: '03',
+              title: 'LIVE FREQUENCY',
+              color: DimensionTokens.cyan300,
+            ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: DimensionSectionTitle(
-            prefix: 'Radio ',
-            accent: 'now',
+        DimensionReveal(
+          delay: const Duration(milliseconds: 80),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: DimensionSectionTitle(
+              prefix: 'Radio ',
+              accent: 'now',
+            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -490,6 +501,90 @@ class _LiveStatCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Web marquee artist pill — glass card with avatar + stats.
+class _TrendingArtistMarqueeCard extends StatelessWidget {
+  const _TrendingArtistMarqueeCard({
+    required this.artist,
+    required this.onTap,
+  });
+
+  final TrendingArtist artist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final listens = resolveListens({
+      'listens': artist.listens,
+      'earsReached': artist.earsReached,
+      'playCount': artist.playCount,
+    });
+
+    return SizedBox(
+      width: 224,
+      child: GlassCard(
+        padding: const EdgeInsets.all(16),
+        onTap: onTap,
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: DimensionTokens.textPrimary.withValues(alpha: 0.1),
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    DimensionTokens.cyan300.withValues(alpha: 0.2),
+                    DimensionTokens.pink400.withValues(alpha: 0.2),
+                  ],
+                ),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: artist.avatarUrl != null
+                  ? CachedNetworkImage(
+                      imageUrl: artist.avatarUrl!,
+                      fit: BoxFit.cover,
+                    )
+                  : Center(
+                      child: Text(
+                        artist.displayName.isNotEmpty
+                            ? artist.displayName[0].toUpperCase()
+                            : '?',
+                        style: DimensionTypography.cardTitle(fontSize: 18),
+                      ),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    artist.displayName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: DimensionTypography.cardTitle(fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '🎧 ${formatMetricCount(listens)} · ♥ ${formatMetricCount(artist.likeCount)}',
+                    style: DimensionTypography.monoCaps(fontSize: 10),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

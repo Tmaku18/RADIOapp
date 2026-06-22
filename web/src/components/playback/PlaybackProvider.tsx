@@ -173,6 +173,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const mutedByUserRef = useRef(false);
   const radioPlayerUiCountRef = useRef(0);
   const [radioPlayerUiActive, setRadioPlayerUiActive] = useState(false);
+  const endedAdvanceTrackIdRef = useRef<string | null>(null);
   const barsRef = useRef(createAnalyserBarsBuffer(ANALYSER_BARS));
   const bassRef = useRef(0);
   const rawAnalyserDataRef = useRef(new Uint8Array(ANALYSER_BARS * 4));
@@ -565,6 +566,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
       const onPlay = () => {
         if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        endedAdvanceTrackIdRef.current = null;
         // Legacy hard pause: keep it stopped.
         if (stateRef.current.pausedAt != null) {
           audio.pause();
@@ -1023,91 +1025,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     [getActiveAudio, loadTrackImmediate, startRadioCrossfade],
   );
 
-  // Start a 6s overlap crossfade before the current song ends.
+  // Peek prefetch crossfade disabled — see plan: foreground peek caused song repeats.
   useEffect(() => {
-    if (state.source !== 'radio') return;
-    if (!state.isPlaying || state.pausedAt) return;
-    // Never crossfade-ahead while the tab is hidden. requestAnimationFrame is
-    // paused in background tabs, so a crossfade started here would never
-    // complete (jamming the player), and peeking ahead without the server
-    // rotating its queue causes the just-played song to replay on `ended`.
-    // While hidden we let the song play to its end and advance via the
-    // `ended` handler (an authoritative server force-advance) instead.
-    if (typeof document !== 'undefined' && document.hidden) return;
-    const track = state.track;
-    if (!track?.id || !track.radioId) return;
-
-    const duration =
-      state.duration > 0 ? state.duration : track.durationSeconds || 0;
-    if (duration <= 0) return;
-
-    const remainingSec = duration - state.currentTime;
-    const crossfadeSec = RADIO_CROSSFADE_MS / 1000;
-    if (remainingSec > crossfadeSec + 0.5) {
-      if (crossfadePrefetchTrackIdRef.current === track.id) {
-        crossfadePrefetchTrackIdRef.current = null;
-      }
-      return;
-    }
-    if (crossfadePrefetchTrackIdRef.current === track.id) return;
-    if (isCrossfadePrefetchingRef.current || isCrossfadingRef.current) return;
-
-    crossfadePrefetchTrackIdRef.current = track.id;
-    const currentTrackId = track.id;
-    const radioId = track.radioId;
-    let cancelled = false;
-
-    void (async () => {
-      isCrossfadePrefetchingRef.current = true;
-      try {
-        const response = await radioApi.peekNextTrack(radioId);
-        if (cancelled) return;
-        const trackData = response.data as Record<string, unknown>;
-        if (trackData?.no_content || !trackData?.id) return;
-        if (String(trackData.id) === currentTrackId) return;
-
-        const audioUrl = trackData.audio_url;
-        if (!audioUrl || typeof audioUrl !== 'string' || !audioUrl.trim()) {
-          return;
-        }
-        if (!isCrossfadeSupportedUrl(audioUrl)) return;
-
-        const nextTrack: PlaybackTrack = {
-          id: String(trackData.id),
-          title: String(trackData.title ?? 'Untitled'),
-          artistName: String(trackData.artist_name ?? 'Unknown artist'),
-          artistOriginCity: (trackData.artist_origin_city as string | null) ?? null,
-          artistOriginState: (trackData.artist_origin_state as string | null) ?? null,
-          artistId: (trackData.artist_id as string | null) ?? null,
-          radioId,
-          artworkUrl: resolveTrackArtworkUrl(
-            (trackData.artwork_url as string | null) ?? null,
-          ),
-          audioUrl,
-          durationSeconds: Number(trackData.duration_seconds) || 180,
-          playId: (trackData.play_id as string | null) ?? null,
-        };
-
-        loadTrack(nextTrack, 'radio', true);
-      } catch {
-        if (!cancelled) crossfadePrefetchTrackIdRef.current = null;
-      } finally {
-        isCrossfadePrefetchingRef.current = false;
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    loadTrack,
-    state.currentTime,
-    state.duration,
-    state.isPlaying,
-    state.pausedAt,
-    state.source,
-    state.track,
-  ]);
+    return undefined;
+  }, [state.source, state.track?.id]);
 
   const radioStreamShouldRun = useCallback(() => {
     const s = stateRef.current;
@@ -1151,6 +1072,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       const audio = getActiveAudio();
       if (!audio) return;
+
+      // Never reload a finished track at an old offset — advance instead.
+      if (audio.ended) {
+        onRadioTrackEndedRef.current?.();
+        return;
+      }
+
       const stalled =
         audio.paused ||
         audio.ended ||
@@ -1200,12 +1128,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       const audio = getActiveAudio();
       if (!audio) return;
-      const audible = radioShouldBeAudible();
 
-      if (audio.ended && onRadioTrackEndedRef.current) {
-        onRadioTrackEndedRef.current();
+      if (audio.ended) {
+        const trackId = stateRef.current.track?.id ?? null;
+        if (trackId && endedAdvanceTrackIdRef.current === trackId) {
+          return;
+        }
+        if (trackId) endedAdvanceTrackIdRef.current = trackId;
+        onRadioTrackEndedRef.current?.();
         return;
       }
+
+      endedAdvanceTrackIdRef.current = null;
 
       const stalled =
         audio.paused ||

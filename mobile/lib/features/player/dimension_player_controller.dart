@@ -81,6 +81,16 @@ class DimensionPlayerController extends ChangeNotifier {
   Future<void> _init() async {
     _playerSub = _player.playerStateStream.listen((_) => notifyListeners());
     _seqSub = _player.sequenceStateStream.listen((_) {
+      final tag = _player.sequenceState.currentSource?.tag;
+      if (tag is MediaItem) {
+        final extras = tag.extras;
+        final nextRadioId = extras?['radioId']?.toString().trim();
+        if (nextRadioId != null &&
+            nextRadioId.isNotEmpty &&
+            nextRadioId != _radioId) {
+          _radioId = nextRadioId;
+        }
+      }
       notifyListeners();
       _loadStoredReaction();
       unawaited(_refreshTemperature());

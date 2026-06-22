@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { radioApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { Reveal } from '@/components/dimension/Reveal';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
+import { subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 
 type QueueTrack = {
   id: string;
@@ -20,35 +22,79 @@ type RadioUpNextQueueProps = {
 };
 
 export function RadioUpNextQueue({ radioId }: RadioUpNextQueueProps) {
+  const playback = usePlaybackOptional();
+  const currentTrackId =
+    playback?.state.source === 'radio' &&
+    playback.state.track?.radioId?.trim() === radioId.trim()
+      ? playback.state.track.id
+      : null;
+  const radioActive =
+    playback?.state.source === 'radio' &&
+    !!playback.state.track?.audioUrl &&
+    playback.state.track?.radioId?.trim() === radioId.trim();
+
   const [tracks, setTracks] = useState<QueueTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
+  const emptyWhilePlayingRef = useRef(0);
+
+  const loadQueue = useCallback(async () => {
+    try {
+      setLoadError(false);
+      const res = await radioApi.getUpcomingQueue(radioId, 12);
+      const rows = Array.isArray(res.data) ? res.data : [];
+      const filtered = currentTrackId
+        ? rows.filter((row) => row.id !== currentTrackId)
+        : rows;
+      setTracks(filtered);
+      if (filtered.length === 0 && radioActive) {
+        emptyWhilePlayingRef.current += 1;
+      } else {
+        emptyWhilePlayingRef.current = 0;
+      }
+    } catch {
+      setTracks([]);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentTrackId, radioActive, radioId]);
 
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        setLoadError(false);
-        const res = await radioApi.getUpcomingQueue(radioId, 12);
-        if (!cancelled) {
-          setTracks(Array.isArray(res.data) ? res.data : []);
-        }
-      } catch {
-        if (!cancelled) {
-          setTracks([]);
-          setLoadError(true);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
+    setLoading(true);
+    void loadQueue();
+  }, [loadQueue]);
+
+  useEffect(() => {
+    if (!radioId.trim()) return;
+    return subscribeDjBoothEvents(radioId, (event) => {
+      if (event.type === 'queue_updated') {
+        void loadQueue();
+      }
+    });
+  }, [loadQueue, radioId]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        void loadQueue();
       }
     };
-    void load();
-    const interval = setInterval(load, 60000);
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
-  }, [radioId]);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [loadQueue]);
+
+  useEffect(() => {
+    const pollMs =
+      tracks.length === 0 && radioActive && emptyWhilePlayingRef.current < 12
+        ? 5000
+        : 60000;
+    const interval = setInterval(() => {
+      void loadQueue();
+    }, pollMs);
+    return () => clearInterval(interval);
+  }, [loadQueue, radioActive, tracks.length]);
 
   return (
     <Reveal delay={0.15}>
@@ -69,7 +115,9 @@ export function RadioUpNextQueue({ radioId }: RadioUpNextQueueProps) {
           <p className="text-center text-white/50 text-sm py-6">
             {loadError
               ? 'Could not load the queue right now.'
-              : 'No upcoming tracks in the rotation yet.'}
+              : radioActive
+                ? 'Loading upcoming tracks…'
+                : 'No upcoming tracks in the rotation yet.'}
           </p>
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
