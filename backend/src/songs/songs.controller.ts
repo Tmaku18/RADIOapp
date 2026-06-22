@@ -1077,11 +1077,12 @@ export class SongsController {
       .eq('id', songId)
       .single();
     if (!song) throw new NotFoundException('Song not found');
-    const owned = await this.songsService.hasSongEntitlement(id, role, song);
+    const isOwner = song.artist_id === id;
+    const owned = await this.songsService.isSongOwnedByUser(id, song);
     return {
       songId: song.id,
       owned,
-      isOwner: song.artist_id === id,
+      isOwner,
       priceCents: song.price_cents ?? 99,
       forSale: song.is_for_sale !== false,
       sampleUrl: (await signSongAudioUrl(song.sample_url ?? null)) ?? null,

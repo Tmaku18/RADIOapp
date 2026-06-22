@@ -1458,6 +1458,7 @@ class _PlayerBody extends StatelessWidget {
     Widget buyAction() {
       final access = songAccess;
       if (access?.owned == true) {
+        final label = access!.isOwner ? 'Your upload' : 'Owned · in your library';
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -1472,7 +1473,7 @@ class _PlayerBody extends StatelessWidget {
               Icon(Icons.check_circle, size: 18, color: scheme.primary),
               const SizedBox(width: 8),
               Text(
-                'Owned · in your library',
+                label,
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
                   color: scheme.primary,
                   fontWeight: FontWeight.w600,

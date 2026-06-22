@@ -492,13 +492,11 @@ export class SongsService {
     };
   }
 
-  /** True when the user owns, is admin, or has purchased the song. */
-  async hasSongEntitlement(
+  /** True when the user purchased the song or uploaded it as the artist. */
+  async isSongOwnedByUser(
     userId: string,
-    userRole: string | null | undefined,
     song: { id: string; artist_id?: string | null },
   ): Promise<boolean> {
-    if (userRole === 'admin') return true;
     if (song.artist_id && song.artist_id === userId) return true;
     const supabase = getSupabaseClient();
     const { data } = await supabase
@@ -509,6 +507,16 @@ export class SongsService {
       .eq('status', 'completed')
       .maybeSingle();
     return !!data;
+  }
+
+  /** True when the user owns, is admin, or has purchased the song. */
+  async hasSongEntitlement(
+    userId: string,
+    userRole: string | null | undefined,
+    song: { id: string; artist_id?: string | null },
+  ): Promise<boolean> {
+    if (userRole === 'admin') return true;
+    return this.isSongOwnedByUser(userId, song);
   }
 
   /**
