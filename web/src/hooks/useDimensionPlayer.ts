@@ -224,7 +224,9 @@ export function useDimensionPlayer(): DimensionPlayerModel {
     [actions],
   );
 
-  const canSkip = state?.source !== 'radio' && duration > 0;
+  const canSkip =
+    (state?.source === 'discography' || state?.source === 'refinery') &&
+    duration > 0;
 
   const seekPrev = useCallback(() => {
     if (!actions || !canSkip) return;

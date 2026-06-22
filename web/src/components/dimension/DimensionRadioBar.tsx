@@ -5,8 +5,6 @@ import {
   Flame,
   Pause,
   Play,
-  SkipBack,
-  SkipForward,
   Volume2,
 } from 'lucide-react';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
@@ -130,17 +128,6 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="flex items-center gap-3">
-            {player.canSkip ? (
-              <button
-                type="button"
-                onClick={player.seekPrev}
-                data-testid="player-prev-btn"
-                className="dim-text-muted hover:text-cyan-300 transition-colors"
-                aria-label="Seek back 10 seconds"
-              >
-                <SkipBack className="w-4 h-4" />
-              </button>
-            ) : null}
             <button
               type="button"
               onClick={player.togglePlay}
@@ -155,17 +142,6 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <Play className="w-4 h-4 ml-0.5" />
               )}
             </button>
-            {player.canSkip ? (
-              <button
-                type="button"
-                onClick={player.seekNext}
-                data-testid="player-next-btn"
-                className="dim-text-muted hover:text-cyan-300 transition-colors"
-                aria-label="Seek forward 10 seconds"
-              >
-                <SkipForward className="w-4 h-4" />
-              </button>
-            ) : null}
             <div className="hidden md:flex items-end gap-[3px] h-6 ml-2">
               {VBAR_DELAYS.map((d, i) => (
                 <span
@@ -188,26 +164,15 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
               {player.elapsedLabel}
             </span>
-            <button
-              type="button"
-              className={`relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden ${
-                player.canSkip ? '' : 'pointer-events-none'
-              }`}
-              onClick={(e) => {
-                if (!player.canSkip) return;
-                const rect = e.currentTarget.getBoundingClientRect();
-                const pct = ((e.clientX - rect.left) / rect.width) * 100;
-                player.seekToProgress(pct);
-              }}
-              aria-label={
-                player.canSkip ? 'Seek playback position' : 'Live radio progress'
-              }
+            <div
+              className="relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden pointer-events-none"
+              aria-label="Live radio progress"
             >
               <div
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500 pointer-events-none"
                 style={{ width: `${player.progress}%` }}
               />
-            </button>
+            </div>
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 shrink-0">
               {player.totalLabel}
             </span>
