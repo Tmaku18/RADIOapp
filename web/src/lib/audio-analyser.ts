@@ -41,24 +41,68 @@ export function updateBassRef(
 type CapturableMediaElement = HTMLMediaElement & {
   captureStream?: () => MediaStream;
   mozCaptureStream?: () => MediaStream;
+  webkitCaptureStream?: () => MediaStream;
 };
 
 export type AnalyserSlot = {
   source?: MediaElementAudioSourceNode | MediaStreamAudioSourceNode;
   analyser?: AnalyserNode;
-  /** Element the captureStream tap is bound to (direct-playback mode). */
+  /** Element this tap is bound to. */
   mediaElement?: HTMLMediaElement;
+  /** `currentSrc` when the tap was last wired (reconnect after track changes). */
+  mediaSrc?: string;
+  /** True when routed through createMediaElementSource (visible-tab fallback). */
+  usesElementSource?: boolean;
 };
+
+function mediaElementSrc(audio: HTMLMediaElement): string {
+  return audio.currentSrc || audio.src || '';
+}
 
 function captureMediaElementStream(audio: HTMLMediaElement): MediaStream | null {
   const el = audio as CapturableMediaElement;
   if (typeof el.captureStream === 'function') {
     return el.captureStream();
   }
+  if (typeof el.webkitCaptureStream === 'function') {
+    return el.webkitCaptureStream();
+  }
   if (typeof el.mozCaptureStream === 'function') {
     return el.mozCaptureStream();
   }
   return null;
+}
+
+function wireAnalyserTap(
+  audio: HTMLMediaElement,
+  slot: AnalyserSlot,
+  ctx: AudioContext,
+  an: AnalyserNode,
+): boolean {
+  if (shouldUseDirectMediaPlayback()) {
+    const stream = captureMediaElementStream(audio);
+    if (stream) {
+      slot.source = ctx.createMediaStreamSource(stream);
+      slot.source.connect(an);
+      slot.usesElementSource = false;
+      return true;
+    }
+    // Last resort on visible tabs when captureStream is unavailable.
+    if (typeof document !== 'undefined' && !document.hidden) {
+      slot.source = ctx.createMediaElementSource(audio);
+      slot.source.connect(an);
+      slot.source.connect(ctx.destination);
+      slot.usesElementSource = true;
+      return true;
+    }
+    return false;
+  }
+
+  slot.source = ctx.createMediaElementSource(audio);
+  slot.source.connect(an);
+  an.connect(ctx.destination);
+  slot.usesElementSource = true;
+  return true;
 }
 
 export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
@@ -75,11 +119,15 @@ export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
   slot.source = undefined;
   slot.analyser = undefined;
   slot.mediaElement = undefined;
+  slot.mediaSrc = undefined;
+  slot.usesElementSource = undefined;
 }
 
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.preload = 'auto';
+  // Required for Web Audio FFT taps on cross-origin CDN audio (Supabase, etc.).
+  audio.crossOrigin = 'anonymous';
   audio.setAttribute('playsinline', '');
   audio.setAttribute('webkit-playsinline', 'true');
   (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
@@ -135,8 +183,21 @@ export function ensureMediaElementAnalyser(
   slot: AnalyserSlot,
   ctxRef: { current: AudioContext | null },
   fftSize: number,
+  opts?: { forceRefresh?: boolean },
 ): AnalyserNode | null {
   if (typeof window === 'undefined') return null;
+
+  const src = mediaElementSrc(audio);
+  if (!src) return slot.analyser ?? null;
+
+  if (!opts?.forceRefresh && slot.analyser && slot.mediaElement === audio && slot.mediaSrc === src) {
+    void unlockWebAudioContext(ctxRef);
+    return slot.analyser;
+  }
+
+  if (slot.source || slot.analyser) {
+    disconnectAnalyserSlot(slot);
+  }
 
   if (!ctxRef.current) {
     const Ctx =
@@ -147,35 +208,19 @@ export function ensureMediaElementAnalyser(
   }
   const ctx = ctxRef.current;
 
-  if (slot.analyser && slot.mediaElement === audio) {
-    void unlockWebAudioContext(ctxRef);
-    return slot.analyser;
-  }
-
-  if (slot.source || slot.analyser) {
-    disconnectAnalyserSlot(slot);
-  }
-
   try {
     const an = ctx.createAnalyser();
     an.fftSize = Math.max(64, fftSize);
     an.smoothingTimeConstant = 0.78;
 
-    if (shouldUseDirectMediaPlayback()) {
-      // Tap the element via captureStream so native output stays on the
-      // HTMLAudioElement path (background tabs / lock screen keep working).
-      const stream = captureMediaElementStream(audio);
-      if (!stream) return null;
-      slot.source = ctx.createMediaStreamSource(stream);
-      slot.source.connect(an);
-    } else {
-      slot.source = ctx.createMediaElementSource(audio);
-      slot.source.connect(an);
-      an.connect(ctx.destination);
+    if (!wireAnalyserTap(audio, slot, ctx, an)) {
+      disconnectAnalyserSlot(slot);
+      return null;
     }
 
     slot.analyser = an;
     slot.mediaElement = audio;
+    slot.mediaSrc = src;
   } catch {
     disconnectAnalyserSlot(slot);
     return null;
@@ -183,4 +228,16 @@ export function ensureMediaElementAnalyser(
 
   void unlockWebAudioContext(ctxRef);
   return slot.analyser ?? null;
+}
+
+/** Rebuild the FFT tap after a new `src` loads or playback resumes. */
+export function refreshMediaElementAnalyser(
+  audio: HTMLAudioElement,
+  slot: AnalyserSlot,
+  ctxRef: { current: AudioContext | null },
+  fftSize: number,
+): AnalyserNode | null {
+  return ensureMediaElementAnalyser(audio, slot, ctxRef, fftSize, {
+    forceRefresh: true,
+  });
 }

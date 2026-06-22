@@ -36,9 +36,9 @@ import {
   configureMobileAudioElement,
   createAnalyserBarsBuffer,
   disconnectAnalyserSlot,
-  ensureMediaElementAnalyser,
   fillIdleBars,
   reduceFrequencyBins,
+  refreshMediaElementAnalyser,
   unlockWebAudioContext,
   updateBassRef,
   type AnalyserSlot,
@@ -179,6 +179,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const barsRef = useRef(createAnalyserBarsBuffer(ANALYSER_BARS));
   const bassRef = useRef(0);
   const rawAnalyserDataRef = useRef(new Uint8Array(ANALYSER_BARS * 4));
+  const analyserZeroFramesRef = useRef(0);
   const analyserCtxRef = useRef<AudioContext | null>(null);
   const analyserSlotsRef = useRef<{ a: AnalyserSlot; b: AnalyserSlot }>({
     a: {},
@@ -471,6 +472,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!pair) return;
       const audio = pair[slot];
 
+      audio.crossOrigin = 'anonymous';
+      disconnectAnalyserSlot(analyserSlotsRef.current[slot]);
+
       destroyHlsForSlot(slot);
       audio.removeAttribute('src');
       audio.load();
@@ -500,7 +504,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       if (url.includes('.m3u8')) {
         if (Hls.isSupported()) {
-          const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+          const hls = new Hls({
+            enableWorker: true,
+            lowLatencyMode: true,
+            xhrSetup: (xhr) => {
+              xhr.withCredentials = false;
+            },
+          });
           hls.loadSource(url);
           hls.attachMedia(audio);
           hls.on(Hls.Events.MANIFEST_PARSED, onReady);
@@ -584,7 +594,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         // Playback recovered — clear any stale "Failed to load audio" banner.
         setState((s) => ({ ...s, isPlaying: true, error: null }));
-        ensureMediaElementAnalyser(
+        refreshMediaElementAnalyser(
           audio,
           analyserSlotsRef.current[slot],
           analyserCtxRef,
@@ -593,7 +603,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
       const onPlaying = () => {
         if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
-        ensureMediaElementAnalyser(
+        analyserZeroFramesRef.current = 0;
+        refreshMediaElementAnalyser(
           audio,
           analyserSlotsRef.current[slot],
           analyserCtxRef,
@@ -659,6 +670,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         // Source loaded successfully — clear any stale error from a prior blip.
         setState((s) => ({ ...s, isLoading: false, error: null }));
+        if (activeSlotRef.current === slot || crossfadeIncomingSlotRef.current === slot) {
+          refreshMediaElementAnalyser(
+            audio,
+            analyserSlotsRef.current[slot],
+            analyserCtxRef,
+            ANALYSER_BARS * 4,
+          );
+        }
         if (mutedByUserRef.current && activeSlotRef.current === slot) {
           // Stay live but silent — keep the stream advancing while muted.
           autoPlayPendingRef.current = false;
@@ -765,18 +784,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     configureMobileAudioElement(audioA);
     configureMobileAudioElement(audioB);
     audioPairRef.current = { a: audioA, b: audioB };
-    ensureMediaElementAnalyser(
-      audioA,
-      analyserSlotsRef.current.a,
-      analyserCtxRef,
-      ANALYSER_BARS * 4,
-    );
-    ensureMediaElementAnalyser(
-      audioB,
-      analyserSlotsRef.current.b,
-      analyserCtxRef,
-      ANALYSER_BARS * 4,
-    );
     const cleanupA = wireAudio(audioA, 'a');
     const cleanupB = wireAudio(audioB, 'b');
 
@@ -822,14 +829,44 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const tick = () => {
       const slot = activeSlotRef.current;
       const an = analyserSlotsRef.current[slot]?.analyser;
-      const playing = stateRef.current.isPlaying && !stateRef.current.pausedAt;
+      const activeAudio = audioPairRef.current?.[slot];
+      const streamActive =
+        stateRef.current.isPlaying &&
+        !stateRef.current.pausedAt &&
+        !globalTransportPausedRef.current;
+      const elementPlaying =
+        !!activeAudio &&
+        !activeAudio.paused &&
+        !activeAudio.ended &&
+        activeAudio.readyState >= 2;
+      const playing = streamActive && elementPlaying;
+
       if (an && playing) {
         if (rawAnalyserDataRef.current.length !== an.frequencyBinCount) {
           rawAnalyserDataRef.current = new Uint8Array(an.frequencyBinCount);
         }
         an.getByteFrequencyData(rawAnalyserDataRef.current as Uint8Array<ArrayBuffer>);
         reduceFrequencyBins(rawAnalyserDataRef.current, barsRef.current);
+
+        let peak = 0;
+        for (let i = 0; i < barsRef.current.length; i++) {
+          if (barsRef.current[i] > peak) peak = barsRef.current[i];
+        }
+        if (peak === 0) {
+          analyserZeroFramesRef.current += 1;
+          if (analyserZeroFramesRef.current === 90 && activeAudio) {
+            refreshMediaElementAnalyser(
+              activeAudio,
+              analyserSlotsRef.current[slot],
+              analyserCtxRef,
+              ANALYSER_BARS * 4,
+            );
+          }
+        } else {
+          analyserZeroFramesRef.current = 0;
+        }
       } else {
+        analyserZeroFramesRef.current = 0;
         fillIdleBars(barsRef.current, performance.now() / 1000);
       }
       updateBassRef(barsRef.current, bassRef);
