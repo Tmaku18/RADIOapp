@@ -1069,7 +1069,7 @@ export class SongsController {
     @CurrentUser() user: FirebaseUser,
     @Param('id') songId: string,
   ) {
-    const { id, role } = await this.resolveUserIdAndRole(user.uid);
+    const { id } = await this.resolveUserIdAndRole(user.uid);
     const supabase = getSupabaseClient();
     const { data: song } = await supabase
       .from('songs')
