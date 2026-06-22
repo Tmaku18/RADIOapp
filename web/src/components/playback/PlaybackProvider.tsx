@@ -587,6 +587,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (activeSlotRef.current !== slot || isLoadingTrackRef.current || isCrossfadingRef.current) {
           return;
         }
+        // Browsers often pause <audio> in background tabs even though the listener
+        // did not tap pause. For live radio, keep playback intent so refocus recovery
+        // can resume (and muted listeners still need the stream advancing silently).
+        if (
+          sourceRef.current === 'radio' &&
+          stateRef.current.pausedAt == null &&
+          !globalTransportPausedRef.current
+        ) {
+          return;
+        }
         setState((s) => ({ ...s, isPlaying: false }));
       };
       const clearLoadTimeout = () => {
@@ -1111,15 +1121,29 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // Recover playback when returning to a backgrounded tab. Browsers throttle
   // timers and frequently stall media in hidden tabs, which can leave the radio
   // paused/buffering even though the UI shows the correct song — previously this
-  // only recovered on a manual refresh. On refocus, if we should be playing but
-  // the active audio is stalled, reload the current track's source and resume.
+  // only recovered on a manual refresh. On refocus, if the listener did not
+  // intentionally pause/mute, reload or resume the stream when audio stalled.
   useEffect(() => {
     if (typeof document === 'undefined') return;
+
+    const radioStreamShouldRun = () => {
+      const s = stateRef.current;
+      if (sourceRef.current !== 'radio' || !s.track) return false;
+      if (s.pausedAt != null) return false;
+      if (globalTransportPausedRef.current) return false;
+      return true;
+    };
+
+    const radioShouldBeAudible = () =>
+      radioStreamShouldRun() && !mutedByUserRef.current;
+
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
-      if (sourceRef.current !== 'radio') return;
+      void unlockWebAudioContext(analyserCtxRef);
+      if (!radioStreamShouldRun()) return;
+
       const s = stateRef.current;
-      if (!s.isPlaying || s.pausedAt || !s.track) return;
+      const audible = radioShouldBeAudible();
 
       // A crossfade that began just before the tab was hidden can stall because
       // requestAnimationFrame is paused in background tabs. On refocus, finalize
@@ -1127,7 +1151,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       // resumes cleanly instead of jamming mid-transition.
       if (isCrossfadingRef.current) {
         cancelCrossfade();
-        loadTrackImmediate(s.track, 'radio', true, null);
+        loadTrackImmediate(s.track!, 'radio', audible, null);
         return;
       }
       if (isLoadingTrackRef.current) return;
@@ -1139,16 +1163,25 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         audio.ended ||
         audio.readyState < 2 /* HAVE_CURRENT_DATA */ ||
         audio.networkState === 3 /* NETWORK_NO_SOURCE */;
-      if (!stalled) return;
+
+      if (!stalled) {
+        if (audible && audio.paused) {
+          void playAudio(audio).catch(() => undefined);
+        }
+        return;
+      }
+
       const resumeAt =
-        Number.isFinite(audio.currentTime) && audio.currentTime > 0
-          ? audio.currentTime
-          : null;
-      loadTrackImmediate(s.track, 'radio', true, resumeAt);
+        s.serverPosition > 0
+          ? s.serverPosition
+          : Number.isFinite(audio.currentTime) && audio.currentTime > 0
+            ? audio.currentTime
+            : null;
+      loadTrackImmediate(s.track!, 'radio', audible, resumeAt);
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [cancelCrossfade, getActiveAudio, loadTrackImmediate]);
+  }, [cancelCrossfade, getActiveAudio, loadTrackImmediate, playAudio]);
 
   const play = useCallback(async () => {
     const audio = getActiveAudio();
