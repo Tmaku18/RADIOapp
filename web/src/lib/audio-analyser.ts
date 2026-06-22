@@ -49,6 +49,24 @@ export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.setAttribute('playsinline', '');
   audio.setAttribute('webkit-playsinline', 'true');
   (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+  audio.setAttribute('x-webkit-airplay', 'allow');
+}
+
+export function isMobileWeb(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = window.navigator.userAgent;
+  return (
+    /Android|iPhone|iPad|iPod|Mobile/i.test(ua) ||
+    (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1)
+  );
+}
+
+/**
+ * Mobile browsers suspend Web Audio in background tabs / lock screen.
+ * Route HTMLAudioElement directly so playback can continue without AudioContext.
+ */
+export function shouldUseDirectMediaPlayback(): boolean {
+  return isMobileWeb();
 }
 
 export async function unlockWebAudioContext(
@@ -70,7 +88,9 @@ export async function playMediaElement(
   audio: HTMLAudioElement,
   ctxRef: { current: AudioContext | null },
 ): Promise<void> {
-  await unlockWebAudioContext(ctxRef);
+  if (!shouldUseDirectMediaPlayback()) {
+    await unlockWebAudioContext(ctxRef);
+  }
   await audio.play();
 }
 
@@ -81,6 +101,7 @@ export function ensureMediaElementAnalyser(
   fftSize: number,
 ): AnalyserNode | null {
   if (typeof window === 'undefined') return null;
+  if (shouldUseDirectMediaPlayback()) return null;
   if (!ctxRef.current) {
     const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     ctxRef.current = new Ctx();

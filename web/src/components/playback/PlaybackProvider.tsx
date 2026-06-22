@@ -595,6 +595,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           stateRef.current.pausedAt == null &&
           !globalTransportPausedRef.current
         ) {
+          if (
+            typeof document !== 'undefined' &&
+            document.hidden &&
+            !mutedByUserRef.current
+          ) {
+            void playAudioRef.current(audio).catch(() => undefined);
+          }
           return;
         }
         setState((s) => ({ ...s, isPlaying: false }));
@@ -1118,6 +1125,19 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     state.track,
   ]);
 
+  const radioStreamShouldRun = useCallback(() => {
+    const s = stateRef.current;
+    if (sourceRef.current !== 'radio' || !s.track) return false;
+    if (s.pausedAt != null) return false;
+    if (globalTransportPausedRef.current) return false;
+    return true;
+  }, []);
+
+  const radioShouldBeAudible = useCallback(
+    () => radioStreamShouldRun() && !mutedByUserRef.current,
+    [radioStreamShouldRun],
+  );
+
   // Recover playback when returning to a backgrounded tab. Browsers throttle
   // timers and frequently stall media in hidden tabs, which can leave the radio
   // paused/buffering even though the UI shows the correct song — previously this
@@ -1125,17 +1145,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // intentionally pause/mute, reload or resume the stream when audio stalled.
   useEffect(() => {
     if (typeof document === 'undefined') return;
-
-    const radioStreamShouldRun = () => {
-      const s = stateRef.current;
-      if (sourceRef.current !== 'radio' || !s.track) return false;
-      if (s.pausedAt != null) return false;
-      if (globalTransportPausedRef.current) return false;
-      return true;
-    };
-
-    const radioShouldBeAudible = () =>
-      radioStreamShouldRun() && !mutedByUserRef.current;
 
     const onVisibility = () => {
       if (document.visibilityState !== 'visible') return;
@@ -1181,7 +1190,62 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     };
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
-  }, [cancelCrossfade, getActiveAudio, loadTrackImmediate, playAudio]);
+  }, [
+    cancelCrossfade,
+    getActiveAudio,
+    loadTrackImmediate,
+    playAudio,
+    radioShouldBeAudible,
+    radioStreamShouldRun,
+  ]);
+
+  // Keep radio playing while the tab/app is backgrounded (other tabs, mobile
+  // home screen, lock screen). Browsers may pause <audio> or suspend Web Audio;
+  // nudge playback back on a timer and when visibility changes.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const maintainPlayback = () => {
+      if (!radioStreamShouldRun()) return;
+      void unlockWebAudioContext(analyserCtxRef);
+
+      const ctx = analyserCtxRef.current;
+      if (ctx?.state === 'suspended' && radioShouldBeAudible()) {
+        void ctx.resume().catch(() => undefined);
+      }
+
+      const audio = getActiveAudio();
+      if (!audio) return;
+      const audible = radioShouldBeAudible();
+
+      if (audio.ended && onRadioTrackEndedRef.current) {
+        onRadioTrackEndedRef.current();
+        return;
+      }
+
+      const stalled =
+        audio.paused ||
+        audio.readyState < 2 /* HAVE_CURRENT_DATA */ ||
+        audio.networkState === 3 /* NETWORK_NO_SOURCE */;
+
+      if (!stalled) return;
+
+      void playAudio(audio).catch(() => undefined);
+    };
+
+    maintainPlayback();
+    const interval = setInterval(maintainPlayback, 2500);
+    document.addEventListener('visibilitychange', maintainPlayback);
+    window.addEventListener('pageshow', maintainPlayback);
+    window.addEventListener('focus', maintainPlayback);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', maintainPlayback);
+      window.removeEventListener('pageshow', maintainPlayback);
+      window.removeEventListener('focus', maintainPlayback);
+    };
+  }, [getActiveAudio, playAudio, radioShouldBeAudible, radioStreamShouldRun]);
 
   const play = useCallback(async () => {
     const audio = getActiveAudio();

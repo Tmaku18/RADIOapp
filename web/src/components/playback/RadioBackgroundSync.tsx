@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { radioApi } from '@/lib/api';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
@@ -12,6 +12,7 @@ import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
 const BACKGROUND_POLL_MS = 10000;
+const HIDDEN_TAB_POLL_MS = 5000;
 
 function trackFromPayload(
   trackData: Record<string, unknown>,
@@ -58,12 +59,21 @@ export function RadioBackgroundSync() {
 
   const isListenPage = pathname === '/listen';
   const isDjBoothPage = pathname.startsWith('/admin/dj-booth');
+  const [documentHidden, setDocumentHidden] = useState(false);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const update = () => setDocumentHidden(document.visibilityState === 'hidden');
+    update();
+    document.addEventListener('visibilitychange', update);
+    return () => document.removeEventListener('visibilitychange', update);
+  }, []);
+
   const shouldSync =
-    !isListenPage &&
     !isDjBoothPage &&
-    !radioPlayerUiActive &&
     state?.source === 'radio' &&
-    !!state.track?.radioId;
+    !!state.track?.radioId &&
+    (documentHidden || (!isListenPage && !radioPlayerUiActive));
 
   const radioId = state?.track?.radioId?.trim() || null;
 
@@ -174,9 +184,10 @@ export function RadioBackgroundSync() {
   useEffect(() => {
     if (!shouldSync) return;
     void syncCurrentTrack();
-    const interval = setInterval(() => void syncCurrentTrack(), BACKGROUND_POLL_MS);
+    const pollMs = documentHidden ? HIDDEN_TAB_POLL_MS : BACKGROUND_POLL_MS;
+    const interval = setInterval(() => void syncCurrentTrack(), pollMs);
     return () => clearInterval(interval);
-  }, [shouldSync, syncCurrentTrack]);
+  }, [shouldSync, syncCurrentTrack, documentHidden]);
 
   // Background tabs throttle the interval above; re-sync promptly on refocus.
   useEffect(() => {
