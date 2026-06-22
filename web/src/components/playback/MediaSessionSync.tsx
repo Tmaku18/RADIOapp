@@ -70,5 +70,22 @@ export function MediaSessionSync() {
       state?.isPlaying && !state?.pausedAt && !state?.isMuted ? 'playing' : 'paused';
   }, [state?.isPlaying, state?.pausedAt, state?.isMuted]);
 
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
+    if (state?.source !== 'radio') return;
+    const duration = state?.duration ?? 0;
+    const position = state?.currentTime ?? 0;
+    if (duration <= 0 || !Number.isFinite(position)) return;
+    try {
+      navigator.mediaSession.setPositionState({
+        duration,
+        playbackRate: 1,
+        position: Math.max(0, Math.min(position, duration)),
+      });
+    } catch {
+      // setPositionState unsupported on some browsers.
+    }
+  }, [state?.source, state?.currentTime, state?.duration]);
+
   return null;
 }

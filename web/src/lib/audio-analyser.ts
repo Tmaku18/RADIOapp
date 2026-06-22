@@ -62,11 +62,13 @@ export function isMobileWeb(): boolean {
 }
 
 /**
- * Mobile browsers suspend Web Audio in background tabs / lock screen.
- * Route HTMLAudioElement directly so playback can continue without AudioContext.
+ * Radio playback must use the native HTMLAudioElement output path so background
+ * tabs, lock screen, and mobile browser audio keep working. Web Audio analyser
+ * routing (createMediaElementSource) disconnects default output and goes silent
+ * when AudioContext is suspended in background.
  */
 export function shouldUseDirectMediaPlayback(): boolean {
-  return isMobileWeb();
+  return true;
 }
 
 export async function unlockWebAudioContext(

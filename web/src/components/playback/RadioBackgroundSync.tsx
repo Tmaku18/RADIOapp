@@ -149,7 +149,7 @@ export function RadioBackgroundSync() {
       const response = await radioApi.getCurrentTrack(radioId);
       const trackData = response.data as Record<string, unknown>;
       if (trackData?.no_content) return;
-      applyServerTrack(trackData, (state?.isPlaying ?? false) && state?.pausedAt == null);
+      applyServerTrack(trackData, state?.pausedAt == null && ((state?.isPlaying ?? false) || !!state?.isMuted));
     } catch {
       // Background sync should not interrupt playback UX.
     } finally {
@@ -167,7 +167,7 @@ export function RadioBackgroundSync() {
       });
       const trackData = response.data as Record<string, unknown>;
       if (trackData?.no_content || !trackData?.id) return;
-      applyServerTrack(trackData, state?.pausedAt == null);
+      applyServerTrack(trackData, state?.pausedAt == null && ((state?.isPlaying ?? false) || !!state?.isMuted));
     } catch {
       // Retry on next poll.
     } finally {

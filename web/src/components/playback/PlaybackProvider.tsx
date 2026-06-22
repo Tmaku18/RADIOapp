@@ -35,9 +35,7 @@ import {
   ANALYSER_BARS,
   configureMobileAudioElement,
   createAnalyserBarsBuffer,
-  ensureMediaElementAnalyser,
   fillIdleBars,
-  playMediaElement,
   reduceFrequencyBins,
   unlockWebAudioContext,
   updateBassRef,
@@ -186,7 +184,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const playAudioRef = useRef<(audio: HTMLAudioElement) => Promise<void>>(() =>
     Promise.resolve(),
   );
-  playAudioRef.current = (audio) => playMediaElement(audio, analyserCtxRef);
+  playAudioRef.current = (audio) => audio.play();
 
   const playAudio = useCallback((audio: HTMLAudioElement) => playAudioRef.current(audio), []);
 
@@ -745,21 +743,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const audioB = new Audio();
     configureMobileAudioElement(audioA);
     configureMobileAudioElement(audioB);
-    audioA.crossOrigin = 'anonymous';
-    audioB.crossOrigin = 'anonymous';
     audioPairRef.current = { a: audioA, b: audioB };
-    ensureMediaElementAnalyser(
-      audioA,
-      analyserSlotsRef.current.a,
-      analyserCtxRef,
-      ANALYSER_BARS * 4,
-    );
-    ensureMediaElementAnalyser(
-      audioB,
-      analyserSlotsRef.current.b,
-      analyserCtxRef,
-      ANALYSER_BARS * 4,
-    );
     const cleanupA = wireAudio(audioA, 'a');
     const cleanupB = wireAudio(audioB, 'b');
 
