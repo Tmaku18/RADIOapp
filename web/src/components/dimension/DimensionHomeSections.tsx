@@ -11,6 +11,8 @@ import type { TrendingData } from '@/components/marketing/TrendingShowcase';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlatformLiveStats } from '@/hooks/usePlatformLiveStats';
 import { resolveArtistProfileHref } from '@/lib/artist-links';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { signalRadioNavIntent } from '@/lib/playback-preferences';
 
 type HomeStats = {
   totalUsers: number;
@@ -125,7 +127,8 @@ export function DimensionHomeSections({
             <Reveal delay={0.85}>
               <div className="mt-10 flex flex-wrap items-center gap-4">
                 <Link
-                  href="/listen"
+                  href={`/listen?station=${encodeURIComponent(DEFAULT_STATION_ID)}&autoplay=1`}
+                  onClick={() => signalRadioNavIntent()}
                   className="group inline-flex items-center gap-3 px-7 py-4 rounded-full bg-cyan-400 text-black font-dim-mono text-[12px] tracking-[0.25em] uppercase font-bold glow-cyan hover:bg-white transition-colors"
                 >
                   <Pickaxe className="w-4 h-4" />

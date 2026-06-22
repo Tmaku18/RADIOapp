@@ -11,12 +11,38 @@ import {
 } from '@/lib/radio-sync';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
-import { getLastRadioStationId } from '@/lib/playback-preferences';
+import { getLastRadioStationId, setLastRadioStationId } from '@/lib/playback-preferences';
 import { DEFAULT_STATION_ID } from '@/data/station-map';
 import { usePlaybackOptional } from './PlaybackProvider';
 
 const BACKGROUND_POLL_MS = 10000;
 const HIDDEN_TAB_POLL_MS = 5000;
+
+/** Marketing home always tunes Ready Now Radio; other routes respect last station. */
+function resolveBootstrapStationId(pathname: string | null): string {
+  if (pathname === '/') return DEFAULT_STATION_ID;
+  return getLastRadioStationId() || DEFAULT_STATION_ID;
+}
+
+async function loadStationIntoBar(
+  stationId: string,
+  autoPlay: boolean,
+  actions: NonNullable<ReturnType<typeof usePlaybackOptional>>['actions'],
+): Promise<boolean> {
+  const response = await radioApi.getCurrentTrack(stationId);
+  const trackData = response.data as Record<string, unknown>;
+  if (trackData?.no_content || !trackData?.id) return false;
+  const track = trackFromPayload(trackData, stationId);
+  if (!track) return false;
+  actions.loadTrack(
+    track,
+    'radio',
+    autoPlay,
+    Number(trackData.position_seconds) || null,
+  );
+  setLastRadioStationId(stationId);
+  return true;
+}
 
 function trackFromPayload(
   trackData: Record<string, unknown>,
@@ -225,25 +251,16 @@ export function RadioBackgroundSync() {
     initAttemptedRef.current = true;
     let cancelled = false;
     void (async () => {
-      const stationId = getLastRadioStationId() || DEFAULT_STATION_ID;
+      const stationId = resolveBootstrapStationId(pathname);
       try {
-        const response = await radioApi.getCurrentTrack(stationId);
-        if (cancelled) return;
-        const trackData = response.data as Record<string, unknown>;
-        if (trackData?.no_content || !trackData?.id) {
+        const actions = actionsRef.current;
+        if (!actions) {
           initAttemptedRef.current = false;
           return;
         }
-        const track = trackFromPayload(trackData, stationId);
-        const actions = actionsRef.current;
-        if (track && actions) {
-          actions.loadTrack(
-            track,
-            'radio',
-            false,
-            Number(trackData.position_seconds) || null,
-          );
-        }
+        const ok = await loadStationIntoBar(stationId, false, actions);
+        if (cancelled) return;
+        if (!ok) initAttemptedRef.current = false;
       } catch {
         // Allow a retry on a later render if the first attempt failed.
         initAttemptedRef.current = false;
@@ -252,7 +269,39 @@ export function RadioBackgroundSync() {
     return () => {
       cancelled = true;
     };
-  }, [radioPlayerUiActive, state?.track, state?.source]);
+  }, [radioPlayerUiActive, state?.track, state?.source, pathname]);
+
+  // Marketing home (/) always shows Ready Now Radio in the bottom bar.
+  useEffect(() => {
+    if (pathname !== '/') return;
+    if (radioPlayerUiActive) return;
+    if (state?.source && state.source !== 'radio') return;
+
+    const currentRadioId = state?.track?.radioId?.trim();
+    if (currentRadioId === DEFAULT_STATION_ID && state?.track) return;
+
+    let cancelled = false;
+    void (async () => {
+      const actions = actionsRef.current;
+      if (!actions) return;
+      try {
+        await loadStationIntoBar(DEFAULT_STATION_ID, false, actions);
+      } catch {
+        if (!cancelled) {
+          // no-op — bootstrap or next navigation can retry
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    pathname,
+    radioPlayerUiActive,
+    state?.source,
+    state?.track,
+    state?.track?.radioId,
+  ]);
 
   useEffect(() => {
     if (!shouldSync || !radioId) return;

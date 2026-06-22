@@ -10,6 +10,8 @@ import { BassPulseLogo } from '@/components/dimension/BassPulseLogo';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { NETWORX_LOGO, NETWORX_LOGO_LIGHT } from '@/lib/brand-assets';
+import { DEFAULT_STATION_ID } from '@/data/station-map';
+import { signalRadioNavIntent } from '@/lib/playback-preferences';
 
 const LOGO_SRC = NETWORX_LOGO;
 const LOGO_SRC_LIGHT = NETWORX_LOGO_LIGHT;
@@ -114,7 +116,8 @@ export default function MarketingLayout({
                 Dashboard
               </Link>
               <Link
-                href="/listen"
+                href={`/listen?station=${encodeURIComponent(DEFAULT_STATION_ID)}&autoplay=1`}
+                onClick={() => signalRadioNavIntent()}
                 data-testid="nav-tune-in-btn"
                 className="hidden lg:inline-flex px-5 py-2 rounded-full bg-black border border-cyan-400 text-cyan-300 font-dim-mono text-[11px] tracking-[0.25em] uppercase hover:bg-cyan-400 hover:text-black transition-colors"
               >
