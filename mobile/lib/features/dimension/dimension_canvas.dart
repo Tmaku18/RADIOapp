@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'butterfly_hero_fallback.dart';
 import 'butterfly_hero_scene.dart';
 
-/// Butterfly hero canvas with 3D when available, 2D fallback underneath immediately.
+/// Butterfly hero canvas — 2D placeholder while Three.js warms up, then cross-fades to 3D.
 class DimensionCanvas extends StatefulWidget {
   const DimensionCanvas({super.key});
 
@@ -14,15 +14,6 @@ class DimensionCanvas extends StatefulWidget {
 class _DimensionCanvasState extends State<DimensionCanvas> {
   bool _useFallbackOnly = false;
   bool _sceneReady = false;
-
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(const Duration(seconds: 4), () {
-      if (!mounted || _sceneReady || _useFallbackOnly) return;
-      setState(() => _useFallbackOnly = true);
-    });
-  }
 
   void _onSceneReady() {
     if (!mounted) return;
@@ -43,7 +34,11 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const ButterflyHeroFallback(),
+        AnimatedOpacity(
+          opacity: _sceneReady ? 0 : 1,
+          duration: const Duration(milliseconds: 600),
+          child: const ButterflyHeroFallback(),
+        ),
         AnimatedOpacity(
           opacity: _sceneReady ? 1 : 0,
           duration: const Duration(milliseconds: 600),
