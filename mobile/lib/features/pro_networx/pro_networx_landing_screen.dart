@@ -16,6 +16,7 @@ class ProNetworxLandingScreen extends StatelessWidget {
       title: 'PRO-NETWORX',
       showNeonLine: true,
       actions: [
+        const BackToNetworxRadioButton(compact: true),
         TextButton(
           onPressed: () => Navigator.of(context).pushNamed(AppRoutes.login),
           child: Text(
@@ -49,6 +50,7 @@ class ProNetworxLandingScreen extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 12,
                 children: [
+                  const BackToNetworxRadioButton(),
                   DimensionCtaButton(
                     label: 'Join free',
                     onPressed: () =>

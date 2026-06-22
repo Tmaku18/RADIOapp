@@ -23,6 +23,7 @@ class DimensionHomeSections extends StatefulWidget {
     required this.onMineFrequency,
     required this.onGetStarted,
     required this.onExploreArtists,
+    required this.onLogin,
   });
 
   final Map<String, dynamic>? stats;
@@ -30,6 +31,7 @@ class DimensionHomeSections extends StatefulWidget {
   final VoidCallback onMineFrequency;
   final VoidCallback onGetStarted;
   final VoidCallback onExploreArtists;
+  final VoidCallback onLogin;
 
   @override
   State<DimensionHomeSections> createState() => _DimensionHomeSectionsState();
@@ -115,6 +117,7 @@ class _DimensionHomeSectionsState extends State<DimensionHomeSections> {
           onMine: _mineFrequency,
           onGetStarted: widget.onGetStarted,
           onExplore: widget.onExploreArtists,
+          onLogin: widget.onLogin,
           mining: _startingRadio,
         ),
         if (trending != null && trending.songs.isNotEmpty) ...[
@@ -302,6 +305,7 @@ class _HeroSection extends StatelessWidget {
     required this.onMine,
     required this.onGetStarted,
     required this.onExplore,
+    required this.onLogin,
     required this.mining,
   });
 
@@ -312,6 +316,7 @@ class _HeroSection extends StatelessWidget {
   final VoidCallback onMine;
   final VoidCallback onGetStarted;
   final VoidCallback onExplore;
+  final VoidCallback onLogin;
   final bool mining;
 
   @override
@@ -399,6 +404,11 @@ class _HeroSection extends StatelessWidget {
                       label: 'Get Started Free',
                       variant: DimensionCtaVariant.secondary,
                       onPressed: onGetStarted,
+                    ),
+                    DimensionCtaButton(
+                      label: 'Log In',
+                      variant: DimensionCtaVariant.secondary,
+                      onPressed: onLogin,
                     ),
                     DimensionCtaButton(
                       label: 'Explore Artists',

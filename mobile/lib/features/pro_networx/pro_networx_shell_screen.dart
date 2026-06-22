@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
 import '../../widgets/dimension/dimension_radio_bar.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import 'pro_home_feed_screen.dart';
 import 'pro_radio_screen.dart';
 import 'pro_search_screen.dart';
@@ -32,22 +33,12 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        leading: IconButton(
-          tooltip: 'Back to Networks Radio',
-          icon: const Icon(Icons.radio),
-          onPressed: () {
-            if (Navigator.of(context).canPop()) {
-              Navigator.of(context).pop();
-            } else {
-              Navigator.of(context).pushNamedAndRemoveUntil(
-                AppRoutes.home,
-                (route) => false,
-              );
-            }
-          },
-        ),
         title: const Text('Pro-Networx'),
         actions: [
+          const BackToNetworxRadioButton(
+            compact: true,
+            authenticatedTarget: true,
+          ),
           IconButton(
             tooltip: 'My profile',
             icon: const Icon(Icons.person_outline),
