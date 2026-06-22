@@ -210,24 +210,28 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     required bool reportPlay,
   }) async {
     final radioId = _radioId ?? RadioService.defaultRadioId;
-    await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(track.audioUrl),
-        tag: MediaItem(
-          id: track.id,
-          title: track.title,
-          artist: track.artistName,
-          artUri: BrandAssets.mediaArtUri(track.artworkUrl),
-          extras: {
-            'source': 'radio',
-            'radioId': radioId,
-            'songId': track.id,
-          },
+    try {
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(track.audioUrl),
+          tag: MediaItem(
+            id: track.id,
+            title: track.title,
+            artist: track.artistName,
+            artUri: BrandAssets.mediaArtUri(track.artworkUrl),
+            extras: {
+              'source': 'radio',
+              'radioId': radioId,
+              'songId': track.id,
+            },
+          ),
         ),
-      ),
-    );
-    if (track.positionSeconds > 0) {
-      await _player.seek(Duration(seconds: track.positionSeconds));
+        initialPosition: track.positionSeconds > 0
+            ? Duration(seconds: track.positionSeconds)
+            : null,
+      );
+    } catch (_) {
+      return;
     }
     final handler = AudioPlayerService.handler;
     if (handler.userPaused) {

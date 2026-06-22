@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/radio_background_sync_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
 class DiscoverAudioTab extends StatefulWidget {
@@ -75,6 +76,16 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     final currentTag = _player.sequenceState?.currentSource?.tag;
     if (currentTag is MediaItem) {
       return currentTag.id == _clipMediaId(card);
+    }
+    return false;
+  }
+
+  /// Discover shares the app-wide player with radio. Don't hijack it on startup.
+  bool _radioOwnsPlayer() {
+    if (RadioBackgroundSyncService.instance.playerScreenActive) return true;
+    final currentTag = _player.sequenceState.currentSource?.tag;
+    if (currentTag is MediaItem && currentTag.extras?['source'] == 'radio') {
+      return true;
     }
     return false;
   }
@@ -151,30 +162,43 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     }
   }
 
-  Future<void> _autoplayCurrent() async {
+  Future<void> _autoplayCurrent({bool userInitiated = false}) async {
     _clipStopTimer?.cancel();
     final card = _currentCard;
     if (card == null || card.clipUrl.isEmpty) {
-      await _player.stop();
+      if (!userInitiated && _radioOwnsPlayer()) return;
+      try {
+        await _player.stop();
+      } catch (_) {}
       return;
     }
 
-    await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(card.clipUrl),
-        tag: MediaItem(
-          id: _clipMediaId(card),
-          title: card.title,
-          artist: card.artistDisplayName ?? card.artistName,
-          artUri: (card.backgroundUrl != null && card.backgroundUrl!.isNotEmpty)
-              ? Uri.tryParse(card.backgroundUrl!)
-              : null,
+    if (!userInitiated && _radioOwnsPlayer()) return;
+
+    try {
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(card.clipUrl),
+          tag: MediaItem(
+            id: _clipMediaId(card),
+            title: card.title,
+            artist: card.artistDisplayName ?? card.artistName,
+            artUri:
+                (card.backgroundUrl != null && card.backgroundUrl!.isNotEmpty)
+                ? Uri.tryParse(card.backgroundUrl!)
+                : null,
+          ),
         ),
-      ),
-    );
-    await _player.seek(Duration.zero);
-    unawaited(_player.play());
-    _startClipStopTimer(card);
+        initialPosition: Duration.zero,
+      );
+      unawaited(_player.play());
+      _startClipStopTimer(card);
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString();
+      if (msg.contains('Loading interrupted')) return;
+      setState(() => _error = 'Could not play clip preview.');
+    }
   }
 
   Future<void> _toggleCurrentClipPlayback() async {
@@ -188,7 +212,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     }
 
     if (!_isCurrentClipLoaded(card)) {
-      await _autoplayCurrent();
+      await _autoplayCurrent(userInitiated: true);
       return;
     }
 
@@ -218,7 +242,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
         _cards = _cards.skip(1).toList();
         _shownAtMs = DateTime.now().millisecondsSinceEpoch;
       });
-      await _autoplayCurrent();
+      await _autoplayCurrent(userInitiated: true);
       if (_cards.length < 3 && _nextCursor != null) {
         unawaited(_loadPage(append: true));
       }

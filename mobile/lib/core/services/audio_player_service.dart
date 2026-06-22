@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
@@ -20,6 +22,7 @@ class AudioPlayerService {
 
   static NetworxAudioHandler? _handler;
   static bool _initialized = false;
+  static Completer<void>? _sourceLoadGate;
 
   /// The primary content player (radio + previews).
   AudioPlayer get player => handler.music;
@@ -33,6 +36,42 @@ class AudioPlayerService {
       );
     }
     return h;
+  }
+
+  /// Serialize `setAudioSource` calls on the shared player so concurrent loads
+  /// (e.g. radio startup vs Discover autoplay) don't throw "Loading interrupted".
+  Future<void> loadSource(
+    AudioSource source, {
+    Duration? initialPosition,
+  }) async {
+    await _runExclusiveSourceLoad(() async {
+      await player.setAudioSource(source);
+      if (initialPosition != null && initialPosition > Duration.zero) {
+        await player.seek(initialPosition);
+      }
+    });
+  }
+
+  static Future<void> _runExclusiveSourceLoad(
+    Future<void> Function() load,
+  ) async {
+    while (_sourceLoadGate != null) {
+      final gate = _sourceLoadGate!;
+      try {
+        await gate.future;
+      } catch (_) {}
+    }
+
+    final gate = Completer<void>();
+    _sourceLoadGate = gate;
+    try {
+      await load();
+    } finally {
+      if (!gate.isCompleted) gate.complete();
+      if (identical(_sourceLoadGate, gate)) {
+        _sourceLoadGate = null;
+      }
+    }
   }
 
   /// Configure the audio session and stand up the background audio handler.

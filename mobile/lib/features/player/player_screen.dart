@@ -187,33 +187,42 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   Future<void> _initializeStationAndPlayback() async {
-    await _restoreStationSelection();
-    final trackFuture = _radioService.getCurrentTrack(radioId: _radioId);
-    final adFuture = _venueAds.getCurrent(stationId: _radioId);
-    final eventsFuture = StationEventsService().start(stationId: _radioId);
-    final results = await Future.wait<Object?>([
-      trackFuture,
-      adFuture,
-      eventsFuture,
-    ]);
-    if (!mounted) return;
-    final ad = results[1] as VenueAd?;
-    setState(() => _ad = ad);
-    final res = results[0] as TrackFetchResult;
-    if (res.noContent) {
+    try {
+      await _restoreStationSelection();
+      final trackFuture = _radioService.getCurrentTrack(radioId: _radioId);
+      final adFuture = _venueAds.getCurrent(stationId: _radioId);
+      final eventsFuture = StationEventsService().start(stationId: _radioId);
+      final results = await Future.wait<Object?>([
+        trackFuture,
+        adFuture,
+        eventsFuture,
+      ]);
+      if (!mounted) return;
+      final ad = results[1] as VenueAd?;
+      setState(() => _ad = ad);
+      final res = results[0] as TrackFetchResult;
+      if (res.noContent) {
+        setState(() {
+          _isLoading = false;
+          _noContent = true;
+          _noContentMessage = res.message;
+        });
+        return;
+      }
+      final track = res.track;
+      if (track == null || track.audioUrl.trim().isEmpty) {
+        setState(() => _isLoading = false);
+        return;
+      }
+      await _loadAndPlay(track, res);
+    } catch (e) {
+      if (!mounted) return;
       setState(() {
         _isLoading = false;
         _noContent = true;
-        _noContentMessage = res.message;
+        _noContentMessage = 'Could not start radio. Tap retry.';
       });
-      return;
     }
-    final track = res.track;
-    if (track == null || track.audioUrl.trim().isEmpty) {
-      setState(() => _isLoading = false);
-      return;
-    }
-    await _loadAndPlay(track, res);
   }
 
   Future<void> _restoreStationSelection() async {
@@ -366,25 +375,55 @@ class _PlayerScreenState extends State<PlayerScreen>
     TrackFetchResult result, {
     bool reportPlay = true,
   }) async {
-    await _audioPlayer.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(track.audioUrl),
-        tag: MediaItem(
-          id: track.id,
-          title: track.title,
-          artist: track.artistName,
-          artUri: BrandAssets.mediaArtUri(track.artworkUrl),
-          extras: {
-            'source': 'radio',
-            'radioId': _radioId,
-            'songId': track.id,
-          },
-        ),
-      ),
-    );
-    // Best-effort sync to server position if available.
-    if (track.positionSeconds > 0) {
-      await _audioPlayer.seek(Duration(seconds: track.positionSeconds));
+    final audio = AudioPlayerService();
+    Object? lastError;
+    for (var attempt = 0; attempt < 3; attempt++) {
+      try {
+        await audio.loadSource(
+          AudioSource.uri(
+            Uri.parse(track.audioUrl),
+            tag: MediaItem(
+              id: track.id,
+              title: track.title,
+              artist: track.artistName,
+              artUri: BrandAssets.mediaArtUri(track.artworkUrl),
+              extras: {
+                'source': 'radio',
+                'radioId': _radioId,
+                'songId': track.id,
+              },
+            ),
+          ),
+          initialPosition: track.positionSeconds > 0
+              ? Duration(seconds: track.positionSeconds)
+              : null,
+        );
+        lastError = null;
+        break;
+      } catch (e) {
+        lastError = e;
+        final msg = e.toString();
+        if (msg.contains('Loading interrupted') && attempt < 2) {
+          await Future.delayed(Duration(milliseconds: 120 * (attempt + 1)));
+          continue;
+        }
+        if (!mounted) return;
+        setState(() {
+          _isLoading = false;
+          _noContent = true;
+          _noContentMessage = 'Could not start playback. Tap retry.';
+        });
+        return;
+      }
+    }
+    if (lastError != null) {
+      if (!mounted) return;
+      setState(() {
+        _isLoading = false;
+        _noContent = true;
+        _noContentMessage = 'Could not start playback. Tap retry.';
+      });
+      return;
     }
     await _applyMainVolumeForTrack(track);
     if (AudioPlayerService.handler.userPaused) {

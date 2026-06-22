@@ -105,23 +105,27 @@ class RadioGuestPlaybackService {
     if (track.audioUrl.trim().isEmpty) return false;
 
     final player = AudioPlayerService().player;
-    await player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(track.audioUrl),
-        tag: MediaItem(
-          id: track.id,
-          title: track.title,
-          artist: track.artistName,
-          extras: {
-            'source': 'radio',
-            'radioId': radioId,
-            'songId': track.id,
-          },
+    try {
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(track.audioUrl),
+          tag: MediaItem(
+            id: track.id,
+            title: track.title,
+            artist: track.artistName,
+            extras: {
+              'source': 'radio',
+              'radioId': radioId,
+              'songId': track.id,
+            },
+          ),
         ),
-      ),
-    );
-    if (track.positionSeconds > 0) {
-      await player.seek(Duration(seconds: track.positionSeconds));
+        initialPosition: track.positionSeconds > 0
+            ? Duration(seconds: track.positionSeconds)
+            : null,
+      );
+    } catch (_) {
+      return false;
     }
     await AudioPlayerService.handler.setUserPaused(false);
     await player.play();
