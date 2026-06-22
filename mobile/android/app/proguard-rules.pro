@@ -55,6 +55,11 @@
     native <methods>;
 }
 
+# flutter_angle / three.js GL bridge (Play Store release uses R8 minify)
+-keep class org.fluttergl.flutter_angle.** { *; }
+-keep class com.getkeepsafe.relinker.** { *; }
+-dontwarn org.fluttergl.flutter_angle.**
+
 # Keep annotation default values
 -keepattributes AnnotationDefault
 

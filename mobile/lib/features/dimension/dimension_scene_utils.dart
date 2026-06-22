@@ -21,26 +21,35 @@ double seededRand(int seed) {
 
 double lerp(double a, double b, double t) => a + (b - a) * t;
 
-three.MeshStandardMaterial cyanBarMaterial({double emissiveIntensity = 1.4}) {
-  return three.MeshStandardMaterial.fromMap({
-    'color': dimensionCyanDeep,
-    'emissive': dimensionCyan,
-    'emissiveIntensity': emissiveIntensity,
-    'roughness': 0.25,
-    'metalness': 0.4,
+/// Basic (unlit) materials compile reliably on ANGLE + physical Android GPUs.
+/// MeshStandardMaterial PBR shaders often fail on Play Store release builds.
+three.MeshBasicMaterial cyanBarMaterial({double opacity = 0.95}) {
+  return three.MeshBasicMaterial.fromMap({
+    'color': dimensionCyan,
+    'transparent': true,
+    'opacity': opacity,
     'toneMapped': false,
   });
 }
 
-three.MeshStandardMaterial cyanArchMaterial({double emissiveIntensity = 1.6}) {
-  return three.MeshStandardMaterial.fromMap({
+three.MeshBasicMaterial cyanArchMaterial({double opacity = 0.92}) {
+  return three.MeshBasicMaterial.fromMap({
     'color': dimensionArchColor,
-    'emissive': dimensionCyan,
-    'emissiveIntensity': emissiveIntensity,
-    'roughness': 0.15,
-    'metalness': 0.7,
+    'transparent': true,
+    'opacity': opacity,
     'toneMapped': false,
   });
+}
+
+three.Settings dimensionSceneSettings() {
+  return three.Settings(
+    alpha: true,
+    antialias: false,
+    clearAlpha: 0,
+    clearColor: dimensionBgDark,
+    enableShadowMap: false,
+    renderOptions: {'format': three.RGBAFormat, 'samples': 0},
+  );
 }
 
 Future<List<three.Texture?>> loadNoteTextures(three.TextureLoader loader) async {

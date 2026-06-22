@@ -77,11 +77,11 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
   double _lastBurstHover = -10;
 
   final List<_BarMesh> _bars = [];
-  final List<three.MeshStandardMaterial> _archMaterials = [];
+  final List<three.MeshBasicMaterial> _archMaterials = [];
   three.Object3D? _leftHinge;
   three.Object3D? _rightHinge;
   three.Object3D? _root;
-  three.MeshStandardMaterial? _bodyMaterial;
+  three.MeshBasicMaterial? _bodyMaterial;
 
   late Float32List _dustPositions;
   late Float32List _dustVelocities;
@@ -98,12 +98,7 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
   void initState() {
     super.initState();
     threeJs = three.ThreeJS(
-      settings: three.Settings(
-        alpha: true,
-        antialias: true,
-        clearAlpha: 0,
-        clearColor: dimensionBgDark,
-      ),
+      settings: dimensionSceneSettings(),
       onSetupComplete: () {
         if (!mounted) return;
         setState(() => _ready = true);
@@ -205,7 +200,7 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
 
     final archGroup = three.Group();
     for (final curve in [topCurve, botCurve]) {
-      final geometry = three.TubeGeometry(curve, 64, 0.06, 12, false);
+      final geometry = three.TubeGeometry(curve, 24, 0.06, 8, false);
       final material = cyanArchMaterial();
       _archMaterials.add(material);
       archGroup.add(three.Mesh(geometry, material));
@@ -225,12 +220,12 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
       capSegments: 8,
       radialSegments: 16,
     );
-    _bodyMaterial = cyanArchMaterial(emissiveIntensity: 1.6);
+    _bodyMaterial = cyanArchMaterial(opacity: 1);
     final body = three.Mesh(bodyGeometry, _bodyMaterial);
     root.add(body);
 
     final headGeometry = three.SphereGeometry(0.07, 16, 16);
-    final headMaterial = cyanArchMaterial(emissiveIntensity: 1.8);
+    final headMaterial = cyanArchMaterial(opacity: 1);
     final head = three.Mesh(headGeometry, headMaterial);
     head.position.setValues(0, 0.78, 0);
     root.add(head);
@@ -376,20 +371,6 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
     threeJs.scene = three.Scene();
     threeJs.scene.fog = three.Fog(dimensionBgDark, 9, 22);
 
-    threeJs.scene.add(three.AmbientLight(0xffffff, 0.25));
-
-    final light1 = three.PointLight(dimensionCyan, 2.6);
-    light1.position.setValues(3, 3, 4);
-    threeJs.scene.add(light1);
-
-    final light2 = three.PointLight(0x00B7C9, 1.6);
-    light2.position.setValues(-4, -2, 3);
-    threeJs.scene.add(light2);
-
-    final light3 = three.PointLight(dimensionCyan, 1.2);
-    light3.position.setValues(0, 0, -3);
-    threeJs.scene.add(light3);
-
     _buildStarField(threeJs.scene);
 
     final content = three.Group();
@@ -398,7 +379,13 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
     _buildParticleDust(content);
     content.add(_buildButterfly());
 
-    final noteTextures = await loadNoteTextures(three.TextureLoader());
+    List<three.Texture?> noteTextures;
+    try {
+      noteTextures = await loadNoteTextures(three.TextureLoader());
+    } catch (error, stackTrace) {
+      debugPrint('ButterflyHeroScene note textures skipped: $error\n$stackTrace');
+      noteTextures = List<three.Texture?>.filled(noteChars.length, null);
+    }
     _buildMusicNotes(content, noteTextures);
     _buildNoteBurst(content, noteTextures);
 
@@ -428,8 +415,8 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
     _root?.scale.setScalar(burstScale);
 
     if (_bodyMaterial != null) {
-      _bodyMaterial!.emissiveIntensity =
-          1.6 + math.sin(t * 4.4) * 0.4 + burstFlash;
+      _bodyMaterial!.opacity =
+          (0.88 + math.sin(t * 4.4) * 0.08 + burstFlash * 0.05).clamp(0.55, 1.0);
     }
 
     for (final bar in _bars) {
@@ -437,14 +424,15 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
       final h = bar.def.baseH * wobble;
       bar.mesh.scale.y = h;
       bar.mesh.position.y = bar.def.row * (h / 2 + 0.04);
-      final mat = bar.mesh.material as three.MeshStandardMaterial?;
+      final mat = bar.mesh.material as three.MeshBasicMaterial?;
       if (mat != null) {
-        mat.emissiveIntensity = 1.1 + math.sin(t * 6 + bar.def.phase) * 0.6;
+        mat.opacity =
+            (0.82 + math.sin(t * 6 + bar.def.phase) * 0.18).clamp(0.45, 1.0);
       }
     }
 
     for (final mat in _archMaterials) {
-      mat.emissiveIntensity = 1.4 + math.sin(t * 2.2) * 0.25;
+      mat.opacity = (0.86 + math.sin(t * 2.2) * 0.12).clamp(0.5, 1.0);
     }
 
     if (_dustGeometry != null) {

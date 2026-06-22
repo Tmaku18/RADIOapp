@@ -24,11 +24,7 @@ class _FloatingAlbumSceneState extends State<FloatingAlbumScene> {
   void initState() {
     super.initState();
     threeJs = three.ThreeJS(
-      settings: three.Settings(
-        alpha: true,
-        antialias: true,
-        clearAlpha: 0,
-      ),
+      settings: dimensionSceneSettings(),
       onSetupComplete: () {
         if (mounted) setState(() => _ready = true);
       },
@@ -66,24 +62,11 @@ class _FloatingAlbumSceneState extends State<FloatingAlbumScene> {
     threeJs.camera.position.setValues(0, 0, 5);
 
     threeJs.scene = three.Scene();
-    threeJs.scene.add(three.AmbientLight(0xffffff, 0.4));
-
-    final cyanLight = three.PointLight(dimensionCyan, 2.4);
-    cyanLight.position.setValues(3, 3, 3);
-    threeJs.scene.add(cyanLight);
-
-    final pinkLight = three.PointLight(0xFF007F, 1.6);
-    pinkLight.position.setValues(-3, -2, 2);
-    threeJs.scene.add(pinkLight);
-
     final texture = await three.TextureLoader().fromNetwork(Uri.parse(widget.imageUrl));
     final geometry = three.BoxGeometry(2.2, 2.2, 0.25);
-    final material = three.MeshStandardMaterial.fromMap({
+    final material = three.MeshBasicMaterial.fromMap({
       'map': texture,
-      'emissive': dimensionCyan,
-      'emissiveIntensity': 0.08,
-      'metalness': 0.5,
-      'roughness': 0.35,
+      'toneMapped': false,
     });
     _albumMesh = three.Mesh(geometry, material);
     threeJs.scene.add(_albumMesh!);
