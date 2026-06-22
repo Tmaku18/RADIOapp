@@ -35,6 +35,8 @@ import {
   ANALYSER_BARS,
   configureMobileAudioElement,
   createAnalyserBarsBuffer,
+  disconnectAnalyserSlot,
+  ensureMediaElementAnalyser,
   fillIdleBars,
   reduceFrequencyBins,
   unlockWebAudioContext,
@@ -582,6 +584,21 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         // Playback recovered — clear any stale "Failed to load audio" banner.
         setState((s) => ({ ...s, isPlaying: true, error: null }));
+        ensureMediaElementAnalyser(
+          audio,
+          analyserSlotsRef.current[slot],
+          analyserCtxRef,
+          ANALYSER_BARS * 4,
+        );
+      };
+      const onPlaying = () => {
+        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        ensureMediaElementAnalyser(
+          audio,
+          analyserSlotsRef.current[slot],
+          analyserCtxRef,
+          ANALYSER_BARS * 4,
+        );
       };
       const onPause = () => {
         if (activeSlotRef.current !== slot || isLoadingTrackRef.current || isCrossfadingRef.current) {
@@ -722,6 +739,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       audio.addEventListener('timeupdate', onTimeUpdate);
       audio.addEventListener('durationchange', onDurationChange);
       audio.addEventListener('play', onPlay);
+      audio.addEventListener('playing', onPlaying);
       audio.addEventListener('pause', onPause);
       audio.addEventListener('loadstart', onLoadStart);
       audio.addEventListener('canplay', onCanPlay);
@@ -733,6 +751,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         audio.removeEventListener('timeupdate', onTimeUpdate);
         audio.removeEventListener('durationchange', onDurationChange);
         audio.removeEventListener('play', onPlay);
+        audio.removeEventListener('playing', onPlaying);
         audio.removeEventListener('pause', onPause);
         audio.removeEventListener('loadstart', onLoadStart);
         audio.removeEventListener('canplay', onCanPlay);
@@ -746,6 +765,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     configureMobileAudioElement(audioA);
     configureMobileAudioElement(audioB);
     audioPairRef.current = { a: audioA, b: audioB };
+    ensureMediaElementAnalyser(
+      audioA,
+      analyserSlotsRef.current.a,
+      analyserCtxRef,
+      ANALYSER_BARS * 4,
+    );
+    ensureMediaElementAnalyser(
+      audioB,
+      analyserSlotsRef.current.b,
+      analyserCtxRef,
+      ANALYSER_BARS * 4,
+    );
     const cleanupA = wireAudio(audioA, 'a');
     const cleanupB = wireAudio(audioB, 'b');
 
@@ -758,6 +789,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       audioPairRef.current = null;
       destroyHlsForSlot('a');
       destroyHlsForSlot('b');
+      disconnectAnalyserSlot(analyserSlotsRef.current.a);
+      disconnectAnalyserSlot(analyserSlotsRef.current.b);
+      try {
+        analyserCtxRef.current?.close?.();
+      } catch {
+        /* ignore */
+      }
+      analyserCtxRef.current = null;
     };
   }, [cancelCrossfade, destroyHlsForSlot]);
 

@@ -38,10 +38,44 @@ export function updateBassRef(
   bassRef.current = bassRef.current * 0.7 + b * 0.3;
 }
 
-export type AnalyserSlot = {
-  source?: MediaElementAudioSourceNode;
-  analyser?: AnalyserNode;
+type CapturableMediaElement = HTMLMediaElement & {
+  captureStream?: () => MediaStream;
+  mozCaptureStream?: () => MediaStream;
 };
+
+export type AnalyserSlot = {
+  source?: MediaElementAudioSourceNode | MediaStreamAudioSourceNode;
+  analyser?: AnalyserNode;
+  /** Element the captureStream tap is bound to (direct-playback mode). */
+  mediaElement?: HTMLMediaElement;
+};
+
+function captureMediaElementStream(audio: HTMLMediaElement): MediaStream | null {
+  const el = audio as CapturableMediaElement;
+  if (typeof el.captureStream === 'function') {
+    return el.captureStream();
+  }
+  if (typeof el.mozCaptureStream === 'function') {
+    return el.mozCaptureStream();
+  }
+  return null;
+}
+
+export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
+  try {
+    slot.source?.disconnect();
+  } catch {
+    /* ignore */
+  }
+  try {
+    slot.analyser?.disconnect();
+  } catch {
+    /* ignore */
+  }
+  slot.source = undefined;
+  slot.analyser = undefined;
+  slot.mediaElement = undefined;
+}
 
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
@@ -103,25 +137,50 @@ export function ensureMediaElementAnalyser(
   fftSize: number,
 ): AnalyserNode | null {
   if (typeof window === 'undefined') return null;
-  if (shouldUseDirectMediaPlayback()) return null;
+
   if (!ctxRef.current) {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const Ctx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext })
+        .webkitAudioContext;
     ctxRef.current = new Ctx();
   }
   const ctx = ctxRef.current;
-  if (!slot.source) {
-    try {
+
+  if (slot.analyser && slot.mediaElement === audio) {
+    void unlockWebAudioContext(ctxRef);
+    return slot.analyser;
+  }
+
+  if (slot.source || slot.analyser) {
+    disconnectAnalyserSlot(slot);
+  }
+
+  try {
+    const an = ctx.createAnalyser();
+    an.fftSize = Math.max(64, fftSize);
+    an.smoothingTimeConstant = 0.78;
+
+    if (shouldUseDirectMediaPlayback()) {
+      // Tap the element via captureStream so native output stays on the
+      // HTMLAudioElement path (background tabs / lock screen keep working).
+      const stream = captureMediaElementStream(audio);
+      if (!stream) return null;
+      slot.source = ctx.createMediaStreamSource(stream);
+      slot.source.connect(an);
+    } else {
       slot.source = ctx.createMediaElementSource(audio);
-      const an = ctx.createAnalyser();
-      an.fftSize = Math.max(64, fftSize);
-      an.smoothingTimeConstant = 0.78;
       slot.source.connect(an);
       an.connect(ctx.destination);
-      slot.analyser = an;
-    } catch {
-      return slot.analyser ?? null;
     }
+
+    slot.analyser = an;
+    slot.mediaElement = audio;
+  } catch {
+    disconnectAnalyserSlot(slot);
+    return null;
   }
+
   void unlockWebAudioContext(ctxRef);
   return slot.analyser ?? null;
 }

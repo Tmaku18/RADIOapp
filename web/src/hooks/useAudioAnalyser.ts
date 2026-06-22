@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ANALYSER_BARS,
   createAnalyserBarsBuffer,
+  disconnectAnalyserSlot,
   ensureMediaElementAnalyser,
   fillIdleBars,
   reduceFrequencyBins,
@@ -76,15 +77,12 @@ export function useAudioAnalyser(url: string | null | undefined, bars = ANALYSER
 
   useEffect(
     () => () => {
-      try {
-        slotRef.current.source?.disconnect?.();
-      } catch {}
-      try {
-        slotRef.current.analyser?.disconnect?.();
-      } catch {}
+      disconnectAnalyserSlot(slotRef.current);
       try {
         ctxRef.current?.close?.();
-      } catch {}
+      } catch {
+        /* ignore */
+      }
     },
     [],
   );
