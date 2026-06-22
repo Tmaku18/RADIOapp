@@ -28,6 +28,7 @@ export const JAZZ_STATION_ID = 'us-jazz' as const;
 export const AUDIOBOOK_STATION_ID = 'us-audiobook' as const;
 export const SPANISH_STATION_ID = 'us-spanish' as const;
 export const AFROBEATS_STATION_ID = 'us-afrobeats' as const;
+export const DJ_MIXES_STATION_ID = 'us-dj-mixes' as const;
 
 export const STATION_IDS = [
   RAP_STATION_ID,
@@ -56,6 +57,7 @@ export const STATION_IDS = [
   AUDIOBOOK_STATION_ID,
   SPANISH_STATION_ID,
   AFROBEATS_STATION_ID,
+  DJ_MIXES_STATION_ID,
 ] as const;
 
 export type StationId = (typeof STATION_IDS)[number];
@@ -116,6 +118,7 @@ export const STATION_IDS_BY_GENRE: Record<string, readonly string[]> = {
   audiobook: [AUDIOBOOK_STATION_ID],
   spanish: [SPANISH_STATION_ID],
   afrobeats: [AFROBEATS_STATION_ID],
+  'dj-mixes': [DJ_MIXES_STATION_ID],
 };
 
 export function stationIdsForGenres(genreIds: string[]): string[] {

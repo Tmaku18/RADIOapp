@@ -1105,6 +1105,7 @@ export class AdminService {
       { id: 'us-audiobook', state: 'US', label: 'Audiobook Radio' },
       { id: 'us-spanish', state: 'US', label: 'Spanish Radio' },
       { id: 'us-afrobeats', state: 'US', label: 'Afro-Beats Radio' },
+      { id: 'us-dj-mixes', state: 'US', label: 'DJ Mixes Radio' },
       { id: 'default', state: 'US', label: 'Default' },
     ];
     if (stateCode?.trim()) {

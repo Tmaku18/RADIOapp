@@ -75,6 +75,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(id: 'us-audiobook', genre: 'Audiobook Radio'),
   _StationOption(id: 'us-spanish', genre: 'Spanish Radio'),
   _StationOption(id: 'us-afrobeats', genre: 'Afro-Beats Radio'),
+  _StationOption(id: 'us-dj-mixes', genre: 'DJ Mixes Radio'),
 ];
 
 const String _selectedStationPrefKey = 'selected_radio_station_id';

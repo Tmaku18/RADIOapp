@@ -26,7 +26,8 @@ export type GenreId =
   | 'jazz'
   | 'audiobook'
   | 'spanish'
-  | 'afrobeats';
+  | 'afrobeats'
+  | 'dj-mixes';
 
 export interface Tower {
   id: string;
@@ -306,6 +307,15 @@ export const TOWERS: Tower[] = [
     genreId: 'afrobeats',
     lat: 29.7604,
     lng: -95.3698,
+  },
+  {
+    id: 'us-dj-mixes',
+    state: 'US',
+    city: 'Brooklyn',
+    genre: 'DJ Mixes Radio',
+    genreId: 'dj-mixes',
+    lat: 40.6782,
+    lng: -73.9442,
   },
 ];
 

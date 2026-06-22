@@ -41,6 +41,7 @@ const GENRE_SYMBOLS: Record<string, string> = {
   audiobook: '📚',
   spanish: '💃',
   afrobeats: '🥁',
+  'dj-mixes': '🎛️',
 };
 
 function MapController({
