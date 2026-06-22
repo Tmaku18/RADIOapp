@@ -30,8 +30,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
-import { resolveNextTrackAfterEnd } from '@/lib/radio-sync';
-import { isServerAheadMidSong } from '@/lib/radio-sync';
+import { resolveNextTrackAfterEnd, shouldDeferServerTrackSwitch } from '@/lib/radio-sync';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
 import {
   consumeRadioNavIntent,
@@ -602,6 +601,9 @@ export function RadioPlayer({
         const serverLaggingBehindCrossfade =
           trackIdentityChanged && isStaleRadioServerTrack(track.id);
 
+        const docHidden =
+          typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
         if (serverLaggingBehindCrossfade && !stationChanged) {
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,
@@ -610,7 +612,8 @@ export function RadioPlayer({
         } else if (
           trackIdentityChanged &&
           !stationChanged &&
-          isServerAheadMidSong({
+          shouldDeferServerTrackSwitch({
+            documentHidden: docHidden,
             trackIdentityChanged: true,
             isPlaying: live.isPlaying,
             pausedAt: live.pausedAt,

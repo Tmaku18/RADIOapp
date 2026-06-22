@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation';
 import { radioApi } from '@/lib/api';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 import {
-  isNearRadioTrackEnd,
-  isServerAheadMidSong,
   resolveNextTrackAfterEnd,
+  shouldDeferServerTrackSwitch,
 } from '@/lib/radio-sync';
+import { isMobileWeb } from '@/lib/audio-analyser';
 import type { PlaybackTrack } from './types';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { getLastRadioStationId, setLastRadioStationId } from '@/lib/playback-preferences';
@@ -17,6 +17,7 @@ import { usePlaybackOptional } from './PlaybackProvider';
 
 const BACKGROUND_POLL_MS = 10000;
 const HIDDEN_TAB_POLL_MS = 5000;
+const HIDDEN_MOBILE_POLL_MS = 3000;
 
 /** Marketing home always tunes Ready Now Radio; other routes respect last station. */
 function resolveBootstrapStationId(pathname: string | null): string {
@@ -113,7 +114,11 @@ export function RadioBackgroundSync() {
   }, [state?.track?.id, radioId]);
 
   const applyServerTrack = useCallback(
-    (trackData: Record<string, unknown>, autoPlay: boolean) => {
+    (
+      trackData: Record<string, unknown>,
+      autoPlay: boolean,
+      opts?: { afterLocalTrackEnded?: boolean },
+    ) => {
       const actions = actionsRef.current;
       if (!actions || !radioId) return;
       const track = trackFromPayload(trackData, radioId);
@@ -141,7 +146,9 @@ export function RadioBackgroundSync() {
 
         if (
           currentId &&
-          isServerAheadMidSong({
+          shouldDeferServerTrackSwitch({
+            documentHidden,
+            afterLocalTrackEnded: opts?.afterLocalTrackEnded ?? false,
             trackIdentityChanged: true,
             isPlaying: playing,
             pausedAt,
@@ -169,7 +176,16 @@ export function RadioBackgroundSync() {
         actions.syncToPosition(serverPosition);
       }
     },
-    [radioId, isStaleRadioServerTrack, state?.isPlaying, state?.pausedAt, state?.currentTime, state?.duration, state?.track?.durationSeconds],
+    [
+      radioId,
+      documentHidden,
+      isStaleRadioServerTrack,
+      state?.isPlaying,
+      state?.pausedAt,
+      state?.currentTime,
+      state?.duration,
+      state?.track?.durationSeconds,
+    ],
   );
 
   const syncCurrentTrack = useCallback(async () => {
@@ -203,6 +219,7 @@ export function RadioBackgroundSync() {
       applyServerTrack(
         trackData as Record<string, unknown>,
         state?.pausedAt == null && ((state?.isPlaying ?? false) || !!state?.isMuted),
+        { afterLocalTrackEnded: true },
       );
     } catch {
       // Retry on next poll.
@@ -222,7 +239,11 @@ export function RadioBackgroundSync() {
   useEffect(() => {
     if (!shouldSync) return;
     void syncCurrentTrack();
-    const pollMs = documentHidden ? HIDDEN_TAB_POLL_MS : BACKGROUND_POLL_MS;
+    const pollMs = documentHidden
+      ? isMobileWeb()
+        ? HIDDEN_MOBILE_POLL_MS
+        : HIDDEN_TAB_POLL_MS
+      : BACKGROUND_POLL_MS;
     const interval = setInterval(() => void syncCurrentTrack(), pollMs);
     return () => clearInterval(interval);
   }, [shouldSync, syncCurrentTrack, documentHidden]);

@@ -107,3 +107,22 @@ export function isServerAheadMidSong(args: {
     args.fallbackDurationSeconds,
   );
 }
+
+/**
+ * Whether to ignore a server track switch and stay on the local song.
+ * Background tabs throttle timeupdate, so React state.currentTime is often stale
+ * and would incorrectly block advances after a track ends on mobile.
+ */
+export function shouldDeferServerTrackSwitch(args: {
+  documentHidden?: boolean;
+  afterLocalTrackEnded?: boolean;
+  trackIdentityChanged: boolean;
+  isPlaying: boolean;
+  pausedAt: number | null;
+  currentTime: number;
+  duration: number;
+  fallbackDurationSeconds?: number;
+}): boolean {
+  if (args.documentHidden || args.afterLocalTrackEnded) return false;
+  return isServerAheadMidSong(args);
+}

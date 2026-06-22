@@ -967,6 +967,121 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     ],
   );
 
+  /**
+   * Hidden tabs can't run rAF crossfades and reloading the active element breaks
+   * mobile background audio sessions. Load the next song on the inactive slot,
+   * start it, then swap — same pattern as crossfade without volume ramping.
+   */
+  const startBackgroundRadioHandoff = useCallback(
+    (
+      track: PlaybackTrack,
+      source: PlaybackSource,
+      autoPlay: boolean,
+      seekSeconds: number | null,
+    ) => {
+      const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
+      const pair = audioPairRef.current;
+      if (!url || !pair) return;
+
+      if (url.includes('.m3u8')) {
+        loadTrackImmediate(track, source, autoPlay, seekSeconds);
+        return;
+      }
+
+      const incomingSlot = getInactiveSlot();
+      const outgoingSlot = activeSlotRef.current;
+      const incoming = pair[incomingSlot];
+      const outgoing = pair[outgoingSlot];
+
+      cancelCrossfade();
+      hasRetriedAfterErrorRef.current = false;
+      autoPlayPendingRef.current = autoPlay;
+      isLoadingTrackRef.current = true;
+      pendingSeekRef.current = seekSeconds;
+      crossfadeIncomingSlotRef.current = incomingSlot;
+
+      setState((s) => ({
+        ...s,
+        source,
+        track,
+        currentTime: seekSeconds ?? 0,
+        duration: track.durationSeconds || 0,
+        isLoading: true,
+        error: null,
+        serverPosition: seekSeconds ?? 0,
+        pausedAt: autoPlay ? null : s.pausedAt,
+        isLive: autoPlay || s.pausedAt == null,
+        isPlaying: autoPlay && s.pausedAt == null,
+        isMuted: mutedByUserRef.current,
+      }));
+
+      const completeHandoff = () => {
+        crossfadeIncomingSlotRef.current = null;
+        if (incoming !== outgoing) {
+          outgoing.pause();
+          clearAudioSlot(outgoingSlot);
+        }
+        activeSlotRef.current = incomingSlot;
+        isLoadingTrackRef.current = false;
+        pendingSeekRef.current = null;
+        if (mutedByUserRef.current || stateRef.current.pausedAt != null) {
+          incoming.volume = 0;
+          incoming.muted = true;
+        } else {
+          applyVolumeToAudio(incoming, volumeRef.current);
+        }
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          currentTime: incoming.currentTime || 0,
+          duration: incoming.duration || track.durationSeconds || 0,
+          isPlaying:
+            autoPlay && s.pausedAt == null && !incoming.paused,
+        }));
+      };
+
+      const onIncomingReady = () => {
+        if (seekSeconds !== null && seekSeconds > 0) {
+          try {
+            incoming.currentTime = seekSeconds;
+          } catch {
+            /* ignore seek failures on partial buffers */
+          }
+        }
+        if (mutedByUserRef.current || stateRef.current.pausedAt != null) {
+          incoming.volume = 0;
+          incoming.muted = true;
+          void playAudio(incoming)
+            .then(() => completeHandoff())
+            .catch(() => completeHandoff());
+          return;
+        }
+        if (autoPlay) {
+          void playAudio(incoming)
+            .then(() => completeHandoff())
+            .catch(() => completeHandoff());
+          return;
+        }
+        completeHandoff();
+      };
+
+      destroyHlsForSlot(incomingSlot);
+      incoming.removeAttribute('src');
+      incoming.load();
+      applyVolumeToAudio(incoming, 0);
+      incoming.src = url;
+      incoming.addEventListener('canplay', onIncomingReady, { once: true });
+    },
+    [
+      cancelCrossfade,
+      clearAudioSlot,
+      destroyHlsForSlot,
+      getInactiveSlot,
+      loadTrackImmediate,
+      playAudio,
+    ],
+  );
+
   const loadTrack = useCallback(
     (
       track: PlaybackTrack,
@@ -1059,9 +1174,25 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         return;
       }
 
+      const useBackgroundHandoff =
+        typeof document !== 'undefined' &&
+        document.hidden &&
+        source === 'radio' &&
+        sourceRef.current === 'radio' &&
+        !!previousTrackId &&
+        previousTrackId !== track.id &&
+        !stationChanged &&
+        isCrossfadeSupportedUrl(url) &&
+        (autoPlay ?? true);
+
+      if (useBackgroundHandoff) {
+        startBackgroundRadioHandoff(track, source, !!autoPlay, joinSeek);
+        return;
+      }
+
       loadTrackImmediate(track, source, !!autoPlay, joinSeek);
     },
-    [getActiveAudio, loadTrackImmediate, startRadioCrossfade],
+    [getActiveAudio, loadTrackImmediate, startBackgroundRadioHandoff, startRadioCrossfade],
   );
 
   // Peek prefetch crossfade disabled — see plan: foreground peek caused song repeats.
@@ -1167,6 +1298,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       const audio = getActiveAudio();
       if (!audio) return;
+
+      if (crossfadeIncomingSlotRef.current) {
+        const incoming =
+          audioPairRef.current?.[crossfadeIncomingSlotRef.current];
+        if (
+          incoming &&
+          incoming.paused &&
+          incoming.readyState >= 2 /* HAVE_CURRENT_DATA */
+        ) {
+          void playAudio(incoming).catch(() => undefined);
+        }
+      }
 
       if (audio.ended) {
         const trackId = stateRef.current.track?.id ?? null;
