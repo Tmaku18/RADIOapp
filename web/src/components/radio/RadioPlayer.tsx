@@ -298,7 +298,9 @@ export function RadioPlayer({
       // Check for no_content flag
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || "No songs are currently available.");
+        setNoContentMessage(
+          trackData.message?.trim() || 'No songs are currently available.',
+        );
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
         setListenerCount(0);
@@ -310,7 +312,11 @@ export function RadioPlayer({
       setNoContentMessage(null);
       setIsLiveBroadcast(!!trackData?.is_live);
       setArtistLiveNow(trackData?.artist_live_now ?? null);
-      setPinnedCatalysts(Array.isArray(trackData?.pinned_catalysts) ? trackData.pinned_catalysts : []);
+      setPinnedCatalysts(
+        Array.isArray(trackData?.pinned_catalysts)
+          ? (trackData.pinned_catalysts as PinnedCatalyst[])
+          : [],
+      );
       
       if (trackData && trackData.id) {
         const audioUrl = trackData.audio_url;
@@ -320,8 +326,8 @@ export function RadioPlayer({
         }
         const track: PlaybackTrack = {
           id: trackData.id,
-          title: trackData.title,
-          artistName: trackData.artist_name,
+          title: trackData.title ?? 'Untitled',
+          artistName: trackData.artist_name ?? 'Unknown artist',
           artistOriginCity: trackData.artist_origin_city ?? null,
           artistOriginState: trackData.artist_origin_state ?? null,
           artistId: trackData.artist_id ?? null,
@@ -524,7 +530,9 @@ export function RadioPlayer({
       // Check for no_content flag (or backend returned it on error)
       if (trackData?.no_content) {
         setNoContent(true);
-        setNoContentMessage(trackData.message || "No songs are currently available.");
+        setNoContentMessage(
+          trackData.message?.trim() || 'No songs are currently available.',
+        );
         setArtistLiveNow(null);
         setPinnedCatalysts([]);
         setListenerCount(0);

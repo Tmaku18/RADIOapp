@@ -16,9 +16,35 @@ export function isNearRadioTrackEnd(
   return currentTime >= total - thresholdSeconds;
 }
 
-type NextTrackPayload = Record<string, unknown> & {
+/** Payload shape from GET /radio/current and /radio/next. */
+export type RadioTrackApiPayload = {
   id?: string;
+  title?: string;
+  artist_name?: string;
+  artist_origin_city?: string | null;
+  artist_origin_state?: string | null;
+  artist_id?: string | null;
+  artwork_url?: string | null;
+  audio_url?: string;
+  duration_seconds?: number;
+  position_seconds?: number;
+  play_id?: string | null;
+  listener_count?: number;
+  fire_votes?: number;
+  shit_votes?: number;
+  temperature_percent?: number;
   no_content?: boolean;
+  message?: string;
+  is_live?: boolean;
+  artist_live_now?: {
+    sessionId: string;
+    status: 'starting' | 'live';
+    currentViewers?: number;
+  } | null;
+  pinned_catalysts?: unknown[];
+  transport_paused?: boolean;
+  dj_overlay?: unknown;
+  stale?: boolean;
 };
 
 /**
@@ -32,8 +58,8 @@ export async function resolveNextTrackAfterEnd(args: {
   getNextTrack: (params: {
     radio: string;
     force?: boolean;
-  }) => Promise<{ data: NextTrackPayload }>;
-}): Promise<NextTrackPayload | null> {
+  }) => Promise<{ data: RadioTrackApiPayload }>;
+}): Promise<RadioTrackApiPayload | null> {
   const firstResp = await args.getNextTrack({ radio: args.radioId });
   let trackData = firstResp.data;
 
