@@ -130,20 +130,17 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={player.seekPrev}
-              disabled={!player.canSkip}
-              data-testid="player-prev-btn"
-              className="dim-text-muted hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              aria-label={
-                player.canSkip
-                  ? 'Seek back 10 seconds'
-                  : 'Skip unavailable on live radio'
-              }
-            >
-              <SkipBack className="w-4 h-4" />
-            </button>
+            {player.canSkip ? (
+              <button
+                type="button"
+                onClick={player.seekPrev}
+                data-testid="player-prev-btn"
+                className="dim-text-muted hover:text-cyan-300 transition-colors"
+                aria-label="Seek back 10 seconds"
+              >
+                <SkipBack className="w-4 h-4" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={player.togglePlay}
@@ -158,20 +155,17 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <Play className="w-4 h-4 ml-0.5" />
               )}
             </button>
-            <button
-              type="button"
-              onClick={player.seekNext}
-              disabled={!player.canSkip}
-              data-testid="player-next-btn"
-              className="dim-text-muted hover:text-cyan-300 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-              aria-label={
-                player.canSkip
-                  ? 'Seek forward 10 seconds'
-                  : 'Skip unavailable on live radio'
-              }
-            >
-              <SkipForward className="w-4 h-4" />
-            </button>
+            {player.canSkip ? (
+              <button
+                type="button"
+                onClick={player.seekNext}
+                data-testid="player-next-btn"
+                className="dim-text-muted hover:text-cyan-300 transition-colors"
+                aria-label="Seek forward 10 seconds"
+              >
+                <SkipForward className="w-4 h-4" />
+              </button>
+            ) : null}
             <div className="hidden md:flex items-end gap-[3px] h-6 ml-2">
               {VBAR_DELAYS.map((d, i) => (
                 <span
@@ -196,13 +190,18 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             </span>
             <button
               type="button"
-              className="relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden"
+              className={`relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden ${
+                player.canSkip ? '' : 'pointer-events-none'
+              }`}
               onClick={(e) => {
+                if (!player.canSkip) return;
                 const rect = e.currentTarget.getBoundingClientRect();
                 const pct = ((e.clientX - rect.left) / rect.width) * 100;
                 player.seekToProgress(pct);
               }}
-              aria-label="Seek playback position"
+              aria-label={
+                player.canSkip ? 'Seek playback position' : 'Live radio progress'
+              }
             >
               <div
                 className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500 pointer-events-none"

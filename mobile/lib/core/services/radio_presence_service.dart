@@ -113,6 +113,7 @@ class RadioGuestPlaybackService {
           title: track.title,
           artist: track.artistName,
           extras: {
+            'source': 'radio',
             'radioId': radioId,
             'songId': track.id,
           },

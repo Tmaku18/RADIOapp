@@ -371,6 +371,11 @@ class _PlayerScreenState extends State<PlayerScreen>
           title: track.title,
           artist: track.artistName,
           artUri: BrandAssets.mediaArtUri(track.artworkUrl),
+          extras: {
+            'source': 'radio',
+            'radioId': _radioId,
+            'songId': track.id,
+          },
         ),
       ),
     );

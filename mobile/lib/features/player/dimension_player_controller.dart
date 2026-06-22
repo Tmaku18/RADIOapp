@@ -65,6 +65,13 @@ class DimensionPlayerController extends ChangeNotifier {
   }
 
   bool get canSkip {
+    final media = _media;
+    if (media == null) return false;
+    final extras = media.extras;
+    if (extras != null) {
+      if (extras['source'] == 'radio') return false;
+      if (extras['radioId'] != null) return false;
+    }
     final d = _player.duration;
     return d != null && d.inSeconds > 0;
   }

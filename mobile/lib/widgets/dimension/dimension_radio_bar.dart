@@ -57,110 +57,130 @@ class DimensionRadioBar extends StatelessWidget {
                           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
                           child: Column(
                             children: [
-                              Row(
-                                children: [
-                                  InkWell(
-                                    onTap: () {
-                                      HapticFeedback.lightImpact();
-                                      Navigator.of(context)
-                                          .pushNamed(AppRoutes.player);
-                                    },
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Row(
-                                      children: [
-                                        ClipRRect(
+                              LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final narrow = constraints.maxWidth < 400;
+                                  final showVbar = constraints.maxWidth >= 360;
+                                  final showTemp = constraints.maxWidth >= 420;
+
+                                  return Row(
+                                    children: [
+                                      Expanded(
+                                        child: InkWell(
+                                          onTap: () {
+                                            HapticFeedback.lightImpact();
+                                            Navigator.of(context)
+                                                .pushNamed(AppRoutes.player);
+                                          },
                                           borderRadius: BorderRadius.circular(8),
-                                          child: SizedBox(
-                                            width: 48,
-                                            height: 48,
-                                            child: _Artwork(item: item),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        SizedBox(
-                                          width: MediaQuery.sizeOf(context).width * 0.28,
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
+                                          child: Row(
                                             children: [
-                                              if (ctrl.showLiveBadge)
-                                                const LiveDot(label: 'LIVE'),
-                                              Text(
-                                                item.title,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: GoogleFonts.outfit(
-                                                  color: DimensionTokens.textPrimary,
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13,
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(8),
+                                                child: SizedBox(
+                                                  width: narrow ? 40 : 48,
+                                                  height: narrow ? 40 : 48,
+                                                  child: _Artwork(item: item),
                                                 ),
                                               ),
-                                              Text(
-                                                item.artist ?? 'NETWORX Radio',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: GoogleFonts.outfit(
-                                                  color: DimensionTokens.textSecondary,
-                                                  fontSize: 11,
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (ctrl.showLiveBadge)
+                                                      const LiveDot(
+                                                        label: 'LIVE',
+                                                      ),
+                                                    Text(
+                                                      item.title,
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: GoogleFonts.outfit(
+                                                        color: DimensionTokens
+                                                            .textPrimary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                        fontSize: 13,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      item.artist ??
+                                                          'NETWORX Radio',
+                                                      maxLines: 1,
+                                                      overflow:
+                                                          TextOverflow.ellipsis,
+                                                      style: GoogleFonts.outfit(
+                                                        color: DimensionTokens
+                                                            .textSecondary,
+                                                        fontSize: 11,
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.skip_previous),
-                                    color: DimensionTokens.textPrimary,
-                                    onPressed: ctrl.canSkip ? ctrl.seekPrev : null,
-                                  ),
-                                  IconButton(
-                                    iconSize: 40,
-                                    icon: Icon(
-                                      ctrl.isPlaying
-                                          ? Icons.pause_circle_filled
-                                          : Icons.play_circle_filled,
-                                    ),
-                                    color: DimensionTokens.neonCyan,
-                                    onPressed: () => ctrl.togglePlay(),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.skip_next),
-                                    color: DimensionTokens.textPrimary,
-                                    onPressed: ctrl.canSkip ? ctrl.seekNext : null,
-                                  ),
-                                  Expanded(
-                                    child: VbarVisualizer(
-                                      isPlaying: ctrl.isPlaying,
-                                      height: 24,
-                                    ),
-                                  ),
-                                  if (ctrl.temperature != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(left: 4),
-                                      child: Text(
-                                        '${ctrl.temperature}°',
-                                        style: GoogleFonts.jetBrainsMono(
-                                          color: DimensionTokens.neonCyan,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
                                       ),
-                                    ),
-                                  if (ctrl.canVote) ...[
-                                    _VoteBtn(
-                                      emoji: '💩',
-                                      selected: ctrl.selectedReaction == 'shit',
-                                      onTap: () => ctrl.submitReaction('shit'),
-                                    ),
-                                    _VoteBtn(
-                                      emoji: '🔥',
-                                      selected: ctrl.selectedReaction == 'fire',
-                                      onTap: () => ctrl.submitReaction('fire'),
-                                    ),
-                                  ],
-                                ],
+                                      _TransportButton(
+                                        icon: ctrl.isPlaying
+                                            ? Icons.pause_circle_filled
+                                            : Icons.play_circle_filled,
+                                        iconSize: narrow ? 32 : 36,
+                                        color: DimensionTokens.neonCyan,
+                                        onPressed: ctrl.togglePlay,
+                                      ),
+                                      if (showVbar)
+                                        Flexible(
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 4,
+                                            ),
+                                            child: VbarVisualizer(
+                                              isPlaying: ctrl.isPlaying,
+                                              height: 24,
+                                              barCount: narrow ? 5 : 9,
+                                            ),
+                                          ),
+                                        ),
+                                      if (showTemp && ctrl.temperature != null)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(left: 2),
+                                          child: Text(
+                                            '${ctrl.temperature}°',
+                                            style: GoogleFonts.jetBrainsMono(
+                                              color: DimensionTokens.neonCyan,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      if (ctrl.canVote) ...[
+                                        _VoteBtn(
+                                          emoji: '💩',
+                                          selected:
+                                              ctrl.selectedReaction == 'shit',
+                                          onTap: () =>
+                                              ctrl.submitReaction('shit'),
+                                        ),
+                                        _VoteBtn(
+                                          emoji: '🔥',
+                                          selected:
+                                              ctrl.selectedReaction == 'fire',
+                                          onTap: () =>
+                                              ctrl.submitReaction('fire'),
+                                        ),
+                                      ],
+                                    ],
+                                  );
+                                },
                               ),
                               const SizedBox(height: 6),
                               Row(
@@ -216,6 +236,33 @@ class DimensionRadioBar extends StatelessWidget {
   }
 }
 
+class _TransportButton extends StatelessWidget {
+  const _TransportButton({
+    required this.icon,
+    required this.onPressed,
+    this.iconSize = 22,
+    this.color,
+  });
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final double iconSize;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      visualDensity: VisualDensity.compact,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+      iconSize: iconSize,
+      icon: Icon(icon),
+      color: color ?? DimensionTokens.textPrimary,
+      onPressed: onPressed,
+    );
+  }
+}
+
 class _Artwork extends StatelessWidget {
   const _Artwork({required this.item});
   final MediaItem item;
@@ -256,8 +303,8 @@ class _VoteBtn extends StatelessWidget {
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(6),
-          child: Text(emoji, style: const TextStyle(fontSize: 16)),
+          padding: const EdgeInsets.all(4),
+          child: Text(emoji, style: const TextStyle(fontSize: 14)),
         ),
       ),
     );

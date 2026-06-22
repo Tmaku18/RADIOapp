@@ -9,8 +9,6 @@ import {
   Pause,
   Play,
   Radio as RadioIcon,
-  SkipBack,
-  SkipForward,
   Volume2,
 } from 'lucide-react';
 import { usePlayback } from '@/components/playback';
@@ -1255,15 +1253,6 @@ export function RadioPlayer({
               <div className="mt-6 flex items-center gap-4 flex-wrap">
                 <button
                   type="button"
-                  onClick={() => actions.seek(Math.max(0, state.currentTime - 10))}
-                  disabled={!state.track}
-                  data-testid="radio-prev"
-                  className="w-10 h-10 rounded-full border border-white/15 text-white/80 hover:text-cyan-300 hover:border-cyan-400/50 flex items-center justify-center disabled:opacity-40"
-                >
-                  <SkipBack className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
                   onClick={handlePauseToggle}
                   disabled={!state.track || state.isLoading}
                   data-testid="radio-play-big"
@@ -1274,15 +1263,6 @@ export function RadioPlayer({
                   ) : (
                     <Play className="w-6 h-6 ml-1" />
                   )}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void handleTrackEnded()}
-                  disabled={!state.track || state.source !== 'radio'}
-                  data-testid="radio-next"
-                  className="w-10 h-10 rounded-full border border-white/15 text-white/80 hover:text-cyan-300 hover:border-cyan-400/50 flex items-center justify-center disabled:opacity-40"
-                >
-                  <SkipForward className="w-4 h-4" />
                 </button>
                 <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">
                   <Volume2 className="w-4 h-4 text-white/50 shrink-0" />
