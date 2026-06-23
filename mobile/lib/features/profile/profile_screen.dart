@@ -77,9 +77,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _signOut() async {
     setState(() => _isSigningOut = true);
-    final authService = Provider.of<AuthService>(context, listen: false);
-    await authService.signOut();
-    // Navigation is handled by AuthWrapper - no manual navigation needed
+    try {
+      final authService = Provider.of<AuthService>(context, listen: false);
+      await authService.signOut();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        AppRoutes.root,
+        (_) => false,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sign out failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isSigningOut = false);
+    }
   }
 
   Future<void> _pickAndUploadAvatar() async {

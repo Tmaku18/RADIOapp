@@ -105,15 +105,7 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
         widget.onReady?.call();
       },
       setup: _setup,
-      loadingWidget: Container(
-        color: const Color(0xFF050505),
-        alignment: Alignment.center,
-        child: const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
+      loadingWidget: const SizedBox.shrink(),
     );
   }
 

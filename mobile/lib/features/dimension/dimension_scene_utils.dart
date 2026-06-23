@@ -1,7 +1,9 @@
+import 'dart:io' show Platform;
 import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:three_js/three_js.dart' as three;
 
@@ -42,12 +44,17 @@ three.MeshBasicMaterial cyanArchMaterial({double opacity = 0.92}) {
 }
 
 three.Settings dimensionSceneSettings() {
+  // Physical Android (Play Store release) uses ANGLE; SurfaceProducer + highp
+  // shaders often fail silently while the emulator GLES path still works.
+  final androidDevice = !kIsWeb && Platform.isAndroid;
   return three.Settings(
     alpha: true,
     antialias: false,
     clearAlpha: 0,
     clearColor: dimensionBgDark,
     enableShadowMap: false,
+    useSurfaceProducer: !androidDevice,
+    precision: androidDevice ? three.Precision.mediump : three.Precision.highp,
     renderOptions: {'format': three.RGBAFormat, 'samples': 0},
   );
 }

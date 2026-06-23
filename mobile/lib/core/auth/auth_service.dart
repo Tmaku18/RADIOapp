@@ -361,17 +361,23 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<void> signOut() async {
-    // Unregister push notification token before signing out
+    // Unregister push notification token before signing out (don't block logout).
     try {
-      await PushNotificationService().unregisterToken();
+      await PushNotificationService()
+          .unregisterToken()
+          .timeout(const Duration(seconds: 5));
     } catch (e) {
       debugPrint('Error unregistering push token: $e');
     }
-    
-    await _googleSignIn.signOut();
+
+    try {
+      await _googleSignIn.signOut().timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('Google sign out: $e');
+    }
     if (_auth != null) {
       try {
-        await _auth!.signOut();
+        await _auth!.signOut().timeout(const Duration(seconds: 8));
       } catch (e) {
         debugPrint('Error signing out: $e');
       }

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'butterfly_hero_fallback.dart';
@@ -12,15 +14,36 @@ class DimensionCanvas extends StatefulWidget {
 }
 
 class _DimensionCanvasState extends State<DimensionCanvas> {
+  static const _initTimeout = Duration(seconds: 18);
+
   bool _useFallbackOnly = false;
   bool _sceneReady = false;
+  Timer? _initTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTimer = Timer(_initTimeout, () {
+      if (!mounted || _sceneReady || _useFallbackOnly) return;
+      debugPrint('DimensionCanvas: 3D init timed out — using 2D fallback');
+      _onSceneFailed();
+    });
+  }
+
+  @override
+  void dispose() {
+    _initTimer?.cancel();
+    super.dispose();
+  }
 
   void _onSceneReady() {
+    _initTimer?.cancel();
     if (!mounted) return;
     setState(() => _sceneReady = true);
   }
 
   void _onSceneFailed() {
+    _initTimer?.cancel();
     if (!mounted) return;
     setState(() => _useFallbackOnly = true);
   }
