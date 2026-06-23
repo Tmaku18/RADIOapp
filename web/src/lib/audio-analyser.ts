@@ -87,14 +87,10 @@ function wireAnalyserTap(
       slot.usesElementSource = false;
       return true;
     }
-    // Last resort on visible tabs when captureStream is unavailable.
-    if (typeof document !== 'undefined' && !document.hidden) {
-      slot.source = ctx.createMediaElementSource(audio);
-      slot.source.connect(an);
-      slot.source.connect(ctx.destination);
-      slot.usesElementSource = true;
-      return true;
-    }
+    // Never fall back to createMediaElementSource here — it hijacks the element's
+    // native output. On many phones (iOS Safari, older Android) captureStream is
+    // unavailable; routing through Web Audio then goes silent when AudioContext is
+    // suspended, which looks like "play works on some devices but not others".
     return false;
   }
 
@@ -126,8 +122,11 @@ export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.preload = 'auto';
-  // Required for Web Audio FFT taps on cross-origin CDN audio (Supabase, etc.).
-  audio.crossOrigin = 'anonymous';
+  // Desktop FFT taps need CORS; on mobile web, anonymous mode can block playback on
+  // some CDN edges when headers are missing — native playback does not need it.
+  if (!isMobileWeb()) {
+    audio.crossOrigin = 'anonymous';
+  }
   audio.setAttribute('playsinline', '');
   audio.setAttribute('webkit-playsinline', 'true');
   (audio as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
@@ -168,11 +167,19 @@ export async function unlockWebAudioContext(
 }
 
 /** Resume Web Audio (required on iOS when using MediaElementSource) then play. */
+export function isPlaybackNotAllowedError(error: unknown): boolean {
+  if (!(error instanceof DOMException)) return false;
+  return error.name === 'NotAllowedError';
+}
+
 export async function playMediaElement(
   audio: HTMLAudioElement,
   ctxRef: { current: AudioContext | null },
 ): Promise<void> {
   if (!shouldUseDirectMediaPlayback()) {
+    await unlockWebAudioContext(ctxRef);
+  } else if (ctxRef.current?.state === 'suspended') {
+    // Harmless when analyser is unwired; keeps any existing tap from going silent.
     await unlockWebAudioContext(ctxRef);
   }
   await audio.play();

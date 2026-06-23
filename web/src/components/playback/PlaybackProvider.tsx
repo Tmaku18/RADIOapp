@@ -37,6 +37,9 @@ import {
   createAnalyserBarsBuffer,
   disconnectAnalyserSlot,
   fillIdleBars,
+  isMobileWeb,
+  isPlaybackNotAllowedError,
+  playMediaElement,
   reduceFrequencyBins,
   refreshMediaElementAnalyser,
   unlockWebAudioContext,
@@ -122,6 +125,13 @@ interface PlaybackProviderProps {
 
 type AudioSlot = 'a' | 'b';
 
+function playbackErrorMessage(error: unknown): string {
+  if (isPlaybackNotAllowedError(error)) {
+    return 'Tap play to start audio — your browser requires a tap first.';
+  }
+  return 'Failed to play audio. Tap play to try again.';
+}
+
 function applyVolumeToAudio(audio: HTMLAudioElement, vol: number) {
   const v = Math.max(0, Math.min(1, vol));
   if (isIosSafari()) {
@@ -188,7 +198,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const playAudioRef = useRef<(audio: HTMLAudioElement) => Promise<void>>(() =>
     Promise.resolve(),
   );
-  playAudioRef.current = (audio) => audio.play();
+  playAudioRef.current = (audio) => playMediaElement(audio, analyserCtxRef);
 
   const playAudio = useCallback((audio: HTMLAudioElement) => playAudioRef.current(audio), []);
 
@@ -472,7 +482,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!pair) return;
       const audio = pair[slot];
 
-      audio.crossOrigin = 'anonymous';
+      if (!isMobileWeb()) {
+        audio.crossOrigin = 'anonymous';
+      }
       disconnectAnalyserSlot(analyserSlotsRef.current[slot]);
 
       destroyHlsForSlot(slot);
@@ -498,7 +510,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           return;
         }
         if (autoPlay) {
-          void playAudio(audio).catch(() => {});
+          void playAudio(audio).catch((err) => {
+            if (mutedByUserRef.current) return;
+            setState((s) => ({
+              ...s,
+              isPlaying: false,
+              error: playbackErrorMessage(err),
+            }));
+          });
         }
       };
 
@@ -543,7 +562,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
                 audio.volume = 0;
                 audio.muted = true;
               }
-              void playAudio(audio).catch(() => {});
+              void playAudio(audio).catch((err) => {
+                if (mutedByUserRef.current) return;
+                setState((s) => ({
+                  ...s,
+                  isPlaying: false,
+                  error: playbackErrorMessage(err),
+                }));
+              });
             },
             { once: true },
           );
@@ -693,7 +719,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
             audio.muted = true;
             return;
           }
-          void playAudio(audio).catch(() => {});
+          void playAudio(audio).catch((err) => {
+            if (mutedByUserRef.current) return;
+            setState((s) => ({
+              ...s,
+              isPlaying: false,
+              error: playbackErrorMessage(err),
+            }));
+          });
         }
       };
       const onError = () => {
@@ -814,12 +847,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const unlock = () => {
       void unlockWebAudioContext(analyserCtxRef);
     };
-    const opts: AddEventListenerOptions = { once: true, passive: true, capture: true };
+    const opts: AddEventListenerOptions = { passive: true, capture: true };
     document.addEventListener('touchstart', unlock, opts);
+    document.addEventListener('touchend', unlock, opts);
     document.addEventListener('pointerdown', unlock, opts);
+    document.addEventListener('click', unlock, opts);
     return () => {
       document.removeEventListener('touchstart', unlock, opts);
+      document.removeEventListener('touchend', unlock, opts);
       document.removeEventListener('pointerdown', unlock, opts);
+      document.removeEventListener('click', unlock, opts);
     };
   }, []);
 
@@ -1391,11 +1428,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     setState((s) => ({ ...s, isPlaying: true, error: null }));
     try {
       await playAudio(audio);
-    } catch {
+    } catch (err) {
       setState((s) => ({
         ...s,
         isPlaying: false,
-        error: 'Failed to play. Tap play to start audio.',
+        error: playbackErrorMessage(err),
       }));
     }
   }, [getActiveAudio, notifyUserPlaybackGesture, playAudio]);
@@ -1532,11 +1569,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         await playAudio(audio);
       }
       setState((s) => ({ ...s, isPlaying: true }));
-    } catch {
+    } catch (err) {
       setState((s) => ({
         ...s,
         isPlaying: false,
-        error: 'Failed to play. Tap play to start audio.',
+        error: playbackErrorMessage(err),
       }));
     }
   }, [getActiveAudio, notifyUserPlaybackGesture, playAudio, refreshMainVolume]);
