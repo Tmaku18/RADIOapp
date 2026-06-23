@@ -44,8 +44,9 @@ three.MeshBasicMaterial cyanArchMaterial({double opacity = 0.92}) {
 }
 
 three.Settings dimensionSceneSettings() {
-  // Physical Android (Play Store release) uses ANGLE; SurfaceProducer + highp
-  // shaders often fail silently while the emulator GLES path still works.
+  // Physical Android (Play Store release) uses ANGLE. Keep SurfaceProducer on
+  // (customRenderer-only path often paints an opaque black surface). Use mediump
+  // basic materials — not highp PBR — for shader compatibility.
   final androidDevice = !kIsWeb && Platform.isAndroid;
   return three.Settings(
     alpha: true,
@@ -53,7 +54,8 @@ three.Settings dimensionSceneSettings() {
     clearAlpha: 0,
     clearColor: dimensionBgDark,
     enableShadowMap: false,
-    useSurfaceProducer: !androidDevice,
+    useSurfaceProducer: true,
+    premultipliedAlpha: androidDevice ? false : true,
     precision: androidDevice ? three.Precision.mediump : three.Precision.highp,
     renderOptions: {'format': three.RGBAFormat, 'samples': 0},
   );

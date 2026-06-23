@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -72,6 +73,10 @@ class ButterflyHeroScene extends StatefulWidget {
 class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
   late three.ThreeJS threeJs;
   bool _ready = false;
+  bool _notifiedParentReady = false;
+  int _renderFrames = 0;
+  Timer? _renderWatchdog;
+  static const _framesBeforeReady = 2;
 
   double _burstTime = -10;
   double _lastBurstHover = -10;
@@ -102,7 +107,15 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
       onSetupComplete: () {
         if (!mounted) return;
         setState(() => _ready = true);
-        widget.onReady?.call();
+        _renderWatchdog?.cancel();
+        _renderWatchdog = Timer(const Duration(seconds: 6), () {
+          if (!_notifiedParentReady && mounted) {
+            debugPrint(
+              'ButterflyHeroScene: render loop never started — falling back to 2D',
+            );
+            widget.onFailed?.call();
+          }
+        });
       },
       setup: _setup,
       loadingWidget: const SizedBox.shrink(),
@@ -111,6 +124,7 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
 
   @override
   void dispose() {
+    _renderWatchdog?.cancel();
     if (_ready) {
       try {
         threeJs.dispose();
@@ -387,7 +401,17 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
     threeJs.addAnimationEvent(_animate);
   }
 
+  void _notifyParentReadyOnce() {
+    if (_notifiedParentReady) return;
+    _renderFrames++;
+    if (_renderFrames < _framesBeforeReady) return;
+    _notifiedParentReady = true;
+    _renderWatchdog?.cancel();
+    widget.onReady?.call();
+  }
+
   void _animate(double dt) {
+    _notifyParentReadyOnce();
     final t = threeJs.clock.getElapsedTime();
     final now = DateTime.now().millisecondsSinceEpoch / 1000.0;
     final sinceBurst = now - _burstTime;
@@ -486,15 +510,15 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_ready) {
+      return const SizedBox.shrink();
+    }
     return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+      behavior: HitTestBehavior.translucent,
       onTap: () => _triggerBurst(fromTap: true),
       onPanDown: (_) => _triggerBurst(fromTap: false),
       child: ClipRect(
-        child: Opacity(
-          opacity: _ready ? 1 : 0,
-          child: threeJs.build(),
-        ),
+        child: threeJs.build(),
       ),
     );
   }
