@@ -601,16 +601,13 @@ export function RadioPlayer({
 
         const isStaleResponse = !!trackData?.stale;
 
-        // If we already crossfaded ahead to the next song (via /radio/peek) but
-        // the server still reports the previous song as current, ignore it so we
-        // don't jump the listener backward (perceived as skipping).
-        const serverLaggingBehindCrossfade =
+        const serverLaggingBehindAdvance =
           trackIdentityChanged && isStaleRadioServerTrack(track.id);
 
         const docHidden =
           typeof document !== 'undefined' && document.visibilityState === 'hidden';
 
-        if (serverLaggingBehindCrossfade && !stationChanged) {
+        if (serverLaggingBehindAdvance && !stationChanged) {
           actions.applyServerBoothState({
             transportPaused: !!trackData.transport_paused,
             djOverlay: parseDjOverlay(trackData.dj_overlay),

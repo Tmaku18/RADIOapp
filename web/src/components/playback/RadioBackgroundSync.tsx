@@ -134,8 +134,7 @@ export function RadioBackgroundSync() {
       });
 
       if (currentId !== track.id) {
-        // Server may still report the previous song while we've already
-        // crossfaded ahead via /radio/peek. Don't revert (jump backward).
+        // Server may still report the previous song while we've already advanced.
         if (isStaleRadioServerTrack?.(track.id)) return;
 
         const playing = state?.isPlaying ?? false;

@@ -128,7 +128,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _trackAdvanceInFlight = false;
   DateTime _lastSyncSeekAt = DateTime(2000);
   /// Song we just advanced away from; ignore server "current" for ~12s so pollers
-  /// don't jump the listener backward (or reload mid-crossfade).
+  /// don't jump the listener backward (or reload mid-handoff).
   ({String id, DateTime at})? _recentlyAdvancedFrom;
   int _stationSwitchGeneration = 0;
   String _radioId = env('RADIO_STATION_ID') ?? 'us-ready-now-rap';
@@ -589,16 +589,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     }
   }
 
-  /// Transition to [track]. The radio music uses a single content player, so we
-  /// hand off directly rather than crossfade. Kept as a named method because the
-  /// sync path calls it when the live track changes mid-playback.
-  Future<void> _crossfadeToTrack(
-    Track track,
-    TrackFetchResult result, {
-    bool reportPlay = true,
-  }) async {
-    await _loadAndPlay(track, result, reportPlay: reportPlay);
-  }
 
   void _markAdvancedFrom(String? trackId) {
     if (trackId == null || trackId.isEmpty) return;
@@ -683,7 +673,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         _selectedReaction = null;
         _isVoting = false;
       });
-      await _crossfadeToTrack(track, res, reportPlay: true);
+      await _loadAndPlay(track, res, reportPlay: true);
     } catch (_) {
       // Keep playing; periodic sync will retry.
     } finally {
@@ -771,17 +761,11 @@ class _PlayerScreenState extends State<PlayerScreen>
           _isVoting = false;
         });
         _markAdvancedFrom(localTrack?.id);
-        await (_isPlaying && localTrack != null
-            ? _crossfadeToTrack(
-                serverTrack,
-                res,
-                reportPlay: true,
-              )
-            : _loadAndPlay(
-                serverTrack,
-                res,
-                reportPlay: localTrack?.id != serverTrack.id,
-              ));
+        await _loadAndPlay(
+          serverTrack,
+          res,
+          reportPlay: _isPlaying || localTrack?.id != serverTrack.id,
+        );
         return;
       }
 

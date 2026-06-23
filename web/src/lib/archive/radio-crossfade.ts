@@ -48,10 +48,6 @@ export function runAudioCrossfade(
     }
   };
 
-  // Complete the crossfade exactly once. This is invoked both by the normal
-  // rAF ramp and by a safety timer, because requestAnimationFrame is paused in
-  // background/hidden tabs — without the timer the swap would never happen and
-  // the player would jam mid-transition.
   const finish = () => {
     if (cancelled || finished) return;
     finished = true;
@@ -87,7 +83,6 @@ export function runAudioCrossfade(
   };
 
   rafId = requestAnimationFrame(tick);
-  // Guarantee completion even when rAF is throttled or fully paused (hidden tab).
   safetyTimer = setTimeout(finish, durationMs + 250);
 
   return () => {

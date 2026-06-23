@@ -14,12 +14,7 @@ import {
 import Hls from 'hls.js';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
-import {
-  isCrossfadeSupportedUrl,
-  isIosSafari,
-  RADIO_CROSSFADE_MS,
-  runAudioCrossfade,
-} from '@/lib/radio-crossfade';
+import { isIosSafari } from '@/lib/browser-audio';
 import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
@@ -96,8 +91,8 @@ type PlaybackContextValue = {
   /** Call on mount; returned function unregisters on unmount. */
   registerRadioPlayerUi: () => () => void;
   /**
-   * True when the server's reported "current" track is one we already crossfaded
-   * past (server hasn't rotated yet). Pollers use this to avoid jumping backward.
+   * True when the server's reported "current" track is one we already advanced
+   * past locally (server hasn't rotated yet). Pollers use this to avoid jumping backward.
    */
   isStaleRadioServerTrack: (trackId: string | null | undefined) => boolean;
   /** Live FFT bar heights (0–255), updated each animation frame. */
@@ -167,16 +162,10 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   const trackIdRef = useRef<string | null>(null);
   const trackRadioIdRef = useRef<string | null>(null);
   const volumeRef = useRef(1);
-  const crossfadeCancelRef = useRef<(() => void) | null>(null);
-  const isCrossfadingRef = useRef(false);
-  const crossfadeIncomingSlotRef = useRef<AudioSlot | null>(null);
-  const crossfadePrefetchTrackIdRef = useRef<string | null>(null);
-  // When a crossfade prefetch (via /radio/peek) advances us to the upcoming
-  // song before it ends, the server still reports the *previous* song as
-  // current for a few seconds. We record what we advanced away from so pollers
-  // don't revert to it (which would jump the listener backward = skipping).
+  const handoffIncomingSlotRef = useRef<AudioSlot | null>(null);
+  // When we advance to the next song before the server rotates, pollers must not
+  // revert to the previous track (which would jump the listener backward).
   const recentlyAdvancedFromRef = useRef<{ id: string; at: number } | null>(null);
-  const isCrossfadePrefetchingRef = useRef(false);
   const overlayAudioRef = useRef<HTMLAudioElement | null>(null);
   const overlayHlsRef = useRef<Hls | null>(null);
   const djOverlayRef = useRef<DjOverlayState | null>(null);
@@ -398,11 +387,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     [destroyHlsForSlot],
   );
 
-  const cancelCrossfade = useCallback(() => {
-    crossfadeCancelRef.current?.();
-    crossfadeCancelRef.current = null;
-    isCrossfadingRef.current = false;
-    crossfadeIncomingSlotRef.current = null;
+  const resetHandoffState = useCallback(() => {
+    handoffIncomingSlotRef.current = null;
   }, []);
 
   useEffect(() => {
@@ -439,7 +425,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const main = getActiveAudio();
       if (!main || main.paused) return;
 
-      cancelCrossfade();
+      resetHandoffState();
       pair?.a.pause();
       pair?.b.pause();
       setState((s) => ({
@@ -452,13 +438,13 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
     document.addEventListener('play', onExternalMediaPlay, true);
     return () => document.removeEventListener('play', onExternalMediaPlay, true);
-  }, [cancelCrossfade, getActiveAudio]);
+  }, [resetHandoffState, getActiveAudio]);
 
   const setOnRadioTrackEnded = useCallback((cb: (() => void) | null) => {
     onRadioTrackEndedRef.current = cb;
   }, []);
 
-  // True if `serverTrackId` is a song we just crossfaded away from within the
+  // True if `serverTrackId` is a song we just advanced away from within the
   // last few seconds. Pollers use this to avoid reverting to the server's
   // not-yet-rotated "current" track and jumping the listener backward.
   const isStaleRadioServerTrack = useCallback(
@@ -604,7 +590,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, duration: audio.duration || 0 }));
       };
       const onPlay = () => {
-        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        if (activeSlotRef.current !== slot && handoffIncomingSlotRef.current !== slot) return;
         endedAdvanceTrackIdRef.current = null;
         // Legacy hard pause: keep it stopped.
         if (stateRef.current.pausedAt != null) {
@@ -629,7 +615,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         );
       };
       const onPlaying = () => {
-        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        if (activeSlotRef.current !== slot && handoffIncomingSlotRef.current !== slot) return;
         analyserZeroFramesRef.current = 0;
         refreshMediaElementAnalyser(
           audio,
@@ -639,7 +625,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         );
       };
       const onPause = () => {
-        if (activeSlotRef.current !== slot || isLoadingTrackRef.current || isCrossfadingRef.current) {
+        if (
+          (activeSlotRef.current !== slot &&
+            handoffIncomingSlotRef.current !== slot) ||
+          (isLoadingTrackRef.current && handoffIncomingSlotRef.current === null)
+        ) {
           return;
         }
         // Browsers often pause <audio> in background tabs even though the listener
@@ -668,7 +658,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
       };
       const onLoadStart = () => {
-        if (activeSlotRef.current !== slot && !isCrossfadingRef.current) return;
+        if (activeSlotRef.current !== slot && handoffIncomingSlotRef.current !== slot) return;
         clearLoadTimeout();
         setState((s) => ({ ...s, isLoading: true }));
         loadTimeoutRef.current = setTimeout(() => {
@@ -687,7 +677,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }, 20000);
       };
       const onCanPlay = () => {
-        if (activeSlotRef.current !== slot && crossfadeIncomingSlotRef.current !== slot) return;
+        if (activeSlotRef.current !== slot && handoffIncomingSlotRef.current !== slot) return;
         clearLoadTimeout();
         isLoadingTrackRef.current = false;
         const seekTo = pendingSeekRef.current;
@@ -697,7 +687,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         // Source loaded successfully — clear any stale error from a prior blip.
         setState((s) => ({ ...s, isLoading: false, error: null }));
-        if (activeSlotRef.current === slot || crossfadeIncomingSlotRef.current === slot) {
+        if (activeSlotRef.current === slot || handoffIncomingSlotRef.current === slot) {
           refreshMediaElementAnalyser(
             audio,
             analyserSlotsRef.current[slot],
@@ -731,7 +721,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
       };
       const onError = () => {
-        if (activeSlotRef.current !== slot && crossfadeIncomingSlotRef.current !== slot) return;
+        if (activeSlotRef.current !== slot && handoffIncomingSlotRef.current !== slot) return;
         clearLoadTimeout();
         isLoadingTrackRef.current = false;
         autoPlayPendingRef.current = false;
@@ -783,7 +773,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }));
       };
       const onEnded = () => {
-        if (isCrossfadingRef.current) return;
+        if (handoffIncomingSlotRef.current !== null) return;
         if (sourceRef.current === 'radio' && activeSlotRef.current === slot && onRadioTrackEndedRef.current) {
           onRadioTrackEndedRef.current();
         }
@@ -822,7 +812,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     const cleanupB = wireAudio(audioB, 'b');
 
     return () => {
-      cancelCrossfade();
+      resetHandoffState();
       cleanupA?.();
       cleanupB?.();
       audioA.pause();
@@ -839,7 +829,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
       analyserCtxRef.current = null;
     };
-  }, [cancelCrossfade, destroyHlsForSlot]);
+  }, [resetHandoffState, destroyHlsForSlot]);
 
   // Unlock Web Audio on first touch — iOS routes playback through AudioContext
   // (MediaElementSource) and stays silent until the context is resumed.
@@ -924,7 +914,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
       if (!url) return;
 
-      cancelCrossfade();
+      resetHandoffState();
       const activeSlot = activeSlotRef.current;
       clearAudioSlot(getInactiveSlot());
 
@@ -950,102 +940,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       attachSourceToSlot(activeSlot, url, seekSeconds, autoPlay, source);
     },
-    [attachSourceToSlot, cancelCrossfade, clearAudioSlot, getInactiveSlot],
-  );
-
-  const startRadioCrossfade = useCallback(
-    (
-      track: PlaybackTrack,
-      source: PlaybackSource,
-      seekSeconds: number | null,
-    ) => {
-      const url = typeof track.audioUrl === 'string' ? track.audioUrl.trim() : '';
-      const outgoing = getActiveAudio();
-      const incomingSlot = getInactiveSlot();
-      const pair = audioPairRef.current;
-      if (!url || !outgoing || !pair) return;
-
-      cancelCrossfade();
-      isCrossfadingRef.current = true;
-      crossfadeIncomingSlotRef.current = incomingSlot;
-      isLoadingTrackRef.current = true;
-
-      setState((s) => ({
-        ...s,
-        source,
-        track,
-        duration: track.durationSeconds || 0,
-        isLoading: true,
-        error: null,
-        serverPosition: seekSeconds ?? s.serverPosition,
-        isLive: true,
-      }));
-
-      const incoming = pair[incomingSlot];
-      let started = false;
-
-      const beginCrossfade = () => {
-        if (started) return;
-        started = true;
-        if (seekSeconds !== null && seekSeconds > 0) {
-          incoming.currentTime = seekSeconds;
-        }
-        void playAudio(incoming).catch(() => {});
-        isLoadingTrackRef.current = false;
-        setState((s) => ({ ...s, isLoading: false, isPlaying: true }));
-
-        crossfadeCancelRef.current = runAudioCrossfade(outgoing, incoming, {
-          targetVolume: volumeRef.current,
-          durationMs: RADIO_CROSSFADE_MS,
-          onComplete: () => {
-            crossfadeCancelRef.current = null;
-            isCrossfadingRef.current = false;
-            crossfadeIncomingSlotRef.current = null;
-
-            const outgoingSlot = activeSlotRef.current;
-            clearAudioSlot(outgoingSlot);
-            activeSlotRef.current = incomingSlot;
-            applyVolumeToAudio(incoming, volumeRef.current);
-
-            setState((s) => ({
-              ...s,
-              currentTime: incoming.currentTime || 0,
-              duration: incoming.duration || track.durationSeconds || 0,
-              isPlaying: !incoming.paused,
-            }));
-          },
-        });
-      };
-
-      destroyHlsForSlot(incomingSlot);
-      incoming.removeAttribute('src');
-      incoming.load();
-      applyVolumeToAudio(incoming, 0);
-
-      if (url.includes('.m3u8')) {
-        isCrossfadingRef.current = false;
-        loadTrackImmediate(track, source, true, seekSeconds);
-        return;
-      }
-
-      incoming.src = url;
-      incoming.addEventListener('canplay', beginCrossfade, { once: true });
-    },
-    [
-      cancelCrossfade,
-      clearAudioSlot,
-      destroyHlsForSlot,
-      getActiveAudio,
-      getInactiveSlot,
-      loadTrackImmediate,
-      playAudio,
-    ],
+    [attachSourceToSlot, resetHandoffState, clearAudioSlot, getInactiveSlot],
   );
 
   /**
-   * Hidden tabs can't run rAF crossfades and reloading the active element breaks
-   * mobile background audio sessions. Load the next song on the inactive slot,
-   * start it, then swap — same pattern as crossfade without volume ramping.
+   * Hidden tabs: reloading the active element breaks mobile background audio.
+   * Load the next song on the inactive slot, start it, then swap instantly.
    */
   const startBackgroundRadioHandoff = useCallback(
     (
@@ -1068,12 +968,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const incoming = pair[incomingSlot];
       const outgoing = pair[outgoingSlot];
 
-      cancelCrossfade();
+      resetHandoffState();
       hasRetriedAfterErrorRef.current = false;
       autoPlayPendingRef.current = autoPlay;
       isLoadingTrackRef.current = true;
       pendingSeekRef.current = seekSeconds;
-      crossfadeIncomingSlotRef.current = incomingSlot;
+      handoffIncomingSlotRef.current = incomingSlot;
 
       setState((s) => ({
         ...s,
@@ -1091,7 +991,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }));
 
       const completeHandoff = () => {
-        crossfadeIncomingSlotRef.current = null;
+        handoffIncomingSlotRef.current = null;
         if (incoming !== outgoing) {
           outgoing.pause();
           clearAudioSlot(outgoingSlot);
@@ -1148,7 +1048,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       incoming.addEventListener('canplay', onIncomingReady, { once: true });
     },
     [
-      cancelCrossfade,
+      resetHandoffState,
       clearAudioSlot,
       destroyHlsForSlot,
       getInactiveSlot,
@@ -1218,10 +1118,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         onRadioTrackEndedRef.current?.();
         return;
       }
-      // A station switch is a user-initiated cut, not a natural in-station
-      // track transition — switching stations should change songs immediately
-      // rather than overlapping the previous station's song for the full
-      // crossfade window.
+      // A station switch is a user-initiated cut — change songs immediately.
       const previousRadioId = trackRadioIdRef.current;
       const stationChanged =
         source === 'radio' &&
@@ -1235,28 +1132,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (source === 'radio' && previousTrackId && previousTrackId !== track.id) {
         recentlyAdvancedFromRef.current = { id: previousTrackId, at: Date.now() };
       }
-      const shouldCrossfade =
-        source === 'radio' &&
-        sourceRef.current === 'radio' &&
-        !!previousTrackId &&
-        previousTrackId !== track.id &&
-        !stationChanged &&
-        // While muted there's no audio to blend; hard-cut (loadTrackImmediate
-        // keeps it muted+playing) and skip the volume-ramping crossfade.
-        !mutedByUserRef.current &&
-        isCrossfadeSupportedUrl(url) &&
-        !outgoing.paused &&
-        !outgoing.ended &&
-        outgoing.currentTime > 0 &&
-        !isIosSafari() &&
-        // rAF-based crossfade can't run in a hidden tab; switch instantly.
-        !(typeof document !== 'undefined' && document.hidden) &&
-        (autoPlay ?? true);
-
-      if (shouldCrossfade) {
-        startRadioCrossfade(track, source, joinSeek);
-        return;
-      }
 
       const useBackgroundHandoff =
         typeof document !== 'undefined' &&
@@ -1266,7 +1141,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !!previousTrackId &&
         previousTrackId !== track.id &&
         !stationChanged &&
-        isCrossfadeSupportedUrl(url) &&
+        !url.includes('.m3u8') &&
         (autoPlay ?? true);
 
       if (useBackgroundHandoff) {
@@ -1276,13 +1151,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       loadTrackImmediate(track, source, !!autoPlay, joinSeek);
     },
-    [getActiveAudio, loadTrackImmediate, startBackgroundRadioHandoff, startRadioCrossfade],
+    [getActiveAudio, loadTrackImmediate, startBackgroundRadioHandoff],
   );
-
-  // Peek prefetch crossfade disabled — see plan: foreground peek caused song repeats.
-  useEffect(() => {
-    return undefined;
-  }, [state.source, state.track?.id]);
 
   const radioStreamShouldRun = useCallback(() => {
     const s = stateRef.current;
@@ -1314,19 +1184,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const audible = radioShouldBeAudible();
       const audio = getActiveAudio();
 
-      // A crossfade that began just before the tab was hidden can stall because
-      // requestAnimationFrame is paused in background tabs. On refocus, finalize
-      // it by cancelling and reloading the intended (incoming) track so playback
-      // resumes cleanly instead of jamming mid-transition.
-      if (isCrossfadingRef.current) {
-        cancelCrossfade();
-        const resumeAt = resolveRadioResumePosition({
-          localCurrentTime: audio?.currentTime ?? 0,
-          serverPosition: s.serverPosition,
-        });
-        loadTrackImmediate(s.track!, 'radio', audible, resumeAt);
-        return;
-      }
       if (isLoadingTrackRef.current) return;
 
       if (!audio) return;
@@ -1370,7 +1227,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     document.addEventListener('visibilitychange', onVisibility);
     return () => document.removeEventListener('visibilitychange', onVisibility);
   }, [
-    cancelCrossfade,
+    resetHandoffState,
     getActiveAudio,
     loadTrackImmediate,
     playAudio,
@@ -1396,9 +1253,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const audio = getActiveAudio();
       if (!audio) return;
 
-      if (crossfadeIncomingSlotRef.current) {
+      if (handoffIncomingSlotRef.current) {
         const incoming =
-          audioPairRef.current?.[crossfadeIncomingSlotRef.current];
+          audioPairRef.current?.[handoffIncomingSlotRef.current];
         if (
           incoming &&
           incoming.paused &&
@@ -1461,12 +1318,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   }, [getActiveAudio, notifyUserPlaybackGesture, playAudio]);
 
   const pause = useCallback(() => {
-    cancelCrossfade();
+    resetHandoffState();
     const pair = audioPairRef.current;
     pair?.a.pause();
     pair?.b.pause();
     setState((s) => ({ ...s, isPlaying: false }));
-  }, [cancelCrossfade]);
+  }, [resetHandoffState]);
 
   const setVolume = useCallback(
     (vol: number) => {
@@ -1495,8 +1352,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       const audio = getActiveAudio();
       if (!audio || positionSeconds <= 0) return;
 
-      if (isCrossfadingRef.current && crossfadeIncomingSlotRef.current) {
-        const incoming = audioPairRef.current?.[crossfadeIncomingSlotRef.current];
+      if (handoffIncomingSlotRef.current) {
+        const incoming =
+          audioPairRef.current?.[handoffIncomingSlotRef.current];
         if (incoming) {
           pendingSeekRef.current = positionSeconds;
           if (!incoming.paused && incoming.readyState >= 2) {
@@ -1565,8 +1423,8 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   // silence the output. Unmuting rejoins instantly with no catch-up/DVR drift.
   const softPause = useCallback(() => {
     mutedByUserRef.current = true;
-    // Stop any in-flight crossfade volume ramp so it can't un-silence us.
-    cancelCrossfade();
+    // Stop any in-flight background handoff so it can't un-silence us.
+    resetHandoffState();
     const pair = audioPairRef.current;
     if (pair?.a) {
       pair.a.volume = 0;
@@ -1587,7 +1445,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       void playAudio(audio).catch(() => {});
     }
     setState((s) => ({ ...s, isMuted: true, isLive: true }));
-  }, [cancelCrossfade, getActiveAudio, playAudio]);
+  }, [resetHandoffState, getActiveAudio, playAudio]);
 
   const softResume = useCallback(async () => {
     mutedByUserRef.current = false;
@@ -1640,7 +1498,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     async (positionSeconds: number) => {
       const audio = getActiveAudio();
       if (!audio) return;
-      cancelCrossfade();
+      resetHandoffState();
       audio.currentTime = positionSeconds;
       setState((s) => ({ ...s, isPlaying: true, error: null }));
       try {
@@ -1656,7 +1514,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         setState((s) => ({ ...s, isPlaying: false }));
       }
     },
-    [cancelCrossfade, getActiveAudio, playAudio],
+    [resetHandoffState, getActiveAudio, playAudio],
   );
 
   const needsJumpToLive = useCallback(() => {
@@ -1665,12 +1523,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
   }, [state.pausedAt]);
 
   const stop = useCallback(() => {
-    cancelCrossfade();
+    resetHandoffState();
     clearAudioSlot('a');
     clearAudioSlot('b');
     activeSlotRef.current = 'a';
     setState(initialPlaybackState);
-  }, [cancelCrossfade, clearAudioSlot]);
+  }, [resetHandoffState, clearAudioSlot]);
 
   const actions = useMemo(
     (): PlaybackActions => ({
