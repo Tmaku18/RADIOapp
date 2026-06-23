@@ -85,8 +85,32 @@ export async function resolveNextTrackAfterEnd(args: {
   if (finalId && args.isStaleRadioServerTrack(finalId)) {
     return null;
   }
+  // After local `ended`, never reload the same song — that restarts it from
+  // position 0 and looks like a repeat (common when the server clock lags).
+  if (
+    finalId &&
+    args.endedTrackId &&
+    finalId === args.endedTrackId
+  ) {
+    return null;
+  }
 
   return trackData ?? null;
+}
+
+/** Pick a resume offset that never jumps backward (avoids background tab repeats). */
+export function resolveRadioResumePosition(args: {
+  localCurrentTime: number;
+  serverPosition: number;
+}): number | null {
+  const local =
+    Number.isFinite(args.localCurrentTime) && args.localCurrentTime > 0
+      ? args.localCurrentTime
+      : 0;
+  const server = args.serverPosition > 0 ? args.serverPosition : 0;
+  const merged = Math.max(local, server);
+  if (merged <= 1) return null;
+  return merged;
 }
 
 /** True when the server queue moved on but the listener is still mid-song. */

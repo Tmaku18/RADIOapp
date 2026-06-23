@@ -285,6 +285,12 @@ export function RadioPlayer({
       if (!trackData) {
         return;
       }
+      if (trackData.id && endedTrackId && trackData.id === endedTrackId) {
+        console.warn(
+          'Server still reports ended track after advance; will retry on poll',
+        );
+        return;
+      }
       setListenerCount(coerceListenerCount(trackData?.listener_count));
       const nextFireVotes = coerceListenerCount(trackData?.fire_votes);
       const nextShitVotes = coerceListenerCount(trackData?.shit_votes);

@@ -20,6 +20,7 @@ import {
   RADIO_CROSSFADE_MS,
   runAudioCrossfade,
 } from '@/lib/radio-crossfade';
+import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
   applyDuckToMain,
@@ -1208,6 +1209,15 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
 
       const previousTrackId = trackIdRef.current;
+      if (
+        source === 'radio' &&
+        previousTrackId === track.id &&
+        outgoing.ended
+      ) {
+        // Safety net: never restart a song that already finished locally.
+        onRadioTrackEndedRef.current?.();
+        return;
+      }
       // A station switch is a user-initiated cut, not a natural in-station
       // track transition — switching stations should change songs immediately
       // rather than overlapping the previous station's song for the full
@@ -1302,6 +1312,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
       const s = stateRef.current;
       const audible = radioShouldBeAudible();
+      const audio = getActiveAudio();
 
       // A crossfade that began just before the tab was hidden can stall because
       // requestAnimationFrame is paused in background tabs. On refocus, finalize
@@ -1309,12 +1320,15 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       // resumes cleanly instead of jamming mid-transition.
       if (isCrossfadingRef.current) {
         cancelCrossfade();
-        loadTrackImmediate(s.track!, 'radio', audible, null);
+        const resumeAt = resolveRadioResumePosition({
+          localCurrentTime: audio?.currentTime ?? 0,
+          serverPosition: s.serverPosition,
+        });
+        loadTrackImmediate(s.track!, 'radio', audible, resumeAt);
         return;
       }
       if (isLoadingTrackRef.current) return;
 
-      const audio = getActiveAudio();
       if (!audio) return;
 
       // Never reload a finished track at an old offset — advance instead.
@@ -1336,12 +1350,21 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         return;
       }
 
-      const resumeAt =
-        s.serverPosition > 0
-          ? s.serverPosition
-          : Number.isFinite(audio.currentTime) && audio.currentTime > 0
-            ? audio.currentTime
-            : null;
+      // Prefer resume when buffered — full reload at a stale serverPosition
+      // (timeupdate is throttled in background) restarts the song from the top.
+      if (
+        !audio.ended &&
+        audio.readyState >= 2 &&
+        audio.networkState !== 3 /* NETWORK_NO_SOURCE */
+      ) {
+        void playAudio(audio).catch(() => undefined);
+        return;
+      }
+
+      const resumeAt = resolveRadioResumePosition({
+        localCurrentTime: audio.currentTime,
+        serverPosition: s.serverPosition,
+      });
       loadTrackImmediate(s.track!, 'radio', audible, resumeAt);
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -1512,6 +1535,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       }
 
       if (blockForwardCatchup) {
+        setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
+        return;
+      }
+
+      // Background tabs throttle timeupdate; pollers can report an older server
+      // offset and seek backward — which replays the song from an earlier point.
+      if (
+        needsBackwardCorrection &&
+        typeof document !== 'undefined' &&
+        document.hidden
+      ) {
         setState((s) => ({ ...s, serverPosition: positionSeconds, isLive: true }));
         return;
       }
