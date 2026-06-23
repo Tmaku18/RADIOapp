@@ -61,10 +61,19 @@ class _MusicNoteDef {
 
 /// Full Three.js butterfly hero — port of web [ButterflyHeroScene].
 class ButterflyHeroScene extends StatefulWidget {
-  const ButterflyHeroScene({super.key, this.onReady, this.onFailed});
+  const ButterflyHeroScene({
+    super.key,
+    this.onReady,
+    this.onFailed,
+    this.onStatus,
+  });
 
   final VoidCallback? onReady;
   final VoidCallback? onFailed;
+
+  /// Diagnostic hook: surfaces lifecycle states so the canvas can show them
+  /// on-screen (Play Store testers can't read logcat).
+  final void Function(String status)? onStatus;
 
   @override
   State<ButterflyHeroScene> createState() => _ButterflyHeroSceneState();
@@ -107,12 +116,14 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
       onSetupComplete: () {
         if (!mounted) return;
         setState(() => _ready = true);
+        widget.onStatus?.call('gl-setup');
         _renderWatchdog?.cancel();
         _renderWatchdog = Timer(const Duration(seconds: 6), () {
           if (!_notifiedParentReady && mounted) {
             debugPrint(
               'ButterflyHeroScene: render loop never started — falling back to 2D',
             );
+            widget.onStatus?.call('no-frames');
             widget.onFailed?.call();
           }
         });
@@ -358,9 +369,14 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
 
   Future<void> _setup() async {
     try {
+      widget.onStatus?.call('building');
       await _buildScene();
     } catch (error, stackTrace) {
       debugPrint('ButterflyHeroScene setup failed: $error\n$stackTrace');
+      final msg = error.toString();
+      widget.onStatus?.call(
+        'err:${msg.substring(0, msg.length > 40 ? 40 : msg.length)}',
+      );
       widget.onFailed?.call();
     }
   }
@@ -407,6 +423,7 @@ class _ButterflyHeroSceneState extends State<ButterflyHeroScene> {
     if (_renderFrames < _framesBeforeReady) return;
     _notifiedParentReady = true;
     _renderWatchdog?.cancel();
+    widget.onStatus?.call('frames-ok');
     widget.onReady?.call();
   }
 

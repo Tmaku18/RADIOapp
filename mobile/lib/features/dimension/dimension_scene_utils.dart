@@ -43,10 +43,15 @@ three.MeshBasicMaterial cyanArchMaterial({double opacity = 0.92}) {
   });
 }
 
+/// When true, the dimension hero shows an on-screen status badge so Play Store
+/// testers (no USB/logcat) can report whether 3D fails or renders blank.
+const bool kDimensionDebugBadge = true;
+
 three.Settings dimensionSceneSettings() {
-  // Physical Android (Play Store release) uses ANGLE. Keep SurfaceProducer on
-  // (customRenderer-only path often paints an opaque black surface). Use mediump
-  // basic materials — not highp PBR — for shader compatibility.
+  // We force flutter_angle's device-native GLES path (see vendored
+  // three_js_angle_renderer). On physical devices the SurfaceProducer (Impeller)
+  // external-texture path can composite as blank, so use the legacy
+  // SurfaceTexture path on Android. mediump basic materials for shader compat.
   final androidDevice = !kIsWeb && Platform.isAndroid;
   return three.Settings(
     alpha: true,
@@ -54,7 +59,7 @@ three.Settings dimensionSceneSettings() {
     clearAlpha: 0,
     clearColor: dimensionBgDark,
     enableShadowMap: false,
-    useSurfaceProducer: true,
+    useSurfaceProducer: androidDevice ? false : true,
     premultipliedAlpha: androidDevice ? false : true,
     precision: androidDevice ? three.Precision.mediump : three.Precision.highp,
     renderOptions: {'format': three.RGBAFormat, 'samples': 0},

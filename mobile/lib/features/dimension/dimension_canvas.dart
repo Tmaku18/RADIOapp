@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'butterfly_hero_fallback.dart';
 import 'butterfly_hero_scene.dart';
+import 'dimension_scene_utils.dart';
 
 /// Butterfly hero — 2D base always visible; 3D overlays only after the first
 /// rendered frames (avoids fading 2D away while GL is still a blank surface).
@@ -20,6 +21,7 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
   bool _show3d = false;
   bool _disable3d = false;
   Timer? _initTimer;
+  String _status = 'init';
 
   @override
   void initState() {
@@ -27,6 +29,7 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
     _initTimer = Timer(_initTimeout, () {
       if (!mounted || _show3d || _disable3d) return;
       debugPrint('DimensionCanvas: 3D init timed out — keeping 2D hero');
+      _setStatus('timeout');
       _onSceneFailed();
     });
   }
@@ -35,6 +38,11 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
   void dispose() {
     _initTimer?.cancel();
     super.dispose();
+  }
+
+  void _setStatus(String status) {
+    if (!mounted) return;
+    setState(() => _status = status);
   }
 
   void _onSceneReady() {
@@ -68,6 +76,25 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
                 child: ButterflyHeroScene(
                   onReady: _onSceneReady,
                   onFailed: _onSceneFailed,
+                  onStatus: _setStatus,
+                ),
+              ),
+            ),
+          ),
+        if (kDimensionDebugBadge)
+          Positioned(
+            left: 8,
+            top: 8,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '3D:$_status ${_show3d ? "shown" : "hidden"}',
+                  style: const TextStyle(color: Color(0xFF00F0FF), fontSize: 10),
                 ),
               ),
             ),
