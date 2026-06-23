@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.6+22
+version: 1.0.7+23
 
 environment:
   sdk: ^3.10.0
@@ -109,6 +109,12 @@ dependencies:
   flutter_webrtc: ^1.4.1
   audio_metadata_reader: ^1.6.0
   three_js: ^0.3.0
+
+# Vendored three_js renderer: forces flutter_angle's device-native GLES path
+# (useAngle:false) so 3D renders on physical Android, not just emulators.
+dependency_overrides:
+  three_js_angle_renderer:
+    path: third_party/three_js_angle_renderer
 
 dev_dependencies:
   flutter_test:
