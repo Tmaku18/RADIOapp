@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.0.8+24
+version: 1.0.9+25
 
 environment:
   sdk: ^3.10.0
@@ -108,6 +108,11 @@ dependencies:
   http_parser: ^4.1.2
   flutter_webrtc: ^1.4.1
   audio_metadata_reader: ^1.6.0
+
+  # 3D butterfly hero is rendered via the real web Three.js scene inside a
+  # transparent WebView (System WebView WebGL2 works on physical devices, unlike
+  # flutter_angle which times out). three_js kept only as the legacy/emulator path.
+  flutter_inappwebview: ^6.1.5
   three_js: ^0.3.0
 
 # Vendored three_js renderer: forces flutter_angle's device-native GLES path

@@ -3,11 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'butterfly_hero_fallback.dart';
-import 'butterfly_hero_scene.dart';
+import 'butterfly_hero_webview.dart';
 import 'dimension_scene_utils.dart';
 
-/// Butterfly hero — 2D base always visible; 3D overlays only after the first
-/// rendered frames (avoids fading 2D away while GL is still a blank surface).
+/// Butterfly hero — 2D base always visible; the real web Three.js scene
+/// (via WebView) overlays only after it loads and paints, avoiding any blank
+/// flash and falling back to the polished 2D hero if the embed can't load.
 class DimensionCanvas extends StatefulWidget {
   const DimensionCanvas({super.key});
 
@@ -73,7 +74,7 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
               child: AnimatedOpacity(
                 opacity: _show3d ? 1 : 0,
                 duration: const Duration(milliseconds: 700),
-                child: ButterflyHeroScene(
+                child: ButterflyHeroWebView(
                   onReady: _onSceneReady,
                   onFailed: _onSceneFailed,
                   onStatus: _setStatus,
