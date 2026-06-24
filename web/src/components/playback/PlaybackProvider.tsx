@@ -32,6 +32,7 @@ import {
   configureMobileAudioElement,
   createAnalyserBarsBuffer,
   disconnectAnalyserSlot,
+  dramatizeBars,
   fillIdleBars,
   fillSimulatedBars,
   isMobileWeb,
@@ -894,6 +895,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         an.getByteFrequencyData(rawAnalyserDataRef.current as Uint8Array<ArrayBuffer>);
         reduceFrequencyBins(rawAnalyserDataRef.current, barsRef.current);
+        dramatizeBars(barsRef.current);
 
         let peak = 0;
         for (let i = 0; i < barsRef.current.length; i++) {

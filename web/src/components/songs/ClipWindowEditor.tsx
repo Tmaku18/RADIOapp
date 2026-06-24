@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { bindExclusivePreview } from '@/lib/preview-audio';
 
 const STEP = 0.5;
 
@@ -145,13 +146,21 @@ export function ClipWindowEditor({
       }
     };
     const onEnded = () => setPlaying(false);
+    // Pause this preview when another clip/sample preview starts (and vice versa).
+    const onPlayPause = () => setPlaying(!audio.paused && !audio.ended);
+    const unbindExclusive = bindExclusivePreview(audio);
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('play', onPlayPause);
+    audio.addEventListener('pause', onPlayPause);
     return () => {
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('play', onPlayPause);
+      audio.removeEventListener('pause', onPlayPause);
+      unbindExclusive();
       audio.pause();
       audioRef.current = null;
     };

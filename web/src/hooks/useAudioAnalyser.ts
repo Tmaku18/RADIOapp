@@ -5,6 +5,7 @@ import {
   ANALYSER_BARS,
   createAnalyserBarsBuffer,
   disconnectAnalyserSlot,
+  dramatizeBars,
   ensureMediaElementAnalyser,
   fillIdleBars,
   fillSimulatedBars,
@@ -41,6 +42,7 @@ export function useAudioAnalyser(url: string | null | undefined, bars = ANALYSER
         }
         an.getByteFrequencyData(rawDataRef.current as Uint8Array<ArrayBuffer>);
         reduceFrequencyBins(rawDataRef.current, dataRef.current);
+        dramatizeBars(dataRef.current);
       } else if (playing) {
         fillSimulatedBars(dataRef.current, performance.now() / 1000);
       } else {

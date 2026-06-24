@@ -36,18 +36,40 @@ export function fillIdleBars(bars: Uint8Array, nowSec: number): void {
  */
 export function fillSimulatedBars(bars: Uint8Array, nowSec: number): void {
   const n = bars.length;
-  const beat = 0.5 + 0.5 * Math.sin(nowSec * 5.6);
-  const beat2 = 0.5 + 0.5 * Math.sin(nowSec * 2.3 + 1.1);
+  // Sharp, kick-like beat (raised sine) plus a half-time pulse for variety.
+  const kick = Math.pow(0.5 + 0.5 * Math.sin(nowSec * 5.6), 2.2);
+  const kick2 = Math.pow(0.5 + 0.5 * Math.sin(nowSec * 2.3 + 1.1), 1.6);
+  const beat = 0.65 * kick + 0.35 * kick2;
   for (let i = 0; i < n; i++) {
     const t = i / n;
-    const env = Math.pow(1 - t, 0.85);
+    const env = Math.pow(1 - t, 0.8);
     const wob =
-      0.55 +
-      0.3 * Math.sin(nowSec * 9 + i * 0.7) +
-      0.2 * Math.sin(nowSec * 3.3 + i * 1.9);
-    let v = env * (0.3 + 0.7 * (0.6 * beat + 0.4 * beat2)) * wob;
-    v = Math.max(0.06, Math.min(1, v));
+      0.5 +
+      0.4 * Math.sin(nowSec * 11 + i * 0.7) +
+      0.3 * Math.sin(nowSec * 4.1 + i * 1.9);
+    // Low floor + big beat swing = dramatic jumps on every kick.
+    let v = env * (0.12 + 0.95 * beat) * wob;
+    v = Math.max(0.05, Math.min(1, v));
     bars[i] = v * 255;
+  }
+}
+
+/**
+ * Punch up FFT bars for a far more dramatic, beat-reactive visualizer:
+ * low-frequency (bass) bins get extra emphasis that tapers across the spectrum,
+ * and a lift-then-amplify curve makes peaks pop while quiet bins stay low.
+ * Mutates [bars] in place; all-zero input stays zero (so dead-tap detection works).
+ */
+export function dramatizeBars(bars: Uint8Array): void {
+  const n = bars.length;
+  for (let i = 0; i < n; i++) {
+    const raw = bars[i];
+    if (raw === 0) continue;
+    const t = i / n;
+    const bassBoost = 1 + 0.85 * Math.pow(1 - t, 2.2);
+    const v = (raw / 255) * bassBoost;
+    const out = Math.min(1, Math.pow(Math.min(1, v), 0.62) * 1.7);
+    bars[i] = out * 255;
   }
 }
 
@@ -55,9 +77,12 @@ export function updateBassRef(
   bars: Uint8Array,
   bassRef: { current: number },
 ): void {
-  const b =
-    (bars[0] + bars[1] + bars[2] + bars[3]) / 4 / 255;
-  bassRef.current = bassRef.current * 0.7 + b * 0.3;
+  const b = (bars[0] + bars[1] + bars[2] + bars[3]) / 4 / 255;
+  // Punchier: amplified target with a fast attack and a little release so the
+  // artwork/glow pulse visibly kicks on every beat.
+  const target = Math.min(1, b * 1.35);
+  const attack = target > bassRef.current ? 0.6 : 0.32;
+  bassRef.current = bassRef.current * (1 - attack) + target * attack;
 }
 
 type CapturableMediaElement = HTMLMediaElement & {
@@ -240,7 +265,8 @@ export function ensureMediaElementAnalyser(
   try {
     const an = ctx.createAnalyser();
     an.fftSize = Math.max(64, fftSize);
-    an.smoothingTimeConstant = 0.78;
+    // Lower smoothing = snappier, more dramatic reaction to beats/transients.
+    an.smoothingTimeConstant = 0.62;
 
     if (!wireAnalyserTap(audio, slot, ctx, an)) {
       disconnectAnalyserSlot(slot);

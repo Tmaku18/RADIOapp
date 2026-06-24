@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { songsApi } from '@/lib/api';
+import { bindExclusivePreview } from '@/lib/preview-audio';
 
 const MAX_SAMPLE = 30;
 const MIN_SAMPLE = 5;
@@ -178,13 +179,21 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
       }
     };
     const onEnded = () => setPlaying(false);
+    // Pause this preview when another clip/sample preview starts (and vice versa).
+    const onPlayPause = () => setPlaying(!audio.paused && !audio.ended);
+    const unbindExclusive = bindExclusivePreview(audio);
     audio.addEventListener('loadedmetadata', onLoaded);
     audio.addEventListener('timeupdate', onTime);
     audio.addEventListener('ended', onEnded);
+    audio.addEventListener('play', onPlayPause);
+    audio.addEventListener('pause', onPlayPause);
     return () => {
       audio.removeEventListener('loadedmetadata', onLoaded);
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('ended', onEnded);
+      audio.removeEventListener('play', onPlayPause);
+      audio.removeEventListener('pause', onPlayPause);
+      unbindExclusive();
       audio.pause();
       audioRef.current = null;
     };
