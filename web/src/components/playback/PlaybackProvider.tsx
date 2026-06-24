@@ -633,6 +633,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         ) {
           return;
         }
+        // A finished track fires 'pause' (ended => paused). Calling play() on an
+        // ended element seeks it back to 0 and replays it — this is the "song
+        // repeats for a couple seconds before switching" bug in backgrounded
+        // mobile tabs. Never resume an ended element; advance to the next track.
+        if (audio.ended) {
+          if (sourceRef.current === 'radio') {
+            onRadioTrackEndedRef.current?.();
+          }
+          return;
+        }
         // Browsers often pause <audio> in background tabs even though the listener
         // did not tap pause. For live radio, keep playback intent so refocus recovery
         // can resume (and muted listeners still need the stream advancing silently).
@@ -663,6 +673,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         clearLoadTimeout();
         setState((s) => ({ ...s, isLoading: true }));
         loadTimeoutRef.current = setTimeout(() => {
+          // Background tabs throttle/suspend audio loading, so canplay can be
+          // delayed well past the timeout even on a healthy connection. Skipping
+          // here doesn't help (the next track is throttled too) and just churns
+          // out "taking too long" skips. Only enforce the skip when visible;
+          // background recovery is handled on visibilitychange / the maintainer.
+          if (typeof document !== 'undefined' && document.hidden) {
+            return;
+          }
           setState((s) => ({
             ...s,
             isLoading: false,
