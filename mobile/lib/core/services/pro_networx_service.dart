@@ -62,12 +62,14 @@ class ProNetworxService {
     throw Exception('Failed to update Pro profile');
   }
 
-  Future<List<ProDirectoryItem>> listDirectory({
+  Future<({List<ProDirectoryItem> items, int total})> listDirectory({
     String? skill,
     bool? availableForWork,
     String? search,
     String? location,
     String? sort,
+    String mode = 'default',
+    String? seed,
   }) async {
     final params = <String, String>{
       if (skill != null && skill.trim().isNotEmpty) 'skill': skill.trim(),
@@ -77,6 +79,8 @@ class ProNetworxService {
       if (location != null && location.trim().isNotEmpty)
         'location': location.trim(),
       if (sort != null && sort.trim().isNotEmpty) 'sort': sort.trim(),
+      if (mode.trim().isNotEmpty) 'mode': mode.trim(),
+      if (seed != null && seed.trim().isNotEmpty) 'seed': seed.trim(),
     };
     final q = params.entries
         .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value)}')
@@ -85,22 +89,31 @@ class ProNetworxService {
         await _api.get('pro-networx/directory${q.isEmpty ? '' : '?$q'}');
     if (res is Map<String, dynamic>) {
       final items = res['items'];
+      final totalRaw = res['total'];
+      final total = totalRaw is int
+          ? totalRaw
+          : int.tryParse(totalRaw?.toString() ?? '') ??
+              (items is List ? items.length : 0);
       if (items is List) {
-        return items
-            .whereType<Map>()
-            .map((e) => ProDirectoryItem.fromJson(
-                e.map((k, v) => MapEntry(k.toString(), v))))
-            .toList();
+        return (
+          items: items
+              .whereType<Map>()
+              .map((e) => ProDirectoryItem.fromJson(
+                  e.map((k, v) => MapEntry(k.toString(), v))))
+              .toList(),
+          total: total,
+        );
       }
     }
     if (res is List) {
-      return res
+      final items = res
           .whereType<Map>()
           .map((e) => ProDirectoryItem.fromJson(
               e.map((k, v) => MapEntry(k.toString(), v))))
           .toList();
+      return (items: items, total: items.length);
     }
-    return const [];
+    return (items: const <ProDirectoryItem>[], total: 0);
   }
 
   Future<Map<String, dynamic>> getProfileByUserId(String userId) async {

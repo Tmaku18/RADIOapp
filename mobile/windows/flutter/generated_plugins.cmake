@@ -8,6 +8,7 @@ list(APPEND FLUTTER_PLUGIN_LIST
   firebase_auth
   firebase_core
   flutter_angle
+  flutter_inappwebview_windows
   flutter_webrtc
   geolocator_windows
   passkeys_windows

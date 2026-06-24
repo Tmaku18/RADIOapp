@@ -16,6 +16,12 @@ bool isNearRadioTrackEnd({
   return currentTimeSeconds >= durationSeconds - thresholdSeconds;
 }
 
+/// Hard live sync: a playing listener always follows the server's current song,
+/// even mid-song, so every device on a station hears the same track at the same
+/// position. (Previously this returned true mid-song to avoid interrupting a
+/// listener, but that let devices drift onto different songs — "true radio" must
+/// stay locked.) Explicit user pause is still respected by `_loadTrack`
+/// (volume 0, no play) and the just-advanced guard via `isStaleRadioServerTrack`.
 bool isServerAheadMidSong({
   required bool trackIdentityChanged,
   required bool isPlaying,
@@ -23,11 +29,7 @@ bool isServerAheadMidSong({
   required int currentTimeSeconds,
   required int durationSeconds,
 }) {
-  if (!trackIdentityChanged || !isPlaying || userPaused) return false;
-  return !isNearRadioTrackEnd(
-    currentTimeSeconds: currentTimeSeconds,
-    durationSeconds: durationSeconds,
-  );
+  return false;
 }
 
 bool isStaleRadioServerTrack(

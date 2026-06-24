@@ -233,6 +233,8 @@ class ProDirectoryItem {
   final String? startingAtRateType;
   final bool verifiedCatalyst;
   final bool mentorOptIn;
+  final String? currentTitle;
+  final bool isFollowing;
 
   const ProDirectoryItem({
     required this.userId,
@@ -252,6 +254,8 @@ class ProDirectoryItem {
     required this.startingAtRateType,
     required this.verifiedCatalyst,
     required this.mentorOptIn,
+    this.currentTitle,
+    this.isFollowing = false,
   });
 
   factory ProDirectoryItem.fromJson(Map<String, dynamic> json) {
@@ -283,6 +287,32 @@ class ProDirectoryItem {
       startingAtRateType: (json['startingAtRateType'] ?? json['starting_at_rate_type'])?.toString(),
       verifiedCatalyst: json['verifiedCatalyst'] == true || json['verified_catalyst'] == true,
       mentorOptIn: json['mentorOptIn'] == true || json['mentor_opt_in'] == true,
+      currentTitle: (json['currentTitle'] ?? json['current_title'])?.toString(),
+      isFollowing: json['isFollowing'] == true || json['is_following'] == true,
+    );
+  }
+
+  ProDirectoryItem copyWith({bool? isFollowing}) {
+    return ProDirectoryItem(
+      userId: userId,
+      role: role,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      headline: headline,
+      bio: bio,
+      locationRegion: locationRegion,
+      availableForWork: availableForWork,
+      skillsHeadline: skillsHeadline,
+      skills: skills,
+      serviceTitle: serviceTitle,
+      mediaPreviewUrl: mediaPreviewUrl,
+      mediaPreviewType: mediaPreviewType,
+      startingAtCents: startingAtCents,
+      startingAtRateType: startingAtRateType,
+      verifiedCatalyst: verifiedCatalyst,
+      mentorOptIn: mentorOptIn,
+      currentTitle: currentTitle,
+      isFollowing: isFollowing ?? this.isFollowing,
     );
   }
 }

@@ -113,8 +113,15 @@ export function resolveRadioResumePosition(args: {
   return merged;
 }
 
-/** True when the server queue moved on but the listener is still mid-song. */
-export function isServerAheadMidSong(args: {
+/**
+ * Hard live sync: a playing listener always follows the server's current song,
+ * even mid-song, so every device on a station hears the same track at the same
+ * position. (Previously this returned true mid-song to avoid interrupting a
+ * listener, but that let devices drift onto different songs — "true radio" must
+ * stay locked.) Explicit user pause is handled separately via `pausedAt` /
+ * autoplay gating, and the just-advanced guard via `isStaleRadioServerTrack`.
+ */
+export function isServerAheadMidSong(_args: {
   trackIdentityChanged: boolean;
   isPlaying: boolean;
   pausedAt: number | null;
@@ -122,14 +129,7 @@ export function isServerAheadMidSong(args: {
   duration: number;
   fallbackDurationSeconds?: number;
 }): boolean {
-  if (!args.trackIdentityChanged || !args.isPlaying || args.pausedAt != null) {
-    return false;
-  }
-  return !isNearRadioTrackEnd(
-    args.currentTime,
-    args.duration,
-    args.fallbackDurationSeconds,
-  );
+  return false;
 }
 
 /**
