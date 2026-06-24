@@ -9,6 +9,7 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import 'widgets/pro_network_paywall_sheet.dart';
 
 class ProNetworxProfileScreen extends StatefulWidget {
   final String userId;
@@ -78,6 +79,19 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     }
   }
 
+  /// Resumes hold personal contact info, so non-subscribers are sent to the
+  /// paywall instead of the file. On a successful subscribe we reload so the
+  /// resume opens immediately.
+  Future<void> _openResumeSubscribe() async {
+    final ok = await ProNetworkPaywallSheet.show(
+      context,
+      title: 'Subscribe to view resume',
+      description:
+          "Resumes include contact info. Subscribe to Pro-Networx to open this creator's resume.",
+    );
+    if (ok == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -129,6 +143,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     final mediaUrl = (p['mediaPreviewUrl'] ?? p['media_preview_url'] ?? '').toString();
     final bannerUrl = heroUrl.isNotEmpty ? heroUrl : mediaUrl;
     final resumeUrl = (p['resumeUrl'] ?? p['resume_url'] ?? '').toString();
+    final resumeLocked = p['resumeLocked'] == true || p['resume_locked'] == true;
     final mentor = p['mentorOptIn'] == true || p['mentor_opt_in'] == true;
     final available = p['availableForWork'] == true || p['available_for_work'] == true;
 
@@ -261,11 +276,17 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                               label: const Text('Message'),
                             ),
                           ),
-                          if (resumeUrl.isNotEmpty) ...[
+                          if (resumeUrl.isNotEmpty || resumeLocked) ...[
                             const SizedBox(width: 8),
                             OutlinedButton.icon(
-                              onPressed: () => _openResume(resumeUrl),
-                              icon: const Icon(Icons.description_outlined),
+                              onPressed: resumeUrl.isNotEmpty
+                                  ? () => _openResume(resumeUrl)
+                                  : _openResumeSubscribe,
+                              icon: Icon(
+                                resumeUrl.isNotEmpty
+                                    ? Icons.description_outlined
+                                    : Icons.lock_outline,
+                              ),
                               label: const Text('Resume'),
                             ),
                           ],

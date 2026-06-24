@@ -4,9 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { FileText, MessageSquare, Briefcase, UserPlus, UserCheck } from 'lucide-react';
+import { FileText, MessageSquare, Briefcase, UserPlus, UserCheck, Lock } from 'lucide-react';
 import {
   discoveryApi,
+  paymentsApi,
   proNetworxApi,
   usersApi,
   type DiscoverFeedPost,
@@ -76,6 +77,7 @@ type ProPublicProfile = {
   heroImageUrl?: string | null;
   resumeUrl?: string | null;
   resumeFilename?: string | null;
+  resumeLocked?: boolean;
   updatedAt: string | null;
   experience?: ExperienceItem[];
   education?: EducationItem[];
@@ -218,6 +220,35 @@ export default function ProNetworxProfilePage() {
       setFollowBusy(false);
     }
   }, [followBusy, following, id]);
+
+  // Resumes carry contact info, so non-subscribers see a Resume button that
+  // starts the Pro-Networx subscription checkout instead of opening the file.
+  const [resumeCheckoutBusy, setResumeCheckoutBusy] = useState(false);
+  const handleResumeSubscribe = useCallback(async () => {
+    if (resumeCheckoutBusy) return;
+    setResumeCheckoutBusy(true);
+    try {
+      const origin =
+        typeof window !== 'undefined' ? window.location.origin : '';
+      const path =
+        typeof window !== 'undefined'
+          ? window.location.pathname
+          : '/pro-networx/home';
+      const res = await paymentsApi.createProNetworxCheckoutSession({
+        successUrl: `${origin}${path}?pn_sub=success`,
+        cancelUrl: `${origin}${path}?pn_sub=cancel`,
+      });
+      const url = (res.data as { url?: string })?.url;
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+    } catch {
+      // Swallow; the user can retry the button.
+    } finally {
+      setResumeCheckoutBusy(false);
+    }
+  }, [resumeCheckoutBusy]);
 
   const loading = loadedId !== id;
   const socialLinks = useMemo(
@@ -379,7 +410,7 @@ export default function ProNetworxProfilePage() {
                       />
                     </>
                   )}
-                  {data.resumeUrl && (
+                  {data.resumeUrl ? (
                     <Button variant="outline" asChild>
                       <a
                         href={data.resumeUrl}
@@ -390,7 +421,17 @@ export default function ProNetworxProfilePage() {
                         <FileText className="h-4 w-4" /> Resume
                       </a>
                     </Button>
-                  )}
+                  ) : data.resumeLocked ? (
+                    <Button
+                      variant="outline"
+                      onClick={handleResumeSubscribe}
+                      disabled={resumeCheckoutBusy}
+                      className="inline-flex items-center gap-1"
+                    >
+                      <Lock className="h-4 w-4" />{' '}
+                      {resumeCheckoutBusy ? 'Redirecting…' : 'Resume'}
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             </CardContent>
@@ -621,7 +662,7 @@ export default function ProNetworxProfilePage() {
 
             {/* Side rail: Services + Resume + Social */}
             <div className="space-y-6">
-              {data.resumeUrl && (
+              {data.resumeUrl ? (
                 <Card className="glass-panel border border-border">
                   <CardContent className="pt-6 space-y-2">
                     <h2 className="text-lg font-semibold text-foreground inline-flex items-center gap-2">
@@ -637,7 +678,27 @@ export default function ProNetworxProfilePage() {
                     </a>
                   </CardContent>
                 </Card>
-              )}
+              ) : data.resumeLocked ? (
+                <Card className="glass-panel border border-border">
+                  <CardContent className="pt-6 space-y-2">
+                    <h2 className="text-lg font-semibold text-foreground inline-flex items-center gap-2">
+                      <Lock className="h-4 w-4" /> Resume
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      Resumes include contact info. Subscribe to Pro-Networx to
+                      open this creator&apos;s resume.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleResumeSubscribe}
+                      disabled={resumeCheckoutBusy}
+                    >
+                      {resumeCheckoutBusy ? 'Redirecting…' : 'Subscribe to view'}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : null}
 
               <Card className="glass-panel border border-border sticky top-20">
                 <CardContent className="pt-6 space-y-4">

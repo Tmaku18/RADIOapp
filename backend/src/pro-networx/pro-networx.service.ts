@@ -97,9 +97,14 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
   portfolio?: any[];
   /** Banner image (service_providers.hero_image_url) — used for LinkedIn-style cover. */
   heroImageUrl?: string | null;
-  /** Resume PDF (mirrored from public.users.resume_url). */
+  /** Resume PDF (mirrored from public.users.resume_url). Null when the viewer
+   * isn't entitled to open it (see [resumeLocked]). */
   resumeUrl?: string | null;
   resumeFilename?: string | null;
+  /** True when the profile has a resume but the viewer must subscribe to open
+   * it. The client shows the Resume button and routes taps to the subscribe
+   * page instead of the file. */
+  resumeLocked?: boolean;
 };
 
 @Injectable()
@@ -249,11 +254,18 @@ export class ProNetworxService {
     // Resumes carry personal contact info, so the URL is only revealed to the
     // owner, admins, and active subscribers — everyone else gets null.
     const resumePathOrUrl = (u as any).resume_url ?? null;
+    const hasResume = !!resumePathOrUrl;
     let resumeUrl: string | null = null;
-    if (resumePathOrUrl && (await this.canViewResume(userId, viewerUserId))) {
-      resumeUrl = /^https?:\/\//i.test(resumePathOrUrl)
-        ? resumePathOrUrl
-        : await this.uploads.getResumeSignedUrl(resumePathOrUrl);
+    let resumeLocked = false;
+    if (hasResume) {
+      if (await this.canViewResume(userId, viewerUserId)) {
+        resumeUrl = /^https?:\/\//i.test(resumePathOrUrl)
+          ? resumePathOrUrl
+          : await this.uploads.getResumeSignedUrl(resumePathOrUrl);
+      } else {
+        // Has a resume, but the viewer must subscribe to open it.
+        resumeLocked = true;
+      }
     }
 
     return {
@@ -289,7 +301,8 @@ export class ProNetworxService {
       mentorOptIn: (provider as any)?.mentor_opt_in ?? false,
       heroImageUrl: (provider as any)?.hero_image_url ?? null,
       resumeUrl,
-      resumeFilename: (u as any).resume_filename ?? null,
+      resumeFilename: resumeLocked ? null : ((u as any).resume_filename ?? null),
+      resumeLocked,
       updatedAt: p?.updated_at ?? null,
       experience: Array.isArray(experience) ? experience : [],
       education: Array.isArray(education) ? education : [],
