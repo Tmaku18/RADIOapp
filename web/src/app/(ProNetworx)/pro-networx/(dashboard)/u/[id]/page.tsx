@@ -78,6 +78,7 @@ type ProPublicProfile = {
   resumeUrl?: string | null;
   resumeFilename?: string | null;
   resumeLocked?: boolean;
+  messagingLocked?: boolean;
   updatedAt: string | null;
   experience?: ExperienceItem[];
   education?: EducationItem[];
@@ -221,12 +222,12 @@ export default function ProNetworxProfilePage() {
     }
   }, [followBusy, following, id]);
 
-  // Resumes carry contact info, so non-subscribers see a Resume button that
-  // starts the Pro-Networx subscription checkout instead of opening the file.
-  const [resumeCheckoutBusy, setResumeCheckoutBusy] = useState(false);
-  const handleResumeSubscribe = useCallback(async () => {
-    if (resumeCheckoutBusy) return;
-    setResumeCheckoutBusy(true);
+  // Resumes and DMs carry contact info, so non-subscribers see the buttons but
+  // are routed to Pro-Networx subscription checkout instead of the file/thread.
+  const [proCheckoutBusy, setProCheckoutBusy] = useState(false);
+  const handleProSubscribe = useCallback(async () => {
+    if (proCheckoutBusy) return;
+    setProCheckoutBusy(true);
     try {
       const origin =
         typeof window !== 'undefined' ? window.location.origin : '';
@@ -246,9 +247,9 @@ export default function ProNetworxProfilePage() {
     } catch {
       // Swallow; the user can retry the button.
     } finally {
-      setResumeCheckoutBusy(false);
+      setProCheckoutBusy(false);
     }
-  }, [resumeCheckoutBusy]);
+  }, [proCheckoutBusy]);
 
   const loading = loadedId !== id;
   const socialLinks = useMemo(
@@ -387,14 +388,26 @@ export default function ProNetworxProfilePage() {
                               </>
                             )}
                           </Button>
-                          <Button asChild variant="outline">
-                            <Link
-                              href={`/messages?to=${data.userId}`}
+                          {data.messagingLocked ? (
+                            <Button
+                              variant="outline"
+                              onClick={handleProSubscribe}
+                              disabled={proCheckoutBusy}
                               className="inline-flex items-center gap-1"
                             >
-                              <MessageSquare className="h-4 w-4" /> Message
-                            </Link>
-                          </Button>
+                              <Lock className="h-4 w-4" />{' '}
+                              {proCheckoutBusy ? 'Redirecting…' : 'Message'}
+                            </Button>
+                          ) : (
+                            <Button asChild variant="outline">
+                              <Link
+                                href={`/messages?with=${data.userId}`}
+                                className="inline-flex items-center gap-1"
+                              >
+                                <MessageSquare className="h-4 w-4" /> Message
+                              </Link>
+                            </Button>
+                          )}
                         </>
                       )}
                       <UserSafetyMenu
@@ -424,12 +437,12 @@ export default function ProNetworxProfilePage() {
                   ) : data.resumeLocked ? (
                     <Button
                       variant="outline"
-                      onClick={handleResumeSubscribe}
-                      disabled={resumeCheckoutBusy}
+                      onClick={handleProSubscribe}
+                      disabled={proCheckoutBusy}
                       className="inline-flex items-center gap-1"
                     >
                       <Lock className="h-4 w-4" />{' '}
-                      {resumeCheckoutBusy ? 'Redirecting…' : 'Resume'}
+                      {proCheckoutBusy ? 'Redirecting…' : 'Resume'}
                     </Button>
                   ) : null}
                 </div>
@@ -691,10 +704,10 @@ export default function ProNetworxProfilePage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={handleResumeSubscribe}
-                      disabled={resumeCheckoutBusy}
+                      onClick={handleProSubscribe}
+                      disabled={proCheckoutBusy}
                     >
-                      {resumeCheckoutBusy ? 'Redirecting…' : 'Subscribe to view'}
+                      {proCheckoutBusy ? 'Redirecting…' : 'Subscribe to view'}
                     </Button>
                   </CardContent>
                 </Card>
@@ -742,17 +755,28 @@ export default function ProNetworxProfilePage() {
                   )}
                   {!isMe && (
                     <div className="pt-4 border-t border-border space-y-2">
-                      <Button
-                        asChild
-                        className="w-full bg-primary text-primary-foreground hover:opacity-90"
-                      >
-                        <Link
-                          href={`/messages?to=${data.userId}`}
-                          className="inline-flex items-center gap-1 justify-center"
+                      {data.messagingLocked ? (
+                        <Button
+                          onClick={handleProSubscribe}
+                          disabled={proCheckoutBusy}
+                          className="w-full bg-primary text-primary-foreground hover:opacity-90 inline-flex items-center gap-1 justify-center"
                         >
-                          <MessageSquare className="h-4 w-4" /> Message
-                        </Link>
-                      </Button>
+                          <Lock className="h-4 w-4" />{' '}
+                          {proCheckoutBusy ? 'Redirecting…' : 'Message'}
+                        </Button>
+                      ) : (
+                        <Button
+                          asChild
+                          className="w-full bg-primary text-primary-foreground hover:opacity-90"
+                        >
+                          <Link
+                            href={`/messages?with=${data.userId}`}
+                            className="inline-flex items-center gap-1 justify-center"
+                          >
+                            <MessageSquare className="h-4 w-4" /> Message
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   )}
                 </CardContent>
@@ -811,9 +835,21 @@ export default function ProNetworxProfilePage() {
                         </>
                       )}
                     </Button>
-                    <Button asChild variant="outline" className="flex-1">
-                      <Link href={`/messages?to=${data.userId}`}>Message</Link>
-                    </Button>
+                    {data.messagingLocked ? (
+                      <Button
+                        variant="outline"
+                        className="flex-1 inline-flex items-center justify-center gap-1"
+                        onClick={handleProSubscribe}
+                        disabled={proCheckoutBusy}
+                      >
+                        <Lock className="h-4 w-4" />{' '}
+                        {proCheckoutBusy ? 'Redirecting…' : 'Message'}
+                      </Button>
+                    ) : (
+                      <Button asChild variant="outline" className="flex-1">
+                        <Link href={`/messages?with=${data.userId}`}>Message</Link>
+                      </Button>
+                    )}
                   </>
                 )}
                 <UserSafetyMenu

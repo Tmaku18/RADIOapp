@@ -6,8 +6,10 @@ import '../../core/models/messages_models.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/services/api_service.dart';
 import '../../core/services/messages_service.dart';
+import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -151,6 +153,7 @@ class ThreadScreen extends StatefulWidget {
 
 class _ThreadScreenState extends State<ThreadScreen> {
   final MessagesService _service = MessagesService();
+  final ProNetworxService _proNetworx = ProNetworxService();
   final TextEditingController _draft = TextEditingController();
   final ScrollController _scroll = ScrollController();
 
@@ -176,11 +179,24 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   Future<void> _loadAccess() async {
     try {
-      final access = await _service.hasCreatorNetworkAccess();
+      final access = await _proNetworx.getAccess();
       if (!mounted) return;
-      setState(() => _hasAccess = access);
+      setState(() => _hasAccess = access.hasAccess);
     } catch (_) {
       if (mounted) setState(() => _hasAccess = false);
+    }
+  }
+
+  Future<void> _openSubscribe() async {
+    final ok = await ProNetworkPaywallSheet.show(
+      context,
+      title: 'Subscribe to send messages',
+      description:
+          'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.',
+    );
+    if (ok == true) {
+      await _loadAccess();
+      if (mounted) setState(() => _paywallShown = false);
     }
   }
 
@@ -202,6 +218,10 @@ class _ThreadScreenState extends State<ThreadScreen> {
   Future<void> _send() async {
     final body = _draft.text.trim();
     if (body.isEmpty || _sending) return;
+    if (_hasAccess == false) {
+      await _openSubscribe();
+      return;
+    }
     setState(() {
       _sending = true;
       _paywallShown = false;
@@ -640,7 +660,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
       ),
       body: Column(
         children: [
-          if (_paywallShown)
+          if (_paywallShown || _hasAccess == false)
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),
@@ -654,18 +674,21 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Creator Network',
+                    'Pro-Networx subscription',
                     style: DimensionTypography.cardTitle(fontSize: 14),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _hasAccess == true
-                        ? 'Access is active, but this thread is restricted.'
-                        : 'Messaging is limited. Upgrade for full access.',
+                    'Direct messaging unlocks with a subscription. You can still read this thread.',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
                         ?.copyWith(color: scheme.onSecondaryContainer),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: _openSubscribe,
+                    child: const Text('Subscribe to message'),
                   ),
                 ],
               ),
@@ -701,7 +724,9 @@ class _ThreadScreenState extends State<ThreadScreen> {
                 ),
                 const SizedBox(width: 8),
                 FilledButton(
-                  onPressed: _sending ? null : _send,
+                  onPressed: _sending
+                      ? null
+                      : (_hasAccess == false ? _openSubscribe : _send),
                   child: _sending
                       ? const SizedBox(
                           width: 16,

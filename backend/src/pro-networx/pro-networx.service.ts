@@ -105,6 +105,10 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
    * it. The client shows the Resume button and routes taps to the subscribe
    * page instead of the file. */
   resumeLocked?: boolean;
+  /** True when the viewer must subscribe before sending a direct message to
+   * this profile. The client shows the Message button and routes taps to the
+   * subscribe flow instead of opening the thread. */
+  messagingLocked?: boolean;
 };
 
 @Injectable()
@@ -115,17 +119,13 @@ export class ProNetworxService {
   ) {}
 
   /**
-   * Resumes contain personal contact info, so the signed download URL is only
-   * exposed to: the profile owner, admins, and members with an active Pro
-   * Networks subscription. Everyone else gets `resumeUrl: null` (the client
-   * hides the Resume button).
+   * Admins and active Pro-Networx subscribers can send DMs and view protected
+   * contact content on other users' profiles.
    */
-  private async canViewResume(
-    ownerUserId: string,
+  private async hasSubscriberOrAdminAccess(
     viewerUserId?: string,
   ): Promise<boolean> {
     if (!viewerUserId) return false;
-    if (viewerUserId === ownerUserId) return true;
     const supabase = getSupabaseClient();
     const { data } = await supabase
       .from('users')
@@ -135,6 +135,20 @@ export class ProNetworxService {
     if ((data as any)?.role === 'admin') return true;
     const access = await this.subscriptions.getAccess(viewerUserId);
     return access.hasAccess;
+  }
+
+  /**
+   * Resumes contain personal contact info, so the signed download URL is only
+   * exposed to: the profile owner, admins, and members with an active Pro
+   * Networks subscription.
+   */
+  private async canViewResume(
+    ownerUserId: string,
+    viewerUserId?: string,
+  ): Promise<boolean> {
+    if (!viewerUserId) return false;
+    if (viewerUserId === ownerUserId) return true;
+    return this.hasSubscriberOrAdminAccess(viewerUserId);
   }
 
   private deterministicSeededRank(id: string, seed: string): number {
@@ -268,6 +282,10 @@ export class ProNetworxService {
       }
     }
 
+    const messagingLocked = !(await this.hasSubscriberOrAdminAccess(
+      viewerUserId,
+    ));
+
     return {
       userId,
       role: (u as any).role ?? null,
@@ -303,6 +321,7 @@ export class ProNetworxService {
       resumeUrl,
       resumeFilename: resumeLocked ? null : ((u as any).resume_filename ?? null),
       resumeLocked,
+      messagingLocked,
       updatedAt: p?.updated_at ?? null,
       experience: Array.isArray(experience) ? experience : [],
       education: Array.isArray(education) ? education : [],

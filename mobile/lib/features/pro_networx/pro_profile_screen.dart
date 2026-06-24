@@ -92,6 +92,17 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     if (ok == true) _load();
   }
 
+  /// DMs are subscription-gated the same way as resumes.
+  Future<void> _openMessageSubscribe() async {
+    final ok = await ProNetworkPaywallSheet.show(
+      context,
+      title: 'Subscribe to send messages',
+      description:
+          'Direct messaging unlocks with a Pro-Networx subscription. Cancel anytime.',
+    );
+    if (ok == true) _load();
+  }
+
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -144,6 +155,8 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     final bannerUrl = heroUrl.isNotEmpty ? heroUrl : mediaUrl;
     final resumeUrl = (p['resumeUrl'] ?? p['resume_url'] ?? '').toString();
     final resumeLocked = p['resumeLocked'] == true || p['resume_locked'] == true;
+    final messagingLocked =
+        p['messagingLocked'] == true || p['messaging_locked'] == true;
     final mentor = p['mentorOptIn'] == true || p['mentor_opt_in'] == true;
     final available = p['availableForWork'] == true || p['available_for_work'] == true;
 
@@ -259,6 +272,10 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                               onPressed: _myUserId == null
                                   ? null
                                   : () {
+                                      if (messagingLocked) {
+                                        _openMessageSubscribe();
+                                        return;
+                                      }
                                       Navigator.pushNamed(
                                         context,
                                         AppRoutes.thread,
@@ -272,7 +289,11 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
                                         },
                                       );
                                     },
-                              icon: const Icon(Icons.mail_outline),
+                              icon: Icon(
+                                messagingLocked
+                                    ? Icons.lock_outline
+                                    : Icons.mail_outline,
+                              ),
                               label: const Text('Message'),
                             ),
                           ),

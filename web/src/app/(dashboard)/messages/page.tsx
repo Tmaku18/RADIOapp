@@ -6,11 +6,12 @@ import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { createClient, type RealtimeChannel } from '@supabase/supabase-js';
 import { useAuth } from '@/contexts/AuthContext';
-import { messagesApi, usersApi } from '@/lib/api';
+import { messagesApi, proNetworkSubscriptionApi, usersApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { DmPaywallCard } from '@/components/pro-networx/PaywallCard';
 
 interface ConversationSummary {
   otherUserId: string;
@@ -68,7 +69,8 @@ function formatTime(dateString: string): string {
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
-  const withUserId = searchParams.get('with');
+  const withUserId =
+    searchParams.get('with') ?? searchParams.get('to');
   const { profile } = useAuth();
   const myId = profile?.id ?? null;
 
@@ -87,8 +89,7 @@ export default function MessagesPage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [canDm, setCanDm] = useState(true);
-  const [followBusy, setFollowBusy] = useState(false);
+  const [canDm, setCanDm] = useState<boolean | null>(null);
   const threadEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
@@ -160,16 +161,16 @@ export default function MessagesPage() {
   }, [selectedOther?.userId, loadThread]);
 
   useEffect(() => {
-    let alive = true;
-    if (!selectedOther?.userId || !myId || selectedOther.userId === myId) {
+    if (!myId) {
       setCanDm(false);
       return;
     }
-    usersApi
-      .isFollowing(selectedOther.userId)
+    let alive = true;
+    proNetworkSubscriptionApi
+      .getAccess()
       .then((res) => {
         if (!alive) return;
-        setCanDm(Boolean((res.data as { following?: boolean })?.following));
+        setCanDm(!!res.data?.hasAccess);
       })
       .catch(() => {
         if (alive) setCanDm(false);
@@ -177,7 +178,7 @@ export default function MessagesPage() {
     return () => {
       alive = false;
     };
-  }, [selectedOther?.userId, myId]);
+  }, [myId]);
 
   useEffect(() => {
     if (withUserId && conversations.length > 0) {
@@ -276,7 +277,7 @@ export default function MessagesPage() {
 
   const handleSend = async () => {
     const body = draft.trim();
-    if ((!body && !attachment) || !selectedOther || sending || !canDm) return;
+    if ((!body && !attachment) || !selectedOther || sending || canDm !== true) return;
     setSending(true);
     setError(null);
     try {
@@ -315,7 +316,7 @@ export default function MessagesPage() {
       const status = (e as { response?: { status?: number } })?.response?.status;
       if (status === 403) {
         setCanDm(false);
-        setError('Follow this user to send a DM.');
+        setError(null);
       } else {
       setError((e as Error)?.message || 'Failed to send message');
       }
@@ -370,27 +371,6 @@ export default function MessagesPage() {
     if (!selectedOther) return 0;
     return conversations.find((c) => c.otherUserId === selectedOther.userId)?.unreadCount ?? 0;
   }, [conversations, selectedOther]);
-
-  const handleFollowToDm = async () => {
-    if (!selectedOther?.userId || followBusy) return;
-    if (selectedOther.userId === myId) {
-      setError('You cannot follow yourself.');
-      return;
-    }
-    setFollowBusy(true);
-    try {
-      await usersApi.follow(selectedOther.userId);
-      setCanDm(true);
-      setError(null);
-    } catch (e: unknown) {
-      const apiMessage =
-        (e as { response?: { data?: { message?: string } } })?.response?.data
-          ?.message || (e instanceof Error ? e.message : '');
-      setError(apiMessage || 'Failed to follow user');
-    } finally {
-      setFollowBusy(false);
-    }
-  };
 
   return (
     <div className="container max-w-4xl py-6">
@@ -576,15 +556,10 @@ export default function MessagesPage() {
                 </div>
 
                 {error && <Alert variant="destructive" className="mx-4 mt-2"><AlertDescription>{error}</AlertDescription></Alert>}
-                {!canDm && selectedOther?.userId !== myId && (
-                  <Alert className="mx-4 mt-2">
-                    <AlertDescription className="flex items-center justify-between gap-3">
-                      <span>Follow this user to send a DM.</span>
-                      <Button size="sm" onClick={handleFollowToDm} disabled={followBusy}>
-                        {followBusy ? 'Following...' : 'Follow'}
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
+                {canDm === false && selectedOther?.userId !== myId && (
+                  <div className="mx-4 mt-2">
+                    <DmPaywallCard caption="Direct messaging unlocks with a Pro-Networx subscription. You can still read this thread." />
+                  </div>
                 )}
 
                 <div className="p-3 border-t space-y-2">
@@ -633,7 +608,7 @@ export default function MessagesPage() {
                     }}
                     className="flex-1"
                   />
-                  <Button onClick={handleSend} disabled={(!draft.trim() && !attachment) || sending || !canDm}>
+                  <Button onClick={handleSend} disabled={(!draft.trim() && !attachment) || sending || canDm !== true}>
                     {sending ? 'Sending...' : 'Send'}
                   </Button>
                 </div>
