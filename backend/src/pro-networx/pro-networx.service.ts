@@ -1,6 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
+import { UploadsService } from '../uploads/uploads.service';
 
 export type ExperienceItem = {
   title: string;
@@ -102,6 +103,8 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
 
 @Injectable()
 export class ProNetworxService {
+  constructor(private readonly uploads: UploadsService) {}
+
   private deterministicSeededRank(id: string, seed: string): number {
     const input = `${seed}:${id}`;
     let hash = 0;
@@ -208,6 +211,18 @@ export class ProNetworxService {
     const education = (p as any)?.education ?? [];
     const featured = (p as any)?.featured ?? [];
 
+    // resume_url stores a private storage PATH (the resumes bucket is private),
+    // so it must be signed before a viewer can open it. Returning the raw path
+    // produced 404s when tapping "Resume" on someone else's profile. Legacy rows
+    // that already hold a full URL are passed through untouched.
+    const resumePathOrUrl = (u as any).resume_url ?? null;
+    let resumeUrl: string | null = null;
+    if (resumePathOrUrl) {
+      resumeUrl = /^https?:\/\//i.test(resumePathOrUrl)
+        ? resumePathOrUrl
+        : await this.uploads.getResumeSignedUrl(resumePathOrUrl);
+    }
+
     return {
       userId,
       role: (u as any).role ?? null,
@@ -240,7 +255,7 @@ export class ProNetworxService {
       verifiedCatalyst: (u as any).role === 'service_provider',
       mentorOptIn: (provider as any)?.mentor_opt_in ?? false,
       heroImageUrl: (provider as any)?.hero_image_url ?? null,
-      resumeUrl: (u as any).resume_url ?? null,
+      resumeUrl,
       resumeFilename: (u as any).resume_filename ?? null,
       updatedAt: p?.updated_at ?? null,
       experience: Array.isArray(experience) ? experience : [],
