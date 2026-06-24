@@ -1,11 +1,16 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:three_js/three_js.dart' as three;
 
-import 'dimension_scene_utils.dart';
+import '../../core/brand/brand_assets.dart';
 
-/// Rotating 3D album cube — port of web [FloatingAlbum].
+/// Floating album artwork.
+///
+/// Previously this rendered a rotating 3D cube via `three_js`, but that path
+/// relies on a native GL/ANGLE context that fails to come up on many physical
+/// Android devices (it only worked on emulators), so the artwork silently
+/// stayed invisible. This is now a plain 2D image with a gentle floating
+/// animation, so covers load reliably everywhere.
 class FloatingAlbumScene extends StatefulWidget {
   const FloatingAlbumScene({super.key, required this.imageUrl});
 
@@ -15,77 +20,64 @@ class FloatingAlbumScene extends StatefulWidget {
   State<FloatingAlbumScene> createState() => _FloatingAlbumSceneState();
 }
 
-class _FloatingAlbumSceneState extends State<FloatingAlbumScene> {
-  late three.ThreeJS threeJs;
-  bool _ready = false;
-  three.Mesh? _albumMesh;
+class _FloatingAlbumSceneState extends State<FloatingAlbumScene>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
 
   @override
   void initState() {
     super.initState();
-    threeJs = three.ThreeJS(
-      settings: dimensionSceneSettings(),
-      onSetupComplete: () {
-        if (mounted) setState(() => _ready = true);
-      },
-      setup: _setup,
-      loadingWidget: const Center(
-        child: SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-      ),
-    );
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
   }
 
   @override
   void dispose() {
-    if (_ready) {
-      try {
-        threeJs.dispose();
-      } catch (error) {
-        debugPrint('FloatingAlbumScene dispose skipped: $error');
-      }
-    }
-    three.loading.clear();
+    _controller.dispose();
     super.dispose();
   }
 
-  Future<void> _setup() async {
-    threeJs.camera = three.PerspectiveCamera(
-      40,
-      threeJs.width / threeJs.height,
-      0.1,
-      100,
-    );
-    threeJs.camera.position.setValues(0, 0, 5);
-
-    threeJs.scene = three.Scene();
-    final texture = await three.TextureLoader().fromNetwork(Uri.parse(widget.imageUrl));
-    final geometry = three.BoxGeometry(2.2, 2.2, 0.25);
-    final material = three.MeshBasicMaterial.fromMap({
-      'map': texture,
-      'toneMapped': false,
-    });
-    _albumMesh = three.Mesh(geometry, material);
-    threeJs.scene.add(_albumMesh!);
-
-    threeJs.addAnimationEvent((dt) {
-      final t = threeJs.clock.getElapsedTime();
-      if (_albumMesh != null) {
-        _albumMesh!.rotation.y = t * 0.4;
-        _albumMesh!.position.y = math.sin(t * 1.6) * 0.12;
-        _albumMesh!.rotation.x = math.sin(t * 0.8) * 0.08;
-      }
-    });
-  }
+  Widget _fallback() => Image.asset(
+        BrandAssets.logoCyanAsset,
+        fit: BoxFit.cover,
+      );
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: _ready ? 1 : 0,
-      child: threeJs.build(),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = _controller.value * math.pi * 2;
+        final dy = math.sin(t) * 8.0;
+        final tilt = math.sin(t * 0.5) * 0.04;
+        return Transform.translate(
+          offset: Offset(0, dy),
+          child: Transform.rotate(angle: tilt, child: child),
+        );
+      },
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.network(
+          widget.imageUrl,
+          fit: BoxFit.cover,
+          width: double.infinity,
+          height: double.infinity,
+          gaplessPlayback: true,
+          loadingBuilder: (context, child, progress) {
+            if (progress == null) return child;
+            return const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          },
+          errorBuilder: (context, error, stackTrace) => _fallback(),
+        ),
+      ),
     );
   }
 }
