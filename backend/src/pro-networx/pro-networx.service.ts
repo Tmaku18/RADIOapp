@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
 import { UploadsService } from '../uploads/uploads.service';
+import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
 
 export type ExperienceItem = {
   title: string;
@@ -103,7 +104,33 @@ export type ProPublicProfileResponse = ProDirectoryItem & {
 
 @Injectable()
 export class ProNetworxService {
-  constructor(private readonly uploads: UploadsService) {}
+  constructor(
+    private readonly uploads: UploadsService,
+    private readonly subscriptions: ProNetworkSubscriptionService,
+  ) {}
+
+  /**
+   * Resumes contain personal contact info, so the signed download URL is only
+   * exposed to: the profile owner, admins, and members with an active Pro
+   * Networks subscription. Everyone else gets `resumeUrl: null` (the client
+   * hides the Resume button).
+   */
+  private async canViewResume(
+    ownerUserId: string,
+    viewerUserId?: string,
+  ): Promise<boolean> {
+    if (!viewerUserId) return false;
+    if (viewerUserId === ownerUserId) return true;
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', viewerUserId)
+      .maybeSingle();
+    if ((data as any)?.role === 'admin') return true;
+    const access = await this.subscriptions.getAccess(viewerUserId);
+    return access.hasAccess;
+  }
 
   private deterministicSeededRank(id: string, seed: string): number {
     const input = `${seed}:${id}`;
@@ -114,7 +141,10 @@ export class ProNetworxService {
     return hash;
   }
 
-  async getProfileByUserId(userId: string): Promise<ProPublicProfileResponse> {
+  async getProfileByUserId(
+    userId: string,
+    viewerUserId?: string,
+  ): Promise<ProPublicProfileResponse> {
     const supabase = getSupabaseClient();
 
     // Identity
@@ -215,9 +245,12 @@ export class ProNetworxService {
     // so it must be signed before a viewer can open it. Returning the raw path
     // produced 404s when tapping "Resume" on someone else's profile. Legacy rows
     // that already hold a full URL are passed through untouched.
+    //
+    // Resumes carry personal contact info, so the URL is only revealed to the
+    // owner, admins, and active subscribers — everyone else gets null.
     const resumePathOrUrl = (u as any).resume_url ?? null;
     let resumeUrl: string | null = null;
-    if (resumePathOrUrl) {
+    if (resumePathOrUrl && (await this.canViewResume(userId, viewerUserId))) {
       resumeUrl = /^https?:\/\//i.test(resumePathOrUrl)
         ? resumePathOrUrl
         : await this.uploads.getResumeSignedUrl(resumePathOrUrl);

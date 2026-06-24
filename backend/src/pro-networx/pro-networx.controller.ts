@@ -89,8 +89,12 @@ export class ProNetworxController {
   }
 
   @Get('profiles/:userId')
-  async getProfile(@Param('userId') userId: string) {
-    return this.pro.getProfileByUserId(userId);
+  async getProfile(
+    @CurrentUser() user: FirebaseUser,
+    @Param('userId') userId: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid).catch(() => undefined);
+    return this.pro.getProfileByUserId(userId, viewerUserId);
   }
 
   @Public()
@@ -121,7 +125,11 @@ export class ProNetworxController {
 
   @Public()
   @Get('public/profiles/:userId')
-  async getPublicProfile(@Param('userId') userId: string) {
-    return this.pro.getProfileByUserId(userId);
+  async getPublicProfile(
+    @Param('userId') userId: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const viewerUserId = await this.resolveOptionalViewerUserId(authorization);
+    return this.pro.getProfileByUserId(userId, viewerUserId);
   }
 }
