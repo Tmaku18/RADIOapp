@@ -55,9 +55,12 @@ export function fillSimulatedBars(bars: Uint8Array, nowSec: number): void {
 }
 
 /**
- * Punch up FFT bars for a far more dramatic, beat-reactive visualizer:
- * low-frequency (bass) bins get extra emphasis that tapers across the spectrum,
- * and a lift-then-amplify curve makes peaks pop while quiet bins stay low.
+ * Punch up FFT bars for a more dramatic, beat-reactive visualizer while keeping
+ * EVERY bar movable. Bass bins carry the most energy in music, so a large gain
+ * pins the left half at max (flat, "not moving"). Instead we treat the whole
+ * spectrum: a high-frequency "tilt" lifts the quieter right side, a gentle
+ * contrast curve adds punch, and a moderate gain leaves headroom so loud bass
+ * still visibly swings on each beat instead of clamping.
  * Mutates [bars] in place; all-zero input stays zero (so dead-tap detection works).
  */
 export function dramatizeBars(bars: Uint8Array): void {
@@ -66,10 +69,14 @@ export function dramatizeBars(bars: Uint8Array): void {
     const raw = bars[i];
     if (raw === 0) continue;
     const t = i / n;
-    const bassBoost = 1 + 0.85 * Math.pow(1 - t, 2.2);
-    const v = (raw / 255) * bassBoost;
-    const out = Math.min(1, Math.pow(Math.min(1, v), 0.62) * 1.7);
-    bars[i] = out * 255;
+    // Lift the high end (right side) so treble bars aren't tiny; leave the bass
+    // alone so it keeps room to move rather than saturating.
+    const tilt = 1 + 0.9 * Math.pow(t, 1.3);
+    const v = (raw / 255) * tilt;
+    // Contrast curve (gamma < 1 lifts mids) with unity gain — leaves headroom so
+    // even loud bass rises and falls instead of pinning at the ceiling.
+    const out = Math.pow(Math.min(1, v), 0.72);
+    bars[i] = Math.min(1, out) * 255;
   }
 }
 
