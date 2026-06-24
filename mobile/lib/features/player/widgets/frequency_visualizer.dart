@@ -5,12 +5,30 @@ import 'package:flutter/scheduler.dart';
 
 import '../../../core/theme/dimension_tokens.dart';
 
+/// Smooth 1-D value noise in 0..1 (hash + smoothstep interpolation). Sampling it
+/// across bar position AND time gives a flowing, organic spectrum that rises and
+/// falls in correlated waves — unlike independent per-bar sines, which look
+/// mechanical and visibly loop.
+double _hash(double n) {
+  final s = math.sin(n * 127.1) * 43758.5453;
+  return s - s.floorToDouble();
+}
+
+double _valueNoise(double x) {
+  final i = x.floorToDouble();
+  final f = x - i;
+  final u = f * f * (3 - 2 * f);
+  return _hash(i) * (1 - u) + _hash(i + 1) * u;
+}
+
 /// FFT-style frequency bars — web FrequencyVisualizer parity.
 ///
-/// Real device FFT isn't available through the background audio pipeline, so
-/// this draws a music-like simulated spectrum (bass-heavy, beat pulse, per-bar
-/// wobble) while playing and a calm idle wave when paused. A continuous ticker
-/// drives it so it stays alive regardless of parent rebuilds.
+/// Real device FFT isn't available through the background audio pipeline (that
+/// would need the RECORD_AUDIO permission), so this synthesizes a music-like
+/// spectrum: an irregular beat envelope (incommensurate pulses so it never
+/// visibly repeats) drives the overall height, while flowing value-noise gives
+/// each bar correlated, organic motion. Calm wave when paused. A continuous
+/// ticker drives it so it stays alive regardless of parent rebuilds.
 class FrequencyVisualizer extends StatefulWidget {
   const FrequencyVisualizer({super.key, required this.isPlaying});
 
@@ -47,16 +65,24 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
     if (!widget.isPlaying) {
       return (0.12 + math.sin(t * 1.3 + i * 0.45) * 0.05).clamp(0.06, 1.0);
     }
-    final frac = i / _barCount;
-    // Sharp kick-like beat plus a half-time pulse for a dramatic swing.
-    final kick = math.pow(0.5 + 0.5 * math.sin(t * 5.6), 2.2).toDouble();
-    final kick2 = math.pow(0.5 + 0.5 * math.sin(t * 2.3 + 1.1), 1.6).toDouble();
-    final beat = 0.65 * kick + 0.35 * kick2;
-    final env = math.pow(1 - frac, 0.8).toDouble();
-    final wob = 0.5 +
-        0.4 * math.sin(t * 11 + i * 0.7) +
-        0.3 * math.sin(t * 4.1 + i * 1.9);
-    final v = env * (0.12 + 0.95 * beat) * wob;
+    final frac = i / (_barCount - 1);
+
+    // Irregular beat envelope: incommensurate pulses summed and sharpened so the
+    // "kick" lands at uneven intervals instead of an obvious loop.
+    final b1 = 0.5 + 0.5 * math.sin(t * 5.4);
+    final b2 = 0.5 + 0.5 * math.sin(t * 3.13 + 0.7);
+    final beat = math.pow(0.62 * b1 + 0.38 * b2, 2.0).toDouble();
+
+    // Flowing spectrum: slow body + faster shimmer, correlated across neighbors.
+    final body = _valueNoise(frac * 4.5 + t * 1.3);
+    final shimmer = _valueNoise(frac * 11.0 + t * 4.2);
+    final spectral = 0.62 * body + 0.38 * shimmer;
+
+    // Bass-heavy tilt (left taller) with the treble lifted a little.
+    final tilt = 0.4 + 0.6 * math.pow(1 - frac, 1.1).toDouble();
+
+    final level = (0.18 + 0.82 * beat) * tilt;
+    final v = level * (0.45 + 0.72 * spectral);
     return v.clamp(0.05, 1.0);
   }
 
