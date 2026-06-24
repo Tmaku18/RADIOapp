@@ -1,0 +1,47 @@
+---
+description: After every new app build (AAB/APK/IPA), provide Play Store–ready release notes.
+alwaysApply: true
+---
+
+# Release Notes After Every Build
+
+Whenever you **complete a new mobile build** (e.g. `flutter build appbundle`, `flutter build apk`, `flutter build ipa`) or **bump** `version` in `mobile/pubspec.yaml` for a release, **always end your response with release notes** — even if the user did not ask.
+
+## When to include them
+
+- After a successful release build command finishes
+- After bumping version/build number for Play Store or TestFlight upload
+- When the user asks for release notes (use the latest build version)
+
+Do **not** skip release notes because the build ran in the background; check the build output and version, then write them.
+
+## Format
+
+Use **two blocks** — Google Play has separate fields:
+
+### Short description (≤500 characters)
+
+One or two sentences. Lead with the biggest user-visible change.
+
+### Full release notes (bullets)
+
+- 3–8 bullets, **user-facing** language (not commit jargon)
+- Group: **New**, **Improved**, **Fixed** when helpful
+- Mention platform only when relevant (e.g. "Android", "mobile web")
+- Include **version + build** from `mobile/pubspec.yaml` (e.g. `1.0.9 (25)`)
+
+## Style
+
+- Plain language for listeners and artists
+- No internal package names (`flutter_angle`, `WebView` only if users care)
+- No "we refactored X" unless it affects users
+- If the build is mostly web-only, say web updates deploy via the site; app notes cover only what shipped in the binary
+
+## Example
+
+**Short:** Improved 3D home hero on phones and fixed the bottom player blocking buttons.
+
+**Full (1.0.9):**
+- **New:** Animated butterfly hero now renders reliably on physical Android devices
+- **Improved:** Frequency visualizer reacts more strongly to bass and beats
+- **Fixed:** Bottom radio bar no longer blocks Sign out and chat on mobile web
