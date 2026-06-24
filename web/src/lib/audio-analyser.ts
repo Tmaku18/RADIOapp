@@ -29,6 +29,28 @@ export function fillIdleBars(bars: Uint8Array, nowSec: number): void {
   }
 }
 
+/**
+ * Music-like spectrum used when a real FFT tap is unavailable (mobile web has no
+ * captureStream, and routing through createMediaElementSource breaks playback).
+ * Bass-heavy on the left, beat pulse, per-bar wobble — looks alive while playing.
+ */
+export function fillSimulatedBars(bars: Uint8Array, nowSec: number): void {
+  const n = bars.length;
+  const beat = 0.5 + 0.5 * Math.sin(nowSec * 5.6);
+  const beat2 = 0.5 + 0.5 * Math.sin(nowSec * 2.3 + 1.1);
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    const env = Math.pow(1 - t, 0.85);
+    const wob =
+      0.55 +
+      0.3 * Math.sin(nowSec * 9 + i * 0.7) +
+      0.2 * Math.sin(nowSec * 3.3 + i * 1.9);
+    let v = env * (0.3 + 0.7 * (0.6 * beat + 0.4 * beat2)) * wob;
+    v = Math.max(0.06, Math.min(1, v));
+    bars[i] = v * 255;
+  }
+}
+
 export function updateBassRef(
   bars: Uint8Array,
   bassRef: { current: number },

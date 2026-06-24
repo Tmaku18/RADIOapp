@@ -66,7 +66,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
   return (
     <footer
-      className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-cyan-400/15"
+      className="fixed bottom-0 left-0 right-0 z-50 glass-strong border-t border-cyan-400/15 pointer-events-none"
       aria-label="Now playing"
       data-dimension
       data-testid="radio-player"
@@ -80,7 +80,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               signalRadioNavIntent();
             }
           }}
-          className="flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72 hover:opacity-90 transition-opacity"
+          className="pointer-events-auto flex items-center gap-3 min-w-0 flex-1 lg:flex-none lg:w-72 hover:opacity-90 transition-opacity"
         >
           <div
             ref={artRef}
@@ -121,13 +121,13 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
         </Link>
 
         {player.canVote ? (
-          <div className="hidden sm:flex shrink-0 border-l border-white/10 pl-3">
+          <div className="pointer-events-auto hidden sm:flex shrink-0 border-l border-white/10 pl-3">
             <ReactionButtons player={player} />
           </div>
         ) : null}
 
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
-          <div className="flex items-center gap-3">
+          <div className="pointer-events-auto flex items-center gap-3">
             <button
               type="button"
               onClick={player.togglePlay}
@@ -155,7 +155,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
               ))}
             </div>
             {player.canVote ? (
-              <div className="sm:hidden ml-1">
+              <div className="pointer-events-auto sm:hidden ml-1">
                 <ReactionButtons player={player} />
               </div>
             ) : null}
@@ -179,7 +179,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
           </div>
         </div>
 
-        <div className="hidden lg:flex items-center gap-4 w-72 justify-end shrink-0">
+        <div className="pointer-events-auto hidden lg:flex items-center gap-4 w-72 justify-end shrink-0">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-yellow-300" />
             <span className="font-dim-mono text-[10px] tracking-[0.2em] dim-text-muted">

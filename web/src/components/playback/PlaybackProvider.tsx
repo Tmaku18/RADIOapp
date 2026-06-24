@@ -33,6 +33,7 @@ import {
   createAnalyserBarsBuffer,
   disconnectAnalyserSlot,
   fillIdleBars,
+  fillSimulatedBars,
   isMobileWeb,
   isPlaybackNotAllowedError,
   playMediaElement,
@@ -893,6 +894,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         } else {
           analyserZeroFramesRef.current = 0;
         }
+      } else if (playing) {
+        // No real FFT tap (mobile web / suspended ctx): show a music-like
+        // simulated spectrum so the visualizer reacts while audio plays.
+        analyserZeroFramesRef.current = 0;
+        fillSimulatedBars(barsRef.current, performance.now() / 1000);
       } else {
         analyserZeroFramesRef.current = 0;
         fillIdleBars(barsRef.current, performance.now() / 1000);
