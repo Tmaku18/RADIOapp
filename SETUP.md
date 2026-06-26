@@ -77,6 +77,10 @@ Admin dashboard runs on http://localhost:3001
 4. **Listen**: Go to Player screen to listen to the radio stream
 5. **Admin**: Approve songs in Supabase dashboard (set status to 'approved')
 
+## Notion (NetworX OS)
+
+Business and engineering planning live in the **NetworX Notion OS** (8 linked databases, Executive + Engineering dashboards). See [`docs/notion/networx-workspace.md`](docs/notion/networx-workspace.md). Legacy RadioApp workspace: [`docs/notion/notion-workspace-created.md`](docs/notion/notion-workspace-created.md).
+
 ## Important Notes
 
 - Songs need to be approved (status='approved') before they appear in rotation

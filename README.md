@@ -77,19 +77,18 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - 🚧 **In progress**: under active development
 - 📌 **Planned**: not implemented yet
 
-### Latest highlights (Apr 2026)
-- ✅ **Streamer approval**: Artists and Catalysts must request streaming access; admin approves in **Admin → Streamers**. Only approved users can go live.
-- ✅ **Stream settings** (own menu): Dedicated **Stream settings** page/menu for request access, pending state, and (when approved) Stream Manager + Live services. Web: sidebar + `/stream-settings`; mobile: More sheet → Stream settings.
-- ✅ **Discover (IG-style)**: Tabs For you / Artists / Catalysts with search and filters; combined artist + Pro-Networx profiles; primary-accent styling
-- ✅ **Bottom nav (web)**: Twitch/IG-style bottom bar: Home, Discover, Live, Activity, Profile (fixed; brand primary for active).
-- ✅ **Live discovery**: `/live` page lists live sessions; sort by viewers/recent; profile Go Live opens Stream Manager (web) or Stream settings (mobile).
-- ✅ **Competition leaderboards**: `GET /leaderboard/songs?by=` supports **`likes`**, **`listens`**, **`positive_votes`**, **`ratio`**, **`saves`** (plus Trial by Fire window mode).
-- ✅ **Radio temperature model**: `GET /radio/current` exposes `play_id`, vote tallies, and `temperature_percent` (zero baseline, time-decayed aggregate from `leaderboard_likes`; migrations **047–049**).
-- ✅ **Mobile competition parity**: Flutter competition now shows live tabs for likes, discoveries, positive votes, best ratio, most saves, and Trial by Fire.
-- ✅ **Android release identity update**: package/application ID is now `com.discovermeradio.networxradio` for Play Console uniqueness.
-- ✅ **Web auth resilience**: login/signup now continue with bearer-token auth even if session cookie creation fails locally.
+### Latest highlights (Jun 2026)
+- ✅ **Hard true-radio sync**: Playing clients always follow the server’s current song (no mid-song drift across devices). Web + mobile.
+- ✅ **Pro-Networx subscription gates**: **Resume** and **Message** buttons always visible; non-subscribers are routed to subscribe (protects contact info in resumes and DMs).
+- ✅ **Resume signed URLs**: Private `resumes` bucket paths are signed server-side before profile return (fixes 404 on Resume).
+- ✅ **Mobile 3D hero**: WebView loads web `/embed/butterfly` on physical devices (reliable parity vs native GL).
+- ✅ **Album covers on app player**: 2D `Image.network` instead of `three_js` cube (covers visible on all devices).
+- ✅ **Visualizer**: Dramatized FFT on web where safe; organic simulated motion on mobile (no mic permission / background breakage).
+- ✅ **Current Android release**: **1.0.12 (28)** — Pro-Networx resume/messaging subscribe gates.
 
-See **[`docs/changelog/2026-02.md`](docs/changelog/2026-02.md)** and **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)** for full changelogs.
+Earlier (Apr 2026): streamer approval, Discover tabs, live discovery, competition leaderboards, temperature model, package `com.discovermeradio.networxradio`.
+
+See **[`docs/changelog/2026-06.md`](docs/changelog/2026-06.md)** (latest), **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)**, and **[`docs/business/networx-executive-brief.md`](docs/business/networx-executive-brief.md)**.
 
 ## Ads, interruptions, and rotation rules (clarifications)
 
@@ -514,19 +513,26 @@ docs/
 ├── database-schema.md                    # Database schema and migrations
 ├── radio-logic.md                        # Radio track selection, tiers, artist spacing
 ├── deliverables-verification.md          # README vs codebase verification
-└── notion/                               # Notion workspace (project categories, views, onboarding)
+└── notion/                               # Notion OS (NetworX hub + legacy archive)
+    ├── networx-workspace.md              # NetworX Notion OS map (databases, views, URLs)
+    ├── networx-notion-views.md           # View DSL + dashboard layout
     ├── 01-information-architecture.md     # IA and hierarchy
-    ├── notion-workspace-created.md        # Workspace setup notes
-    ├── notion-workspace-review-project-categories.md   # Project ID (Radio App / NBA ML) review
-    └── notion-views-and-onboarding.md    # View setup + onboarding (By Project ID, Uncategorized tasks)
+    ├── notion-workspace-created.md        # Archive: legacy RadioApp workspace
+    ├── notion-workspace-review-project-categories.md
+    └── notion-views-and-onboarding.md
+├── business/
+│   ├── networx-executive-brief.md
+│   ├── networx-decision-log.md
+│   └── development-timeline.md
 ```
 
 ### Notion Workspace
 
-Planning and tracking use a **Notion** workspace with **Project ID** (Radio App | NBA ML) on Projects, Tasks, Goals, and App Production. See:
+**NetworX Notion OS** (Jun 2026): business + engineering hub with 8 linked databases (Initiatives, Features, Decisions, Releases, Timeline, Doc Registry, Risks, Markets & Events), Executive and Engineering dashboards, and all view types (table, board, calendar, timeline, chart, map, form, etc.).
 
-- **Project categories & linking:** `docs/notion/notion-workspace-review-project-categories.md`
-- **Views & onboarding:** `docs/notion/notion-views-and-onboarding.md` (App Production “By Project ID”, Tasks “Uncategorized”, Projects “By Project ID” default; onboarding: new doc → set Project ID; new task → set Project/Project ID)
+- **Primary hub:** [NetworX on Notion](https://app.notion.com/p/38b7fab2671481aeb2f3faf0cf4a5515) · [`docs/notion/networx-workspace.md`](docs/notion/networx-workspace.md)
+- **Views reference:** [`docs/notion/networx-notion-views.md`](docs/notion/networx-notion-views.md)
+- **Archive (legacy RadioApp workspace):** [`docs/notion/notion-workspace-created.md`](docs/notion/notion-workspace-created.md)
 
 ### Additional Documentation Files
 

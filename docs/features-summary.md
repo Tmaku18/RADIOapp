@@ -13,6 +13,7 @@ This document is a single reference for all platform features across web, mobile
 |--------|-------------|-----|--------|---------|
 | **Synchronized radio** | Everyone hears the same stream; shared “LIVE” state across clients | ✅ | ✅ | Redis + `/radio/current`, `/radio/next` |
 | **Continuous playback** | Auto-advance, no user skip in core radio; deterministic shuffle | ✅ | ✅ | Radio service + play decision log |
+| **Hard live sync (Jun 2026)** | Playing clients always follow server current song; no mid-song local hold | ✅ | ✅ | `radio-sync.ts`, `radio_sync.dart` |
 | **Radio controls** | Play/pause, volume, now-playing metadata | ✅ | ✅ | — |
 | **Background / persistent playback** | Radio continues in other tabs (web) and when app is backgrounded (mobile) | ✅ | ✅ | — |
 | **Heartbeat (proof-of-listening)** | 30s listening heartbeat for Prospectors; gates Yield and play verification | ✅ | ✅ | `POST /radio/heartbeat` |
@@ -175,14 +176,15 @@ This document is a single reference for all platform features across web, mobile
 
 ---
 
-## 13. Messaging & Creator Network
+## 13. Messaging & Pro-Networx
 
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
 | **DMs (conversations)** | Thread list and thread view | ✅ | ✅ | Service-messages API |
-| **Creator Network paywall** | Sending messages requires active Creator Network subscription | ✅ | ✅ | Service-messages service |
+| **Pro-Networx subscription gate** | Message button always visible; non-subscribers routed to subscribe (`messagingLocked`) | ✅ | ✅ | Pro-networx access + paywall |
+| **Resume gate** | Resume button always visible; signed URL only for owner, admin, or subscriber (`resumeLocked`) | ✅ | ✅ | Pro-networx + signed `resumes` bucket |
 | **Job board** | Service requests and applications | ✅ | ✅ | Job-board module |
-| **Pro-NETWORX messages** | Same DM backend; re-skinned in pro-web | ✅ | — | Service-messages |
+| **Pro-NETWORX messages** | Same DM backend; re-skinned in pro-web | ✅ | ✅ | Service-messages |
 
 ---
 

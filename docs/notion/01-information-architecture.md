@@ -1,6 +1,9 @@
 # Notion Workspace Information Architecture
 
-Single source of truth for product, engineering, ops, and launch for the Radio Streaming Platform.
+Single source of truth for product, engineering, ops, and launch for **NetworX**.
+
+**Current (Jun 2026):** Use the fresh **NetworX Notion OS** — see [`networx-workspace.md`](networx-workspace.md).  
+**Archive:** Legacy **RadioApp** workspace URLs remain in [`notion-workspace-created.md`](notion-workspace-created.md) (not migrated).
 
 ---
 
