@@ -365,7 +365,8 @@ export class RefineryService {
       // Real likes count from the global `likes` table.
       const { data: statsRows } = await supabase.rpc(
         'get_artist_song_stats',
-        { p_song_ids: songIds },
+        // p_since explicitly null = lifetime stats (do not rely on SQL default).
+        { p_song_ids: songIds, p_since: null },
       );
       for (const row of (statsRows ?? []) as Array<{
         song_id: string;

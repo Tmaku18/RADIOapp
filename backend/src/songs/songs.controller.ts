@@ -934,7 +934,8 @@ export class SongsController {
     if (songIds.length > 0) {
       const { data: statsRows, error: statsError } = await supabase.rpc(
         'get_artist_song_stats',
-        { p_song_ids: songIds },
+        // p_since explicitly null = lifetime stats (do not rely on SQL default).
+        { p_song_ids: songIds, p_since: null },
       );
       if (statsError) {
         this.logger.warn(

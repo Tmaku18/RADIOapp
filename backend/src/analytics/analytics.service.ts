@@ -583,7 +583,10 @@ export class AnalyticsService {
     {
       const { data: statsRows, error: statsError } = await supabase.rpc(
         'get_artist_song_stats',
-        { p_song_ids: songIds },
+        // p_since explicitly null = lifetime stats. Pass it so the call does
+        // not depend on the SQL default arg (PostgREST resolves the overload
+        // by named args; omitting p_since can break if the default is removed).
+        { p_song_ids: songIds, p_since: null },
       );
       if (statsError) {
         this.logger.warn(
