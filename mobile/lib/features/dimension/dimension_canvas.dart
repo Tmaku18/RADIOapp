@@ -63,25 +63,36 @@ class _DimensionCanvasState extends State<DimensionCanvas> {
 
   @override
   Widget build(BuildContext context) {
+    final showFallback = !_show3d || _disable3d;
     return Stack(
       fit: StackFit.expand,
       children: [
-        const Positioned.fill(child: ButterflyHeroFallback()),
+        // 3D WebView sits at the bottom and is rendered plainly — never wrapped
+        // in Opacity/AnimatedOpacity. Android hybrid-composition platform views
+        // fail to composite under an opacity layer (they paint transparent/black,
+        // revealing the widgets behind them), which previously left the 2D hero
+        // showing through instead of the 3D scene.
         if (!_disable3d)
           Positioned.fill(
-            child: IgnorePointer(
-              ignoring: !_show3d,
-              child: AnimatedOpacity(
-                opacity: _show3d ? 1 : 0,
-                duration: const Duration(milliseconds: 700),
-                child: ButterflyHeroWebView(
-                  onReady: _onSceneReady,
-                  onFailed: _onSceneFailed,
-                  onStatus: _setStatus,
-                ),
-              ),
+            child: ButterflyHeroWebView(
+              onReady: _onSceneReady,
+              onFailed: _onSceneFailed,
+              onStatus: _setStatus,
             ),
           ),
+        // 2D fallback overlays the WebView until 3D is ready, then fades out.
+        // Fading a normal widget (not the platform view) is safe and keeps the
+        // covered WebView from flashing blank while it loads.
+        Positioned.fill(
+          child: IgnorePointer(
+            ignoring: _show3d && !_disable3d,
+            child: AnimatedOpacity(
+              opacity: showFallback ? 1 : 0,
+              duration: const Duration(milliseconds: 700),
+              child: const ButterflyHeroFallback(),
+            ),
+          ),
+        ),
         if (kDimensionDebugBadge)
           Positioned(
             left: 8,
