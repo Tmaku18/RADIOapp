@@ -157,6 +157,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         value: _data!.totalLikes.toString(),
                       ),
                       _StatCard(
+                        label: '${AnalyticsMetrics.earsReached.label} This Week',
+                        value: _data!.earsReachedThisWeek.toString(),
+                      ),
+                      _StatCard(
+                        label: 'Likes This Week',
+                        value: _data!.likesThisWeek.toString(),
+                      ),
+                      _StatCard(
+                        label: '${AnalyticsMetrics.earsReached.label} This Month',
+                        value: _data!.earsReachedThisMonth.toString(),
+                      ),
+                      _StatCard(
+                        label: 'Likes This Month',
+                        value: _data!.likesThisMonth.toString(),
+                      ),
+                      _StatCard(
                         label: 'Credits Used',
                         value: _data!.totalCreditsUsed.toString(),
                       ),
@@ -227,77 +243,22 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     const SizedBox(height: 16),
                   ],
                   if (_data!.dailyPlays.length >= 7) ...[
-                    GlassCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${AnalyticsMetrics.earsReached.label} This Week',
-                              style: DimensionTypography.cardTitle(fontSize: 16),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              height: 160,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: _data!.dailyPlays
-                                    .sublist(_data!.dailyPlays.length - 7)
-                                    .map((day) {
-                                  final ears = day.ears;
-                                  final maxEars = _data!.dailyPlays
-                                      .sublist(_data!.dailyPlays.length - 7)
-                                      .map((d) => d.ears)
-                                      .fold<int>(
-                                          0, (m, v) => v > m ? v : m);
-                                  final heightFactor = maxEars <= 0
-                                      ? 0.0
-                                      : (ears / maxEars).clamp(0.0, 1.0);
-                                  final weekday = _weekdayLabel(day.date);
-                                  return Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                          horizontal: 3),
-                                      child: Column(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.end,
-                                        children: [
-                                          Text(
-                                            '$ears',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: surfaces.textSecondary,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            height: 100 * heightFactor +
-                                                (ears > 0 ? 8 : 0),
-                                            decoration: BoxDecoration(
-                                              color: scheme.primary,
-                                              borderRadius:
-                                                  const BorderRadius.vertical(
-                                                top: Radius.circular(6),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            weekday,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: surfaces.textMuted,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ),
-                          ],
-                        ),
+                    _WeeklyBarChartCard(
+                      title: '${AnalyticsMetrics.earsReached.label} This Week',
+                      subtitle: 'Unique listeners per day (each account once)',
+                      days: _data!.dailyPlays
+                          .sublist(_data!.dailyPlays.length - 7),
+                      valueForDay: (day) => day.ears,
+                      barColor: scheme.primary,
+                    ),
+                    const SizedBox(height: 16),
+                    _WeeklyBarChartCard(
+                      title: 'Likes This Week',
+                      subtitle: 'Ripples per day on your songs',
+                      days: _data!.dailyPlays
+                          .sublist(_data!.dailyPlays.length - 7),
+                      valueForDay: (day) => day.likes,
+                      barColor: const Color(0xFFEC4899),
                     ),
                     const SizedBox(height: 16),
                   ],
@@ -466,6 +427,90 @@ String _weekdayLabel(String isoDate) {
     return labels[date.weekday % 7];
   } catch (_) {
     return isoDate;
+  }
+}
+
+class _WeeklyBarChartCard extends StatelessWidget {
+  const _WeeklyBarChartCard({
+    required this.title,
+    required this.subtitle,
+    required this.days,
+    required this.valueForDay,
+    required this.barColor,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<DailyPlayCount> days;
+  final int Function(DailyPlayCount day) valueForDay;
+  final Color barColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = context.networxSurfaces;
+    final maxValue = days
+        .map(valueForDay)
+        .fold<int>(0, (max, value) => value > max ? value : max);
+
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: DimensionTypography.cardTitle(fontSize: 16)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: TextStyle(color: surfaces.textSecondary, fontSize: 12)),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 160,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: days.map((day) {
+                final value = valueForDay(day);
+                final heightFactor =
+                    maxValue <= 0 ? 0.0 : (value / maxValue).clamp(0.0, 1.0);
+                final weekday = _weekdayLabel(day.date);
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          '$value',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: surfaces.textSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: 100 * heightFactor + (value > 0 ? 8 : 0),
+                          decoration: BoxDecoration(
+                            color: barColor,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(6),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          weekday,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: surfaces.textMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

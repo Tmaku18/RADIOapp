@@ -3,12 +3,14 @@ class DailyPlayCount {
   final int plays;
   final int listens;
   final int ears;
+  final int likes;
 
   DailyPlayCount({
     required this.date,
     required this.plays,
     required this.listens,
     required this.ears,
+    required this.likes,
   });
 
   factory DailyPlayCount.fromJson(Map<String, dynamic> json) {
@@ -19,6 +21,7 @@ class DailyPlayCount {
       plays: plays,
       listens: toInt(json['listens'] ?? 0),
       ears: toInt(json['ears'] ?? json['listens'] ?? 0),
+      likes: toInt(json['likes'] ?? 0),
     );
   }
 }
@@ -72,6 +75,8 @@ class ArtistAnalytics {
   final int earsReached;
   final int listensThisWeek;
   final int listensThisMonth;
+  final int likesThisWeek;
+  final int likesThisMonth;
   final int earsReachedThisWeek;
   final int earsReachedThisMonth;
   final int totalPaidPlays;
@@ -89,6 +94,8 @@ class ArtistAnalytics {
     required this.earsReached,
     required this.listensThisWeek,
     required this.listensThisMonth,
+    required this.likesThisWeek,
+    required this.likesThisMonth,
     required this.earsReachedThisWeek,
     required this.earsReachedThisMonth,
     required this.totalPaidPlays,
@@ -114,6 +121,10 @@ class ArtistAnalytics {
           toInt(json['listensThisWeek'] ?? json['listens_this_week']),
       listensThisMonth:
           toInt(json['listensThisMonth'] ?? json['listens_this_month']),
+      likesThisWeek:
+          toInt(json['likesThisWeek'] ?? json['likes_this_week']),
+      likesThisMonth:
+          toInt(json['likesThisMonth'] ?? json['likes_this_month']),
       earsReachedThisWeek:
           toInt(json['earsReachedThisWeek'] ?? json['ears_reached_this_week']),
       earsReachedThisMonth:
