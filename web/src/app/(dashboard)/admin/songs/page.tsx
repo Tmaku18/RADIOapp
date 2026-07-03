@@ -297,6 +297,7 @@ export default function AdminSongsPage() {
   const [staleSongsNotice, setStaleSongsNotice] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [backfilling, setBackfilling] = useState(false);
+  const [backfillingLyrics, setBackfillingLyrics] = useState(false);
   const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
   const [editingSong, setEditingSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -407,6 +408,30 @@ export default function AdminSongsPage() {
       );
     } finally {
       setBackfilling(false);
+    }
+  };
+
+  const handleBackfillLyrics = async () => {
+    if (backfillingLyrics) return;
+    setBackfillingLyrics(true);
+    try {
+      const { data } = await songsApi.backfillLyrics({});
+      if (data.queued === 0) {
+        setError(null);
+        alert('All approved songs already have lyrics or captions.');
+      } else {
+        setError(null);
+        alert(
+          `Auto-transcribing captions for ${data.queued} song(s) in the background. ` +
+            'Songs are processed one at a time; captions appear as each finishes.',
+        );
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to start caption backfill.',
+      );
+    } finally {
+      setBackfillingLyrics(false);
     }
   };
 
@@ -922,6 +947,15 @@ export default function AdminSongsPage() {
             className="px-4 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
           >
             {backfilling ? 'Starting…' : 'Backfill samples'}
+          </button>
+
+          <button
+            onClick={handleBackfillLyrics}
+            disabled={backfillingLyrics}
+            title="Auto-transcribe synced captions for approved songs that have no lyrics yet"
+            className="px-4 py-2 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+          >
+            {backfillingLyrics ? 'Starting…' : 'Generate captions'}
           </button>
         </div>
       </div>
