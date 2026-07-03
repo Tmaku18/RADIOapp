@@ -4,8 +4,6 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Flame,
-  Headphones,
-  Heart,
   Pause,
   Play,
   Radio as RadioIcon,
@@ -1195,7 +1193,7 @@ export function RadioPlayer({
   );
 
   if (layout === 'dimension') {
-    const ears =
+    const displayListeners =
       state.isPlaying && state.source === 'radio'
         ? Math.max(listenerCount, 1)
         : listenerCount;
@@ -1259,16 +1257,10 @@ export function RadioPlayer({
 
               <div className="mt-4 flex items-center gap-5 text-xs text-white/60 flex-wrap">
                 <span className="flex items-center gap-1.5">
-                  <Headphones className="w-3.5 h-3.5 text-cyan-300" /> {ears} ears
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <Heart className="w-3.5 h-3.5 text-pink-400" /> {fireVotes} ripples
-                </span>
-                <span className="flex items-center gap-1.5">
                   <Flame className="w-3.5 h-3.5 text-yellow-300" /> {temperaturePercent}°
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <RadioIcon className="w-3.5 h-3.5 text-cyan-300" /> {ears} listeners
+                  <RadioIcon className="w-3.5 h-3.5 text-cyan-300" /> {displayListeners} listeners
                 </span>
               </div>
 
