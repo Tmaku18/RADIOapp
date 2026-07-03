@@ -20,6 +20,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
 
 type LibrarySong = {
   id: string;
@@ -92,6 +93,9 @@ export default function BrowseSavedPage() {
   const libraryRequestRef = useRef(0);
   const purchasesRequestRef = useRef(0);
   const [pendingRemove, setPendingRemove] = useState<LibrarySong | null>(null);
+  const [lyricsPlayerSong, setLyricsPlayerSong] = useState<PurchasedSong | null>(
+    null,
+  );
   const [removing, setRemoving] = useState(false);
   const [sortBy, setSortBy] = useState<
     'recent' | 'oldest' | 'artist' | 'title' | 'likes' | 'plays' | 'temperature'
@@ -439,6 +443,15 @@ export default function BrowseSavedPage() {
                       </Button>
                       <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setLyricsPlayerSong(song)}
+                      >
+                        Lyrics
+                      </Button>
+                      <Button
+                        type="button"
                         size="sm"
                         className="h-8"
                         onClick={() => void downloadPurchased(song)}
@@ -599,6 +612,20 @@ export default function BrowseSavedPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <LyricsPlayerDialog
+        song={
+          lyricsPlayerSong
+            ? {
+                id: lyricsPlayerSong.id,
+                title: lyricsPlayerSong.title,
+                artistName: lyricsPlayerSong.artistName,
+                artworkUrl: lyricsPlayerSong.artworkUrl,
+              }
+            : null
+        }
+        onClose={() => setLyricsPlayerSong(null)}
+      />
     </div>
   );
 }

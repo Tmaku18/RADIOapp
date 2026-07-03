@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
 import { usePlayback } from '@/components/playback';
+import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -168,6 +169,7 @@ export default function MySongsPage() {
   const [refinerySubmitSong, setRefinerySubmitSong] = useState<Song | null>(null);
   const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [lyricsPlayerSong, setLyricsPlayerSong] = useState<Song | null>(null);
   const [sampleSong, setSampleSong] = useState<Song | null>(null);
   const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -876,6 +878,12 @@ export default function MySongsPage() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               disabled={!song.audioUrl}
+                              onSelect={() => setLyricsPlayerSong(song)}
+                            >
+                              Lyrics &amp; captions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!song.audioUrl}
                               onSelect={() => setSampleSong(song)}
                             >
                               {hasSample ? 'Edit sample' : 'Set sample'}
@@ -932,6 +940,21 @@ export default function MySongsPage() {
           </Table>
         </Card>
       ) : null}
+
+      <LyricsPlayerDialog
+        song={
+          lyricsPlayerSong
+            ? {
+                id: lyricsPlayerSong.id,
+                title: lyricsPlayerSong.title,
+                artistName: lyricsPlayerSong.artistName,
+                artworkUrl: lyricsPlayerSong.artworkUrl ?? null,
+              }
+            : null
+        }
+        editable
+        onClose={() => setLyricsPlayerSong(null)}
+      />
 
       {editingSong && (
         <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
