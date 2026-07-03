@@ -1182,8 +1182,8 @@ class _LibraryTabState extends State<_LibraryTab> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Text(
-            'No purchased music yet. Buy a song from an artist to play it in '
-            'full and download it here.',
+            'Nothing here yet. Buy a song from an artist — or upload your '
+            'own — to play it in full and download it here.',
             textAlign: TextAlign.center,
             style: TextStyle(color: surfaces.textSecondary),
           ),
@@ -1216,7 +1216,7 @@ class _LibraryTabState extends State<_LibraryTab> {
               ),
               title: Text(item.title),
               subtitle: Text(
-                '${item.artistName} · Purchased',
+                '${item.artistName} · ${item.isOwnUpload ? 'Your upload' : 'Purchased'}',
                 style: TextStyle(color: surfaces.textSecondary),
               ),
               trailing: Row(

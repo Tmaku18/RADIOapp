@@ -561,49 +561,111 @@ export class SongsService {
     };
   }
 
-  /** Songs the user has purchased ("My Music"), newest first. */
+  /**
+   * "My Music": songs the user has purchased PLUS their own uploads (artists
+   * always own their tracks), newest first. Own uploads are flagged with
+   * `isOwnUpload` so clients can badge them.
+   */
   async getPurchasedSongs(userId: string) {
     const supabase = getSupabaseClient();
-    const { data: purchases, error } = await supabase
+    const { data: purchaseRows, error } = await supabase
       .from('song_purchases')
       .select('song_id, created_at, amount_cents, currency')
       .eq('user_id', userId)
       .eq('status', 'completed')
       .order('created_at', { ascending: false });
-    if (error) {
-      if (this.isMissingTableError(error, 'song_purchases')) return [];
+    if (error && !this.isMissingTableError(error, 'song_purchases')) {
       throw new Error(`Failed to load purchases: ${error.message}`);
     }
-    const songIds = (purchases ?? []).map((p) => p.song_id);
-    if (songIds.length === 0) return [];
+    const purchases = purchaseRows ?? [];
 
-    const { data: songs } = await supabase
+    const songColumns =
+      'id, title, artist_name, artist_id, artwork_url, duration_seconds, like_count, play_count, created_at';
+
+    // The user's own uploads belong in their library too.
+    let ownQuery = await supabase
       .from('songs')
-      .select(
-        'id, title, artist_name, artist_id, artwork_url, duration_seconds, like_count, play_count',
-      )
-      .in('id', songIds);
-    const byId = new Map((songs ?? []).map((s) => [s.id, s]));
-    return (purchases ?? [])
-      .map((p) => {
-        const s = byId.get(p.song_id);
-        if (!s) return null;
-        return {
-          id: s.id,
-          title: s.title,
-          artistName: s.artist_name,
-          artistId: s.artist_id,
-          artworkUrl: s.artwork_url,
-          durationSeconds: s.duration_seconds,
-          likeCount: s.like_count ?? 0,
-          playCount: s.play_count ?? 0,
-          purchasedAt: p.created_at,
-          amountCents: p.amount_cents ?? 0,
-          currency: p.currency ?? 'usd',
-          owned: true,
-        };
-      })
-      .filter((x): x is NonNullable<typeof x> => x !== null);
+      .select(songColumns)
+      .eq('artist_id', userId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+    if (ownQuery.error && this.isMissingColumnError(ownQuery.error, 'deleted_at')) {
+      ownQuery = await supabase
+        .from('songs')
+        .select(songColumns)
+        .eq('artist_id', userId)
+        .order('created_at', { ascending: false });
+    }
+    const ownSongs = ownQuery.data ?? [];
+
+    const purchasedIds = purchases.map((p) => p.song_id);
+    const { data: purchasedSongs } = purchasedIds.length
+      ? await supabase.from('songs').select(songColumns).in('id', purchasedIds)
+      : { data: [] as typeof ownSongs };
+    const byId = new Map((purchasedSongs ?? []).map((s) => [s.id, s]));
+
+    type LibraryRow = {
+      id: string;
+      title: string;
+      artistName: string;
+      artistId: string;
+      artworkUrl: string | null;
+      durationSeconds: number | null;
+      likeCount: number;
+      playCount: number;
+      purchasedAt: string;
+      amountCents: number;
+      currency: string;
+      owned: boolean;
+      isOwnUpload: boolean;
+    };
+
+    const rows: LibraryRow[] = [];
+    const seen = new Set<string>();
+
+    for (const s of ownSongs) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      rows.push({
+        id: s.id,
+        title: s.title,
+        artistName: s.artist_name,
+        artistId: s.artist_id,
+        artworkUrl: s.artwork_url,
+        durationSeconds: s.duration_seconds,
+        likeCount: s.like_count ?? 0,
+        playCount: s.play_count ?? 0,
+        purchasedAt: s.created_at,
+        amountCents: 0,
+        currency: 'usd',
+        owned: true,
+        isOwnUpload: true,
+      });
+    }
+
+    for (const p of purchases) {
+      const s = byId.get(p.song_id);
+      if (!s || seen.has(s.id)) continue;
+      seen.add(s.id);
+      rows.push({
+        id: s.id,
+        title: s.title,
+        artistName: s.artist_name,
+        artistId: s.artist_id,
+        artworkUrl: s.artwork_url,
+        durationSeconds: s.duration_seconds,
+        likeCount: s.like_count ?? 0,
+        playCount: s.play_count ?? 0,
+        purchasedAt: p.created_at,
+        amountCents: p.amount_cents ?? 0,
+        currency: p.currency ?? 'usd',
+        owned: true,
+        isOwnUpload: false,
+      });
+    }
+
+    rows.sort((a, b) => (b.purchasedAt ?? '').localeCompare(a.purchasedAt ?? ''));
+    return rows;
   }
 
   private async upsertCoreLikeWithFallback(

@@ -59,6 +59,8 @@ type PurchasedSong = {
   purchasedAt: string;
   amountCents: number;
   currency: string;
+  /** True when this row is the user's own upload rather than a purchase. */
+  isOwnUpload?: boolean;
 };
 
 function apiErrorMessage(err: unknown, fallback: string): string {
@@ -373,7 +375,7 @@ export default function BrowseSavedPage() {
       {tab === 'music' ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Purchased Music</CardTitle>
+            <CardTitle className="text-base">My Music</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {authLoading || (purchasesLoading && !purchasesError) ? (
@@ -392,8 +394,8 @@ export default function BrowseSavedPage() {
               </div>
             ) : purchases.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                You haven&apos;t bought any songs yet. Buy a song from an
-                artist&apos;s page to play the full track and download it here.
+                Nothing here yet. Buy a song from an artist&apos;s page — or
+                upload your own — to play the full track and download it here.
               </p>
             ) : (
               purchases.map((song) => (
@@ -409,7 +411,14 @@ export default function BrowseSavedPage() {
                         className="h-11 w-11 shrink-0 rounded-md object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium">{song.title}</p>
+                        <p className="truncate font-medium">
+                          {song.title}
+                          {song.isOwnUpload ? (
+                            <span className="ml-2 inline-block rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary align-middle">
+                              Your upload
+                            </span>
+                          ) : null}
+                        </p>
                         <Link
                           href={artistProfilePath(song.artistId)}
                           className="block truncate text-sm text-muted-foreground hover:underline"

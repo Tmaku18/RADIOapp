@@ -274,6 +274,9 @@ class PurchasedSong {
   final int durationSeconds;
   final DateTime? purchasedAt;
 
+  /// True when this row is the user's own upload rather than a purchase.
+  final bool isOwnUpload;
+
   const PurchasedSong({
     required this.id,
     required this.title,
@@ -282,6 +285,7 @@ class PurchasedSong {
     required this.artworkUrl,
     required this.durationSeconds,
     required this.purchasedAt,
+    this.isOwnUpload = false,
   });
 
   factory PurchasedSong.fromJson(Map<String, dynamic> json) {
@@ -301,6 +305,7 @@ class PurchasedSong {
       purchasedAt: json['purchasedAt'] != null
           ? DateTime.tryParse(json['purchasedAt'].toString())
           : null,
+      isOwnUpload: json['isOwnUpload'] == true,
     );
   }
 }
