@@ -1,9 +1,15 @@
+import 'dart:async';
+
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/brand/brand_assets.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/song.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/refinery_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
@@ -21,13 +27,71 @@ class StudioScreen extends StatefulWidget {
 class _StudioScreenState extends State<StudioScreen> {
   final SongsService _songs = SongsService();
   final RefineryService _refinery = RefineryService();
+  final AudioPlayer _player = AudioPlayerService().player;
   bool _loading = true;
   List<Song> _items = const [];
+  String? _activeSongId;
+  String? _preparingSongId;
+  bool _isPlaying = false;
+  StreamSubscription<PlayerState>? _playerStateSub;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _playerStateSub = _player.playerStateStream.listen((s) {
+      if (!mounted) return;
+      setState(() => _isPlaying = s.playing);
+    });
+  }
+
+  @override
+  void dispose() {
+    _playerStateSub?.cancel();
+    super.dispose();
+  }
+
+  /// Artists always stream their own uploads in full — the backend entitles
+  /// the uploader, so /songs/:id/stream returns a signed full-length URL.
+  Future<void> _playFull(Song song) async {
+    if (_activeSongId == song.id) {
+      if (_isPlaying) {
+        await _player.pause();
+      } else {
+        await _player.play();
+      }
+      return;
+    }
+    if (_preparingSongId != null) return;
+    setState(() => _preparingSongId = song.id);
+    try {
+      final url = (await _songs.getStreamUrl(song.id)) ??
+          (song.audioUrl.isNotEmpty ? song.audioUrl : null);
+      if (url == null || url.isEmpty) {
+        throw Exception('No playable audio for this song yet.');
+      }
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: MediaItem(
+            id: song.id,
+            title: song.title,
+            artist: song.artistName,
+            artUri: BrandAssets.mediaArtUri(song.artworkUrl),
+          ),
+        ),
+      );
+      await _player.play();
+      if (!mounted) return;
+      setState(() => _activeSongId = song.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not play this song: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _preparingSongId = null);
+    }
   }
 
   Future<void> _load() async {
@@ -324,6 +388,14 @@ class _StudioScreenState extends State<StudioScreen> {
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
                               ListTile(
+                                leading: _PlayFullButton(
+                                  song: s,
+                                  isActive: _activeSongId == s.id,
+                                  isPlaying:
+                                      _activeSongId == s.id && _isPlaying,
+                                  isPreparing: _preparingSongId == s.id,
+                                  onPressed: () => _playFull(s),
+                                ),
                                 title: Text(
                                   s.title,
                                   maxLines: 1,
@@ -503,6 +575,83 @@ class _StudioScreenState extends State<StudioScreen> {
                       )),
               ],
             ),
+    );
+  }
+}
+
+/// Artwork thumbnail with a play/pause overlay so artists can listen to their
+/// own uploads in full straight from My Songs.
+class _PlayFullButton extends StatelessWidget {
+  const _PlayFullButton({
+    required this.song,
+    required this.isActive,
+    required this.isPlaying,
+    required this.isPreparing,
+    required this.onPressed,
+  });
+
+  final Song song;
+  final bool isActive;
+  final bool isPlaying;
+  final bool isPreparing;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final artwork = (song.artworkUrl ?? '').trim();
+    return InkWell(
+      onTap: isPreparing ? null : onPressed,
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 48,
+        height: 48,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: artwork.isNotEmpty
+                  ? Image.network(
+                      artwork,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) => ColoredBox(
+                        color: scheme.surfaceContainerHighest,
+                        child: const Icon(Icons.music_note),
+                      ),
+                    )
+                  : ColoredBox(
+                      color: scheme.surfaceContainerHighest,
+                      child: const Icon(Icons.music_note),
+                    ),
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: isActive ? 0.45 : 0.35),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: isPreparing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Icon(
+                        isPlaying
+                            ? Icons.pause_rounded
+                            : Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
