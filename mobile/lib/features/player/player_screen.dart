@@ -59,6 +59,7 @@ const List<_StationOption> _stationOptions = <_StationOption>[
   _StationOption(id: 'us-metal', genre: 'Metal Radio'),
   _StationOption(id: 'us-pop', genre: 'Pop'),
   _StationOption(id: 'us-kids-friendly', genre: 'Kids Friendly Radio'),
+  _StationOption(id: 'us-testing-grounds', genre: 'Testing Grounds Radio'),
   _StationOption(id: 'us-edm', genre: 'EDM'),
   _StationOption(id: 'us-rnb', genre: 'R&B'),
   _StationOption(id: 'us-podcasts', genre: 'Podcasts'),
