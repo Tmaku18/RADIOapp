@@ -39,7 +39,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-[data-dimension] .glass-strong {
+[data-dimension] .glass-strong,
+[data-dimension].glass-strong {
   background: rgba(8, 8, 10, 0.8);
   backdrop-filter: blur(40px) saturate(180%);
   -webkit-backdrop-filter: blur(40px) saturate(180%);
@@ -311,7 +312,8 @@
     0 8px 32px rgba(15, 23, 42, 0.05);
 }
 
-.light [data-dimension] .glass-strong {
+.light [data-dimension] .glass-strong,
+.light [data-dimension].glass-strong {
   background: linear-gradient(
     180deg,
     rgba(226, 232, 240, 0.97) 0%,

@@ -16,6 +16,22 @@ import { NETWORX_APP_ICON } from '@/lib/brand-assets';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import { cn } from '@/lib/utils';
 
+const navIconClass = (isActive: boolean) =>
+  cn(
+    'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
+    isActive
+      ? 'bg-cyan-400 text-black'
+      : 'bg-muted border border-border text-primary dark:bg-white/[0.04] dark:border-white/10 dark:text-cyan-300',
+  );
+
+const navLabelClass = (isActive: boolean) =>
+  cn(
+    'text-sm font-outfit truncate',
+    isActive
+      ? 'text-foreground font-medium dark:text-white'
+      : 'text-muted-foreground dark:text-white/80',
+  );
+
 export function DimensionSidebarLogoCard() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -82,31 +98,17 @@ export function DimensionNavTab({
 
   const className = cn(
     'group flex items-center gap-3 px-2.5 py-2 rounded-full transition-colors w-full',
-    isActive ? 'bg-cyan-400/10 ring-1 ring-cyan-400/30' : 'hover:bg-white/5',
+    isActive
+      ? 'bg-cyan-400/10 ring-1 ring-cyan-400/30'
+      : 'hover:bg-muted/80 dark:hover:bg-white/5',
   );
 
   const content = (
     <>
-      <span
-        className={cn(
-          'w-9 h-9 rounded-full flex items-center justify-center shrink-0',
-          isActive
-            ? 'bg-cyan-400 text-black'
-            : 'bg-white/[0.04] border border-white/10 text-cyan-300',
-        )}
-      >
+      <span className={navIconClass(isActive)}>
         <Icon className="w-4 h-4" />
       </span>
-      {!collapsed && (
-        <span
-          className={cn(
-            'text-sm font-outfit truncate',
-            isActive ? 'text-white font-medium' : 'text-white/80',
-          )}
-        >
-          {label}
-        </span>
-      )}
+      {!collapsed && <span className={navLabelClass(isActive)}>{label}</span>}
     </>
   );
 
@@ -155,19 +157,19 @@ export function DimensionNavCollapsible({
       <button
         type="button"
         onClick={onToggle}
-        className="w-full group flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-white/5"
+        className="w-full group flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-muted/80 dark:hover:bg-white/5"
       >
-        <span className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/10 text-cyan-300 flex items-center justify-center shrink-0">
+        <span className={navIconClass(false)}>
           <Icon className="w-4 h-4" />
         </span>
         {!collapsed && (
           <>
-            <span className="text-sm font-outfit text-white/80 flex-1 text-left">
+            <span className="text-sm font-outfit text-muted-foreground dark:text-white/80 flex-1 text-left">
               {title}
             </span>
             <ChevronDown
               className={cn(
-                'w-4 h-4 text-white/40 transition-transform',
+                'w-4 h-4 text-muted-foreground dark:text-white/40 transition-transform',
                 open && 'rotate-180',
               )}
             />
@@ -204,7 +206,9 @@ export function DimensionNavSubLink({
       onClick={onNavigate}
       className={cn(
         'block py-1.5 px-3 text-xs font-outfit rounded-md transition-colors',
-        isActive ? 'text-cyan-300 bg-cyan-400/5' : 'text-white/60 hover:text-white',
+        isActive
+          ? 'text-primary bg-primary/10 dark:text-cyan-300 dark:bg-cyan-400/5'
+          : 'text-muted-foreground hover:text-foreground dark:text-white/60 dark:hover:text-white',
       )}
     >
       {label}
@@ -236,24 +240,24 @@ export function DimensionSidebarUserFooter({
   const initials = (displayName || emailFallback || '?').charAt(0).toUpperCase();
 
   return (
-    <div className="mt-auto pt-3 border-t border-white/10 space-y-1.5">
+    <div className="mt-auto pt-3 border-t border-border dark:border-white/10 space-y-1.5">
       {!collapsed && (
         <Link
           href="/profile"
           data-testid="sidebar-user-card"
-          className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-white/5 transition-colors"
+          className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-muted/80 dark:hover:bg-white/5 transition-colors"
         >
           <Avatar className="w-9 h-9 ring-1 ring-cyan-400/40">
             <AvatarImage src={avatarUrl ?? undefined} />
-            <AvatarFallback className="text-xs bg-black/60 text-cyan-300">
+            <AvatarFallback className="text-xs bg-muted text-primary dark:bg-black/60 dark:text-cyan-300">
               {initials}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
-            <div className="font-unbounded font-bold text-sm truncate text-white">
+            <div className="font-unbounded font-bold text-sm truncate text-foreground dark:text-white">
               {displayName || emailFallback}
             </div>
-            <div className="font-dim-mono text-[9px] text-cyan-300 tracking-[0.2em] uppercase">
+            <div className="font-dim-mono text-[9px] text-muted-foreground dark:text-cyan-300 tracking-[0.2em] uppercase">
               {roleLabel}
             </div>
           </div>
@@ -265,12 +269,12 @@ export function DimensionSidebarUserFooter({
         rel="noopener noreferrer"
         data-testid="sidebar-support-btn"
         className={cn(
-          'w-full flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-white/5 text-white/70 transition-colors',
+          'w-full flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-muted/80 dark:hover:bg-white/5 text-muted-foreground dark:text-white/70 transition-colors',
           collapsed && 'justify-center',
         )}
       >
-        <span className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0">
-          <HelpCircle className="w-4 h-4 text-cyan-300" />
+        <span className={navIconClass(false)}>
+          <HelpCircle className="w-4 h-4" />
         </span>
         {!collapsed && <span className="text-sm">Support</span>}
       </a>
@@ -280,12 +284,12 @@ export function DimensionSidebarUserFooter({
         disabled={isSigningOut}
         data-testid="sidebar-signout-btn"
         className={cn(
-          'w-full flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-white/5 text-white/70 transition-colors disabled:opacity-50',
+          'w-full flex items-center gap-3 px-2.5 py-2 rounded-full hover:bg-muted/80 dark:hover:bg-white/5 text-muted-foreground dark:text-white/70 transition-colors disabled:opacity-50',
           collapsed && 'justify-center',
         )}
       >
-        <span className="w-9 h-9 rounded-full bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0">
-          <LogOut className="w-4 h-4 text-pink-400" />
+        <span className="w-9 h-9 rounded-full bg-muted border border-border flex items-center justify-center shrink-0 dark:bg-white/[0.04] dark:border-white/10">
+          <LogOut className="w-4 h-4 text-pink-500 dark:text-pink-400" />
         </span>
         {!collapsed && (
           <span className="text-sm">{isSigningOut ? 'Signing out…' : 'Sign out'}</span>

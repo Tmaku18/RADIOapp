@@ -115,6 +115,7 @@ const streamerNav = { name: 'Stream settings', href: '/stream-settings' };
 
 const adminSubNavigation = [
   { name: 'Songs', href: '/admin/songs' },
+  { name: 'Lyrics', href: '/admin/lyrics' },
   { name: 'Users', href: '/admin/users' },
   { name: 'Swipe', href: '/admin/swipe' },
   { name: 'Queue', href: '/admin/queue' },
@@ -144,6 +145,7 @@ function AutoCollapseSidebarOnNavigate() {
 function getPageTitle(pathname: string): string {
   if (pathname.startsWith('/browse/saved')) return 'Library';
   if (pathname.startsWith('/admin/songs')) return 'Songs';
+  if (pathname.startsWith('/admin/lyrics')) return 'Lyrics';
   if (pathname.startsWith('/admin/users')) return 'Users';
   if (pathname.startsWith('/admin/swipe')) return 'Swipe';
   if (pathname.startsWith('/admin/queue')) return 'Queue';
