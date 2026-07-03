@@ -8,13 +8,14 @@ import {
   Pause,
   Play,
   Radio as RadioIcon,
+  Share2,
   Volume2,
 } from 'lucide-react';
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
 import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi, usersApi } from '@/lib/api';
-import { artistProfilePath } from '@/lib/artist-links';
+import { artistProfilePath, publicArtistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
 import { Button } from '@/components/ui/button';
@@ -176,6 +177,7 @@ export function RadioPlayer({
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [followingArtist, setFollowingArtist] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
 
   const [refineryOpen, setRefineryOpen] = useState(false);
   const [refinerySongId, setRefinerySongId] = useState<string | null>(null);
@@ -434,6 +436,43 @@ export function RadioPlayer({
     } finally {
       setFollowLoading(false);
     }
+  };
+
+  /**
+   * Share the song that's playing: a link to the artist's public page that
+   * auto-plays this song's sample (`?song=`). Prefers the native share sheet
+   * (user can pick Messages), falls back to an SMS compose link on phones and
+   * a clipboard copy on desktop.
+   */
+  const shareTrack = async () => {
+    const track = state.track;
+    if (!track?.artistId) return;
+    const url = `${window.location.origin}${publicArtistProfilePath(track.artistId)}?song=${encodeURIComponent(track.id)}`;
+    const text = `Listen to a sample of "${track.title}" by ${track.artistName || 'this artist'} on NETWORX Radio: ${url}`;
+
+    if (typeof navigator.share === 'function') {
+      try {
+        await navigator.share({ title: 'NETWORX Radio', text, url });
+        return;
+      } catch (error) {
+        if ((error as DOMException)?.name === 'AbortError') return;
+        // Share sheet unavailable/failed; fall through to SMS/clipboard.
+      }
+    }
+
+    const isPhone = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isPhone) {
+      window.location.href = `sms:?&body=${encodeURIComponent(text)}`;
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setShareFeedback('Link copied');
+    } catch {
+      setShareFeedback('Could not share');
+    }
+    window.setTimeout(() => setShareFeedback(null), 2500);
   };
 
   const submitRefinery = async () => {
@@ -1342,6 +1381,18 @@ export function RadioPlayer({
                     }`}
                   >
                     {followLoading ? '…' : followingArtist ? 'Following' : 'Follow'}
+                  </button>
+                )}
+                {artistUserId && (
+                  <button
+                    type="button"
+                    onClick={() => void shareTrack()}
+                    disabled={!state.track}
+                    data-testid="radio-share-track"
+                    className="h-10 px-4 rounded-full border border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10 text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 inline-flex items-center gap-2"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    {shareFeedback ?? 'Share'}
                   </button>
                 )}
                 <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">

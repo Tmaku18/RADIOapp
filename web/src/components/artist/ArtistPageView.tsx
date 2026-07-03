@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { songsApi, songSalesApi, usersApi } from '@/lib/api';
@@ -444,6 +444,24 @@ export function ArtistPageView({
     );
     await actions.play();
   };
+
+  // Shared links from the radio player ("?song=<id>") auto-play that song's
+  // sample once the profile loads. window.location is read in-effect instead
+  // of useSearchParams to avoid the Suspense-boundary requirement.
+  const sharedSongAutoPlayedRef = useRef(false);
+  useEffect(() => {
+    if (!data || sharedSongAutoPlayedRef.current) return;
+    const songId = new URLSearchParams(window.location.search).get('song');
+    if (!songId) return;
+    sharedSongAutoPlayedRef.current = true;
+    const song = [...data.popularSongs, ...data.librarySongs].find(
+      (s) => s.id === songId,
+    );
+    // Browser autoplay policy may still require a tap; the track is loaded
+    // into the player bar either way.
+    if (song) void handlePlayPopular(song);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
 
   const toggleFollow = async () => {
     if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
