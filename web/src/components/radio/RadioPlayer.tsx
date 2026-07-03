@@ -13,7 +13,7 @@ import {
 import { usePlayback } from '@/components/playback';
 import type { PlaybackTrack } from '@/components/playback';
 import { SyncedLyricsPanel } from './SyncedLyricsPanel';
-import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi } from '@/lib/api';
+import { prospectorApi, radioApi, leaderboardApi, analyticsApi, songsApi, songSalesApi, usersApi } from '@/lib/api';
 import { artistProfilePath } from '@/lib/artist-links';
 import { useAuth } from '@/contexts/AuthContext';
 import { hasListenerCapability } from '@/lib/roles';
@@ -174,6 +174,8 @@ export function RadioPlayer({
 
   const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [followingArtist, setFollowingArtist] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   const [refineryOpen, setRefineryOpen] = useState(false);
   const [refinerySongId, setRefinerySongId] = useState<string | null>(null);
@@ -386,6 +388,51 @@ export function RadioPlayer({
       console.error('Check-in failed', e);
     } finally {
       setIsCheckingIn(false);
+    }
+  };
+
+  const artistUserId = state.track?.artistId ?? null;
+
+  useEffect(() => {
+    if (!artistUserId || !profile?.id || profile.id === artistUserId) {
+      setFollowingArtist(false);
+      return;
+    }
+
+    let cancelled = false;
+    usersApi
+      .isFollowing(artistUserId)
+      .then((res) => {
+        if (!cancelled) setFollowingArtist(!!res.data?.following);
+      })
+      .catch(() => {
+        if (!cancelled) setFollowingArtist(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [artistUserId, profile?.id]);
+
+  const toggleFollowArtist = async () => {
+    if (!artistUserId || !profile?.id || profile.id === artistUserId || followLoading) {
+      return;
+    }
+
+    const nextFollowing = !followingArtist;
+    setFollowLoading(true);
+    setFollowingArtist(nextFollowing);
+    try {
+      if (nextFollowing) {
+        await usersApi.follow(artistUserId);
+      } else {
+        await usersApi.unfollow(artistUserId);
+      }
+    } catch (error) {
+      console.error('Failed to toggle follow state:', error);
+      setFollowingArtist(!nextFollowing);
+    } finally {
+      setFollowLoading(false);
     }
   };
 
@@ -1268,7 +1315,7 @@ export function RadioPlayer({
                 </span>
               </div>
 
-              <div className="mt-6 flex items-center gap-4 flex-wrap">
+              <div className="mt-6 flex items-center gap-4 flex-wrap w-full">
                 <button
                   type="button"
                   onClick={handlePauseToggle}
@@ -1282,6 +1329,21 @@ export function RadioPlayer({
                     <Play className="w-6 h-6 ml-1" />
                   )}
                 </button>
+                {artistUserId && profile?.id && profile.id !== artistUserId && (
+                  <button
+                    type="button"
+                    onClick={() => void toggleFollowArtist()}
+                    disabled={followLoading || !state.track}
+                    data-testid="radio-follow-artist"
+                    className={`h-10 px-4 rounded-full border text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 ${
+                      followingArtist
+                        ? 'border-pink-400/50 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
+                        : 'border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10'
+                    }`}
+                  >
+                    {followLoading ? '…' : followingArtist ? 'Following' : 'Follow'}
+                  </button>
+                )}
                 <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">
                   <Volume2 className="w-4 h-4 text-white/50 shrink-0" />
                   <input
