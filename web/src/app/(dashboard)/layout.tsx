@@ -3,18 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useTheme } from 'next-themes';
 import { useAuth } from '@/contexts/AuthContext';
 import { GenreOnboardingDialog } from '@/components/onboarding/GenreOnboardingDialog';
 import { notificationsApi, usersApi } from '@/lib/api';
 import { hasArtistCapability } from '@/lib/roles';
+import { ThemeToggle } from '@/components/theme/ThemeToggle';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
@@ -31,12 +29,7 @@ import {
 } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import { HugeiconsIcon } from '@hugeicons/react';
-import {
-  ComputerSettingsIcon,
-  Sun01Icon,
-  DarkModeIcon,
-  ComputerIcon,
-} from '@hugeicons/core-free-icons';
+import { ComputerSettingsIcon } from '@hugeicons/core-free-icons';
 import {
   Award,
   BarChart3,
@@ -263,9 +256,8 @@ export default function DashboardLayout({
   const [moreOpen, setMoreOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const { theme, setTheme } = useTheme();
 
-  // Set role cookie for middleware (auth guard on /artist/* and /job-board)
+  // Set role cookie for middleware
   useEffect(() => {
     if (typeof document === 'undefined' || !effectiveRole) return;
     const role = effectiveRole.toLowerCase();
@@ -523,6 +515,8 @@ export default function DashboardLayout({
               {isArtistMode ? 'Upload' : 'Amplify'}
             </Link>
 
+            <ThemeToggle triggerClassName="chrome-icon-button" />
+
             <Link
               href="/notifications"
               className="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-white/10 bg-black/40 hover:border-cyan-400/40 transition-colors"
@@ -542,22 +536,7 @@ export default function DashboardLayout({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Theme</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
-                  <DropdownMenuRadioItem value="light">
-                    <HugeiconsIcon icon={Sun01Icon} strokeWidth={2} className="mr-2" />
-                    Light
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="dark">
-                    <HugeiconsIcon icon={DarkModeIcon} strokeWidth={2} className="mr-2" />
-                    Dark
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="system">
-                    <HugeiconsIcon icon={ComputerIcon} strokeWidth={2} className="mr-2" />
-                    System
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
+                <DropdownMenuLabel>Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <a
