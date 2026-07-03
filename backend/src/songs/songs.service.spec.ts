@@ -46,6 +46,9 @@ describe('SongsService', () => {
       service.createSong('user-id', {
         title: 'Test Song',
         artistName: 'Test Artist',
+        artistOriginCity: 'Atlanta',
+        artistOriginState: 'GA',
+        stationId: 'us-hip-hop',
         audioUrl: 'https://example.com/audio.mp3',
         artworkUrl: undefined,
         durationSeconds: 180,
@@ -81,6 +84,9 @@ describe('SongsService', () => {
     const result = await service.createSong('artist-id', {
       title: 'Test Song',
       artistName: 'Test Artist',
+        artistOriginCity: 'Atlanta',
+        artistOriginState: 'GA',
+        stationId: 'us-hip-hop',
       audioUrl: 'https://example.com/audio.mp3',
       artworkUrl: undefined,
       durationSeconds: 180,

@@ -8,6 +8,16 @@ jest.mock('../config/supabase.config', () => ({
   getSupabaseClient: jest.fn(),
 }));
 
+const createAdminServiceMock = () => ({}) as any;
+const createImageModerationMock = () =>
+  ({ checkImage: jest.fn() }) as any;
+const createLyricsServiceMock = () =>
+  ({
+    getLyrics: jest.fn(),
+    upsertLyrics: jest.fn(),
+    backfillMissingLyrics: jest.fn(),
+  }) as any;
+
 describe('SongsController', () => {
   it('delegates getSongs with parsed limits', async () => {
     const songsService = {
@@ -26,6 +36,9 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAdminServiceMock(),
+      createImageModerationMock(),
+      createLyricsServiceMock(),
     );
 
     await controller.getSongs('artist-1', 'approved', '10', '5');
@@ -52,6 +65,9 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAdminServiceMock(),
+      createImageModerationMock(),
+      createLyricsServiceMock(),
     );
     const supabase = createSupabaseMock();
 
@@ -91,6 +107,9 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAdminServiceMock(),
+      createImageModerationMock(),
+      createLyricsServiceMock(),
     );
     const supabase = createSupabaseMock();
 
@@ -133,6 +152,9 @@ describe('SongsController', () => {
       songsService as any,
       uploadsService as any,
       durationService as any,
+      createAdminServiceMock(),
+      createImageModerationMock(),
+      createLyricsServiceMock(),
     );
     const supabase = createSupabaseMock();
 

@@ -1330,6 +1330,11 @@ export class SongsService {
     // sample generation). Failures never affect the upload itself.
     const lyricsPlainText = (createSongDto.lyricsPlainText ?? '').trim();
     const newSongId = insertRes.data?.id as string | undefined;
+    if (newSongId && !lyricsPlainText) {
+      // No lyrics supplied: auto-caption fallback transcribes the audio
+      // (speech-to-text) and stores the result flagged as auto-generated.
+      this.lyricsService.transcribeLyricsInBackground(newSongId);
+    }
     if (newSongId && lyricsPlainText) {
       void this.lyricsService
         .upsertLyrics(newSongId, { plainText: lyricsPlainText })

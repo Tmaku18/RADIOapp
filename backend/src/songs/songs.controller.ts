@@ -1060,6 +1060,18 @@ export class SongsController {
    * Admin one-time backfill: render the 30s sample for approved songs that
    * don't have one yet. Runs in the background; returns the count queued.
    */
+  /**
+   * Auto-caption backfill: transcribe approved songs that have no lyrics yet
+   * (ElevenLabs Scribe) and store the results flagged as auto-generated.
+   * Runs sequentially in the background; returns the count queued.
+   */
+  @Post('admin/backfill-lyrics')
+  @UseGuards(RolesGuard)
+  @Roles('admin')
+  async backfillLyrics(@Body() body: { limit?: number }) {
+    return this.lyricsService.backfillMissingLyrics(body?.limit ?? 25);
+  }
+
   @Post('admin/backfill-samples')
   @UseGuards(RolesGuard)
   @Roles('admin')
