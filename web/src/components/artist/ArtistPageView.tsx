@@ -585,7 +585,13 @@ export function ArtistPageView({
           <CardContent className="pt-6">
             <h2 className="font-semibold mb-3">Social links</h2>
             <div className="flex flex-wrap gap-3">
-              {data.artist.socials.instagramUrl && <a className="text-sm underline text-primary" href={data.artist.socials.instagramUrl} target="_blank" rel="noreferrer">Instagram</a>}
+              {data.artist.socials.instagramUrl && (
+                <a className="inline-flex items-center gap-1.5 text-sm underline text-primary" href={data.artist.socials.instagramUrl} target="_blank" rel="noreferrer">
+                  <img src="/brand/instagram-glyph-black.svg" alt="" className="h-4 w-4 dark:hidden" />
+                  <img src="/brand/instagram-glyph-white.svg" alt="" className="hidden h-4 w-4 dark:block" />
+                  Instagram
+                </a>
+              )}
               {data.artist.socials.twitterUrl && <a className="text-sm underline text-primary" href={data.artist.socials.twitterUrl} target="_blank" rel="noreferrer">X</a>}
               {data.artist.socials.youtubeUrl && <a className="text-sm underline text-primary" href={data.artist.socials.youtubeUrl} target="_blank" rel="noreferrer">YouTube</a>}
               {data.artist.socials.tiktokUrl && <a className="text-sm underline text-primary" href={data.artist.socials.tiktokUrl} target="_blank" rel="noreferrer">TikTok</a>}

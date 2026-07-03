@@ -9,6 +9,11 @@ class BrandAssets {
   static const String logoCyanLightAsset =
       'assets/images/branding/networx-logo-cyan-light.png';
 
+  /// Official Instagram glyph (white, from Meta's 2023 brand asset pack).
+  /// Tint with `color:` for light backgrounds per IG mono-glyph guidelines.
+  static const String instagramGlyphWhiteAsset =
+      'assets/images/branding/instagram_glyph_white.png';
+
   static const String _logoCyanWebPath = '/images/networx-logo-cyan.png';
 
   /// Public URL for the full cyan wordmark (lock screen / media notifications).

@@ -793,9 +793,17 @@ export default function ProNetworxProfilePage() {
                           href={item.url as string}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="block text-primary hover:underline text-sm break-all"
+                          className="flex items-center gap-1.5 text-primary hover:underline text-sm break-all"
                         >
-                          {item.label}: {item.url}
+                          {item.label === 'Instagram' && (
+                            <>
+                              <img src="/brand/instagram-glyph-black.svg" alt="" className="h-4 w-4 shrink-0 dark:hidden" />
+                              <img src="/brand/instagram-glyph-white.svg" alt="" className="hidden h-4 w-4 shrink-0 dark:block" />
+                            </>
+                          )}
+                          <span>
+                            {item.label}: {item.url}
+                          </span>
                         </a>
                       ))}
                     </div>

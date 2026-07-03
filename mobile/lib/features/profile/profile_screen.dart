@@ -8,6 +8,7 @@ import '../../core/auth/auth_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/follow_models.dart';
+import '../../core/brand/brand_assets.dart';
 import '../../core/services/users_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -513,11 +514,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
           (social) => TextButton.icon(
             onPressed: () =>
                 _openExternalUrl(label: social.label, rawUrl: social.value!),
-            icon: Icon(social.icon, size: 18),
+            icon: social.label == 'Instagram'
+                ? _instagramGlyph(context)
+                : Icon(social.icon, size: 18),
             label: Text(social.label),
           ),
         )
         .toList();
+  }
+
+  /// Official IG glyph: white on dark backgrounds, black on light ones.
+  Widget _instagramGlyph(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Image.asset(
+      BrandAssets.instagramGlyphWhiteAsset,
+      width: 18,
+      height: 18,
+      color: dark ? Colors.white : Colors.black,
+    );
   }
 
   Future<void> _openFollowList({required String mode}) async {

@@ -402,12 +402,29 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
 
     return links
         .map(
-          (link) => TextButton(
-            onPressed: () => _openExternalUrl(link.value!),
-            child: Text(link.label),
-          ),
+          (link) => link.label == 'Instagram'
+              ? TextButton.icon(
+                  onPressed: () => _openExternalUrl(link.value!),
+                  icon: _instagramGlyph(context),
+                  label: Text(link.label),
+                )
+              : TextButton(
+                  onPressed: () => _openExternalUrl(link.value!),
+                  child: Text(link.label),
+                ),
         )
         .toList();
+  }
+
+  /// Official IG glyph: white on dark backgrounds, black on light ones.
+  Widget _instagramGlyph(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return Image.asset(
+      BrandAssets.instagramGlyphWhiteAsset,
+      width: 16,
+      height: 16,
+      color: dark ? Colors.white : Colors.black,
+    );
   }
 
   Future<void> _showLikesSheet(Song song) async {
