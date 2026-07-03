@@ -241,6 +241,13 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
                     ),
                   ],
                   const Spacer(),
+                  Text(
+                    _collapsed ? 'Show' : 'Hide',
+                    style: textTheme.labelSmall?.copyWith(
+                      color: scheme.onSurfaceVariant.withValues(alpha: 0.8),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
                   Icon(
                     _collapsed ? Icons.expand_more : Icons.expand_less,
                     size: 18,
