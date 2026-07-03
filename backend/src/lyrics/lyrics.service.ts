@@ -195,7 +195,7 @@ export class LyricsService {
     for (let from = 0; ; from += pageSize) {
       const { data: songs, error } = await supabase
         .from('songs')
-        .select('id, song_lyrics(plain_text, status)')
+        .select('id, song_lyrics(plain_text, status, updated_at)')
         .eq('status', 'approved')
         .order('created_at', { ascending: false })
         .range(from, from + pageSize - 1);
@@ -208,7 +208,12 @@ export class LyricsService {
           : song.song_lyrics;
         const hasText =
           ((lyrics?.plain_text as string | null) ?? '').trim().length > 0;
-        if (!lyrics || (!hasText && lyrics.status !== 'pending')) {
+        if (
+          !lyrics ||
+          (!hasText &&
+            (lyrics.status !== 'pending' ||
+              isStalePending(lyrics.updated_at as string | null)))
+        ) {
           targets.push(song.id as string);
         }
       }
@@ -245,7 +250,7 @@ export class LyricsService {
     const supabase = getSupabaseClient();
     const { data: existing } = await supabase
       .from('song_lyrics')
-      .select('plain_text, status, auto_generated')
+      .select('plain_text, status, auto_generated, updated_at')
       .eq('song_id', songId)
       .maybeSingle();
 
@@ -253,7 +258,12 @@ export class LyricsService {
       ((existing?.plain_text as string | null) ?? '').trim().length > 0 &&
       existing?.auto_generated !== true;
     if (hasArtistText && !force) return;
-    if (existing?.status === 'pending') return;
+    if (
+      existing?.status === 'pending' &&
+      !isStalePending(existing.updated_at as string | null)
+    ) {
+      return;
+    }
     if (!this.provider.isConfigured()) return;
 
     const now = new Date().toISOString();
@@ -403,6 +413,17 @@ export class LyricsService {
       updatedAt: null,
     };
   }
+}
+
+/**
+ * A 'pending' row whose updated_at is this old was orphaned by a crash or
+ * redeploy mid-job (a normal transcription finishes well within minutes), so
+ * it's safe to retry.
+ */
+function isStalePending(updatedAt: string | null): boolean {
+  if (!updatedAt) return true;
+  const ageMs = Date.now() - new Date(updatedAt).getTime();
+  return !Number.isFinite(ageMs) || ageMs > 30 * 60 * 1000;
 }
 
 /**
