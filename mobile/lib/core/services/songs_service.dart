@@ -342,6 +342,31 @@ class SongAccess {
   }
 }
 
+class SongLyrics {
+  final String? plainText;
+  final List<Map<String, dynamic>>? timedLines;
+
+  /// none | pending | ready | failed
+  final String status;
+
+  const SongLyrics({
+    required this.plainText,
+    required this.timedLines,
+    required this.status,
+  });
+
+  factory SongLyrics.fromJson(Map<String, dynamic> json) {
+    final timed = json['timedLines'];
+    return SongLyrics(
+      plainText: json['plainText']?.toString(),
+      timedLines: timed is List
+          ? timed.whereType<Map<String, dynamic>>().toList()
+          : null,
+      status: (json['status'] ?? 'none').toString(),
+    );
+  }
+}
+
 class SongsService {
   final ApiService _api = ApiService();
 
@@ -516,6 +541,24 @@ class SongsService {
         'discoverBackgroundUrl': discoverBackgroundUrl,
     });
     if (res is Map<String, dynamic>) return res;
+    return null;
+  }
+
+  /// Lyrics + auto-sync status for a song.
+  /// `status`: none | pending (syncing) | ready (synced) | failed.
+  Future<SongLyrics?> getLyrics(String songId) async {
+    final res = await _api.get('songs/$songId/lyrics');
+    if (res is Map<String, dynamic>) return SongLyrics.fromJson(res);
+    return null;
+  }
+
+  /// Save lyrics text (owner/admin). The backend re-aligns captions to the
+  /// audio automatically whenever the plain text changes.
+  Future<SongLyrics?> upsertLyrics(String songId, String plainText) async {
+    final res = await _api.patch('songs/$songId/lyrics', {
+      'plainText': plainText,
+    });
+    if (res is Map<String, dynamic>) return SongLyrics.fromJson(res);
     return null;
   }
 

@@ -23,6 +23,7 @@ export function SyncedLyricsPanel({
 }: SyncedLyricsPanelProps) {
   const [lines, setLines] = useState<TimedLine[] | null>(null);
   const [plainText, setPlainText] = useState<string | null>(null);
+  const [syncStatus, setSyncStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,6 +35,7 @@ export function SyncedLyricsPanel({
     lastSongId.current = songId;
     setLines(null);
     setPlainText(null);
+    setSyncStatus(null);
     setLoading(true);
 
     songsApi
@@ -41,6 +43,7 @@ export function SyncedLyricsPanel({
       .then((res) => {
         setLines(res.data?.timedLines ?? null);
         setPlainText(res.data?.plainText ?? null);
+        setSyncStatus(res.data?.status ?? null);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -117,9 +120,16 @@ export function SyncedLyricsPanel({
           )}
 
           {!loading && (!lines || lines.length === 0) && plainText && (
-            <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
-              {plainText}
-            </p>
+            <div>
+              {syncStatus === 'pending' && (
+                <p className="text-xs text-muted-foreground/70 animate-pulse mb-2">
+                  Syncing lyrics…
+                </p>
+              )}
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+                {plainText}
+              </p>
+            </div>
           )}
         </div>
       )}

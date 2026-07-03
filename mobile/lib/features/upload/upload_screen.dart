@@ -21,6 +21,7 @@ class _UploadScreenState extends State<UploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _artistNameController = TextEditingController();
+  final _lyricsController = TextEditingController();
   final ApiService _apiService = ApiService();
   File? _audioFile;
   File? _artworkFile;
@@ -304,6 +305,8 @@ class _UploadScreenState extends State<UploadScreen> {
         'isExplicit': _isExplicit,
         'discoverClipStartSeconds': _discoverClipStart,
         'discoverClipEndSeconds': _discoverClipEnd,
+        if (_lyricsController.text.trim().isNotEmpty)
+          'lyricsPlainText': _lyricsController.text.trim(),
       });
 
       if (!mounted) return;
@@ -328,6 +331,7 @@ class _UploadScreenState extends State<UploadScreen> {
   void dispose() {
     _titleController.dispose();
     _artistNameController.dispose();
+    _lyricsController.dispose();
     super.dispose();
   }
 
@@ -492,6 +496,21 @@ class _UploadScreenState extends State<UploadScreen> {
                     onChanged: _isUploading
                         ? null
                         : (value) => setState(() => _isExplicit = value),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _lyricsController,
+                    enabled: !_isUploading,
+                    minLines: 4,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      labelText: 'Lyrics (optional)',
+                      alignLabelWithHint: true,
+                      hintText: 'Paste your lyrics, one line per lyric line.',
+                      helperText:
+                          'Lyrics are auto-synced to your track as closed captions — no timestamps needed.',
+                      helperMaxLines: 3,
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Align(

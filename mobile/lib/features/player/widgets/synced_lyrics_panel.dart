@@ -21,11 +21,16 @@ class SyncedLyricsPanel extends StatefulWidget {
   final Stream<Duration> positionStream;
   final Duration Function() currentPosition;
 
+  /// When true, renders a "no lyrics" note instead of collapsing to nothing
+  /// (used when the panel is the sole content, e.g. the bottom-bar sheet).
+  final bool showEmptyMessage;
+
   const SyncedLyricsPanel({
     super.key,
     required this.songId,
     required this.positionStream,
     required this.currentPosition,
+    this.showEmptyMessage = false,
   });
 
   @override
@@ -35,11 +40,15 @@ class SyncedLyricsPanel extends StatefulWidget {
 class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
   List<TimedLine>? _lines;
   String? _plainText;
+  // none | pending | ready | failed — pending means captions are still being
+  // auto-aligned server-side; we show the plain text with a syncing note.
+  String _syncStatus = 'none';
   bool _loading = false;
   bool _collapsed = false;
   int _activeIndex = -1;
   String? _loadedSongId;
   StreamSubscription<Duration>? _posSub;
+  Timer? _pendingRefetchTimer;
 
   final ScrollController _scrollCtrl = ScrollController();
   final List<GlobalKey> _lineKeys = [];
@@ -66,6 +75,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
   @override
   void dispose() {
     _posSub?.cancel();
+    _pendingRefetchTimer?.cancel();
     _scrollCtrl.dispose();
     super.dispose();
   }
@@ -78,6 +88,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
       _loading = true;
       _lines = null;
       _plainText = null;
+      _syncStatus = 'none';
       _activeIndex = -1;
     });
 
@@ -86,6 +97,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
       if (!mounted) return;
       final timed = resp['timedLines'];
       final plain = resp['plainText'] as String?;
+      final status = (resp['status'] ?? 'none').toString();
       final parsed = <TimedLine>[];
       if (timed is List) {
         for (final item in timed) {
@@ -95,6 +107,7 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
       setState(() {
         _lines = parsed.isEmpty ? null : parsed;
         _plainText = plain;
+        _syncStatus = status;
         _lineKeys.clear();
         if (_lines != null) {
           for (var i = 0; i < _lines!.length; i++) {
@@ -102,6 +115,16 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
           }
         }
       });
+      // Captions are still being aligned server-side; check again shortly so
+      // the synced lines appear mid-song without a manual refresh.
+      _pendingRefetchTimer?.cancel();
+      if (status == 'pending' && parsed.isEmpty) {
+        _pendingRefetchTimer = Timer(const Duration(seconds: 15), () {
+          if (!mounted) return;
+          _loadedSongId = null;
+          _fetchLyrics();
+        });
+      }
     } catch (_) {
       // no lyrics available
     } finally {
@@ -145,7 +168,21 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
     final hasLyrics =
         (_lines != null && _lines!.isNotEmpty) ||
         (_plainText != null && _plainText!.trim().isNotEmpty);
-    if (!hasLyrics && !_loading) return const SizedBox.shrink();
+    if (!hasLyrics && !_loading) {
+      if (!widget.showEmptyMessage) return const SizedBox.shrink();
+      final scheme = Theme.of(context).colorScheme;
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Text(
+            'No lyrics for this song yet.',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+          ),
+        ),
+      );
+    }
 
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -234,12 +271,30 @@ class _SyncedLyricsPanelState extends State<SyncedLyricsPanel> {
                           ? SingleChildScrollView(
                               padding:
                                   const EdgeInsets.fromLTRB(14, 0, 14, 14),
-                              child: Text(
-                                _plainText!,
-                                style: textTheme.bodyMedium?.copyWith(
-                                  color: scheme.onSurfaceVariant,
-                                  height: 1.6,
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (_syncStatus == 'pending')
+                                    Padding(
+                                      padding:
+                                          const EdgeInsets.only(bottom: 8),
+                                      child: Text(
+                                        'Syncing lyrics…',
+                                        style: textTheme.labelSmall?.copyWith(
+                                          color: scheme.onSurfaceVariant
+                                              .withValues(alpha: 0.7),
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ),
+                                  Text(
+                                    _plainText!,
+                                    style: textTheme.bodyMedium?.copyWith(
+                                      color: scheme.onSurfaceVariant,
+                                      height: 1.6,
+                                    ),
+                                  ),
+                                ],
                               ),
                             )
                           : const SizedBox.shrink(),

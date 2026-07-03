@@ -99,6 +99,7 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [readyForRotation, setReadyForRotation] = useState(false);
   const [isExplicit, setIsExplicit] = useState(true);
+  const [lyricsPlainText, setLyricsPlainText] = useState('');
 
   useEffect(() => {
     if (!audioFile) {
@@ -436,6 +437,7 @@ export default function UploadPage() {
           sampleStartSeconds: parsedSampleStart ?? undefined,
           sampleEndSeconds: parsedSampleEnd ?? undefined,
           isExplicit,
+          lyricsPlainText: lyricsPlainText.trim() || undefined,
         });
       } catch (dbErr) {
         throw new Error(
@@ -724,6 +726,21 @@ export default function UploadPage() {
                   </option>
                 ))}
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="lyrics">Lyrics (optional)</Label>
+              <textarea
+                id="lyrics"
+                value={lyricsPlainText}
+                onChange={(e) => setLyricsPlainText(e.target.value)}
+                rows={8}
+                placeholder={'Paste your lyrics here, one line per lyric line.\nWe automatically sync them to your track so listeners see closed captions in time with the words.'}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lyrics are auto-synced to your audio after upload — no timestamps needed.
+              </p>
             </div>
 
             <div className="space-y-2 rounded-lg border border-border p-4">

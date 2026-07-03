@@ -491,8 +491,23 @@ export const songsApi = {
       plainText: string | null;
       timedLines: Array<{ startMs: number; endMs?: number; text: string }> | null;
       provider?: string | null;
+      status?: 'none' | 'pending' | 'ready' | 'failed';
       updatedAt?: string;
     }>(`/songs/${songId}/lyrics`),
+  upsertLyrics: (
+    songId: string,
+    payload: {
+      plainText?: string;
+      timedLines?: Array<{ startMs: number; endMs: number; text: string }>;
+    },
+  ) =>
+    api.patch<{
+      plainText: string | null;
+      timedLines: Array<{ startMs: number; endMs?: number; text: string }> | null;
+      provider?: string | null;
+      status?: 'none' | 'pending' | 'ready' | 'failed';
+      updatedAt?: string;
+    }>(`/songs/${songId}/lyrics`, payload),
   getLibrary: () =>
     api.get<
       Array<{
@@ -537,6 +552,7 @@ export const songsApi = {
     sampleStartSeconds?: number;
     sampleEndSeconds?: number;
     isExplicit?: boolean;
+    lyricsPlainText?: string;
   }) => 
     api.post<{ id?: string }>('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),

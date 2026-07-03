@@ -181,6 +181,11 @@ export default function MySongsPage() {
   const [editDiscoverClipStartSeconds, setEditDiscoverClipStartSeconds] = useState('0');
   const [editDiscoverClipEndSeconds, setEditDiscoverClipEndSeconds] = useState('15');
   const [editIsExplicit, setEditIsExplicit] = useState(false);
+  const [editLyrics, setEditLyrics] = useState('');
+  const [editLyricsInitial, setEditLyricsInitial] = useState('');
+  const [editLyricsStatus, setEditLyricsStatus] = useState<
+    'none' | 'pending' | 'ready' | 'failed' | null
+  >(null);
   const [editFeaturedArtists, setEditFeaturedArtists] = useState<
     Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
   >([]);
@@ -403,6 +408,18 @@ export default function MySongsPage() {
     setEditIsExplicit(song.isExplicit === true);
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
+    void songsApi
+      .getLyrics(song.id)
+      .then((res) => {
+        const text = res.data?.plainText ?? '';
+        setEditLyrics(text);
+        setEditLyricsInitial(text);
+        setEditLyricsStatus(res.data?.status ?? 'none');
+      })
+      .catch(() => setEditLyricsStatus('none'));
   };
 
   const closeEditModal = () => {
@@ -414,6 +431,9 @@ export default function MySongsPage() {
     setEditFeaturedArtists([]);
     setFeaturedSearchQuery('');
     setFeaturedSearchResults([]);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
     setEditSaving(false);
   };
 
@@ -482,6 +502,14 @@ export default function MySongsPage() {
         featuredArtistIds: editFeaturedArtists.map((a) => a.id),
         isExplicit: editIsExplicit,
       });
+
+      // Save lyrics only when changed; the backend re-syncs captions
+      // automatically whenever the plain text changes.
+      if (editLyrics.trim() !== editLyricsInitial.trim()) {
+        await songsApi.upsertLyrics(editingSong.id, {
+          plainText: editLyrics.trim(),
+        });
+      }
 
       let discoverUpdated:
         | {
@@ -951,6 +979,39 @@ export default function MySongsPage() {
               </div>
               <p className="text-xs text-muted-foreground">
                 Mark explicit when track audio includes explicit language/content.
+              </p>
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Lyrics</label>
+                {editLyricsStatus === 'pending' && (
+                  <span className="text-xs rounded-full bg-amber-500/15 text-amber-500 px-2 py-0.5">
+                    Syncing…
+                  </span>
+                )}
+                {editLyricsStatus === 'ready' && (
+                  <span className="text-xs rounded-full bg-emerald-500/15 text-emerald-500 px-2 py-0.5">
+                    Synced
+                  </span>
+                )}
+                {editLyricsStatus === 'failed' && (
+                  <span className="text-xs rounded-full bg-destructive/15 text-destructive px-2 py-0.5">
+                    Sync failed
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={editLyrics}
+                onChange={(e) => setEditLyrics(e.target.value)}
+                rows={6}
+                placeholder="Paste your lyrics here, one line per lyric line."
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lyrics are automatically synced to your audio as closed captions.
+                Saving new text re-syncs them.
+                {editLyricsStatus === 'failed' &&
+                  ' The last sync failed — save again to retry.'}
               </p>
             </div>
             <div className="space-y-2">

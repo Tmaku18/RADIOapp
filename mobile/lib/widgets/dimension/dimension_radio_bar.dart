@@ -12,11 +12,48 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../features/player/dimension_player_controller.dart';
+import '../../features/player/widgets/synced_lyrics_panel.dart';
 import 'dimension_widgets.dart';
 
 /// Emergent bottom radio bar — web [DimensionRadioBar] parity.
 class DimensionRadioBar extends StatelessWidget {
   const DimensionRadioBar({super.key});
+
+  /// Synced closed captions for owned/sample playback. The full-screen player
+  /// is radio-only (it would tune the radio over the current track), so
+  /// non-radio playback opens lyrics in a sheet instead.
+  static void _showLyricsSheet(BuildContext context, MediaItem item) {
+    final audio = AudioPlayerService().player;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.title,
+                style: Theme.of(context).textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 12),
+              SyncedLyricsPanel(
+                songId: item.id,
+                positionStream: audio.positionStream,
+                currentPosition: () => audio.position,
+                showEmptyMessage: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,8 +113,16 @@ class DimensionRadioBar extends StatelessWidget {
                                         child: InkWell(
                                           onTap: () {
                                             HapticFeedback.lightImpact();
-                                            Navigator.of(context)
-                                                .pushNamed(AppRoutes.player);
+                                            final extras = item.extras;
+                                            final isRadio = extras == null ||
+                                                extras['source'] == 'radio' ||
+                                                extras['radioId'] != null;
+                                            if (isRadio) {
+                                              Navigator.of(context)
+                                                  .pushNamed(AppRoutes.player);
+                                            } else {
+                                              _showLyricsSheet(context, item);
+                                            }
                                           },
                                           borderRadius: BorderRadius.circular(8),
                                           child: Row(
@@ -311,7 +356,7 @@ class _Artwork extends StatelessWidget {
     return CachedNetworkImage(
       imageUrl: uri.toString(),
       fit: BoxFit.cover,
-      errorWidget: (_, __, ___) => ColoredBox(
+      errorWidget: (context, url, error) => ColoredBox(
         color: DimensionTokens.bgSurface,
         child: Icon(Icons.music_note, color: DimensionTokens.neonCyan),
       ),

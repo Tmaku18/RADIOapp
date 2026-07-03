@@ -1476,6 +1476,13 @@ export function RadioPlayer({
                 </span>
               </div>
 
+              {/* Synced closed captions — driven by the local playback clock. */}
+              <SyncedLyricsPanel
+                songId={state.track?.id}
+                currentTimeMs={Math.round(state.currentTime * 1000)}
+                className="mt-4 border-cyan-400/20 bg-black/40"
+              />
+
               <div className="mt-4 flex items-center justify-center gap-4">
                 <button
                   type="button"

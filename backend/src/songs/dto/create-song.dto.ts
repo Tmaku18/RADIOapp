@@ -78,4 +78,12 @@ export class CreateSongDto {
   @IsBoolean()
   @IsOptional()
   isExplicit?: boolean;
+
+  /**
+   * Optional lyrics text. When provided, the backend force-aligns it to the
+   * audio in the background to produce synced captions (timed_lines).
+   */
+  @IsString()
+  @IsOptional()
+  lyricsPlainText?: string;
 }

@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { SongsService } from './songs.service';
 import { CopyrightService } from '../copyright/copyright.service';
+import { LyricsService } from '../lyrics/lyrics.service';
 import { getSupabaseClient } from '../config/supabase.config';
 
 jest.mock('../config/supabase.config', () => ({
@@ -17,9 +18,18 @@ const createBuilder = () => ({
 const createCopyrightServiceMock = () =>
   ({ queueCheck: jest.fn() }) as unknown as CopyrightService;
 
+const createLyricsServiceMock = () =>
+  ({
+    upsertLyrics: jest.fn().mockResolvedValue({}),
+    alignLyricsInBackground: jest.fn(),
+  }) as unknown as LyricsService;
+
 describe('SongsService', () => {
   it('rejects non-artist uploads', async () => {
-    const service = new SongsService(createCopyrightServiceMock());
+    const service = new SongsService(
+      createCopyrightServiceMock(),
+      createLyricsServiceMock(),
+    );
     const usersBuilder = createBuilder();
     usersBuilder.single.mockResolvedValue({
       data: { role: 'listener' },
@@ -37,14 +47,17 @@ describe('SongsService', () => {
         title: 'Test Song',
         artistName: 'Test Artist',
         audioUrl: 'https://example.com/audio.mp3',
-        artworkUrl: null,
+        artworkUrl: undefined,
         durationSeconds: 180,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('creates song for artist', async () => {
-    const service = new SongsService(createCopyrightServiceMock());
+    const service = new SongsService(
+      createCopyrightServiceMock(),
+      createLyricsServiceMock(),
+    );
     const usersBuilder = createBuilder();
     const songsBuilder = createBuilder();
 
@@ -69,7 +82,7 @@ describe('SongsService', () => {
       title: 'Test Song',
       artistName: 'Test Artist',
       audioUrl: 'https://example.com/audio.mp3',
-      artworkUrl: null,
+      artworkUrl: undefined,
       durationSeconds: 180,
     });
 

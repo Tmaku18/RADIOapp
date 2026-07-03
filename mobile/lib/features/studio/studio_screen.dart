@@ -251,6 +251,15 @@ class _StudioScreenState extends State<StudioScreen> {
     if (updated == true && mounted) await _load();
   }
 
+  Future<void> _openLyricsEditor(Song song) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => _LyricsSheet(song: song, songsService: _songs),
+    );
+  }
+
   Future<void> _openDiscoverClip(Song song) async {
     final double start = song.discoverClipStartSeconds ?? 0;
     final double? storedEnd = song.discoverClipEndSeconds;
@@ -520,6 +529,11 @@ class _StudioScreenState extends State<StudioScreen> {
                                               ? 'Edit Discover clip'
                                               : 'Set Discover clip',
                                         ),
+                                      ),
+                                      TextButton.icon(
+                                        onPressed: () => _openLyricsEditor(s),
+                                        icon: const Icon(Icons.lyrics_outlined),
+                                        label: const Text('Lyrics'),
                                       ),
                                       TextButton.icon(
                                         onPressed: s.inRefinery
@@ -825,6 +839,193 @@ class _PayoutsSheetState extends State<_PayoutsSheet> {
                     onPressed: _working ? null : _load,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Refresh status'),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet for viewing/editing a song's lyrics. Saved text is
+/// automatically force-aligned to the audio server-side (closed captions).
+class _LyricsSheet extends StatefulWidget {
+  const _LyricsSheet({required this.song, required this.songsService});
+
+  final Song song;
+  final SongsService songsService;
+
+  @override
+  State<_LyricsSheet> createState() => _LyricsSheetState();
+}
+
+class _LyricsSheetState extends State<_LyricsSheet> {
+  final TextEditingController _controller = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
+  String _status = 'none';
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetch();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetch() async {
+    try {
+      final lyrics = await widget.songsService.getLyrics(widget.song.id);
+      if (!mounted) return;
+      setState(() {
+        _controller.text = lyrics?.plainText ?? '';
+        _status = lyrics?.status ?? 'none';
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final saved = await widget.songsService.upsertLyrics(
+        widget.song.id,
+        _controller.text.trim(),
+      );
+      if (!mounted) return;
+      setState(() {
+        _status = saved?.status ?? _status;
+        _saving = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _controller.text.trim().isEmpty
+                ? 'Lyrics removed.'
+                : 'Lyrics saved. Captions are syncing to your track…',
+          ),
+        ),
+      );
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = 'Could not save lyrics: $e';
+      });
+    }
+  }
+
+  Widget? _statusChip(ColorScheme scheme) {
+    switch (_status) {
+      case 'pending':
+        return Chip(
+          visualDensity: VisualDensity.compact,
+          avatar: const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          label: const Text('Syncing…'),
+        );
+      case 'ready':
+        return Chip(
+          visualDensity: VisualDensity.compact,
+          avatar: Icon(Icons.check_circle, size: 16, color: scheme.primary),
+          label: const Text('Synced'),
+        );
+      case 'failed':
+        return Chip(
+          visualDensity: VisualDensity.compact,
+          avatar: Icon(Icons.error_outline, size: 16, color: scheme.error),
+          label: const Text('Sync failed'),
+        );
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final surfaces = context.networxSurfaces;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final chip = _statusChip(scheme);
+
+    return SafeArea(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, 16 + bottomInset),
+        child: _loading
+            ? const SizedBox(
+                height: 220,
+                child: Center(child: CircularProgressIndicator()),
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Lyrics — ${widget.song.title}',
+                          style: Theme.of(context).textTheme.titleMedium,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      ?chip,
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Lyrics are auto-synced to your audio as closed captions. '
+                    'Saving new text re-syncs them.',
+                    style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
+                  ),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(color: scheme.error, fontSize: 12),
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _controller,
+                    enabled: !_saving,
+                    minLines: 6,
+                    maxLines: 14,
+                    decoration: const InputDecoration(
+                      hintText: 'Paste your lyrics, one line per lyric line.',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: _saving ? null : _save,
+                      icon: _saving
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.lyrics_outlined),
+                      label: const Text('Save lyrics'),
+                    ),
                   ),
                 ],
               ),

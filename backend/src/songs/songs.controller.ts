@@ -37,6 +37,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { STATION_IDS } from '../radio/station.constants';
 import { AdminService } from '../admin/admin.service';
 import { ImageModerationService } from '../moderation/image-moderation.service';
+import { LyricsService } from '../lyrics/lyrics.service';
 
 @Controller('songs')
 export class SongsController {
@@ -48,6 +49,7 @@ export class SongsController {
     private readonly durationService: DurationService,
     private readonly adminService: AdminService,
     private readonly imageModeration: ImageModerationService,
+    private readonly lyricsService: LyricsService,
   ) {}
 
   private assertArtistProfileComplete(userData: {
@@ -347,6 +349,7 @@ export class SongsController {
       artistOriginState: string;
       stationId: string;
       isExplicit?: boolean;
+      lyricsPlainText?: string;
     },
   ) {
     const userData = await this.resolveUploaderUser(user);
@@ -397,6 +400,7 @@ export class SongsController {
       stationId: body.stationId,
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: body.isExplicit !== false,
+      lyricsPlainText: body.lyricsPlainText,
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -544,6 +548,7 @@ export class SongsController {
       sampleEndSeconds: dto.sampleEndSeconds,
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: dto.isExplicit !== false,
+      lyricsPlainText: dto.lyricsPlainText,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&
@@ -1154,29 +1159,7 @@ export class SongsController {
   @Public()
   @Get(':id/lyrics')
   async getLyrics(@Param('id') songId: string) {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('song_lyrics')
-      .select('plain_text, timed_lines, provider, updated_at')
-      .eq('song_id', songId)
-      .maybeSingle();
-
-    if (error) {
-      if (
-        (error as any).code === '42P01' ||
-        (error.message ?? '').toLowerCase().includes('song_lyrics')
-      ) {
-        return { plainText: null, timedLines: null };
-      }
-      throw new BadRequestException(`Failed to fetch lyrics: ${error.message}`);
-    }
-    if (!data) return { plainText: null, timedLines: null };
-    return {
-      plainText: data.plain_text ?? null,
-      timedLines: data.timed_lines ?? null,
-      provider: data.provider ?? null,
-      updatedAt: data.updated_at,
-    };
+    return this.lyricsService.getLyrics(songId);
   }
 
   @Patch(':id/lyrics')
@@ -1188,7 +1171,7 @@ export class SongsController {
     @Body()
     body: {
       plainText?: string;
-      timedLines?: Array<{ startMs: number; endMs?: number; text: string }>;
+      timedLines?: Array<{ startMs: number; endMs: number; text: string }>;
     },
   ) {
     const supabase = getSupabaseClient();
@@ -1213,28 +1196,12 @@ export class SongsController {
       }
     }
 
-    const now = new Date().toISOString();
-    const row: Record<string, unknown> = {
-      song_id: songId,
-      updated_at: now,
-    };
-    if (body.plainText !== undefined) row.plain_text = body.plainText;
-    if (body.timedLines !== undefined) row.timed_lines = body.timedLines;
-
-    const { data, error } = await supabase
-      .from('song_lyrics')
-      .upsert(row, { onConflict: 'song_id' })
-      .select()
-      .single();
-
-    if (error) {
-      throw new BadRequestException(`Failed to save lyrics: ${error.message}`);
-    }
-    return {
-      plainText: data.plain_text ?? null,
-      timedLines: data.timed_lines ?? null,
-      updatedAt: data.updated_at,
-    };
+    // Explicit timedLines are a manual sync; plain text alone queues
+    // automatic caption alignment in the background.
+    return this.lyricsService.upsertLyrics(songId, {
+      plainText: body.plainText,
+      timedLines: body.timedLines,
+    });
   }
 
   // ─── End Lyrics ────────────────────────────────────────────────────
