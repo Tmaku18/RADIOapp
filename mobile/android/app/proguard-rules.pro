@@ -55,6 +55,12 @@
     native <methods>;
 }
 
+# flutter_inappwebview (3D butterfly hero WebView). Not under io.flutter.plugins,
+# so R8 can strip/rename it in Play builds, leaving the platform view dead and
+# the 2D hero fallback permanently visible.
+-keep class com.pichillilorenzo.flutter_inappwebview_android.** { *; }
+-dontwarn com.pichillilorenzo.flutter_inappwebview_android.**
+
 # flutter_angle / three.js GL bridge (Play Store release uses R8 minify)
 -keep class org.fluttergl.flutter_angle.** { *; }
 -keep class com.getkeepsafe.relinker.** { *; }

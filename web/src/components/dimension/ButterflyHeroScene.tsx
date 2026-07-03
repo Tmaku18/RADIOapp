@@ -532,13 +532,19 @@ function SceneContents() {
   );
 }
 
-export function ButterflyHeroScene() {
+export function ButterflyHeroScene({ onReady }: { onReady?: () => void } = {}) {
   return (
     <Canvas
       dpr={[1, 1.8]}
       camera={{ position: [0, 0.2, 6.4], fov: 45 }}
       gl={{ antialias: true, alpha: true }}
       style={{ position: 'absolute', inset: 0 }}
+      onCreated={() => {
+        if (!onReady) return;
+        // GL context is up; wait two paints so the first frame is on screen
+        // before consumers (the mobile WebView embed) hide their fallback.
+        requestAnimationFrame(() => requestAnimationFrame(onReady));
+      }}
     >
       <SceneContents />
     </Canvas>

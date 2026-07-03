@@ -32,6 +32,7 @@ class ButterflyHeroWebView extends StatefulWidget {
 
 class _ButterflyHeroWebViewState extends State<ButterflyHeroWebView> {
   bool _notified = false;
+  Timer? _loadStopFallback;
 
   String get _embedUrl {
     final origin = (env('API_BASE_URL') ?? 'https://www.networxradio.com')
@@ -39,7 +40,14 @@ class _ButterflyHeroWebViewState extends State<ButterflyHeroWebView> {
     return '$origin/embed/butterfly';
   }
 
+  @override
+  void dispose() {
+    _loadStopFallback?.cancel();
+    super.dispose();
+  }
+
   void _ready(String status) {
+    _loadStopFallback?.cancel();
     widget.onStatus?.call(status);
     if (_notified) return;
     _notified = true;
@@ -47,6 +55,7 @@ class _ButterflyHeroWebViewState extends State<ButterflyHeroWebView> {
   }
 
   void _fail(String status) {
+    _loadStopFallback?.cancel();
     widget.onStatus?.call(status);
     if (_notified) return;
     widget.onFailed?.call();
@@ -67,15 +76,38 @@ class _ButterflyHeroWebViewState extends State<ButterflyHeroWebView> {
         mediaPlaybackRequiresUserGesture: true,
         useHybridComposition: true,
         javaScriptEnabled: true,
+        // WebGL requires hardware acceleration; make it explicit so a global
+        // or manufacturer default can't silently soften it.
+        hardwareAcceleration: true,
         // The hero is decorative; never surface external navigation here.
         useShouldOverrideUrlLoading: false,
       ),
+      onWebViewCreated: (controller) {
+        // The embed page calls this when the Three.js canvas has painted its
+        // first frames (or when WebGL context creation fails). This is the
+        // authoritative signal — no guessing with timers.
+        controller.addJavaScriptHandler(
+          handlerName: 'butterflyStatus',
+          callback: (args) {
+            final event = args.isNotEmpty ? '${args[0]}' : '';
+            if (event == 'ready') {
+              _ready('frames-ok');
+            } else if (event == 'failed') {
+              final detail = args.length > 1 ? '${args[1]}' : 'webgl';
+              debugPrint('ButterflyHeroWebView embed failure: $detail');
+              _fail('err:webgl');
+            }
+            return null;
+          },
+        );
+      },
       onLoadStop: (controller, url) {
         widget.onStatus?.call('building');
-        // Give the WebGL canvas a moment to paint its first frame before we
-        // fade the 2D fallback out, so there's no visible blank flash.
-        Timer(const Duration(milliseconds: 450), () {
-          if (mounted) _ready('frames-ok');
+        // Fallback for older deployed embeds that don't emit butterflyStatus:
+        // give the JS bundle + WebGL canvas time to paint before revealing.
+        _loadStopFallback?.cancel();
+        _loadStopFallback = Timer(const Duration(seconds: 4), () {
+          if (mounted) _ready('frames-assumed');
         });
       },
       onReceivedError: (controller, request, error) {
@@ -90,6 +122,12 @@ class _ButterflyHeroWebViewState extends State<ButterflyHeroWebView> {
           debugPrint('ButterflyHeroWebView http error: $status');
           _fail('err:http$status');
         }
+      },
+      onRenderProcessGone: (controller, detail) async {
+        // System WebView renderer crashed (common under memory pressure on
+        // physical devices). Keep the 2D hero rather than a dead view.
+        debugPrint('ButterflyHeroWebView renderer gone: ${detail.didCrash}');
+        _fail('err:renderer-gone');
       },
     );
   }
