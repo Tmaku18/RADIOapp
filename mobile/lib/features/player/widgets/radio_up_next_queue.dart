@@ -117,6 +117,10 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
             : width >= DimensionTokens.breakpointTablet
                 ? 2
                 : 1;
+    // Phones get a single stacked column, so cap the list to just the next
+    // song to keep the player screen short; wider screens keep the full grid.
+    final visibleTracks =
+        columns == 1 ? _tracks.take(1).toList() : _tracks;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -125,7 +129,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Text(
-              'UP NEXT IN THE QUEUE',
+              columns == 1 ? 'UP NEXT' : 'UP NEXT IN THE QUEUE',
               style: GoogleFonts.jetBrainsMono(
                 color: DimensionTokens.pink400,
                 fontSize: 10,
@@ -173,9 +177,9 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
               mainAxisSpacing: 10,
               childAspectRatio: 2.8,
             ),
-            itemCount: _tracks.length,
+            itemCount: visibleTracks.length,
             itemBuilder: (context, i) {
-              final track = _tracks[i];
+              final track = visibleTracks[i];
               return GlassCard(
                 padding: const EdgeInsets.all(8),
                 child: Row(
