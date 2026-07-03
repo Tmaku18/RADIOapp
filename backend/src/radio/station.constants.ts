@@ -29,6 +29,19 @@ export const AUDIOBOOK_STATION_ID = 'us-audiobook' as const;
 export const SPANISH_STATION_ID = 'us-spanish' as const;
 export const AFROBEATS_STATION_ID = 'us-afrobeats' as const;
 export const DJ_MIXES_STATION_ID = 'us-dj-mixes' as const;
+export const KIDS_FRIENDLY_STATION_ID = 'us-kids-friendly' as const;
+
+/** Stations that only play non-explicit (is_explicit = false) catalog. */
+export const EXPLICIT_FILTERED_STATION_IDS = [
+  CLEAN_RAP_STATION_ID,
+  KIDS_FRIENDLY_STATION_ID,
+] as const;
+
+export function isExplicitFilteredStation(stationId: string): boolean {
+  return (EXPLICIT_FILTERED_STATION_IDS as readonly string[]).includes(
+    stationId,
+  );
+}
 
 export const STATION_IDS = [
   RAP_STATION_ID,
@@ -58,6 +71,7 @@ export const STATION_IDS = [
   SPANISH_STATION_ID,
   AFROBEATS_STATION_ID,
   DJ_MIXES_STATION_ID,
+  KIDS_FRIENDLY_STATION_ID,
 ] as const;
 
 export type StationId = (typeof STATION_IDS)[number];
@@ -119,6 +133,7 @@ export const STATION_IDS_BY_GENRE: Record<string, readonly string[]> = {
   spanish: [SPANISH_STATION_ID],
   afrobeats: [AFROBEATS_STATION_ID],
   'dj-mixes': [DJ_MIXES_STATION_ID],
+  'kids-friendly': [KIDS_FRIENDLY_STATION_ID],
 };
 
 export function stationIdsForGenres(genreIds: string[]): string[] {

@@ -20,8 +20,10 @@ import {
 } from './radio-state.service';
 import {
   CLEAN_RAP_STATION_ID,
+  KIDS_FRIENDLY_STATION_ID,
   RAP_STATION_ID,
   READY_NOW_RAP_STATION_ID,
+  isExplicitFilteredStation,
   normalizeSongStationId,
 } from './station.constants';
 
@@ -650,7 +652,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   private isCleanStation(stationId: string): boolean {
-    return stationId === CLEAN_RAP_STATION_ID;
+    return isExplicitFilteredStation(stationId);
   }
 
   private applyExplicitContentScope(query: any, stationId: string) {
@@ -1894,7 +1896,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
 
     if (getDirectPool()) {
       try {
-        const isClean = stationId === CLEAN_RAP_STATION_ID;
+        const isClean = isExplicitFilteredStation(stationId);
         const explicitClause = isClean ? ' AND is_explicit = false' : '';
         const rows = await directQuery<{ id: string; artist_id: string | null; audio_url: string | null }>(
           `SELECT id, artist_id, audio_url FROM songs
@@ -2498,7 +2500,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const forceFreeRotation =
       radioId === RAP_STATION_ID ||
       radioId === CLEAN_RAP_STATION_ID ||
-      radioId === READY_NOW_RAP_STATION_ID;
+      radioId === READY_NOW_RAP_STATION_ID ||
+      radioId === KIDS_FRIENDLY_STATION_ID;
     if (forceFreeRotation) {
       targetType = 'free_rotation';
     }

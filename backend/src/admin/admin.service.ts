@@ -1089,6 +1089,7 @@ export class AdminService {
       { id: 'us-rock', state: 'US', label: 'Rock' },
       { id: 'us-metal', state: 'US', label: 'Metal Radio' },
       { id: 'us-pop', state: 'US', label: 'Pop' },
+      { id: 'us-kids-friendly', state: 'US', label: 'Kids Friendly Radio' },
       { id: 'us-edm', state: 'US', label: 'EDM' },
       { id: 'us-rnb', state: 'US', label: 'R&B' },
       { id: 'us-podcasts', state: 'US', label: 'Podcasts' },

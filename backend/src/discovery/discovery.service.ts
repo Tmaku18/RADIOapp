@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
-import { CLEAN_RAP_STATION_ID } from '../radio/station.constants';
+import { isExplicitFilteredStation } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
 
 export interface DiscoveryProfile {
@@ -270,7 +270,7 @@ export class DiscoveryService {
       songsQuery = songsQuery.or(
         `station_id.eq.${stationId},station_ids.cs.{${stationId}}`,
       );
-      if (stationId === CLEAN_RAP_STATION_ID) {
+      if (isExplicitFilteredStation(stationId)) {
         songsQuery = songsQuery.eq('is_explicit', false);
       }
     }
