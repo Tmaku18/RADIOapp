@@ -32,6 +32,8 @@ export interface LyricsRecord {
 @Injectable()
 export class LyricsService {
   private readonly logger = new Logger(LyricsService.name);
+  // Guards the catalog-wide backfill so concurrent clicks don't double-queue.
+  private backfillRunning = false;
   private readonly provider: LyricsAlignmentProvider &
     LyricsTranscriptionProvider;
 
@@ -168,55 +170,75 @@ export class LyricsService {
   }
 
   /**
-   * Queue transcription for approved songs that have no lyrics yet.
-   * Runs sequentially in the background (one provider call at a time) so a
-   * large backfill doesn't hammer the API. Returns the number of songs queued.
+   * Queue transcription for every approved song that has no lyrics yet
+   * (optionally capped at `limit`). Runs sequentially in the background (one
+   * provider call at a time) so a large backfill doesn't hammer the API.
+   * Returns the number of songs queued.
    */
-  async backfillMissingLyrics(limit = 25): Promise<{ queued: number; songIds: string[] }> {
+  async backfillMissingLyrics(
+    limit?: number,
+  ): Promise<{ queued: number; songIds: string[]; alreadyRunning: boolean }> {
     if (!this.provider.isConfigured()) {
       throw new BadRequestException(
         'ELEVENLABS_API_KEY is not configured; cannot transcribe.',
       );
     }
-    const supabase = getSupabaseClient();
-    const { data: songs, error } = await supabase
-      .from('songs')
-      .select('id, song_lyrics(plain_text, status)')
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
-      .limit(Math.min(Math.max(limit, 1), 100));
-    if (error) {
-      throw new BadRequestException(`Failed to list songs: ${error.message}`);
+    if (this.backfillRunning) {
+      return { queued: 0, songIds: [], alreadyRunning: true };
     }
 
-    const targets = (songs ?? [])
-      .filter((song) => {
+    const supabase = getSupabaseClient();
+    // Page through the whole approved catalog; a joined select with .limit()
+    // would only inspect the most recent rows, silently skipping older songs.
+    const pageSize = 1000;
+    const targets: string[] = [];
+    for (let from = 0; ; from += pageSize) {
+      const { data: songs, error } = await supabase
+        .from('songs')
+        .select('id, song_lyrics(plain_text, status)')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
+        .range(from, from + pageSize - 1);
+      if (error) {
+        throw new BadRequestException(`Failed to list songs: ${error.message}`);
+      }
+      for (const song of songs ?? []) {
         const lyrics = Array.isArray(song.song_lyrics)
           ? song.song_lyrics[0]
           : song.song_lyrics;
-        if (!lyrics) return true;
-        const hasText = ((lyrics.plain_text as string | null) ?? '').trim().length > 0;
-        return !hasText && lyrics.status !== 'pending';
-      })
-      .map((song) => song.id as string);
-
-    // Fire-and-forget chain; each song completes before the next starts.
-    void (async () => {
-      for (const id of targets) {
-        try {
-          await this.transcribeLyrics(id, false);
-        } catch (err) {
-          this.logger.warn(
-            `Backfill transcription failed for song ${id}: ${
-              err instanceof Error ? err.message : String(err)
-            }`,
-          );
+        const hasText =
+          ((lyrics?.plain_text as string | null) ?? '').trim().length > 0;
+        if (!lyrics || (!hasText && lyrics.status !== 'pending')) {
+          targets.push(song.id as string);
         }
       }
-      this.logger.log(`Lyrics backfill finished (${targets.length} songs).`);
+      if (!songs || songs.length < pageSize) break;
+    }
+
+    const queued = limit && limit > 0 ? targets.slice(0, limit) : targets;
+
+    // Fire-and-forget chain; each song completes before the next starts.
+    this.backfillRunning = true;
+    void (async () => {
+      try {
+        for (const id of queued) {
+          try {
+            await this.transcribeLyrics(id, false);
+          } catch (err) {
+            this.logger.warn(
+              `Backfill transcription failed for song ${id}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          }
+        }
+        this.logger.log(`Lyrics backfill finished (${queued.length} songs).`);
+      } finally {
+        this.backfillRunning = false;
+      }
     })();
 
-    return { queued: targets.length, songIds: targets };
+    return { queued: queued.length, songIds: queued, alreadyRunning: false };
   }
 
   private async transcribeLyrics(songId: string, force: boolean): Promise<void> {

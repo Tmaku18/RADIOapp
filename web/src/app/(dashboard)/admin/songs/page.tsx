@@ -416,7 +416,9 @@ export default function AdminSongsPage() {
     setBackfillingLyrics(true);
     try {
       const { data } = await songsApi.backfillLyrics({});
-      if (data.queued === 0) {
+      if (data.alreadyRunning) {
+        setError('A caption backfill is already running. Check back shortly.');
+      } else if (data.queued === 0) {
         setError(null);
         alert('All approved songs already have lyrics or captions.');
       } else {

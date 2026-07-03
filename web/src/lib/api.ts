@@ -673,10 +673,11 @@ export const songsApi = {
     ),
   /**
    * Admin: auto-transcribe captions (speech-to-text) for approved songs that
-   * have no lyrics yet. Runs sequentially in the background.
+   * have no lyrics yet. Queues the whole catalog unless a limit is given;
+   * runs sequentially in the background.
    */
   backfillLyrics: (data?: { limit?: number }) =>
-    api.post<{ queued: number; songIds: string[] }>(
+    api.post<{ queued: number; songIds: string[]; alreadyRunning?: boolean }>(
       '/songs/admin/backfill-lyrics',
       data ?? {},
     ),
