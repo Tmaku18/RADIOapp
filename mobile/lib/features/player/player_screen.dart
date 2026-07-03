@@ -18,6 +18,7 @@ import '../../core/services/radio_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/audio_visualizer_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/radio_background_sync_service.dart';
@@ -157,6 +158,10 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
     _loadMe();
     _initializeStationAndPlayback();
+    // Real audio-reactive bars (Android output tap). Prompts once for the mic
+    // permission; the service remembers a denial and silently falls back to
+    // the simulated animation.
+    unawaited(AudioVisualizerService().ensureStarted());
     _risingStarSub = StationEventsService().risingStarStream.listen((event) {
       if (!mounted) return;
       final percent = event.conversion != null

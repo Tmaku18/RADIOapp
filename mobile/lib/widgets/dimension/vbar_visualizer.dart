@@ -1,7 +1,9 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import '../../core/services/audio_visualizer_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 
 /// Smooth 1-D value noise in 0..1 — flowing, organic motion across bars/time.
@@ -17,10 +19,12 @@ double _valueNoise(double x) {
   return _hash(i) * (1 - u) + _hash(i + 1) * u;
 }
 
-/// Web: `.vbar` equalizer bars. Real FFT isn't available through the background
-/// audio pipeline, so this synthesizes music-like motion: an irregular beat
-/// envelope drives height while flowing value-noise gives each bar correlated,
-/// non-repeating movement (rather than a looping sine).
+/// Web: `.vbar` equalizer bars. Uses real FFT bars from
+/// [AudioVisualizerService] when the Android output tap is running
+/// (downsampled to this widget's bar count); otherwise synthesizes music-like
+/// motion: an irregular beat envelope drives height while flowing value-noise
+/// gives each bar correlated, non-repeating movement (rather than a looping
+/// sine).
 class VbarVisualizer extends StatefulWidget {
   const VbarVisualizer({
     super.key,
@@ -41,12 +45,17 @@ class _VbarVisualizerState extends State<VbarVisualizer>
     with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   double _t = 0;
+  Float32List? _realBars;
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker((elapsed) {
-      setState(() => _t = elapsed.inMicroseconds / 1e6);
+      setState(() {
+        _t = elapsed.inMicroseconds / 1e6;
+        _realBars =
+            widget.isPlaying ? AudioVisualizerService().freshBars : null;
+      });
     })..start();
   }
 
@@ -56,8 +65,24 @@ class _VbarVisualizerState extends State<VbarVisualizer>
     super.dispose();
   }
 
+  /// Average the service's 24 real bars down to this widget's bar count.
+  double _realBarScale(Float32List real, int i) {
+    final n = real.length;
+    final s = (i * n) ~/ widget.barCount;
+    final e = math.max(s + 1, ((i + 1) * n) ~/ widget.barCount);
+    var sum = 0.0;
+    for (var j = s; j < e && j < n; j++) {
+      sum += real[j];
+    }
+    return (sum / (e - s)).clamp(0.15, 1.0);
+  }
+
   double _barScale(int i) {
     if (!widget.isPlaying) return 0.2;
+    final real = _realBars;
+    if (real != null && real.isNotEmpty) {
+      return _realBarScale(real, i);
+    }
     final t = _t;
     final frac = i / (widget.barCount - 1).clamp(1, 999);
 

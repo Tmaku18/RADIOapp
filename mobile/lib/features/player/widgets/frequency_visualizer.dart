@@ -1,8 +1,10 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../../../core/services/audio_visualizer_service.dart';
 import '../../../core/theme/dimension_tokens.dart';
 
 /// Smooth 1-D value noise in 0..1 (hash + smoothstep interpolation). Sampling it
@@ -23,12 +25,14 @@ double _valueNoise(double x) {
 
 /// FFT-style frequency bars — web FrequencyVisualizer parity.
 ///
-/// Real device FFT isn't available through the background audio pipeline (that
-/// would need the RECORD_AUDIO permission), so this synthesizes a music-like
-/// spectrum: an irregular beat envelope (incommensurate pulses so it never
-/// visibly repeats) drives the overall height, while flowing value-noise gives
-/// each bar correlated, organic motion. Calm wave when paused. A continuous
-/// ticker drives it so it stays alive regardless of parent rebuilds.
+/// When [AudioVisualizerService] delivers real FFT data (Android output tap,
+/// needs the RECORD_AUDIO permission) the bars react to the actual music like
+/// the web AnalyserNode path. Otherwise this falls back to the original
+/// synthesized spectrum: an irregular beat envelope (incommensurate pulses so
+/// it never visibly repeats) drives the overall height, while flowing
+/// value-noise gives each bar correlated, organic motion. Calm wave when
+/// paused. A continuous ticker drives it so it stays alive regardless of
+/// parent rebuilds.
 class FrequencyVisualizer extends StatefulWidget {
   const FrequencyVisualizer({super.key, required this.isPlaying});
 
@@ -40,17 +44,22 @@ class FrequencyVisualizer extends StatefulWidget {
 
 class _FrequencyVisualizerState extends State<FrequencyVisualizer>
     with SingleTickerProviderStateMixin {
-  static const _barCount = 24;
+  static const _barCount = AudioVisualizerService.barCount;
   static const _maxHeight = 48.0;
 
   late final Ticker _ticker;
   double _t = 0;
+  Float32List? _realBars;
 
   @override
   void initState() {
     super.initState();
     _ticker = createTicker((elapsed) {
-      setState(() => _t = elapsed.inMicroseconds / 1e6);
+      setState(() {
+        _t = elapsed.inMicroseconds / 1e6;
+        _realBars =
+            widget.isPlaying ? AudioVisualizerService().freshBars : null;
+      });
     })..start();
   }
 
@@ -64,6 +73,10 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
     final t = _t;
     if (!widget.isPlaying) {
       return (0.12 + math.sin(t * 1.3 + i * 0.45) * 0.05).clamp(0.06, 1.0);
+    }
+    final real = _realBars;
+    if (real != null && i < real.length) {
+      return real[i].clamp(0.04, 1.0);
     }
     final frac = i / (_barCount - 1);
 
@@ -94,9 +107,13 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
         Text(
           widget.isPlaying ? 'LIVE FFT' : 'STANDBY',
           style: TextStyle(
-            color: widget.isPlaying
+            // Full neon only when the bars reflect real audio; simulated
+            // playback dims slightly (paused stays muted, as before).
+            color: !widget.isPlaying
+                ? DimensionTokens.textMuted
+                : _realBars != null
                 ? DimensionTokens.neonCyan
-                : DimensionTokens.textMuted,
+                : DimensionTokens.neonCyan.withValues(alpha: 0.55),
             fontSize: 10,
             letterSpacing: 2,
             fontWeight: FontWeight.w700,
