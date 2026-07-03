@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
+  Flag,
   Flame,
   Heart,
   Pause,
@@ -29,6 +30,8 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { toast } from 'sonner';
+import { ReportReasonDialog } from '@/components/safety/ReportReasonDialog';
 import { parseDjOverlay, subscribeDjBoothEvents } from '@/lib/dj-booth-listener';
 import { resolveNextTrackAfterEnd, shouldDeferServerTrackSwitch } from '@/lib/radio-sync';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
@@ -178,6 +181,8 @@ export function RadioPlayer({
   const [followingArtist, setFollowingArtist] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   const [refineryOpen, setRefineryOpen] = useState(false);
   const [refinerySongId, setRefinerySongId] = useState<string | null>(null);
@@ -473,6 +478,29 @@ export function RadioPlayer({
       setShareFeedback('Could not share');
     }
     window.setTimeout(() => setShareFeedback(null), 2500);
+  };
+
+  /** Report the song that's playing (goes to admin user reports with song context). */
+  const submitTrackReport = async (reason: string) => {
+    const track = state.track;
+    if (!track?.artistId || reportSubmitting) return;
+    setReportSubmitting(true);
+    try {
+      await usersApi.reportUser(track.artistId, {
+        reason: `[Song: "${track.title}"] ${reason}`,
+        contextType: 'song',
+        contextId: track.id,
+      });
+      toast.success('Report submitted. Our team will review it.');
+      setReportOpen(false);
+    } catch (error) {
+      const serverMessage = (
+        error as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
+      toast.error(serverMessage || 'Could not submit report.');
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   const submitRefinery = async () => {
@@ -1210,6 +1238,17 @@ export function RadioPlayer({
     );
   }
 
+  const reportDialog = (
+    <ReportReasonDialog
+      open={reportOpen}
+      onOpenChange={setReportOpen}
+      title={`Report "${state.track?.title ?? 'this song'}"`}
+      description="Tell us what's wrong with this song. Our team will review the report."
+      submitting={reportSubmitting}
+      onSubmit={submitTrackReport}
+    />
+  );
+
   const refineryDialog = (
     <Dialog open={refineryOpen} onOpenChange={setRefineryOpen}>
       <DialogContent className="sm:max-w-[520px]">
@@ -1395,6 +1434,19 @@ export function RadioPlayer({
                     {shareFeedback ?? 'Share'}
                   </button>
                 )}
+                {artistUserId && profile?.id && profile.id !== artistUserId && (
+                  <button
+                    type="button"
+                    onClick={() => setReportOpen(true)}
+                    disabled={!state.track}
+                    data-testid="radio-report-track"
+                    title="Report this song"
+                    className="h-10 px-4 rounded-full border border-red-400/40 text-red-300 hover:bg-red-400/10 text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 inline-flex items-center gap-2"
+                  >
+                    <Flag className="w-3.5 h-3.5" />
+                    Report
+                  </button>
+                )}
                 <div className="flex items-center gap-2 ml-auto w-44 min-w-[120px]">
                   <Volume2 className="w-4 h-4 text-white/50 shrink-0" />
                   <input
@@ -1454,6 +1506,7 @@ export function RadioPlayer({
           </div>
         </div>
         {refineryDialog}
+        {reportDialog}
       </>
     );
   }
