@@ -220,6 +220,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
           title: s.title,
           artist: s.artistName,
           artUri: BrandAssets.mediaArtUri(s.artworkUrl),
+          extras: {
+            'source': owns ? 'discography' : 'sample',
+            // Non-owners must not scrub: the emulated sample plays the full
+            // file with a 30s stop timer, so seeking would expose the track.
+            'noSeek': !owns,
+          },
         ),
       ),
     );

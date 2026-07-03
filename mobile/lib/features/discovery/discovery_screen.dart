@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/brand/brand_assets.dart';
 import '../../core/models/browse_models.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/services/browse_like_events_service.dart';
@@ -767,7 +769,20 @@ class _LibraryTabState extends State<_LibraryTab> {
         throw Exception('Stream unavailable.');
       }
       final player = AudioPlayerService().player;
-      await player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      // Tag the source so the bottom bar shows this track with a seek slider
+      // (purchased = full entitled stream, scrubbing allowed).
+      await player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: MediaItem(
+            id: item.id,
+            title: item.title,
+            artist: item.artistName,
+            artUri: BrandAssets.mediaArtUri(item.artworkUrl),
+            extras: const {'source': 'discography'},
+          ),
+        ),
+      );
       await player.play();
     } catch (e) {
       if (!mounted) return;
@@ -806,7 +821,12 @@ class _LibraryTabState extends State<_LibraryTab> {
     setState(() => _items = _items.where((i) => i.id != item.id).toList());
   }
 
-  Future<void> _playUrl(String? url, String missingMessage) async {
+  Future<void> _playUrl(
+    String? url,
+    String missingMessage, {
+    LibrarySong? song,
+    bool seekable = false,
+  }) async {
     if (url == null || url.isEmpty) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -816,7 +836,25 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
     try {
       final player = AudioPlayerService().player;
-      await player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      await player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: song == null
+              ? null
+              : MediaItem(
+                  id: song.id,
+                  title: song.title,
+                  artist: song.artistName,
+                  artUri: BrandAssets.mediaArtUri(song.artworkUrl),
+                  extras: {
+                    'source': seekable ? 'discography' : 'sample',
+                    // Samples can fall back to the full file with an emulated
+                    // window; never allow scrubbing on non-entitled plays.
+                    'noSeek': !seekable,
+                  },
+                ),
+        ),
+      );
       await player.play();
     } catch (e) {
       if (!mounted) return;
@@ -826,17 +864,26 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
   }
 
-  Future<void> _playSample(LibrarySong item) =>
-      _playUrl(item.sampleUrl ?? item.audioUrl, 'No sample available yet.');
+  Future<void> _playSample(LibrarySong item) => _playUrl(
+        item.sampleUrl ?? item.audioUrl,
+        'No sample available yet.',
+        song: item,
+      );
 
-  Future<void> _playClip(LibrarySong item) =>
-      _playUrl(item.discoverClipUrl, 'This song has no discover clip.');
+  Future<void> _playClip(LibrarySong item) => _playUrl(
+        item.discoverClipUrl,
+        'This song has no discover clip.',
+        song: item,
+      );
 
   Future<void> _playFull(LibrarySong item) async {
     setState(() => _busyLikedId = item.id);
     try {
+      // Full stream is entitlement-gated server-side (owner/purchaser only),
+      // so a successful URL means scrubbing is allowed.
       final url = await _songs.getStreamUrl(item.id);
-      await _playUrl(url, 'Could not play the full song.');
+      await _playUrl(url, 'Could not play the full song.',
+          song: item, seekable: true);
     } finally {
       if (mounted) setState(() => _busyLikedId = null);
     }

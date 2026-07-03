@@ -200,23 +200,54 @@ class DimensionRadioBar extends StatelessWidget {
                                     ),
                                   ),
                                   Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: LinearProgressIndicator(
-                                          value: ctrl.progress / 100,
-                                          minHeight: 4,
-                                          backgroundColor:
-                                              Colors.white.withValues(alpha: 0.08),
-                                          valueColor: AlwaysStoppedAnimation(
-                                            DimensionTokens.neonCyan,
+                                    // Radio: display-only progress (stay glued
+                                    // to live). Owned/library tracks: draggable
+                                    // scrubber so the listener can seek.
+                                    child: ctrl.canSkip
+                                        ? SliderTheme(
+                                            data: SliderThemeData(
+                                              trackHeight: 4,
+                                              activeTrackColor:
+                                                  DimensionTokens.neonCyan,
+                                              inactiveTrackColor: Colors.white
+                                                  .withValues(alpha: 0.08),
+                                              thumbColor: Colors.white,
+                                              thumbShape:
+                                                  const RoundSliderThumbShape(
+                                                enabledThumbRadius: 6,
+                                              ),
+                                              overlayShape:
+                                                  const RoundSliderOverlayShape(
+                                                overlayRadius: 12,
+                                              ),
+                                            ),
+                                            child: Slider(
+                                              value: ctrl.progress
+                                                  .clamp(0, 100)
+                                                  .toDouble(),
+                                              max: 100,
+                                              onChanged: (v) => ctrl
+                                                  .seekToProgress(v),
+                                            ),
+                                          )
+                                        : Padding(
+                                            padding: const EdgeInsets
+                                                .symmetric(horizontal: 8),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              child: LinearProgressIndicator(
+                                                value: ctrl.progress / 100,
+                                                minHeight: 4,
+                                                backgroundColor: Colors.white
+                                                    .withValues(alpha: 0.08),
+                                                valueColor:
+                                                    AlwaysStoppedAnimation(
+                                                  DimensionTokens.neonCyan,
+                                                ),
+                                              ),
+                                            ),
                                           ),
-                                        ),
-                                      ),
-                                    ),
                                   ),
                                   Text(
                                     ctrl.totalLabel,

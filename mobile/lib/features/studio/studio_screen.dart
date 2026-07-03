@@ -78,6 +78,8 @@ class _StudioScreenState extends State<StudioScreen> {
             title: song.title,
             artist: song.artistName,
             artUri: BrandAssets.mediaArtUri(song.artworkUrl),
+            // Own upload — seekable in the bottom bar (not radio-locked).
+            extras: const {'source': 'discography'},
           ),
         ),
       );

@@ -1,10 +1,13 @@
 'use client';
 
 import Link from 'next/link';
+import { useRef } from 'react';
 import {
+  FastForward,
   Flame,
   Pause,
   Play,
+  Rewind,
   Volume2,
 } from 'lucide-react';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
@@ -50,6 +53,93 @@ function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
       >
         🔥
       </button>
+    </div>
+  );
+}
+
+/**
+ * Progress track. For radio it is display-only (listeners stay glued to the
+ * live position); for owned/library playback (`canSeek`) it is a click/drag
+ * scrubber so the user can seek anywhere in the song.
+ */
+function ProgressTrack({ player }: { player: DimensionPlayerModel }) {
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const draggingRef = useRef(false);
+  const canSeek = player.canSkip;
+
+  const seekFromClientX = (clientX: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0) return;
+    const percent = Math.min(
+      100,
+      Math.max(0, ((clientX - rect.left) / rect.width) * 100),
+    );
+    player.seekToProgress(percent);
+  };
+
+  if (!canSeek) {
+    return (
+      <div
+        className="relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden pointer-events-none"
+        aria-label="Live radio progress"
+      >
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500 pointer-events-none"
+          style={{ width: `${player.progress}%` }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={trackRef}
+      role="slider"
+      aria-label="Seek"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(player.progress)}
+      tabIndex={0}
+      data-testid="player-seek-track"
+      className="pointer-events-auto relative flex-1 h-4 flex items-center cursor-pointer group touch-none select-none"
+      onPointerDown={(e) => {
+        draggingRef.current = true;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        seekFromClientX(e.clientX);
+      }}
+      onPointerMove={(e) => {
+        if (draggingRef.current) seekFromClientX(e.clientX);
+      }}
+      onPointerUp={(e) => {
+        draggingRef.current = false;
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }}
+      onPointerCancel={() => {
+        draggingRef.current = false;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          player.seekPrev();
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          player.seekNext();
+        }
+      }}
+    >
+      <div className="relative w-full h-1 group-hover:h-1.5 transition-all dim-progress-track rounded-full overflow-hidden">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500"
+          style={{ width: `${player.progress}%` }}
+        />
+      </div>
+      <div
+        className="absolute h-3 w-3 rounded-full bg-white shadow ring-2 ring-cyan-400/70 opacity-0 group-hover:opacity-100 transition-opacity -translate-x-1/2"
+        style={{ left: `${player.progress}%` }}
+        aria-hidden
+      />
     </div>
   );
 }
@@ -128,6 +218,18 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
 
         <div className="flex-1 flex flex-col items-center gap-2 min-w-0">
           <div className="pointer-events-auto flex items-center gap-3">
+            {player.canSkip ? (
+              <button
+                type="button"
+                onClick={player.seekPrev}
+                data-testid="player-seek-back-btn"
+                className="w-8 h-8 rounded-full bg-white/5 dim-text flex items-center justify-center hover:bg-white/10 transition-colors"
+                aria-label="Back 10 seconds"
+                title="Back 10s"
+              >
+                <Rewind className="w-4 h-4" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={player.togglePlay}
@@ -142,6 +244,18 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <Play className="w-4 h-4 ml-0.5" />
               )}
             </button>
+            {player.canSkip ? (
+              <button
+                type="button"
+                onClick={player.seekNext}
+                data-testid="player-seek-forward-btn"
+                className="w-8 h-8 rounded-full bg-white/5 dim-text flex items-center justify-center hover:bg-white/10 transition-colors"
+                aria-label="Forward 10 seconds"
+                title="Forward 10s"
+              >
+                <FastForward className="w-4 h-4" />
+              </button>
+            ) : null}
             <div className="hidden md:flex items-end gap-[3px] h-6 ml-2">
               {VBAR_DELAYS.map((d, i) => (
                 <span
@@ -164,15 +278,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 text-right shrink-0">
               {player.elapsedLabel}
             </span>
-            <div
-              className="relative flex-1 h-1 dim-progress-track rounded-full overflow-hidden pointer-events-none"
-              aria-label="Live radio progress"
-            >
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500 pointer-events-none"
-                style={{ width: `${player.progress}%` }}
-              />
-            </div>
+            <ProgressTrack player={player} />
             <span className="font-dim-mono text-[10px] dim-text-subtle w-8 shrink-0">
               {player.totalLabel}
             </span>

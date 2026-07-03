@@ -20,6 +20,7 @@ class DimensionPlayerController extends ChangeNotifier {
 
   StreamSubscription<PlayerState>? _playerSub;
   StreamSubscription<SequenceState?>? _seqSub;
+  StreamSubscription<Duration>? _positionSub;
   Timer? _tempTimer;
   VoidCallback? _pausedListener;
 
@@ -71,6 +72,9 @@ class DimensionPlayerController extends ChangeNotifier {
     if (extras != null) {
       if (extras['source'] == 'radio') return false;
       if (extras['radioId'] != null) return false;
+      // Sample previews emulate the 30s window on the full file; scrubbing
+      // would expose the rest of the track to non-owners.
+      if (extras['noSeek'] == true) return false;
     }
     final d = _player.duration;
     return d != null && d.inSeconds > 0;
@@ -80,6 +84,8 @@ class DimensionPlayerController extends ChangeNotifier {
 
   Future<void> _init() async {
     _playerSub = _player.playerStateStream.listen((_) => notifyListeners());
+    // Live position updates so the bar's progress/seek slider tracks playback.
+    _positionSub = _player.positionStream.listen((_) => notifyListeners());
     _seqSub = _player.sequenceStateStream.listen((_) {
       final tag = _player.sequenceState.currentSource?.tag;
       if (tag is MediaItem) {
@@ -208,6 +214,7 @@ class DimensionPlayerController extends ChangeNotifier {
   void dispose() {
     _playerSub?.cancel();
     _seqSub?.cancel();
+    _positionSub?.cancel();
     if (_pausedListener != null) {
       AudioPlayerService.handler.userPausedNotifier
           .removeListener(_pausedListener!);
