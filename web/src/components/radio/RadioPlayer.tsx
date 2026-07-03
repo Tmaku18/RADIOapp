@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Flame,
+  Heart,
   Pause,
   Play,
   Radio as RadioIcon,
@@ -1256,6 +1257,9 @@ export function RadioPlayer({
               )}
 
               <div className="mt-4 flex items-center gap-5 text-xs text-white/60 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <Heart className="w-3.5 h-3.5 text-pink-400" /> {fireVotes} ripples
+                </span>
                 <span className="flex items-center gap-1.5">
                   <Flame className="w-3.5 h-3.5 text-yellow-300" /> {temperaturePercent}°
                 </span>
