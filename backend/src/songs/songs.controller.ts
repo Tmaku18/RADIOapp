@@ -36,6 +36,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { STATION_IDS } from '../radio/station.constants';
 import { AdminService } from '../admin/admin.service';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 
 @Controller('songs')
 export class SongsController {
@@ -46,6 +47,7 @@ export class SongsController {
     private readonly uploadsService: UploadsService,
     private readonly durationService: DurationService,
     private readonly adminService: AdminService,
+    private readonly imageModeration: ImageModerationService,
   ) {}
 
   private assertArtistProfileComplete(userData: {
@@ -466,6 +468,14 @@ export class SongsController {
       discoverBackgroundUrl = discoverBackgroundUrlData.publicUrl;
     }
 
+    // Privacy-policy screening for direct-to-storage image uploads: these
+    // bytes never passed through the backend, so scan them by URL now.
+    await this.imageModeration.assertImageUrlAllowed(artworkUrl, 'Artwork');
+    await this.imageModeration.assertImageUrlAllowed(
+      discoverBackgroundUrl,
+      'Discover background',
+    );
+
     // SECURITY + DATA QUALITY:
     // For direct-to-storage uploads, compute the real duration server-side from the stored file.
     // This prevents spoofing and avoids the UI/credits falling back to the default 180s.
@@ -865,6 +875,10 @@ export class SongsController {
         'clipStartSeconds and clipEndSeconds are required numbers',
       );
     }
+    await this.imageModeration.assertImageUrlAllowed(
+      body.discoverBackgroundUrl,
+      'Discover background',
+    );
     return this.songsService.publishSongToDiscover(
       userData.id,
       userData.role,
@@ -1280,6 +1294,12 @@ export class SongsController {
     }
     if (body.artworkUrl !== undefined) {
       const nextArtwork = body.artworkUrl.trim();
+      if (nextArtwork.length > 0) {
+        await this.imageModeration.assertImageUrlAllowed(
+          nextArtwork,
+          'Artwork',
+        );
+      }
       updateData.artwork_url = nextArtwork.length > 0 ? nextArtwork : null;
     }
     if (body.stationId !== undefined) {
@@ -1297,6 +1317,12 @@ export class SongsController {
     }
     if (body.discoverBackgroundUrl !== undefined) {
       const nextBg = body.discoverBackgroundUrl.trim();
+      if (nextBg.length > 0) {
+        await this.imageModeration.assertImageUrlAllowed(
+          nextBg,
+          'Discover background',
+        );
+      }
       updateData.discover_background_url = nextBg.length > 0 ? nextBg : null;
     }
     if (body.discoverClipStartSeconds !== undefined) {

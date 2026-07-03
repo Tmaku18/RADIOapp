@@ -5,6 +5,7 @@ import { NotificationModule } from '../notifications/notification.module';
 import { PushNotificationModule } from '../push-notifications/push-notification.module';
 import { ProNetworkSubscriptionModule } from '../pro-network-subscription/pro-network-subscription.module';
 import { UsersModule } from '../users/users.module';
+import { ModerationModule } from '../moderation/moderation.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { UsersModule } from '../users/users.module';
     PushNotificationModule,
     ProNetworkSubscriptionModule,
     UsersModule,
+    ModerationModule,
   ],
   controllers: [ServiceMessagesController],
   providers: [ServiceMessagesService],

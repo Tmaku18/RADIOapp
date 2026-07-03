@@ -12,6 +12,7 @@ import { PRO_NETWORK_PAYWALL_PAYLOAD } from '../pro-network-subscription/pro-net
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 
 export type MessageType = 'text' | 'image' | 'video' | 'voice' | 'post_share';
 
@@ -97,6 +98,7 @@ export class ServiceMessagesService {
     private readonly pushNotification: PushNotificationService,
     private readonly proNetworkSubscription: ProNetworkSubscriptionService,
     private readonly usersService: UsersService,
+    private readonly imageModeration: ImageModerationService,
   ) {}
 
   private isMissingUserFollowsTable(error: unknown): boolean {
@@ -537,6 +539,15 @@ export class ServiceMessagesService {
       )
     ) {
       throw new ForbiddenException('You cannot message this user.');
+    }
+
+    // DM pictures upload directly to storage via signed URLs, so screen them
+    // for privacy-policy violations before the message is persisted.
+    if (messageType === 'image' && input.mediaUrl) {
+      await this.imageModeration.assertImageUrlAllowed(
+        input.mediaUrl,
+        'Picture',
+      );
     }
 
     // Validate the shared post exists up front so we don't persist a dangling

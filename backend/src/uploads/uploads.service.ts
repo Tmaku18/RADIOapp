@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 import * as crypto from 'crypto';
 
 /**
@@ -75,7 +76,10 @@ export class UploadsService {
   private lastSongBucketEnsureAt = 0;
   private readonly lastImageBucketEnsureAt = new Map<string, number>();
 
-  constructor(private configService: ConfigService) {}
+  constructor(
+    private configService: ConfigService,
+    private readonly imageModeration: ImageModerationService,
+  ) {}
 
   private isBucketNotFoundError(error: unknown, bucket: string): boolean {
     const maybe = error as { message?: string; code?: string } | null;
@@ -327,6 +331,15 @@ export class UploadsService {
       const maxSizeMB = Math.round(options.maxSizeBytes / (1024 * 1024));
       throw new BadRequestException(
         `${options.errorPrefix} size exceeds ${maxSizeMB}MB limit`,
+      );
+    }
+
+    // Privacy-policy screening: block pictures with nudity/graphic content
+    // before they ever reach storage (avatars, covers, artwork, feed posts).
+    if (file.mimetype.startsWith('image/')) {
+      await this.imageModeration.assertImageBufferAllowed(
+        file.buffer,
+        options.errorPrefix,
       );
     }
 

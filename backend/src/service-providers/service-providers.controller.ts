@@ -21,6 +21,7 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { UploadsService } from '../uploads/uploads.service';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 import { ServiceProvidersService } from './service-providers.service';
 import { UpdateServiceProviderProfileDto } from './dto/update-service-provider-profile.dto';
 import { CreateServiceListingDto } from './dto/create-service-listing.dto';
@@ -34,6 +35,7 @@ export class ServiceProvidersController {
   constructor(
     private readonly service: ServiceProvidersService,
     private readonly uploads: UploadsService,
+    private readonly imageModeration: ImageModerationService,
   ) {}
 
   private async getUserId(firebaseUid: string): Promise<string> {
@@ -74,6 +76,12 @@ export class ServiceProvidersController {
     @Body() dto: UpdateServiceProviderProfileDto,
   ) {
     const userId = await this.getUserId(user.uid);
+    if (dto.heroImageUrl?.trim()) {
+      await this.imageModeration.assertImageUrlAllowed(
+        dto.heroImageUrl.trim(),
+        'Cover image',
+      );
+    }
     return this.service.upsertMyProviderProfile(userId, dto);
   }
 
@@ -144,6 +152,14 @@ export class ServiceProvidersController {
     @Body() dto: AddPortfolioItemDto,
   ) {
     const userId = await this.getUserId(user.uid);
+    // Portfolio images upload directly to storage (or reference external
+    // URLs), so screen them for privacy-policy violations at registration.
+    if (dto.type === 'image') {
+      await this.imageModeration.assertImageUrlAllowed(
+        dto.fileUrl,
+        'Portfolio image',
+      );
+    }
     return this.service.addPortfolioItem(userId, dto);
   }
 

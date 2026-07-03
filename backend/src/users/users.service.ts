@@ -11,6 +11,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { signSongAudioUrl } from '../common/song-audio.util';
 import { generateUniqueUsername } from '../common/username.util';
 import { UploadsService } from '../uploads/uploads.service';
+import { ImageModerationService } from '../moderation/image-moderation.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
@@ -115,6 +116,7 @@ export class UsersService {
   constructor(
     private readonly uploadsService: UploadsService,
     private readonly configService: ConfigService,
+    private readonly imageModeration: ImageModerationService,
   ) {}
 
   /** Admin emails from env (comma-separated); login with one of these gets role admin. */
@@ -588,8 +590,16 @@ export class UsersService {
       }
       updatePayload.username = normalized;
     }
-    if (updateUserDto.avatarUrl !== undefined)
+    if (updateUserDto.avatarUrl !== undefined) {
+      // Avatar set by URL bypasses the multipart upload screen, so scan here.
+      if (updateUserDto.avatarUrl?.trim()) {
+        await this.imageModeration.assertImageUrlAllowed(
+          updateUserDto.avatarUrl.trim(),
+          'Profile picture',
+        );
+      }
       updatePayload.avatar_url = updateUserDto.avatarUrl;
+    }
     if (updateUserDto.region !== undefined)
       updatePayload.region = updateUserDto.region;
     if (updateUserDto.suggestLocalArtists !== undefined)
