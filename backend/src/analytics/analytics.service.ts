@@ -11,6 +11,8 @@ export interface DailyPlayCount {
   listens: number;
   /** Unique listeners that day (each account once). */
   ears: number;
+  /** Song likes (ripples) that day. */
+  likes: number;
 }
 
 interface SongAnalytics {
@@ -54,6 +56,8 @@ export interface ArtistAnalytics {
   earsReached: number;
   listensThisWeek: number;
   listensThisMonth: number;
+  likesThisWeek: number;
+  likesThisMonth: number;
   earsReachedThisWeek: number;
   earsReachedThisMonth: number;
   totalPaidPlays: number;
@@ -558,6 +562,8 @@ export class AnalyticsService {
         earsReached: 0,
         listensThisWeek: 0,
         listensThisMonth: 0,
+        likesThisWeek: 0,
+        likesThisMonth: 0,
         earsReachedThisWeek: 0,
         earsReachedThisMonth: 0,
         totalPaidPlays: 0,
@@ -697,6 +703,14 @@ export class AnalyticsService {
       this.getArtistListenCountSince(artistId, startDate),
     ]);
 
+    const likesThisWeek = dailyPlays
+      .slice(-7)
+      .reduce((sum, day) => sum + (day.likes ?? 0), 0);
+    const likesThisMonth = dailyPlays.reduce(
+      (sum, day) => sum + (day.likes ?? 0),
+      0,
+    );
+
     // Top songs ranked by ears reached, then play count, with real likes.
     const topSongs: SongAnalytics[] = songs
       .slice()
@@ -756,6 +770,8 @@ export class AnalyticsService {
       earsReached,
       listensThisWeek: listensThisWeek ?? 0,
       listensThisMonth: listensThisMonth ?? 0,
+      likesThisWeek,
+      likesThisMonth,
       earsReachedThisWeek: earsReachedThisWeek ?? 0,
       earsReachedThisMonth: earsReachedThisMonth ?? 0,
       totalPaidPlays,
@@ -969,6 +985,7 @@ export class AnalyticsService {
         plays: 0,
         listens: 0,
         ears: 0,
+        likes: 0,
       });
     }
     plays.forEach((play) => {
@@ -1000,6 +1017,7 @@ export class AnalyticsService {
         plays: 0,
         listens: 0,
         ears: 0,
+        likes: 0,
       });
     }
 
@@ -1086,6 +1104,30 @@ export class AnalyticsService {
       }
     } catch {
       // Keep prior fallbacks when daily ears RPC is unavailable.
+    }
+
+    try {
+      const { data: likeRows, error: likesError } = await supabase.rpc(
+        'get_artist_daily_likes',
+        { p_song_ids: songIds, p_since: startDate.toISOString() },
+      );
+      if (likesError) {
+        this.logger.warn(
+          `get_artist_daily_likes RPC unavailable: ${likesError.message}`,
+        );
+      } else {
+        for (const row of (likeRows ?? []) as Array<{
+          day: string;
+          likes_count: number | string | null;
+        }>) {
+          if (!row?.day) continue;
+          const entry = result.find((d) => d.date === row.day);
+          if (!entry) continue;
+          entry.likes = Number(row.likes_count) || 0;
+        }
+      }
+    } catch {
+      // Chart falls back to zero likes when RPC is unavailable.
     }
 
     return result;

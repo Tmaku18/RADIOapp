@@ -11,6 +11,7 @@ interface DailyPlayCount {
   plays: number;
   listens?: number;
   ears?: number;
+  likes?: number;
 }
 
 interface TopSong {
@@ -32,6 +33,8 @@ interface ArtistAnalytics {
   earsReached?: number;
   listensThisWeek?: number;
   listensThisMonth?: number;
+  likesThisWeek?: number;
+  likesThisMonth?: number;
   earsReachedThisWeek?: number;
   earsReachedThisMonth?: number;
   playsThisWeek?: number;
@@ -140,19 +143,17 @@ export default function StatsPage() {
     return {
       day: DAY_NAMES[day],
       ears: d.ears ?? 0,
-      listens: d.listens ?? 0,
+      likes: d.likes ?? 0,
     };
   });
   const totalEars = analytics?.earsReached ?? 0;
   const totalListens = analytics?.totalListenCount ?? 0;
   const earsThisWeek = analytics?.earsReachedThisWeek ?? 0;
   const earsThisMonth = analytics?.earsReachedThisMonth ?? 0;
-  const listensThisWeek =
-    analytics?.listensThisWeek ?? analytics?.playsThisWeek ?? 0;
-  const listensThisMonth =
-    analytics?.listensThisMonth ?? analytics?.playsThisMonth ?? 0;
+  const likesThisWeek = analytics?.likesThisWeek ?? 0;
+  const likesThisMonth = analytics?.likesThisMonth ?? 0;
   const maxEars = Math.max(1, ...earsByDayForChart.map((d) => d.ears));
-  const maxListens = Math.max(1, ...earsByDayForChart.map((d) => d.listens));
+  const maxLikes = Math.max(1, ...earsByDayForChart.map((d) => d.likes));
 
   if (loading) {
     return (
@@ -237,9 +238,9 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Listens This Week</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{listensThisWeek.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Song listens, last 7 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Likes This Week</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{likesThisWeek.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Ripples received, last 7 days</div>
           </CardContent>
         </Card>
       </div>
@@ -255,9 +256,9 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">Listens This Month</div>
-            <div className="text-3xl font-bold text-foreground mt-1">{listensThisMonth.toLocaleString()}</div>
-            <div className="text-sm text-primary mt-2">Song listens, last 30 days</div>
+            <div className="text-sm text-muted-foreground font-medium">Likes This Month</div>
+            <div className="text-3xl font-bold text-foreground mt-1">{likesThisMonth.toLocaleString()}</div>
+            <div className="text-sm text-primary mt-2">Ripples received, last 30 days</div>
           </CardContent>
         </Card>
 
@@ -403,39 +404,39 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <h2 className="text-xl font-semibold text-foreground mb-2">Listens This Week</h2>
+            <h2 className="text-xl font-semibold text-foreground mb-2">Likes This Week</h2>
             <p className="text-sm text-muted-foreground mb-6">
-              Unique song listens per day (once per song per person)
+              Ripples per day on your songs
             </p>
             {earsByDayForChart.length > 0 ? (
               <div className="flex items-end justify-between gap-3 h-52 artist-chart-plays">
                 {earsByDayForChart.map((day, i) => {
                   const barHeight =
-                    day.listens > 0
-                      ? Math.max(12, Math.round((day.listens / maxListens) * 100))
+                    day.likes > 0
+                      ? Math.max(12, Math.round((day.likes / maxLikes) * 100))
                       : 0;
                   return (
                     <div
-                      key={`listens-${day.day}-${i}`}
+                      key={`likes-${day.day}-${i}`}
                       className="flex-1 flex flex-col items-center min-w-0"
                     >
                       <div className="w-full h-40 flex items-end justify-center">
                         <div
                           className="w-full max-w-10 rounded-t-lg bg-pink-500 transition-all hover:bg-pink-500/80"
                           style={{ height: `${barHeight}%` }}
-                          title={`${day.listens.toLocaleString()} listens`}
+                          title={`${day.likes.toLocaleString()} likes`}
                         />
                       </div>
                       <div className="text-sm text-muted-foreground mt-2">{day.day}</div>
                       <div className="text-sm font-semibold text-foreground tabular-nums">
-                        {day.listens.toLocaleString()}
+                        {day.likes.toLocaleString()}
                       </div>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-muted-foreground text-sm">No listens in the last 7 days.</p>
+              <p className="text-muted-foreground text-sm">No likes in the last 7 days.</p>
             )}
           </CardContent>
         </Card>
