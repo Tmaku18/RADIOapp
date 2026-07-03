@@ -904,11 +904,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         if (peak === 0) {
           analyserZeroFramesRef.current += 1;
           if (analyserZeroFramesRef.current === 90 && activeAudio) {
+            const slotState = analyserSlotsRef.current[slot];
             refreshMediaElementAnalyser(
               activeAudio,
-              analyserSlotsRef.current[slot],
+              slotState,
               analyserCtxRef,
               ANALYSER_BARS * 4,
+              {
+                preferElementSource:
+                  !isMobileWeb() && slotState.usesElementSource !== true,
+              },
             );
           }
         } else {

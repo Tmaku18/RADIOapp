@@ -141,13 +141,24 @@ function wireAnalyserTap(
       slot.usesElementSource = false;
       return true;
     }
-    // Never fall back to createMediaElementSource here — it hijacks the element's
-    // native output. On many phones (iOS Safari, older Android) captureStream is
-    // unavailable; routing through Web Audio then goes silent when AudioContext is
-    // suspended, which looks like "play works on some devices but not others".
+    // Desktop fallback when captureStream is missing or returns a silent tap
+    // (common with some CDN/CORS setups). Mobile stays native-only so
+    // background playback and lock-screen audio are not hijacked.
+    if (!isMobileWeb()) {
+      return wireElementSourceTap(audio, slot, ctx, an);
+    }
     return false;
   }
 
+  return wireElementSourceTap(audio, slot, ctx, an);
+}
+
+function wireElementSourceTap(
+  audio: HTMLMediaElement,
+  slot: AnalyserSlot,
+  ctx: AudioContext,
+  an: AnalyserNode,
+): boolean {
   slot.source = ctx.createMediaElementSource(audio);
   slot.source.connect(an);
   an.connect(ctx.destination);
@@ -244,7 +255,7 @@ export function ensureMediaElementAnalyser(
   slot: AnalyserSlot,
   ctxRef: { current: AudioContext | null },
   fftSize: number,
-  opts?: { forceRefresh?: boolean },
+  opts?: { forceRefresh?: boolean; preferElementSource?: boolean },
 ): AnalyserNode | null {
   if (typeof window === 'undefined') return null;
 
@@ -275,7 +286,12 @@ export function ensureMediaElementAnalyser(
     // Lower smoothing = snappier, more dramatic reaction to beats/transients.
     an.smoothingTimeConstant = 0.62;
 
-    if (!wireAnalyserTap(audio, slot, ctx, an)) {
+    const wired =
+      opts?.preferElementSource && !isMobileWeb()
+        ? wireElementSourceTap(audio, slot, ctx, an)
+        : wireAnalyserTap(audio, slot, ctx, an);
+
+    if (!wired) {
       disconnectAnalyserSlot(slot);
       return null;
     }
@@ -298,8 +314,10 @@ export function refreshMediaElementAnalyser(
   slot: AnalyserSlot,
   ctxRef: { current: AudioContext | null },
   fftSize: number,
+  opts?: { preferElementSource?: boolean },
 ): AnalyserNode | null {
   return ensureMediaElementAnalyser(audio, slot, ctxRef, fftSize, {
     forceRefresh: true,
+    preferElementSource: opts?.preferElementSource,
   });
 }

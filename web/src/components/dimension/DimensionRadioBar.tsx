@@ -12,11 +12,12 @@ import {
 } from 'lucide-react';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { useBassPulseRef } from '@/components/dimension/BassPulseLogo';
+import { FrequencyVisualizer } from '@/components/radio/FrequencyVisualizer';
 import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { signalRadioNavIntent } from '@/lib/playback-preferences';
 import type { DimensionPlayerModel } from '@/hooks/useDimensionPlayer';
 
-const VBAR_DELAYS = [0.1, 0.3, 0.2, 0.4, 0.25, 0.35, 0.15, 0.5, 0.2];
+const MINI_VBAR_COUNT = 9;
 
 function ReactionButtons({ player }: { player: DimensionPlayerModel }) {
   if (!player.canVote) return null;
@@ -256,17 +257,13 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <FastForward className="w-4 h-4" />
               </button>
             ) : null}
-            <div className="hidden md:flex items-end gap-[3px] h-6 ml-2">
-              {VBAR_DELAYS.map((d, i) => (
-                <span
-                  key={i}
-                  className="vbar w-[3px] h-full bg-gradient-to-t from-cyan-400 to-pink-500 rounded-sm"
-                  style={{
-                    animationDelay: `${d}s`,
-                    animationPlayState: player.isPlaying ? 'running' : 'paused',
-                  }}
-                />
-              ))}
+            <div className="hidden md:flex items-end h-6 ml-2 w-[72px] shrink-0">
+              <FrequencyVisualizer
+                playing={player.isPlaying}
+                barCount={MINI_VBAR_COUNT}
+                className="h-6 w-full px-0 gap-[3px]"
+                barClassName="min-w-[3px] flex-none w-[3px]"
+              />
             </div>
             {player.canVote ? (
               <div className="pointer-events-auto sm:hidden ml-1">
