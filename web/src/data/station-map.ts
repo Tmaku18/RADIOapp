@@ -29,7 +29,8 @@ export type GenreId =
   | 'afrobeats'
   | 'dj-mixes'
   | 'kids-friendly'
-  | 'testing-grounds';
+  | 'testing-grounds'
+  | 'rideshare';
 
 export interface Tower {
   id: string;
@@ -174,6 +175,15 @@ export const TOWERS: Tower[] = [
     genreId: 'testing-grounds',
     lat: 30.2672,
     lng: -97.7431,
+  },
+  {
+    id: 'us-rideshare',
+    state: 'US',
+    city: 'San Jose',
+    genre: 'Rideshare Radio',
+    genreId: 'rideshare',
+    lat: 37.3382,
+    lng: -121.8863,
   },
   {
     id: 'us-edm',

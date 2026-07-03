@@ -22,6 +22,7 @@ import {
   CLEAN_RAP_STATION_ID,
   KIDS_FRIENDLY_STATION_ID,
   TESTING_GROUNDS_STATION_ID,
+  RIDESHARE_STATION_ID,
   RAP_STATION_ID,
   READY_NOW_RAP_STATION_ID,
   isExplicitFilteredStation,
@@ -2503,7 +2504,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       radioId === CLEAN_RAP_STATION_ID ||
       radioId === READY_NOW_RAP_STATION_ID ||
       radioId === KIDS_FRIENDLY_STATION_ID ||
-      radioId === TESTING_GROUNDS_STATION_ID;
+      radioId === TESTING_GROUNDS_STATION_ID ||
+      radioId === RIDESHARE_STATION_ID;
     if (forceFreeRotation) {
       targetType = 'free_rotation';
     }

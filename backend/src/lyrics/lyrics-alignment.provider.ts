@@ -34,5 +34,24 @@ export interface LyricsAlignmentProvider {
   align(audio: Buffer, text: string): Promise<LyricsAlignmentResult>;
 }
 
+export interface LyricsTranscriptionResult {
+  /** Words with timings, in playback order (no artist text to anchor to). */
+  words: AlignedWord[];
+  /** Full transcript text as returned by the provider. */
+  text: string;
+  provider: string;
+}
+
+/**
+ * Optional capability: transcribe audio with no lyrics text (speech-to-text).
+ * Used as the auto-caption fallback for songs whose artists never provided
+ * lyrics. Output is a best-effort guess and is flagged auto-generated.
+ */
+export interface LyricsTranscriptionProvider {
+  readonly name: string;
+  isConfigured(): boolean;
+  transcribe(audio: Buffer): Promise<LyricsTranscriptionResult>;
+}
+
 /** Injection token for the active alignment provider. */
 export const LYRICS_ALIGNMENT_PROVIDER = 'LYRICS_ALIGNMENT_PROVIDER';
