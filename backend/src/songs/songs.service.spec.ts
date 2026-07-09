@@ -52,6 +52,7 @@ describe('SongsService', () => {
         audioUrl: 'https://example.com/audio.mp3',
         artworkUrl: undefined,
         durationSeconds: 180,
+        optInFullSongRadio: true,
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
@@ -90,6 +91,7 @@ describe('SongsService', () => {
       audioUrl: 'https://example.com/audio.mp3',
       artworkUrl: undefined,
       durationSeconds: 180,
+      optInFullSongRadio: true,
     });
 
     expect(result.title).toBe('Test Song');

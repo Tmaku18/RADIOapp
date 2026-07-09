@@ -90,4 +90,17 @@ export class CreateSongFromPathDto {
   @IsString()
   @IsOptional()
   lyricsPlainText?: string;
+
+  /** Required to submit for NETWORX Radio rotation. */
+  @IsBoolean()
+  @IsOptional()
+  optInFullSongRadio?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  optInDjLivestreams?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  optInDjArchivedMixes?: boolean;
 }

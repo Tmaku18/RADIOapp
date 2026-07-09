@@ -25,9 +25,26 @@ export class UpdateSongDto {
   @IsIn([...STATION_IDS])
   stationId?: string;
 
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  stationIds?: string[];
+
   @IsBoolean()
   @IsOptional()
   optInFreePlay?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  optInFullSongRadio?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  optInDjLivestreams?: boolean;
+
+  @IsBoolean()
+  @IsOptional()
+  optInDjArchivedMixes?: boolean;
 
   @IsBoolean()
   @IsOptional()

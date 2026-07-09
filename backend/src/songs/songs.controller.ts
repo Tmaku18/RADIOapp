@@ -350,6 +350,9 @@ export class SongsController {
       stationId: string;
       isExplicit?: boolean;
       lyricsPlainText?: string;
+      optInFullSongRadio?: boolean | string;
+      optInDjLivestreams?: boolean | string;
+      optInDjArchivedMixes?: boolean | string;
     },
   ) {
     const userData = await this.resolveUploaderUser(user);
@@ -401,6 +404,10 @@ export class SongsController {
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: body.isExplicit !== false,
       lyricsPlainText: body.lyricsPlainText,
+      optInFullSongRadio: body.optInFullSongRadio === true || body.optInFullSongRadio === 'true',
+      optInDjLivestreams: body.optInDjLivestreams === true || body.optInDjLivestreams === 'true',
+      optInDjArchivedMixes:
+        body.optInDjArchivedMixes === true || body.optInDjArchivedMixes === 'true',
     };
 
     return this.songsService.createSong(userData.id, createSongDto);
@@ -549,6 +556,9 @@ export class SongsController {
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: dto.isExplicit !== false,
       lyricsPlainText: dto.lyricsPlainText,
+      optInFullSongRadio: dto.optInFullSongRadio === true,
+      optInDjLivestreams: dto.optInDjLivestreams === true,
+      optInDjArchivedMixes: dto.optInDjArchivedMixes === true,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&
@@ -1009,6 +1019,13 @@ export class SongsController {
       trialPlaysUsed: song.trial_plays_used || 0,
       status: song.status,
       stationId: song.station_id || null,
+      stationIds:
+        Array.isArray((song as { station_ids?: unknown }).station_ids) &&
+        ((song as { station_ids?: unknown[] }).station_ids?.length ?? 0) > 0
+          ? ((song as { station_ids: string[] }).station_ids ?? [])
+          : song.station_id
+            ? [song.station_id]
+            : [],
       discoverEnabled: song.discover_enabled || false,
       discoverClipUrl:
         (await signSongAudioUrl(song.discover_clip_url ?? null)) ?? null,
@@ -1017,6 +1034,9 @@ export class SongsController {
       discoverClipEndSeconds: song.discover_clip_end_seconds ?? null,
       discoverClipDurationSeconds: song.discover_clip_duration_seconds ?? null,
       optInFreePlay: song.opt_in_free_play || false,
+      optInFullSongRadio: song.opt_in_full_song_radio === true,
+      optInDjLivestreams: song.opt_in_dj_livestreams === true,
+      optInDjArchivedMixes: song.opt_in_dj_archived_mixes === true,
       inRefinery: !!(song as { in_refinery?: boolean }).in_refinery,
       isPublic: (song as { is_public?: boolean }).is_public !== false,
       refineryReviewCount:
@@ -1282,11 +1302,50 @@ export class SongsController {
       }
       updateData.artwork_url = nextArtwork.length > 0 ? nextArtwork : null;
     }
-    if (body.stationId !== undefined) {
+    const normalizedStationIds = Array.isArray(body.stationIds)
+      ? [
+          ...new Set(
+            body.stationIds.map((id) => (id ?? '').trim()).filter(Boolean),
+          ),
+        ]
+      : undefined;
+
+    if (normalizedStationIds !== undefined) {
+      if (normalizedStationIds.length === 0) {
+        throw new BadRequestException(
+          'stationIds must include at least one station',
+        );
+      }
+      const invalidStationIds = normalizedStationIds.filter(
+        (id) => !STATION_IDS.includes(id as (typeof STATION_IDS)[number]),
+      );
+      if (invalidStationIds.length > 0) {
+        throw new BadRequestException(
+          `Invalid stationIds: ${invalidStationIds.join(', ')}`,
+        );
+      }
+      updateData.station_id = normalizedStationIds[0];
+      updateData.station_ids = normalizedStationIds;
+    } else if (body.stationId !== undefined) {
+      if (
+        !STATION_IDS.includes(body.stationId as (typeof STATION_IDS)[number])
+      ) {
+        throw new BadRequestException('Invalid stationId');
+      }
       updateData.station_id = body.stationId;
+      updateData.station_ids = [body.stationId];
     }
     if (body.optInFreePlay !== undefined) {
       updateData.opt_in_free_play = body.optInFreePlay;
+    }
+    if (body.optInFullSongRadio !== undefined) {
+      updateData.opt_in_full_song_radio = body.optInFullSongRadio;
+    }
+    if (body.optInDjLivestreams !== undefined) {
+      updateData.opt_in_dj_livestreams = body.optInDjLivestreams;
+    }
+    if (body.optInDjArchivedMixes !== undefined) {
+      updateData.opt_in_dj_archived_mixes = body.optInDjArchivedMixes;
     }
     if (body.discoverEnabled !== undefined) {
       updateData.discover_enabled = body.discoverEnabled;
@@ -1419,8 +1478,18 @@ export class SongsController {
       id: updated.id,
       title: updated.title,
       optInFreePlay: updated.opt_in_free_play,
+      optInFullSongRadio: updated.opt_in_full_song_radio === true,
+      optInDjLivestreams: updated.opt_in_dj_livestreams === true,
+      optInDjArchivedMixes: updated.opt_in_dj_archived_mixes === true,
       artworkUrl: updated.artwork_url,
       stationId: updated.station_id,
+      stationIds:
+        Array.isArray((updated as { station_ids?: unknown }).station_ids) &&
+        ((updated as { station_ids?: unknown[] }).station_ids?.length ?? 0) > 0
+          ? ((updated as { station_ids: string[] }).station_ids ?? [])
+          : updated.station_id
+            ? [updated.station_id]
+            : [],
       discoverEnabled: updated.discover_enabled,
       discoverClipUrl:
         (await signSongAudioUrl(updated.discover_clip_url ?? null)) ?? null,

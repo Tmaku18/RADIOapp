@@ -5,7 +5,7 @@ import { adminApi, songsApi } from '@/lib/api';
 import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
-import { TOWERS } from '@/data/station-map';
+import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -1390,10 +1390,12 @@ export default function AdminSongsPage() {
       )}
 
       {editingSong && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-xl w-full mx-4 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Song Metadata</h3>
-            <div className="space-y-3">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[100dvh] sm:max-h-[min(100dvh-2rem,900px)]">
+            <div className="shrink-0 border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Song Metadata</h3>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Title</label>
                 <input
@@ -1405,25 +1407,13 @@ export default function AdminSongsPage() {
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Stations / Genres</label>
-                <select
-                  multiple
+                <StationAssignmentField
                   value={editStationIds}
-                  onChange={(e) =>
-                    setEditStationIds(
-                      Array.from(e.target.selectedOptions).map((opt) => opt.value),
-                    )
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 min-h-[150px]"
-                >
-                  {TOWERS.map((tower) => (
-                    <option key={tower.id} value={tower.id}>
-                      {tower.genre} (National)
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Hold Ctrl/Cmd to select multiple stations.
-                </p>
+                  onChange={setEditStationIds}
+                  selectClassName="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900"
+                  panelClassName="rounded-lg border border-gray-300 divide-y divide-gray-200"
+                  hintClassName="text-xs text-gray-500"
+                />
               </div>
               <div>
                 <label className="block text-sm text-gray-600 mb-1">Album Cover URL</label>
@@ -1497,7 +1487,7 @@ export default function AdminSongsPage() {
                 </p>
               </div>
             </div>
-            <div className="flex justify-end gap-3 mt-5">
+            <div className="flex shrink-0 justify-end gap-3 border-t border-gray-200 px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               <button
                 onClick={closeEditModal}
                 className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"

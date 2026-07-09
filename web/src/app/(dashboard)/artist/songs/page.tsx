@@ -6,7 +6,6 @@ import Link from 'next/link';
 import { songsApi, refineryApi } from '@/lib/api';
 import { usePlayback } from '@/components/playback';
 import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
-import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,6 +22,7 @@ import { ArtworkImage } from '@/components/common/ArtworkImage';
 import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
 import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
+import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
 import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
 import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
@@ -56,6 +56,7 @@ interface Song {
   trialPlaysUsed?: number;
   status: 'pending' | 'approved' | 'rejected';
   stationId?: string;
+  stationIds?: string[];
   discoverEnabled?: boolean;
   discoverClipUrl?: string | null;
   discoverBackgroundUrl?: string | null;
@@ -173,7 +174,7 @@ export default function MySongsPage() {
   const [sampleSong, setSampleSong] = useState<Song | null>(null);
   const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
   const [editTitle, setEditTitle] = useState('');
-  const [editStationId, setEditStationId] = useState('');
+  const [editStationIds, setEditStationIds] = useState<string[]>([]);
   const [editArtworkUrl, setEditArtworkUrl] = useState('');
   const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
   const [editArtworkPreview, setEditArtworkPreview] = useState<string | null>(null);
@@ -394,7 +395,13 @@ export default function MySongsPage() {
   const openEditModal = (song: Song) => {
     setEditingSong(song);
     setEditTitle(song.title);
-    setEditStationId(song.stationId || '');
+    const currentStations =
+      Array.isArray(song.stationIds) && song.stationIds.length > 0
+        ? song.stationIds
+        : song.stationId
+          ? [song.stationId]
+          : [];
+    setEditStationIds(currentStations);
     setEditArtworkUrl(song.artworkUrl || '');
     setEditArtworkFile(null);
     setEditArtworkPreview(song.artworkUrl || null);
@@ -471,7 +478,7 @@ export default function MySongsPage() {
       setError('Title cannot be empty');
       return;
     }
-    if (!editStationId) {
+    if (editStationIds.length === 0) {
       setError('Please select a station/category');
       return;
     }
@@ -502,7 +509,8 @@ export default function MySongsPage() {
       }
       const updateResponse = await songsApi.update(editingSong.id, {
         title: nextTitle,
-        stationId: editStationId,
+        stationId: editStationIds[0],
+        stationIds: editStationIds,
         artworkUrl: finalArtworkUrl,
         discoverEnabled: editDiscoverEnabled,
         featuredArtistIds: editFeaturedArtists.map((a) => a.id),
@@ -556,6 +564,7 @@ export default function MySongsPage() {
         id: string;
         title: string;
         stationId?: string;
+        stationIds?: string[];
         artworkUrl?: string | null;
         discoverEnabled?: boolean;
         discoverClipUrl?: string | null;
@@ -576,7 +585,8 @@ export default function MySongsPage() {
             ? {
                 ...song,
                 title: updated.title ?? nextTitle,
-                stationId: updated.stationId ?? editStationId,
+                stationId: updated.stationId ?? editStationIds[0],
+                stationIds: updated.stationIds ?? editStationIds,
                 artworkUrl:
                   updated.artworkUrl !== undefined ? updated.artworkUrl || undefined : finalArtworkUrl || undefined,
                 discoverEnabled:
@@ -957,9 +967,9 @@ export default function MySongsPage() {
       />
 
       {editingSong && (
-        <div className="fixed inset-0 z-50 bg-black/50 p-4 overflow-y-auto">
-          <div className="mx-auto my-4 w-full max-w-xl rounded-lg border bg-card p-5 max-h-[calc(100vh-2rem)] flex flex-col">
-            <div className="mb-3 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[100dvh] sm:max-h-[min(100dvh-2rem,900px)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
               <button
                 type="button"
@@ -970,7 +980,7 @@ export default function MySongsPage() {
                 Close
               </button>
             </div>
-            <div className="space-y-4 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Title</label>
               <input
@@ -982,18 +992,10 @@ export default function MySongsPage() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Station / Genre</label>
-              <select
-                value={editStationId}
-                onChange={(e) => setEditStationId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select a station</option>
-                {TOWERS.map((tower) => (
-                  <option key={tower.id} value={tower.id}>
-                    {tower.genre} (National)
-                  </option>
-                ))}
-              </select>
+              <StationAssignmentField
+                value={editStationIds}
+                onChange={setEditStationIds}
+              />
             </div>
             <div className="space-y-2 rounded-md border border-border p-3">
               <div className="flex items-center justify-between gap-2">
@@ -1222,7 +1224,7 @@ export default function MySongsPage() {
               )}
             </div>
             </div>
-            <div className="mt-4 flex justify-end gap-2 border-t border-border pt-3">
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {editingSong && (
                 <Button
                   variant="destructive"

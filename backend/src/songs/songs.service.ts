@@ -1099,6 +1099,12 @@ export class SongsService {
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
 
+    if (createSongDto.optInFullSongRadio !== true) {
+      throw new BadRequestException(
+        'You must accept the NETWORX Full-Song Radio Opt-In Agreement to submit for rotation.',
+      );
+    }
+
     // Any authenticated app role can upload songs.
     const { data: user } = await supabase
       .from('users')
@@ -1192,6 +1198,9 @@ export class SongsService {
       sample_end_seconds: sampleEndSeconds,
       // Songs are explicit by default; uploaders opt out by unchecking the box.
       is_explicit: createSongDto.isExplicit !== false,
+      opt_in_full_song_radio: true,
+      opt_in_dj_livestreams: createSongDto.optInDjLivestreams === true,
+      opt_in_dj_archived_mixes: createSongDto.optInDjArchivedMixes === true,
       ...statusFields,
     };
     const legacyBaseInsertPayload = {

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
+import { FULL_SONG_RADIO_OPT_IN } from '@/lib/legal/full-song-radio-opt-in';
 import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
 import { TOWERS } from '@/data/station-map';
 import { Button } from '@/components/ui/button';
@@ -100,6 +102,9 @@ export default function UploadPage() {
   const [readyForRotation, setReadyForRotation] = useState(false);
   const [isExplicit, setIsExplicit] = useState(true);
   const [lyricsPlainText, setLyricsPlainText] = useState('');
+  const [optInFullSongRadio, setOptInFullSongRadio] = useState(false);
+  const [optInDjLivestreams, setOptInDjLivestreams] = useState(false);
+  const [optInDjArchivedMixes, setOptInDjArchivedMixes] = useState(false);
 
   useEffect(() => {
     if (!audioFile) {
@@ -438,6 +443,9 @@ export default function UploadPage() {
           sampleEndSeconds: parsedSampleEnd ?? undefined,
           isExplicit,
           lyricsPlainText: lyricsPlainText.trim() || undefined,
+          optInFullSongRadio,
+          optInDjLivestreams,
+          optInDjArchivedMixes,
         });
       } catch (dbErr) {
         throw new Error(
@@ -762,6 +770,60 @@ export default function UploadPage() {
               </div>
             </div>
 
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div>
+                <h3 className="font-medium text-foreground">{FULL_SONG_RADIO_OPT_IN.title}</h3>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Required to submit for NETWORX Radio rotation.{' '}
+                  <Link
+                    href={FULL_SONG_RADIO_OPT_IN.href}
+                    className="text-primary hover:underline"
+                    target="_blank"
+                  >
+                    Read full agreement
+                  </Link>
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={optInFullSongRadio}
+                  onChange={(e) => setOptInFullSongRadio(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0"
+                  required
+                />
+                <span className="text-sm text-muted-foreground">
+                  {FULL_SONG_RADIO_OPT_IN.primaryAuthorization}
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={optInDjLivestreams}
+                  onChange={(e) => setOptInDjLivestreams(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {FULL_SONG_RADIO_OPT_IN.djLivestreams}
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={optInDjArchivedMixes}
+                  onChange={(e) => setOptInDjArchivedMixes(e.target.checked)}
+                  className="mt-1 h-4 w-4 shrink-0"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {FULL_SONG_RADIO_OPT_IN.djArchivedMixes}{' '}
+                  <span className="text-xs">(optional)</span>
+                </span>
+              </label>
+            </div>
+
             {isUploading && (
               <div>
                 <div className="flex justify-between text-sm text-muted-foreground mb-1">
@@ -774,7 +836,11 @@ export default function UploadPage() {
               </div>
             )}
 
-            <Button type="submit" disabled={isUploading || !audioFile || !stationId} className="w-full">
+            <Button
+              type="submit"
+              disabled={isUploading || !audioFile || !stationId || !optInFullSongRadio}
+              className="w-full"
+            >
               {isUploading ? 'Uploading...' : 'Submit for Rotation'}
             </Button>
 

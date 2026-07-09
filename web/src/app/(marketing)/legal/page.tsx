@@ -42,6 +42,7 @@ const groups: { heading: string; docs: Doc[] }[] = [
   {
     heading: 'Features & programs',
     docs: [
+      { href: '/full-song-radio-opt-in', title: 'Full-Song Radio Opt-In Agreement', description: 'Authorization for full-song NETWORX Radio and DJ programming.' },
       { href: '/livestream-terms', title: 'Livestream & Events Terms', description: 'Terms for livestreams, events, tips, and donations.' },
       { href: '/beta-terms', title: 'Beta Tester Terms & Feedback License', description: 'Terms for beta access and feedback.' },
       { href: '/delete-account', title: 'Delete Your Account', description: 'How to request account and data deletion.' },

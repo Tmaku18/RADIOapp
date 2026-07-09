@@ -555,6 +555,9 @@ export const songsApi = {
     sampleEndSeconds?: number;
     isExplicit?: boolean;
     lyricsPlainText?: string;
+    optInFullSongRadio?: boolean;
+    optInDjLivestreams?: boolean;
+    optInDjArchivedMixes?: boolean;
   }) => 
     api.post<{ id?: string }>('/songs', data),
   like: (id: string) => api.post(`/songs/${id}/like`),
@@ -579,7 +582,11 @@ export const songsApi = {
       title?: string;
       artworkUrl?: string;
       stationId?: string;
+      stationIds?: string[];
       optInFreePlay?: boolean;
+      optInFullSongRadio?: boolean;
+      optInDjLivestreams?: boolean;
+      optInDjArchivedMixes?: boolean;
       discoverEnabled?: boolean;
       discoverClipUrl?: string;
       discoverBackgroundUrl?: string;

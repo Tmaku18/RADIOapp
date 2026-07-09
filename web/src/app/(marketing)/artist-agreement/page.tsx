@@ -1,4 +1,6 @@
+import Link from 'next/link';
 import { LegalLayout, LegalSection, P, Bullets, LegalContact } from '@/components/legal/LegalLayout';
+import { FULL_SONG_RADIO_OPT_IN } from '@/lib/legal/full-song-radio-opt-in';
 
 export const metadata = {
   title: 'Artist / Seller Agreement — NETWORX',
@@ -57,13 +59,16 @@ export default function ArtistSellerAgreementPage() {
         />
       </LegalSection>
 
-      <LegalSection title="5. No Radio or Chart Promise">
+      <LegalSection title="5. Radio Programming Addendum">
         <P>
-          This marketplace agreement is for NETWORX marketplace activity unless a separate written
-          addendum applies. NETWORX does not promise radio royalties, official chart reporting,
-          Billboard/Luminate reporting, SoundExchange reporting, major-label discovery, or guaranteed
-          income. Future radio/reporting features may require separate licensing, policies, and
-          agreements.
+          This marketplace agreement covers NETWORX marketplace activity. Full-song radio streaming,
+          DJ livestreams, and DJ mix programming require the separate{' '}
+          <Link href={FULL_SONG_RADIO_OPT_IN.href} className="text-primary hover:underline">
+            {FULL_SONG_RADIO_OPT_IN.title}
+          </Link>
+          . NETWORX does not promise radio royalties, official chart reporting, Billboard/Luminate
+          reporting, SoundExchange reporting, major-label discovery, or guaranteed income. Future
+          radio/reporting features may require additional licensing, policies, and agreements.
         </P>
       </LegalSection>
 

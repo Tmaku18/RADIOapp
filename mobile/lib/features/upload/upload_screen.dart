@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import '../../core/services/api_service.dart';
+import '../../core/legal/full_song_radio_opt_in.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
@@ -31,6 +32,9 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _readyForRotation = false;
   int? _durationSeconds;
   bool _isExplicit = true;
+  bool _optInFullSongRadio = false;
+  bool _optInDjLivestreams = false;
+  bool _optInDjArchivedMixes = false;
   // The Discover clip is required for every track. Default to the first 15s so
   // there's always a valid window; the artist can fine-tune it below.
   double? _discoverClipStart = 0;
@@ -271,6 +275,16 @@ class _UploadScreenState extends State<UploadScreen> {
       );
       return;
     }
+    if (!_optInFullSongRadio) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Accept the NETWORX Full-Song Radio Opt-In Agreement to submit for rotation.',
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       _isUploading = true;
@@ -307,6 +321,9 @@ class _UploadScreenState extends State<UploadScreen> {
         'discoverClipEndSeconds': _discoverClipEnd,
         if (_lyricsController.text.trim().isNotEmpty)
           'lyricsPlainText': _lyricsController.text.trim(),
+        'optInFullSongRadio': _optInFullSongRadio,
+        'optInDjLivestreams': _optInDjLivestreams,
+        'optInDjArchivedMixes': _optInDjArchivedMixes,
       });
 
       if (!mounted) return;
@@ -512,6 +529,68 @@ class _UploadScreenState extends State<UploadScreen> {
                       helperMaxLines: 3,
                     ),
                   ),
+                  const SizedBox(height: 12),
+                  Text(
+                    FullSongRadioOptIn.title,
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Required to submit for NETWORX Radio rotation.',
+                    style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _optInFullSongRadio,
+                    onChanged: _isUploading
+                        ? null
+                        : (value) =>
+                            setState(() => _optInFullSongRadio = value ?? false),
+                    title: Text(
+                      FullSongRadioOptIn.primaryAuthorization,
+                      style: TextStyle(
+                        color: surfaces.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _optInDjLivestreams,
+                    onChanged: _isUploading
+                        ? null
+                        : (value) =>
+                            setState(() => _optInDjLivestreams = value ?? false),
+                    title: Text(
+                      FullSongRadioOptIn.djLivestreams,
+                      style: TextStyle(
+                        color: surfaces.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    controlAffinity: ListTileControlAffinity.leading,
+                    value: _optInDjArchivedMixes,
+                    onChanged: _isUploading
+                        ? null
+                        : (value) => setState(
+                            () => _optInDjArchivedMixes = value ?? false,
+                          ),
+                    title: Text(
+                      '${FullSongRadioOptIn.djArchivedMixes} (optional)',
+                      style: TextStyle(
+                        color: surfaces.textSecondary,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 8),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -589,8 +668,11 @@ class _UploadScreenState extends State<UploadScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: FilledButton(
-                      onPressed:
-                          _isUploading || _audioFile == null ? null : _uploadSong,
+                      onPressed: _isUploading ||
+                              _audioFile == null ||
+                              !_optInFullSongRadio
+                          ? null
+                          : _uploadSong,
                       child: const Text('Submit for Rotation'),
                     ),
                   ),
