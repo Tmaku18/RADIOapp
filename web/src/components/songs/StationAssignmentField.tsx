@@ -6,6 +6,8 @@ type StationAssignmentFieldProps = {
   value: string[];
   onChange: (stationIds: string[]) => void;
   id?: string;
+  /** Use on light surfaces (e.g. admin modals) so labels stay readable in dark-themed apps. */
+  variant?: 'default' | 'light';
   /** Tailwind classes for the mobile select (admin pages use gray borders). */
   selectClassName?: string;
   /** Tailwind classes for the desktop checkbox panel border. */
@@ -22,10 +24,27 @@ export function StationAssignmentField({
   value,
   onChange,
   id,
+  variant = 'default',
   selectClassName = defaultSelectClassName,
   panelClassName = defaultPanelClassName,
   hintClassName = defaultHintClassName,
 }: StationAssignmentFieldProps) {
+  const isLight = variant === 'light';
+  const resolvedSelectClassName =
+    selectClassName === defaultSelectClassName && isLight
+      ? 'w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900'
+      : selectClassName;
+  const resolvedPanelClassName =
+    panelClassName === defaultPanelClassName && isLight
+      ? 'rounded-lg border border-gray-300 divide-y divide-gray-200 bg-white'
+      : panelClassName;
+  const resolvedHintClassName =
+    hintClassName === defaultHintClassName && isLight
+      ? 'text-xs text-gray-600'
+      : hintClassName;
+  const rowClassName = isLight
+    ? 'flex cursor-pointer items-center gap-3 px-3 py-2 text-sm text-gray-900 hover:bg-gray-50'
+    : 'flex cursor-pointer items-center gap-3 px-3 py-2 text-sm text-foreground hover:bg-muted/50';
   const toggleStation = (stationId: string) => {
     if (value.includes(stationId)) {
       onChange(value.filter((currentId) => currentId !== stationId));
@@ -45,7 +64,7 @@ export function StationAssignmentField({
           id={id}
           value={value[0] ?? ''}
           onChange={(e) => handleMobileSelect(e.target.value)}
-          className={selectClassName}
+          className={resolvedSelectClassName}
         >
           <option value="">Select a station</option>
           {TOWERS.map((tower) => (
@@ -57,13 +76,13 @@ export function StationAssignmentField({
       </div>
 
       <div className="hidden md:block">
-        <div className={`max-h-48 overflow-y-auto ${panelClassName}`}>
+        <div className={`max-h-48 overflow-y-auto ${resolvedPanelClassName}`}>
           {TOWERS.map((tower) => {
             const checked = value.includes(tower.id);
             return (
               <label
                 key={tower.id}
-                className="flex cursor-pointer items-center gap-3 px-3 py-2 text-sm hover:bg-muted/50"
+                className={rowClassName}
               >
                 <input
                   type="checkbox"
@@ -76,7 +95,7 @@ export function StationAssignmentField({
             );
           })}
         </div>
-        <p className={`mt-1 ${hintClassName}`}>
+        <p className={`mt-1 ${resolvedHintClassName}`}>
           Select one or more stations for this song.
         </p>
       </div>
