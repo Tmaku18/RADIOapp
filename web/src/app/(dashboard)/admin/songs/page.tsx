@@ -1246,7 +1246,7 @@ export default function AdminSongsPage() {
 
       {/* Rejection Modal */}
       {rejectingId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
             <p className="text-gray-600 mb-4">
@@ -1282,7 +1282,7 @@ export default function AdminSongsPage() {
       )}
 
       {trimmingSong && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Song</h3>
             <p className="text-gray-600 mb-4">
@@ -1390,8 +1390,8 @@ export default function AdminSongsPage() {
       )}
 
       {editingSong && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[100dvh] sm:max-h-[min(100dvh-2rem,900px)]">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[calc(100dvh-7rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
             <div className="shrink-0 border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Song Metadata</h3>
             </div>

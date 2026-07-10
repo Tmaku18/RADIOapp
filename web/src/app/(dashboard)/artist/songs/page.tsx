@@ -967,8 +967,8 @@ export default function MySongsPage() {
       />
 
       {editingSong && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[100dvh] sm:max-h-[min(100dvh-2rem,900px)]">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[calc(100dvh-7rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
               <button
