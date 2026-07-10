@@ -7,6 +7,7 @@ import { songsApi, refineryApi } from '@/lib/api';
 import { usePlayback } from '@/components/playback';
 import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
 import { Button } from '@/components/ui/button';
+import { ModalPortal } from '@/components/ui/modal-portal';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -967,8 +968,9 @@ export default function MySongsPage() {
       />
 
       {editingSong && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[calc(100dvh-7rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[calc(100dvh-2rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
             <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
               <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
               <button
@@ -1244,6 +1246,7 @@ export default function MySongsPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
       <SongLikesDialog
         open={likesDialogOpen}

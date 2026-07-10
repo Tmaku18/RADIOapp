@@ -7,6 +7,7 @@ import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
 import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
 import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
 import { Button } from '@/components/ui/button';
+import { ModalPortal } from '@/components/ui/modal-portal';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -1246,7 +1247,8 @@ export default function AdminSongsPage() {
 
       {/* Rejection Modal */}
       {rejectingId && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
             <p className="text-gray-600 mb-4">
@@ -1279,10 +1281,12 @@ export default function AdminSongsPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {trimmingSong && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
           <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Song</h3>
             <p className="text-gray-600 mb-4">
@@ -1387,11 +1391,13 @@ export default function AdminSongsPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       {editingSong && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
-          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[calc(100dvh-7rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
+        <ModalPortal>
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[calc(100dvh-2rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
             <div className="shrink-0 border-b border-gray-200 px-6 py-4">
               <h3 className="text-lg font-semibold text-gray-900">Edit Song Metadata</h3>
             </div>
@@ -1503,6 +1509,7 @@ export default function AdminSongsPage() {
             </div>
           </div>
         </div>
+        </ModalPortal>
       )}
 
       <SampleTrimDialog
