@@ -14,7 +14,7 @@ import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUpWithEmail, signInWithGoogle, loading, error } = useAuth();
+  const { signUpWithEmail, signInWithGoogle, signInWithApple, loading, error } = useAuth();
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
 
@@ -78,6 +78,25 @@ function SignupForm() {
     }
   };
 
+  const handleAppleSignup = async () => {
+    setLocalError(null);
+    setIsSubmitting(true);
+    try {
+      await signInWithApple();
+      router.push(redirectTo);
+    } catch (err) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setLocalError(null);
+        return;
+      }
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign up with Apple'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const displayError = localError || error;
 
   return (
@@ -97,7 +116,7 @@ function SignupForm() {
       <Button
         type="button"
         variant="outline"
-        className="w-full gap-3 mb-6 border-border bg-card hover:bg-muted"
+        className="w-full gap-3 mb-3 border-border bg-card hover:bg-muted"
         onClick={handleGoogleSignup}
         disabled={isSubmitting || loading}
       >
@@ -120,6 +139,20 @@ function SignupForm() {
           />
         </svg>
         <span>Continue with Google</span>
+      </Button>
+
+      {/* Apple Sign Up */}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-3 mb-6 border-border bg-card hover:bg-muted"
+        onClick={handleAppleSignup}
+        disabled={isSubmitting || loading}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+          <path d="M16.365 1.43c0 1.14-.42 2.2-1.18 3.03-.79.87-2.1 1.54-3.2 1.45-.14-1.12.41-2.28 1.17-3.08.8-.86 2.2-1.5 3.21-1.4zM20.5 17.3c-.58 1.34-.86 1.93-1.61 3.11-1.05 1.64-2.53 3.68-4.37 3.7-1.63.02-2.05-1.07-4.27-1.05-2.22.02-2.68 1.07-4.31 1.05-1.84-.03-3.25-1.86-4.3-3.5C.23 17.9-.7 13.2 1.2 10.15c1.2-1.92 3.1-3.04 4.88-3.04 1.82 0 2.96 1.12 4.46 1.12 1.45 0 2.34-1.12 4.43-1.12 1.58 0 3.25.86 4.44 2.35-3.9 2.14-3.27 7.71.09 7.84z" />
+        </svg>
+        <span>Continue with Apple</span>
       </Button>
 
       <div className="relative mb-6">

@@ -58,6 +58,7 @@ dependencies:
   firebase_messaging: ^16.3.0
   google_sign_in: ^7.2.0
   sign_in_with_apple: ^7.0.1
+  crypto: ^3.0.6
   
   # Supabase Realtime
   supabase_flutter: ^2.8.0

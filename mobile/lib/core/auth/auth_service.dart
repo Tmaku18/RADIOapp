@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
@@ -322,15 +325,33 @@ class AuthService extends ChangeNotifier {
       throw Exception('Firebase is not initialized. Please configure Firebase first.');
     }
     try {
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        throw Exception(
+          'Sign in with Apple is not available on this device. '
+          'Use an iPhone/iPad (or configure Apple Services ID for Android/web).',
+        );
+      }
+
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
       final credential = await SignInWithApple.getAppleIDCredential(
         scopes: [
           AppleIDAuthorizationScopes.email,
           AppleIDAuthorizationScopes.fullName,
         ],
+        nonce: nonce,
       );
 
-      final oauthCredential = OAuthProvider("apple.com").credential(
-        idToken: credential.identityToken,
+      final idToken = credential.identityToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Apple Sign-In did not return an identity token.');
+      }
+
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: idToken,
+        rawNonce: rawNonce,
         accessToken: credential.authorizationCode,
       );
 
@@ -339,13 +360,30 @@ class AuthService extends ChangeNotifier {
         final token = await userCredential.user!.getIdToken();
         _apiService.setAuthToken(token);
 
+        // Persist given/family name onto the Firebase profile when Apple returns
+        // it (only on first authorization).
+        final given = credential.givenName?.trim() ?? '';
+        final family = credential.familyName?.trim() ?? '';
+        final appleFullName = [given, family].where((p) => p.isNotEmpty).join(' ');
+        if (appleFullName.isNotEmpty &&
+            (userCredential.user!.displayName == null ||
+                userCredential.user!.displayName!.trim().isEmpty)) {
+          try {
+            await userCredential.user!.updateDisplayName(appleFullName);
+          } catch (_) {
+            // Non-fatal — DisplayNameGate / profile setup still works.
+          }
+        }
+
         try {
           return await _getUserProfile();
         } catch (e) {
-          // No backend profile yet: require a display name before creating the
-          // account. Pre-fill with the Apple name when present.
           throw ProfileSetupRequiredException(
-            suggestedName: _providerName(credential.givenName),
+            suggestedName: _providerName(
+              appleFullName.isNotEmpty
+                  ? appleFullName
+                  : userCredential.user!.displayName,
+            ),
             email: credential.email ??
                 userCredential.user!.email ??
                 'private@apple.relay',
@@ -355,9 +393,31 @@ class AuthService extends ChangeNotifier {
       return null;
     } on ProfileSetupRequiredException {
       rethrow;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return null;
+      }
+      throw Exception('Apple sign in failed: ${e.message}');
     } catch (e) {
       throw Exception('Apple sign in failed: $e');
     }
+  }
+
+  /// Cryptographically secure nonce for Apple → Firebase auth.
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   Future<void> signOut() async {

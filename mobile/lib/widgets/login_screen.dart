@@ -1,5 +1,9 @@
+import 'dart:io' show Platform;
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../core/auth/auth_service.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/theme/networx_tokens.dart';
@@ -543,20 +547,38 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: OutlinedButton.icon(
-                            onPressed: _isSubmitting ? null : _handleAppleSignIn,
-                            icon: const Icon(Icons.apple, size: 22),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: onCard,
-                              side: BorderSide(color: borderColor),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            label: const Text('Continue with Apple'),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
+                        if (!kIsWeb && (Platform.isIOS || Platform.isMacOS))
+                          FutureBuilder<bool>(
+                            future: SignInWithApple.isAvailable(),
+                            builder: (context, snapshot) {
+                              if (snapshot.data != true) {
+                                return const SizedBox.shrink();
+                              }
+                              return Column(
+                                children: [
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: OutlinedButton.icon(
+                                      onPressed:
+                                          _isSubmitting ? null : _handleAppleSignIn,
+                                      icon: const Icon(Icons.apple, size: 22),
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: onCard,
+                                        side: BorderSide(color: borderColor),
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
+                                      ),
+                                      label: const Text('Continue with Apple'),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                ],
+                              );
+                            },
+                          )
+                        else
+                          const SizedBox.shrink(),
                         TextButton(
                           onPressed: _isSubmitting
                               ? null

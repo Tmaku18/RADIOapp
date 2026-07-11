@@ -3,7 +3,8 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { 
   getAuth, 
-  GoogleAuthProvider, 
+  GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   signInWithEmailAndPassword,
   signInWithCustomToken as firebaseSignInWithCustomToken,
@@ -28,17 +29,27 @@ const firebaseConfig = {
 let app: FirebaseApp;
 let auth: Auth;
 let googleProvider: GoogleAuthProvider;
+let appleProvider: OAuthProvider;
 
 if (typeof window !== 'undefined') {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   auth = getAuth(app);
   googleProvider = new GoogleAuthProvider();
+  appleProvider = new OAuthProvider('apple.com');
+  appleProvider.addScope('email');
+  appleProvider.addScope('name');
 }
 
 // Auth helper functions
 export async function signInWithGoogle() {
   if (!auth || !googleProvider) throw new Error('Firebase not initialized');
   const result = await signInWithPopup(auth, googleProvider);
+  return result.user;
+}
+
+export async function signInWithApple() {
+  if (!auth || !appleProvider) throw new Error('Firebase not initialized');
+  const result = await signInWithPopup(auth, appleProvider);
   return result.user;
 }
 
@@ -109,4 +120,4 @@ export async function createSessionCookie(idToken: string) {
   return response.json();
 }
 
-export { auth, googleProvider };
+export { auth, googleProvider, appleProvider };

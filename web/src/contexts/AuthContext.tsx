@@ -5,6 +5,7 @@ import { User } from 'firebase/auth';
 import {
   onAuthChange,
   signInWithGoogle,
+  signInWithApple,
   signInWithEmail,
   signUpWithEmail,
   signOut,
@@ -49,6 +50,7 @@ interface AuthContextType {
   loading: boolean;
   error: string | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
   signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -244,6 +246,46 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const handleSignInWithApple = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      const firebaseUser = await signInWithApple();
+      const idToken = await firebaseUser.getIdToken();
+      try {
+        await createSessionCookie(idToken);
+      } catch (sessionErr) {
+        console.warn('Session cookie creation failed during Apple sign-in:', sessionErr);
+      }
+      try {
+        const response = await usersApi.getMe();
+        if (response.data) {
+          setProfile(response.data);
+          setPendingProfileSetup(false);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        if (getHttpStatus(err) !== 404) {
+          setLoading(false);
+          return;
+        }
+        // New Apple user: require a display name before creating the account.
+        setProfile(null);
+        setPendingProfileSetup(true);
+        setLoading(false);
+        return;
+      }
+      setLoading(false);
+    } catch (err) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? (err instanceof Error ? err.message : 'Failed to sign in with Apple');
+      setError(message);
+      setLoading(false);
+      throw err;
+    }
+  };
+
   const handleSignInWithEmail = async (email: string, password: string) => {
     setError(null);
     setLoading(true);
@@ -332,6 +374,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     loading,
     error,
     signInWithGoogle: handleSignInWithGoogle,
+    signInWithApple: handleSignInWithApple,
     signInWithEmail: handleSignInWithEmail,
     signUpWithEmail: handleSignUpWithEmail,
     signOut: handleSignOut,

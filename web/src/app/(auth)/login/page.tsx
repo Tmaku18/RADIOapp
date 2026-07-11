@@ -17,6 +17,7 @@ function LoginForm() {
   const {
     profile,
     signInWithGoogle,
+    signInWithApple,
     signInWithEmail,
     loading,
     error,
@@ -74,6 +75,25 @@ function LoginForm() {
     }
   };
 
+  const handleAppleLogin = async () => {
+    setLocalError(null);
+    setIsSubmitting(true);
+
+    try {
+      await signInWithApple();
+    } catch (err) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      const code = (err as { code?: string })?.code;
+      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setLocalError(null);
+        return;
+      }
+      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign in with Apple'));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const displayError = localError || error;
 
   return (
@@ -99,7 +119,7 @@ function LoginForm() {
       <Button
         type="button"
         variant="outline"
-        className="w-full gap-3 mb-6 border-border bg-card hover:bg-muted"
+        className="w-full gap-3 mb-3 border-border bg-card hover:bg-muted"
         onClick={handleGoogleLogin}
         disabled={isSubmitting || loading}
       >
@@ -110,6 +130,20 @@ function LoginForm() {
           <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
         </svg>
         <span>Continue with Google</span>
+      </Button>
+
+      {/* Apple Sign In */}
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full gap-3 mb-6 border-border bg-card hover:bg-muted"
+        onClick={handleAppleLogin}
+        disabled={isSubmitting || loading}
+      >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden fill="currentColor">
+          <path d="M16.365 1.43c0 1.14-.42 2.2-1.18 3.03-.79.87-2.1 1.54-3.2 1.45-.14-1.12.41-2.28 1.17-3.08.8-.86 2.2-1.5 3.21-1.4zM20.5 17.3c-.58 1.34-.86 1.93-1.61 3.11-1.05 1.64-2.53 3.68-4.37 3.7-1.63.02-2.05-1.07-4.27-1.05-2.22.02-2.68 1.07-4.31 1.05-1.84-.03-3.25-1.86-4.3-3.5C.23 17.9-.7 13.2 1.2 10.15c1.2-1.92 3.1-3.04 4.88-3.04 1.82 0 2.96 1.12 4.46 1.12 1.45 0 2.34-1.12 4.43-1.12 1.58 0 3.25.86 4.44 2.35-3.9 2.14-3.27 7.71.09 7.84z" />
+        </svg>
+        <span>Continue with Apple</span>
       </Button>
 
       <div className="relative mb-6">
