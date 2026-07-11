@@ -53,11 +53,12 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAKEzAK0K2iqP21LedVuAhqS6vNbdBzRAo',
-    appId: '1:479427085382:ios:1d5578183b068eae05b647',
+    appId: '1:479427085382:ios:4677474f04b6569705b647',
     messagingSenderId: '479427085382',
     projectId: 'radioapp-4c14a',
     storageBucket: 'radioapp-4c14a.firebasestorage.app',
-    iosBundleId: 'com.radioapp.radioApp',
+    iosBundleId: 'com.tmaktechnologies.networxradio',
+    iosClientId: '479427085382-p71ptp0u1k6tvkcuqdvk1n558e62ckvp.apps.googleusercontent.com',
   );
 
   static const FirebaseOptions web = FirebaseOptions(
