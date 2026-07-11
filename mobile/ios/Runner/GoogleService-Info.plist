@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>479427085382-p71ptp0u1k6tvkcuqdvk1n558e62ckvp.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.479427085382-p71ptp0u1k6tvkcuqdvk1n558e62ckvp</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>479427085382-54r5hhj9t9lk7pq6o5h2og57jc6i19qt.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAKEzAK0K2iqP21LedVuAhqS6vNbdBzRAo</string>
+	<key>GCM_SENDER_ID</key>
+	<string>479427085382</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.tmaktechnologies.networxradio</string>
+	<key>PROJECT_ID</key>
+	<string>radioapp-4c14a</string>
+	<key>STORAGE_BUCKET</key>
+	<string>radioapp-4c14a.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:479427085382:ios:4677474f04b6569705b647</string>
+</dict>
+</plist>
