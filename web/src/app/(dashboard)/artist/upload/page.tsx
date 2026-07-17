@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { songsApi } from '@/lib/api';
 import { FULL_SONG_RADIO_OPT_IN } from '@/lib/legal/full-song-radio-opt-in';
 import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
-import { TOWERS } from '@/data/station-map';
+import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,7 +95,7 @@ export default function UploadPage() {
   const [artistName, setArtistName] = useState('');
   const [artistOriginCity, setArtistOriginCity] = useState('');
   const [artistOriginState, setArtistOriginState] = useState('');
-  const [stationId, setStationId] = useState('');
+  const [stationIds, setStationIds] = useState<string[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
@@ -329,8 +329,8 @@ export default function UploadPage() {
       setError('Please fill in all required fields');
       return;
     }
-    if (!stationId) {
-      setError('Please select a station/category');
+    if (stationIds.length === 0) {
+      setError('Please select at least one station/category');
       return;
     }
     {
@@ -432,7 +432,8 @@ export default function UploadPage() {
           artistName,
           artistOriginCity: artistOriginCity.trim(),
           artistOriginState: artistOriginState.trim(),
-          stationId,
+          stationId: stationIds[0],
+          stationIds,
           audioPath,
           artworkPath,
           durationSeconds: durationSeconds ?? undefined,
@@ -719,21 +720,14 @@ export default function UploadPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="stationId">Station / Category <span className="text-destructive">*</span></Label>
-              <select
-                id="stationId"
-                required
-                value={stationId}
-                onChange={(e) => setStationId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">Select a station</option>
-                {TOWERS.map((tower) => (
-                  <option key={tower.id} value={tower.id}>
-                    {tower.genre} (National)
-                  </option>
-                ))}
-              </select>
+              <Label htmlFor="stationIds">
+                Station / Category <span className="text-destructive">*</span>
+              </Label>
+              <StationAssignmentField
+                id="stationIds"
+                value={stationIds}
+                onChange={setStationIds}
+              />
             </div>
 
             <div className="space-y-2">
@@ -838,7 +832,12 @@ export default function UploadPage() {
 
             <Button
               type="submit"
-              disabled={isUploading || !audioFile || !stationId || !optInFullSongRadio}
+              disabled={
+                isUploading ||
+                !audioFile ||
+                stationIds.length === 0 ||
+                !optInFullSongRadio
+              }
               className="w-full"
             >
               {isUploading ? 'Uploading...' : 'Submit for Rotation'}

@@ -125,6 +125,34 @@ export class SongsController {
     };
   }
 
+  private normalizeStationIdsInput(
+    stationIds: string[] | string | undefined,
+    fallbackStationId?: string,
+  ): string[] {
+    const rawList = Array.isArray(stationIds)
+      ? stationIds
+      : typeof stationIds === 'string' && stationIds.trim()
+        ? stationIds
+            .split(',')
+            .map((id) => id.trim())
+            .filter(Boolean)
+        : fallbackStationId
+          ? [fallbackStationId]
+          : [];
+    const normalized = [
+      ...new Set(rawList.map((id) => (id ?? '').trim()).filter(Boolean)),
+    ];
+    const invalid = normalized.filter(
+      (id) => !STATION_IDS.includes(id as (typeof STATION_IDS)[number]),
+    );
+    if (invalid.length > 0) {
+      throw new BadRequestException(
+        `Invalid stationIds: ${invalid.join(', ')}`,
+      );
+    }
+    return normalized;
+  }
+
   private isMissingColumnError(error: unknown, columnName: string): boolean {
     const maybe = error as { code?: string; message?: string } | null;
     const message = (maybe?.message ?? '').toLowerCase();
@@ -348,6 +376,7 @@ export class SongsController {
       artistOriginCity: string;
       artistOriginState: string;
       stationId: string;
+      stationIds?: string[] | string;
       isExplicit?: boolean;
       lyricsPlainText?: string;
       optInFullSongRadio?: boolean | string;
@@ -370,7 +399,11 @@ export class SongsController {
       throw new BadRequestException('Audio file is required');
     }
 
-    if (!body.stationId || !STATION_IDS.includes(body.stationId as any)) {
+    const multipartStationIds = this.normalizeStationIdsInput(
+      body.stationIds,
+      body.stationId,
+    );
+    if (multipartStationIds.length === 0) {
       throw new BadRequestException('Valid stationId is required');
     }
     if (!body.artistOriginCity?.trim() || !body.artistOriginState?.trim()) {
@@ -400,7 +433,8 @@ export class SongsController {
       audioUrl,
       artworkUrl,
       durationSeconds, // Server-validated duration
-      stationId: body.stationId,
+      stationId: multipartStationIds[0],
+      stationIds: multipartStationIds,
       // Explicit by default; only clean when the uploader explicitly opts out.
       isExplicit: body.isExplicit !== false,
       lyricsPlainText: body.lyricsPlainText,
@@ -538,6 +572,14 @@ export class SongsController {
       );
     }
 
+    const fromPathStationIds = this.normalizeStationIdsInput(
+      dto.stationIds,
+      dto.stationId,
+    );
+    if (fromPathStationIds.length === 0) {
+      throw new BadRequestException('Valid stationId is required');
+    }
+
     const createSongDto: CreateSongDto = {
       title: dto.title,
       artistName: (userData.display_name ?? '').trim(),
@@ -546,7 +588,8 @@ export class SongsController {
       audioUrl: audioUrlData.publicUrl,
       artworkUrl,
       durationSeconds,
-      stationId: dto.stationId,
+      stationId: fromPathStationIds[0],
+      stationIds: fromPathStationIds,
       discoverClipUrl,
       discoverBackgroundUrl,
       discoverClipStartSeconds: dto.discoverClipStartSeconds,

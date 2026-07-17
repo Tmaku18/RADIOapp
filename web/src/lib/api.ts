@@ -544,6 +544,7 @@ export const songsApi = {
     artistOriginCity: string;
     artistOriginState: string;
     stationId: string;
+    stationIds?: string[];
     audioPath: string;
     artworkPath?: string;
     durationSeconds?: number;

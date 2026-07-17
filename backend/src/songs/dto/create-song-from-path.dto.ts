@@ -6,6 +6,7 @@ import {
   Min,
   IsIn,
   IsBoolean,
+  IsArray,
 } from 'class-validator';
 import { STATION_IDS } from '../../radio/station.constants';
 
@@ -48,6 +49,11 @@ export class CreateSongFromPathDto {
   @IsNotEmpty()
   @IsIn([...STATION_IDS])
   stationId: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  stationIds?: string[];
 
   @IsString()
   @IsOptional()

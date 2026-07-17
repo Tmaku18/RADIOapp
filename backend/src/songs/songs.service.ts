@@ -1183,6 +1183,23 @@ export class SongsService {
         ? Number(sampleEndRaw)
         : null;
 
+    const normalizedStationIds = [
+      ...new Set(
+        (
+          Array.isArray(createSongDto.stationIds) &&
+          createSongDto.stationIds.length > 0
+            ? createSongDto.stationIds
+            : [createSongDto.stationId]
+        )
+          .map((id) => (id ?? '').trim())
+          .filter(Boolean),
+      ),
+    ];
+    if (normalizedStationIds.length === 0) {
+      throw new BadRequestException('At least one station is required');
+    }
+    const primaryStationId = normalizedStationIds[0];
+
     const statusFields = this.uploadStatusFields();
     const baseInsertPayload = {
       artist_id: userId,
@@ -1193,7 +1210,8 @@ export class SongsService {
       audio_url: createSongDto.audioUrl,
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180, // Default 3 min if not provided
-      station_id: createSongDto.stationId,
+      station_id: primaryStationId,
+      station_ids: normalizedStationIds,
       sample_start_seconds: sampleStartSeconds,
       sample_end_seconds: sampleEndSeconds,
       // Songs are explicit by default; uploaders opt out by unchecking the box.
@@ -1210,7 +1228,7 @@ export class SongsService {
       audio_url: createSongDto.audioUrl,
       artwork_url: createSongDto.artworkUrl,
       duration_seconds: createSongDto.durationSeconds || 180,
-      station_id: createSongDto.stationId,
+      station_id: primaryStationId,
       sample_start_seconds: sampleStartSeconds,
       sample_end_seconds: sampleEndSeconds,
       ...statusFields,
