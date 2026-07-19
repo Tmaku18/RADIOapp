@@ -14,7 +14,7 @@ import {
 import Hls from 'hls.js';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
-import { isIosSafari } from '@/lib/browser-audio';
+import { canPlayNativeHls, isIosSafari } from '@/lib/browser-audio';
 import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
@@ -40,6 +40,7 @@ import {
   playMediaElement,
   reduceFrequencyBins,
   refreshMediaElementAnalyser,
+  shouldAvoidMediaElementSource,
   unlockWebAudioContext,
   updateBassRef,
   type AnalyserSlot,
@@ -471,8 +472,12 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!pair) return;
       const audio = pair[slot];
 
+      // Desktop (incl. Safari) needs CORS-clean media for a real FFT tap.
+      // Mobile web can fail playback with crossOrigin set, so skip it there.
       if (!isMobileWeb()) {
         audio.crossOrigin = 'anonymous';
+      } else {
+        audio.removeAttribute('crossorigin');
       }
       disconnectAnalyserSlot(analyserSlotsRef.current[slot]);
 
@@ -511,7 +516,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       };
 
       if (url.includes('.m3u8')) {
-        if (Hls.isSupported()) {
+        // Prefer Apple native HLS on Safari; hls.js MSE is flaky there.
+        if (canPlayNativeHls(audio)) {
+          audio.src = url;
+          audio.addEventListener('canplay', onReady, { once: true });
+        } else if (Hls.isSupported()) {
           const hls = new Hls({
             enableWorker: true,
             lowLatencyMode: true,
@@ -531,9 +540,6 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
             }
           });
           hlsBySlotRef.current[slot] = hls;
-        } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-          audio.src = url;
-          audio.addEventListener('canplay', onReady, { once: true });
         } else {
           setState((s) => ({ ...s, error: 'HLS not supported', isLoading: false }));
         }
@@ -876,8 +882,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     let raf = 0;
     const tick = () => {
       const slot = activeSlotRef.current;
-      const an = analyserSlotsRef.current[slot]?.analyser;
+      const slotState = analyserSlotsRef.current[slot];
+      const an = slotState?.analyser;
       const activeAudio = audioPairRef.current?.[slot];
+      // When audio is routed through the AudioContext (element-source FFT), a
+      // suspended context means silence. Keep it resumed while a tap is active.
+      if (slotState?.usesElementSource && analyserCtxRef.current?.state === 'suspended') {
+        void unlockWebAudioContext(analyserCtxRef);
+      }
       const streamActive =
         stateRef.current.isPlaying &&
         !stateRef.current.pausedAt &&
@@ -903,24 +915,39 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         if (peak === 0) {
           analyserZeroFramesRef.current += 1;
-          if (analyserZeroFramesRef.current === 90 && activeAudio) {
-            const slotState = analyserSlotsRef.current[slot];
+          // Dead FFT tap: keep the equalizer alive with simulated bars while we
+          // attempt a one-shot element-source recovery on desktop (incl. Safari).
+          if (analyserZeroFramesRef.current >= 30) {
+            fillSimulatedBars(barsRef.current, performance.now() / 1000);
+          }
+          if (
+            analyserZeroFramesRef.current === 90 &&
+            activeAudio &&
+            slotState &&
+            !shouldAvoidMediaElementSource()
+          ) {
             refreshMediaElementAnalyser(
               activeAudio,
               slotState,
               analyserCtxRef,
               ANALYSER_BARS * 4,
               {
-                preferElementSource:
-                  !isMobileWeb() && slotState.usesElementSource !== true,
+                preferElementSource: slotState.usesElementSource !== true,
               },
             );
+          }
+          // Safari/mobile: drop a silent tap so we stay on the simulated path.
+          if (
+            analyserZeroFramesRef.current === 120 &&
+            shouldAvoidMediaElementSource()
+          ) {
+            disconnectAnalyserSlot(analyserSlotsRef.current[slot]);
           }
         } else {
           analyserZeroFramesRef.current = 0;
         }
       } else if (playing) {
-        // No real FFT tap (mobile web / suspended ctx): show a music-like
+        // No real FFT tap (Safari / mobile / suspended ctx): show a music-like
         // simulated spectrum so the visualizer reacts while audio plays.
         analyserZeroFramesRef.current = 0;
         fillSimulatedBars(barsRef.current, performance.now() / 1000);

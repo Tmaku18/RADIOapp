@@ -127,6 +127,18 @@ function captureMediaElementStream(audio: HTMLMediaElement): MediaStream | null 
   return null;
 }
 
+/**
+ * createMediaElementSource routes element output through the AudioContext. On
+ * iOS/mobile web that can silence background/lock-screen audio, so we never use
+ * it there (native output + simulated bars). Desktop browsers — including
+ * desktop Safari — use it to get a real, music-reactive FFT (audio still plays
+ * because the analyser is connected to ctx.destination and the context is
+ * resumed on the play gesture).
+ */
+export function shouldAvoidMediaElementSource(): boolean {
+  return isMobileWeb();
+}
+
 function wireAnalyserTap(
   audio: HTMLMediaElement,
   slot: AnalyserSlot,
@@ -141,15 +153,15 @@ function wireAnalyserTap(
       slot.usesElementSource = false;
       return true;
     }
-    // Desktop fallback when captureStream is missing or returns a silent tap
-    // (common with some CDN/CORS setups). Mobile stays native-only so
-    // background playback and lock-screen audio are not hijacked.
-    if (!isMobileWeb()) {
+    // Desktop (incl. Safari) fallback when captureStream is missing: a real
+    // element-source FFT. Mobile stays native-only so audio is never hijacked.
+    if (!shouldAvoidMediaElementSource()) {
       return wireElementSourceTap(audio, slot, ctx, an);
     }
     return false;
   }
 
+  if (shouldAvoidMediaElementSource()) return false;
   return wireElementSourceTap(audio, slot, ctx, an);
 }
 
@@ -187,8 +199,8 @@ export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.preload = 'auto';
-  // Desktop FFT taps need CORS; on mobile web, anonymous mode can block playback on
-  // some CDN edges when headers are missing — native playback does not need it.
+  // Desktop FFT taps need CORS-clean media. Mobile web can fail playback when
+  // crossOrigin=anonymous is set without matching CDN ACAO, so skip it there.
   if (!isMobileWeb()) {
     audio.crossOrigin = 'anonymous';
   }
@@ -287,7 +299,7 @@ export function ensureMediaElementAnalyser(
     an.smoothingTimeConstant = 0.62;
 
     const wired =
-      opts?.preferElementSource && !isMobileWeb()
+      opts?.preferElementSource && !shouldAvoidMediaElementSource()
         ? wireElementSourceTap(audio, slot, ctx, an)
         : wireAnalyserTap(audio, slot, ctx, an);
 

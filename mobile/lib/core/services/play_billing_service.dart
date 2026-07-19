@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
@@ -8,14 +9,19 @@ import '../env.dart';
 
 class PlayPurchaseResult {
   final String productId;
+  /// Google Play purchase token, or App Store StoreKit 2 JWS.
   final String purchaseToken;
+  /// App Store transaction id (Flutter `PurchaseDetails.purchaseID`).
+  final String? transactionId;
 
   const PlayPurchaseResult({
     required this.productId,
     required this.purchaseToken,
+    this.transactionId,
   });
 }
 
+/// Storefront-independent consumable IAP helper (Google Play + App Store).
 class PlayBillingService {
   PlayBillingService._();
   static final PlayBillingService instance = PlayBillingService._();
@@ -35,30 +41,52 @@ class PlayBillingService {
   static const String _defaultSongPlays50 = 'nwx_song_plays_50';
   static const String _defaultSongPlays100 = 'nwx_song_plays_100';
 
+  String get _storeLabel {
+    if (Platform.isIOS) return 'App Store';
+    if (Platform.isAndroid) return 'Google Play';
+    return 'in-app purchases';
+  }
+
   Set<String> get allKnownProductIds => {
-    creditProductIdFor(10)!,
-    creditProductIdFor(25)!,
-    creditProductIdFor(50)!,
-    creditProductIdFor(100)!,
-    songPlaysProductIdFor(1)!,
-    songPlaysProductIdFor(3)!,
-    songPlaysProductIdFor(5)!,
-    songPlaysProductIdFor(10)!,
-    songPlaysProductIdFor(25)!,
-    songPlaysProductIdFor(50)!,
-    songPlaysProductIdFor(100)!,
-  };
+        creditProductIdFor(10)!,
+        creditProductIdFor(25)!,
+        creditProductIdFor(50)!,
+        creditProductIdFor(100)!,
+        songPlaysProductIdFor(1)!,
+        songPlaysProductIdFor(3)!,
+        songPlaysProductIdFor(5)!,
+        songPlaysProductIdFor(10)!,
+        songPlaysProductIdFor(25)!,
+        songPlaysProductIdFor(50)!,
+        songPlaysProductIdFor(100)!,
+      };
+
+  String? _envOrDefault(String key, String fallback) {
+    return env(key) ?? fallback;
+  }
 
   String? creditProductIdFor(int credits) {
     switch (credits) {
       case 10:
-        return env('ANDROID_PLAY_CREDITS_10_PRODUCT_ID') ?? _defaultCredits10;
+        return _envOrDefault(
+              'IOS_APP_STORE_CREDITS_10_PRODUCT_ID',
+              env('ANDROID_PLAY_CREDITS_10_PRODUCT_ID') ?? _defaultCredits10,
+            );
       case 25:
-        return env('ANDROID_PLAY_CREDITS_25_PRODUCT_ID') ?? _defaultCredits25;
+        return _envOrDefault(
+              'IOS_APP_STORE_CREDITS_25_PRODUCT_ID',
+              env('ANDROID_PLAY_CREDITS_25_PRODUCT_ID') ?? _defaultCredits25,
+            );
       case 50:
-        return env('ANDROID_PLAY_CREDITS_50_PRODUCT_ID') ?? _defaultCredits50;
+        return _envOrDefault(
+              'IOS_APP_STORE_CREDITS_50_PRODUCT_ID',
+              env('ANDROID_PLAY_CREDITS_50_PRODUCT_ID') ?? _defaultCredits50,
+            );
       case 100:
-        return env('ANDROID_PLAY_CREDITS_100_PRODUCT_ID') ?? _defaultCredits100;
+        return _envOrDefault(
+              'IOS_APP_STORE_CREDITS_100_PRODUCT_ID',
+              env('ANDROID_PLAY_CREDITS_100_PRODUCT_ID') ?? _defaultCredits100,
+            );
       default:
         return null;
     }
@@ -67,20 +95,44 @@ class PlayBillingService {
   String? songPlaysProductIdFor(int plays) {
     switch (plays) {
       case 1:
-        return env('ANDROID_PLAY_SONG_PLAYS_1_PRODUCT_ID') ?? _defaultSongPlays1;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_1_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_1_PRODUCT_ID') ?? _defaultSongPlays1,
+            );
       case 3:
-        return env('ANDROID_PLAY_SONG_PLAYS_3_PRODUCT_ID') ?? _defaultSongPlays3;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_3_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_3_PRODUCT_ID') ?? _defaultSongPlays3,
+            );
       case 5:
-        return env('ANDROID_PLAY_SONG_PLAYS_5_PRODUCT_ID') ?? _defaultSongPlays5;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_5_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_5_PRODUCT_ID') ?? _defaultSongPlays5,
+            );
       case 10:
-        return env('ANDROID_PLAY_SONG_PLAYS_10_PRODUCT_ID') ?? _defaultSongPlays10;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_10_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_10_PRODUCT_ID') ??
+                  _defaultSongPlays10,
+            );
       case 25:
-        return env('ANDROID_PLAY_SONG_PLAYS_25_PRODUCT_ID') ?? _defaultSongPlays25;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_25_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_25_PRODUCT_ID') ??
+                  _defaultSongPlays25,
+            );
       case 50:
-        return env('ANDROID_PLAY_SONG_PLAYS_50_PRODUCT_ID') ?? _defaultSongPlays50;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_50_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_50_PRODUCT_ID') ??
+                  _defaultSongPlays50,
+            );
       case 100:
-        return env('ANDROID_PLAY_SONG_PLAYS_100_PRODUCT_ID') ??
-            _defaultSongPlays100;
+        return _envOrDefault(
+              'IOS_APP_STORE_SONG_PLAYS_100_PRODUCT_ID',
+              env('ANDROID_PLAY_SONG_PLAYS_100_PRODUCT_ID') ??
+                  _defaultSongPlays100,
+            );
       default:
         return null;
     }
@@ -88,16 +140,20 @@ class PlayBillingService {
 
   /// Dynamic song-play product mapping by `(plays, totalCents)` key.
   ///
-  /// Expected env format:
-  /// ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON='{"5:1500":"nwx_song_plays_5_1500"}'
+  /// Prefers `IOS_APP_STORE_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON` on iOS, then
+  /// `ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON`.
   ///
-  /// Key format: `plays:totalCents` (example: `5:1500`)
+  /// Key format: `plays:totalCents` (example: `5:995`)
   String? songPlaysProductIdForPricing({
     required int plays,
     required int totalCents,
   }) {
-    final raw = env('ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON');
-    if (raw != null && raw.isNotEmpty) {
+    final candidates = <String?>[
+      if (Platform.isIOS) env('IOS_APP_STORE_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON'),
+      env('ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON'),
+    ];
+    for (final raw in candidates) {
+      if (raw == null || raw.isEmpty) continue;
       try {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
@@ -105,10 +161,9 @@ class PlayBillingService {
           if (id is String && id.isNotEmpty) return id;
         }
       } catch (e) {
-        debugPrint('Invalid ANDROID_PLAY_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON: $e');
+        debugPrint('Invalid IAP song-plays price product map JSON: $e');
       }
     }
-    // Fallback to static plays mapping if no dynamic map exists.
     return songPlaysProductIdFor(plays);
   }
 
@@ -120,12 +175,13 @@ class PlayBillingService {
     final response = await _iap.queryProductDetails({productId});
     if (response.error != null) {
       throw Exception(
-        response.error?.message ?? 'Failed to load Google Play product',
+        response.error?.message ?? 'Failed to load $_storeLabel product',
       );
     }
-    if (response.notFoundIDs.contains(productId) || response.productDetails.isEmpty) {
+    if (response.notFoundIDs.contains(productId) ||
+        response.productDetails.isEmpty) {
       throw Exception(
-        'Product $productId not found in Google Play Console for this app build.',
+        'Product $productId not found in $_storeLabel for this app build.',
       );
     }
     return response.productDetails.first;
@@ -134,7 +190,7 @@ class PlayBillingService {
   Future<PlayPurchaseResult> buyConsumable(String productId) async {
     final available = await isAvailable();
     if (!available) {
-      throw Exception('Google Play Billing is not available on this device.');
+      throw Exception('$_storeLabel Billing is not available on this device.');
     }
 
     final product = await getProductDetails(productId);
@@ -145,10 +201,18 @@ class PlayBillingService {
         for (final purchase in updates) {
           if (purchase.productID != productId) continue;
 
+          if (purchase.status == PurchaseStatus.canceled) {
+            await _finishPurchaseIfNeeded(purchase);
+            if (!completer.isCompleted) {
+              completer.completeError(Exception('Purchase was cancelled.'));
+            }
+            continue;
+          }
+
           if (purchase.status == PurchaseStatus.error) {
             await _finishPurchaseIfNeeded(purchase);
             final message =
-                purchase.error?.message ?? 'Google Play purchase failed.';
+                purchase.error?.message ?? '$_storeLabel purchase failed.';
             if (!completer.isCompleted) {
               completer.completeError(Exception(message));
             }
@@ -159,10 +223,13 @@ class PlayBillingService {
               purchase.status == PurchaseStatus.restored) {
             await _finishPurchaseIfNeeded(purchase);
             final token = purchase.verificationData.serverVerificationData;
-            if (token.isEmpty) {
+            if (token.isEmpty &&
+                (purchase.purchaseID == null || purchase.purchaseID!.isEmpty)) {
               if (!completer.isCompleted) {
                 completer.completeError(
-                  Exception('Missing purchase token from Google Play purchase.'),
+                  Exception(
+                    'Missing verification data from $_storeLabel purchase.',
+                  ),
                 );
               }
             } else if (!completer.isCompleted) {
@@ -170,6 +237,7 @@ class PlayBillingService {
                 PlayPurchaseResult(
                   productId: productId,
                   purchaseToken: token,
+                  transactionId: purchase.purchaseID,
                 ),
               );
             }
@@ -189,7 +257,7 @@ class PlayBillingService {
       );
       if (!started) {
         throw Exception(
-          'Google Play did not start purchase flow for $productId.',
+          '$_storeLabel did not start purchase flow for $productId.',
         );
       }
       final result = await completer.future.timeout(

@@ -21,7 +21,7 @@
 | Heartbeat / play reporting | done | done | done | done | |
 | Song upload | done | done | done | done | |
 | Song moderation | done | missing | — | — | Web admin only (by design) |
-| Credits / allocate / buy plays | done | done | platform-divergent | platform-divergent | Android: Google Play consumables; iOS: Stripe Payment Sheet |
+| Credits / allocate / buy plays | done | done | platform-divergent | platform-divergent | Android: Google Play consumables; iOS: App Store IAP (StoreKit); web: Stripe |
 | Purchase credits | done | done | platform-divergent | platform-divergent | Same split as above |
 | Creator Network subscription | done | done | platform-divergent | platform-divergent | |
 | Artist studio (my songs) | done | done | done | done | |

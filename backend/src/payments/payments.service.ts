@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
 import { GooglePlayBillingService } from './google-play-billing.service';
+import { AppStoreBillingService } from './app-store-billing.service';
 import { CreatorNetworkService } from '../creator-network/creator-network.service';
 import { ProNetworkSubscriptionService } from '../pro-network-subscription/pro-network-subscription.service';
 import type { ProNetworkSubStatus } from '../pro-network-subscription/pro-network-subscription.service';
@@ -11,8 +12,9 @@ import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ALLOWED_PLAYS_LIST, BuySongPlaysDto } from './dto/buy-song-plays.dto';
 import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
+import { CompleteAppStorePurchaseDto } from './dto/complete-app-store-purchase.dto';
 
-type GooglePlayCatalogEntry = {
+type IapCatalogEntry = {
   type: 'credits' | 'song_plays';
   amountCents: number;
   credits?: number;
@@ -50,32 +52,45 @@ export class PaymentsService {
     private creatorNetwork: CreatorNetworkService,
     private proNetworkSub: ProNetworkSubscriptionService,
     private googlePlayBillingService: GooglePlayBillingService,
+    private appStoreBillingService: AppStoreBillingService,
     @Inject(forwardRef(() => RefineryService))
     private readonly refineryService: RefineryService,
   ) {}
 
-  private getGooglePlayCatalog(): Record<string, GooglePlayCatalogEntry> {
-    const raw = this.configService.get<string>(
+  private getIapCatalog(storeLabel: 'Google Play' | 'App Store'): Record<
+    string,
+    IapCatalogEntry
+  > {
+    const appleRaw = this.configService.get<string>(
+      'APPLE_IAP_PRODUCT_CATALOG_JSON',
+    );
+    const googleRaw = this.configService.get<string>(
       'GOOGLE_PLAY_PRODUCT_CATALOG_JSON',
     );
+    const raw =
+      storeLabel === 'App Store' ? appleRaw || googleRaw : googleRaw || appleRaw;
     if (!raw) {
       throw new Error(
-        'GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map Play products to credits/plays',
+        storeLabel === 'App Store'
+          ? 'APPLE_IAP_PRODUCT_CATALOG_JSON or GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map IAP products'
+          : 'GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map Play products to credits/plays',
       );
     }
-    const parsed = JSON.parse(raw) as Record<string, GooglePlayCatalogEntry>;
-    return parsed;
+    return JSON.parse(raw) as Record<string, IapCatalogEntry>;
   }
 
-  private resolveGooglePlayProduct(productId: string): GooglePlayCatalogEntry {
-    const catalog = this.getGooglePlayCatalog();
+  private resolveIapProduct(
+    productId: string,
+    storeLabel: 'Google Play' | 'App Store',
+  ): IapCatalogEntry {
+    const catalog = this.getIapCatalog(storeLabel);
     const product = catalog[productId];
     if (!product) {
-      throw new Error(`Unknown Google Play product: ${productId}`);
+      throw new Error(`Unknown ${storeLabel} product: ${productId}`);
     }
     if (!product.amountCents || product.amountCents <= 0) {
       throw new Error(
-        `Invalid catalog amountCents for Google Play product: ${productId}`,
+        `Invalid catalog amountCents for ${storeLabel} product: ${productId}`,
       );
     }
     if (
@@ -83,7 +98,7 @@ export class PaymentsService {
       (!product.credits || product.credits <= 0)
     ) {
       throw new Error(
-        `Invalid credits mapping for Google Play product: ${productId}`,
+        `Invalid credits mapping for ${storeLabel} product: ${productId}`,
       );
     }
     if (
@@ -94,10 +109,14 @@ export class PaymentsService {
         ))
     ) {
       throw new Error(
-        `Invalid plays mapping for Google Play product: ${productId}`,
+        `Invalid plays mapping for ${storeLabel} product: ${productId}`,
       );
     }
     return product;
+  }
+
+  private resolveGooglePlayProduct(productId: string): IapCatalogEntry {
+    return this.resolveIapProduct(productId, 'Google Play');
   }
 
   private async grantCreditsToArtist(
@@ -224,6 +243,100 @@ export class PaymentsService {
       purchaseState: verification.purchaseState,
       acknowledgementState: verification.acknowledgementState,
       consumptionState: verification.consumptionState,
+      creditsPurchased,
+      playsPurchased,
+    };
+  }
+
+  async completeAppStorePurchase(
+    userId: string,
+    dto: CompleteAppStorePurchaseDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const product = this.resolveIapProduct(dto.productId, 'App Store');
+    const verification =
+      await this.appStoreBillingService.verifyConsumablePurchase({
+        productId: dto.productId,
+        signedTransaction: dto.signedTransaction,
+        transactionId: dto.transactionId,
+      });
+    const orderId = verification.transactionId;
+
+    const { data: existingTransaction } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('stripe_charge_id', orderId)
+      .single();
+
+    if (existingTransaction && existingTransaction.status === 'succeeded') {
+      return {
+        transactionId: existingTransaction.id,
+        alreadyProcessed: true,
+      };
+    }
+
+    const creditsPurchased =
+      product.type === 'credits' ? (product.credits ?? 0) : 0;
+    const playsPurchased =
+      product.type === 'song_plays' ? (product.plays ?? 0) : null;
+    const songId = product.type === 'song_plays' ? dto.songId : null;
+    if (product.type === 'song_plays' && !songId) {
+      throw new Error(
+        'songId is required when completing an App Store song_plays purchase',
+      );
+    }
+    if (product.type === 'song_plays' && songId && playsPurchased != null) {
+      const songPricing = await this.getSongPlayPrice(userId, songId);
+      const selectedOption = songPricing.options.find(
+        (option) => option.plays === playsPurchased,
+      );
+      if (!selectedOption) {
+        throw new Error(
+          `No pricing option found for plays=${playsPurchased} on song ${songId}`,
+        );
+      }
+      if (selectedOption.totalCents !== product.amountCents) {
+        throw new Error(
+          `App Store product amount mismatch. Expected ${selectedOption.totalCents} cents ` +
+            `for song duration pricing, got ${product.amountCents}.`,
+        );
+      }
+    }
+
+    const { data: transaction, error: txError } = await supabase
+      .from('transactions')
+      .insert({
+        user_id: userId,
+        amount_cents: product.amountCents,
+        credits_purchased: creditsPurchased,
+        status: 'succeeded',
+        payment_method: 'app_store',
+        stripe_charge_id: orderId,
+        stripe_payment_intent_id:
+          verification.originalTransactionId ?? dto.transactionId ?? orderId,
+        song_id: songId,
+        plays_purchased: playsPurchased,
+      })
+      .select()
+      .single();
+
+    if (txError) {
+      throw new Error(
+        `Failed to record App Store transaction: ${txError.message}`,
+      );
+    }
+
+    if (songId && playsPurchased != null) {
+      await this.addPlaysToSong(supabase, songId, playsPurchased);
+    } else if (creditsPurchased > 0) {
+      await this.grantCreditsToArtist(supabase, userId, creditsPurchased);
+    }
+
+    return {
+      transactionId: transaction.id,
+      orderId,
+      appStoreTransactionId: verification.transactionId,
+      environment: verification.environment,
       creditsPurchased,
       playsPurchased,
     };

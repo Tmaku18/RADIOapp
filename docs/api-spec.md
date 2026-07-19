@@ -165,6 +165,13 @@ The Refinery is a portal where artists submit uploaded songs for review. Only Pr
 - Verifies purchase token with Android Publisher API, records transaction, and grants credits/plays.
 - `songId` is required when `productId` maps to `song_plays` in backend catalog.
 
+### Complete App Store purchase (iOS)
+- **POST** `/payments/app-store/complete`
+- Body: `{ productId: string, signedTransaction?: string, transactionId?: string, songId?: uuid }`
+- Verifies StoreKit 2 JWS (or looks up `transactionId` via App Store Server API), records transaction, and grants credits/plays.
+- `songId` is required when `productId` maps to `song_plays` in the IAP catalog.
+- Catalog: `APPLE_IAP_PRODUCT_CATALOG_JSON` or fallback `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`.
+
 ### Quick Buy (Add 5 Minutes)
 - **POST** `/payments/quick-add-minutes`
 - Body: `{ songId: uuid }`

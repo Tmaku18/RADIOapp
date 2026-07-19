@@ -17,6 +17,7 @@ import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { BuySongPlaysDto } from './dto/buy-song-plays.dto';
 import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
+import { CompleteAppStorePurchaseDto } from './dto/complete-app-store-purchase.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
@@ -67,6 +68,25 @@ export class PaymentsController {
       throw new Error('User not found');
     }
     return this.paymentsService.completeGooglePlayPurchase(userData.id, dto);
+  }
+
+  @Post('app-store/complete')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('artist', 'admin')
+  async completeAppStorePurchase(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CompleteAppStorePurchaseDto,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) {
+      throw new Error('User not found');
+    }
+    return this.paymentsService.completeAppStorePurchase(userData.id, dto);
   }
 
   /**

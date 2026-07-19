@@ -9,7 +9,8 @@ Flutter mobile application for NETWORX live radio, artist tools, and competition
 - Artist upload and studio tools
 - Credits and purchases
   - Android: Google Play Billing
-  - iOS: Stripe Payment Sheet (`flutter_stripe`)
+  - iOS: Apple In-App Purchase (StoreKit) for credits + discovery placements
+  - Web / non-store surfaces: Stripe Checkout / Payment Sheet
 - Competition and spotlight screens with live leaderboard tabs:
   - likes, discoveries, positive votes, best ratio, saves, trial by fire
 - Notifications and deep-link routing into player/analytics/live watch flows
