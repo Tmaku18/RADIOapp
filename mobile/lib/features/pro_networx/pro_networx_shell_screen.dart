@@ -13,8 +13,17 @@ import 'pro_services_screen.dart';
 /// / Radio) plus a "My profile" action and the persistent radio mini-bar so
 /// audio keeps playing while users browse.
 class ProNetworxShellScreen extends StatefulWidget {
-  const ProNetworxShellScreen({super.key, this.initialTab = 0});
+  const ProNetworxShellScreen({
+    super.key,
+    this.initialTab = 0,
+    this.onExitToRadio,
+  });
   final int initialTab;
+
+  /// When hosted as an inline tab (artists), the parent passes this to switch
+  /// back to the Networx Radio player tab. When null (pushed as its own route
+  /// for listeners), the shell pops / resets to home instead.
+  final VoidCallback? onExitToRadio;
 
   @override
   State<ProNetworxShellScreen> createState() => _ProNetworxShellScreenState();
@@ -30,17 +39,37 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
     _ProTab(label: 'Radio', icon: Icons.radio),
   ];
 
+  void _exitToRadio() {
+    final onExit = widget.onExitToRadio;
+    if (onExit != null) {
+      onExit();
+      return;
+    }
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DimensionTokens.bgBase,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        leading: IconButton(
+          tooltip: 'Back to Networx Radio',
+          icon: const Icon(Icons.arrow_back),
+          onPressed: _exitToRadio,
+        ),
         title: const Text('Pro-Networx'),
         actions: [
-          const BackToNetworxRadioButton(
+          BackToNetworxRadioButton(
             compact: true,
             authenticatedTarget: true,
+            onPressed: _exitToRadio,
           ),
           IconButton(
             tooltip: 'My profile',

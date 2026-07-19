@@ -10,6 +10,7 @@ class BackToNetworxRadioButton extends StatelessWidget {
     super.key,
     this.compact = false,
     this.authenticatedTarget = false,
+    this.onPressed,
   });
 
   /// Hide the label on narrow headers (shows icon + "Radio" only).
@@ -18,7 +19,16 @@ class BackToNetworxRadioButton extends StatelessWidget {
   /// When true, signed-in users land on [AppRoutes.home] instead of welcome.
   final bool authenticatedTarget;
 
+  /// Optional override for the tap action (e.g. switch an inline tab back to
+  /// the radio player instead of navigating routes). Falls back to the default
+  /// pop / reset-to-target behavior when null.
+  final VoidCallback? onPressed;
+
   void _navigate(BuildContext context) {
+    if (onPressed != null) {
+      onPressed!();
+      return;
+    }
     if (Navigator.of(context).canPop()) {
       Navigator.of(context).pop();
       return;

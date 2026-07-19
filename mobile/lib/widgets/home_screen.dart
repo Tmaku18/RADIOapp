@@ -347,12 +347,17 @@ class _HomeScreenState extends State<HomeScreen> {
           IndexedStack(
             index: _currentIndex.clamp(0, isArtist ? 4 : 3),
             children: isArtist
-                ? const [
-                    PlayerScreen(),
-                    SocialFeedScreen(),
-                    DiscoveryScreen(),
-                    StudioScreen(),
-                    ProNetworxShellScreen(),
+                ? [
+                    const PlayerScreen(),
+                    const SocialFeedScreen(),
+                    const DiscoveryScreen(),
+                    const StudioScreen(),
+                    ProNetworxShellScreen(
+                      onExitToRadio: () => setState(() {
+                        _currentIndex = 0;
+                        _lastRealIndex = 0;
+                      }),
+                    ),
                   ]
                 : const [
                     PlayerScreen(),
@@ -366,7 +371,11 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_currentIndex != 0) const DimensionRadioBar(),
+          // Radio mini-bar for every tab except the player itself. The
+          // Pro-Networx tab (artist index 4) hosts its own player, so skip it
+          // here to avoid two stacked radio bars.
+          if (_currentIndex != 0 && !(isArtist && _currentIndex == 4))
+            const DimensionRadioBar(),
           NavigationBar(
             selectedIndex: _currentIndex,
             destinations: destinations,
