@@ -1,0 +1,313 @@
+import {
+  Delete,
+  Controller,
+  Get,
+  Post,
+  Put,
+  Body,
+  Param,
+  Query,
+  Headers,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UsersService } from './users.service';
+import { AdminService } from '../admin/admin.service';
+import { CreateUserDto } from './dto/create-user.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { getFirebaseAuth } from '../config/firebase.config';
+import { getSupabaseClient } from '../config/supabase.config';
+
+@Controller('users')
+export class UsersController {
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly adminService: AdminService,
+  ) {}
+
+  /**
+   * Create a new user in Supabase after Firebase authentication.
+   * Called by frontend after successful Firebase sign-up (email or Google).
+   * No role guard: new users have no Supabase row yet; role is set from request body (listener | artist | service_provider).
+   */
+  @Post()
+  async createUser(
+    @CurrentUser() user: FirebaseUser,
+    @Body() createUserDto: CreateUserDto,
+  ) {
+    return this.usersService.createUser(user.uid, createUserDto);
+  }
+
+  @Get('me')
+  async getCurrentUser(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.getUserByFirebaseUid(user.uid);
+  }
+
+  /**
+   * Self-service account deletion (Google Play / Apple App Store requirement).
+   * Removes the user's data and Firebase credentials. The user can sign up again afterwards.
+   */
+  @Delete('me')
+  async deleteCurrentUser(@CurrentUser() user: FirebaseUser) {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (error || !data) {
+      throw new BadRequestException('User not found');
+    }
+    await this.adminService.deleteUserAccount(data.id);
+    return { deleted: true };
+  }
+
+  /**
+   * Check if the current user's email is in the admin allowlist.
+   * Used by frontend to skip role selection for first-time admin logins.
+   */
+  @Get('me/check-admin')
+  async checkAdmin(@CurrentUser() user: FirebaseUser) {
+    return {
+      isAdmin: await this.usersService.isAdminUser(user.uid, user.email),
+    };
+  }
+
+  /** Check whether a desired username is free (case-insensitive). */
+  @Get('username-available')
+  async checkUsernameAvailable(
+    @CurrentUser() user: FirebaseUser,
+    @Query('u') username?: string,
+  ) {
+    if (!username || !username.trim()) {
+      throw new BadRequestException('Provide a username via ?u=');
+    }
+    return this.usersService.checkUsernameAvailable(user.uid, username);
+  }
+
+  @Public()
+  @Get('by-username/:username')
+  async getUserByUsername(@Param('username') username: string) {
+    return this.usersService.getUserByUsername(username);
+  }
+
+  @Put('me')
+  async updateCurrentUser(
+    @CurrentUser() user: FirebaseUser,
+    @Body() updateUserDto: UpdateUserDto,
+  ) {
+    try {
+      return await this.usersService.updateUser(user.uid, updateUserDto);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Failed to update profile';
+      throw new BadRequestException(message);
+    }
+  }
+
+  @Get('me/artist-like-notifications')
+  async getArtistLikeNotificationSettings(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.getArtistLikeNotificationSettings(user.uid);
+  }
+
+  @Put('me/artist-like-notifications')
+  async updateArtistLikeNotificationSettings(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: UpdateArtistLikeNotificationSettingsDto,
+  ) {
+    return this.usersService.updateArtistLikeNotificationSettings(
+      user.uid,
+      dto,
+    );
+  }
+
+  /** Users the current account has blocked. */
+  @Get('me/blocks')
+  async listBlockedUsers(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.listBlockedUsers(user.uid);
+  }
+
+  /**
+   * Upload and set profile picture. Accepts JPEG, PNG, WebP up to 15MB.
+   */
+  @Post('me/avatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+    }),
+  )
+  async uploadAvatar(
+    @CurrentUser() user: FirebaseUser,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    if (!file) {
+      throw new BadRequestException(
+        'No file uploaded. Send a file in the "file" field.',
+      );
+    }
+    return this.usersService.updateAvatar(user.uid, file);
+  }
+
+  /**
+   * Upgrade current listener account to artist.
+   * Initializes credits record for the new artist.
+   */
+  @Post('upgrade-to-artist')
+  async upgradeToArtist(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.upgradeToArtist(user.uid);
+  }
+
+  /**
+   * Upgrade to Catalyst (service provider) for ProNetworx. Creates service_providers row.
+   */
+  @Post('upgrade-to-catalyst')
+  async upgradeToCatalyst(@CurrentUser() user: FirebaseUser) {
+    return this.usersService.upgradeToCatalyst(user.uid);
+  }
+
+  @Public()
+  @Get(':id/artist-profile')
+  async getArtistProfile(
+    @Param('id') id: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    let viewerUserId: string | null = null;
+    if (authorization && authorization.startsWith('Bearer ')) {
+      const token = authorization.substring(7);
+      try {
+        const decoded = await getFirebaseAuth().verifyIdToken(token);
+        const supabase = getSupabaseClient();
+        const { data: viewer } = await supabase
+          .from('users')
+          .select('id')
+          .eq('firebase_uid', decoded.uid)
+          .maybeSingle();
+        viewerUserId = viewer?.id ?? null;
+      } catch {
+        // Keep endpoint public even when optional auth is invalid.
+        viewerUserId = null;
+      }
+    }
+    return this.usersService.getArtistProfile(id, viewerUserId);
+  }
+
+  @Get(':id')
+  async getUserById(@Param('id') id: string) {
+    return this.usersService.getUserById(id);
+  }
+
+  @Post(':id/follow')
+  async followUser(@CurrentUser() user: FirebaseUser, @Param('id') id: string) {
+    return this.usersService.followUser(user.uid, id);
+  }
+
+  @Delete(':id/follow')
+  async unfollowUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.unfollowUser(user.uid, id);
+  }
+
+  @Get(':id/follow')
+  async isFollowingUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.isFollowingUser(user.uid, id);
+  }
+
+  @Get(':id/block-status')
+  async getBlockStatus(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.getBlockStatus(user.uid, id);
+  }
+
+  @Post(':id/report')
+  async reportUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+    @Body()
+    body: { reason?: string; contextType?: string; contextId?: string },
+  ) {
+    return this.usersService.reportUser(user.uid, id, body?.reason ?? '', {
+      contextType: body?.contextType,
+      contextId: body?.contextId,
+    });
+  }
+
+  @Post(':id/block')
+  async blockUser(@CurrentUser() user: FirebaseUser, @Param('id') id: string) {
+    return this.usersService.blockUser(user.uid, id);
+  }
+
+  @Delete(':id/block')
+  async unblockUser(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.unblockUser(user.uid, id);
+  }
+
+  @Public()
+  @Get(':id/follow-counts')
+  async getFollowCounts(@Param('id') id: string) {
+    return this.usersService.getFollowCounts(id);
+  }
+
+  @Public()
+  @Get(':id/followers')
+  async getFollowers(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFollowers(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
+  }
+
+  @Public()
+  @Get(':id/friends')
+  async getFriends(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFriends(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
+  }
+
+  @Public()
+  @Get(':id/following')
+  async getFollowing(
+    @Param('id') id: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const parsedLimit = limit ? parseInt(limit, 10) : undefined;
+    const parsedOffset = offset ? parseInt(offset, 10) : undefined;
+    return this.usersService.getFollowing(
+      id,
+      Number.isFinite(parsedLimit as number) ? parsedLimit : undefined,
+      Number.isFinite(parsedOffset as number) ? parsedOffset : undefined,
+    );
+  }
+}

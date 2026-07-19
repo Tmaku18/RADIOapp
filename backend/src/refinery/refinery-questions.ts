@@ -1,0 +1,98 @@
+/**
+ * Refinery question definitions (backend mirror of web/src/data/refinery-questions.ts).
+ *
+ * Used to validate incoming review submissions and to expose the question set via
+ * GET /refinery/standard-questions for clients that need it.
+ *
+ * Keep keys in sync with the web copy. Adding new keys is safe; renaming or
+ * removing keys breaks stored survey_responses analytics.
+ */
+
+export type RatingKey =
+  | 'overall_rating'
+  | 'beat_rating'
+  | 'lyrics_rating'
+  | 'chorus_rating'
+  | 'opening_ending_rating';
+
+export interface RatingQuestion {
+  key: RatingKey;
+  question: string;
+}
+
+export const REFINERY_RATING_QUESTIONS: ReadonlyArray<RatingQuestion> = [
+  { key: 'overall_rating', question: 'Overall, how would you rate this song?' },
+  {
+    key: 'beat_rating',
+    question: 'How would you rate just the beat / instrumental?',
+  },
+  { key: 'lyrics_rating', question: 'How would you rate just the lyrics?' },
+  { key: 'chorus_rating', question: 'How would you rate the chorus / hook?' },
+  {
+    key: 'opening_ending_rating',
+    question: 'How was the opening and ending?',
+  },
+] as const;
+
+export const REFINERY_RATING_KEYS: ReadonlyArray<RatingKey> =
+  REFINERY_RATING_QUESTIONS.map((q) => q.key);
+
+export interface SurveyQuestion {
+  key: string;
+  question: string;
+  options: ReadonlyArray<string>;
+}
+
+export const REFINERY_SURVEY_QUESTIONS: ReadonlyArray<SurveyQuestion> = [
+  {
+    key: 'vocals_clear',
+    question: "Was the artist's voice clear and audible?",
+    options: ['Yes', 'Somewhat', 'No'],
+  },
+  {
+    key: 'flow_quality',
+    question: 'How was the flow and delivery?',
+    options: ['Smooth', 'Average', 'Choppy'],
+  },
+  {
+    key: 'intro_hook',
+    question: 'Did the intro hook you in?',
+    options: ['Yes', 'No'],
+  },
+  {
+    key: 'listen_again',
+    question: 'Would you listen to this song again?',
+    options: ['Yes', 'Maybe', 'No'],
+  },
+  {
+    key: 'add_to_playlist',
+    question: 'Would you add this to a playlist?',
+    options: ['Yes', 'Maybe', 'No'],
+  },
+  {
+    key: 'memorable_hook',
+    question: 'Did the song have a memorable hook or chorus?',
+    options: ['Yes', 'Somewhat', 'No'],
+  },
+  {
+    key: 'audio_quality',
+    question: 'Was the mixing and audio quality good?',
+    options: ['Yes', 'Needs Work', 'No'],
+  },
+  {
+    key: 'recommend_friend',
+    question: 'Would you recommend this song to a friend?',
+    options: ['Yes', 'Maybe', 'No'],
+  },
+] as const;
+
+export const REFINERY_SURVEY_KEYS: ReadonlyArray<string> =
+  REFINERY_SURVEY_QUESTIONS.map((q) => q.key);
+
+/** Pricing + program economics constants for The Refinery. */
+// Regular price is $9.99; currently discounted to $4.99 (the amount charged).
+export const REFINERY_SUBMISSION_ORIGINAL_PRICE_CENTS = 999;
+export const REFINERY_SUBMISSION_PRICE_CENTS = 499;
+export const REFINERY_DEFAULT_MIN_REVIEWS = 100;
+export const REFINERY_REVIEW_REWARD_CENTS = 10;
+export const REFINERY_MAX_CUSTOM_QUESTIONS = 10;

@@ -1,0 +1,1577 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { adminApi, songsApi } from '@/lib/api';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
+import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
+import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
+import { Button } from '@/components/ui/button';
+import { ModalPortal } from '@/components/ui/modal-portal';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+
+interface Song {
+  id: string;
+  title: string;
+  artist_name: string;
+  station_id?: string | null;
+  station_ids?: string[] | null;
+  artwork_url: string | null;
+  audio_url: string;
+  duration_seconds?: number;
+  credits_remaining?: number;
+  trial_plays_remaining?: number;
+  opt_in_free_play?: boolean;
+  admin_free_rotation?: boolean;
+  paid_play_count?: number;
+  play_count_real?: number;
+  listen_count?: number;
+  like_count?: number;
+  status: 'pending' | 'approved' | 'rejected';
+  is_explicit?: boolean;
+  sample_start_seconds?: number | null;
+  sample_end_seconds?: number | null;
+  discover_enabled?: boolean | null;
+  discover_clip_start_seconds?: number | null;
+  discover_clip_end_seconds?: number | null;
+  rejection_reason?: string;
+  rejected_at?: string | null;
+  copyright_status?:
+    | 'pending'
+    | 'checking'
+    | 'clear'
+    | 'flagged'
+    | 'error'
+    | 'skipped';
+  copyright_match?: {
+    title?: string | null;
+    artists?: string[];
+    album?: string | null;
+    label?: string | null;
+    score?: number;
+    provider?: string;
+  } | null;
+  created_at: string;
+  users?: {
+    display_name: string;
+    email: string;
+  };
+  stale?: boolean;
+  stale_cached_at?: string;
+}
+
+function formatCount(n?: number): string {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`;
+  return v.toString();
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  type MaybeApiError = { response?: { data?: { message?: unknown } } };
+  const maybeApiError = error as MaybeApiError;
+  if (
+    error &&
+    typeof error === 'object' &&
+    'response' in error &&
+    maybeApiError.response?.data?.message
+  ) {
+    const msg = maybeApiError.response?.data?.message;
+    return typeof msg === 'string' ? msg : fallback;
+  }
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+type SortField = 'title' | 'created_at' | 'status';
+type SortOrder = 'asc' | 'desc';
+const ADMIN_SONGS_CACHE_KEY = 'admin:songs:last-success';
+
+function normalizeText(value: string | null | undefined): string {
+  return (value || '').trim().toLowerCase();
+}
+
+type SongActionsMenuProps = {
+  song: Song;
+  actionLoading: string | null;
+  editSaving: boolean;
+  editingSongId: string | null;
+  onApprove: (songId: string) => void;
+  onApproveRejected: (song: Song) => void;
+  onReject: (songId: string) => void;
+  onTrim: (song: Song) => void;
+  onSample: (song: Song) => void;
+  onDiscoverClip: (song: Song) => void;
+  onEdit: (song: Song) => void;
+  onDelete: (song: Song) => void;
+};
+
+function SongActionsMenu({
+  song,
+  actionLoading,
+  editSaving,
+  editingSongId,
+  onApprove,
+  onApproveRejected,
+  onReject,
+  onTrim,
+  onSample,
+  onDiscoverClip,
+  onEdit,
+  onDelete,
+}: SongActionsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 shrink-0 border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-100 hover:text-gray-900"
+          title="Actions"
+          aria-label={`Actions for ${song.title}`}
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="5" r="2" />
+            <circle cx="12" cy="12" r="2" />
+            <circle cx="12" cy="19" r="2" />
+          </svg>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        side="left"
+        className="w-56 border border-border shadow-xl ring-1 ring-border"
+      >
+        {song.status === 'pending' && (
+          <>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onApprove(song.id)}
+            >
+              Approve
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onReject(song.id)}
+            >
+              Reject
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {song.status === 'rejected' && (
+          <>
+            <DropdownMenuItem
+              disabled={actionLoading === song.id}
+              onSelect={() => onApproveRejected(song)}
+            >
+              {actionLoading === song.id ? 'Approving…' : 'Approve anyway'}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        <DropdownMenuItem
+          disabled={actionLoading === `trim:${song.id}`}
+          onSelect={() => onTrim(song)}
+        >
+          Trim
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!song.audio_url}
+          onSelect={() => onSample(song)}
+        >
+          Sample
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={!song.audio_url}
+          onSelect={() => onDiscoverClip(song)}
+        >
+          {song.discover_enabled || song.discover_clip_start_seconds != null
+            ? 'Edit Discover clip'
+            : 'Set Discover clip'}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          disabled={editSaving && editingSongId === song.id}
+          onSelect={() => onEdit(song)}
+        >
+          Edit
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          variant="destructive"
+          disabled={actionLoading === `delete:${song.id}`}
+          onSelect={(e) => {
+            e.preventDefault();
+            void onDelete(song);
+          }}
+        >
+          {actionLoading === `delete:${song.id}` ? 'Deleting…' : 'Delete'}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function sortSongsLocal(rows: Song[], sortBy: SortField, sortOrder: SortOrder): Song[] {
+  const multiplier = sortOrder === 'asc' ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    if (sortBy === 'created_at') {
+      const aTs = new Date(a.created_at || '').getTime();
+      const bTs = new Date(b.created_at || '').getTime();
+      return (aTs - bTs) * multiplier;
+    }
+    if (sortBy === 'status') {
+      return normalizeText(a.status).localeCompare(normalizeText(b.status)) * multiplier;
+    }
+    return normalizeText(a.title).localeCompare(normalizeText(b.title)) * multiplier;
+  });
+}
+
+function filterAndSortSongsLocal(
+  rows: Song[],
+  args: {
+    filter: 'pending' | 'approved' | 'rejected' | 'all';
+    search: string;
+    sortBy: SortField;
+    sortOrder: SortOrder;
+  },
+): Song[] {
+  const searchTerm = normalizeText(args.search);
+  const filtered = rows.filter((song) => {
+    if (args.filter !== 'all' && song.status !== args.filter) return false;
+    if (!searchTerm) return true;
+    const title = normalizeText(song.title);
+    const artist = normalizeText(song.artist_name || song.users?.display_name || '');
+    return title.includes(searchTerm) || artist.includes(searchTerm);
+  });
+  return sortSongsLocal(filtered, args.sortBy, args.sortOrder);
+}
+
+function readSongsCache(): { savedAt: string; songs: Song[] } | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(ADMIN_SONGS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: string; songs?: Song[] };
+    if (!Array.isArray(parsed?.songs)) return null;
+    return {
+      savedAt: typeof parsed.savedAt === 'string' ? parsed.savedAt : new Date(0).toISOString(),
+      songs: parsed.songs,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeSongsCache(songs: Song[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(
+      ADMIN_SONGS_CACHE_KEY,
+      JSON.stringify({ savedAt: new Date().toISOString(), songs }),
+    );
+  } catch {
+    // Ignore localStorage quota/access issues.
+  }
+}
+
+export default function AdminSongsPage() {
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [filter, setFilter] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState<SortField>('created_at');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [staleSongsNotice, setStaleSongsNotice] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillingLyrics, setBackfillingLyrics] = useState(false);
+  const [durationOverrides, setDurationOverrides] = useState<Record<string, number>>({});
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editStationIds, setEditStationIds] = useState<string[]>([]);
+  const [editArtworkUrl, setEditArtworkUrl] = useState('');
+  const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+  const [editIsExplicit, setEditIsExplicit] = useState(false);
+  const [editLyrics, setEditLyrics] = useState('');
+  const [editLyricsInitial, setEditLyricsInitial] = useState('');
+  const [editLyricsStatus, setEditLyricsStatus] = useState<
+    'none' | 'pending' | 'ready' | 'failed' | null
+  >(null);
+  const [editLyricsAutoGenerated, setEditLyricsAutoGenerated] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  
+  // Rejection modal state
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [trimmingSong, setTrimmingSong] = useState<Song | null>(null);
+  const [sampleSong, setSampleSong] = useState<Song | null>(null);
+  const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
+  const [trimStartSeconds, setTrimStartSeconds] = useState(0);
+  const [trimEndSeconds, setTrimEndSeconds] = useState(0);
+  const [trimPreviewReady, setTrimPreviewReady] = useState(false);
+  const [trimPreviewTime, setTrimPreviewTime] = useState(0);
+  const [trimPreviewDuration, setTrimPreviewDuration] = useState(0);
+  const [trimPreviewPlaying, setTrimPreviewPlaying] = useState(false);
+  const trimPreviewRef = useRef<HTMLAudioElement | null>(null);
+  const trimStartRef = useRef(0);
+  const trimEndRef = useRef(0);
+  
+  // Debounce search
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    loadSongs();
+  }, [filter, debouncedSearch, sortBy, sortOrder]);
+
+  // If backend duration_seconds is missing/default, try to read duration from the audio URL metadata.
+  // This fixes legacy rows that were stored with the 180s fallback.
+  useEffect(() => {
+    let cancelled = false;
+
+    const candidates = songs.filter((s) => {
+      const existingOverride = durationOverrides[s.id];
+      if (existingOverride && existingOverride > 0) return false;
+      if (!s.audio_url) return false;
+      return !s.duration_seconds || s.duration_seconds === 180;
+    });
+
+    candidates.forEach((song) => {
+      const audio = new Audio();
+      audio.preload = 'metadata';
+      audio.src = song.audio_url;
+
+      const onLoaded = () => {
+        if (cancelled) return;
+        const seconds = Math.ceil(audio.duration || 0);
+        if (seconds > 0) {
+          setDurationOverrides((prev) => ({ ...prev, [song.id]: seconds }));
+        }
+        cleanup();
+      };
+
+      const onError = () => {
+        cleanup();
+      };
+
+      const cleanup = () => {
+        audio.removeEventListener('loadedmetadata', onLoaded);
+        audio.removeEventListener('error', onError);
+        // Release any network resources.
+        audio.src = '';
+      };
+
+      audio.addEventListener('loadedmetadata', onLoaded);
+      audio.addEventListener('error', onError);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+    // Intentionally not depending on durationOverrides to avoid retrigger loops.
+     
+  }, [songs]);
+
+  const handleBackfillSamples = async () => {
+    if (backfilling) return;
+    setBackfilling(true);
+    try {
+      const { data } = await songsApi.backfillSamples({});
+      if (data.alreadyRunning) {
+        setError('A sample backfill is already running. Check back shortly.');
+      } else if (data.queued === 0) {
+        setError(null);
+        alert('All approved songs already have a 30-second sample.');
+      } else {
+        setError(null);
+        alert(
+          `Rendering samples for ${data.queued} song(s) in the background. ` +
+            'This can take a few minutes; refresh later to see them.',
+        );
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to start sample backfill.',
+      );
+    } finally {
+      setBackfilling(false);
+    }
+  };
+
+  const handleBackfillLyrics = async () => {
+    if (backfillingLyrics) return;
+    setBackfillingLyrics(true);
+    try {
+      const { data } = await songsApi.backfillLyrics({});
+      if (data.alreadyRunning) {
+        setError('A caption backfill is already running. Check back shortly.');
+      } else if (data.queued === 0) {
+        setError(null);
+        alert('All approved songs already have lyrics or captions.');
+      } else {
+        setError(null);
+        alert(
+          `Auto-transcribing captions for ${data.queued} song(s) in the background. ` +
+            'Songs are processed one at a time; captions appear as each finishes.',
+        );
+      }
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : 'Failed to start caption backfill.',
+      );
+    } finally {
+      setBackfillingLyrics(false);
+    }
+  };
+
+  const loadSongs = async () => {
+    setLoading(true);
+    try {
+      const response = await adminApi.getSongs({
+        status: filter,
+        search: debouncedSearch || undefined,
+        sortBy,
+        sortOrder,
+        limit: 100,
+      });
+      const nextSongs = (response.data.songs || []) as Song[];
+      setSongs(nextSongs);
+      writeSongsCache(nextSongs);
+      const staleRow = nextSongs.find((row) => row?.stale);
+      setStaleSongsNotice(
+        staleRow?.stale_cached_at
+          ? `Showing cached songs from ${new Date(staleRow.stale_cached_at).toLocaleTimeString()}.`
+          : staleRow
+            ? 'Showing cached songs while reconnecting to the database.'
+            : null,
+      );
+    } catch (err) {
+      console.error('Failed to load songs:', err);
+      const cached = readSongsCache();
+      if (cached?.songs?.length) {
+        const fallbackSongs = filterAndSortSongsLocal(cached.songs, {
+          filter,
+          search: debouncedSearch || '',
+          sortBy,
+          sortOrder,
+        });
+        setSongs(fallbackSongs);
+        setError(null);
+        setStaleSongsNotice(
+          `Backend unavailable. Showing local cached songs from ${new Date(
+            cached.savedAt,
+          ).toLocaleTimeString()}.`,
+        );
+      } else {
+        setError("Failed to load songs");
+        setStaleSongsNotice(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortBy !== field) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="text-purple-600 ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
+
+  const handleToggleFreeRotation = async (song: Song) => {
+    // Temporarily removed: paid-play requirement so rap radio can play nonstop (uploaded songs are rap)
+    // if ((song.paid_play_count || 0) < 1) {
+    //   alert('Song must have at least 1 paid play');
+    //   return;
+    // }
+
+    setActionLoading(song.id);
+    try {
+      await adminApi.toggleFreeRotation(song.id, !song.admin_free_rotation);
+      setSongs(songs.map(s => 
+        s.id === song.id ? { ...s, admin_free_rotation: !song.admin_free_rotation } : s
+      ));
+    } catch (err) {
+      console.error('Failed to toggle free rotation:', err);
+      alert('Failed to toggle free rotation');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleApprove = async (songId: string) => {
+    setActionLoading(songId);
+    try {
+      await adminApi.updateSongStatus(songId, 'approved');
+      setSongs(songs.map(s =>
+        s.id === songId
+          ? { ...s, status: 'approved', rejection_reason: undefined, rejected_at: null }
+          : s
+      ));
+    } catch (err) {
+      console.error('Failed to approve song:', err);
+      alert('Failed to approve song');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Approve a previously rejected song (manual override). Surfaces the
+  // copyright match in the confirm prompt so the admin reviews before
+  // overriding an automated copyright rejection.
+  const handleApproveRejected = (song: Song) => {
+    const match = song.copyright_match;
+    const matchLabel = match?.title
+      ? `"${match.title}"${match.artists?.length ? ` by ${match.artists.join(', ')}` : ''}${
+          typeof match.score === 'number' ? ` (${Math.round(match.score)}% match)` : ''
+        }`
+      : null;
+    const message =
+      song.copyright_status === 'flagged'
+        ? `"${song.title}" was auto-rejected for a possible copyright match${
+            matchLabel ? `: ${matchLabel}` : ''
+          }.\n\nApprove it anyway and publish it?`
+        : `Approve "${song.title}" and override its rejection? It will be published.`;
+    // Defer the native confirm out of Radix's DropdownMenuItem.onSelect cycle.
+    // Running window.confirm synchronously inside onSelect lets the menu's
+    // close/focus-restore handling swallow the dialog, so the click appears to
+    // do nothing. A timeout lets the menu fully close before we prompt.
+    setTimeout(() => {
+      if (!window.confirm(message)) return;
+      void handleApprove(song.id);
+    }, 0);
+  };
+
+  const openRejectModal = (songId: string) => {
+    setRejectingId(songId);
+    setRejectionReason('');
+  };
+
+  const handleReject = async () => {
+    if (!rejectingId) return;
+    
+    setActionLoading(rejectingId);
+    try {
+      await adminApi.updateSongStatus(rejectingId, 'rejected', rejectionReason || undefined);
+      setSongs(songs.map(s => 
+        s.id === rejectingId ? { ...s, status: 'rejected', rejection_reason: rejectionReason } : s
+      ));
+      setRejectingId(null);
+      setRejectionReason('');
+    } catch (err) {
+      console.error('Failed to reject song:', err);
+      alert('Failed to reject song');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const openTrimModal = (song: Song) => {
+    const duration = durationOverrides[song.id] ?? song.duration_seconds ?? 180;
+    setTrimmingSong(song);
+    setTrimStartSeconds(0);
+    setTrimEndSeconds(duration);
+    setTrimPreviewTime(0);
+    setTrimPreviewDuration(duration);
+    setTrimPreviewReady(false);
+    setTrimPreviewPlaying(false);
+  };
+
+  const getTrimTotalSeconds = (song: Song) =>
+    Math.max(
+      1,
+      trimmingSong?.id === song.id && trimPreviewDuration > 0
+        ? Math.ceil(trimPreviewDuration)
+        : (durationOverrides[song.id] ?? song.duration_seconds ?? 180),
+    );
+
+  useEffect(() => {
+    trimStartRef.current = trimStartSeconds;
+  }, [trimStartSeconds]);
+
+  useEffect(() => {
+    trimEndRef.current = trimEndSeconds;
+  }, [trimEndSeconds]);
+
+  useEffect(() => {
+    if (!trimmingSong?.audio_url) return;
+    const preview = new Audio(trimmingSong.audio_url);
+    preview.preload = 'metadata';
+    trimPreviewRef.current = preview;
+    setTrimPreviewReady(false);
+    setTrimPreviewPlaying(false);
+    setTrimPreviewTime(0);
+
+    const handleLoadedMetadata = () => {
+      const duration = Number.isFinite(preview.duration) ? preview.duration : 0;
+      setTrimPreviewDuration(duration);
+      setTrimPreviewReady(duration > 0);
+    };
+    const handleTimeUpdate = () => {
+      const current = preview.currentTime || 0;
+      const start = trimStartRef.current;
+      const end = trimEndRef.current;
+      if (current >= end) {
+        preview.currentTime = start;
+        if (!preview.paused) {
+          void preview.play().catch(() => undefined);
+        }
+        setTrimPreviewTime(start);
+        return;
+      }
+      setTrimPreviewTime(current);
+    };
+    const handlePlay = () => setTrimPreviewPlaying(true);
+    const handlePause = () => setTrimPreviewPlaying(false);
+    const handleEnded = () => {
+      preview.currentTime = trimStartRef.current;
+      setTrimPreviewPlaying(false);
+      setTrimPreviewTime(trimStartRef.current);
+    };
+    const handleError = () => {
+      setTrimPreviewReady(false);
+      setTrimPreviewPlaying(false);
+    };
+
+    preview.addEventListener('loadedmetadata', handleLoadedMetadata);
+    preview.addEventListener('timeupdate', handleTimeUpdate);
+    preview.addEventListener('play', handlePlay);
+    preview.addEventListener('pause', handlePause);
+    preview.addEventListener('ended', handleEnded);
+    preview.addEventListener('error', handleError);
+
+    return () => {
+      preview.pause();
+      preview.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      preview.removeEventListener('timeupdate', handleTimeUpdate);
+      preview.removeEventListener('play', handlePlay);
+      preview.removeEventListener('pause', handlePause);
+      preview.removeEventListener('ended', handleEnded);
+      preview.removeEventListener('error', handleError);
+      preview.src = '';
+      if (trimPreviewRef.current === preview) {
+        trimPreviewRef.current = null;
+      }
+    };
+  }, [trimmingSong]);
+
+  useEffect(() => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    setTrimStartSeconds((prev) => Math.max(0, Math.min(prev, total - 1)));
+    setTrimEndSeconds((prev) => Math.min(total, Math.max(prev, trimStartRef.current + 1)));
+  }, [trimPreviewDuration, trimmingSong]);
+
+  const handleTrimStartDrag = (value: number) => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    const nextStart = Math.max(0, Math.min(Math.floor(value), trimEndSeconds - 1));
+    setTrimStartSeconds(Math.min(nextStart, total - 1));
+    const preview = trimPreviewRef.current;
+    if (preview) {
+      preview.currentTime = Math.min(nextStart, Math.max(0, trimEndSeconds - 1));
+      setTrimPreviewTime(preview.currentTime);
+    }
+  };
+
+  const handleTrimEndDrag = (value: number) => {
+    if (!trimmingSong) return;
+    const total = getTrimTotalSeconds(trimmingSong);
+    const nextEnd = Math.min(total, Math.max(Math.floor(value), trimStartSeconds + 1));
+    setTrimEndSeconds(nextEnd);
+    const preview = trimPreviewRef.current;
+    if (preview && preview.currentTime > nextEnd) {
+      preview.currentTime = trimStartSeconds;
+      setTrimPreviewTime(trimStartSeconds);
+    }
+  };
+
+  const toggleTrimPreviewPlay = async () => {
+    const preview = trimPreviewRef.current;
+    if (!preview) return;
+    if (preview.paused) {
+      if (preview.currentTime < trimStartSeconds || preview.currentTime >= trimEndSeconds) {
+        preview.currentTime = trimStartSeconds;
+      }
+      await preview.play().catch(() => undefined);
+      return;
+    }
+    preview.pause();
+  };
+
+  const seekTrimPreview = (value: number) => {
+    const preview = trimPreviewRef.current;
+    if (!preview) return;
+    const next = Math.max(0, Math.min(value, getTrimTotalSeconds(trimmingSong!)));
+    preview.currentTime = next;
+    setTrimPreviewTime(next);
+  };
+
+  const handleTrimSave = async () => {
+    if (!trimmingSong) return;
+    if (!Number.isFinite(trimStartSeconds) || !Number.isFinite(trimEndSeconds)) {
+      alert('Trim values must be valid numbers');
+      return;
+    }
+    if (trimStartSeconds < 0 || trimEndSeconds <= trimStartSeconds) {
+      alert('End time must be greater than start time');
+      return;
+    }
+
+    const actionKey = `trim:${trimmingSong.id}`;
+    setActionLoading(actionKey);
+    try {
+      const response = await adminApi.trimSong(trimmingSong.id, {
+        startSeconds: trimStartSeconds,
+        endSeconds: trimEndSeconds,
+      });
+      const updatedSong = response.data?.song as Song | undefined;
+      if (updatedSong) {
+        setSongs((prev) =>
+          prev.map((song) => (song.id === updatedSong.id ? { ...song, ...updatedSong } : song)),
+        );
+        setDurationOverrides((prev) => ({
+          ...prev,
+          [updatedSong.id]: updatedSong.duration_seconds || Math.ceil(trimEndSeconds - trimStartSeconds),
+        }));
+      }
+      setTrimmingSong(null);
+    } catch (err) {
+      console.error('Failed to trim song:', err);
+      alert('Failed to trim and save song');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteSong = async (song: Song) => {
+    const confirmed = window.confirm(
+      `Delete "${song.title}" by ${song.artist_name}? This cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    const actionKey = `delete:${song.id}`;
+    setActionLoading(actionKey);
+    try {
+      await adminApi.deleteSong(song.id);
+      setSongs((prev) => prev.filter((entry) => entry.id !== song.id));
+    } catch (err) {
+      console.error('Failed to delete song:', err);
+      alert(getErrorMessage(err, 'Failed to delete song'));
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const getArtworkPublicUrl = (path: string): string => {
+    const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base) throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    return `${base}/storage/v1/object/public/artwork/${path}`;
+  };
+
+  const uploadArtwork = async (file: File): Promise<string> => {
+    const response = await songsApi.getUploadUrl({
+      filename: file.name,
+      contentType: file.type || 'image/jpeg',
+      bucket: 'artwork',
+    });
+    const { signedUrl, path } = response.data as { signedUrl: string; path: string };
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: { 'Content-Type': file.type || 'image/jpeg' },
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Artwork upload failed (${uploadResponse.status})`);
+    }
+    return getArtworkPublicUrl(path);
+  };
+
+  const openEditModal = (song: Song) => {
+    setEditingSong(song);
+    setEditTitle(song.title || '');
+    const currentStations = Array.isArray(song.station_ids) && song.station_ids.length > 0
+      ? song.station_ids
+      : song.station_id
+        ? [song.station_id]
+        : [];
+    setEditStationIds(currentStations);
+    setEditArtworkUrl(song.artwork_url || '');
+    setEditArtworkFile(null);
+    setEditIsExplicit(song.is_explicit === true);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
+    setEditLyricsAutoGenerated(false);
+    void songsApi
+      .getLyrics(song.id)
+      .then((res) => {
+        const text = res.data?.plainText ?? '';
+        setEditLyrics(text);
+        setEditLyricsInitial(text);
+        setEditLyricsStatus(res.data?.status ?? 'none');
+        setEditLyricsAutoGenerated(res.data?.autoGenerated === true);
+      })
+      .catch(() => setEditLyricsStatus('none'));
+  };
+
+  const closeEditModal = () => {
+    setEditingSong(null);
+    setEditArtworkFile(null);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
+    setEditLyricsAutoGenerated(false);
+    setEditSaving(false);
+  };
+
+  const handleSaveMetadata = async () => {
+    if (!editingSong) return;
+    const title = editTitle.trim();
+    if (!title) {
+      alert('Title cannot be empty');
+      return;
+    }
+    if (editStationIds.length === 0) {
+      alert('Please select at least one station');
+      return;
+    }
+    setEditSaving(true);
+    try {
+      let finalArtworkUrl = editArtworkUrl.trim();
+      if (editArtworkFile) {
+        finalArtworkUrl = await uploadArtwork(editArtworkFile);
+      }
+      const response = await adminApi.updateSongMetadata(editingSong.id, {
+        title,
+        stationId: editStationIds[0],
+        stationIds: editStationIds,
+        artworkUrl: finalArtworkUrl,
+        isExplicit: editIsExplicit,
+      });
+
+      // Save lyrics only when changed; the backend re-syncs captions
+      // automatically whenever the plain text changes.
+      if (editLyrics.trim() !== editLyricsInitial.trim()) {
+        await songsApi.upsertLyrics(editingSong.id, {
+          plainText: editLyrics.trim(),
+        });
+      }
+      const updated = response.data?.song as {
+        id: string;
+        title: string;
+        stationId?: string;
+        stationIds?: string[];
+        artworkUrl?: string | null;
+        isExplicit?: boolean;
+      };
+      setSongs((prev) =>
+        prev.map((song) =>
+          song.id === editingSong.id
+            ? {
+                ...song,
+                title: updated.title ?? title,
+                station_id: updated.stationId ?? editStationIds[0],
+                station_ids: updated.stationIds ?? editStationIds,
+                artwork_url: updated.artworkUrl !== undefined ? updated.artworkUrl : finalArtworkUrl,
+                is_explicit:
+                  updated.isExplicit !== undefined
+                    ? updated.isExplicit
+                    : editIsExplicit,
+              }
+            : song,
+        ),
+      );
+      closeEditModal();
+    } catch (err) {
+      console.error('Failed to update song metadata:', err);
+      alert('Failed to update song metadata');
+      setEditSaving(false);
+    }
+  };
+
+  const formatDuration = (seconds?: number): string => {
+    if (!seconds) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Filters and Search */}
+      <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {(['pending', 'approved', 'rejected', 'all'] as const).map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors capitalize ${
+                filter === status
+                  ? 'bg-purple-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+        
+        <div className="flex flex-wrap gap-3 items-center w-full lg:w-auto">
+          {/* Search Input */}
+          <div className="relative w-full sm:w-64">
+            <input
+              type="text"
+              placeholder="Search songs..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent w-full"
+            />
+            <svg className="w-5 h-5 text-gray-400 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+          
+          {/* Sort Dropdown */}
+          <select
+            value={`${sortBy}-${sortOrder}`}
+            onChange={(e) => {
+              const [field, order] = e.target.value.split('-') as [SortField, SortOrder];
+              setSortBy(field);
+              setSortOrder(order);
+            }}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+          >
+            <option value="created_at-desc">Newest First</option>
+            <option value="created_at-asc">Oldest First</option>
+            <option value="title-asc">A-Z</option>
+            <option value="title-desc">Z-A</option>
+          </select>
+
+          <button
+            onClick={handleBackfillSamples}
+            disabled={backfilling}
+            title="Render 30s samples for approved songs that don't have one yet"
+            className="px-4 py-2 rounded-lg font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+          >
+            {backfilling ? 'Starting…' : 'Backfill samples'}
+          </button>
+
+          <button
+            onClick={handleBackfillLyrics}
+            disabled={backfillingLyrics}
+            title="Auto-transcribe synced captions for approved songs that have no lyrics yet"
+            className="px-4 py-2 rounded-lg font-medium bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-50 transition-colors"
+          >
+            {backfillingLyrics ? 'Starting…' : 'Generate captions'}
+          </button>
+        </div>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
+          {error}
+        </div>
+      )}
+      {staleSongsNotice && (
+        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-900">
+          {staleSongsNotice}
+        </div>
+      )}
+
+      {/* Songs List */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+          </div>
+        ) : songs.length === 0 ? (
+          <div className="p-8 text-center text-gray-500">
+            No songs found with status: {filter}
+          </div>
+        ) : (
+          <table className="w-full min-w-[960px]">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600 min-w-[220px]"
+                  onClick={() => handleSort('title')}
+                >
+                  Song <SortIcon field="title" />
+                </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Artist</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Duration</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Credits</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Listens</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Likes</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('status')}
+                >
+                  Status <SortIcon field="status" />
+                </th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Content</th>
+                <th className="text-left px-6 py-3 text-sm font-medium text-gray-600">Free Rotation</th>
+                <th 
+                  className="text-left px-6 py-3 text-sm font-medium text-gray-600 cursor-pointer hover:text-purple-600"
+                  onClick={() => handleSort('created_at')}
+                >
+                  Submitted <SortIcon field="created_at" />
+                </th>
+                <th className="sticky right-0 z-20 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-600 text-center w-[72px] shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)]">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {songs.map((song) => (
+                <tr key={song.id} className="group hover:bg-gray-50">
+                  <td className="px-6 py-4 min-w-[220px] max-w-[280px]">
+                    <div className="flex items-center min-w-0">
+                      <div className="w-10 h-10 bg-gray-200 rounded flex items-center justify-center mr-3">
+                        <ArtworkImage
+                          src={song.artwork_url}
+                          alt={song.title}
+                          className="w-10 h-10 rounded object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-gray-900 truncate">{song.title}</p>
+                        {song.audio_url && (
+                          <audio
+                            controls
+                            className="h-6 mt-1 max-w-full w-full"
+                            onPlay={(e) => {
+                              const current = e.currentTarget;
+                              document
+                                .querySelectorAll('audio')
+                                .forEach((el) => {
+                                  if (el !== current) el.pause();
+                                });
+                            }}
+                          >
+                            <source src={song.audio_url} type="audio/mpeg" />
+                          </audio>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div>
+                      <p className="text-gray-900">{song.artist_name}</p>
+                      {song.users && (
+                        <p className="text-xs text-gray-500">{song.users.email}</p>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm font-mono">
+                    {formatDuration(durationOverrides[song.id] ?? song.duration_seconds)}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`font-medium ${
+                      (song.credits_remaining || 0) > 0 ? 'text-green-600' : 'text-gray-400'
+                    }`}>
+                      {song.credits_remaining || 0}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-gray-900 font-medium">
+                      {formatCount(song.listen_count)}
+                    </div>
+                    {(song.play_count_real ?? 0) > 0 && (
+                      <div className="text-xs text-gray-500">
+                        {formatCount(song.play_count_real)} plays
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm text-gray-900 font-medium">
+                      {formatCount(song.like_count)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      song.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                      song.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {song.status}
+                    </span>
+                    {song.status === 'rejected' && song.rejection_reason && (
+                      <p className="text-xs text-red-600 mt-1 max-w-[150px] truncate" title={song.rejection_reason}>
+                        {song.rejection_reason}
+                      </p>
+                    )}
+                    {song.copyright_status &&
+                      !['clear', 'skipped', 'pending'].includes(song.copyright_status) && (
+                        <div className="mt-1">
+                          <span
+                            className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                              song.copyright_status === 'flagged'
+                                ? 'bg-orange-100 text-orange-800'
+                                : song.copyright_status === 'checking'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-700'
+                            }`}
+                            title={
+                              song.copyright_status === 'flagged'
+                                ? 'Auto-flagged: possible copyright match'
+                                : song.copyright_status === 'checking'
+                                  ? 'Copyright check in progress'
+                                  : 'Copyright check could not complete'
+                            }
+                          >
+                            {song.copyright_status === 'flagged'
+                              ? '© Copyright match'
+                              : song.copyright_status === 'checking'
+                                ? '© Checking…'
+                                : '© Check error'}
+                          </span>
+                          {song.copyright_status === 'flagged' && song.copyright_match?.title && (
+                            <p
+                              className="text-[10px] text-orange-700 mt-0.5 max-w-[170px] truncate"
+                              title={`${song.copyright_match.title}${
+                                song.copyright_match.artists?.length
+                                  ? ` — ${song.copyright_match.artists.join(', ')}`
+                                  : ''
+                              }${
+                                typeof song.copyright_match.score === 'number'
+                                  ? ` (${Math.round(song.copyright_match.score)}%)`
+                                  : ''
+                              }`}
+                            >
+                              {song.copyright_match.title}
+                              {song.copyright_match.artists?.length
+                                ? ` — ${song.copyright_match.artists.join(', ')}`
+                                : ''}
+                              {typeof song.copyright_match.score === 'number'
+                                ? ` (${Math.round(song.copyright_match.score)}%)`
+                                : ''}
+                            </p>
+                          )}
+                        </div>
+                      )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        song.is_explicit
+                          ? 'bg-rose-100 text-rose-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {song.is_explicit ? 'Explicit' : 'Clean'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    {song.status === 'approved' ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleFreeRotation(song)}
+                          disabled={actionLoading === song.id}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                            song.admin_free_rotation ? 'bg-purple-600' : 'bg-gray-200'
+                          }`}
+                          title={
+                            song.admin_free_rotation ? 'In free rotation' : 'Not in free rotation'
+                          }
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              song.admin_free_rotation ? 'translate-x-4' : 'translate-x-0.5'
+                            }`}
+                          />
+                        </button>
+                        <span className="text-xs text-gray-500">
+                          {song.paid_play_count || 0} paid plays
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">N/A</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 text-gray-600 text-sm whitespace-nowrap">
+                    {new Date(song.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="sticky right-0 z-10 bg-white px-4 py-4 text-center shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.08)] group-hover:bg-gray-50">
+                    <div className="flex justify-center">
+                      <SongActionsMenu
+                        song={song}
+                        actionLoading={actionLoading}
+                        editSaving={editSaving}
+                        editingSongId={editingSong?.id ?? null}
+                        onApprove={handleApprove}
+                        onApproveRejected={handleApproveRejected}
+                        onReject={openRejectModal}
+                        onTrim={openTrimModal}
+                        onSample={setSampleSong}
+                        onDiscoverClip={setDiscoverClipSong}
+                        onEdit={openEditModal}
+                        onDelete={handleDeleteSong}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Rejection Modal */}
+      {rejectingId && (
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
+            <p className="text-gray-600 mb-4">
+              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
+            </p>
+            <textarea
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
+              rows={3}
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => {
+                  setRejectingId(null);
+                  setRejectionReason('');
+                }}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={actionLoading === rejectingId}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+
+      {trimmingSong && (
+        <ModalPortal>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[200]">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Trim Song</h3>
+            <p className="text-gray-600 mb-4">
+              Drag the handles to cut the section you want to keep. A new trimmed audio file will be generated and saved.
+            </p>
+            <div className="rounded-lg border border-gray-200 p-4 mb-4 space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => void toggleTrimPreviewPlay()}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-slate-700 text-white text-sm rounded hover:bg-slate-800 disabled:opacity-50"
+                >
+                  {trimPreviewPlaying ? 'Pause Preview' : 'Play Preview'}
+                </button>
+                <button
+                  onClick={() => seekTrimPreview(trimStartSeconds)}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Seek to Start
+                </button>
+                <button
+                  onClick={() => seekTrimPreview(trimEndSeconds)}
+                  disabled={!trimPreviewReady}
+                  className="px-3 py-1 bg-gray-100 text-gray-700 text-sm rounded hover:bg-gray-200 disabled:opacity-50"
+                >
+                  Seek to End
+                </button>
+              </div>
+              <div>
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={0.1}
+                  value={Math.min(trimPreviewTime, getTrimTotalSeconds(trimmingSong))}
+                  onChange={(e) => seekTrimPreview(Number(e.target.value))}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>Preview: {formatDuration(Math.floor(trimPreviewTime))}</span>
+                  <span>Total: {formatDuration(getTrimTotalSeconds(trimmingSong))}</span>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-lg border border-gray-200 p-4 mb-4">
+              <div className="flex justify-between text-sm text-gray-700 mb-2">
+                <span>Start: <span className="font-mono">{formatDuration(trimStartSeconds)}</span></span>
+                <span>End: <span className="font-mono">{formatDuration(trimEndSeconds)}</span></span>
+                <span>Keep: <span className="font-mono">{formatDuration(Math.max(1, trimEndSeconds - trimStartSeconds))}</span></span>
+              </div>
+              <div className="relative h-10">
+                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-2 rounded-full bg-gray-200" />
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 h-2 rounded-full bg-indigo-500"
+                  style={{
+                    left: `${(trimStartSeconds / getTrimTotalSeconds(trimmingSong)) * 100}%`,
+                    right: `${100 - (trimEndSeconds / getTrimTotalSeconds(trimmingSong)) * 100}%`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={1}
+                  value={trimStartSeconds}
+                  onChange={(e) => handleTrimStartDrag(Number(e.target.value))}
+                  className="absolute inset-0 w-full bg-transparent pointer-events-auto z-10"
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={getTrimTotalSeconds(trimmingSong)}
+                  step={1}
+                  value={trimEndSeconds}
+                  onChange={(e) => handleTrimEndDrag(Number(e.target.value))}
+                  className="absolute inset-0 w-full bg-transparent pointer-events-auto z-20"
+                />
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <span>0:00</span>
+                <span>{formatDuration(getTrimTotalSeconds(trimmingSong))}</span>
+              </div>
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Current duration: {formatDuration(durationOverrides[trimmingSong.id] ?? trimmingSong.duration_seconds)}
+            </div>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setTrimmingSong(null)}
+                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleTrimSave}
+                disabled={actionLoading === `trim:${trimmingSong.id}`}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+              >
+                {actionLoading === `trim:${trimmingSong.id}` ? 'Saving...' : 'Trim & Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+
+      {editingSong && (
+        <ModalPortal>
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl bg-white shadow-xl sm:rounded-xl sm:my-4 max-h-[calc(100dvh-2rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
+            <div className="shrink-0 border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit Song Metadata</h3>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4 text-gray-900">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stations / Genres</label>
+                <StationAssignmentField
+                  value={editStationIds}
+                  onChange={setEditStationIds}
+                  variant="light"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Album Cover URL</label>
+                <input
+                  type="text"
+                  value={editArtworkUrl}
+                  onChange={(e) => setEditArtworkUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Or upload new cover</label>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={(e) => setEditArtworkFile(e.target.files?.[0] ?? null)}
+                  className="w-full text-sm text-gray-900 file:mr-3 file:rounded-md file:border file:border-gray-300 file:bg-gray-100 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-gray-900 hover:file:bg-gray-200"
+                />
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <label className="flex items-center justify-between text-sm text-gray-700">
+                  <span>Explicit content</span>
+                  <input
+                    type="checkbox"
+                    checked={editIsExplicit}
+                    onChange={(e) => setEditIsExplicit(e.target.checked)}
+                  />
+                </label>
+                <p className="text-xs text-gray-600 mt-2">
+                  Mark this song explicit when audio includes explicit language/content.
+                </p>
+              </div>
+              <div className="rounded-lg border border-gray-200 p-3">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label className="text-sm text-gray-700 font-medium">Lyrics</label>
+                  <div className="flex gap-1.5">
+                    {editLyricsStatus === 'pending' && (
+                      <span className="text-xs rounded-full bg-amber-100 text-amber-700 px-2 py-0.5">
+                        Syncing…
+                      </span>
+                    )}
+                    {editLyricsStatus === 'ready' && (
+                      <span className="text-xs rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5">
+                        Synced
+                      </span>
+                    )}
+                    {editLyricsStatus === 'failed' && (
+                      <span className="text-xs rounded-full bg-red-100 text-red-700 px-2 py-0.5">
+                        Sync failed
+                      </span>
+                    )}
+                    {editLyricsAutoGenerated && (
+                      <span className="text-xs rounded-full bg-sky-100 text-sky-700 px-2 py-0.5">
+                        Auto-generated
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <textarea
+                  value={editLyrics}
+                  onChange={(e) => setEditLyrics(e.target.value)}
+                  rows={6}
+                  placeholder="Lyrics, one line per lyric line."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-600 text-sm resize-y"
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Saving new text re-syncs captions to the audio automatically.
+                  {editLyricsAutoGenerated &&
+                    ' These lyrics were auto-transcribed — corrections replace the auto-generated version.'}
+                </p>
+              </div>
+            </div>
+            <div className="flex shrink-0 justify-end gap-3 border-t border-gray-200 bg-white px-6 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <button
+                onClick={closeEditModal}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-900 hover:bg-gray-100 transition-colors"
+                disabled={editSaving}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => void handleSaveMetadata()}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                disabled={editSaving}
+              >
+                {editSaving ? 'Saving...' : 'Save Metadata'}
+              </button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+
+      <SampleTrimDialog
+        open={sampleSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setSampleSong(null);
+        }}
+        song={
+          sampleSong
+            ? {
+                id: sampleSong.id,
+                title: sampleSong.title,
+                audioUrl: sampleSong.audio_url ?? null,
+                durationSeconds:
+                  durationOverrides[sampleSong.id] ??
+                  sampleSong.duration_seconds ??
+                  null,
+                sampleStartSeconds: sampleSong.sample_start_seconds ?? null,
+                sampleEndSeconds: sampleSong.sample_end_seconds ?? null,
+              }
+            : null
+        }
+      />
+
+      <DiscoverClipDialog
+        open={discoverClipSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setDiscoverClipSong(null);
+        }}
+        song={
+          discoverClipSong
+            ? {
+                id: discoverClipSong.id,
+                title: discoverClipSong.title,
+                audioUrl: discoverClipSong.audio_url ?? null,
+                durationSeconds:
+                  durationOverrides[discoverClipSong.id] ??
+                  discoverClipSong.duration_seconds ??
+                  null,
+                discoverEnabled: discoverClipSong.discover_enabled === true,
+                discoverClipStartSeconds:
+                  discoverClipSong.discover_clip_start_seconds ?? null,
+                discoverClipEndSeconds:
+                  discoverClipSong.discover_clip_end_seconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === discoverClipSong?.id
+                ? {
+                    ...s,
+                    discover_enabled: result.discoverEnabled,
+                    discover_clip_start_seconds: result.discoverClipStartSeconds,
+                    discover_clip_end_seconds: result.discoverClipEndSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
+      />
+    </div>
+  );
+}

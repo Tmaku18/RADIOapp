@@ -1,0 +1,631 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { songsApi, songSalesApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { usePlayback } from '@/components/playback';
+import { artistProfilePath } from '@/lib/artist-links';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
+
+type LibrarySong = {
+  id: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  audioUrl: string | null;
+  sampleUrl: string | null;
+  durationSeconds: number;
+  likeCount: number;
+  playCount: number;
+  listenCount?: number;
+  priceCents: number;
+  forSale: boolean;
+  owned: boolean;
+  discoverEnabled: boolean;
+  discoverClipUrl: string | null;
+  discoverClipStartSeconds: number | null;
+  discoverClipEndSeconds: number | null;
+  fireVotes: number;
+  shitVotes: number;
+  temperaturePercent: number;
+  likedAt: string;
+};
+
+type PurchasedSong = {
+  id: string;
+  title: string;
+  artistName: string;
+  artistId: string;
+  artworkUrl: string | null;
+  durationSeconds: number;
+  likeCount: number;
+  playCount: number;
+  listenCount?: number;
+  purchasedAt: string;
+  amountCents: number;
+  currency: string;
+  /** True when this row is the user's own upload rather than a purchase. */
+  isOwnUpload?: boolean;
+};
+
+function apiErrorMessage(err: unknown, fallback: string): string {
+  const serverMessage = (
+    err as { response?: { data?: { message?: string } } }
+  )?.response?.data?.message;
+  if (typeof serverMessage === 'string' && serverMessage.trim().length > 0) {
+    return serverMessage;
+  }
+  if (err instanceof Error && err.message.trim().length > 0) {
+    return err.message;
+  }
+  return fallback;
+}
+
+export default function BrowseSavedPage() {
+  const searchParams = useSearchParams();
+  const { user, loading: authLoading } = useAuth();
+  const { actions } = usePlayback();
+  const [tab, setTab] = useState<'liked' | 'music'>(
+    searchParams.get('tab') === 'music' ? 'music' : 'liked',
+  );
+  const [loading, setLoading] = useState(true);
+  const [songs, setSongs] = useState<LibrarySong[]>([]);
+  const [libraryError, setLibraryError] = useState<string | null>(null);
+  const [purchases, setPurchases] = useState<PurchasedSong[]>([]);
+  const [purchasesLoading, setPurchasesLoading] = useState(true);
+  const [purchasesError, setPurchasesError] = useState<string | null>(null);
+  const libraryRequestRef = useRef(0);
+  const purchasesRequestRef = useRef(0);
+  const [pendingRemove, setPendingRemove] = useState<LibrarySong | null>(null);
+  const [lyricsPlayerSong, setLyricsPlayerSong] = useState<PurchasedSong | null>(
+    null,
+  );
+  const [removing, setRemoving] = useState(false);
+  const [sortBy, setSortBy] = useState<
+    'recent' | 'oldest' | 'artist' | 'title' | 'likes' | 'plays' | 'temperature'
+  >('recent');
+
+  useEffect(() => {
+    if (searchParams.get('purchase') === 'success') {
+      toast.success('Purchase complete! Your song is in My Music.');
+      setTab('music');
+    }
+  }, [searchParams]);
+
+  const loadLibrary = useCallback(async () => {
+    const requestId = ++libraryRequestRef.current;
+    setLoading(true);
+    setLibraryError(null);
+    try {
+      const res = await songsApi.getLibrary();
+      if (requestId !== libraryRequestRef.current) return;
+      const list = res.data;
+      setSongs(Array.isArray(list) ? (list as LibrarySong[]) : []);
+    } catch (err) {
+      if (requestId !== libraryRequestRef.current) return;
+      const message = apiErrorMessage(err, 'Could not load your liked songs.');
+      setLibraryError(message);
+      setSongs([]);
+      toast.error(message);
+    } finally {
+      if (requestId === libraryRequestRef.current) {
+        setLoading(false);
+      }
+    }
+  }, []);
+
+  const loadPurchases = useCallback(async () => {
+    const requestId = ++purchasesRequestRef.current;
+    setPurchasesLoading(true);
+    setPurchasesError(null);
+    try {
+      const res = await songsApi.getPurchases();
+      if (requestId !== purchasesRequestRef.current) return;
+      const list = res.data;
+      setPurchases(Array.isArray(list) ? (list as PurchasedSong[]) : []);
+    } catch (err) {
+      if (requestId !== purchasesRequestRef.current) return;
+      const message = apiErrorMessage(err, 'Could not load your purchased music.');
+      setPurchasesError(message);
+      setPurchases([]);
+    } finally {
+      if (requestId === purchasesRequestRef.current) {
+        setPurchasesLoading(false);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user?.uid) {
+      void loadLibrary();
+      void loadPurchases();
+    }
+  }, [authLoading, user?.uid, loadLibrary, loadPurchases]);
+
+  useEffect(() => {
+    const refreshLibrary = () => {
+      if (!authLoading && user?.uid) {
+        void loadLibrary();
+      }
+    };
+    window.addEventListener('library-changed', refreshLibrary);
+    return () => window.removeEventListener('library-changed', refreshLibrary);
+  }, [authLoading, user?.uid, loadLibrary]);
+
+  const playPurchased = async (song: PurchasedSong) => {
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) return;
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: song.title,
+          artistName: song.artistName,
+          artistId: song.artistId,
+          artworkUrl: song.artworkUrl,
+          audioUrl: url,
+          durationSeconds: song.durationSeconds,
+        },
+        'discography',
+      );
+      await actions.play();
+    } catch {
+      toast.error('Could not play this song.');
+    }
+  };
+
+  const downloadPurchased = async (song: PurchasedSong) => {
+    try {
+      const res = await songsApi.getDownloadUrl(song.id);
+      const url = res.data?.url;
+      if (url) window.open(url, '_blank', 'noopener');
+    } catch {
+      toast.error('Could not download this song.');
+    }
+  };
+
+  const [buyingId, setBuyingId] = useState<string | null>(null);
+
+  const loadAndPlay = async (
+    song: LibrarySong,
+    url: string,
+    label: string,
+  ) => {
+    try {
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: label ? `${song.title} (${label})` : song.title,
+          artistName: song.artistName,
+          artistId: song.artistId,
+          artworkUrl: song.artworkUrl,
+          audioUrl: url,
+          durationSeconds: song.durationSeconds,
+        },
+        'discography',
+      );
+      await actions.play();
+    } catch {
+      toast.error('Could not play this track.');
+    }
+  };
+
+  const playSample = (song: LibrarySong) => {
+    const url = song.sampleUrl ?? song.audioUrl;
+    if (!url) {
+      toast.error('No sample available for this song yet.');
+      return;
+    }
+    void loadAndPlay(song, url, 'sample');
+  };
+
+  const playDiscoverClip = (song: LibrarySong) => {
+    if (!song.discoverEnabled || !song.discoverClipUrl) {
+      toast.error('This song has no discover clip.');
+      return;
+    }
+    void loadAndPlay(song, song.discoverClipUrl, 'discover clip');
+  };
+
+  const playFull = async (song: LibrarySong) => {
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) {
+        toast.error('Could not play the full song.');
+        return;
+      }
+      await loadAndPlay(song, url, '');
+    } catch {
+      toast.error('Could not play the full song.');
+    }
+  };
+
+  const buySong = async (song: LibrarySong) => {
+    setBuyingId(song.id);
+    try {
+      const res = await songSalesApi.buySong(song.id);
+      const url = res.data?.url;
+      if (url) {
+        window.location.href = url;
+      } else {
+        toast.error('Could not start checkout. Try again.');
+      }
+    } catch (e) {
+      const serverMessage = (
+        e as { response?: { data?: { message?: string } } }
+      )?.response?.data?.message;
+      toast.error(
+        typeof serverMessage === 'string' && serverMessage.trim().length > 0
+          ? serverMessage
+          : 'Could not start checkout. Try again.',
+      );
+    } finally {
+      setBuyingId(null);
+    }
+  };
+
+  const formatPrice = (cents: number) =>
+    `$${(cents / 100).toFixed(2).replace(/\.00$/, '')}`;
+
+  const sortedSongs = useMemo(() => {
+    const list = [...songs];
+    list.sort((a, b) => {
+      if (sortBy === 'recent') return (b.likedAt ?? '').localeCompare(a.likedAt ?? '');
+      if (sortBy === 'oldest') return (a.likedAt ?? '').localeCompare(b.likedAt ?? '');
+      if (sortBy === 'artist') return a.artistName.localeCompare(b.artistName);
+      if (sortBy === 'title') return a.title.localeCompare(b.title);
+      if (sortBy === 'temperature') return b.temperaturePercent - a.temperaturePercent;
+      if (sortBy === 'plays') {
+        return (b.listenCount ?? b.playCount) - (a.listenCount ?? a.playCount);
+      }
+      return b.likeCount - a.likeCount;
+    });
+    return list;
+  }, [songs, sortBy]);
+
+  async function confirmRemoveFromLibrary() {
+    if (!pendingRemove) return;
+    setRemoving(true);
+    try {
+      await songsApi.unlike(pendingRemove.id);
+      setSongs((prev) => prev.filter((s) => s.id !== pendingRemove.id));
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('library-changed'));
+      }
+      toast.success('Removed from your library');
+      setPendingRemove(null);
+    } catch {
+      toast.error('Could not remove that song. Try again.');
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <div className="w-full max-w-4xl space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Your Library</h1>
+        {tab === 'liked' && (
+        <select
+          value={sortBy}
+          onChange={(e) =>
+            setSortBy(
+              e.target.value as
+                | 'recent'
+                | 'oldest'
+                | 'artist'
+                | 'title'
+                | 'likes'
+                | 'plays'
+                | 'temperature',
+            )
+          }
+          className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="recent">Recently added</option>
+          <option value="oldest">Oldest added</option>
+          <option value="artist">Artist</option>
+          <option value="title">Song title</option>
+          <option value="likes">Likes</option>
+          <option value="plays">Listens</option>
+          <option value="temperature">Temperature</option>
+        </select>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab('liked')}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'liked'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Liked
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab('music')}
+          className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium ${
+            tab === 'music'
+              ? 'border-primary text-foreground'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          My Music{purchases.length > 0 ? ` (${purchases.length})` : ''}
+        </button>
+      </div>
+
+      {tab === 'music' ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">My Music</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {authLoading || (purchasesLoading && !purchasesError) ? (
+              <p className="text-sm text-muted-foreground">Loading your music…</p>
+            ) : purchasesError ? (
+              <div className="space-y-2">
+                <p className="text-sm text-destructive">{purchasesError}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void loadPurchases()}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : purchases.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing here yet. Buy a song from an artist&apos;s page — or
+                upload your own — to play the full track and download it here.
+              </p>
+            ) : (
+              purchases.map((song) => (
+                <div
+                  key={song.id}
+                  className="rounded-lg border border-border/70 bg-card px-3 py-2"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      <ArtworkImage
+                        src={song.artworkUrl}
+                        alt={`${song.title} album cover`}
+                        className="h-11 w-11 shrink-0 rounded-md object-cover"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {song.title}
+                          {song.isOwnUpload ? (
+                            <span className="ml-2 inline-block rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary align-middle">
+                              Your upload
+                            </span>
+                          ) : null}
+                        </p>
+                        <Link
+                          href={artistProfilePath(song.artistId)}
+                          className="block truncate text-sm text-muted-foreground hover:underline"
+                        >
+                          {song.artistName}
+                        </Link>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => void playPurchased(song)}
+                      >
+                        Play
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => setLyricsPlayerSong(song)}
+                      >
+                        Lyrics
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8"
+                        onClick={() => void downloadPurchased(song)}
+                      >
+                        Download
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
+      ) : (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Liked Songs</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {authLoading || (loading && !libraryError) ? (
+            <p className="text-sm text-muted-foreground">Loading library...</p>
+          ) : libraryError ? (
+            <div className="space-y-2">
+              <p className="text-sm text-destructive">{libraryError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadLibrary()}
+              >
+                Try again
+              </Button>
+            </div>
+          ) : sortedSongs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No liked songs yet. Give a song 🔥 on the radio to add it here.
+              Liked songs play a 30-second sample — buy a song to own the full
+              track.
+            </p>
+          ) : (
+            sortedSongs.map((song) => (
+              <div
+                key={song.id}
+                className="rounded-lg border border-border/70 bg-card px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-3">
+                    <ArtworkImage
+                      src={song.artworkUrl}
+                      alt={`${song.title} album cover`}
+                      className="h-11 w-11 shrink-0 rounded-md object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{song.title}</p>
+                      <Link
+                        href={artistProfilePath(song.artistId)}
+                        className="block truncate text-sm text-muted-foreground hover:underline"
+                      >
+                        {song.artistName}
+                      </Link>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2 sm:gap-3">
+                      <span title="Likes">♥ {song.likeCount}</span>
+                      <span title="Listens">🎧 {song.listenCount ?? song.playCount}</span>
+                      <span title="Temperature">🌡 {song.temperaturePercent}%</span>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => setPendingRemove(song)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 pl-14">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => playSample(song)}
+                  >
+                    ▶ Sample
+                  </Button>
+                  {song.discoverEnabled && song.discoverClipUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => playDiscoverClip(song)}
+                    >
+                      ✨ Discover clip
+                    </Button>
+                  )}
+                  {song.owned ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => void playFull(song)}
+                    >
+                      ▶ Play full
+                    </Button>
+                  ) : song.forSale ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8"
+                      disabled={buyingId === song.id}
+                      onClick={() => void buySong(song)}
+                    >
+                      {buyingId === song.id
+                        ? 'Starting…'
+                        : `Buy ${formatPrice(song.priceCents)}`}
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
+      )}
+
+      <AlertDialog
+        open={pendingRemove != null}
+        onOpenChange={(open) => {
+          if (!open && !removing) setPendingRemove(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove from your library?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes your save for{' '}
+              <span className="font-medium text-foreground">
+                {pendingRemove?.title}
+              </span>
+              . You can add it again from the radio player anytime.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={removing}
+              onClick={() => void confirmRemoveFromLibrary()}
+            >
+              {removing ? 'Removing…' : 'Remove'}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <LyricsPlayerDialog
+        song={
+          lyricsPlayerSong
+            ? {
+                id: lyricsPlayerSong.id,
+                title: lyricsPlayerSong.title,
+                artistName: lyricsPlayerSong.artistName,
+                artworkUrl: lyricsPlayerSong.artworkUrl,
+              }
+            : null
+        }
+        onClose={() => setLyricsPlayerSong(null)}
+      />
+    </div>
+  );
+}

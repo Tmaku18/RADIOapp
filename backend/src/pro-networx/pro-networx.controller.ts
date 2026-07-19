@@ -1,0 +1,135 @@
+import {
+  Controller,
+  Get,
+  Put,
+  Query,
+  Body,
+  UseGuards,
+  Param,
+  Headers,
+} from '@nestjs/common';
+import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
+import { CurrentUser } from '../auth/decorators/user.decorator';
+import type { FirebaseUser } from '../auth/decorators/user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
+import { ProNetworxService } from './pro-networx.service';
+import { UpdateProProfileDto } from './dto/update-pro-profile.dto';
+import { ListProDirectoryDto } from './dto/list-pro-directory.dto';
+import { getSupabaseClient } from '../config/supabase.config';
+import { getFirebaseAuth } from '../config/firebase.config';
+
+@Controller('pro-networx')
+@UseGuards(FirebaseAuthGuard)
+export class ProNetworxController {
+  constructor(private readonly pro: ProNetworxService) {}
+
+  private async getUserId(firebaseUid: string): Promise<string> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+    if (error || !data?.id) {
+      throw new Error('User not found');
+    }
+    return data.id;
+  }
+
+  /** Optional viewer id when a valid Bearer token is sent; otherwise null. */
+  private async resolveOptionalViewerUserId(
+    authorization?: string,
+  ): Promise<string | undefined> {
+    if (!authorization?.startsWith('Bearer ')) return undefined;
+    const token = authorization.substring(7);
+    try {
+      const decoded = await getFirebaseAuth().verifyIdToken(token);
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('firebase_uid', decoded.uid)
+        .maybeSingle();
+      return data?.id ?? undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  @Get('me/profile')
+  async getMe(@CurrentUser() user: FirebaseUser) {
+    return this.pro.getMyProfile(user.uid);
+  }
+
+  @Put('me/profile')
+  async upsertMe(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: UpdateProProfileDto,
+  ) {
+    return this.pro.upsertMyProfile(user.uid, dto);
+  }
+
+  @Get('directory')
+  async list(
+    @CurrentUser() user: FirebaseUser,
+    @Query() q: ListProDirectoryDto,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    return this.pro.listDirectory({
+      viewerUserId,
+      skill: q.skill,
+      availableForWork:
+        q.availableForWork != null ? q.availableForWork === 'true' : undefined,
+      search: q.search,
+      location: q.location,
+      sort: q.sort,
+      mode: q.mode,
+      seed: q.seed,
+    });
+  }
+
+  @Get('profiles/:userId')
+  async getProfile(
+    @CurrentUser() user: FirebaseUser,
+    @Param('userId') userId: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid).catch(() => undefined);
+    return this.pro.getProfileByUserId(userId, viewerUserId);
+  }
+
+  @Public()
+  @Get('public/directory')
+  async listPublic(
+    @Query() q: ListProDirectoryDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const viewerUserId = await this.resolveOptionalViewerUserId(authorization);
+    return this.pro.listDirectory({
+      viewerUserId,
+      skill: q.skill,
+      availableForWork:
+        q.availableForWork != null ? q.availableForWork === 'true' : undefined,
+      search: q.search,
+      location: q.location,
+      sort: q.sort,
+      mode: q.mode,
+      seed: q.seed,
+    });
+  }
+
+  @Public()
+  @Get('public/marketing-stats')
+  async getPublicMarketingStats() {
+    return this.pro.getPublicMarketingStats();
+  }
+
+  @Public()
+  @Get('public/profiles/:userId')
+  async getPublicProfile(
+    @Param('userId') userId: string,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const viewerUserId = await this.resolveOptionalViewerUserId(authorization);
+    return this.pro.getProfileByUserId(userId, viewerUserId);
+  }
+}

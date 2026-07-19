@@ -1,0 +1,317 @@
+'use client';
+
+import Link from 'next/link';
+import { useRef, useEffect, Suspense } from 'react';
+import dynamic from 'next/dynamic';
+import { motion, useScroll, useTransform } from 'framer-motion';
+import { Reveal } from './Reveal';
+import { DIMENSION_RADIO_BAR_HEIGHT } from './DimensionRadioBar';
+
+const MetamorphosisScene = dynamic(
+  () => import('./MetamorphosisScene').then((m) => m.MetamorphosisScene),
+  { ssr: false },
+);
+
+const STAGES = [
+  {
+    label: 'GEM',
+    title: 'A hidden gem',
+    body: 'Every signal starts unheard. A bedroom recording, a freestyle in a friend\'s basement, a beat looped at 3am. Networx pulls it onto the frequency.',
+    colorClass: 'text-yellow-300',
+  },
+  {
+    label: 'RIPPLE',
+    title: 'Caught in a ripple',
+    body: 'Prospectors hit play. Votes start flowing. Heat rises. The sound is encased — refined under pressure inside the community\'s cocoon.',
+    colorClass: 'text-pink-400',
+  },
+  {
+    label: 'WINGS',
+    title: 'The wings unfold',
+    body: 'The artist breaks out. The wake widens. Reach, engagement, growth — the analytics trail of a thousand Ripples carries the sound further.',
+    colorClass: 'text-cyan-300',
+  },
+  {
+    label: 'DIAMOND',
+    title: 'Crystallized.',
+    body: 'A Gem refined under pressure becomes a Diamond — a name the people know. No payola. No algorithm. Just transparent heat and the Butterfly Effect.',
+    colorClass: 'text-yellow-300',
+  },
+];
+
+export function MetamorphosisAbout() {
+  const storyRef = useRef<HTMLElement>(null);
+  const progressRef = useRef(0);
+
+  const { scrollYProgress } = useScroll({
+    target: storyRef,
+    offset: ['start start', 'end end'],
+  });
+
+  useEffect(() => {
+    const unsub = scrollYProgress.on('change', (v) => {
+      progressRef.current = v;
+    });
+    return () => unsub();
+  }, [scrollYProgress]);
+
+  const op0 = useTransform(scrollYProgress, [0.0, 0.05, 0.2, 0.27], [1, 1, 1, 0]);
+  const op1 = useTransform(scrollYProgress, [0.22, 0.32, 0.45, 0.52], [0, 1, 1, 0]);
+  const op2 = useTransform(scrollYProgress, [0.47, 0.57, 0.7, 0.77], [0, 1, 1, 0]);
+  const op3 = useTransform(scrollYProgress, [0.72, 0.82, 0.95, 1.0], [0, 1, 1, 1]);
+  const panelOpacities = [op0, op1, op2, op3];
+
+  const y0 = useTransform(scrollYProgress, [0, 0.125, 0.25], [40, 0, -40]);
+  const y1 = useTransform(scrollYProgress, [0.18, 0.375, 0.55], [40, 0, -40]);
+  const y2 = useTransform(scrollYProgress, [0.45, 0.625, 0.82], [40, 0, -40]);
+  const y3 = useTransform(scrollYProgress, [0.72, 0.875, 1.0], [40, 0, -40]);
+  const panelYs = [y0, y1, y2, y3];
+
+  const railWidth = useTransform(scrollYProgress, (v) => `${v * 100}%`);
+
+  return (
+    <div className="relative" data-testid="about-page">
+      <section className="relative pt-16 pb-12">
+        <div className="max-w-5xl mx-auto px-6 lg:px-10">
+          <Reveal>
+            <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-3">
+              ◤ THE LORE
+            </div>
+          </Reveal>
+          <h1 className="font-unbounded font-black tracking-tighter uppercase text-5xl md:text-8xl leading-[0.9] text-white">
+            <Reveal as="span" className="block">
+              The{' '}
+              <span className="glitch text-glow-cyan" data-text="Butterfly">
+                Butterfly
+              </span>
+            </Reveal>
+            <Reveal as="span" delay={0.2} className="block">
+              <span className="text-glow-pink text-pink-400">Effect.</span>
+            </Reveal>
+          </h1>
+          <Reveal delay={0.45}>
+            <p className="mt-8 max-w-2xl text-white/70 text-lg leading-relaxed">
+              Where the People have the Voice, and the Artist has the Power. Scroll to watch a Gem
+              become a Diamond — the same arc every artist on Networx walks. This is Metamorphosis,
+              in four beats.
+            </p>
+          </Reveal>
+          <Reveal delay={0.6}>
+            <div className="mt-6 inline-flex items-center gap-2 font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300">
+              <span className="w-6 h-px bg-cyan-400" />
+              SCROLL ▾ TO TRANSFORM
+              <span className="w-6 h-px bg-cyan-400" />
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      <section ref={storyRef} className="relative h-[400vh]" data-testid="metamorphosis-story">
+        <div className="sticky top-0 h-screen w-full overflow-hidden">
+          <div className="absolute inset-0">
+            <Suspense fallback={<div className="absolute inset-0 bg-black" />}>
+              <MetamorphosisScene progressRef={progressRef} />
+            </Suspense>
+            <div className="absolute inset-0 cyber-grid opacity-20 pointer-events-none" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-black/50 pointer-events-none" />
+          </div>
+
+          <div className="relative z-10 h-full max-w-6xl mx-auto px-6 lg:px-10 grid lg:grid-cols-2 items-center">
+            <div className="hidden lg:block" />
+            <div className="relative h-72 md:h-96">
+              {STAGES.map((s, i) => (
+                <motion.div
+                  key={s.label}
+                  data-testid={`stage-panel-${i}`}
+                  style={{ opacity: panelOpacities[i], y: panelYs[i] }}
+                  className="absolute inset-0 flex flex-col justify-center"
+                >
+                  <div className={`font-dim-mono text-[10px] tracking-[0.4em] ${s.colorClass} mb-3`}>
+                    STAGE 0{i + 1} / {s.label}
+                  </div>
+                  <h2 className="font-unbounded font-black tracking-tighter uppercase text-4xl md:text-6xl leading-[0.95] text-white">
+                    {s.title}
+                  </h2>
+                  <p className="mt-5 text-white/70 text-base md:text-lg leading-relaxed max-w-md">
+                    {s.body}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <div
+            className="absolute left-1/2 -translate-x-1/2 w-[80vw] max-w-3xl pointer-events-none z-20"
+            style={{ bottom: DIMENSION_RADIO_BAR_HEIGHT + 20 }}
+          >
+            <div className="flex items-center justify-between mb-2">
+              {STAGES.map((s) => (
+                <span
+                  key={s.label}
+                  className="font-dim-mono text-[9px] tracking-[0.25em] text-white/50"
+                >
+                  {s.label}
+                </span>
+              ))}
+            </div>
+            <div className="h-px bg-white/10 relative overflow-hidden">
+              <motion.div
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-cyan-400 to-pink-500"
+                style={{ width: railWidth }}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 max-w-4xl mx-auto px-6 lg:px-10 py-24">
+        <Reveal>
+          <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-3">
+            ◤ OUR MISSION
+          </div>
+          <h2 className="font-unbounded font-black text-3xl text-white mb-4">Our Mission</h2>
+          <p className="text-white/70 mb-6 leading-relaxed">
+            To maximize the frequency of &quot;Butterfly Effects&quot; by democratizing discovery. We
+            exist to ensure that no &quot;hidden gem&quot; goes undiscovered and that talent is never
+            sacrificed at the altar of lack of opportunity.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.08}>
+          <div className="font-dim-mono text-[10px] tracking-[0.3em] text-pink-400 mb-3 mt-12">
+            ◤ THE ORIGIN
+          </div>
+          <h2 className="font-unbounded font-black text-3xl text-white mb-4">
+            Our Story: The 4 AM Catalyst
+          </h2>
+          <p className="text-white/70 mb-4 leading-relaxed">
+            Most tech companies start in a Silicon Valley garage. Networx started at a gas station at
+            4 AM.
+          </p>
+          <p className="text-white/70 mb-4 leading-relaxed">
+            That was where Tanaka and Merquise first crossed paths. It was a random connection—a
+            &quot;butterfly effect&quot; in its purest form. We were two people who, on paper, were
+            struggling financially, but in reality, were rich in skills and belief. As our friendship
+            grew, we saw each other&apos;s strengths: Tanaka, the architect with the technical vision
+            to build the impossible; Merquise, the strategist with the heart to find the talent
+            others overlooked.
+          </p>
+          <p className="text-white/70 mb-6 leading-relaxed">
+            We realized that our meeting shouldn&apos;t have been a fluke. We pushed each other to
+            succeed when the world wasn&apos;t looking. We realized that society is full of
+            &quot;bright lights&quot; that are allowed to die out simply because they didn&apos;t have
+            a bridge to the right room. We decided that allowing talent to go to waste is more than a
+            shame—it is a crime. We built Networx to make those 4 AM moments happen for everyone.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.12}>
+          <div className="font-dim-mono text-[10px] tracking-[0.3em] text-cyan-300 mb-3 mt-12">
+            ◤ THE ECOSYSTEM
+          </div>
+          <h2 className="font-unbounded font-black text-3xl text-white mb-4">
+            The Bridge from Invisible to Inevitable
+          </h2>
+          <p className="text-white/70 mb-4 leading-relaxed">
+            Networx is a &quot;By Artists, For Artists&quot; ecosystem that brings artist growth into
+            one place: democratic radio rotation, artist livestreaming, live listener chat, discovery
+            votes and ripples, and transparent analytics.
+          </p>
+          <p className="text-white/70 mb-4 leading-relaxed">
+            We do not believe in the &quot;mysterious artist&quot; enigma. We believe in the Human
+            Artist. Creators can upload, promote with credits, review the analytics dashboard, and
+            meet listeners in real time through chat and livestream sessions.
+          </p>
+          <p className="text-white/70 mb-6 leading-relaxed">
+            ProNetworx extends that bridge by connecting hidden gems with experienced photographers,
+            engineers, promoters, producers, and mentors. We are not just playing music; we are
+            helping artists build durable careers.
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.16}>
+          <div className="font-dim-mono text-[10px] tracking-[0.3em] text-yellow-300 mb-3 mt-12">
+            ◤ THE CODE
+          </div>
+          <h2 className="font-unbounded font-black text-3xl text-white mb-6">
+            The Networx Values (The Code)
+          </h2>
+          <ul className="space-y-4 mb-6">
+            {[
+              {
+                title: 'Potential in Everyone',
+                body: 'We believe talent is universal, but opportunity is not. We are here to fix the distribution.',
+              },
+              {
+                title: 'The "Trial by Fire" Democracy',
+                body: "True representation matters. Our community rankings aren't bought; they are earned. Votes reflect the true opinion of the people, pushing every artist to constantly improve through healthy competition.",
+              },
+              {
+                title: 'Always Free to Listen',
+                body: 'Listening is free, and it always will be. Light, non-intrusive ads—alongside artist promotions and marketplace sales—keep the frequency open to everyone, so discovery never sits behind a paywall.',
+              },
+              {
+                title: 'Human Connectivity',
+                body: 'We reject the "enigma" model. We encourage community interaction. If your song is playing, you should be in the room with your fans.',
+              },
+              {
+                title: 'Mentorship over Monopoly',
+                body: 'We believe the experienced have a duty to guide the inexperienced. Our platform is a professional hub designed to foster guidance, not gatekeeping.',
+              },
+            ].map((value) => (
+              <li key={value.title} className="glass rounded-xl p-5 tracing-border">
+                <span className="font-unbounded font-bold text-cyan-300">{value.title}</span>
+                <p className="text-white/70 mt-2 leading-relaxed text-sm">{value.body}</p>
+              </li>
+            ))}
+          </ul>
+        </Reveal>
+
+        <Reveal delay={0.2}>
+          <p className="mt-12 text-white/70 leading-relaxed">
+            Reach the founders:{' '}
+            <a
+              href="mailto:tmakuvaza1@networxradio.com"
+              className="text-cyan-300 hover:text-white transition-colors"
+            >
+              Tanaka Makuvaza
+            </a>{' '}
+            (CEO, Chief Architect, Cofounder) ·{' '}
+            <a
+              href="mailto:mjones@networxradio.com"
+              className="text-cyan-300 hover:text-white transition-colors"
+            >
+              Merquise Jones
+            </a>{' '}
+            (COO, Head of Artist Relations &amp; Talent Discovery).
+          </p>
+        </Reveal>
+
+        <Reveal delay={0.24}>
+          <div className="glass rounded-2xl p-8 tracing-border mt-12">
+            <h3 className="font-unbounded font-bold text-xl text-white mb-4">Join the movement</h3>
+            <p className="text-white/60 mb-6 leading-relaxed">
+              Networx is for artists ready to grow and supporters who want talent to be discovered
+              fairly. Join now and tap into the ProNetworx ecosystem for mentorship, collaboration,
+              and career opportunities.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/signup"
+                className="inline-flex h-10 items-center justify-center px-5 rounded-full bg-cyan-400 text-black font-dim-mono text-xs tracking-wider uppercase font-bold glow-cyan hover:bg-white transition-colors"
+              >
+                Create Account
+              </Link>
+              <Link
+                href="/pro-networx"
+                className="inline-flex h-10 items-center justify-center px-5 rounded-full border border-white/20 text-white font-dim-mono text-xs tracking-wider uppercase hover:border-pink-400 hover:text-pink-400 transition-colors"
+              >
+                Explore ProNetworx
+              </Link>
+            </div>
+          </div>
+        </Reveal>
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,273 @@
+# API Specification
+
+Base URL: `http://localhost:3000/api`
+
+> **Product terminology**: In the UI and marketing, we use **Prospectors** (audience), **Ripples** (likes), **The Wake** (analytics), **The Yield** (Prospector rewards), **The Refinery** (Prospector portal for reviewing songs), and **Songs**. This spec uses technical names (e.g. `songs`, `likes`, `listener`). See [branding-terminology.md](branding-terminology.md).
+
+Most endpoints require a Firebase ID token: `Authorization: Bearer <token>`. **Public (no auth)** radio read endpoints: `GET /radio/current`, `GET /radio/next` (see Radio section).
+
+## Authentication
+
+### Verify Token
+- **GET** `/auth/verify`
+- Returns user info from verified token
+
+## Users
+
+### Get Current User
+- **GET** `/users/me`
+- Returns current user profile
+
+### Update User Profile
+- **PUT** `/users/me`
+- Body: `{ displayName?: string, avatarUrl?: string }`
+
+### Get User by ID
+- **GET** `/users/:id`
+- Returns user profile
+
+## Songs
+
+### Upload Song
+- **POST** `/songs/upload`
+- Content-Type: `multipart/form-data`
+- Fields: `audio` (file), `artwork` (file, optional), `title` (string), `artistName` (string)
+- Returns: `{ id, title, artistName, audioUrl, artworkUrl }`
+
+### Get Songs
+- **GET** `/songs`
+- Query params: `?artistId=uuid&status=approved&limit=20&offset=0`
+- Returns: Array of songs
+
+### Get Song by ID
+- **GET** `/songs/:id`
+- Returns: Song details
+
+### Get saved library (authenticated)
+- **GET** `/songs/library`
+- Roles: `listener`, `artist`, `service_provider`, `admin`
+- Returns: Songs the user has saved in `likes` (profile Ripples and **fire** radio votes may add rows; see leaderboard like endpoint).
+
+### Like Song
+- **POST** `/songs/:id/like`
+- Toggles like status
+
+### Unlike Song
+- **DELETE** `/songs/:id/like`
+
+## Radio
+
+Track selection (free vs paid mode, four-tier fallback, artist spacing) is documented in **`docs/radio-logic.md`**.
+
+### Get Current Track
+- **GET** `/radio/current?radio=<stationId>` (optional `radio`; default station)
+- **Public** — no `Authorization` required.
+- Returns: Current playing song with metadata and radio timing fields.
+- **Temperature / votes** (when migrations 048–049 are applied): the payload includes:
+  - `play_id` — current `plays.id` when available (for per-play voting)
+  - `fire_votes`, `shit_votes`, `total_votes` — raw counts from `song_temperature` (global per song)
+  - `temperature_percent` — **0–100**, zero baseline; recomputed with **exponential time decay** (half-life 24h in DB) from `leaderboard_likes` rows; backend calls `refresh_song_temperature(p_song_id)` before read so stale cache decays naturally.
+- Other notes:
+  - Includes `artist_id` and may include `pinned_catalysts` (Catalyst deep-link credits) during airtime.
+  - `trial_by_fire_active` reflects the configured Trial-by-Fire window.
+
+### Get Next Track
+- **GET** `/radio/next`
+- Returns: Next song in rotation (chosen by backend using tiers and artist spacing; see `docs/radio-logic.md`)
+
+### Report Play
+- **POST** `/radio/play`
+- Body: `{ songId: uuid, skipped?: boolean }`
+- Logs play event
+
+### Heartbeat (verified listening)
+- **POST** `/radio/heartbeat`
+- Body: `{ songId: uuid, streamToken?: string, timestamp?: string }`
+- Records a 30s listening heartbeat for Prospectors (technical role `listener`). Used for proof-of-listening and Yield accrual gating.
+
+## Prospector (Yield program)
+
+### Get Yield
+- **GET** `/prospector/yield`
+- Returns: `{ balanceCents, tier, songsRefinedCount }`
+
+### Check-in
+- **POST** `/prospector/check-in`
+- Body: `{ sessionId?: uuid }`
+- Records an anti-bot check-in (Ripple tap). Yield accrual is gated by check-ins every ~20 minutes.
+
+### Submit Refinement
+- **POST** `/prospector/refinement`
+- Body: `{ songId: uuid, score: 1..10, playId?: uuid }`
+- Idempotent per user + song; first submission increases songs refined count and credits Yield.
+
+### Submit Survey
+- **POST** `/prospector/survey`
+- Body: `{ songId: uuid, responses: object, playId?: uuid }`
+- Idempotent per user + song; first submission credits Yield.
+
+### Redeem
+- **POST** `/prospector/redeem`
+- Body: `{ amountCents: 1000|2500, type: 'virtual_visa'|'merch'|'boost_credits' }`
+- Creates a redemption request and deducts balance.
+
+## The Refinery (Prospector portal)
+
+The Refinery is a portal where artists submit uploaded songs for review. Only Prospectors (listeners who sign up) can access it: they hear songs unlimited times, answer survey questions, rank (1–10), and leave comments to earn Yield rewards. Regular listeners do not have access.
+
+### List Refinery songs
+- **GET** `/refinery/songs`
+- Query params: `?limit=100&offset=0`
+- Returns: `{ songs: Array<{ id, title, artist_name, artwork_url, audio_url, duration_seconds, created_at }>, limit, offset }`
+- Roles: listener, artist, admin
+
+### Add song to Refinery (artist)
+- **POST** `/refinery/songs/:id/add`
+- Artist adds their own song to The Refinery for Prospector review.
+- Roles: artist, admin
+
+### Remove song from Refinery (artist)
+- **POST** `/refinery/songs/:id/remove`
+- Artist removes their song from The Refinery.
+- Roles: artist, admin
+
+### Get comments for a refinery song
+- **GET** `/refinery/songs/:id/comments`
+- Query params: `?limit=50&offset=0`
+- Returns: `{ comments: Array<{ id, body, created_at, users?: { display_name } }>, limit, offset }`
+
+### Post comment (Prospector)
+- **POST** `/refinery/songs/:id/comments`
+- Body: `{ body: string }`
+- Prospector leaves a comment on a refinery song. Rewards are credited via existing Yield (refinement + survey).
+
+## Payments
+
+### Create Payment Intent
+- **POST** `/payments/create-intent`
+- Body: `{ amount: number, credits: number }`
+- Returns: `{ clientSecret: string }`
+- Note: used by non-Android mobile/web Stripe flows.
+
+### Song Plays Pricing (per-song)
+- **GET** `/payments/song-play-price?songId=uuid`
+- Returns pricing options for buying plays for a specific song (used by Studio “Buy plays” and quick-buy UX).
+
+### Create Payment Intent (buy song plays)
+- **POST** `/payments/create-intent-song-plays`
+- Body: `{ songId: uuid, plays: number }`
+- Returns: `{ clientSecret: string }`
+- Note: used by non-Android mobile Stripe flow.
+
+### Complete Google Play purchase (Android)
+- **POST** `/payments/google-play/complete`
+- Body: `{ productId: string, purchaseToken: string, songId?: uuid }`
+- Verifies purchase token with Android Publisher API, records transaction, and grants credits/plays.
+- `songId` is required when `productId` maps to `song_plays` in backend catalog.
+
+### Quick Buy (Add 5 Minutes)
+- **POST** `/payments/quick-add-minutes`
+- Body: `{ songId: uuid }`
+- Returns: Stripe session payload (web) for a fixed quick-buy quantity (5 plays).
+
+### Webhook (Stripe)
+- **POST** `/payments/webhook`
+- Handles Stripe webhook events
+
+### Get Transactions
+- **GET** `/payments/transactions`
+- Returns: User's transaction history
+
+## Credits
+
+### Get Credit Balance
+- **GET** `/credits/balance`
+- Returns: `{ balance: number, totalPurchased: number, totalUsed: number }`
+
+## Analytics (artist/admin)
+
+### Artist Analytics Summary
+- **GET** `/analytics/me?days=30`
+- Returns: plays/likes/songs summary + top songs + daily plays (for artist dashboards).
+
+### ROI
+- **GET** `/analytics/me/roi?days=30`
+- Returns: `{ days, newFollowers, creditsSpentInWindow, roi }`
+
+### Listener Heatmap (proxy)
+- **GET** `/analytics/me/plays-by-region?days=30`
+- Returns: Array of `{ region, count }` (proxy using profile-click engagement grouped by region).
+
+## Leaderboard
+
+### Song leaderboards
+- **GET** `/leaderboard/songs?by=<mode>&limit=50&offset=0`
+- **Auth:** required (Firebase bearer).
+- **Query `by`** (default `likes`):
+  - **`likes`** — `songs.like_count` (persistent profile Ripples / saves)
+  - **`listens`** — unique (song, listener) pairs via `totalListenCount` / `get_song_ears_reached` (once per song per person; not raw spin count)
+  - **`positive_votes`** — count of **`fire`** reactions in `leaderboard_likes` (ties broken with ratio / saves)
+  - **`ratio`** — `positiveRatio` = fire / (fire + shit) from reaction stats
+  - **`saves`** — rows in `likes` per song (library size)
+- **Typical fields** on each item: `id`, `title`, `artistName`, `artistId`, `artworkUrl`, `likeCount`, `playCount`, `profilePlayCount`, `totalListenCount`, and when relevant `positiveVotes`, `negativeVotes`, `positiveRatio`, `saveCount`, `spotlightListenCount`.
+
+### Per-play / song vote (radio)
+- **POST** `/leaderboard/songs/:id/like`
+- **Body:** `{ "playId"?: uuid | null, "reaction"?: "fire" | "shit" }` (default `fire`).
+- **Semantics:**
+  - With **`playId`**: one vote per `(user_id, play_id)`; sending again updates **`reaction`** (fire ↔ shit). Uniqueness enforced by partial unique index on `leaderboard_likes`.
+  - **Fire** votes best-effort add a **`likes`** row (library save) if missing.
+  - Triggers / service refresh **`song_temperature`** for the song (global cache + decay in migration 049).
+- **Returns:** `{ liked: boolean, reaction: "fire" | "shit" }`
+
+### Trial by Fire (upvotes per minute)
+- **GET** `/leaderboard/upvotes-per-minute?windowMinutes=60&limit=50&offset=0`
+- Counts **`leaderboard_likes`** in the window (all reactions); returns ranked songs with `likesInWindow`, `playsInWindow`, `upvotesPerMinute`, `windowMinutes`.
+
+## Discovery / Pro-Directory
+
+### List People (Catalysts (service providers) / artists)
+- **GET** `/discovery/people`
+- Query params (common): `role=service_provider`, `serviceType`, `search`, `minRateCents`, `maxRateCents`, `location`, `lat`, `lng`, `radiusKm`, `limit`, `offset`
+- Returns: `{ items: DiscoveryProfile[], total: number }` (or array depending on client)
+
+## Catalysts (service providers)
+
+### Get Provider Profile
+- **GET** `/service-providers/:userId`
+- Returns: provider profile + listings + portfolio.
+
+## Venue Ads
+
+### Get Current Venue Ad
+- **GET** `/venue-ads/current?stationId=global`
+- Returns: current venue partner slot for a station.
+
+## Realtime Events (Supabase)
+
+The platform emits realtime events through Supabase Realtime. Clients subscribe via `postgres_changes`:
+
+- **Likes**: `public.likes` `INSERT` — still used for some **Live Ripple / vote map** visuals when a **fire** vote also creates or confirms a library `likes` row; **authoritative radio votes** live in `public.leaderboard_likes` (subscribe here if you need every play vote including **shit** without a `likes` row).
+- **Rising Star**: `public.station_events` `INSERT` with filter `type=eq.rising_star` (used for “Butterfly Ripple” banner).
+
+## Admin (Admin role required)
+
+### Get All Songs
+- **GET** `/admin/songs`
+- Query params: `?status=pending&limit=50&offset=0`
+
+### Approve/Reject Song
+- **PATCH** `/admin/songs/:id`
+- Body: `{ status: 'approved' | 'rejected' }`
+
+### Get Analytics
+- **GET** `/admin/analytics`
+- Returns: Platform statistics
+
+### Get Rotation Queue
+- **GET** `/admin/radio/queue`
+- Returns: Current rotation queue
+
+### Override Next Track
+- **POST** `/admin/radio/override`
+- Body: `{ songId: uuid }`

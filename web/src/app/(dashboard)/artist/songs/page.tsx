@@ -1,0 +1,1340 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { songsApi, refineryApi } from '@/lib/api';
+import { usePlayback } from '@/components/playback';
+import { LyricsPlayerDialog } from '@/components/songs/LyricsPlayer';
+import { Button } from '@/components/ui/button';
+import { ModalPortal } from '@/components/ui/modal-portal';
+import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { ArtworkImage } from '@/components/common/ArtworkImage';
+import { SongLikesDialog } from '@/components/songs/SongLikesDialog';
+import { SampleTrimDialog } from '@/components/songs/SampleTrimDialog';
+import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
+import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
+import { DiscoverClipDialog } from '@/components/songs/DiscoverClipDialog';
+import { RefinerySubmitDialog } from '@/components/refinery/RefinerySubmitDialog';
+import { REFINERY_SUBMISSION_PRICE_USD } from '@/data/refinery-questions';
+
+type ApiError = { response?: { status?: number; data?: { message?: string } } };
+
+function errorMessage(err: unknown, fallback: string): string {
+  const msg =
+    err && typeof err === 'object'
+      ? (err as ApiError).response?.data?.message
+      : undefined;
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
+interface Song {
+  id: string;
+  title: string;
+  artistName: string;
+  audioUrl?: string;
+  artworkUrl?: string;
+  durationSeconds?: number;
+  creditsRemaining: number;
+  playCount: number;
+  paidPlayCount?: number;
+  freePlayCount?: number;
+  listenCount?: number;
+  likeCount: number;
+  lastPlayedAt?: string | null;
+  trialPlaysUsed?: number;
+  status: 'pending' | 'approved' | 'rejected';
+  stationId?: string;
+  stationIds?: string[];
+  discoverEnabled?: boolean;
+  discoverClipUrl?: string | null;
+  discoverBackgroundUrl?: string | null;
+  discoverClipStartSeconds?: number | null;
+  discoverClipEndSeconds?: number | null;
+  discoverClipDurationSeconds?: number | null;
+  optInFreePlay: boolean;
+  inRefinery?: boolean;
+  isPublic?: boolean;
+  refineryReviewCount?: number;
+  refineryMinReviews?: number;
+  rejectionReason?: string;
+  rejectedAt?: string;
+  createdAt: string;
+  featuredArtists?: Array<{
+    id: string;
+    displayName: string | null;
+    avatarUrl: string | null;
+  }>;
+  isExplicit?: boolean;
+  sampleUrl?: string | null;
+  sampleStartSeconds?: number | null;
+  sampleEndSeconds?: number | null;
+  priceCents?: number | null;
+}
+
+function parseTimeToSeconds(value: string): number | null {
+  const raw = value.trim();
+  if (!raw) return null;
+  if (raw.includes(':')) {
+    const parts = raw.split(':').map((part) => part.trim());
+    if (
+      parts.length < 2 ||
+      parts.length > 3 ||
+      parts.some((part) => part.length === 0)
+    ) {
+      return null;
+    }
+    let total = 0;
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      const parsed =
+        i === parts.length - 1 ? Number(part) : Number.parseInt(part, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return null;
+      total = total * 60 + parsed;
+    }
+    return total;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+}
+
+function formatSecondsForTrimInput(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '0:00';
+  if (!Number.isInteger(seconds)) return seconds.toString();
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatDuration(seconds?: number): string {
+  if (!seconds) return '--:--';
+  const total = Math.round(seconds);
+  const mins = Math.floor(total / 60);
+  const secs = total % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function formatRelativeTime(iso?: string | null): string | null {
+  if (!iso) return null;
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return null;
+  const diffMs = Date.now() - then;
+  const sec = Math.round(diffMs / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.round(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  const mo = Math.round(day / 30);
+  if (mo < 12) return `${mo}mo ago`;
+  const yr = Math.round(mo / 12);
+  return `${yr}y ago`;
+}
+
+function formatNumber(n: number): string {
+  if (!Number.isFinite(n)) return '0';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toString();
+}
+
+function getStatusVariant(status: string): 'default' | 'secondary' | 'destructive' | 'outline' {
+  switch (status) {
+    case 'approved': return 'default';
+    case 'rejected': return 'destructive';
+    default: return 'secondary';
+  }
+}
+
+export default function MySongsPage() {
+  const router = useRouter();
+  const { actions } = usePlayback();
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+  const [refineryToggling, setRefineryToggling] = useState<string | null>(null);
+  const [refinerySubmitSong, setRefinerySubmitSong] = useState<Song | null>(null);
+  const [visibilityToggling, setVisibilityToggling] = useState<string | null>(null);
+  const [editingSong, setEditingSong] = useState<Song | null>(null);
+  const [lyricsPlayerSong, setLyricsPlayerSong] = useState<Song | null>(null);
+  const [sampleSong, setSampleSong] = useState<Song | null>(null);
+  const [discoverClipSong, setDiscoverClipSong] = useState<Song | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editStationIds, setEditStationIds] = useState<string[]>([]);
+  const [editArtworkUrl, setEditArtworkUrl] = useState('');
+  const [editArtworkFile, setEditArtworkFile] = useState<File | null>(null);
+  const [editArtworkPreview, setEditArtworkPreview] = useState<string | null>(null);
+  const [editDiscoverEnabled, setEditDiscoverEnabled] = useState(false);
+  const [editDiscoverBackgroundFile, setEditDiscoverBackgroundFile] = useState<File | null>(null);
+  const [editDiscoverBackgroundPreview, setEditDiscoverBackgroundPreview] = useState<string | null>(null);
+  const [editDiscoverClipStartSeconds, setEditDiscoverClipStartSeconds] = useState('0');
+  const [editDiscoverClipEndSeconds, setEditDiscoverClipEndSeconds] = useState('15');
+  const [editIsExplicit, setEditIsExplicit] = useState(false);
+  const [editLyrics, setEditLyrics] = useState('');
+  const [editLyricsInitial, setEditLyricsInitial] = useState('');
+  const [editLyricsStatus, setEditLyricsStatus] = useState<
+    'none' | 'pending' | 'ready' | 'failed' | null
+  >(null);
+  const [editLyricsAutoGenerated, setEditLyricsAutoGenerated] = useState(false);
+  const [editFeaturedArtists, setEditFeaturedArtists] = useState<
+    Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
+  >([]);
+  const [featuredSearchQuery, setFeaturedSearchQuery] = useState('');
+  const [featuredSearchResults, setFeaturedSearchResults] = useState<
+    Array<{ id: string; displayName: string | null; avatarUrl: string | null }>
+  >([]);
+  const [featuredSearchLoading, setFeaturedSearchLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [deletingSongId, setDeletingSongId] = useState<string | null>(null);
+  const [likesDialogOpen, setLikesDialogOpen] = useState(false);
+  const [likesDialogSongId, setLikesDialogSongId] = useState<string | null>(null);
+  const [likesDialogSongTitle, setLikesDialogSongTitle] = useState<string>('');
+
+  useEffect(() => {
+    loadSongs();
+  }, []);
+
+  // Backfill missing durations: ask the server to re-extract from the stored audio
+  // file for any approved song whose duration is unset. Runs at most once per row id.
+  const durationBackfilledRef = React.useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const missing = songs.filter(
+      (s) =>
+        s.status === 'approved' &&
+        (!s.durationSeconds || s.durationSeconds <= 0) &&
+        !durationBackfilledRef.current.has(s.id),
+    );
+    if (missing.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      for (const song of missing) {
+        durationBackfilledRef.current.add(song.id);
+        try {
+          const res = await songsApi.backfillDuration(song.id);
+          const next = (res.data as { durationSeconds?: number })
+            ?.durationSeconds;
+          if (cancelled || !next || next <= 0) continue;
+          setSongs((prev) =>
+            prev.map((row) =>
+              row.id === song.id ? { ...row, durationSeconds: next } : row,
+            ),
+          );
+        } catch {
+          // Non-fatal: row will continue showing --:-- and we move on.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [songs]);
+
+  useEffect(() => {
+    const query = featuredSearchQuery.trim();
+    if (!editingSong || query.length < 2) {
+      setFeaturedSearchResults([]);
+      setFeaturedSearchLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setFeaturedSearchLoading(true);
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await songsApi.searchArtists(query, 12);
+        if (cancelled) return;
+        const selectedIds = new Set(editFeaturedArtists.map((a) => a.id));
+        const items = (res.data?.items ?? []).filter(
+          (a) => !selectedIds.has(a.id),
+        );
+        setFeaturedSearchResults(items);
+      } catch {
+        if (!cancelled) setFeaturedSearchResults([]);
+      } finally {
+        if (!cancelled) setFeaturedSearchLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, [featuredSearchQuery, editingSong, editFeaturedArtists]);
+
+  const withdrawFromRefinery = async (songId: string) => {
+    setRefineryToggling(songId);
+    try {
+      await refineryApi.removeSong(songId);
+      await loadSongs();
+    } catch {
+      setError('Failed to withdraw song from Refinery');
+    } finally {
+      setRefineryToggling(null);
+    }
+  };
+
+  const handleRefinerySubmit = async (
+    songId: string,
+    customQuestions: string[],
+  ): Promise<{ url?: string }> => {
+    const res = await refineryApi.submitToRefinery(songId, customQuestions);
+    const data = res.data as { url?: string; sessionId?: string };
+    if (data?.url) {
+      window.location.href = data.url;
+    }
+    return { url: data?.url };
+  };
+
+  const toggleVisibility = async (songId: string, nextPublic: boolean) => {
+    setVisibilityToggling(songId);
+    try {
+      await songsApi.updateVisibility(songId, nextPublic);
+      await loadSongs();
+    } catch {
+      setError('Failed to update song visibility');
+    } finally {
+      setVisibilityToggling(null);
+    }
+  };
+
+  // Play the owner's own full track. The backend entitles the uploader, so the
+  // stream endpoint returns a signed full-length URL (not the 30s sample).
+  const playFull = async (song: Song) => {
+    if (playingSongId) return;
+    setPlayingSongId(song.id);
+    setError(null);
+    try {
+      const res = await songsApi.getStreamUrl(song.id);
+      const url = res.data?.url;
+      if (!url) {
+        setError('Could not play this song.');
+        return;
+      }
+      actions.loadTrack(
+        {
+          id: song.id,
+          title: song.title,
+          artistName: song.artistName,
+          artistId: '',
+          artworkUrl: song.artworkUrl ?? null,
+          audioUrl: url,
+          durationSeconds: song.durationSeconds ?? 0,
+        },
+        'discography',
+      );
+      await actions.play();
+    } catch (err) {
+      setError(errorMessage(err, 'Could not play this song.'));
+    } finally {
+      setPlayingSongId(null);
+    }
+  };
+
+  const loadSongs = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await songsApi.getMine();
+      setSongs(response.data);
+    } catch (err: unknown) {
+      const status = (err as ApiError).response?.status;
+      const msg = errorMessage(err, 'Failed to load songs. If this persists, check that BACKEND_URL is set on Vercel.');
+      if (status === 403) {
+        setError(
+          'You need an artist account to view My Songs. Upgrade in Settings or sign up as an artist to upload and manage songs.'
+        );
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getArtworkPublicUrl = (path: string): string => {
+    const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || '').replace(/\/$/, '');
+    if (!base) {
+      throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL');
+    }
+    return `${base}/storage/v1/object/public/artwork/${path}`;
+  };
+
+  const uploadArtwork = async (file: File): Promise<string> => {
+    const response = await songsApi.getUploadUrl({
+      filename: file.name,
+      contentType: file.type || 'image/jpeg',
+      bucket: 'artwork',
+    });
+    const { signedUrl, path } = response.data as { signedUrl: string; path: string };
+    const uploadResponse = await fetch(signedUrl, {
+      method: 'PUT',
+      body: file,
+      headers: {
+        'Content-Type': file.type || 'image/jpeg',
+      },
+    });
+    if (!uploadResponse.ok) {
+      throw new Error(`Artwork upload failed (${uploadResponse.status})`);
+    }
+    return getArtworkPublicUrl(path);
+  };
+
+  const openEditModal = (song: Song) => {
+    setEditingSong(song);
+    setEditTitle(song.title);
+    const currentStations =
+      Array.isArray(song.stationIds) && song.stationIds.length > 0
+        ? song.stationIds
+        : song.stationId
+          ? [song.stationId]
+          : [];
+    setEditStationIds(currentStations);
+    setEditArtworkUrl(song.artworkUrl || '');
+    setEditArtworkFile(null);
+    setEditArtworkPreview(song.artworkUrl || null);
+    setEditDiscoverEnabled(song.discoverEnabled === true);
+    setEditDiscoverBackgroundFile(null);
+    setEditDiscoverBackgroundPreview(song.discoverBackgroundUrl || song.artworkUrl || null);
+    setEditDiscoverClipStartSeconds(
+      formatSecondsForTrimInput(song.discoverClipStartSeconds ?? 0),
+    );
+    setEditDiscoverClipEndSeconds(
+      formatSecondsForTrimInput(song.discoverClipEndSeconds ?? 15),
+    );
+    setEditFeaturedArtists(song.featuredArtists || []);
+    setEditIsExplicit(song.isExplicit === true);
+    setFeaturedSearchQuery('');
+    setFeaturedSearchResults([]);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
+    setEditLyricsAutoGenerated(false);
+    void songsApi
+      .getLyrics(song.id)
+      .then((res) => {
+        const text = res.data?.plainText ?? '';
+        setEditLyrics(text);
+        setEditLyricsInitial(text);
+        setEditLyricsStatus(res.data?.status ?? 'none');
+        setEditLyricsAutoGenerated(res.data?.autoGenerated === true);
+      })
+      .catch(() => setEditLyricsStatus('none'));
+  };
+
+  const closeEditModal = () => {
+    setEditingSong(null);
+    setEditArtworkFile(null);
+    setEditArtworkPreview(null);
+    setEditDiscoverBackgroundFile(null);
+    setEditDiscoverBackgroundPreview(null);
+    setEditFeaturedArtists([]);
+    setFeaturedSearchQuery('');
+    setFeaturedSearchResults([]);
+    setEditLyrics('');
+    setEditLyricsInitial('');
+    setEditLyricsStatus(null);
+    setEditLyricsAutoGenerated(false);
+    setEditSaving(false);
+  };
+
+  const handleDeleteSong = async (song: Song) => {
+    if (deletingSongId) return;
+    const confirmed = window.confirm(
+      `Delete "${song.title}"? This removes the song and related analytics data and cannot be undone.`,
+    );
+    if (!confirmed) return;
+    setDeletingSongId(song.id);
+    setError(null);
+    try {
+      await songsApi.delete(song.id);
+      if (editingSong?.id === song.id) {
+        closeEditModal();
+      }
+      setSongs((prev) => prev.filter((row) => row.id !== song.id));
+    } catch (err) {
+      setError(errorMessage(err, 'Failed to delete song'));
+    } finally {
+      setDeletingSongId(null);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSong) return;
+    const nextTitle = editTitle.trim();
+    if (!nextTitle) {
+      setError('Title cannot be empty');
+      return;
+    }
+    if (editStationIds.length === 0) {
+      setError('Please select a station/category');
+      return;
+    }
+    if (editDiscoverEnabled) {
+      const start = parseTimeToSeconds(editDiscoverClipStartSeconds);
+      const end = parseTimeToSeconds(editDiscoverClipEndSeconds);
+      if (start == null || end == null || end <= start) {
+        setError(
+          'Discover clip start/end must be valid (mm:ss or seconds) and end must be greater than start',
+        );
+        return;
+      }
+      if (end - start > 15) {
+        setError('Discover clip duration must be 15 seconds or less');
+        return;
+      }
+    }
+    setEditSaving(true);
+    try {
+      let finalArtworkUrl = editArtworkUrl.trim();
+      if (editArtworkFile) {
+        finalArtworkUrl = await uploadArtwork(editArtworkFile);
+      }
+      let finalDiscoverBackgroundUrl =
+        editDiscoverBackgroundPreview || editingSong.discoverBackgroundUrl || finalArtworkUrl;
+      if (editDiscoverBackgroundFile) {
+        finalDiscoverBackgroundUrl = await uploadArtwork(editDiscoverBackgroundFile);
+      }
+      const updateResponse = await songsApi.update(editingSong.id, {
+        title: nextTitle,
+        stationId: editStationIds[0],
+        stationIds: editStationIds,
+        artworkUrl: finalArtworkUrl,
+        discoverEnabled: editDiscoverEnabled,
+        featuredArtistIds: editFeaturedArtists.map((a) => a.id),
+        isExplicit: editIsExplicit,
+      });
+
+      // Save lyrics only when changed; the backend re-syncs captions
+      // automatically whenever the plain text changes.
+      if (editLyrics.trim() !== editLyricsInitial.trim()) {
+        await songsApi.upsertLyrics(editingSong.id, {
+          plainText: editLyrics.trim(),
+        });
+      }
+
+      let discoverUpdated:
+        | {
+            discoverEnabled?: boolean;
+            discoverClipUrl?: string | null;
+            discoverBackgroundUrl?: string | null;
+            discoverClipStartSeconds?: number | null;
+            discoverClipEndSeconds?: number | null;
+            discoverClipDurationSeconds?: number | null;
+          }
+        | null = null;
+
+      if (editDiscoverEnabled) {
+        const start = parseTimeToSeconds(editDiscoverClipStartSeconds);
+        const end = parseTimeToSeconds(editDiscoverClipEndSeconds);
+        if (start == null || end == null) {
+          throw new Error('Invalid discover clip trim values.');
+        }
+        const publishResponse = await songsApi.publishDiscoverFromLibrary(
+          editingSong.id,
+          {
+            clipStartSeconds: start,
+            clipEndSeconds: end,
+            discoverBackgroundUrl: finalDiscoverBackgroundUrl || undefined,
+          },
+        );
+        discoverUpdated = publishResponse.data as {
+          discoverEnabled?: boolean;
+          discoverClipUrl?: string | null;
+          discoverBackgroundUrl?: string | null;
+          discoverClipStartSeconds?: number | null;
+          discoverClipEndSeconds?: number | null;
+          discoverClipDurationSeconds?: number | null;
+        };
+      }
+
+      const updated = updateResponse.data as {
+        id: string;
+        title: string;
+        stationId?: string;
+        stationIds?: string[];
+        artworkUrl?: string | null;
+        discoverEnabled?: boolean;
+        discoverClipUrl?: string | null;
+        discoverBackgroundUrl?: string | null;
+        discoverClipStartSeconds?: number | null;
+        discoverClipEndSeconds?: number | null;
+        discoverClipDurationSeconds?: number | null;
+        featuredArtists?: Array<{
+          id: string;
+          displayName: string | null;
+          avatarUrl: string | null;
+        }>;
+        isExplicit?: boolean;
+      };
+      setSongs((prev) =>
+        prev.map((song) =>
+          song.id === editingSong.id
+            ? {
+                ...song,
+                title: updated.title ?? nextTitle,
+                stationId: updated.stationId ?? editStationIds[0],
+                stationIds: updated.stationIds ?? editStationIds,
+                artworkUrl:
+                  updated.artworkUrl !== undefined ? updated.artworkUrl || undefined : finalArtworkUrl || undefined,
+                discoverEnabled:
+                  discoverUpdated?.discoverEnabled ??
+                  updated.discoverEnabled ??
+                  editDiscoverEnabled,
+                discoverClipUrl:
+                  discoverUpdated?.discoverClipUrl !== undefined
+                    ? discoverUpdated.discoverClipUrl || undefined
+                    : song.discoverClipUrl,
+                discoverBackgroundUrl:
+                  discoverUpdated?.discoverBackgroundUrl !== undefined
+                    ? discoverUpdated.discoverBackgroundUrl || undefined
+                    : finalDiscoverBackgroundUrl || undefined,
+                discoverClipStartSeconds:
+                  discoverUpdated?.discoverClipStartSeconds ??
+                  updated.discoverClipStartSeconds ??
+                  (parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0),
+                discoverClipEndSeconds:
+                  discoverUpdated?.discoverClipEndSeconds ??
+                  updated.discoverClipEndSeconds ??
+                  (parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15),
+                discoverClipDurationSeconds:
+                  discoverUpdated?.discoverClipDurationSeconds ??
+                  updated.discoverClipDurationSeconds ??
+                  (parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15) -
+                    (parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0),
+                featuredArtists: updated.featuredArtists ?? editFeaturedArtists,
+                isExplicit:
+                  updated.isExplicit !== undefined
+                    ? updated.isExplicit
+                    : editIsExplicit,
+              }
+            : song,
+        ),
+      );
+      closeEditModal();
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Failed to update song metadata'));
+      setEditSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">My Songs</h1>
+          <p className="text-muted-foreground mt-1">Manage your uploaded songs and track performance</p>
+        </div>
+        <Button onClick={() => router.push('/artist/upload')}>Upload New Song</Button>
+      </div>
+
+      {error && (
+        <Alert variant="destructive" className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <AlertDescription>{error}</AlertDescription>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => { setError(null); loadSongs(); }}>
+              Retry
+            </Button>
+            <Button size="sm" onClick={() => router.push('/artist/upload')}>
+              Upload Song
+            </Button>
+          </div>
+        </Alert>
+      )}
+
+      {!error && songs.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <div className="text-6xl mb-4">🎵</div>
+            <h3 className="text-lg font-medium text-foreground mb-2">No songs yet</h3>
+            <p className="text-muted-foreground mb-6">Upload your first song to get on the radio.</p>
+            <Button onClick={() => router.push('/artist/upload')}>Upload Your First Song</Button>
+          </CardContent>
+        </Card>
+      ) : !error ? (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Song</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Visibility</TableHead>
+                <TableHead className="w-[40%]">Analytics</TableHead>
+                <TableHead className="w-12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {songs.map((song) => {
+                const isApproved = song.status === 'approved';
+                const hasSample =
+                  !!song.sampleUrl || song.sampleStartSeconds != null;
+                const hasDiscoverClip =
+                  song.discoverEnabled === true ||
+                  song.discoverClipStartSeconds != null;
+                return (
+                  <TableRow key={song.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="group relative h-10 w-10 flex-shrink-0">
+                          <ArtworkImage
+                            src={song.artworkUrl}
+                            alt={song.title}
+                            className="h-10 w-10 rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => void playFull(song)}
+                            disabled={!song.audioUrl || playingSongId === song.id}
+                            className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/55 text-white opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none disabled:cursor-not-allowed disabled:opacity-0"
+                            aria-label={`Play ${song.title} in full`}
+                            title="Play full song"
+                          >
+                            {playingSongId === song.id ? (
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                            ) : (
+                              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            )}
+                          </button>
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate">
+                            {song.title}
+                          </div>
+                          <div className="text-xs text-muted-foreground truncate">
+                            {song.artistName}
+                            <span className="mx-1">·</span>
+                            {song.isExplicit ? 'Explicit' : 'Clean'}
+                            {song.durationSeconds ? (
+                              <>
+                                <span className="mx-1">·</span>
+                                {formatDuration(song.durationSeconds)}
+                              </>
+                            ) : null}
+                          </div>
+                          {(song.featuredArtists?.length ?? 0) > 0 && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              Feat:{' '}
+                              {song.featuredArtists?.map((artist, index) => (
+                                <React.Fragment key={artist.id}>
+                                  {index > 0 ? ', ' : null}
+                                  <Link
+                                    href={`/artist/${artist.id}`}
+                                    className="text-primary hover:underline"
+                                  >
+                                    {artist.displayName || 'Artist'}
+                                  </Link>
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={getStatusVariant(song.status)}>
+                        {song.status === 'pending'
+                          ? 'Awaiting Review'
+                          : song.status.charAt(0).toUpperCase() + song.status.slice(1)}
+                      </Badge>
+                      {song.status === 'rejected' && song.rejectionReason && (
+                        <div
+                          className="text-xs text-destructive mt-1 max-w-[160px] truncate"
+                          title={song.rejectionReason}
+                        >
+                          {song.rejectionReason}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2"
+                        disabled={visibilityToggling === song.id}
+                        onClick={() => toggleVisibility(song.id, song.isPublic === false)}
+                        title="Private songs do not play on radio. They can still be submitted to The Refinery."
+                      >
+                        <Badge
+                          variant={song.isPublic === false ? 'secondary' : 'default'}
+                        >
+                          {song.isPublic === false ? 'Private' : 'Public'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground hover:text-foreground">
+                          {visibilityToggling === song.id
+                            ? '…'
+                            : song.isPublic === false
+                              ? 'Make public'
+                              : 'Make private'}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1.5">
+                        <div className="flex flex-wrap items-baseline gap-x-5 gap-y-1">
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-2xl font-bold leading-none text-primary">
+                              {formatNumber(song.playCount)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              plays
+                            </span>
+                          </div>
+                          <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-semibold leading-none text-primary">
+                              {formatNumber(song.listenCount ?? 0)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              listens
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="flex items-baseline gap-1 hover:underline"
+                            onClick={() => {
+                              setLikesDialogSongId(song.id);
+                              setLikesDialogSongTitle(song.title);
+                              setLikesDialogOpen(true);
+                            }}
+                          >
+                            <span className="text-lg font-semibold leading-none text-primary">
+                              {formatNumber(song.likeCount)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              likes
+                            </span>
+                          </button>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 text-xs text-muted-foreground">
+                          {(song.paidPlayCount ?? 0) > 0 && (
+                            <span>
+                              {formatNumber(song.paidPlayCount ?? 0)} paid /{' '}
+                              {formatNumber(song.freePlayCount ?? 0)} free
+                            </span>
+                          )}
+                          {song.lastPlayedAt && (
+                            <span>
+                              Last played {formatRelativeTime(song.lastPlayedAt)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 border-border text-foreground hover:bg-accent"
+                              title="Actions"
+                              aria-label={`Actions for ${song.title}`}
+                            >
+                              <svg
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                fill="currentColor"
+                                aria-hidden="true"
+                              >
+                                <circle cx="12" cy="5" r="2" />
+                                <circle cx="12" cy="12" r="2" />
+                                <circle cx="12" cy="19" r="2" />
+                              </svg>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-56 border border-border shadow-xl ring-1 ring-border"
+                          >
+                            {isApproved &&
+                              (song.inRefinery ? (
+                                <DropdownMenuItem asChild>
+                                  <Link href={`/refinery/analytics/${song.id}`}>
+                                    View reviews ({song.refineryReviewCount ?? 0}/
+                                    {song.refineryMinReviews ?? 100})
+                                  </Link>
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                  onSelect={() => setRefinerySubmitSong(song)}
+                                >
+                                  Submit to Refinery (${REFINERY_SUBMISSION_PRICE_USD})
+                                </DropdownMenuItem>
+                              ))}
+                            <DropdownMenuItem onSelect={() => openEditModal(song)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!song.audioUrl}
+                              onSelect={() => setLyricsPlayerSong(song)}
+                            >
+                              Lyrics &amp; captions
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={!song.audioUrl}
+                              onSelect={() => setSampleSong(song)}
+                            >
+                              {hasSample ? 'Edit sample' : 'Set sample'}
+                              {hasSample && (
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  Set
+                                </span>
+                              )}
+                            </DropdownMenuItem>
+                            {isApproved && (
+                              <DropdownMenuItem
+                                disabled={!song.audioUrl}
+                                onSelect={() => setDiscoverClipSong(song)}
+                              >
+                                {hasDiscoverClip
+                                  ? 'Edit Discover clip'
+                                  : 'Set Discover clip'}
+                                {hasDiscoverClip && (
+                                  <span className="ml-auto text-xs text-muted-foreground">
+                                    Set
+                                  </span>
+                                )}
+                              </DropdownMenuItem>
+                            )}
+                            {isApproved && song.inRefinery && (
+                              <DropdownMenuItem
+                                disabled={refineryToggling === song.id}
+                                onSelect={() => withdrawFromRefinery(song.id)}
+                              >
+                                {refineryToggling === song.id
+                                  ? 'Withdrawing…'
+                                  : 'Withdraw from Refinery'}
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              variant="destructive"
+                              disabled={deletingSongId === song.id}
+                              onSelect={(e) => {
+                                e.preventDefault();
+                                void handleDeleteSong(song);
+                              }}
+                            >
+                              {deletingSongId === song.id ? 'Deleting…' : 'Delete'}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      ) : null}
+
+      <LyricsPlayerDialog
+        song={
+          lyricsPlayerSong
+            ? {
+                id: lyricsPlayerSong.id,
+                title: lyricsPlayerSong.title,
+                artistName: lyricsPlayerSong.artistName,
+                artworkUrl: lyricsPlayerSong.artworkUrl ?? null,
+              }
+            : null
+        }
+        editable
+        onClose={() => setLyricsPlayerSong(null)}
+      />
+
+      {editingSong && (
+        <ModalPortal>
+        <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
+          <div className="flex w-full max-w-xl flex-col rounded-t-xl border bg-card sm:rounded-lg sm:my-4 max-h-[calc(100dvh-2rem)] sm:max-h-[min(calc(100dvh-2rem),900px)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-4">
+              <h3 className="text-lg font-semibold">Edit Song Metadata</h3>
+              <button
+                type="button"
+                onClick={closeEditModal}
+                className="rounded-md border border-border px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                aria-label="Close edit modal"
+              >
+                Close
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Title</label>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Song title"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Station / Genre</label>
+              <StationAssignmentField
+                value={editStationIds}
+                onChange={setEditStationIds}
+              />
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Explicit content</label>
+                <input
+                  type="checkbox"
+                  checked={editIsExplicit}
+                  onChange={(e) => setEditIsExplicit(e.target.checked)}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Mark explicit when track audio includes explicit language/content.
+              </p>
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Lyrics</label>
+                {editLyricsStatus === 'pending' && (
+                  <span className="text-xs rounded-full bg-amber-500/15 text-amber-500 px-2 py-0.5">
+                    Syncing…
+                  </span>
+                )}
+                {editLyricsStatus === 'ready' && (
+                  <span className="text-xs rounded-full bg-emerald-500/15 text-emerald-500 px-2 py-0.5">
+                    Synced
+                  </span>
+                )}
+                {editLyricsAutoGenerated && (
+                  <span className="text-xs rounded-full bg-sky-500/15 text-sky-500 px-2 py-0.5">
+                    Auto-generated
+                  </span>
+                )}
+                {editLyricsStatus === 'failed' && (
+                  <span className="text-xs rounded-full bg-destructive/15 text-destructive px-2 py-0.5">
+                    Sync failed
+                  </span>
+                )}
+              </div>
+              <textarea
+                value={editLyrics}
+                onChange={(e) => setEditLyrics(e.target.value)}
+                rows={6}
+                placeholder="Paste your lyrics here, one line per lyric line."
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                Lyrics are automatically synced to your audio as closed captions.
+                Saving new text re-syncs them.
+                {editLyricsAutoGenerated &&
+                  ' These lyrics were auto-transcribed from your audio — please review and correct them; saving replaces the auto-generated version.'}
+                {editLyricsStatus === 'failed' &&
+                  ' The last sync failed — save again to retry.'}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Album Cover URL</label>
+              <input
+                value={editArtworkUrl}
+                onChange={(e) => setEditArtworkUrl(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="https://..."
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditArtworkFile(file);
+                    if (file) {
+                      const preview = URL.createObjectURL(file);
+                      setEditArtworkPreview(preview);
+                    } else {
+                      setEditArtworkPreview(editArtworkUrl || null);
+                    }
+                  }}
+                  className="text-sm"
+                />
+                {editArtworkFile && <span className="text-xs text-muted-foreground">{editArtworkFile.name}</span>}
+              </div>
+              {editArtworkPreview && (
+                <ArtworkImage
+                  src={editArtworkPreview}
+                  alt="Artwork preview"
+                  className="h-16 w-16 rounded object-cover border border-border"
+                />
+              )}
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium">Enable Discover swipe</label>
+                <input
+                  type="checkbox"
+                  checked={editDiscoverEnabled}
+                  onChange={(e) => setEditDiscoverEnabled(e.target.checked)}
+                />
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Discover clip source: this song&apos;s uploaded audio. Set the
+                window below (5–15s) and preview the looping clip, same flow as
+                the sample trimmer.
+              </div>
+              <ClipWindowEditor
+                audioUrl={editingSong.audioUrl ?? null}
+                durationSeconds={editingSong.durationSeconds ?? null}
+                minLength={5}
+                maxLength={15}
+                startSeconds={parseTimeToSeconds(editDiscoverClipStartSeconds) ?? 0}
+                endSeconds={parseTimeToSeconds(editDiscoverClipEndSeconds) ?? 15}
+                onChange={(start, end) => {
+                  setEditDiscoverClipStartSeconds(formatSecondsForTrimInput(start));
+                  setEditDiscoverClipEndSeconds(formatSecondsForTrimInput(end));
+                }}
+              />
+              <label className="text-sm font-medium">Discover Background Image (optional)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditDiscoverBackgroundFile(file);
+                    if (file) {
+                      const preview = URL.createObjectURL(file);
+                      setEditDiscoverBackgroundPreview(preview);
+                    } else {
+                      setEditDiscoverBackgroundPreview(
+                        editingSong.discoverBackgroundUrl ||
+                          editingSong.artworkUrl ||
+                          null,
+                      );
+                    }
+                  }}
+                  className="text-sm"
+                />
+                {editDiscoverBackgroundFile && (
+                  <span className="text-xs text-muted-foreground">{editDiscoverBackgroundFile.name}</span>
+                )}
+              </div>
+              {editDiscoverBackgroundPreview && (
+                <ArtworkImage
+                  src={editDiscoverBackgroundPreview}
+                  alt="Discover background preview"
+                  className="h-16 w-16 rounded object-cover border border-border"
+                />
+              )}
+            </div>
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <label className="text-sm font-medium">
+                Featured Artist Credits
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Tag other artists on Networx who are featured on this song.
+              </p>
+              <input
+                value={featuredSearchQuery}
+                onChange={(e) => setFeaturedSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="Search artists by name"
+              />
+              {featuredSearchLoading && (
+                <p className="text-xs text-muted-foreground">Searching...</p>
+              )}
+              {!featuredSearchLoading &&
+                featuredSearchQuery.trim().length >= 2 &&
+                featuredSearchResults.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No matching artists found.
+                  </p>
+                )}
+              {featuredSearchResults.length > 0 && (
+                <div className="max-h-36 overflow-auto rounded border border-border divide-y divide-border">
+                  {featuredSearchResults.map((artist) => (
+                    <button
+                      key={artist.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 hover:bg-muted/50 text-sm"
+                      onClick={() => {
+                        setEditFeaturedArtists((prev) => [
+                          ...prev,
+                          {
+                            id: artist.id,
+                            displayName: artist.displayName,
+                            avatarUrl: artist.avatarUrl,
+                          },
+                        ]);
+                        setFeaturedSearchQuery('');
+                        setFeaturedSearchResults([]);
+                      }}
+                    >
+                      {artist.displayName || 'Artist'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {(editFeaturedArtists.length ?? 0) > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {editFeaturedArtists.map((artist) => (
+                    <span
+                      key={artist.id}
+                      className="inline-flex items-center gap-2 rounded-full border border-border px-3 py-1 text-xs"
+                    >
+                      <Link
+                        href={`/artist/${artist.id}`}
+                        className="text-primary hover:underline"
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {artist.displayName || 'Artist'}
+                      </Link>
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() =>
+                          setEditFeaturedArtists((prev) =>
+                            prev.filter((a) => a.id !== artist.id),
+                          )
+                        }
+                        aria-label={`Remove ${artist.displayName || 'artist'}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            </div>
+            <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {editingSong && (
+                <Button
+                  variant="destructive"
+                  onClick={() => void handleDeleteSong(editingSong)}
+                  disabled={editSaving || deletingSongId === editingSong.id}
+                  className="mr-auto"
+                >
+                  {deletingSongId === editingSong.id ? 'Deleting...' : 'Delete song'}
+                </Button>
+              )}
+              <Button variant="outline" onClick={closeEditModal} disabled={editSaving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void handleSaveEdit()} disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+        </ModalPortal>
+      )}
+      <SongLikesDialog
+        open={likesDialogOpen}
+        onOpenChange={setLikesDialogOpen}
+        songId={likesDialogSongId}
+        songTitle={likesDialogSongTitle}
+      />
+      <SampleTrimDialog
+        open={sampleSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setSampleSong(null);
+        }}
+        song={
+          sampleSong
+            ? {
+                id: sampleSong.id,
+                title: sampleSong.title,
+                audioUrl: sampleSong.audioUrl ?? null,
+                durationSeconds: sampleSong.durationSeconds ?? null,
+                sampleUrl: sampleSong.sampleUrl ?? null,
+                sampleStartSeconds: sampleSong.sampleStartSeconds ?? null,
+                sampleEndSeconds: sampleSong.sampleEndSeconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === sampleSong?.id
+                ? {
+                    ...s,
+                    sampleUrl: result.sampleUrl,
+                    sampleStartSeconds: result.sampleStartSeconds,
+                    sampleEndSeconds: result.sampleEndSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
+      />
+      <DiscoverClipDialog
+        open={discoverClipSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setDiscoverClipSong(null);
+        }}
+        song={
+          discoverClipSong
+            ? {
+                id: discoverClipSong.id,
+                title: discoverClipSong.title,
+                audioUrl: discoverClipSong.audioUrl ?? null,
+                durationSeconds: discoverClipSong.durationSeconds ?? null,
+                discoverEnabled: discoverClipSong.discoverEnabled === true,
+                discoverClipStartSeconds:
+                  discoverClipSong.discoverClipStartSeconds ?? null,
+                discoverClipEndSeconds:
+                  discoverClipSong.discoverClipEndSeconds ?? null,
+              }
+            : null
+        }
+        onSaved={(result) => {
+          setSongs((prev) =>
+            prev.map((s) =>
+              s.id === discoverClipSong?.id
+                ? {
+                    ...s,
+                    discoverEnabled: result.discoverEnabled,
+                    discoverClipUrl: result.discoverClipUrl,
+                    discoverClipStartSeconds: result.discoverClipStartSeconds,
+                    discoverClipEndSeconds: result.discoverClipEndSeconds,
+                  }
+                : s,
+            ),
+          );
+        }}
+      />
+      <RefinerySubmitDialog
+        open={refinerySubmitSong !== null}
+        onOpenChange={(open) => {
+          if (!open) setRefinerySubmitSong(null);
+        }}
+        song={
+          refinerySubmitSong
+            ? { id: refinerySubmitSong.id, title: refinerySubmitSong.title }
+            : null
+        }
+        onSubmit={handleRefinerySubmit}
+      />
+    </div>
+  );
+}

@@ -1,0 +1,56 @@
+---
+description: Always add the ButterflyPattern logo print behind new marketing page sections
+globs: web/src/app/(marketing)/**/*.tsx,web/src/components/marketing/**/*.tsx
+alwaysApply: false
+---
+
+# Marketing sections must carry the logo print
+
+Every full-bleed `<section>` on the marketing site (homepage and other
+`(marketing)` pages) uses a faint repeating Networx logo watermark behind its
+content via the `ButterflyPattern` component. When you add or substantially
+restyle a marketing section, include the print so it stays consistent with the
+rest of the page.
+
+## How to apply
+
+1. Make the section a positioning + clipping context: `className="relative overflow-hidden ..."`.
+2. Add `ButterflyPattern` as the first child, absolutely filling the section.
+3. Put the real content in a sibling wrapped with `relative z-10` so it sits above the print.
+
+Pick the color by background:
+- **Light / default background** → `colorClassName="text-primary"`, `opacity={0.1}`
+- **Cyan (`bg-primary`) or dark background** → `colorClassName="text-primary-foreground"`, `opacity` ~`0.12`–`0.14`
+- `tile` is typically `130`–`160`.
+
+```tsx
+import { ButterflyPattern } from '@/components/marketing/ButterflyPattern';
+
+<section className="relative overflow-hidden py-16 border-b border-border">
+  <ButterflyPattern className="absolute inset-0" colorClassName="text-primary" tile={140} opacity={0.1} />
+  <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* section content */}
+  </div>
+</section>
+```
+
+A section may already have a different absolute background (e.g.
+`LiveRippleVisualizer`); add the print alongside it — both can coexist as long
+as the content stays on `relative z-10`.
+
+## Alternate teal ↔ light down the page
+
+Stacked marketing sections alternate between **teal** and **light** so adjacent
+sections never share the same background:
+
+- **Teal section**: `bg-primary text-primary-foreground border-b border-primary-foreground/10`.
+  Use `text-primary-foreground` (and `/80`, `/70` tints) for headings, body and
+  links; for cards/media use `bg-primary-foreground/10`, `ring-primary-foreground/20`,
+  and flip accent buttons to `bg-primary-foreground text-primary`. Print uses
+  `colorClassName="text-primary-foreground"`.
+- **Light section**: default background (`border-b border-border`, optionally
+  `bg-muted`). Use `text-foreground` / `text-muted-foreground`. Print uses
+  `colorClassName="text-primary"`.
+
+When adding a new section, look at its neighbors and pick the opposite scheme so
+the teal/light rhythm continues. Don't put two same-scheme sections back to back.

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Web client ID (client_type 3) for Firebase Google Sign-In idToken exchange. -->
+    <string name="default_web_client_id" translatable="false">479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com</string>
+</resources>

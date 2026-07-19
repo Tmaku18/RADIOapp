@@ -1,0 +1,114 @@
+'use client';
+
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { signInWithCustomToken } from '@/lib/firebase-client';
+
+/** Only allow same-origin relative paths to avoid open-redirects. */
+function safeNext(raw: string | null): string {
+  if (!raw) return '/dashboard';
+  if (!raw.startsWith('/') || raw.startsWith('//')) return '/dashboard';
+  return raw;
+}
+
+function CrossDomainLoginContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [status, setStatus] = useState<'exchanging' | 'done' | 'error'>('exchanging');
+  const [error, setError] = useState<string | null>(null);
+  const token = searchParams.get('token');
+  const next = safeNext(searchParams.get('next'));
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/cross-domain-exchange', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token }),
+        });
+
+        if (cancelled) return;
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          setError(data.error || 'Sign-in failed');
+          setStatus('error');
+          return;
+        }
+
+        // Sign the Firebase client SDK in on this origin so client-gated routes
+        // (e.g. the Pro-Networx dashboard) recognize the member immediately and
+        // don't bounce to the login screen.
+        if (data.customToken) {
+          try {
+            await signInWithCustomToken(data.customToken);
+          } catch {
+            // Server session cookie is still set; client-gated pages may ask to
+            // sign in, but API/SSR access works. Continue to the destination.
+          }
+        }
+
+        if (cancelled) return;
+        setStatus('done');
+        router.replace(next);
+      } catch (e) {
+        if (!cancelled) {
+          setError('Something went wrong');
+          setStatus('error');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [token, router, next]);
+
+  if (!token || status === 'error') {
+    const message = token ? error : 'Missing token';
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <div className="text-center max-w-md">
+          <p className="text-destructive mb-4">{message}</p>
+          <a href="/login" className="text-primary hover:underline">
+            Go to login
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
+        <p className="text-muted-foreground">Signing you in…</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Page reached when user is redirected from another domain (e.g. pro-networx.com) with ?token=xxx.
+ * Exchanges the token for a session cookie on this origin, then redirects to dashboard.
+ */
+export default function CrossDomainLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background p-4">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading…</p>
+          </div>
+        </div>
+      }
+    >
+      <CrossDomainLoginContent />
+    </Suspense>
+  );
+}

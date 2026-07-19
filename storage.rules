@@ -1,0 +1,25 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Allow authenticated users to read all files
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow users to upload to their own directory
+    match /users/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Songs storage - artists can upload
+    match /songs/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Artwork storage - artists can upload
+    match /artwork/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

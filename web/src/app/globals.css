@@ -1,0 +1,741 @@
+@import "tailwindcss";
+@import "../../node_modules/tw-animate-css/dist/tw-animate.css";
+@import "../styles/dimension.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-elevated: var(--elevated);
+  --color-surface: var(--surface);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-rose-gold: var(--rose-gold);
+  --color-primary-hover: var(--primary-hover);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --font-sans: var(--font-inter);
+  --font-heading: var(--font-space-grotesk);
+  --font-serif: var(--font-lora);
+  --font-story: var(--font-story);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-outline-ring: var(--outline-ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+}
+
+/* =============================================================================
+   NETWORX Theme Strategy — Neo‑Minimalist Noir (2026)
+   Mission alignment:
+   - 4 AM cinematic "Obsidian Night" base (raw, honest, focused)
+   - "Pure Signal" listening: high contrast, low noise, zero clutter
+   - "Human Frequency" + mentorship: Electric accents + Deep Cobalt trust
+   ============================================================================= */
+
+:root {
+  --radius: 0.75rem;
+}
+
+/* ---------- Dark Theme (Primary) — "The Collective" ---------- */
+.dark,
+:root {
+  /* Backgrounds */
+  --bg: #0A0A0A;
+  --background: #0A0A0A;
+  --surface: #101010;
+  --card: #101010;
+  --elevated: #161616;
+  --popover: #161616;
+  --border: rgba(245, 245, 245, 0.10);
+  --input: rgba(245, 245, 245, 0.08);
+
+  /* Text */
+  --text-primary: #F5F5F5;
+  --text-secondary: rgba(245, 245, 245, 0.78);
+  --text-muted: rgba(245, 245, 245, 0.60);
+  --foreground: #F5F5F5;
+  --card-foreground: #F5F5F5;
+  --popover-foreground: #F5F5F5;
+  --muted-foreground: rgba(245, 245, 245, 0.60);
+  --accent-foreground: #F5F5F5;
+  --secondary-foreground: #F5F5F5;
+  --sidebar-foreground: #F5F5F5;
+  --sidebar-accent-foreground: #F5F5F5;
+
+  /* Brand */
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --primary-hover: #00C9D4;
+  --ring: #00F5FF;
+  --outline-ring: rgba(0, 245, 255, 0.45);
+  /* NOTE: legacy token name kept for compatibility; now represents Deep Cobalt */
+  --rose-gold: #1A237E;
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+
+  /* Status */
+  --success: #2ECC71;
+  --warning: #F2C94C;
+  --error: #EB5757;
+  --destructive: #EB5757;
+
+  /* Surfaces / UI */
+  --secondary: rgba(245, 245, 245, 0.06);
+  --muted: rgba(245, 245, 245, 0.06);
+  --accent: rgba(0, 245, 255, 0.10);
+  --sidebar: #101010;
+  --sidebar-accent: rgba(245, 245, 245, 0.06);
+  --sidebar-border: rgba(245, 245, 245, 0.10);
+
+  /* Chart */
+  --chart-1: #00F5FF;
+  --chart-2: #1A237E;
+  --chart-3: rgba(245, 245, 245, 0.78);
+  --chart-4: #2ECC71;
+  --chart-5: #F2C94C;
+
+  /* Signature gradient (use lightly, low opacity) */
+  --gradient-signature: linear-gradient(
+    160deg,
+    rgba(10, 10, 10, 0.98) 0%,
+    rgba(26, 35, 126, 0.14) 45%,
+    rgba(0, 245, 255, 0.08) 100%
+  );
+  --gradient-networx: linear-gradient(135deg, #00F5FF, #1A237E);
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(0, 245, 255, 0.16), transparent);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.35), rgba(10, 10, 10, 1));
+
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-glow: 0 0 18px rgba(0, 245, 255, 0.22);
+  --brand-verified: #1A237E;
+
+  /* Film grain / texture (subtle) */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
+}
+
+/* ---------- Light Theme (Production) — "Daylight Studio" (2026) ---------- */
+/* Cool, airy neutral canvas + crisp white cards + fresh teal/cobalt accents. */
+/* Mirrors dark theme token set for consistent components and WCAG contrast. */
+.light {
+  /* Backgrounds — soft cool-neutral canvas, white surfaces float above it */
+  --bg: #F4F6FB;
+  --background: #F4F6FB;
+  --surface: #FFFFFF;
+  --card: #FFFFFF;
+  --elevated: #ECF0F7;
+  --popover: #FFFFFF;
+  --border: rgba(15, 23, 42, 0.10);
+  --input: rgba(15, 23, 42, 0.07);
+
+  /* Text — slate ink rather than flat black for a softer, modern read */
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #64748B;
+  --foreground: #0F172A;
+  --card-foreground: #0F172A;
+  --popover-foreground: #0F172A;
+  --muted-foreground: #64748B;
+  --accent-foreground: #0F172A;
+  --secondary-foreground: #0F172A;
+  --sidebar-foreground: #0F172A;
+  --sidebar-accent-foreground: #0F172A;
+
+  /* Brand — fresher teal primary, cobalt as verified/secondary accent */
+  --primary: #0E9AA7;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #0B7E89;
+  --ring: #0E9AA7;
+  --outline-ring: rgba(14, 154, 167, 0.40);
+  --rose-gold: #1A237E;
+  --sidebar-primary: #0E9AA7;
+  --sidebar-ring: #0E9AA7;
+
+  /* Status (AA-contrast on white) */
+  --success: #15803D;
+  --warning: #B45309;
+  --error: #DC2626;
+  --destructive: #DC2626;
+
+  /* Surfaces / UI */
+  --secondary: rgba(15, 23, 42, 0.05);
+  --muted: rgba(15, 23, 42, 0.045);
+  --accent: rgba(14, 154, 167, 0.12);
+  --sidebar: #FFFFFF;
+  --sidebar-accent: rgba(15, 23, 42, 0.05);
+  --sidebar-border: rgba(15, 23, 42, 0.08);
+
+  /* Chart */
+  --chart-1: #0E9AA7;
+  --chart-2: #1A237E;
+  --chart-3: #64748B;
+  --chart-4: #15803D;
+  --chart-5: #B45309;
+
+  /* Gradients (light equivalents) */
+  --gradient-signature: linear-gradient(
+    160deg,
+    rgba(244, 246, 251, 0.98) 0%,
+    rgba(14, 154, 167, 0.07) 45%,
+    rgba(26, 35, 126, 0.05) 100%
+  );
+  --gradient-networx: linear-gradient(135deg, #0E9AA7, #1A237E);
+  --gradient-listener-glow: radial-gradient(60% 60% at 50% 20%, rgba(14, 154, 167, 0.14), transparent 60%);
+  --gradient-artist-pro: linear-gradient(to bottom, rgba(26, 35, 126, 0.08), rgba(244, 246, 251, 1));
+
+  --brand-primary: var(--primary);
+  --brand-primary-foreground: var(--primary-foreground);
+  --brand-glow: 0 0 16px rgba(14, 154, 167, 0.20);
+  --brand-verified: #1A237E;
+
+  --chat-bubble-bg: #EEF2F8;
+  --chat-bubble-border: #0E9AA7;
+
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)' opacity='.14'/%3E%3C/svg%3E");
+}
+
+/* ---------- NETWORX Component tokens & utilities ---------- */
+/* Glass: use on player panel, spotlight cards, modals, artist profile header */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+.light .glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+/* Signature gradient background (low opacity, subtle) */
+.bg-signature {
+  background: var(--gradient-signature);
+}
+.light .bg-signature {
+  background: linear-gradient(
+    160deg,
+    rgba(244, 246, 251, 0.98) 0%,
+    rgba(236, 240, 247, 0.92) 50%,
+    rgba(14, 154, 167, 0.10) 100%
+  );
+}
+
+/* Serif headings: hero, section titles, spotlight (premium spice) */
+.heading-serif,
+.font-heading-serif {
+  font-family: var(--font-lora), var(--font-serif), Georgia, serif;
+}
+
+/* Story / quotes: “4 AM” human authenticity */
+.font-story,
+.quote-story {
+  font-family: var(--font-story), ui-rounded, system-ui, cursive;
+  letter-spacing: 0.2px;
+}
+.quote-story {
+  color: var(--text-secondary);
+}
+
+/* LIVE badge: rose gold or amethyst glow */
+.badge-live {
+  background: linear-gradient(135deg, var(--rose-gold), var(--primary));
+  color: var(--primary-foreground);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  box-shadow: 0 0 14px rgba(26, 35, 126, 0.35);
+}
+
+/* Featured / spotlight badge */
+.badge-featured {
+  color: var(--rose-gold);
+  border: 1px solid var(--rose-gold);
+  background: rgba(26, 35, 126, 0.14);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+.light .badge-featured {
+  background: rgba(26, 35, 126, 0.08);
+}
+.light .badge-live {
+  box-shadow: 0 0 12px rgba(26, 35, 126, 0.2);
+}
+
+/* Spotlight card: rose gold border + glow, use .heading-serif for title */
+.spotlight-card {
+  border: 1px solid rgba(26, 35, 126, 0.35);
+  box-shadow: 0 0 24px rgba(0, 245, 255, 0.10);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.light .spotlight-card {
+  border: 1px solid rgba(14, 154, 167, 0.25);
+  box-shadow: 0 4px 24px rgba(14, 154, 167, 0.08);
+}
+
+/* Primary CTA: subtle focus glow */
+.btn-primary-glow:focus-visible {
+  box-shadow: 0 0 0 3px rgba(0, 245, 255, 0.30), 0 0 18px rgba(0, 245, 255, 0.18);
+}
+.light .btn-primary-glow:focus-visible {
+  box-shadow: 0 0 0 3px rgba(14, 154, 167, 0.35), 0 0 14px rgba(14, 154, 167, 0.2);
+}
+
+/* ========== Listener theme: "Social Frequency" — Butterfly Electric (#00F5FF) ========== */
+/* Color injection: black base with cyan visual weight so the space feels distinct */
+[data-brand="listener"] {
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --ring: #00F5FF;
+  --brand-primary: #00F5FF;
+  --brand-primary-foreground: #0A0A0A;
+  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.28);
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+  --chart-1: #00F5FF;
+  --chart-2: #0ea5e9;
+  --chat-bubble-bg: #121212;
+  --chat-bubble-border: #00F5FF;
+  /* Surfaces: subtle cyan tint on black so listener space feels "cool" and active */
+  --background: #0A0A0A;
+  --card: #101010;
+  --sidebar: #101010;
+  --muted: rgba(0, 245, 255, 0.06);
+  --accent: rgba(0, 245, 255, 0.10);
+  --border: rgba(245, 245, 245, 0.10);
+}
+
+/* ========== Artist theme: "Pro-Network & Studio" — Electric action + Cobalt trust ========== */
+[data-brand="artist"] {
+  --primary: #00F5FF;
+  --primary-foreground: #0A0A0A;
+  --ring: #00F5FF;
+  --brand-primary: #00F5FF;
+  --brand-primary-foreground: #0A0A0A;
+  --brand-glow: 0 0 12px rgba(0, 245, 255, 0.22);
+  --sidebar-primary: #00F5FF;
+  --sidebar-ring: #00F5FF;
+  --chart-1: #00F5FF;
+  --chart-2: #1A237E;
+  --brand-verified: #1A237E;
+  /* Surfaces: consistent noir */
+  --background: #0A0A0A;
+  --card: #101010;
+  --sidebar: #101010;
+  --muted: rgba(26, 35, 126, 0.10);
+  --accent: rgba(0, 245, 255, 0.10);
+  --border: rgba(245, 245, 245, 0.10);
+}
+
+[data-brand="listener"] .listener-glow {
+  background: var(--gradient-listener-glow);
+}
+[data-brand="artist"] .listener-glow {
+  display: none;
+}
+
+/* ---------- Light + data-brand: keep light surfaces, apply brand accents ---------- */
+.light [data-brand="listener"] {
+  --primary: #0E9AA7;
+  --ring: #0E9AA7;
+  --brand-primary: #0E9AA7;
+  --brand-glow: 0 0 14px rgba(14, 154, 167, 0.24);
+  --sidebar-primary: #0E9AA7;
+  --sidebar-ring: #0E9AA7;
+  --chart-1: #0E9AA7;
+  --chart-2: #0D9488;
+  --chat-bubble-bg: #EEF2F8;
+  --chat-bubble-border: #0E9AA7;
+  --background: #F4F6FB;
+  --card: #FFFFFF;
+  --sidebar: #FFFFFF;
+  --sidebar-border: rgba(15, 23, 42, 0.08);
+  --muted: rgba(14, 154, 167, 0.07);
+  --accent: rgba(14, 154, 167, 0.12);
+  --border: rgba(15, 23, 42, 0.10);
+}
+
+.light [data-brand="artist"] {
+  --primary: #0E9AA7;
+  --ring: #0E9AA7;
+  --brand-primary: #0E9AA7;
+  --brand-glow: 0 0 14px rgba(14, 154, 167, 0.20);
+  --sidebar-primary: #0E9AA7;
+  --sidebar-ring: #0E9AA7;
+  --chart-1: #0E9AA7;
+  --chart-2: #1A237E;
+  --brand-verified: #1A237E;
+  --background: #F4F6FB;
+  --card: #FFFFFF;
+  --sidebar: #FFFFFF;
+  --sidebar-border: rgba(15, 23, 42, 0.08);
+  --muted: rgba(26, 35, 126, 0.06);
+  --accent: rgba(14, 154, 167, 0.12);
+  --border: rgba(15, 23, 42, 0.10);
+}
+
+/* ---------- Listener: Now Playing deck — subtle Electric Cyan pulse ---------- */
+[data-brand="listener"] .now-playing-deck {
+  border: 1px solid rgba(0, 245, 255, 0.50);
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.18);
+}
+@media (prefers-reduced-motion: no-preference) {
+  [data-brand="listener"] .now-playing-deck {
+    animation: now-playing-glow 2.5s ease-in-out infinite;
+  }
+}
+@keyframes now-playing-glow {
+  0%, 100% { box-shadow: 0 0 12px rgba(0, 245, 255, 0.18); border-color: rgba(0, 245, 255, 0.50); }
+  50% { box-shadow: 0 0 20px rgba(0, 245, 255, 0.32); border-color: rgba(0, 245, 255, 0.80); }
+}
+.light [data-brand="listener"] .now-playing-deck {
+  border: 1px solid rgba(14, 154, 167, 0.4);
+  box-shadow: 0 0 12px rgba(14, 154, 167, 0.12);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .light [data-brand="listener"] .now-playing-deck {
+    animation: now-playing-glow-light 2.5s ease-in-out infinite;
+  }
+}
+@keyframes now-playing-glow-light {
+  0%, 100% { box-shadow: 0 0 12px rgba(14, 154, 167, 0.12); border-color: rgba(14, 154, 167, 0.4); }
+  50% { box-shadow: 0 0 18px rgba(14, 154, 167, 0.22); border-color: rgba(14, 154, 167, 0.65); }
+}
+
+/* ---------- Amplify button: large circular, high-glow + ripple on click ---------- */
+.amplify-btn {
+  @apply rounded-full bg-primary text-primary-foreground font-semibold transition-transform active:scale-95;
+  box-shadow: var(--brand-glow);
+}
+.amplify-ripple-container {
+  position: relative;
+  overflow: hidden;
+}
+.amplify-ripple {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(0, 245, 255, 0.30);
+  transform: scale(0);
+  pointer-events: none;
+}
+[data-brand="artist"] .amplify-ripple {
+  background: rgba(0, 245, 255, 0.30);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .amplify-ripple.animate-ripple {
+    animation: ripple 0.6s ease-out forwards;
+  }
+}
+@keyframes ripple {
+  to {
+    transform: scale(4);
+    opacity: 0;
+  }
+}
+
+/* ---------- Live Chat: dark grey bubbles, thin left border (Cyan for listener) ---------- */
+.chat-bubble {
+  background: var(--chat-bubble-bg, #1A1A1A);
+  border-left: 3px solid var(--primary);
+}
+.chat-signal-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chat-signal-dot.active {
+    animation: signal-dot-pulse 1.5s ease-in-out infinite;
+  }
+}
+@keyframes signal-dot-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+  50% { opacity: 0.9; box-shadow: 0 0 0 4px transparent; }
+}
+
+/* ---------- Democratic Development / Roadmap: progress bars use primary ---------- */
+.roadmap-card .progress-bar,
+.roadmap-progress {
+  background: var(--primary);
+}
+
+/* ---------- Artist: Guaranteed Exposure / chart colors ---------- */
+[data-brand="artist"] .artist-chart-plays {
+  --chart-color: #6A0DAD;
+}
+[data-brand="artist"] .artist-chart-engagement {
+  --chart-color: #4B0082;
+}
+.badge-verified {
+  background: var(--brand-verified, #D4AF37);
+  color: #080808;
+}
+
+/* ---------- Locked Door: Pro-Network exclusive overlay ---------- */
+.locked-door-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 10, 10, 0.86);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.light .locked-door-overlay {
+  background: rgba(244, 246, 251, 0.92);
+}
+.locked-door-content {
+  max-width: 400px;
+  text-align: center;
+  color: var(--foreground);
+}
+.locked-door-content .lock-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+/* ---------- Upload portal: Amethyst gradient (artist) ---------- */
+.upload-zone-artist {
+  background: linear-gradient(135deg, rgba(0, 245, 255, 0.10), rgba(26, 35, 126, 0.12));
+  border: 2px dashed var(--primary);
+}
+.light .upload-zone-artist {
+  background: linear-gradient(135deg, rgba(14, 154, 167, 0.08), rgba(26, 35, 126, 0.06));
+  border: 2px dashed var(--primary);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+  }
+  /* Better touch targets on mobile */
+  button, [role="button"], a[href] {
+    @apply touch-manipulation;
+  }
+  body {
+    @apply text-foreground;
+    background-color: var(--background);
+    /* Cinematic noir depth + subtle "film noise" texture */
+    background-image:
+      radial-gradient(70% 55% at 50% 0%, rgba(0, 245, 255, 0.10), transparent 60%),
+      radial-gradient(55% 55% at 50% 100%, rgba(26, 35, 126, 0.12), transparent 55%),
+      var(--grain);
+    background-blend-mode: screen, screen, overlay;
+    background-size: cover, cover, 220px 220px;
+    background-attachment: fixed, fixed, fixed;
+    min-height: 100vh;
+  }
+
+  .light body {
+    background-color: var(--background);
+    background-image:
+      radial-gradient(70% 50% at 50% 0%, rgba(14, 154, 167, 0.07), transparent 55%),
+      radial-gradient(55% 45% at 50% 100%, rgba(26, 35, 126, 0.05), transparent 50%),
+      var(--grain);
+    background-blend-mode: normal, normal, overlay;
+    background-size: cover, cover, 220px 220px;
+    background-attachment: fixed, fixed, fixed;
+  }
+}
+
+/* Brand utilities */
+.text-networx {
+  background: var(--gradient-networx);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* Strong cyan ombre to match the official logo wordmark. */
+.text-networx-cyan-ombre {
+  background: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    #7ffcff 20%,
+    #00f5ff 42%,
+    #00cfe6 66%,
+    #0e76c9 100%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.45));
+}
+/* Light mode: drop the white start so the ombre stays readable on light backgrounds. */
+.light .text-networx-cyan-ombre {
+  background: linear-gradient(
+    100deg,
+    #0e7490 0%,
+    #0891b2 28%,
+    #06b6d4 52%,
+    #1a237e 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 6px rgba(8, 145, 178, 0.2));
+}
+.bg-networx {
+  background: var(--gradient-networx);
+}
+.bg-listener-glow {
+  background: var(--gradient-listener-glow);
+}
+.bg-artist-pro {
+  background: var(--gradient-artist-pro);
+}
+
+/* Clickable icons: semi-transparent chrome gloss */
+.chrome-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(245, 245, 245, 0.28);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.26) 0%, rgba(255, 255, 255, 0.10) 48%, rgba(255, 255, 255, 0.03) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.40),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.08),
+    0 5px 14px rgba(0, 0, 0, 0.34);
+  backdrop-filter: blur(8px) saturate(150%);
+  -webkit-backdrop-filter: blur(8px) saturate(150%);
+  color: rgba(245, 245, 245, 0.96);
+}
+
+.chrome-icon-button {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  border-color: rgba(245, 245, 245, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 6px 16px rgba(0, 0, 0, 0.30);
+}
+
+.light .chrome-icon {
+  border-color: rgba(15, 23, 42, 0.12);
+  background:
+    linear-gradient(160deg, rgba(255, 255, 255, 0.95) 0%, rgba(244, 246, 251, 0.78) 46%, rgba(236, 240, 247, 0.65) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.90),
+    inset 0 -1px 0 rgba(15, 23, 42, 0.05),
+    0 5px 14px rgba(15, 23, 42, 0.10);
+  color: rgba(15, 23, 42, 0.86);
+}
+
+.light .chrome-icon-button {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(240, 244, 250, 0.84));
+  border-color: rgba(15, 23, 42, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 5px 12px rgba(15, 23, 42, 0.10);
+}
+
+/* Listener/Artist signal effects (respect prefers-reduced-motion) */
+.signal-glow {
+  box-shadow: var(--brand-glow);
+}
+@keyframes signal-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .signal-pulse {
+    animation: signal-pulse 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+/* Competition page: marquee (respects prefers-reduced-motion) */
+@keyframes marquee-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-content {
+    animation: marquee-scroll 40s linear infinite;
+  }
+  .marquee-content:hover {
+    animation-play-state: paused;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-content {
+    animation: none;
+  }
+}
+
+/* Station picker map: tower badge spins on hover */
+.tower-marker {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+}
+.tower-badge {
+  transition: transform 0.5s ease;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tower-marker:hover .tower-badge {
+    transform: rotate(360deg);
+  }
+}

@@ -1,0 +1,156 @@
+export const RAP_STATION_ID = 'us-rap' as const;
+export const OLD_SCHOOL_RAP_STATION_ID = 'us-old-school-rap' as const;
+export const CLEAN_RAP_STATION_ID = 'us-rap-clean' as const;
+// Ready Now Radio: showcase station for diamond artists who are ready for deals.
+export const READY_NOW_RAP_STATION_ID = 'us-ready-now-rap' as const;
+
+/** Default station when none is specified (home, unsigned listeners, legacy global/default). */
+export const DEFAULT_STATION_ID = READY_NOW_RAP_STATION_ID;
+export const HIP_HOP_STATION_ID = 'us-hip-hop' as const;
+export const COUNTRY_STATION_ID = 'us-country' as const;
+export const ROCK_STATION_ID = 'us-rock' as const;
+export const METAL_STATION_ID = 'us-metal' as const;
+export const POP_STATION_ID = 'us-pop' as const;
+export const EDM_STATION_ID = 'us-edm' as const;
+export const RNB_STATION_ID = 'us-rnb' as const;
+export const PODCASTS_STATION_ID = 'us-podcasts' as const;
+export const SPOKEN_WORD_STATION_ID = 'us-spoken-word' as const;
+export const COMEDIAN_STATION_ID = 'us-comedian' as const;
+export const GOSPEL_STATION_ID = 'us-gospel' as const;
+export const CLASSICAL_STATION_ID = 'us-classical' as const;
+export const EMO_STATION_ID = 'us-emo' as const;
+export const AI_CREATED_STATION_ID = 'us-ai-created' as const;
+export const BEATS_STATION_ID = 'us-beats' as const;
+export const FREESTYLE_STATION_ID = 'us-freestyle' as const;
+export const INSTRUMENTAL_STATION_ID = 'us-instrumental' as const;
+export const LOFI_STATION_ID = 'us-lofi' as const;
+export const JAZZ_STATION_ID = 'us-jazz' as const;
+export const AUDIOBOOK_STATION_ID = 'us-audiobook' as const;
+export const SPANISH_STATION_ID = 'us-spanish' as const;
+export const AFROBEATS_STATION_ID = 'us-afrobeats' as const;
+export const DJ_MIXES_STATION_ID = 'us-dj-mixes' as const;
+export const KIDS_FRIENDLY_STATION_ID = 'us-kids-friendly' as const;
+export const TESTING_GROUNDS_STATION_ID = 'us-testing-grounds' as const;
+export const RIDESHARE_STATION_ID = 'us-rideshare' as const;
+
+/** Stations that only play non-explicit (is_explicit = false) catalog. */
+export const EXPLICIT_FILTERED_STATION_IDS = [
+  CLEAN_RAP_STATION_ID,
+  KIDS_FRIENDLY_STATION_ID,
+  RIDESHARE_STATION_ID,
+] as const;
+
+export function isExplicitFilteredStation(stationId: string): boolean {
+  return (EXPLICIT_FILTERED_STATION_IDS as readonly string[]).includes(
+    stationId,
+  );
+}
+
+export const STATION_IDS = [
+  RAP_STATION_ID,
+  OLD_SCHOOL_RAP_STATION_ID,
+  CLEAN_RAP_STATION_ID,
+  READY_NOW_RAP_STATION_ID,
+  HIP_HOP_STATION_ID,
+  COUNTRY_STATION_ID,
+  ROCK_STATION_ID,
+  METAL_STATION_ID,
+  POP_STATION_ID,
+  EDM_STATION_ID,
+  RNB_STATION_ID,
+  PODCASTS_STATION_ID,
+  SPOKEN_WORD_STATION_ID,
+  COMEDIAN_STATION_ID,
+  GOSPEL_STATION_ID,
+  CLASSICAL_STATION_ID,
+  EMO_STATION_ID,
+  AI_CREATED_STATION_ID,
+  BEATS_STATION_ID,
+  FREESTYLE_STATION_ID,
+  INSTRUMENTAL_STATION_ID,
+  LOFI_STATION_ID,
+  JAZZ_STATION_ID,
+  AUDIOBOOK_STATION_ID,
+  SPANISH_STATION_ID,
+  AFROBEATS_STATION_ID,
+  DJ_MIXES_STATION_ID,
+  KIDS_FRIENDLY_STATION_ID,
+  TESTING_GROUNDS_STATION_ID,
+  RIDESHARE_STATION_ID,
+] as const;
+
+export type StationId = (typeof STATION_IDS)[number];
+
+export const LEGACY_DEFAULT_STATION_IDS = ['global', 'default'] as const;
+
+const LEGACY_STATION_ID_MAP: Record<string, StationId> = {
+  'ga-nw-rap': RAP_STATION_ID,
+  'ga-atl-hip-hop': HIP_HOP_STATION_ID,
+  'ga-north-country': COUNTRY_STATION_ID,
+  'ga-west-rock': ROCK_STATION_ID,
+  'ga-east-pop': POP_STATION_ID,
+  'ga-ne-edm': EDM_STATION_ID,
+  'ga-sw-rnb': RNB_STATION_ID,
+  'ga-se-podcasts': PODCASTS_STATION_ID,
+  'ga-central-spoken-word': SPOKEN_WORD_STATION_ID,
+  'ga-coast-comedian': COMEDIAN_STATION_ID,
+  'us-christian': GOSPEL_STATION_ID,
+};
+
+export function normalizeSongStationId(radioId?: string | null): StationId {
+  const trimmed = (radioId ?? '').trim();
+  if (!trimmed || LEGACY_DEFAULT_STATION_IDS.includes(trimmed as any)) {
+    return DEFAULT_STATION_ID;
+  }
+  const legacyMapped = LEGACY_STATION_ID_MAP[trimmed];
+  if (legacyMapped) {
+    return legacyMapped;
+  }
+  if (STATION_IDS.includes(trimmed as StationId)) {
+    return trimmed as StationId;
+  }
+  return DEFAULT_STATION_ID;
+}
+
+/** Map genre picker ids to radio station ids (mirrors web TOWERS genreId). */
+export const STATION_IDS_BY_GENRE: Record<string, readonly string[]> = {
+  rap: [RAP_STATION_ID, OLD_SCHOOL_RAP_STATION_ID, CLEAN_RAP_STATION_ID, READY_NOW_RAP_STATION_ID],
+  'hip-hop': [HIP_HOP_STATION_ID],
+  country: [COUNTRY_STATION_ID],
+  rock: [ROCK_STATION_ID],
+  metal: [METAL_STATION_ID],
+  pop: [POP_STATION_ID],
+  edm: [EDM_STATION_ID],
+  rnb: [RNB_STATION_ID],
+  podcasts: [PODCASTS_STATION_ID],
+  'spoken-word': [SPOKEN_WORD_STATION_ID],
+  comedian: [COMEDIAN_STATION_ID],
+  gospel: [GOSPEL_STATION_ID],
+  classical: [CLASSICAL_STATION_ID],
+  emo: [EMO_STATION_ID],
+  'ai-created': [AI_CREATED_STATION_ID],
+  beats: [BEATS_STATION_ID],
+  freestyle: [FREESTYLE_STATION_ID],
+  instrumental: [INSTRUMENTAL_STATION_ID],
+  lofi: [LOFI_STATION_ID],
+  jazz: [JAZZ_STATION_ID],
+  audiobook: [AUDIOBOOK_STATION_ID],
+  spanish: [SPANISH_STATION_ID],
+  afrobeats: [AFROBEATS_STATION_ID],
+  'dj-mixes': [DJ_MIXES_STATION_ID],
+  'kids-friendly': [KIDS_FRIENDLY_STATION_ID],
+  'testing-grounds': [TESTING_GROUNDS_STATION_ID],
+  rideshare: [RIDESHARE_STATION_ID],
+};
+
+export function stationIdsForGenres(genreIds: string[]): string[] {
+  const ids = new Set<string>();
+  for (const genre of genreIds) {
+    const key = genre.trim().toLowerCase();
+    const stations = STATION_IDS_BY_GENRE[key];
+    if (stations) {
+      for (const stationId of stations) ids.add(stationId);
+    }
+  }
+  return [...ids];
+}

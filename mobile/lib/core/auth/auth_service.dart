@@ -1,0 +1,541 @@
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
+import 'package:crypto/crypto.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/services.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
+import 'package:flutter/foundation.dart';
+import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
+import '../models/user.dart' as app_user;
+
+/// Thrown when a freshly authenticated OAuth user (Google/Apple) has no backend
+/// profile yet. A display name is mandatory at sign-up, so the UI must collect
+/// one and call [AuthService.completeOAuthProfile] before the account is
+/// created. We never derive the name from the email prefix.
+class ProfileSetupRequiredException implements Exception {
+  ProfileSetupRequiredException({required this.suggestedName, required this.email});
+
+  final String suggestedName;
+  final String email;
+
+  @override
+  String toString() => 'ProfileSetupRequiredException';
+}
+
+class AuthService extends ChangeNotifier {
+  final bool firebaseInitialized;
+  FirebaseAuth? _auth;
+  // google_sign_in v7 is a singleton and must be initialized once before use.
+  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
+  Future<void>? _googleInit;
+  // OAuth web/server client ID for this Firebase project (client_type 3 in
+  // google-services.json). Used so the returned idToken is minted for the
+  // Firebase project and accepted by signInWithCredential.
+  static const String googleServerClientId =
+      '479427085382-d7jan4js66f2h60nr4e41c672gb7tf5s.apps.googleusercontent.com';
+  /// Android OAuth client tied to Play App Signing SHA-1 in google-services.json.
+  /// Do not pass this as [clientId] on Android — google-services.json selects the
+  /// correct OAuth client for the current signing certificate automatically.
+  static const String googlePlayAndroidClientId =
+      '479427085382-k3nmr3f99lg4hlne6u60naephqn4pu6i.apps.googleusercontent.com';
+  final ApiService _apiService = ApiService();
+
+  AuthService({this.firebaseInitialized = true}) {
+    // Only initialize FirebaseAuth if Firebase is initialized
+    if (firebaseInitialized) {
+      try {
+        _auth = FirebaseAuth.instance;
+        _apiService.setAuthTokenProvider(() async {
+          final user = _auth?.currentUser;
+          if (user == null) return null;
+          return user.getIdToken();
+        });
+        _apiService.setUnauthorizedHandler(() async {
+          if (_auth?.currentUser != null) {
+            await signOut();
+          }
+        });
+      } catch (e) {
+        debugPrint('Warning: Could not access FirebaseAuth: $e');
+        _auth = null;
+      }
+    }
+  }
+
+  Stream<User?> get authStateChanges {
+    if (!firebaseInitialized || _auth == null) {
+      // Return a stream that immediately emits null if Firebase isn't initialized
+      return Stream.value(null);
+    }
+    try {
+      return _auth!.idTokenChanges();
+    } catch (e) {
+      debugPrint('Error getting auth state changes: $e');
+      return Stream.value(null);
+    }
+  }
+
+  User? get currentUser {
+    if (_auth == null) return null;
+    try {
+      return _auth!.currentUser;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<app_user.User?> signInWithEmailAndPassword(
+    String email,
+    String password,
+  ) async {
+    if (_auth == null || !firebaseInitialized) {
+      throw Exception('Firebase is not initialized. Please configure Firebase first.');
+    }
+    try {
+      final credential = await _auth!.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user != null) {
+        final token = await credential.user!.getIdToken();
+        _apiService.setAuthToken(token);
+        return await _getUserProfile();
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Sign in failed: $e');
+    }
+  }
+
+  Future<app_user.User?> signUpWithEmailAndPassword(
+    String email,
+    String password,
+    String displayName,
+    String role,
+  ) async {
+    if (_auth == null || !firebaseInitialized) {
+      throw Exception('Firebase is not initialized. Please configure Firebase first.');
+    }
+    try {
+      final credential = await _auth!.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (credential.user != null) {
+        await credential.user!.updateDisplayName(displayName);
+        final token = await credential.user!.getIdToken();
+        _apiService.setAuthToken(token);
+
+        // Create user profile in backend
+        await _apiService.post('users', {
+          'email': email,
+          'displayName': displayName,
+          'role': role,
+        });
+
+        return await _getUserProfile();
+      }
+      return null;
+    } catch (e) {
+      throw Exception('Sign up failed: $e');
+    }
+  }
+
+  /// Initialize the google_sign_in singleton exactly once (v7 requirement).
+  /// Call during app startup so [signInWithGoogle] can invoke [authenticate]
+  /// immediately from the button handler (Android Credential Manager requires
+  /// minimal async delay between the tap and the auth UI).
+  Future<void> ensureGoogleSignInInitialized() {
+    return _ensureGoogleSignInInitialized();
+  }
+
+  static Future<void> _initializeGoogleSignIn(GoogleSignIn signIn) {
+    // Android: omit clientId — google-services.json matches debug, upload, or
+    // Play App Signing SHA-1. Hardcoding the Play client breaks other builds.
+    return signIn.initialize(serverClientId: googleServerClientId);
+  }
+
+  /// Startup helper — safe to call from [main] before [AuthService] exists.
+  static Future<void> warmUpGoogleSignIn() async {
+    if (Firebase.apps.isEmpty) return;
+    await _initializeGoogleSignIn(GoogleSignIn.instance);
+  }
+
+  Future<void> _ensureGoogleSignInInitialized() {
+    return _googleInit ??= _initializeGoogleSignIn(_googleSignIn).catchError((Object e) {
+      _googleInit = null;
+      throw e;
+    });
+  }
+
+  Future<GoogleSignInAccount> _authenticateWithGoogle() async {
+    try {
+      return await _googleSignIn.authenticate(
+        scopeHint: const <String>['email', 'openid'],
+      );
+    } on GoogleSignInException catch (e) {
+      if (e.code != GoogleSignInExceptionCode.canceled) rethrow;
+      // One retry after clearing any stale Google session.
+      try {
+        await _googleSignIn.signOut();
+      } catch (_) {}
+      return _googleSignIn.authenticate(
+        scopeHint: const <String>['email', 'openid'],
+      );
+    }
+  }
+
+  String _googleSignInCanceledMessage(GoogleSignInException e) {
+    final detail = e.description?.trim();
+    final detailSuffix =
+        detail != null && detail.isNotEmpty ? '\n($detail)' : '';
+    final isReauthFailed =
+        detail != null && detail.toLowerCase().contains('reauth');
+    if (isReauthFailed) {
+      return 'Google sign-in did not complete.$detailSuffix\n\n'
+          'This usually means the OAuth client does not match how the app was signed:\n'
+          '• Play Store install → Firebase must list the Play App Signing SHA-1 '
+          '(ED:16:9D:AB:…)\n'
+          '• Sideloaded release APK → needs your upload-key SHA-1 in Firebase too\n'
+          '• OAuth consent screen in Testing → add your Gmail under Test users\n'
+          '• On device: Settings → Apps → Google Play services → Storage → Clear cache';
+    }
+    return 'Google sign-in did not complete.$detailSuffix\n\n'
+        'Play Store builds need the Play App Signing SHA-1 in Firebase. '
+        'If OAuth is in Testing mode, add your Gmail under Test users in '
+        'Google Cloud Console → OAuth consent screen.';
+  }
+
+  String _googleDeveloperErrorMessage(PlatformException e) {
+    return 'Google Sign-In is misconfigured for this build (DEVELOPER_ERROR).\n\n'
+        'Emulator works with the debug SHA-1; Play Store uses Play App Signing.\n'
+        'In Firebase → Project settings → Android app '
+        '(com.tmaktechnologies.networxradio), confirm SHA-1 '
+        'ED:16:9D:AB:9D:CE:88:5F:08:E5:AD:1D:EB:41:C9:ED:E4:AC:1C:88 is listed, '
+        'then re-download google-services.json and upload a new Play build.\n\n'
+        'Details: ${e.message ?? e.code}';
+  }
+
+  bool _isGoogleDeveloperError(Object e) {
+    final text = e.toString();
+    return text.contains('ApiException: 10') ||
+        text.contains('DEVELOPER_ERROR') ||
+        text.contains('sign_in_failed');
+  }
+
+  Future<app_user.User?> signInWithGoogle() async {
+    if (_auth == null || !firebaseInitialized) {
+      throw Exception('Firebase is not initialized. Please configure Firebase first.');
+    }
+    try {
+      await _ensureGoogleSignInInitialized();
+
+      // Use the full account picker — lightweight auth often returns "canceled"
+      // on Play Store builds even when OAuth is configured correctly.
+      GoogleSignInAccount googleUser = await _authenticateWithGoogle();
+
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      final idToken = googleAuth.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception(
+          'Google did not return a sign-in token. Confirm the web OAuth client '
+          'and SHA-1 fingerprints are registered in Firebase for '
+          'com.tmaktechnologies.networxradio.',
+        );
+      }
+
+      String? accessToken;
+      try {
+        final clientAuth = await googleUser.authorizationClient
+            .authorizationForScopes(const ['email', 'openid']);
+        accessToken = clientAuth?.accessToken;
+      } catch (_) {}
+
+      final credential = GoogleAuthProvider.credential(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+
+      final userCredential = await _auth!.signInWithCredential(credential);
+      if (userCredential.user != null) {
+        final token = await userCredential.user!.getIdToken();
+        _apiService.setAuthToken(token);
+        final firebaseUser = userCredential.user!;
+
+        // Check if user exists in backend, create if not.
+        // Use a 10s budget per call so a slow Railway cold-start still has a
+        // chance to succeed before we fall back to a Firebase-only profile.
+        try {
+          return await _getUserProfile().timeout(const Duration(seconds: 10));
+        } on TimeoutException {
+          debugPrint('Backend profile lookup timed out after Google sign-in.');
+          return _buildFallbackUser(firebaseUser);
+        } catch (e) {
+          // No backend profile yet: a display name is mandatory, so hand control
+          // back to the UI to collect one. Pre-fill with the Google name when
+          // present; never derive from the email prefix.
+          throw ProfileSetupRequiredException(
+            suggestedName: _providerName(firebaseUser.displayName),
+            email: firebaseUser.email ?? '',
+          );
+        }
+      }
+      return null;
+    } on ProfileSetupRequiredException {
+      rethrow;
+    } on GoogleSignInException catch (e) {
+      debugPrint(
+        '[GoogleSignIn] exception: code=${e.code} '
+        'description=${e.description} details=${e.details}',
+      );
+      if (e.code == GoogleSignInExceptionCode.canceled) {
+        throw Exception(_googleSignInCanceledMessage(e));
+      }
+      throw Exception('Google sign in failed: ${e.description ?? e.code}');
+    } on PlatformException catch (e) {
+      debugPrint('[GoogleSignIn] platform: code=${e.code} message=${e.message}');
+      if (_isGoogleDeveloperError(e)) {
+        throw Exception(_googleDeveloperErrorMessage(e));
+      }
+      throw Exception('Google sign in failed: ${e.message ?? e.code}');
+    } on TimeoutException {
+      throw Exception('Google sign in timed out. Please try again.');
+    } catch (e, st) {
+      debugPrint('[GoogleSignIn] failed: type=${e.runtimeType} message=$e');
+      debugPrint('[GoogleSignIn] stack: $st');
+      if (_isGoogleDeveloperError(e)) {
+        throw Exception(
+          'Google Sign-In is misconfigured for Play Store builds. '
+          'Confirm Play App Signing SHA-1 is in Firebase and OAuth test users '
+          'are set if the app is still in Testing mode.',
+        );
+      }
+      throw Exception('Google sign in failed: $e');
+    }
+  }
+
+  Future<app_user.User?> signInWithApple() async {
+    if (_auth == null || !firebaseInitialized) {
+      throw Exception('Firebase is not initialized. Please configure Firebase first.');
+    }
+    try {
+      final isAvailable = await SignInWithApple.isAvailable();
+      if (!isAvailable) {
+        throw Exception(
+          'Sign in with Apple is not available on this device. '
+          'Use an iPhone/iPad (or configure Apple Services ID for Android/web).',
+        );
+      }
+
+      final rawNonce = _generateNonce();
+      final nonce = _sha256ofString(rawNonce);
+
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+        nonce: nonce,
+      );
+
+      final idToken = credential.identityToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Apple Sign-In did not return an identity token.');
+      }
+
+      final oauthCredential = OAuthProvider('apple.com').credential(
+        idToken: idToken,
+        rawNonce: rawNonce,
+        accessToken: credential.authorizationCode,
+      );
+
+      final userCredential = await _auth!.signInWithCredential(oauthCredential);
+      if (userCredential.user != null) {
+        final token = await userCredential.user!.getIdToken();
+        _apiService.setAuthToken(token);
+
+        // Persist given/family name onto the Firebase profile when Apple returns
+        // it (only on first authorization).
+        final given = credential.givenName?.trim() ?? '';
+        final family = credential.familyName?.trim() ?? '';
+        final appleFullName = [given, family].where((p) => p.isNotEmpty).join(' ');
+        if (appleFullName.isNotEmpty &&
+            (userCredential.user!.displayName == null ||
+                userCredential.user!.displayName!.trim().isEmpty)) {
+          try {
+            await userCredential.user!.updateDisplayName(appleFullName);
+          } catch (_) {
+            // Non-fatal — DisplayNameGate / profile setup still works.
+          }
+        }
+
+        try {
+          return await _getUserProfile();
+        } catch (e) {
+          throw ProfileSetupRequiredException(
+            suggestedName: _providerName(
+              appleFullName.isNotEmpty
+                  ? appleFullName
+                  : userCredential.user!.displayName,
+            ),
+            email: credential.email ??
+                userCredential.user!.email ??
+                'private@apple.relay',
+          );
+        }
+      }
+      return null;
+    } on ProfileSetupRequiredException {
+      rethrow;
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return null;
+      }
+      throw Exception('Apple sign in failed: ${e.message}');
+    } catch (e) {
+      throw Exception('Apple sign in failed: $e');
+    }
+  }
+
+  /// Cryptographically secure nonce for Apple → Firebase auth.
+  String _generateNonce([int length = 32]) {
+    const charset =
+        '0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._';
+    final random = Random.secure();
+    return List.generate(
+      length,
+      (_) => charset[random.nextInt(charset.length)],
+    ).join();
+  }
+
+  String _sha256ofString(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
+
+  Future<void> signOut() async {
+    // Unregister push notification token before signing out (don't block logout).
+    try {
+      await PushNotificationService()
+          .unregisterToken()
+          .timeout(const Duration(seconds: 5));
+    } catch (e) {
+      debugPrint('Error unregistering push token: $e');
+    }
+
+    try {
+      await _googleSignIn.signOut().timeout(const Duration(seconds: 8));
+    } catch (e) {
+      debugPrint('Google sign out: $e');
+    }
+    if (_auth != null) {
+      try {
+        await _auth!.signOut().timeout(const Duration(seconds: 8));
+      } catch (e) {
+        debugPrint('Error signing out: $e');
+      }
+    }
+    _apiService.setAuthToken(null);
+    notifyListeners(); // Notify listeners to trigger UI rebuild (e.g., AuthWrapper)
+  }
+
+  Future<app_user.User?> _getUserProfile() async {
+    final response = await _apiService.get('users/me');
+    return app_user.User.fromJson(response);
+  }
+
+  /// Returns the identity provider's real name (trimmed) or an empty string.
+  /// We intentionally never fall back to the email prefix so a display name is
+  /// always an explicit choice at sign-up.
+  String _providerName(String? preferred) {
+    return preferred?.trim() ?? '';
+  }
+
+  /// Creates the backend profile for a freshly authenticated OAuth user once a
+  /// display name has been chosen. Used to satisfy the mandatory-name step
+  /// surfaced via [ProfileSetupRequiredException].
+  Future<app_user.User?> completeOAuthProfile(
+    String displayName, {
+    String role = 'listener',
+  }) async {
+    final name = displayName.trim();
+    if (name.isEmpty) {
+      throw Exception('Display name is required');
+    }
+    final user = _auth?.currentUser;
+    if (user == null) {
+      throw Exception('You must be signed in to finish setting up your account.');
+    }
+    final token = await user.getIdToken();
+    _apiService.setAuthToken(token);
+    await _apiService.post('users', {
+      'email': user.email ?? '',
+      'displayName': name,
+      'role': role,
+    });
+    try {
+      await user.updateDisplayName(name);
+    } catch (_) {
+      // Non-fatal: the backend profile is the source of truth for the name.
+    }
+    return await _getUserProfile();
+  }
+
+  Future<app_user.User?> getUserProfile() async {
+    if (_auth == null || _auth!.currentUser == null) return null;
+    final firebaseUser = _auth!.currentUser!;
+    try {
+      final token = await firebaseUser.getIdToken();
+      _apiService.setAuthToken(token);
+      // Cap the call so the UI never hangs on a slow/cold backend; fall back to
+      // a Firebase-only profile if the backend is unreachable in time.
+      return await _getUserProfile().timeout(const Duration(seconds: 10));
+    } on TimeoutException {
+      debugPrint('getUserProfile: backend timed out, using fallback user.');
+      return _buildFallbackUser(firebaseUser);
+    } catch (e) {
+      debugPrint('Error getting user profile: $e');
+      return _buildFallbackUser(firebaseUser);
+    }
+  }
+
+  Future<void> refreshIdToken({bool forceRefresh = true}) async {
+    if (_auth == null || _auth!.currentUser == null) return;
+    try {
+      final token = await _auth!.currentUser!.getIdToken(forceRefresh);
+      _apiService.setAuthToken(token);
+    } catch (e) {
+      debugPrint('Error refreshing ID token: $e');
+    }
+  }
+
+  /// Request an upgrade to artist status (web parity: POST /users/upgrade-to-artist).
+  Future<void> requestArtistUpgrade() async {
+    if (_auth == null || _auth!.currentUser == null) {
+      throw Exception('Not authenticated');
+    }
+    final token = await _auth!.currentUser!.getIdToken();
+    _apiService.setAuthToken(token);
+    await _apiService.post('users/upgrade-to-artist', null);
+  }
+
+  app_user.User _buildFallbackUser(User firebaseUser) {
+    final now = DateTime.now();
+    return app_user.User(
+      id: firebaseUser.uid,
+      firebaseUid: firebaseUser.uid,
+      email: firebaseUser.email ?? '',
+      displayName: firebaseUser.displayName ?? firebaseUser.email ?? 'User',
+      role: 'listener',
+      createdAt: now,
+      updatedAt: now,
+    );
+  }
+}
