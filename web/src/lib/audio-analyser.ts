@@ -1,3 +1,5 @@
+import { isSafari } from '@/lib/browser-audio';
+
 export const ANALYSER_BARS = 32;
 
 export function createAnalyserBarsBuffer(bars = ANALYSER_BARS): Uint8Array {
@@ -129,14 +131,15 @@ function captureMediaElementStream(audio: HTMLMediaElement): MediaStream | null 
 
 /**
  * createMediaElementSource routes element output through the AudioContext. On
- * iOS/mobile web that can silence background/lock-screen audio, so we never use
- * it there (native output + simulated bars). Desktop browsers — including
- * desktop Safari — use it to get a real, music-reactive FFT (audio still plays
- * because the analyser is connected to ctx.destination and the context is
- * resumed on the play gesture).
+ * Safari (desktop + iOS) that goes silent whenever the context is suspended,
+ * which breaks radio playback entirely. Mobile web has the same lock-screen /
+ * background risk. In both cases we stay on native element output and drive the
+ * visualizer with a non-hijacking captureStream tap (real FFT when the media is
+ * CORS-clean) or simulated bars. Only Chromium/Firefox desktop may fall back to
+ * an element-source tap.
  */
 export function shouldAvoidMediaElementSource(): boolean {
-  return isMobileWeb();
+  return isMobileWeb() || isSafari();
 }
 
 function wireAnalyserTap(
@@ -153,8 +156,8 @@ function wireAnalyserTap(
       slot.usesElementSource = false;
       return true;
     }
-    // Desktop (incl. Safari) fallback when captureStream is missing: a real
-    // element-source FFT. Mobile stays native-only so audio is never hijacked.
+    // Desktop Chromium/Firefox fallback when captureStream is missing.
+    // Safari + mobile stay native-only so audio is never hijacked/silenced.
     if (!shouldAvoidMediaElementSource()) {
       return wireElementSourceTap(audio, slot, ctx, an);
     }
@@ -199,9 +202,10 @@ export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.preload = 'auto';
-  // Desktop FFT taps need CORS-clean media. Mobile web can fail playback when
-  // crossOrigin=anonymous is set without matching CDN ACAO, so skip it there.
-  if (!isMobileWeb()) {
+  // Chromium/Firefox desktop FFT taps need CORS-clean media. Safari and mobile
+  // web can FAIL to play when crossOrigin=anonymous is set without a matching
+  // CDN ACAO header, so never set it there — native playback must not break.
+  if (!isMobileWeb() && !isSafari()) {
     audio.crossOrigin = 'anonymous';
   }
   audio.setAttribute('playsinline', '');

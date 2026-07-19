@@ -14,7 +14,7 @@ import {
 import Hls from 'hls.js';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
-import { canPlayNativeHls, isIosSafari } from '@/lib/browser-audio';
+import { canPlayNativeHls, isIosSafari, isSafari } from '@/lib/browser-audio';
 import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
@@ -472,9 +472,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!pair) return;
       const audio = pair[slot];
 
-      // Desktop (incl. Safari) needs CORS-clean media for a real FFT tap.
-      // Mobile web can fail playback with crossOrigin set, so skip it there.
-      if (!isMobileWeb()) {
+      // Safari/mobile can fail to play when crossOrigin=anonymous is set without
+      // a matching CDN CORS header, so only set it on Chromium/Firefox desktop.
+      if (!isMobileWeb() && !isSafari()) {
         audio.crossOrigin = 'anonymous';
       } else {
         audio.removeAttribute('crossorigin');
