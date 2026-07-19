@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import '../../core/services/audio_visualizer_service.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../features/player/widgets/frequency_visualizer.dart' show visualizerAudioActive;
 
 /// Smooth 1-D value noise in 0..1 — flowing, organic motion across bars/time.
 double _hash(double n) {
@@ -46,6 +47,7 @@ class _VbarVisualizerState extends State<VbarVisualizer>
   late final Ticker _ticker;
   double _t = 0;
   Float32List? _realBars;
+  bool _active = false;
 
   @override
   void initState() {
@@ -53,8 +55,8 @@ class _VbarVisualizerState extends State<VbarVisualizer>
     _ticker = createTicker((elapsed) {
       setState(() {
         _t = elapsed.inMicroseconds / 1e6;
-        _realBars =
-            widget.isPlaying ? AudioVisualizerService().freshBars : null;
+        _active = widget.isPlaying || visualizerAudioActive();
+        _realBars = _active ? AudioVisualizerService().freshBars : null;
       });
     })..start();
   }
@@ -78,7 +80,7 @@ class _VbarVisualizerState extends State<VbarVisualizer>
   }
 
   double _barScale(int i) {
-    if (!widget.isPlaying) return 0.2;
+    if (!_active) return 0.2;
     final real = _realBars;
     if (real != null && real.isNotEmpty) {
       return _realBarScale(real, i);

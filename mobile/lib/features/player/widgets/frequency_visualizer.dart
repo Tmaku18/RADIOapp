@@ -3,9 +3,33 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:just_audio/just_audio.dart';
 
+import '../../../core/services/audio_player_service.dart';
 import '../../../core/services/audio_visualizer_service.dart';
 import '../../../core/theme/dimension_tokens.dart';
+
+/// True when audio is *meant* to be playing — a source is loaded and the user
+/// hasn't paused. Read live each frame so brief iOS live-stream buffering
+/// stalls (which momentarily report `playing == false`) don't collapse the
+/// bars to the flat idle state.
+bool visualizerAudioActive() {
+  try {
+    final handler = AudioPlayerService.handler;
+    if (handler.userPaused) return false;
+    final player = AudioPlayerService().player;
+    if (player.sequenceState.currentSource == null) return false;
+    final state = player.processingState;
+    if (state == ProcessingState.idle || state == ProcessingState.completed) {
+      return false;
+    }
+    return player.playing ||
+        state == ProcessingState.buffering ||
+        state == ProcessingState.loading;
+  } catch (_) {
+    return false;
+  }
+}
 
 /// Smooth 1-D value noise in 0..1 (hash + smoothstep interpolation). Sampling it
 /// across bar position AND time gives a flowing, organic spectrum that rises and
@@ -50,6 +74,7 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
   late final Ticker _ticker;
   double _t = 0;
   Float32List? _realBars;
+  bool _active = false;
 
   @override
   void initState() {
@@ -57,8 +82,8 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
     _ticker = createTicker((elapsed) {
       setState(() {
         _t = elapsed.inMicroseconds / 1e6;
-        _realBars =
-            widget.isPlaying ? AudioVisualizerService().freshBars : null;
+        _active = widget.isPlaying || visualizerAudioActive();
+        _realBars = _active ? AudioVisualizerService().freshBars : null;
       });
     })..start();
   }
@@ -71,7 +96,7 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
 
   double _barFraction(int i) {
     final t = _t;
-    if (!widget.isPlaying) {
+    if (!_active) {
       return (0.12 + math.sin(t * 1.3 + i * 0.45) * 0.05).clamp(0.06, 1.0);
     }
     final real = _realBars;
@@ -105,11 +130,11 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.isPlaying ? 'LIVE FFT' : 'STANDBY',
+          _active ? 'LIVE FFT' : 'STANDBY',
           style: TextStyle(
             // Full neon only when the bars reflect real audio; simulated
             // playback dims slightly (paused stays muted, as before).
-            color: !widget.isPlaying
+            color: !_active
                 ? DimensionTokens.textMuted
                 : _realBars != null
                 ? DimensionTokens.neonCyan
