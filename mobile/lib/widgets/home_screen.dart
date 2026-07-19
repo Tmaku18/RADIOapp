@@ -9,6 +9,8 @@ import '../features/studio/studio_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
 import 'dimension/dimension_radio_bar.dart';
+import 'dimension/cyber_backdrop.dart';
+import '../core/theme/dimension_tokens.dart';
 import '../core/models/user.dart' as app_user;
 
 class HomeScreen extends StatefulWidget {
@@ -337,22 +339,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Map indices based on role — bodies live in [IndexedStack] below.
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex.clamp(0, isArtist ? 4 : 3),
-        children: isArtist
-            ? const [
-                PlayerScreen(),
-                SocialFeedScreen(),
-                DiscoveryScreen(),
-                StudioScreen(),
-                ProNetworxShellScreen(),
-              ]
-            : const [
-                PlayerScreen(),
-                SocialFeedScreen(),
-                DiscoveryScreen(),
-                CompetitionScreen(),
-              ],
+      backgroundColor: DimensionTokens.bgBase,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned.fill(child: CyberBackdrop()),
+          IndexedStack(
+            index: _currentIndex.clamp(0, isArtist ? 4 : 3),
+            children: isArtist
+                ? const [
+                    PlayerScreen(),
+                    SocialFeedScreen(),
+                    DiscoveryScreen(),
+                    StudioScreen(),
+                    ProNetworxShellScreen(),
+                  ]
+                : const [
+                    PlayerScreen(),
+                    SocialFeedScreen(),
+                    DiscoveryScreen(),
+                    CompetitionScreen(),
+                  ],
+          ),
+        ],
       ),
       bottomNavigationBar: Column(
         mainAxisSize: MainAxisSize.min,

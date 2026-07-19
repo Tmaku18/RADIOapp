@@ -301,7 +301,9 @@ class _StudioScreenState extends State<StudioScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         title: const Text('My Songs'),
         actions: [
           IconButton(

@@ -93,6 +93,7 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
       backgroundColor: DimensionTokens.bgBase,
       body: Stack(
         children: [
+          const Positioned.fill(child: CyberBackdrop()),
           ListView(
             controller: _scrollController,
             padding: const EdgeInsets.only(

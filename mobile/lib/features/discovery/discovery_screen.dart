@@ -276,7 +276,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     return DefaultTabController(
       length: 4,
       child: Scaffold(
+        backgroundColor: Colors.transparent,
         appBar: AppBar(
+          backgroundColor: Colors.transparent,
           title: const Text('Discover'),
           bottom: const TabBar(
             isScrollable: true,

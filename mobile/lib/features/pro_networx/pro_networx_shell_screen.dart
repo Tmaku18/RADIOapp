@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_radio_bar.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'pro_home_feed_screen.dart';
@@ -32,7 +33,9 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: DimensionTokens.bgBase,
       appBar: AppBar(
+        backgroundColor: Colors.transparent,
         title: const Text('Pro-Networx'),
         actions: [
           const BackToNetworxRadioButton(
@@ -55,20 +58,26 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: Stack(
+        fit: StackFit.expand,
         children: [
-          Expanded(
-            child: IndexedStack(
-              index: _index,
-              children: const [
-                ProHomeFeedScreen(),
-                ProSearchScreen(),
-                ProServicesScreen(),
-                ProRadioScreen(),
-              ],
-            ),
+          const Positioned.fill(child: CyberBackdrop()),
+          Column(
+            children: [
+              Expanded(
+                child: IndexedStack(
+                  index: _index,
+                  children: const [
+                    ProHomeFeedScreen(),
+                    ProSearchScreen(),
+                    ProServicesScreen(),
+                    ProRadioScreen(),
+                  ],
+                ),
+              ),
+              const DimensionRadioBar(),
+            ],
           ),
-          const DimensionRadioBar(),
         ],
       ),
       bottomNavigationBar: NavigationBar(

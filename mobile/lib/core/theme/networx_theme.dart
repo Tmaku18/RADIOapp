@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dimension_theme.dart';
+import 'dimension_tokens.dart';
 import 'networx_extensions.dart';
 import 'networx_tokens.dart';
 
@@ -130,7 +131,7 @@ ThemeData buildNetworxTheme({
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
         side: BorderSide(color: border.withValues(alpha: isDark ? 0.9 : 1)),
       ),
     ),

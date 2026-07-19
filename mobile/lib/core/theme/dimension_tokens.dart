@@ -28,10 +28,35 @@ class DimensionTokens {
   static const double glassBlur = 24;
   static const double glassStrongBlur = 40;
 
+  /// Canonical corner radii — web parity (cards ~16, tiles/thumbnails ~12).
+  /// Use these instead of ad-hoc small values so nothing reads as "square".
+  static const double cardRadius = 16;
+  static const double tileRadius = 12;
+
+  /// Translucent, NO-BLUR surface for list rows/grid cells. Reads like glass
+  /// (semi-transparent fill + soft border) and lets the [CyberBackdrop] glow
+  /// show through, without the per-item [BackdropFilter] cost that makes long
+  /// scrolling lists janky. Reserve the real blur [glassDecoration] for hero /
+  /// non-list panels.
+  static BoxDecoration surfaceDecoration({
+    BorderRadius? borderRadius,
+    bool highlight = false,
+  }) {
+    return BoxDecoration(
+      color: bgSurface.withValues(alpha: 0.62),
+      borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
+      border: Border.all(
+        color: highlight
+            ? neonCyan.withValues(alpha: 0.35)
+            : Colors.white.withValues(alpha: 0.08),
+      ),
+    );
+  }
+
   static BoxDecoration glassDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
       color: bgSurface.withValues(alpha: 0.55),
-      borderRadius: borderRadius ?? BorderRadius.circular(16),
+      borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
     );
   }
