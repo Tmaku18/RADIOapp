@@ -47,10 +47,18 @@
 		<true/>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>We use your location to show nearby Industry Catalysts in the Pro-Directory.</string>
+		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+		<string>We use your location to show nearby Industry Catalysts in the Pro-Directory.</string>
 		<key>NSCameraUsageDescription</key>
 		<string>NETWORX uses your camera so you can broadcast live video when you go live.</string>
 		<key>NSMicrophoneUsageDescription</key>
 		<string>NETWORX uses your microphone so you can broadcast live audio when you go live.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>NETWORX needs access to your photos so you can upload artwork and share media.</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>NETWORX saves images to your photo library when you download or share media.</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>UIBackgroundModes</key>
 		<array>
 			<string>audio</string>
