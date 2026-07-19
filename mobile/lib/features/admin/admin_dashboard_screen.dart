@@ -60,6 +60,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     super.dispose();
   }
 
+  /// Runs [fn], returning null if it throws so an optional dashboard section
+  /// can degrade gracefully instead of failing the whole load.
+  Future<T?> _tryLoad<T>(Future<T> Function() fn) async {
+    try {
+      return await fn();
+    } catch (e) {
+      debugPrint('Admin dashboard: optional load failed: $e');
+      return null;
+    }
+  }
+
   Future<void> _loadInitial() async {
     setState(() {
       _loading = true;
@@ -71,11 +82,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final radios = await _admin.getRadios();
       final songs = await _admin.getSongs(limit: 100, status: 'all');
       final users = await _admin.getUsers(limit: 100);
-      final swipeCards = await _admin.getSwipeCards(limit: 100);
-      final feed = await _admin.getFeedMedia();
-      final fallback = await _admin.getFallbackSongsGrouped();
-      final freeRotation = await _admin.getSongsInFreeRotation();
-      final streamers = await _admin.getStreamerApplications();
+      // Non-critical sections: a single failing endpoint (e.g. feed-media)
+      // should not blank the entire dashboard, so fall back to current values.
+      final swipeCards =
+          await _tryLoad(() => _admin.getSwipeCards(limit: 100)) ?? _swipeCards;
+      final feed = await _tryLoad(() => _admin.getFeedMedia()) ?? _feedMedia;
+      final fallback =
+          await _tryLoad(() => _admin.getFallbackSongsGrouped()) ??
+              _fallbackGroups;
+      final freeRotation =
+          await _tryLoad(() => _admin.getSongsInFreeRotation()) ??
+              _freeRotationSongs;
+      final streamers =
+          await _tryLoad(() => _admin.getStreamerApplications()) ??
+              _streamerApplications;
 
       String? selectedRadioId = _selectedRadioId;
       List<AdminQueueItem> queue = const [];
