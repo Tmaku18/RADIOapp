@@ -148,7 +148,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
     setState(() => _submitting = true);
     try {
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isIOS) {
         final totalCents = option.totalCents;
         final productId = PlayBillingService.instance.songPlaysProductIdForPricing(
           plays: _selectedPlays!,
@@ -156,17 +156,26 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         );
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No Google Play product mapping found for $_selectedPlays placement(s) at '
+            'No store product mapping found for $_selectedPlays placement(s) at '
             '\$${option.totalDollars} (key: ${_selectedPlays!}:$totalCents).',
           );
         }
         final purchase =
             await PlayBillingService.instance.buyConsumable(productId);
-        await _payments.completeGooglePlayPurchase(
-          productId: purchase.productId,
-          purchaseToken: purchase.purchaseToken,
-          songId: widget.song.id,
-        );
+        if (Platform.isIOS) {
+          await _payments.completeAppStorePurchase(
+            productId: purchase.productId,
+            signedTransaction: purchase.purchaseToken,
+            transactionId: purchase.transactionId,
+            songId: widget.song.id,
+          );
+        } else {
+          await _payments.completeGooglePlayPurchase(
+            productId: purchase.productId,
+            purchaseToken: purchase.purchaseToken,
+            songId: widget.song.id,
+          );
+        }
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -338,7 +347,9 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
                           Text(
                             Platform.isAndroid
                                 ? 'Checkout on this device: Google Play in-app purchase.'
-                                : 'Checkout on this device: Stripe (card / Apple Pay when available).',
+                                : Platform.isIOS
+                                    ? 'Checkout on this device: Apple In-App Purchase.'
+                                    : 'Checkout on this device: Stripe Checkout.',
                             style: TextStyle(
                               color: surfaces.textMuted,
                               fontSize: 12,

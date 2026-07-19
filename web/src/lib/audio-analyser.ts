@@ -1,3 +1,5 @@
+import { isSafari } from '@/lib/browser-audio';
+
 export const ANALYSER_BARS = 32;
 
 export function createAnalyserBarsBuffer(bars = ANALYSER_BARS): Uint8Array {
@@ -127,6 +129,15 @@ function captureMediaElementStream(audio: HTMLMediaElement): MediaStream | null 
   return null;
 }
 
+/**
+ * createMediaElementSource steals element output into AudioContext. On Safari
+ * that often goes silent when the context is suspended (common after play()
+ * outside a fresh gesture stack). Never use it on Safari or mobile web.
+ */
+export function shouldAvoidMediaElementSource(): boolean {
+  return isMobileWeb() || isSafari();
+}
+
 function wireAnalyserTap(
   audio: HTMLMediaElement,
   slot: AnalyserSlot,
@@ -141,15 +152,15 @@ function wireAnalyserTap(
       slot.usesElementSource = false;
       return true;
     }
-    // Desktop fallback when captureStream is missing or returns a silent tap
-    // (common with some CDN/CORS setups). Mobile stays native-only so
-    // background playback and lock-screen audio are not hijacked.
-    if (!isMobileWeb()) {
+    // Desktop Chromium/Firefox fallback when captureStream is missing.
+    // Safari + mobile stay native-only so audio is not hijacked/silenced.
+    if (!shouldAvoidMediaElementSource()) {
       return wireElementSourceTap(audio, slot, ctx, an);
     }
     return false;
   }
 
+  if (shouldAvoidMediaElementSource()) return false;
   return wireElementSourceTap(audio, slot, ctx, an);
 }
 
@@ -187,9 +198,9 @@ export function disconnectAnalyserSlot(slot: AnalyserSlot): void {
 /** iOS Safari requires inline playback and often blocks audio until a user gesture. */
 export function configureMobileAudioElement(audio: HTMLAudioElement): void {
   audio.preload = 'auto';
-  // Desktop FFT taps need CORS; on mobile web, anonymous mode can block playback on
-  // some CDN edges when headers are missing — native playback does not need it.
-  if (!isMobileWeb()) {
+  // Desktop Chromium FFT taps need CORS. Safari (and mobile web) often fail
+  // playback when crossOrigin=anonymous is set without matching CDN ACAO.
+  if (!isMobileWeb() && !isSafari()) {
     audio.crossOrigin = 'anonymous';
   }
   audio.setAttribute('playsinline', '');
@@ -287,7 +298,7 @@ export function ensureMediaElementAnalyser(
     an.smoothingTimeConstant = 0.62;
 
     const wired =
-      opts?.preferElementSource && !isMobileWeb()
+      opts?.preferElementSource && !shouldAvoidMediaElementSource()
         ? wireElementSourceTap(audio, slot, ctx, an)
         : wireAnalyserTap(audio, slot, ctx, an);
 

@@ -86,6 +86,23 @@ class PaymentsService {
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
 
+  Future<Map<String, dynamic>> completeAppStorePurchase({
+    required String productId,
+    String? signedTransaction,
+    String? transactionId,
+    String? songId,
+  }) async {
+    final res = await _api.post('payments/app-store/complete', {
+      'productId': productId,
+      if (signedTransaction != null && signedTransaction.isNotEmpty)
+        'signedTransaction': signedTransaction,
+      if (transactionId != null && transactionId.isNotEmpty)
+        'transactionId': transactionId,
+      if (songId != null) 'songId': songId,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
   Future<Map<String, dynamic>> buySong({
     required String songId,
     String? successUrl,

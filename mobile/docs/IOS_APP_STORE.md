@@ -27,7 +27,7 @@ Skip any step you already finished.
 4. On **Capabilities**, enable only:
    - **Push Notifications**
    - **Sign In with Apple** → Configure → Primary App ID → Save
-   - **In-App Purchase**
+   - **In-App Purchase** (product + server setup: [`APP_STORE_IAP.md`](./APP_STORE_IAP.md))
 5. **App Services** and **Capability Requests:** leave empty / no requests.
 6. Continue → Register.
 

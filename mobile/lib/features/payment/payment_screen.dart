@@ -56,19 +56,27 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      if (Platform.isAndroid) {
+      if (Platform.isAndroid || Platform.isIOS) {
         final productId = PlayBillingService.instance.creditProductIdFor(credits);
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No Google Play product mapping found for $credits credits.',
+            'No store product mapping found for $credits credits.',
           );
         }
         final purchase =
             await PlayBillingService.instance.buyConsumable(productId);
-        await _payments.completeGooglePlayPurchase(
-          productId: purchase.productId,
-          purchaseToken: purchase.purchaseToken,
-        );
+        if (Platform.isIOS) {
+          await _payments.completeAppStorePurchase(
+            productId: purchase.productId,
+            signedTransaction: purchase.purchaseToken,
+            transactionId: purchase.transactionId,
+          );
+        } else {
+          await _payments.completeGooglePlayPurchase(
+            productId: purchase.productId,
+            purchaseToken: purchase.purchaseToken,
+          );
+        }
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -80,7 +88,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
 
-      // Step 1: Create payment intent on backend
+      // Non-mobile fallback: Stripe Payment Sheet
       final response = await _payments.createIntent(
         amountCents: price,
         credits: credits,
@@ -188,7 +196,9 @@ class _PaymentScreenState extends State<PaymentScreen> {
                 Text(
                   Platform.isAndroid
                       ? 'On this device, credit packs are purchased with Google Play.'
-                      : 'On this device, credit packs use Stripe (card or Apple Pay when available).',
+                      : Platform.isIOS
+                          ? 'On this device, credit packs are purchased with Apple In-App Purchase.'
+                          : 'On this device, credit packs use Stripe Checkout.',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),

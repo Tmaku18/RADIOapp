@@ -257,7 +257,7 @@ export function DimensionRadioBar({ player }: DimensionRadioBarProps) {
                 <FastForward className="w-4 h-4" />
               </button>
             ) : null}
-            <div className="hidden md:flex items-end h-6 ml-2 w-[72px] shrink-0">
+            <div className="flex items-end h-6 ml-2 w-[72px] shrink-0">
               <FrequencyVisualizer
                 playing={player.isPlaying}
                 barCount={MINI_VBAR_COUNT}

@@ -1,5 +1,6 @@
 import Hls from 'hls.js';
 import { createClient, type RealtimeChannel, type SupabaseClient } from '@supabase/supabase-js';
+import { canPlayNativeHls } from '@/lib/browser-audio';
 
 export type DjOverlayState = {
   active: boolean;
@@ -137,7 +138,11 @@ export function attachOverlayHls(
     if (autoPlay) overlayAudio.play().catch(() => undefined);
   };
 
-  if (hlsUrl.includes('.m3u8') && Hls.isSupported()) {
+  if (hlsUrl.includes('.m3u8') && canPlayNativeHls(overlayAudio)) {
+    overlayAudio.src = hlsUrl;
+    overlayAudio.addEventListener('canplay', startPlayback, { once: true });
+    if (autoPlay) overlayAudio.play().catch(() => undefined);
+  } else if (hlsUrl.includes('.m3u8') && Hls.isSupported()) {
     const hls = new Hls({
       enableWorker: true,
       lowLatencyMode: true,
