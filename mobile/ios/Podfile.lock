@@ -1,0 +1,66 @@
+PODS:
+  - Flutter (1.0.0)
+  - flutter_angle (0.4.0):
+    - Flutter
+    - FlutterAngle (~> 0.0.8)
+    - FlutterMacOS
+  - flutter_inappwebview_ios (0.0.1):
+    - Flutter
+    - flutter_inappwebview_ios/Core (= 0.0.1)
+    - OrderedSet (~> 6.0.3)
+  - flutter_inappwebview_ios/Core (0.0.1):
+    - Flutter
+    - OrderedSet (~> 6.0.3)
+  - flutter_webrtc (1.4.0):
+    - Flutter
+    - WebRTC-SDK (= 144.7559.09)
+  - FlutterAngle (0.0.8)
+  - OrderedSet (6.0.3)
+  - sign_in_with_apple (0.0.1):
+    - Flutter
+  - three_js_sensors (0.2.0):
+    - Flutter
+  - WebRTC-SDK (144.7559.09)
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - flutter_angle (from `.symlinks/plugins/flutter_angle/darwin`)
+  - flutter_inappwebview_ios (from `.symlinks/plugins/flutter_inappwebview_ios/ios`)
+  - flutter_webrtc (from `.symlinks/plugins/flutter_webrtc/ios`)
+  - sign_in_with_apple (from `.symlinks/plugins/sign_in_with_apple/ios`)
+  - three_js_sensors (from `.symlinks/plugins/three_js_sensors/ios`)
+
+SPEC REPOS:
+  trunk:
+    - FlutterAngle
+    - OrderedSet
+    - WebRTC-SDK
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  flutter_angle:
+    :path: ".symlinks/plugins/flutter_angle/darwin"
+  flutter_inappwebview_ios:
+    :path: ".symlinks/plugins/flutter_inappwebview_ios/ios"
+  flutter_webrtc:
+    :path: ".symlinks/plugins/flutter_webrtc/ios"
+  sign_in_with_apple:
+    :path: ".symlinks/plugins/sign_in_with_apple/ios"
+  three_js_sensors:
+    :path: ".symlinks/plugins/three_js_sensors/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  flutter_angle: 94259dda819a90a7d7f9c4993c4eab469f673898
+  flutter_inappwebview_ios: 6f63631e2c62a7c350263b13fa5427aedefe81d4
+  flutter_webrtc: ea1e854207d820fc0538ffa5632eb1e9193b0efc
+  FlutterAngle: c810891af800750361b1d0e7cc944f2338d5ae18
+  OrderedSet: e539b66b644ff081c73a262d24ad552a69be3a94
+  sign_in_with_apple: f3bf75217ea4c2c8b91823f225d70230119b8440
+  three_js_sensors: 2d72494c9196911aee0bbb7751100f5f157f60d2
+  WebRTC-SDK: e6006119cd730d6315d875e4a421b6cc8bb88833
+
+PODFILE CHECKSUM: 4b015915ec662986b54bf30ab778da63f7dda016
+
+COCOAPODS: 1.17.0
