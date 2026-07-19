@@ -459,7 +459,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                                     decoration: BoxDecoration(
                                       color: theme.colorScheme.primary
                                           .withValues(alpha: 0.2),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
                                       'HOST',

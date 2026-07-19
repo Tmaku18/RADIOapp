@@ -325,7 +325,7 @@ class _LiveSessionCard extends StatelessWidget {
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: const Text(
                           'LIVE',
@@ -345,7 +345,7 @@ class _LiveSessionCard extends StatelessWidget {
                             horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.black54,
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
                           '${session.currentViewers} viewers',

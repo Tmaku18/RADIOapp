@@ -214,7 +214,7 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
     return Row(
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           child: (data.artworkUrl != null && data.artworkUrl!.isNotEmpty)
               ? Image.network(
                   data.artworkUrl!,

@@ -242,7 +242,7 @@ class _LiveChatPanelState extends State<LiveChatPanel> {
                                               : theme.colorScheme.primary
                                                   .withValues(alpha: 0.2),
                                           borderRadius:
-                                              BorderRadius.circular(4),
+                                              BorderRadius.circular(999),
                                         ),
                                         child: Text(
                                           'HOST',
