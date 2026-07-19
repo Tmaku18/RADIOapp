@@ -14,7 +14,7 @@ import {
 import Hls from 'hls.js';
 import type { PlaybackSource, PlaybackState, PlaybackTrack } from './types';
 import { initialPlaybackState } from './types';
-import { canPlayNativeHls, isIosSafari, isSafari } from '@/lib/browser-audio';
+import { canPlayNativeHls, isIosSafari } from '@/lib/browser-audio';
 import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
@@ -472,8 +472,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       if (!pair) return;
       const audio = pair[slot];
 
-      // Safari often blocks playback when crossOrigin=anonymous lacks CDN CORS.
-      if (!isMobileWeb() && !isSafari()) {
+      // Desktop (incl. Safari) needs CORS-clean media for a real FFT tap.
+      // Mobile web can fail playback with crossOrigin set, so skip it there.
+      if (!isMobileWeb()) {
         audio.crossOrigin = 'anonymous';
       } else {
         audio.removeAttribute('crossorigin');
@@ -881,8 +882,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     let raf = 0;
     const tick = () => {
       const slot = activeSlotRef.current;
-      const an = analyserSlotsRef.current[slot]?.analyser;
+      const slotState = analyserSlotsRef.current[slot];
+      const an = slotState?.analyser;
       const activeAudio = audioPairRef.current?.[slot];
+      // When audio is routed through the AudioContext (element-source FFT), a
+      // suspended context means silence. Keep it resumed while a tap is active.
+      if (slotState?.usesElementSource && analyserCtxRef.current?.state === 'suspended') {
+        void unlockWebAudioContext(analyserCtxRef);
+      }
       const streamActive =
         stateRef.current.isPlaying &&
         !stateRef.current.pausedAt &&
@@ -908,17 +915,17 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         }
         if (peak === 0) {
           analyserZeroFramesRef.current += 1;
-          // Dead FFT tap: keep the equalizer alive with simulated bars, and on
-          // Chromium/Firefox only try a one-shot MediaElementSource recovery.
+          // Dead FFT tap: keep the equalizer alive with simulated bars while we
+          // attempt a one-shot element-source recovery on desktop (incl. Safari).
           if (analyserZeroFramesRef.current >= 30) {
             fillSimulatedBars(barsRef.current, performance.now() / 1000);
           }
           if (
             analyserZeroFramesRef.current === 90 &&
             activeAudio &&
+            slotState &&
             !shouldAvoidMediaElementSource()
           ) {
-            const slotState = analyserSlotsRef.current[slot];
             refreshMediaElementAnalyser(
               activeAudio,
               slotState,
