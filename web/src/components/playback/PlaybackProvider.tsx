@@ -27,6 +27,7 @@ import {
 } from '@/lib/dj-booth-listener';
 import { resolveTrackArtworkUrl } from '@/lib/media-artwork';
 import { setLastRadioStationId } from '@/lib/playback-preferences';
+import { createSafariFftTap, type SafariFftTap } from '@/lib/safari-fft-tap';
 import {
   ANALYSER_BARS,
   configureMobileAudioElement,
@@ -188,6 +189,9 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     a: {},
     b: {},
   });
+  // Desktop-Safari-only real-FFT tap (muted second element). See safari-fft-tap.
+  const safariFftTapRef = useRef<SafariFftTap | null>(null);
+  const useSafariFftTapRef = useRef(false);
   const playAudioRef = useRef<(audio: HTMLAudioElement) => Promise<void>>(() =>
     Promise.resolve(),
   );
@@ -480,6 +484,15 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         audio.removeAttribute('crossorigin');
       }
       disconnectAnalyserSlot(analyserSlotsRef.current[slot]);
+
+      // Desktop Safari: point the muted analysis element at the same track so
+      // its real FFT stays in sync. Never touches the audible primary element.
+      if (useSafariFftTapRef.current) {
+        if (!safariFftTapRef.current) {
+          safariFftTapRef.current = createSafariFftTap(analyserCtxRef);
+        }
+        safariFftTapRef.current.ensureUrl(url);
+      }
 
       destroyHlsForSlot(slot);
       audio.removeAttribute('src');
@@ -863,6 +876,14 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     if (typeof document === 'undefined') return;
     const unlock = () => {
       void unlockWebAudioContext(analyserCtxRef);
+      // Desktop Safari: this gesture is our only chance to create+resume the
+      // context and start the muted analysis element for real FFT.
+      if (useSafariFftTapRef.current) {
+        if (!safariFftTapRef.current) {
+          safariFftTapRef.current = createSafariFftTap(analyserCtxRef);
+        }
+        safariFftTapRef.current.prime();
+      }
     };
     const opts: AddEventListenerOptions = { passive: true, capture: true };
     document.addEventListener('touchstart', unlock, opts);
@@ -879,11 +900,18 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
 
   // FFT visualizer loop — samples active audio slot or idle motion when paused
   useEffect(() => {
+    // Desktop Safari can't tap the primary element without breaking playback, so
+    // use a muted second element for a real FFT. iOS/mobile stay on simulated bars.
+    useSafariFftTapRef.current = isSafari() && !isMobileWeb();
+    if (useSafariFftTapRef.current && !safariFftTapRef.current) {
+      safariFftTapRef.current = createSafariFftTap(analyserCtxRef);
+    }
+
     let raf = 0;
     const tick = () => {
       const slot = activeSlotRef.current;
       const slotState = analyserSlotsRef.current[slot];
-      const an = slotState?.analyser;
+      let an = slotState?.analyser;
       const activeAudio = audioPairRef.current?.[slot];
       // When audio is routed through the AudioContext (element-source FFT), a
       // suspended context means silence. Keep it resumed while a tap is active.
@@ -900,6 +928,16 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
         !activeAudio.ended &&
         activeAudio.readyState >= 2;
       const playing = streamActive && elementPlaying;
+
+      // Desktop Safari: drive the muted second element and read its real FFT.
+      if (useSafariFftTapRef.current) {
+        const tap = safariFftTapRef.current;
+        if (tap) {
+          tap.sync(activeAudio ?? null, playing);
+          const tapAnalyser = tap.analyser();
+          if (tapAnalyser) an = tapAnalyser;
+        }
+      }
 
       if (an && playing) {
         if (rawAnalyserDataRef.current.length !== an.frequencyBinCount) {
@@ -959,7 +997,11 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      safariFftTapRef.current?.destroy();
+      safariFftTapRef.current = null;
+    };
   }, []);
 
   const loadTrackImmediate = useCallback(
