@@ -77,7 +77,7 @@ ThemeData buildNetworxTheme({
     brightness: brightness,
     colorScheme: scheme,
     scaffoldBackgroundColor: bg,
-    dividerColor: border,
+    dividerColor: isDark ? Colors.white.withValues(alpha: 0.07) : border,
   );
 
   // Typography: Dimension / Emergent UI — Unbounded headings, Outfit body.
@@ -138,7 +138,8 @@ ThemeData buildNetworxTheme({
       ),
     ),
     dividerTheme: DividerThemeData(
-      color: border,
+      // Soft hairline instead of a hard edge, to match the web's neon breaks.
+      color: isDark ? Colors.white.withValues(alpha: 0.07) : border,
       thickness: 1,
       space: 1,
     ),

@@ -132,6 +132,10 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                   onExploreArtists: _goToProNetworx,
                   onLogin: _goToLogin,
                 ),
+              const Padding(
+                padding: EdgeInsets.fromLTRB(20, 4, 20, 12),
+                child: NeonLine(),
+              ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                 child: Column(

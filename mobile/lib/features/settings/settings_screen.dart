@@ -8,6 +8,7 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/models/user.dart' as app_user;
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Settings screen with Instagram/Twitch-style sectioned list:
 /// Account, Preferences, Notifications, Security & Privacy, Payments,
@@ -698,20 +699,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
-          child: Text(
-            title.toUpperCase(),
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.8,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
+        DimensionSectionHeader(
+          title: title,
+          padding: const EdgeInsets.fromLTRB(16, 20, 16, 10),
         ),
         ...tiles,
-        const Divider(height: 1),
       ],
     );
   }

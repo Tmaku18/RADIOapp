@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../core/theme/dimension_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_feed_post_card.dart';
 
 /// Networks Radio "Social" tab — a read-only reader for the Pro-Networx feed.
@@ -122,11 +124,13 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
         children: [
           Container(
             width: double.infinity,
+            margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.35),
-              border: Border(
-                bottom: BorderSide(color: scheme.outlineVariant),
+              color: scheme.primaryContainer.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.08),
               ),
             ),
             child: Row(
@@ -156,6 +160,10 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                 ),
               ],
             ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
+            child: NeonLine(),
           ),
           Expanded(child: _buildBody()),
         ],

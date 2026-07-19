@@ -3,6 +3,7 @@ export 'dimension_headline_text.dart';
 export 'dimension_marquee.dart';
 export 'dimension_reveal.dart';
 export 'dimension_screen_shell.dart';
+export 'dimension_section_header.dart';
 export 'dimension_surface.dart';
 export 'dimension_typography.dart';
 export 'cyber_backdrop.dart';
