@@ -14,6 +14,7 @@ import '../../core/services/refinery_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
 
@@ -620,7 +621,7 @@ class _PlayFullButton extends StatelessWidget {
     final artwork = (song.artworkUrl ?? '').trim();
     return InkWell(
       onTap: isPreparing ? null : onPressed,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
       child: SizedBox(
         width: 48,
         height: 48,
@@ -628,7 +629,7 @@ class _PlayFullButton extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
               child: artwork.isNotEmpty
                   ? Image.network(
                       artwork,
@@ -646,7 +647,7 @@ class _PlayFullButton extends StatelessWidget {
             DecoratedBox(
               decoration: BoxDecoration(
                 color: Colors.black.withValues(alpha: isActive ? 0.45 : 0.35),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
               ),
               child: Center(
                 child: isPreparing

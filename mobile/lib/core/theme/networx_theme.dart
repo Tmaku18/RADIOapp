@@ -127,7 +127,9 @@ ThemeData buildNetworxTheme({
       iconTheme: IconThemeData(color: textPrimary),
     ),
     cardTheme: CardThemeData(
-      color: surface,
+      // Dark: translucent so the app-wide CyberBackdrop glow shows through
+      // (glass feel without per-card blur). Light: keep opaque white surfaces.
+      color: isDark ? surface.withValues(alpha: 0.62) : surface,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(

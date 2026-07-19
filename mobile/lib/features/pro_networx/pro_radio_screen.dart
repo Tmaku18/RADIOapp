@@ -44,14 +44,16 @@ class ProRadioScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: cs.surface,
+                      color: theme.brightness == Brightness.dark
+                          ? cs.surface.withValues(alpha: 0.62)
+                          : cs.surface,
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: cs.outlineVariant),
                     ),
                     child: Row(
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(12),
                           child: SizedBox(
                             width: 64,
                             height: 64,

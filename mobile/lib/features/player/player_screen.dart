@@ -1190,10 +1190,9 @@ class _NoContent extends StatelessWidget {
     final surfaces = context.networxSurfaces;
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(18),
-          child: Column(
+      child: GlassCard(
+        padding: const EdgeInsets.all(18),
+        child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text('📻', style: TextStyle(fontSize: 56)),
@@ -1224,7 +1223,6 @@ class _NoContent extends StatelessWidget {
               ),
             ],
           ),
-        ),
       ),
     );
   }

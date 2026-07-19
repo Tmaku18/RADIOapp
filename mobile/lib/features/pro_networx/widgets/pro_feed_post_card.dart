@@ -146,12 +146,13 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final post = widget.post;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: cs.surface,
+        color: isDark ? cs.surface.withValues(alpha: 0.62) : cs.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.3)),
       ),

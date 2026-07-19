@@ -13,6 +13,7 @@ import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../core/theme/dimension_tokens.dart';
 import 'discover_audio_tab.dart';
 
 class DiscoveryScreen extends StatefulWidget {
@@ -674,7 +675,9 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
               leading:
                   item.backgroundUrl != null && item.backgroundUrl!.isNotEmpty
                   ? ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(
+                        DimensionTokens.tileRadius,
+                      ),
                       child: Image.network(
                         item.backgroundUrl!,
                         width: 44,
@@ -1061,7 +1064,9 @@ class _LibraryTabState extends State<_LibraryTab> {
                         Row(
                           children: [
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: BorderRadius.circular(
+                                DimensionTokens.tileRadius,
+                              ),
                               child:
                                   (item.artworkUrl != null &&
                                       item.artworkUrl!.isNotEmpty)
@@ -1204,7 +1209,7 @@ class _LibraryTabState extends State<_LibraryTab> {
           return Card(
             child: ListTile(
               leading: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
                 child:
                     (item.artworkUrl != null && item.artworkUrl!.isNotEmpty)
                     ? Image.network(
