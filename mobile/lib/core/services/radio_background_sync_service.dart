@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/widgets.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../brand/brand_assets.dart';
+import '../env.dart';
 import '../models/track.dart';
 import '../models/track_fetch_result.dart';
 import '../radio/radio_sync.dart';
@@ -19,6 +21,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   static final RadioBackgroundSyncService instance =
       RadioBackgroundSyncService._();
 
+  static const _selectedStationPrefKey = 'selected_radio_station_id';
+  static const _defaultBootstrapStationId = 'us-ready-now-rap';
+
   final RadioService _radio = RadioService();
   final AudioPlayer _player = AudioPlayerService().player;
 
@@ -28,6 +33,8 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
   bool _started = false;
   bool _syncInFlight = false;
   bool _advanceInFlight = false;
+  bool _bootstrapAttempted = false;
+  bool _bootstrapInFlight = false;
   DateTime _lastSyncSeekAt = DateTime.fromMillisecondsSinceEpoch(0);
   RecentlyAdvancedFrom? _recentlyAdvancedFrom;
   bool _appInBackground = false;
@@ -56,12 +63,69 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     return _player.processingState != ProcessingState.idle;
   }
 
+  bool get _hasRadioSource {
+    final tag = _player.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return false;
+    return tag.extras?['source'] == 'radio';
+  }
+
+  Future<String> _resolveBootstrapStationId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stored = prefs.getString(_selectedStationPrefKey)?.trim();
+      if (stored != null && stored.isNotEmpty) {
+        return stored == 'us-rap' ? 'us-ready-now-rap' : stored;
+      }
+    } catch (_) {
+      // Fall through to env/default station.
+    }
+    return env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
+  }
+
+  /// Cold-start bootstrap: load and play live radio when the app opens, before
+  /// any screen mounts (mirrors web RadioBackgroundSync bar bootstrap).
+  Future<void> _bootstrapLiveRadioIfIdle() async {
+    if (_bootstrapAttempted || _bootstrapInFlight) return;
+    if (_hasRadioSource) return;
+    if (AudioPlayerService.handler.userPaused) return;
+
+    _bootstrapInFlight = true;
+    _bootstrapAttempted = true;
+    try {
+      final radioId = await _resolveBootstrapStationId();
+      await StationEventsService().switchStation(radioId);
+      RadioPresenceService.instance.configure(radioId: radioId);
+
+      final res = await _radio.getCurrentTrack(radioId: radioId);
+      if (res.noContent || res.track == null) {
+        _bootstrapAttempted = false;
+        return;
+      }
+      final track = res.track!;
+      if (track.audioUrl.trim().isEmpty) {
+        _bootstrapAttempted = false;
+        return;
+      }
+
+      await _loadTrack(track, res, reportPlay: true, radioId: radioId);
+      if (track.transportPaused && _player.playing) {
+        await _player.pause();
+      }
+      _schedulePoll();
+    } catch (_) {
+      _bootstrapAttempted = false;
+    } finally {
+      _bootstrapInFlight = false;
+    }
+  }
+
   void start() {
     if (_started) return;
     _started = true;
     WidgetsBinding.instance.addObserver(this);
     _playerSub = _player.playerStateStream.listen(_onPlayerState);
     _boothSub = StationEventsService().djBoothStream.listen(_onDjBoothEvent);
+    unawaited(_bootstrapLiveRadioIfIdle());
     _schedulePoll();
   }
 
@@ -208,8 +272,10 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     Track track,
     TrackFetchResult result, {
     required bool reportPlay,
+    String? radioId,
   }) async {
-    final radioId = _radioId ?? RadioService.defaultRadioId;
+    final effectiveRadioId =
+        radioId ?? _radioId ?? env('RADIO_STATION_ID') ?? _defaultBootstrapStationId;
     try {
       await AudioPlayerService().loadSource(
         AudioSource.uri(
@@ -221,7 +287,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
             artUri: BrandAssets.mediaArtUri(track.artworkUrl),
             extras: {
               'source': 'radio',
-              'radioId': radioId,
+              'radioId': effectiveRadioId,
               'songId': track.id,
             },
           ),
@@ -241,7 +307,7 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       await _player.play();
     }
     if (reportPlay) {
-      unawaited(_radio.reportPlay(track.id, radioId: radioId));
+      unawaited(_radio.reportPlay(track.id, radioId: effectiveRadioId));
     }
   }
 }

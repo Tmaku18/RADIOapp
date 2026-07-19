@@ -22,7 +22,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   int _lastRealIndex = 0;
   app_user.User? _user;
-  bool _isLoading = true;
 
   @override
   void initState() {
@@ -37,15 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         setState(() {
           _user = user;
-          _isLoading = false;
         });
       }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    } catch (_) {
+      // Keep default navigation; profile can load later from other screens.
     }
   }
 
@@ -342,14 +336,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Map indices based on role — bodies live in [IndexedStack] below.
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex.clamp(0, isArtist ? 4 : 3),
