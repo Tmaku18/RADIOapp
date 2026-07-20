@@ -621,7 +621,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   else
                     ...songs.map((s) {
                       final sid = '${s['id']}';
-                      final st = '${s['status'] ?? ''}';
+                      final st = '${s['status'] ?? ''}'.toLowerCase();
                       return Card(
                         child: ListTile(
                           title: Text('${s['title'] ?? 'Untitled'}'),
@@ -1075,7 +1075,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               : _songField(song, 'artist_name', 'artistName');
           final status = _songField(song, 'status').isEmpty
               ? 'unknown'
-              : _songField(song, 'status');
+              : _songField(song, 'status').toLowerCase();
           final duration = song['duration_seconds'] ?? song['durationSeconds'];
           final audioUrl = _songField(song, 'audio_url', 'audioUrl');
           final isPreviewing =
@@ -1105,24 +1105,27 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         label: Text(isPreviewing ? 'Pause' : 'Play'),
                       ),
-                      OutlinedButton(
-                        onPressed: _songActionBusy
-                            ? null
-                            : () => _runSongAction(
-                                  () => _admin.updateSongStatus(
-                                    id,
-                                    'approved',
+                      // Hide once decided — Approve gone when approved, Reject when rejected.
+                      if (status != 'approved')
+                        OutlinedButton(
+                          onPressed: _songActionBusy
+                              ? null
+                              : () => _runSongAction(
+                                    () => _admin.updateSongStatus(
+                                      id,
+                                      'approved',
+                                    ),
+                                    'Song approved.',
                                   ),
-                                  'Song approved.',
-                                ),
-                        child: const Text('Approve'),
-                      ),
-                      OutlinedButton(
-                        onPressed: _songActionBusy
-                            ? null
-                            : () => _rejectSong(id, title),
-                        child: const Text('Reject'),
-                      ),
+                          child: const Text('Approve'),
+                        ),
+                      if (status != 'rejected')
+                        OutlinedButton(
+                          onPressed: _songActionBusy
+                              ? null
+                              : () => _rejectSong(id, title),
+                          child: const Text('Reject'),
+                        ),
                       OutlinedButton(
                         onPressed: _songActionBusy
                             ? null
