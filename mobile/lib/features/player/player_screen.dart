@@ -33,6 +33,7 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
+import 'widgets/butterfly_swarm_backdrop.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
@@ -1101,7 +1102,7 @@ class _PlayerScreenState extends State<PlayerScreen>
             body: Stack(
               fit: StackFit.expand,
               children: [
-                // Full-bleed cover art with the same float/tilt animation.
+                // Full-bleed cover art, or Networx butterfly swarm when none.
                 if (coverUrl != null)
                   Positioned.fill(
                     child: FloatingAlbumScene(
@@ -1112,22 +1113,28 @@ class _PlayerScreenState extends State<PlayerScreen>
                     ),
                   )
                 else if (showCoverBackdrop)
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: context.networxSurfaces.signatureGradient,
-                      ),
+                  const Positioned.fill(
+                    child: IgnorePointer(
+                      child: ButterflySwarmBackdrop(butterflyCount: 22),
                     ),
                   ),
-                // Pearlescent blue wash so the UI stays readable.
+                // Pearlescent blue wash so the UI stays readable over covers.
+                // Lighter over the swarm so the space field still reads.
                 if (showCoverBackdrop)
-                  const Positioned.fill(
-                    child: IgnorePointer(child: _PearlescentBlueWash()),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: coverUrl != null ? 1.0 : 0.45,
+                        child: const _PearlescentBlueWash(),
+                      ),
+                    ),
                   ),
                 // Keep cyber grid + glow orbs animating over the cover.
                 Positioned.fill(
                   child: Opacity(
-                    opacity: showCoverBackdrop ? 0.42 : 1.0,
+                    opacity: coverUrl != null
+                        ? 0.42
+                        : (showCoverBackdrop ? 0.18 : 1.0),
                     child: const CyberBackdrop(),
                   ),
                 ),
@@ -1505,16 +1512,16 @@ class _PlayerBody extends StatelessWidget {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              DecoratedBox(
-                decoration: BoxDecoration(gradient: surfaces.signatureGradient),
-              ),
               if (artworkUrl != null)
                 FloatingAlbumScene(
                   key: ValueKey(artworkUrl),
                   imageUrl: artworkUrl,
                 )
               else
-                Image.asset(BrandAssets.logoCyanAsset, fit: BoxFit.cover),
+                const ButterflySwarmBackdrop(
+                  butterflyCount: 12,
+                  intensity: 0.9,
+                ),
               if (track.isLiveBroadcast)
                 Positioned(
                   top: 12,
