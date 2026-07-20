@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/services/api_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class CreditsScreen extends StatefulWidget {
   const CreditsScreen({super.key});
@@ -90,21 +91,18 @@ class _CreditsScreenState extends State<CreditsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Transaction history'),
-        automaticallyImplyLeading: true,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadData,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
+    return DimensionScreenShell(
+      title: 'Transaction history',
+      showNeonLine: true,
+      loading: _isLoading,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loadData,
+          tooltip: 'Refresh',
+        ),
+      ],
+      body: _error != null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,

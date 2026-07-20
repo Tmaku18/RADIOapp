@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/services/api_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/auth/auth_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class LiveSession {
   final String sessionId;
@@ -168,23 +169,21 @@ class _LiveSessionsScreenState extends State<LiveSessionsScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.djMode
-              ? 'Live DJ'
-              : widget.performanceMode
-                  ? 'Live Performances'
-                  : 'Live',
+    final title = widget.djMode
+        ? 'Live DJ'
+        : widget.performanceMode
+            ? 'Live Performances'
+            : 'Live';
+    return DimensionScreenShell(
+      title: title,
+      showNeonLine: true,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
         ),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      ],
       floatingActionButton: _special && _canHost
           ? FloatingActionButton.extended(
               onPressed: () async {

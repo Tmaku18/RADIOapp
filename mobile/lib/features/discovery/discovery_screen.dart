@@ -14,13 +14,21 @@ import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import 'discover_audio_tab.dart';
 
 class DiscoveryScreen extends StatefulWidget {
-  const DiscoveryScreen({super.key, this.onOpenNavDrawer});
+  const DiscoveryScreen({
+    super.key,
+    this.onOpenNavDrawer,
+    this.initialTabIndex = 0,
+  });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
   final VoidCallback? onOpenNavDrawer;
+
+  /// 0 Swipe · 1 Saved · 2 Artists · 3 Library (web `/browse/saved` ≈ Library).
+  final int initialTabIndex;
 
   @override
   State<DiscoveryScreen> createState() => _DiscoveryScreenState();
@@ -277,13 +285,15 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return DefaultTabController(
+    final embedded = widget.onOpenNavDrawer != null;
+    final tabScaffold = DefaultTabController(
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
       length: 4,
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
-          leading: widget.onOpenNavDrawer != null
+          leading: embedded
               ? IconButton(
                   icon: const Icon(Icons.menu),
                   tooltip: 'Menu',
@@ -584,6 +594,14 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
           ],
         ),
       ),
+    );
+
+    // Pushed from the drawer (no home backdrop) — wrap in Dimension chrome.
+    if (embedded) return tabScaffold;
+    return DimensionScreenShell(
+      title: null,
+      showNeonLine: false,
+      body: tabScaffold,
     );
   }
 }

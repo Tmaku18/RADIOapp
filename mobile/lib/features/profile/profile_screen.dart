@@ -10,6 +10,7 @@ import '../../core/models/user.dart' as app_user;
 import '../../core/models/follow_models.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/services/users_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -694,13 +695,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _user == null
+    return DimensionScreenShell(
+      title: 'Profile',
+      showNeonLine: true,
+      loading: _isLoading,
+      body: _user == null
               ? const Center(child: Text('Failed to load profile'))
               : ListView(
                   padding: const EdgeInsets.all(16),

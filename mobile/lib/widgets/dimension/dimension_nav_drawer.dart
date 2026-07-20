@@ -35,8 +35,8 @@ class DimensionNavDrawer extends StatefulWidget {
   /// Switch the home shell to the given tab index.
   final ValueChanged<int> onSelectTab;
 
-  /// Push a named route from [AppRoutes].
-  final ValueChanged<String> onOpenRoute;
+  /// Push a named route from [AppRoutes] (optional [arguments] for tab indexes).
+  final void Function(String route, [Object? arguments]) onOpenRoute;
 
   final VoidCallback onSignOut;
 
@@ -54,9 +54,9 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
     widget.onSelectTab(index);
   }
 
-  void _openRoute(String route) {
+  void _openRoute(String route, [Object? arguments]) {
     Navigator.of(context).pop();
-    widget.onOpenRoute(route);
+    widget.onOpenRoute(route, arguments);
   }
 
   List<_NavSpec> get _primaryItems {
@@ -84,10 +84,12 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         label: 'Live Performances',
         route: AppRoutes.livePerformances,
       ),
+      // Web `/browse/saved` — song library tab inside Discover (not Pro posts).
       const _NavSpec(
         icon: Icons.library_music_outlined,
         label: 'Library',
-        route: AppRoutes.savedPosts,
+        route: AppRoutes.discovery,
+        routeArgs: 3,
       ),
       const _NavSpec(
         icon: Icons.people_alt_outlined,
@@ -160,7 +162,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                         if (item.tabIndex != null) {
                           _selectTab(item.tabIndex!);
                         } else if (item.route != null) {
-                          _openRoute(item.route!);
+                          _openRoute(item.route!, item.routeArgs);
                         }
                       },
                     ),
@@ -246,12 +248,14 @@ class _NavSpec {
     required this.label,
     this.tabIndex,
     this.route,
+    this.routeArgs,
   });
 
   final IconData icon;
   final String label;
   final int? tabIndex;
   final String? route;
+  final Object? routeArgs;
 }
 
 class _LogoCard extends StatelessWidget {

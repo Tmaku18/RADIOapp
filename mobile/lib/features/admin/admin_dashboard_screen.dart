@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
 import '../../core/services/admin_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -284,48 +285,56 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: Text('Admin Dashboard')),
-        body: Center(child: CircularProgressIndicator()),
+      return const DimensionScreenShell(
+        title: 'Admin Dashboard',
+        showNeonLine: true,
+        loading: true,
+        body: SizedBox.shrink(),
       );
     }
     if (_error != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Admin Dashboard')),
+      return DimensionScreenShell(
+        title: 'Admin Dashboard',
+        showNeonLine: true,
         body: Center(child: Text(_error!)),
       );
     }
 
     return DefaultTabController(
       length: 7,
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Admin Dashboard'),
-          actions: [
-            IconButton(onPressed: _loadInitial, icon: const Icon(Icons.refresh)),
-          ],
-          bottom: const TabBar(
-            isScrollable: true,
-            tabs: [
-              Tab(text: 'Overview'),
-              Tab(text: 'Songs'),
-              Tab(text: 'Queue'),
-              Tab(text: 'Users'),
-              Tab(text: 'Swipe/Feed'),
-              Tab(text: 'Fallback/Rotation'),
-              Tab(text: 'Streamers'),
-            ],
-          ),
-        ),
-        body: TabBarView(
+      child: DimensionScreenShell(
+        title: 'Admin Dashboard',
+        showNeonLine: true,
+        actions: [
+          IconButton(onPressed: _loadInitial, icon: const Icon(Icons.refresh)),
+        ],
+        body: Column(
           children: [
-            _buildOverviewTab(),
-            _buildSongsTab(),
-            _buildQueueTab(),
-            _buildUsersTab(),
-            _buildSwipeFeedTab(),
-            _buildFallbackRotationTab(),
-            _buildStreamersTab(),
+            const TabBar(
+              isScrollable: true,
+              tabs: [
+                Tab(text: 'Overview'),
+                Tab(text: 'Songs'),
+                Tab(text: 'Queue'),
+                Tab(text: 'Users'),
+                Tab(text: 'Swipe/Feed'),
+                Tab(text: 'Fallback/Rotation'),
+                Tab(text: 'Streamers'),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildOverviewTab(),
+                  _buildSongsTab(),
+                  _buildQueueTab(),
+                  _buildUsersTab(),
+                  _buildSwipeFeedTab(),
+                  _buildFallbackRotationTab(),
+                  _buildStreamersTab(),
+                ],
+              ),
+            ),
           ],
         ),
       ),

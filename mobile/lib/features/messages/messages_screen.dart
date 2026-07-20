@@ -50,19 +50,17 @@ class _MessagesScreenState extends State<MessagesScreen> {
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Messages'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _conversations.isEmpty
+    return DimensionScreenShell(
+      title: 'Messages',
+      showNeonLine: true,
+      loading: _loading,
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      body: _conversations.isEmpty
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(32),
@@ -648,16 +646,15 @@ class _ThreadScreenState extends State<ThreadScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.otherDisplayName ?? 'Thread'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+    return DimensionScreenShell(
+      title: widget.otherDisplayName ?? 'Thread',
+      showNeonLine: true,
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: Column(
         children: [
           if (_paywallShown || _hasAccess == false)

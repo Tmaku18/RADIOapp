@@ -277,13 +277,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isArtist = role == 'artist' || role == 'admin';
     final isAdmin = role == 'admin';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings and activity'),
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+    return DimensionScreenShell(
+      title: 'Settings and activity',
+      showNeonLine: true,
+      loading: _isLoading,
+      body: ListView(
               children: [
                 if (!_systemNotificationsEnabled)
                   Container(

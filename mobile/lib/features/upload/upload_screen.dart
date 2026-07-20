@@ -355,10 +355,9 @@ class _UploadScreenState extends State<UploadScreen> {
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Upload'),
-      ),
+    return DimensionScreenShell(
+      title: 'Upload',
+      showNeonLine: true,
       body: _readyForRotation
           ? Padding(
               padding: const EdgeInsets.all(16),

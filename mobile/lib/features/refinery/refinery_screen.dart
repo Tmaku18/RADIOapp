@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/services/refinery_service.dart';
 import '../../core/services/radio_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class RefineryScreen extends StatefulWidget {
   const RefineryScreen({super.key});
@@ -109,19 +110,17 @@ class _RefineryScreenState extends State<RefineryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('The Refinery'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
+    return DimensionScreenShell(
+      title: 'The Refinery',
+      showNeonLine: true,
+      loading: _loading,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loading ? null : _load,
+        ),
+      ],
+      body: _error != null
               ? Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),

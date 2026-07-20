@@ -3,6 +3,7 @@ import '../../core/models/notification_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/notifications_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -162,35 +163,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          TextButton(
-            onPressed: (_items.isEmpty || _clearingAll) ? null : _clearAll,
-            child: _clearingAll
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Clear notifications'),
-          ),
-          TextButton(
-            onPressed: (_items.isEmpty || _markingAll) ? null : _markAllAsRead,
-            child: _markingAll
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Mark all as read'),
-          ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
+    return DimensionScreenShell(
+      title: 'Notifications',
+      showNeonLine: true,
+      loading: _loading,
+      actions: [
+        TextButton(
+          onPressed: (_items.isEmpty || _clearingAll) ? null : _clearAll,
+          child: _clearingAll
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Clear notifications'),
+        ),
+        TextButton(
+          onPressed: (_items.isEmpty || _markingAll) ? null : _markAllAsRead,
+          child: _markingAll
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Mark all as read'),
+        ),
+      ],
+      body: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (_items.isNotEmpty)

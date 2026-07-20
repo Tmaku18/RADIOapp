@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../core/services/nearby_service.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class NearbyPeopleScreen extends StatefulWidget {
   const NearbyPeopleScreen({super.key});
@@ -89,17 +90,16 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nearby People'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _loading ? null : _locateAndLoad,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+    return DimensionScreenShell(
+      title: 'Nearby People',
+      showNeonLine: true,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _loading ? null : _locateAndLoad,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

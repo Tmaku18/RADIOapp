@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/services/live_services_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Live services + Support — parity with web `/artist/live-services`.
 class LiveServicesScreen extends StatefulWidget {
@@ -183,29 +184,34 @@ class _LiveServicesScreenState extends State<LiveServicesScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Live services'),
-        bottom: TabBar(
-          controller: _tabs,
-          tabs: const [
-            Tab(text: 'Services'),
-            Tab(text: 'Support'),
-          ],
-        ),
-        actions: [
-          if (_tabs.index == 0)
-            IconButton(
-              onPressed: _loading ? null : _load,
-              icon: const Icon(Icons.refresh),
-            ),
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabs,
+    return DimensionScreenShell(
+      title: 'Live services',
+      showNeonLine: true,
+      actions: [
+        if (_tabs.index == 0)
+          IconButton(
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+      ],
+      body: Column(
         children: [
-          _buildServicesTab(),
-          _buildSupportTab(),
+          TabBar(
+            controller: _tabs,
+            tabs: const [
+              Tab(text: 'Services'),
+              Tab(text: 'Support'),
+            ],
+          ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabs,
+              children: [
+                _buildServicesTab(),
+                _buildSupportTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );

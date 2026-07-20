@@ -153,7 +153,11 @@ class AppRouter {
       case AppRoutes.room:
         return _route(const RoomScreen(), settings);
       case AppRoutes.discovery:
-        return _route(const DiscoveryScreen(), settings);
+        final tabIndex = args is int ? args : 0;
+        return _route(
+          DiscoveryScreen(initialTabIndex: tabIndex),
+          settings,
+        );
       case AppRoutes.jobBoard:
         return _route(const JobBoardScreen(), settings);
       case AppRoutes.apply:

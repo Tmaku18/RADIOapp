@@ -86,7 +86,8 @@ class _HomeScreenState extends State<HomeScreen> {
         onSelectTab: (index) {
           setState(() => _currentIndex = index.clamp(0, maxTab));
         },
-        onOpenRoute: (route) => Navigator.pushNamed(context, route),
+        onOpenRoute: (route, [arguments]) =>
+            Navigator.pushNamed(context, route, arguments: arguments),
         onSignOut: _signOut,
       ),
       body: Stack(

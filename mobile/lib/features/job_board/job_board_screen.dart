@@ -202,7 +202,9 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
+    return DimensionScreenShell(
+      title: 'Pro-Networx',
+      showNeonLine: true,
       floatingActionButton: _canPost
           ? FloatingActionButton.extended(
               onPressed: _showCreateDialog,
@@ -210,15 +212,12 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
               label: const Text('Post a request'),
             )
           : null,
-      appBar: AppBar(
-        title: const Text('Pro-Networx'),
-        actions: [
-          IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -546,25 +545,23 @@ class _RequestDetailScreenState extends State<RequestDetailScreen> {
     final req = _detail ?? widget.request;
     final isOwner = widget.myUserId != null && req.artistId == widget.myUserId;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Request'),
-        actions: [
-          if (isOwner)
-            IconButton(
-              tooltip: 'Delete request',
-              onPressed: _loading ? null : _delete,
-              icon: const Icon(Icons.delete_outline),
-            ),
+    return DimensionScreenShell(
+      title: 'Request',
+      showNeonLine: true,
+      loading: _loading,
+      actions: [
+        if (isOwner)
           IconButton(
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
+            tooltip: 'Delete request',
+            onPressed: _loading ? null : _delete,
+            icon: const Icon(Icons.delete_outline),
           ),
-        ],
-      ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 Text(

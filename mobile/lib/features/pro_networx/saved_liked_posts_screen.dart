@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/pro_networx_models.dart';
 import '../../core/services/pro_networx_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 import 'widgets/pro_feed_post_card.dart';
 
 /// Displays either the current user's bookmarked ("saved") posts or the posts
@@ -100,10 +101,10 @@ class _SavedLikedPostsScreenState extends State<SavedLikedPostsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.isLiked ? 'Liked posts' : 'Saved posts'),
-      ),
+    return DimensionScreenShell(
+      title: widget.isLiked ? 'Liked posts' : 'Saved posts',
+      showNeonLine: true,
+      loading: _loading && _posts.isEmpty && _error == null,
       body: _buildBody(context),
     );
   }

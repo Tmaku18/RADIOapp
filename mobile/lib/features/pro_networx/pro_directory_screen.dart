@@ -84,27 +84,26 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Pro-Networx Directory'),
-        actions: [
-          const BackToNetworxRadioButton(compact: true),
-          IconButton(
-            tooltip: 'Build my profile',
-            onPressed: () async {
-              final changed = await Navigator.pushNamed<bool>(
-                context,
-                AppRoutes.proMeProfile,
-              );
-              if (changed == true && mounted) {
-                _load();
-              }
-            },
-            icon: const Icon(Icons.edit_note),
-          ),
-          IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
+    return DimensionScreenShell(
+      title: 'Pro-Networx Directory',
+      showNeonLine: true,
+      actions: [
+        const BackToNetworxRadioButton(compact: true),
+        IconButton(
+          tooltip: 'Build my profile',
+          onPressed: () async {
+            final changed = await Navigator.pushNamed<bool>(
+              context,
+              AppRoutes.proMeProfile,
+            );
+            if (changed == true && mounted) {
+              _load();
+            }
+          },
+          icon: const Icon(Icons.edit_note),
+        ),
+        IconButton(onPressed: _loading ? null : _load, icon: const Icon(Icons.refresh)),
+      ],
       body: Column(
         children: [
           Padding(

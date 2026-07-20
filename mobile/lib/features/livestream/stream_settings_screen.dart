@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/livestream_service.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Stream settings: request streaming access, show pending, or open Go Live.
 /// Streaming requires admin approval; artists and Catalysts can apply here.
@@ -66,9 +67,11 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Stream settings')),
-        body: const Center(child: CircularProgressIndicator()),
+      return const DimensionScreenShell(
+        title: 'Stream settings',
+        showNeonLine: true,
+        loading: true,
+        body: SizedBox.shrink(),
       );
     }
 
@@ -85,8 +88,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
         role == 'admin';
 
     if (!canApply) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Stream settings')),
+      return DimensionScreenShell(
+        title: 'Stream settings',
+        showNeonLine: true,
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -103,8 +107,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     }
 
     if (!canStream && appliedAt == null && rejectedAt == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Stream settings')),
+      return DimensionScreenShell(
+        title: 'Stream settings',
+        showNeonLine: true,
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -128,8 +133,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     }
 
     if (appliedAt != null && approvedAt == null && rejectedAt == null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Stream settings')),
+      return DimensionScreenShell(
+        title: 'Stream settings',
+        showNeonLine: true,
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -158,8 +164,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     }
 
     if (rejectedAt != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Stream settings')),
+      return DimensionScreenShell(
+        title: 'Stream settings',
+        showNeonLine: true,
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -187,8 +194,9 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
     }
 
     // Approved: open Go Live
-    return Scaffold(
-      appBar: AppBar(title: const Text('Stream settings')),
+    return DimensionScreenShell(
+      title: 'Stream settings',
+      showNeonLine: true,
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/services/radio_service.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 class YieldScreen extends StatefulWidget {
   const YieldScreen({super.key});
@@ -135,17 +136,16 @@ class _YieldScreenState extends State<YieldScreen> {
             ? 'Unranked'
             : '${_tier[0].toUpperCase()}${_tier.substring(1)}';
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Rewards'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
+    return DimensionScreenShell(
+      title: 'Rewards',
+      showNeonLine: true,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),

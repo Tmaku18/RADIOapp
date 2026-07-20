@@ -14,8 +14,10 @@ class DimensionScreenShell extends StatelessWidget {
     this.leading,
     required this.body,
     this.floatingActionButton,
-    this.showNeonLine = false,
+    this.bottomNavigationBar,
+    this.showNeonLine = true,
     this.loading = false,
+    this.centerTitle,
   });
 
   final String? title;
@@ -23,8 +25,10 @@ class DimensionScreenShell extends StatelessWidget {
   final Widget? leading;
   final Widget body;
   final Widget? floatingActionButton;
+  final Widget? bottomNavigationBar;
   final bool showNeonLine;
   final bool loading;
+  final bool? centerTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -36,11 +40,13 @@ class DimensionScreenShell extends StatelessWidget {
               backgroundColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 0,
+              centerTitle: centerTitle,
               leading: leading,
               title: Text(title!, style: DimensionTypography.pageTitle(fontSize: 18)),
               actions: actions,
             ),
       floatingActionButton: floatingActionButton,
+      bottomNavigationBar: bottomNavigationBar,
       body: Stack(
         fit: StackFit.expand,
         children: [

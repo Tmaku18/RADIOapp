@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/services/refinery_service.dart';
 import '../../core/theme/networx_extensions.dart';
+import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Artist-facing aggregated Refinery review analytics for a single song.
 /// Mirrors the web `/refinery/analytics/[songId]` page: progress to minimum,
@@ -129,17 +130,17 @@ class _RefineryAnalyticsScreenState extends State<RefineryAnalyticsScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Review analytics'),
-        actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _loading ? null : _load,
-          ),
-        ],
-      ),
+    return DimensionScreenShell(
+      title: 'Review analytics',
+      showNeonLine: true,
+      loading: _loading && _data == null,
+      actions: [
+        IconButton(
+          tooltip: 'Refresh',
+          icon: const Icon(Icons.refresh),
+          onPressed: _loading ? null : _load,
+        ),
+      ],
       body: _buildBody(surfaces, scheme),
     );
   }
