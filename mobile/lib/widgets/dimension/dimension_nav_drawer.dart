@@ -84,6 +84,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         label: 'Live Performances',
         route: AppRoutes.livePerformances,
       ),
+      const _NavSpec(
+        icon: Icons.public,
+        label: 'Nearby People',
+        route: AppRoutes.nearbyPeople,
+      ),
       // Web `/browse/saved` — song library tab inside Discover (not Pro posts).
       const _NavSpec(
         icon: Icons.library_music_outlined,
@@ -186,10 +191,9 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                     open: _moreOpen,
                     onToggle: () => setState(() => _moreOpen = !_moreOpen),
                     children: [
-                      _subRow('Room', AppRoutes.room),
+                      _subRow('The Chat Room', AppRoutes.room),
                       _subRow('Pro Directory', AppRoutes.proDirectory),
                       _subRow('Job Board', AppRoutes.jobBoard),
-                      _subRow('Nearby People', AppRoutes.nearbyPeople),
                       _subRow(
                         'Build PRO-NETWORX profile',
                         AppRoutes.proMeProfile,

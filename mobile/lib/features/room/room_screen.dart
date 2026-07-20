@@ -12,7 +12,7 @@ class RoomScreen extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => ChatService()..initialize(),
       child: const DimensionScreenShell(
-        title: 'The Room',
+        title: 'The Chat Room',
         showNeonLine: true,
         body: ChatPanel(
           isExpanded: true,
