@@ -1059,11 +1059,22 @@ class _PlayerScreenState extends State<PlayerScreen>
       create: (_) => ChatService()..initialize(radioId: _radioId),
       child: Builder(
         builder: (providerContext) {
+          final showCoverBackdrop = !_isLoading &&
+              !_noContent &&
+              _currentTrack != null;
+          final coverUrl = showCoverBackdrop
+              ? BrandAssets.displayArtworkUrl(_currentTrack!.artworkUrl)
+              : null;
+
           return Scaffold(
             backgroundColor: DimensionTokens.bgBase,
+            extendBodyBehindAppBar: showCoverBackdrop,
             appBar: AppBar(
-              backgroundColor: Colors.transparent,
+              backgroundColor: showCoverBackdrop
+                  ? Colors.black.withValues(alpha: 0.18)
+                  : Colors.transparent,
               elevation: 0,
+              scrolledUnderElevation: 0,
               leading: widget.onOpenNavDrawer != null
                   ? IconButton(
                       icon: const Icon(Icons.menu),
@@ -1094,42 +1105,81 @@ class _PlayerScreenState extends State<PlayerScreen>
               ],
             ),
             body: Stack(
+              fit: StackFit.expand,
               children: [
-                const Positioned.fill(child: CyberBackdrop()),
-                _isLoading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _noContent
-                    ? _NoContent(
-                        message: _noContentMessage,
-                        onRetry: _loadInitialTrack,
-                        onChangeStation: _openStationPicker,
-                      )
-                    : _currentTrack == null
-                    ? const Center(child: Text('No track playing'))
-                    : _PlayerBody(
-                        track: _currentTrack!,
-                        radioId: _radioId,
-                        stationLabel: _activeStation.genre,
-                        onChangeStation: _openStationPicker,
-                        risingStarText: _risingStarText,
-                        ad: _ad,
-                        isPlaying: _isPlaying,
-                        hasVoted: _hasVoted,
-                        isVoting: _isVoting,
-                        selectedReaction: _selectedReaction,
-                        canVote: (_currentTrack?.playId ?? '').isNotEmpty,
-                        fireVotes: _currentTrack?.fireVotes ?? 0,
-                        shitVotes: _currentTrack?.shitVotes ?? 0,
-                        temperaturePercent:
-                            _currentTrack?.temperaturePercent ?? 0,
-                        songAccess: _songAccess,
-                        isBuying: _isBuying,
-                        onBuy: _buySong,
-                        onReact: _react,
-                        onPlayPause: _togglePlayPause,
-                        onEnterRoom: () => _openRoom(providerContext),
-                        audioPlayer: _audioPlayer,
+                // Full-bleed cover art with the same float/tilt animation.
+                if (coverUrl != null)
+                  Positioned.fill(
+                    child: FloatingAlbumScene(
+                      key: ValueKey('player-bg-$coverUrl'),
+                      imageUrl: coverUrl,
+                      fullscreen: true,
+                      blurSigma: 1.5,
+                    ),
+                  )
+                else if (showCoverBackdrop)
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: context.networxSurfaces.signatureGradient,
                       ),
+                    ),
+                  ),
+                // Pearlescent blue wash so the UI stays readable.
+                if (showCoverBackdrop)
+                  const Positioned.fill(
+                    child: IgnorePointer(child: _PearlescentBlueWash()),
+                  ),
+                // Keep cyber grid + glow orbs animating over the cover.
+                Positioned.fill(
+                  child: Opacity(
+                    opacity: showCoverBackdrop ? 0.42 : 1.0,
+                    child: const CyberBackdrop(),
+                  ),
+                ),
+                if (_isLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (_noContent)
+                  _NoContent(
+                    message: _noContentMessage,
+                    onRetry: _loadInitialTrack,
+                    onChangeStation: _openStationPicker,
+                  )
+                else if (_currentTrack == null)
+                  const Center(child: Text('No track playing'))
+                else
+                  Padding(
+                    // Body draws under the transparent app bar when cover is on.
+                    padding: EdgeInsets.only(
+                      top: showCoverBackdrop
+                          ? MediaQuery.paddingOf(context).top + kToolbarHeight
+                          : 0,
+                    ),
+                    child: _PlayerBody(
+                      track: _currentTrack!,
+                      radioId: _radioId,
+                      stationLabel: _activeStation.genre,
+                      onChangeStation: _openStationPicker,
+                      risingStarText: _risingStarText,
+                      ad: _ad,
+                      isPlaying: _isPlaying,
+                      hasVoted: _hasVoted,
+                      isVoting: _isVoting,
+                      selectedReaction: _selectedReaction,
+                      canVote: (_currentTrack?.playId ?? '').isNotEmpty,
+                      fireVotes: _currentTrack?.fireVotes ?? 0,
+                      shitVotes: _currentTrack?.shitVotes ?? 0,
+                      temperaturePercent:
+                          _currentTrack?.temperaturePercent ?? 0,
+                      songAccess: _songAccess,
+                      isBuying: _isBuying,
+                      onBuy: _buySong,
+                      onReact: _react,
+                      onPlayPause: _togglePlayPause,
+                      onEnterRoom: () => _openRoom(providerContext),
+                      audioPlayer: _audioPlayer,
+                    ),
+                  ),
                 if (_rippleActive)
                   Positioned.fill(
                     child: IgnorePointer(
@@ -1143,6 +1193,47 @@ class _PlayerScreenState extends State<PlayerScreen>
           );
         },
       ),
+    );
+  }
+}
+
+/// Soft blue pearl wash over full-bleed cover art (readability + brand tint).
+class _PearlescentBlueWash extends StatelessWidget {
+  const _PearlescentBlueWash();
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF0B2740).withValues(alpha: 0.58),
+                const Color(0xFF134E6F).withValues(alpha: 0.42),
+                const Color(0xFF071824).withValues(alpha: 0.72),
+              ],
+            ),
+          ),
+        ),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: RadialGradient(
+              center: const Alignment(-0.45, -0.55),
+              radius: 1.2,
+              colors: [
+                const Color(0xFFA5F3FC).withValues(alpha: 0.20),
+                const Color(0xFF38BDF8).withValues(alpha: 0.08),
+                Colors.transparent,
+              ],
+              stops: const [0.0, 0.45, 1.0],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1468,23 +1559,37 @@ class _PlayerBody extends StatelessWidget {
     }
 
     Widget glassPanel({required Widget child, double padding = 16}) {
+      // Pearlescent translucent blue — reads as glass over the full-bleed cover.
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: surfaces.glassBlur,
-            sigmaY: surfaces.glassBlur,
+            sigmaX: surfaces.glassBlur + 4,
+            sigmaY: surfaces.glassBlur + 4,
           ),
           child: Container(
             padding: EdgeInsets.all(padding),
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
-              border: Border.all(
-                color: Colors.white.withValues(
-                  alpha: surfaces.glassBorderOpacity,
-                ),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  const Color(0xFF7DD3FC).withValues(alpha: 0.28),
+                  const Color(0xFF38BDF8).withValues(alpha: 0.14),
+                  const Color(0xFFBAE6FD).withValues(alpha: 0.22),
+                ],
               ),
-              boxShadow: surfaces.glassShadow,
+              border: Border.all(
+                color: const Color(0xFFA5F3FC).withValues(alpha: 0.40),
+              ),
+              boxShadow: [
+                ...surfaces.glassShadow,
+                BoxShadow(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.18),
+                  blurRadius: 24,
+                  spreadRadius: 0,
+                ),
+              ],
               borderRadius: BorderRadius.circular(18),
             ),
             child: child,
