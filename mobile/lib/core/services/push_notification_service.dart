@@ -1,27 +1,34 @@
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import 'api_service.dart';
 import 'notification_settings_service.dart';
 
 /// Push notification service with production-grade features:
-/// - Lazy permission: Request only on first upload or "Notify me" toggle
+/// - First-login permission prompt (iOS/Android system dialog)
 /// - Token refresh: Listen to onTokenRefresh stream
 /// - Foreground notifications: Display using flutter_local_notifications
 /// - Deep linking: Navigate to player on notification tap
 class PushNotificationService {
-  static final PushNotificationService _instance = PushNotificationService._internal();
+  static final PushNotificationService _instance =
+      PushNotificationService._internal();
   factory PushNotificationService() => _instance;
   PushNotificationService._internal();
 
+  static const _firstLoginPromptKey = 'push_permission_first_login_prompted';
+
   final FirebaseMessaging _messaging = FirebaseMessaging.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+  final FlutterLocalNotificationsPlugin _localNotifications =
+      FlutterLocalNotificationsPlugin();
   final ApiService _apiService = ApiService();
-  
+
   bool _initialized = false;
-  bool _permissionRequested = false;
+  bool _firstLoginPromptInFlight = false;
   String? _currentToken;
 
   // Callback for handling notification taps
@@ -109,32 +116,134 @@ class PushNotificationService {
     }
   }
 
-  /// Request permission lazily - call when artist uploads first track or toggles "Notify me"
+  /// Request OS notification permission (iOS alert + Android 13+ runtime).
   Future<bool> requestPermissionLazy() async {
-    if (_permissionRequested) {
-      final settings = await _messaging.getNotificationSettings();
-      return settings.authorizationStatus == AuthorizationStatus.authorized;
+    final current = await _messaging.getNotificationSettings();
+    if (current.authorizationStatus == AuthorizationStatus.authorized ||
+        current.authorizationStatus == AuthorizationStatus.provisional) {
+      await _registerToken();
+      return true;
+    }
+
+    // Android 13+: also ask via the notifications plugin channel.
+    if (Platform.isAndroid) {
+      try {
+        await _localNotifications
+            .resolvePlatformSpecificImplementation<
+                AndroidFlutterLocalNotificationsPlugin>()
+            ?.requestNotificationsPermission();
+      } catch (e) {
+        debugPrint(
+          'PushNotificationService: Android notification permission - $e',
+        );
+      }
     }
 
     final settings = await _messaging.requestPermission(
       alert: true,
       badge: true,
       sound: true,
-      provisional: false, // Require explicit permission
+      provisional: false,
       announcement: false,
       carPlay: false,
       criticalAlert: false,
     );
 
-    _permissionRequested = true;
+    final granted =
+        settings.authorizationStatus == AuthorizationStatus.authorized ||
+            settings.authorizationStatus == AuthorizationStatus.provisional;
 
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+    if (granted) {
+      // Persist master toggle without re-entering permission request.
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('notifications_enabled', true);
       await _registerToken();
       return true;
     }
 
-    debugPrint('PushNotificationService: Permission denied');
+    debugPrint(
+      'PushNotificationService: Permission denied '
+      '(${settings.authorizationStatus})',
+    );
     return false;
+  }
+
+  /// After first login / first home visit: explain why, then show the system
+  /// Allow Notifications dialog so pushes can reach the device.
+  Future<void> promptOnFirstLogin(BuildContext context) async {
+    if (_firstLoginPromptInFlight || !context.mounted) return;
+    _firstLoginPromptInFlight = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final alreadyPrompted = prefs.getBool(_firstLoginPromptKey) ?? false;
+
+      final settings = await _messaging.getNotificationSettings();
+      final status = settings.authorizationStatus;
+
+      if (status == AuthorizationStatus.authorized ||
+          status == AuthorizationStatus.provisional) {
+        await prefs.setBool(_firstLoginPromptKey, true);
+        await _registerToken();
+        return;
+      }
+
+      // Already asked the OS once and denied — don't spam the system dialog.
+      // Still show a one-time tip that they can enable later in Settings.
+      if (alreadyPrompted && status == AuthorizationStatus.denied) {
+        return;
+      }
+
+      if (!context.mounted) return;
+
+      final wantsAlerts = await showDialog<bool>(
+            context: context,
+            barrierDismissible: false,
+            builder: (ctx) {
+              return AlertDialog(
+                title: const Text('Stay in the loop'),
+                content: const Text(
+                  'Allow notifications so we can alert you when your song is '
+                  'about to play, when an artist you follow is coming up on '
+                  'any station, and when a new app update is ready.',
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Not now'),
+                  ),
+                  FilledButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Allow notifications'),
+                  ),
+                ],
+              );
+            },
+          ) ??
+          false;
+
+      await prefs.setBool(_firstLoginPromptKey, true);
+
+      if (!wantsAlerts) {
+        debugPrint('PushNotificationService: User skipped first-login prompt');
+        return;
+      }
+
+      final granted = await requestPermissionLazy();
+      if (!granted && context.mounted && status != AuthorizationStatus.denied) {
+        // If the OS dialog was dismissed without grant, leave a soft tip.
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'You can enable notifications anytime in Settings.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('PushNotificationService: promptOnFirstLogin failed - $e');
+    } finally {
+      _firstLoginPromptInFlight = false;
+    }
   }
 
   /// Get FCM token and register with backend
@@ -171,18 +280,21 @@ class PushNotificationService {
   }
 
   /// Re-register the FCM token after login (auth header now available).
+  /// Does not show the system permission dialog — [promptOnFirstLogin] does that
+  /// once the home screen is visible.
   Future<void> ensureRegisteredAfterAuth() async {
     try {
       final enabled = await NotificationSettingsService().notificationsEnabled;
       if (!enabled) return;
       final settings = await _messaging.getNotificationSettings();
-      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional) {
         await _registerToken();
-      } else {
-        await requestPermissionLazy();
       }
     } catch (e) {
-      debugPrint('PushNotificationService: ensureRegisteredAfterAuth failed - $e');
+      debugPrint(
+        'PushNotificationService: ensureRegisteredAfterAuth failed - $e',
+      );
     }
   }
 

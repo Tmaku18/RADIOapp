@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/navigation/app_routes.dart';
@@ -8,6 +10,7 @@ import '../features/competition/competition_screen.dart';
 import '../features/studio/studio_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
+import '../core/services/push_notification_service.dart';
 import 'dimension/dimension_radio_bar.dart';
 import 'dimension/cyber_backdrop.dart';
 import 'dimension/dimension_nav_drawer.dart';
@@ -30,6 +33,11 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadUserProfile();
+    // Ask for push permission once the first home frame is up — right after
+    // download + first login — so iOS/Android can deliver radio alerts.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(_promptPushPermission());
+    });
   }
 
   Future<void> _loadUserProfile() async {
@@ -44,6 +52,13 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (_) {
       // Keep default navigation; profile can load later from other screens.
     }
+  }
+
+  Future<void> _promptPushPermission() async {
+    // Brief delay so login navigation / splash finish before the dialog.
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    await PushNotificationService().promptOnFirstLogin(context);
   }
 
   void _openNavDrawer() => _scaffoldKey.currentState?.openDrawer();
