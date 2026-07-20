@@ -38,6 +38,7 @@ class DiscoverCreateVideoScreen extends StatefulWidget {
 
 class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _maxDurationSec = 15;
+  static const int _cameraCountdownSec = 10;
   static const int _maxFileSizeBytes = 15 * 1024 * 1024;
 
   final ApiService _api = ApiService();
@@ -155,6 +156,23 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     } catch (_) {}
   }
 
+  /// Full-screen 10s countdown, then open the camera with the clip playing.
+  Future<bool> _showCameraCountdown() async {
+    final result = await showGeneralDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      barrierColor: Colors.black.withValues(alpha: 0.92),
+      transitionDuration: const Duration(milliseconds: 200),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return _CameraCountdownOverlay(
+          seconds: _cameraCountdownSec,
+          songTitle: _selected?.title ?? 'Discover clip',
+        );
+      },
+    );
+    return result == true;
+  }
+
   /// Play the Discover clip while the system camera records (TikTok-style).
   Future<void> _recordWithClip() async {
     final clip = _selected;
@@ -170,7 +188,10 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
 
     try {
-      // Start clip audio just before the camera UI so the take syncs to the beat.
+      final proceed = await _showCameraCountdown();
+      if (!proceed || !mounted) return;
+
+      // Start clip audio as the camera opens so the take syncs to the beat.
       await _clipPlayer.setUrl(clip.clipUrl);
       await _clipPlayer.seek(Duration.zero);
       unawaited(_clipPlayer.play());
@@ -419,7 +440,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Record while the clip audio plays (max '
+                          'A $_cameraCountdownSec-second timer starts, then '
+                          'the camera opens with the clip playing (max '
                           '$_maxDurationSec s). Keep volume up so the music '
                           'is in your take.',
                           style: TextStyle(
@@ -541,6 +563,135 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       height: 52,
       color: DimensionTokens.neonCyan.withValues(alpha: 0.12),
       child: const Icon(Icons.music_note, color: DimensionTokens.neonCyan),
+    );
+  }
+}
+
+/// Full-screen countdown shown before the system camera opens.
+class _CameraCountdownOverlay extends StatefulWidget {
+  const _CameraCountdownOverlay({
+    required this.seconds,
+    required this.songTitle,
+  });
+
+  final int seconds;
+  final String songTitle;
+
+  @override
+  State<_CameraCountdownOverlay> createState() =>
+      _CameraCountdownOverlayState();
+}
+
+class _CameraCountdownOverlayState extends State<_CameraCountdownOverlay> {
+  late int _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.seconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_remaining <= 1) {
+        timer.cancel();
+        Navigator.of(context).pop(true);
+        return;
+      }
+      setState(() => _remaining -= 1);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: SafeArea(
+        child: Stack(
+          children: [
+            Positioned(
+              top: 8,
+              right: 8,
+              child: TextButton(
+                onPressed: () {
+                  _timer?.cancel();
+                  Navigator.of(context).pop(false);
+                },
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.white70),
+                ),
+              ),
+            ),
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'GET READY',
+                    style: TextStyle(
+                      color: DimensionTokens.neonCyan,
+                      fontSize: 12,
+                      letterSpacing: 3,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 220),
+                    transitionBuilder: (child, anim) {
+                      return ScaleTransition(
+                        scale: anim,
+                        child: FadeTransition(opacity: anim, child: child),
+                      );
+                    },
+                    child: Text(
+                      '$_remaining',
+                      key: ValueKey(_remaining),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 96,
+                        fontWeight: FontWeight.w800,
+                        height: 1,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Camera opens in $_remaining',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 32),
+                    child: Text(
+                      widget.songTitle,
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
