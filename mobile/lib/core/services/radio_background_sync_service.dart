@@ -131,11 +131,19 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    final wasBackground = _appInBackground;
     _appInBackground =
         state == AppLifecycleState.paused ||
         state == AppLifecycleState.inactive ||
         state == AppLifecycleState.hidden;
     _schedulePoll();
+    // Returning from background: catch up immediately when this service owns
+    // sync (PlayerScreen does the same while it's active).
+    if (wasBackground &&
+        state == AppLifecycleState.resumed &&
+        !playerScreenActive) {
+      unawaited(_syncCurrentTrack());
+    }
   }
 
   void _schedulePoll() {

@@ -98,7 +98,11 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  /// Counts mounted [PlayerScreen]s so disposing a pushed route doesn't clear
+  /// the flag while the home-tab instance is still alive.
+  static int _activeInstances = 0;
+
   final AudioPlayer _audioPlayer = AudioPlayerService().player;
   final RadioService _radioService = RadioService();
   final VenueAdsService _venueAds = VenueAdsService();
@@ -155,7 +159,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void initState() {
     super.initState();
+    _activeInstances++;
     RadioBackgroundSyncService.instance.playerScreenActive = true;
+    WidgetsBinding.instance.addObserver(this);
     _rippleController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 950),
@@ -197,6 +203,15 @@ class _PlayerScreenState extends State<PlayerScreen>
     _startTrackSyncTimer();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Returning from background: immediately catch up to the live queue
+      // instead of waiting for the next poll tick.
+      unawaited(_syncCurrentTrack());
+    }
+  }
+
   Future<void> _initializeStationAndPlayback() async {
     try {
       await _restoreStationSelection();
@@ -222,18 +237,34 @@ class _PlayerScreenState extends State<PlayerScreen>
       }
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) {
+        // Bootstrap may already be playing; recover UI via a sync pass.
         setState(() => _isLoading = false);
+        unawaited(_syncCurrentTrack());
         return;
       }
       await _loadAndPlay(track, res);
     } catch (e) {
       if (!mounted) return;
+      // Don't blank the screen if cold-start bootstrap already has radio audio.
+      if (_hasLiveRadioSource) {
+        setState(() {
+          _isLoading = false;
+          _noContent = false;
+        });
+        unawaited(_syncCurrentTrack());
+        return;
+      }
       setState(() {
         _isLoading = false;
         _noContent = true;
         _noContentMessage = 'Could not start radio. Tap retry.';
       });
     }
+  }
+
+  bool get _hasLiveRadioSource {
+    final tag = _audioPlayer.sequenceState.currentSource?.tag;
+    return tag is MediaItem && tag.extras?['source'] == 'radio';
   }
 
   Future<void> _restoreStationSelection() async {
@@ -526,7 +557,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   }
 
   /// React immediately to live DJ booth events (pushed over Supabase Realtime)
-  /// so listeners hear the admin go live without waiting for the 30s radio poll.
+  /// so listeners hear the admin go live / queue advance without waiting for poll.
   Future<void> _onDjBoothEvent(DjBoothRealtimeEvent event) async {
     final handler = AudioPlayerService.handler;
     switch (event.type) {
@@ -546,6 +577,11 @@ class _PlayerScreenState extends State<PlayerScreen>
         if (event.duckVolume != null) {
           await handler.setDuckVolume(event.duckVolume!);
         }
+        break;
+      case 'queue_updated':
+        // Hard live sync: jump to the server's current track as soon as the
+        // shared queue advances (don't wait for the next poll tick).
+        unawaited(_syncCurrentTrack());
         break;
       default:
         break;
@@ -720,7 +756,8 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   void _startTrackSyncTimer() {
     _trackSyncTimer?.cancel();
-    _trackSyncTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Keep pace with the live queue (was 30s — too slow for station advances).
+    _trackSyncTimer = Timer.periodic(const Duration(seconds: 10), (_) {
       _syncCurrentTrack();
     });
   }
@@ -757,12 +794,9 @@ class _PlayerScreenState extends State<PlayerScreen>
           localTrack == null || localTrack.id != serverTrack.id;
 
       if (trackChanged) {
-        // Server queue moved on but we're still mid-song locally — don't jump.
-        if (localTrack != null && !_isNearLocalTrackEnd()) {
-          await _applyBoothState(serverTrack);
-          return;
-        }
-
+        // Hard live sync: always follow the server's current song, even mid-
+        // song, so every device on a station hears the same track. Explicit
+        // user pause is still respected inside [_loadAndPlay].
         setState(() {
           _isLoading = true;
           _noContent = false;
@@ -966,7 +1000,11 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void dispose() {
-    RadioBackgroundSyncService.instance.playerScreenActive = false;
+    WidgetsBinding.instance.removeObserver(this);
+    _activeInstances = (_activeInstances - 1).clamp(0, 1 << 30);
+    if (_activeInstances == 0) {
+      RadioBackgroundSyncService.instance.playerScreenActive = false;
+    }
     _playerStateSub?.cancel();
     _risingStarSub?.cancel();
     _djBoothSub?.cancel();
