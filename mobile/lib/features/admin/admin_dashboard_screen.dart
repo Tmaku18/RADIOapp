@@ -94,7 +94,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final radios = await _admin.getRadios();
       final songs = await _admin.getSongs(
         limit: 100,
-        status: _songStatusFilter,
+        status: _songStatusFilter, // pending by default (web parity)
       );
       final users = await _admin.getUsers(limit: 100);
       // Non-critical sections: a single failing endpoint (e.g. feed-media)
@@ -175,9 +175,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Future<void> _refreshSongs() async {
     try {
+      // Backend: omit status → defaults to pending; send "all" for unfiltered.
       final songs = await _admin.getSongs(
         limit: 100,
-        status: _songStatusFilter == 'all' ? null : _songStatusFilter,
+        status: _songStatusFilter,
         search: _songSearchCtrl.text.trim().isEmpty
             ? null
             : _songSearchCtrl.text.trim(),
