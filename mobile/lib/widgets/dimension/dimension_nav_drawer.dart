@@ -61,19 +61,26 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
 
   List<_NavSpec> get _primaryItems {
     final proNetworx = widget.isArtist
-        ? _NavSpec(
+        ? const _NavSpec(
             icon: Icons.work_outline,
             label: 'Pro-Networx',
             tabIndex: 4,
           )
-        : _NavSpec(
+        : const _NavSpec(
             icon: Icons.handshake_outlined,
             label: 'Pro-Networx',
             route: AppRoutes.proNetworxShell,
           );
 
     return [
-      const _NavSpec(icon: Icons.radio, label: 'Radio', tabIndex: 0),
+      // Post-sign-in landing (web `/dashboard`). Logo card also opens this.
+      const _NavSpec(
+        icon: Icons.home_outlined,
+        label: 'Networx Home',
+        tabIndex: 0,
+      ),
+      // Kept at the top — opens the radio player (do not remove/replace).
+      const _NavSpec(icon: Icons.radio, label: 'Radio', tabIndex: 1),
       const _NavSpec(
         icon: Icons.headphones,
         label: 'Live DJ',
@@ -99,24 +106,25 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
       const _NavSpec(
         icon: Icons.people_alt_outlined,
         label: 'Feed',
-        tabIndex: 1,
+        tabIndex: 2,
       ),
       const _NavSpec(
         icon: Icons.local_fire_department_outlined,
         label: 'Discover',
-        tabIndex: 2,
+        tabIndex: 3,
       ),
       if (widget.isArtist)
+        // Same hub as Networx Home (web dashboard).
         const _NavSpec(
           icon: Icons.dashboard_outlined,
           label: 'Dashboard',
-          tabIndex: 3,
+          tabIndex: 0,
         )
       else
         const _NavSpec(
           icon: Icons.how_to_vote_outlined,
           label: 'Vote',
-          tabIndex: 3,
+          tabIndex: 4,
         ),
       if (widget.isArtist) ...[
         const _NavSpec(

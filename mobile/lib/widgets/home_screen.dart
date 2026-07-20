@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/navigation/app_routes.dart';
 import '../core/auth/role_helpers.dart';
+import '../features/home/networx_home_screen.dart';
 import '../features/player/player_screen.dart';
 import '../features/discovery/discovery_screen.dart';
 import '../features/social/social_feed_screen.dart';
 import '../features/competition/competition_screen.dart';
-import '../features/dashboard/gem_dashboard_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/services/push_notification_service.dart';
@@ -28,8 +28,13 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  /// 0 = Networx Home (post-sign-in landing). Radio player is index 1.
   int _currentIndex = 0;
   app_user.User? _user;
+
+  static const int _tabRadio = 1;
+  static const int _tabFeed = 2;
+  static const int _tabDiscover = 3;
 
   @override
   void initState() {
@@ -69,6 +74,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _openUpload() => Navigator.pushNamed(context, AppRoutes.upload);
 
+  void _selectTab(int index) {
+    setState(() => _currentIndex = index.clamp(0, 4));
+  }
+
   Future<void> _signOut() async {
     final auth = Provider.of<AuthService>(context, listen: false);
     try {
@@ -92,10 +101,11 @@ class _HomeScreenState extends State<HomeScreen> {
         role == 'musician' ||
         isAdmin;
 
-    // Gem / Catalyst / Admin: Radio · Feed · Discover · Dashboard · Pro-Networx
-    // Everyone else: Radio · Feed · Discover · Vote
-    final maxTab = canUpload ? 4 : 3;
+    // Home · Radio · Feed · Discover · (Vote | Pro-Networx)
+    final maxTab = 4;
     final safeIndex = _currentIndex.clamp(0, maxTab);
+    final proNetworxTab = canUpload ? 4 : null;
+    final voteTab = canUpload ? null : 4;
 
     return Scaffold(
       key: _scaffoldKey,
@@ -106,9 +116,7 @@ class _HomeScreenState extends State<HomeScreen> {
         isAdmin: isAdmin,
         isStreamerRole: isStreamerRole,
         currentTabIndex: safeIndex,
-        onSelectTab: (index) {
-          setState(() => _currentIndex = index.clamp(0, maxTab));
-        },
+        onSelectTab: _selectTab,
         onOpenRoute: (route, [arguments]) =>
             Navigator.pushNamed(context, route, arguments: arguments),
         onSignOut: _signOut,
@@ -119,30 +127,44 @@ class _HomeScreenState extends State<HomeScreen> {
           const Positioned.fill(child: CyberBackdrop()),
           IndexedStack(
             index: safeIndex,
-            children: canUpload
-                ? [
-                    PlayerScreen(
-                      onOpenNavDrawer: _openNavDrawer,
-                      onUpload: _openUpload,
-                    ),
-                    SocialFeedScreen(onOpenNavDrawer: _openNavDrawer),
-                    DiscoveryScreen(onOpenNavDrawer: _openNavDrawer),
-                    GemDashboardScreen(onOpenNavDrawer: _openNavDrawer),
-                    ProNetworxShellScreen(
-                      onExitToRadio: () => setState(() => _currentIndex = 0),
-                    ),
-                  ]
-                : [
-                    PlayerScreen(onOpenNavDrawer: _openNavDrawer),
-                    SocialFeedScreen(onOpenNavDrawer: _openNavDrawer),
-                    DiscoveryScreen(onOpenNavDrawer: _openNavDrawer),
-                    CompetitionScreen(onOpenNavDrawer: _openNavDrawer),
-                  ],
+            children: [
+              NetworxHomeScreen(
+                onOpenNavDrawer: _openNavDrawer,
+                onOpenRadio: () => _selectTab(_tabRadio),
+                onOpenFeed: () => _selectTab(_tabFeed),
+                onOpenDiscover: () => _selectTab(_tabDiscover),
+                onOpenVote: voteTab != null
+                    ? () => _selectTab(voteTab)
+                    : () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.competition,
+                        ),
+                onOpenProNetworx: proNetworxTab != null
+                    ? () => _selectTab(proNetworxTab)
+                    : () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.proNetworxShell,
+                        ),
+              ),
+              PlayerScreen(
+                onOpenNavDrawer: _openNavDrawer,
+                onUpload: canUpload ? _openUpload : null,
+              ),
+              SocialFeedScreen(onOpenNavDrawer: _openNavDrawer),
+              DiscoveryScreen(onOpenNavDrawer: _openNavDrawer),
+              if (canUpload)
+                ProNetworxShellScreen(
+                  onExitToRadio: () => _selectTab(_tabRadio),
+                )
+              else
+                CompetitionScreen(onOpenNavDrawer: _openNavDrawer),
+            ],
           ),
         ],
       ),
+      // Mini player when not already on the Radio tab or Pro-Networx shell.
       bottomNavigationBar:
-          (safeIndex != 0 && !(canUpload && safeIndex == 4))
+          (safeIndex != _tabRadio && !(canUpload && safeIndex == 4))
               ? const DimensionRadioBar()
               : null,
     );
