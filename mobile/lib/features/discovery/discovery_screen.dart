@@ -419,8 +419,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               onPressed: () {
                 Navigator.pushNamed(
                   context,
-                  '/discover-create-video',
-                );
+                  AppRoutes.discoverCreateVideo,
+                ).then((_) {
+                  final saved = _savedKey.currentState;
+                  if (saved != null) unawaited(saved.reload());
+                });
               },
               tooltip: 'Create Video',
               icon: const Icon(Icons.video_call_outlined),
@@ -964,6 +967,7 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
             );
           }
           final item = _items[i - 1];
+          final canMakeVideo = item.clipUrl.trim().isNotEmpty;
           return Card(
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
@@ -983,12 +987,35 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
                   : const Icon(Icons.music_note),
               title: Text(item.title),
               subtitle: Text(item.artistDisplayName ?? item.artistName),
-              trailing: IconButton(
-                onPressed: _removingSongId == item.songId
-                    ? null
-                    : () => _remove(item.songId),
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Remove',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canMakeVideo)
+                    IconButton(
+                      tooltip: 'Make video',
+                      onPressed: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.discoverCreateVideo,
+                          arguments: {
+                            'clipUrl': item.clipUrl,
+                            'title': item.title,
+                            'artistName':
+                                item.artistDisplayName ?? item.artistName,
+                            'songId': item.songId,
+                          },
+                        );
+                      },
+                      icon: const Icon(Icons.videocam_outlined),
+                    ),
+                  IconButton(
+                    onPressed: _removingSongId == item.songId
+                        ? null
+                        : () => _remove(item.songId),
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: 'Remove',
+                  ),
+                ],
               ),
             ),
           );
@@ -1291,6 +1318,26 @@ class _LibraryTabState extends State<_LibraryTab> {
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (item.isLiked && item.clipUrl.trim().isNotEmpty)
+                    IconButton(
+                      tooltip: 'Make video',
+                      onPressed: busy
+                          ? null
+                          : () {
+                              Navigator.pushNamed(
+                                context,
+                                AppRoutes.discoverCreateVideo,
+                                arguments: {
+                                  'clipUrl': item.clipUrl,
+                                  'title': item.title,
+                                  'artistName': item.artistDisplayName ??
+                                      item.artistName,
+                                  'songId': item.songId,
+                                },
+                              );
+                            },
+                      icon: const Icon(Icons.videocam_outlined),
+                    ),
                   IconButton(
                     tooltip: 'Play clip',
                     onPressed: busy ? null : () => _playDiscoverClip(item),

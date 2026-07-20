@@ -199,7 +199,16 @@ class AppRouter {
         }
         return _unknown(settings);
       case AppRoutes.discoverCreateVideo:
-        return _route(const DiscoverCreateVideoScreen(), settings);
+        final createArgs = args is Map ? args : null;
+        return _route(
+          DiscoverCreateVideoScreen(
+            initialClipUrl: createArgs?['clipUrl']?.toString(),
+            initialSongTitle: createArgs?['title']?.toString(),
+            initialArtistName: createArgs?['artistName']?.toString(),
+            initialSongId: createArgs?['songId']?.toString(),
+          ),
+          settings,
+        );
       default:
         return null;
     }

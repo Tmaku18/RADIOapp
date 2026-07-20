@@ -131,8 +131,8 @@ export default function CreateDiscoverFeedVideoPage() {
     return canvas.captureStream(30).getVideoTracks()[0] ?? null;
   };
 
-  const canPostToFeed =
-    profile?.role === 'service_provider' || profile?.role === 'admin';
+  // Any signed-in user can post a short video to a liked Discover clip.
+  const canPostToFeed = Boolean(profile?.id);
 
   useEffect(() => {
     if (selectedClip) return;
@@ -246,7 +246,7 @@ export default function CreateDiscoverFeedVideoPage() {
       return;
     }
     if (!canPostToFeed) {
-      setError('Only Catalysts and admins can post to the full feed.');
+      setError('Sign in to post a Discover video.');
       return;
     }
     setError(null);
@@ -407,7 +407,7 @@ export default function CreateDiscoverFeedVideoPage() {
         <Card className="border-destructive/40">
           <CardContent className="pt-6">
             <p className="text-sm text-destructive">
-              You need Catalyst or admin access to post to the full feed.
+              Sign in to pick a liked Discover clip and record a short video.
             </p>
           </CardContent>
         </Card>

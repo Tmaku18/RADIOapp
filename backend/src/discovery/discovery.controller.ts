@@ -458,13 +458,14 @@ export class DiscoveryController {
   }
 
   /**
-   * Create a discover feed post. Any creative (artist or service_provider)
-   * may post; listeners are blocked.
+   * Create a discover feed post (image or ≤15s video).
+   * Listeners may post TikTok-style videos synced to a liked Discover clip;
+   * artists, Catalysts, and admins may also post.
    * Send image/video as "file" and optional "caption" in body.
    */
   @Post('feed')
   @UseGuards(RolesGuard)
-  @Roles('artist', 'service_provider', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
