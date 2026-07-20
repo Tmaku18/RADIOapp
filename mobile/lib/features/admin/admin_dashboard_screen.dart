@@ -3,7 +3,14 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
 import '../../core/services/admin_service.dart';
+import '../../core/services/songs_service.dart';
+import '../../widgets/clip_window_sheet.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+
+const int _kAdminSampleMinSeconds = 5;
+const int _kAdminSampleMaxSeconds = 30;
+const int _kAdminDiscoverMinSeconds = 5;
+const int _kAdminDiscoverMaxSeconds = 15;
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -14,6 +21,7 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminService _admin = AdminService();
+  final SongsService _songsApi = SongsService();
   /// Dedicated preview player so admin listen doesn't fight the live radio bar.
   final AudioPlayer _previewPlayer = AudioPlayer();
 
@@ -25,7 +33,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   List<Map<String, dynamic>> _songs = const [];
   List<AdminRadio> _radios = const [];
+  /// Server queue snapshot (for lookups).
   List<AdminQueueItem> _queue = const [];
+  /// Editable draft (web-style) — Apply persists via replaceRadioQueue.
+  List<AdminQueueItem> _queueDraft = const [];
+  List<String> _originalStackIds = const [];
+  Map<String, String>? _nowPlaying;
+  List<Map<String, dynamic>> _queueAddCandidates = const [];
+  String? _selectedAddStackId;
+  bool _showRawStackEditor = false;
   String? _selectedRadioId;
   List<Map<String, dynamic>> _users = const [];
   List<Map<String, dynamic>> _swipeCards = const [];
@@ -114,11 +130,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
       String? selectedRadioId = _selectedRadioId;
       List<AdminQueueItem> queue = const [];
+      Map<String, String>? nowPlaying;
+      List<Map<String, dynamic>> queueCandidates = freeRotation;
       if (radios.isNotEmpty) {
         selectedRadioId ??= radios.first.id;
         final queueRes = await _admin.getRadioQueue(selectedRadioId, limit: 200);
         queue = queueRes.parseUpcomingQueue();
         _queueDraftCtrl.text = queue.map((e) => e.stackId).join('\n');
+        nowPlaying = queueRes.parseCurrentSong();
+        queueCandidates = await _tryLoad(
+              () => _admin.getSongsInFreeRotation(selectedRadioId),
+            ) ??
+            freeRotation;
       }
 
       if (!mounted) return;
@@ -132,9 +155,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         _feedMedia = feed;
         _fallbackGroups = fallback;
         _freeRotationSongs = freeRotation;
+        _queueAddCandidates = queueCandidates;
+        _selectedAddStackId = queueCandidates.isEmpty
+            ? null
+            : _candidateStackId(queueCandidates.first);
         _streamerApplications = streamers;
         _selectedRadioId = selectedRadioId;
         _queue = queue;
+        _queueDraft = List<AdminQueueItem>.from(queue);
+        _originalStackIds = queue.map((e) => e.stackId).toList();
+        _nowPlaying = nowPlaying;
       });
     } catch (e) {
       if (!mounted) return;
@@ -149,10 +179,145 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     if (radioId == null || radioId.isEmpty) return;
     final queueRes = await _admin.getRadioQueue(radioId, limit: 200);
     final queue = queueRes.parseUpcomingQueue();
+    final candidates = await _admin.getSongsInFreeRotation(radioId);
     if (!mounted) return;
     setState(() {
       _queue = queue;
+      _queueDraft = List<AdminQueueItem>.from(queue);
+      _originalStackIds = queue.map((e) => e.stackId).toList();
+      _nowPlaying = queueRes.parseCurrentSong();
       _queueDraftCtrl.text = queue.map((e) => e.stackId).join('\n');
+      _queueAddCandidates = candidates;
+      final selectedStillValid = candidates.any(
+        (c) => _candidateStackId(c) == _selectedAddStackId,
+      );
+      if (!selectedStillValid) {
+        _selectedAddStackId =
+            candidates.isEmpty ? null : _candidateStackId(candidates.first);
+      }
+    });
+  }
+
+  String _candidateStackId(Map<String, dynamic> song) =>
+      (song['id'] ?? song['stackId'] ?? '').toString();
+
+  String _candidateTitle(Map<String, dynamic> song) {
+    final t = (song['title'] ?? '').toString().trim();
+    return t.isEmpty ? 'Untitled' : t;
+  }
+
+  String _candidateArtist(Map<String, dynamic> song) {
+    final users = song['users'];
+    if (users is Map) {
+      final dn = (users['display_name'] ?? users['displayName'] ?? '')
+          .toString()
+          .trim();
+      if (dn.isNotEmpty) return dn;
+    }
+    final a = (song['artist_name'] ?? song['artistName'] ?? '')
+        .toString()
+        .trim();
+    return a.isEmpty ? 'Unknown artist' : a;
+  }
+
+  bool get _queueHasChanges {
+    if (_queueDraft.length != _originalStackIds.length) return true;
+    for (var i = 0; i < _queueDraft.length; i++) {
+      if (_queueDraft[i].stackId != _originalStackIds[i]) return true;
+    }
+    return false;
+  }
+
+  void _syncQueueDraftCtrl() {
+    _queueDraftCtrl.text = _queueDraft.map((e) => e.stackId).join('\n');
+  }
+
+  AdminQueueItem? _lookupQueueItem(String stackId) {
+    for (final e in _queueDraft) {
+      if (e.stackId == stackId) return e;
+    }
+    for (final e in _queue) {
+      if (e.stackId == stackId) return e;
+    }
+    for (final c in _queueAddCandidates) {
+      if (_candidateStackId(c) == stackId) {
+        return AdminQueueItem(
+          position: 0,
+          stackId: stackId,
+          normalizedSongId: stackId,
+          source: 'songs',
+          title: _candidateTitle(c),
+          artistName: _candidateArtist(c),
+        );
+      }
+    }
+    return null;
+  }
+
+  void _moveQueueDraft(int index, int direction) {
+    final target = index + direction;
+    if (target < 0 || target >= _queueDraft.length) return;
+    setState(() {
+      final next = List<AdminQueueItem>.from(_queueDraft);
+      final item = next.removeAt(index);
+      next.insert(target, item);
+      _queueDraft = next;
+      _syncQueueDraftCtrl();
+    });
+  }
+
+  void _removeQueueDraftAt(int index) {
+    setState(() {
+      final next = List<AdminQueueItem>.from(_queueDraft)..removeAt(index);
+      _queueDraft = next;
+      _syncQueueDraftCtrl();
+    });
+  }
+
+  void _addSelectedToQueueDraft() {
+    final id = _selectedAddStackId;
+    if (id == null || id.isEmpty) return;
+    final item = _lookupQueueItem(id) ??
+        AdminQueueItem(
+          position: _queueDraft.length,
+          stackId: id,
+          normalizedSongId: id,
+          source: 'songs',
+          title: id,
+          artistName: 'Unknown artist',
+        );
+    setState(() {
+      _queueDraft = [..._queueDraft, item];
+      _syncQueueDraftCtrl();
+    });
+  }
+
+  void _resetQueueDraft() {
+    setState(() {
+      _queueDraft = List<AdminQueueItem>.from(_queue);
+      _syncQueueDraftCtrl();
+    });
+  }
+
+  void _applyRawStackIdsToDraft() {
+    final ids = _queueDraftCtrl.text
+        .split('\n')
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+    setState(() {
+      _queueDraft = [
+        for (var i = 0; i < ids.length; i++)
+          _lookupQueueItem(ids[i]) ??
+              AdminQueueItem(
+                position: i,
+                stackId: ids[i],
+                normalizedSongId: ids[i],
+                source: 'songs',
+                title: ids[i],
+                artistName: 'Unknown artist',
+              ),
+      ];
     });
   }
 
@@ -522,28 +687,39 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   Future<void> _saveQueueDraft() async {
     final radioId = _selectedRadioId;
     if (radioId == null || radioId.isEmpty) return;
-    final stackIds = _queueDraftCtrl.text
-        .split('\n')
-        .map((s) => s.trim())
-        .where((s) => s.isNotEmpty)
-        .toList();
-    await _admin.replaceRadioQueue(radioId, stackIds);
-    await _refreshQueue();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Queue replaced successfully.')),
-    );
+    if (_showRawStackEditor) _applyRawStackIdsToDraft();
+    final stackIds = _queueDraft.map((e) => e.stackId).toList();
+    try {
+      await _admin.replaceRadioQueue(radioId, stackIds);
+      await _refreshQueue();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Queue updated for upcoming tracks.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save queue: $e')),
+      );
+    }
   }
 
   Future<void> _skipCurrentTrack() async {
     final radioId = _selectedRadioId;
     if (radioId == null || radioId.isEmpty) return;
-    await _admin.skipRadioQueueTrack(radioId);
-    await _refreshQueue();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Skipped current track.')),
-    );
+    try {
+      await _admin.skipRadioQueueTrack(radioId);
+      await _refreshQueue();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Skipped current track for this station.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to skip: $e')),
+      );
+    }
   }
 
   Future<void> _submitFallbackFromUpload() async {
@@ -848,6 +1024,18 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         ),
                         child: const Text('Trim'),
                       ),
+                      OutlinedButton(
+                        onPressed: audioUrl.isEmpty
+                            ? null
+                            : () => _openAdminSampleTrim(song),
+                        child: const Text('Sample'),
+                      ),
+                      OutlinedButton(
+                        onPressed: audioUrl.isEmpty
+                            ? null
+                            : () => _openAdminDiscoverClip(song),
+                        child: const Text('Discover clip'),
+                      ),
                       TextButton(
                         onPressed: _songActionBusy
                             ? null
@@ -869,70 +1057,289 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildQueueTab() {
+    final nowTitle = _nowPlaying?['title'];
+    final nowArtist = _nowPlaying?['artistName'];
+    final candidateItems = _queueAddCandidates
+        .map(_candidateStackId)
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                key: ValueKey<String?>(_selectedRadioId),
-                initialValue: _selectedRadioId,
-                decoration: const InputDecoration(
-                  labelText: 'Station',
-                  border: OutlineInputBorder(),
-                ),
-                items: _radios
-                    .map(
-                      (r) => DropdownMenuItem<String>(
-                        value: r.id,
-                        child: Text(r.label),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) async {
-                  if (value == null) return;
-                  setState(() => _selectedRadioId = value);
-                  await _refreshQueue();
-                },
+        Text(
+          'Queue Manager',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
               ),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(onPressed: _skipCurrentTrack, child: const Text('Skip Current')),
-          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Manage upcoming queue and skip the current track when needed.',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
         ),
         const SizedBox(height: 12),
-        TextField(
-          controller: _queueDraftCtrl,
-          minLines: 6,
-          maxLines: 12,
-          decoration: const InputDecoration(
-            labelText: 'Queue Stack IDs (one per line)',
-            border: OutlineInputBorder(),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.tonal(
+            onPressed: _skipCurrentTrack,
+            child: const Text('Skip Current Track'),
           ),
         ),
-        const SizedBox(height: 8),
-        FilledButton(onPressed: _saveQueueDraft, child: const Text('Replace Queue')),
         const SizedBox(height: 12),
-        const Text('Upcoming Queue', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 6),
-        ..._queue.map(
-          (entry) => Card(
-            child: ListTile(
-              title: Text(entry.title.isEmpty ? entry.normalizedSongId : entry.title),
-              subtitle: Text('Stack: ${entry.stackId} · ${entry.artistName}'),
-              trailing: IconButton(
-                onPressed: () async {
-                  if (_selectedRadioId == null) return;
-                  await _admin.removeRadioQueueEntry(
-                    _selectedRadioId!,
-                    stackId: entry.stackId,
-                    source: entry.source,
-                  );
-                  await _refreshQueue();
-                },
-                icon: const Icon(Icons.delete_outline),
-              ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _radios.map((r) {
+            final selected = r.id == _selectedRadioId;
+            return ChoiceChip(
+              label: Text(r.label),
+              selected: selected,
+              onSelected: (_) async {
+                setState(() => _selectedRadioId = r.id);
+                await _refreshQueue();
+              },
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Now Playing',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  nowTitle == null
+                      ? 'No active track'
+                      : '$nowTitle — ${nowArtist ?? 'Unknown artist'}',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.75),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Add Eligible Song',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white.withValues(alpha: 0.65),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  key: ValueKey<String?>(_selectedAddStackId),
+                  initialValue: candidateItems.contains(_selectedAddStackId)
+                      ? _selectedAddStackId
+                      : null,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  items: _queueAddCandidates
+                      .where((c) => _candidateStackId(c).isNotEmpty)
+                      .map((c) {
+                    final id = _candidateStackId(c);
+                    return DropdownMenuItem<String>(
+                      value: id,
+                      child: Text(
+                        '${_candidateTitle(c)} — ${_candidateArtist(c)}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (v) => setState(() => _selectedAddStackId = v),
+                ),
+                const SizedBox(height: 10),
+                FilledButton(
+                  onPressed: _selectedAddStackId == null
+                      ? null
+                      : _addSelectedToQueueDraft,
+                  child: const Text('Add to Draft Queue'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Upcoming Queue (Draft)',
+                        style: TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed:
+                          _queueHasChanges ? _resetQueueDraft : null,
+                      child: const Text('Reset'),
+                    ),
+                    const SizedBox(width: 4),
+                    FilledButton(
+                      onPressed:
+                          _queueHasChanges ? _saveQueueDraft : null,
+                      child: const Text('Apply Queue Changes'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (_queueDraft.isEmpty)
+                  Text(
+                    'No upcoming entries.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.65),
+                    ),
+                  )
+                else
+                  ...List.generate(_queueDraft.length, (idx) {
+                    final entry = _queueDraft[idx];
+                    final title = entry.title.trim().isEmpty
+                        ? entry.stackId
+                        : entry.title;
+                    final artist = entry.artistName.trim().isEmpty
+                        ? 'Unknown artist'
+                        : entry.artistName;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.12),
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 36,
+                              child: Text(
+                                '#${idx + 1}',
+                                style: TextStyle(
+                                  color:
+                                      Colors.white.withValues(alpha: 0.55),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    artist,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white
+                                          .withValues(alpha: 0.55),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Up',
+                              onPressed: idx == 0
+                                  ? null
+                                  : () => _moveQueueDraft(idx, -1),
+                              icon: const Icon(Icons.arrow_upward, size: 18),
+                            ),
+                            IconButton(
+                              tooltip: 'Down',
+                              onPressed: idx >= _queueDraft.length - 1
+                                  ? null
+                                  : () => _moveQueueDraft(idx, 1),
+                              icon:
+                                  const Icon(Icons.arrow_downward, size: 18),
+                            ),
+                            IconButton(
+                              tooltip: 'Remove',
+                              onPressed: () => _removeQueueDraftAt(idx),
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 4),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      _showRawStackEditor = !_showRawStackEditor;
+                      if (_showRawStackEditor) _syncQueueDraftCtrl();
+                    });
+                  },
+                  child: Text(
+                    _showRawStackEditor
+                        ? 'Hide stack ID editor'
+                        : 'Advanced: edit stack IDs',
+                  ),
+                ),
+                if (_showRawStackEditor) ...[
+                  TextField(
+                    controller: _queueDraftCtrl,
+                    minLines: 4,
+                    maxLines: 10,
+                    decoration: const InputDecoration(
+                      labelText: 'Queue stack IDs (one per line)',
+                      border: OutlineInputBorder(),
+                    ),
+                    onChanged: (_) {},
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton(
+                    onPressed: () {
+                      _applyRawStackIdsToDraft();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Draft updated from stack IDs.'),
+                        ),
+                      );
+                    },
+                    child: const Text('Apply IDs to draft'),
+                  ),
+                ],
+              ],
             ),
           ),
         ),
@@ -1262,6 +1669,131 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ),
       ],
     );
+  }
+
+  Future<void> _openAdminSampleTrim(Map<String, dynamic> song) async {
+    final id = _songField(song, 'id');
+    final title = _songField(song, 'title').isEmpty
+        ? 'Untitled'
+        : _songField(song, 'title');
+    final audioUrl = _songField(song, 'audio_url', 'audioUrl');
+    if (id.isEmpty || audioUrl.isEmpty) return;
+
+    final durationRaw = song['duration_seconds'] ?? song['durationSeconds'];
+    final durationSeconds = (durationRaw is num)
+        ? durationRaw.toInt()
+        : int.tryParse('$durationRaw');
+
+    final startRaw =
+        song['sample_start_seconds'] ?? song['sampleStartSeconds'] ?? 0;
+    final endRaw = song['sample_end_seconds'] ?? song['sampleEndSeconds'];
+    final start = (startRaw is num)
+        ? startRaw.toDouble()
+        : double.tryParse('$startRaw') ?? 0;
+    final parsedEnd = (endRaw is num)
+        ? endRaw.toDouble()
+        : double.tryParse('$endRaw');
+    final end = (parsedEnd != null && parsedEnd > start)
+        ? parsedEnd
+        : start + _kAdminSampleMaxSeconds;
+    final sampleUrl = _songField(song, 'sample_url', 'sampleUrl');
+    final alreadySet = sampleUrl.isNotEmpty || start > 0;
+
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ClipWindowSheet(
+        audioUrl: audioUrl,
+        displayTitle: title,
+        durationSeconds: durationSeconds,
+        heading: 'Set preview sample',
+        saveLabel: 'Save sample',
+        savedMessage: 'Sample saved. Rendering preview…',
+        minLength: _kAdminSampleMinSeconds,
+        maxLength: _kAdminSampleMaxSeconds,
+        initialStart: start,
+        initialEnd: end,
+        alreadySet: alreadySet,
+        overwriteWarning:
+            'A sample is already set (${clipFmtTime(start)} – ${clipFmtTime(end)}). Saving overwrites it.',
+        onSave: (s, e) => _songsApi.setSample(id, s, endSeconds: e),
+      ),
+    );
+    if (updated == true && mounted) {
+      await _refreshSongs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sample clip saved.')),
+      );
+    }
+  }
+
+  Future<void> _openAdminDiscoverClip(Map<String, dynamic> song) async {
+    final id = _songField(song, 'id');
+    final title = _songField(song, 'title').isEmpty
+        ? 'Untitled'
+        : _songField(song, 'title');
+    final audioUrl = _songField(song, 'audio_url', 'audioUrl');
+    if (id.isEmpty || audioUrl.isEmpty) return;
+
+    final durationRaw = song['duration_seconds'] ?? song['durationSeconds'];
+    final durationSeconds = (durationRaw is num)
+        ? durationRaw.toInt()
+        : int.tryParse('$durationRaw');
+
+    final startRaw = song['discover_clip_start_seconds'] ??
+        song['discoverClipStartSeconds'] ??
+        0;
+    final endRaw = song['discover_clip_end_seconds'] ??
+        song['discoverClipEndSeconds'];
+    final start = (startRaw is num)
+        ? startRaw.toDouble()
+        : double.tryParse('$startRaw') ?? 0;
+    final parsedEnd = (endRaw is num)
+        ? endRaw.toDouble()
+        : double.tryParse('$endRaw');
+    final end = (parsedEnd != null && parsedEnd > start)
+        ? parsedEnd
+        : start + _kAdminDiscoverMaxSeconds;
+    final discoverEnabled =
+        song['discover_enabled'] == true || song['discoverEnabled'] == true;
+    final alreadySet = discoverEnabled ||
+        song['discover_clip_start_seconds'] != null ||
+        song['discoverClipStartSeconds'] != null;
+
+    final updated = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ClipWindowSheet(
+        audioUrl: audioUrl,
+        displayTitle: title,
+        durationSeconds: durationSeconds,
+        heading: 'Set Discover clip',
+        saveLabel: 'Publish to Discover',
+        savedMessage: 'Discover clip saved. Rendering…',
+        minLength: _kAdminDiscoverMinSeconds,
+        maxLength: _kAdminDiscoverMaxSeconds,
+        initialStart: start,
+        initialEnd: end,
+        alreadySet: alreadySet,
+        overwriteWarning:
+            'A Discover clip is already set (${clipFmtTime(start)} – ${clipFmtTime(end)}). Saving overwrites it.',
+        onSave: (s, e) => _songsApi.publishDiscover(
+          id,
+          clipStartSeconds: s,
+          clipEndSeconds: e,
+        ),
+      ),
+    );
+    if (updated == true && mounted) {
+      await _refreshSongs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Discover clip published.')),
+      );
+    }
   }
 
   Future<void> _showTrimDialog(

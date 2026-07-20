@@ -338,6 +338,21 @@ extension AdminQueueParsing on Map<String, dynamic> {
         .where((id) => id.trim().isNotEmpty)
         .toList(growable: false);
   }
+
+  /// Web queue "Now Playing" card — `{ title, artistName }` or null.
+  Map<String, String>? parseCurrentSong() {
+    final raw = this['currentSong'];
+    if (raw is! Map) return null;
+    final title = (raw['title'] ?? '').toString().trim();
+    final artist = (raw['artistName'] ?? raw['artist_name'] ?? '')
+        .toString()
+        .trim();
+    if (title.isEmpty && artist.isEmpty) return null;
+    return {
+      'title': title.isEmpty ? 'Unknown track' : title,
+      'artistName': artist.isEmpty ? 'Unknown artist' : artist,
+    };
+  }
 }
 
 String prettyJson(Object? value) {
