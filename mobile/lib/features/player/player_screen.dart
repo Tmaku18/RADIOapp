@@ -18,7 +18,6 @@ import '../../core/services/radio_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
-import '../../core/services/audio_visualizer_service.dart';
 import '../../core/services/chat_service.dart';
 import '../../core/services/venue_ads_service.dart';
 import '../../core/services/radio_background_sync_service.dart';
@@ -34,7 +33,6 @@ import '../../core/theme/networx_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../dimension/floating_album_scene.dart';
-import 'widgets/frequency_visualizer.dart';
 import 'widgets/radio_up_next_queue.dart';
 import 'widgets/chat_panel.dart';
 import 'widgets/synced_lyrics_panel.dart';
@@ -168,10 +166,6 @@ class _PlayerScreenState extends State<PlayerScreen>
     );
     _loadMe();
     _initializeStationAndPlayback();
-    // Real audio-reactive bars (Android output tap). Prompts once for the mic
-    // permission; the service remembers a denial and silently falls back to
-    // the simulated animation.
-    unawaited(AudioVisualizerService().ensureStarted());
     _risingStarSub = StationEventsService().risingStarStream.listen((event) {
       if (!mounted) return;
       final percent = event.conversion != null
@@ -1880,10 +1874,6 @@ class _PlayerBody extends StatelessWidget {
                 },
               ),
               SizedBox(height: afterProgressGap),
-              FrequencyVisualizer(isPlaying: isPlaying),
-              const SizedBox(height: 16),
-              RadioUpNextQueue(radioId: radioId, currentId: track.id),
-              const SizedBox(height: 16),
               SyncedLyricsPanel(
                 songId: track.id,
                 positionStream: audioPlayer.positionStream,
@@ -2002,6 +1992,12 @@ class _PlayerBody extends StatelessWidget {
                         : const Text('🔥'),
                   ),
                 ],
+              ),
+              SizedBox(height: afterProgressGap),
+              RadioUpNextQueue(
+                radioId: radioId,
+                currentId: track.id,
+                compact: true,
               ),
             ],
           ),

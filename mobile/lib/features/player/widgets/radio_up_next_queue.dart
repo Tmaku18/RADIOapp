@@ -13,10 +13,18 @@ import '../../../widgets/dimension/dimension_widgets.dart';
 
 /// Up-next queue — web [RadioUpNextQueue] parity.
 class RadioUpNextQueue extends StatefulWidget {
-  const RadioUpNextQueue({super.key, required this.radioId, this.currentId});
+  const RadioUpNextQueue({
+    super.key,
+    required this.radioId,
+    this.currentId,
+    this.compact = false,
+  });
 
   final String radioId;
   final String? currentId;
+
+  /// Compact strip for the bottom of the radio player (next song only).
+  final bool compact;
 
   @override
   State<RadioUpNextQueue> createState() => _RadioUpNextQueueState();
@@ -80,7 +88,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
     try {
       final rows = await _radio.getUpcomingQueue(
         radioId: widget.radioId,
-        limit: 12,
+        limit: widget.compact ? 4 : 12,
       );
       final currentId = widget.currentId;
       final filtered = currentId == null
@@ -109,6 +117,10 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.compact) {
+      return _buildCompact();
+    }
+
     final width = MediaQuery.sizeOf(context).width;
     final columns = width >= DimensionTokens.breakpointDesktop
         ? 4
@@ -245,6 +257,109 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                 ),
               );
             },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCompact() {
+    final next = _tracks.isEmpty ? null : _tracks.first;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'UP NEXT',
+          style: GoogleFonts.jetBrainsMono(
+            color: DimensionTokens.pink400,
+            fontSize: 9,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 6),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: SizedBox(
+              height: 16,
+              width: 16,
+              child: CircularProgressIndicator(strokeWidth: 1.5),
+            ),
+          )
+        else if (next == null)
+          Text(
+            _loadError
+                ? 'Queue unavailable'
+                : _radioActive
+                    ? 'Loading…'
+                    : 'Nothing queued yet',
+            style: GoogleFonts.outfit(
+              color: DimensionTokens.textMuted,
+              fontSize: 11,
+            ),
+          )
+        else
+          GlassCard(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            child: Row(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6),
+                  child: next.artworkUrl != null && next.artworkUrl!.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: next.artworkUrl!,
+                          width: 28,
+                          height: 28,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          width: 28,
+                          height: 28,
+                          color: DimensionTokens.bgSurface,
+                          child: const Icon(
+                            Icons.music_note,
+                            size: 14,
+                            color: DimensionTokens.neonCyan,
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        next.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: DimensionTokens.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        next.artistName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                          color: DimensionTokens.textSecondary,
+                          fontSize: 9,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (next.temperaturePercent != null)
+                  Text(
+                    '${next.temperaturePercent}°',
+                    style: GoogleFonts.jetBrainsMono(
+                      color: DimensionTokens.neonCyan,
+                      fontSize: 9,
+                    ),
+                  ),
+              ],
+            ),
           ),
       ],
     );
