@@ -60,7 +60,10 @@ class AppRouter {
       case AppRoutes.analytics:
         return _route(const AnalyticsScreen(), settings);
       case AppRoutes.upload:
-        return _route(const RequireArtist(child: UploadScreen()), settings);
+        return _route(
+          const RequireGemCapability(child: UploadScreen()),
+          settings,
+        );
       case AppRoutes.profile:
         return _route(const ProfileScreen(), settings);
       case AppRoutes.payment:

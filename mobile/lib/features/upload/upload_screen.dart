@@ -4,12 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:just_audio/just_audio.dart';
+
+import '../../core/data/station_towers.dart';
 import '../../core/services/api_service.dart';
 import '../../core/legal/full_song_radio_opt_in.dart';
+import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
-import 'package:just_audio/just_audio.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -22,10 +25,12 @@ class _UploadScreenState extends State<UploadScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _artistNameController = TextEditingController();
+  final _cityController = TextEditingController();
   final _lyricsController = TextEditingController();
   final ApiService _apiService = ApiService();
   File? _audioFile;
   File? _artworkFile;
+  File? _discoverBackgroundFile;
   bool _isUploading = false;
   double _progress = 0;
   String? _error;
@@ -35,13 +40,22 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _optInFullSongRadio = false;
   bool _optInDjLivestreams = false;
   bool _optInDjArchivedMixes = false;
-  // The Discover clip is required for every track. Default to the first 15s so
-  // there's always a valid window; the artist can fine-tune it below.
+  String? _originState;
+  final Set<String> _stationIds = {};
+
+  // Discover clip (5–15s) — required.
   double? _discoverClipStart = 0;
   double? _discoverClipEnd = 15;
+  // Sample / preview clip (5–30s) — required (web parity).
+  double? _sampleStart = 0;
+  double? _sampleEnd = 30;
 
   static const int _kDiscoverClipMin = 5;
   static const int _kDiscoverClipMax = 15;
+  static const int _kSampleMin = 5;
+  static const int _kSampleMax = 30;
+  static const int _kMaxAudioBytes = 100 * 1024 * 1024;
+  static const int _kMaxImageBytes = 15 * 1024 * 1024;
 
   Future<void> _pickAudioFile() async {
     final result = await FilePicker.pickFiles(
@@ -51,10 +65,22 @@ class _UploadScreenState extends State<UploadScreen> {
 
     if (result != null && result.files.single.path != null) {
       final picked = File(result.files.single.path!);
+      final size = await picked.length();
+      if (size > _kMaxAudioBytes) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Audio must be 100MB or smaller.')),
+        );
+        return;
+      }
       setState(() {
         _audioFile = picked;
         _error = null;
         _readyForRotation = false;
+        _sampleStart = 0;
+        _sampleEnd = 30;
+        _discoverClipStart = 0;
+        _discoverClipEnd = 15;
       });
 
       // Best-effort: pre-fill title / artist / artwork from embedded tags.
@@ -66,7 +92,15 @@ class _UploadScreenState extends State<UploadScreen> {
         await p.setFilePath(_audioFile!.path);
         final d = p.duration;
         if (!mounted) return;
-        setState(() => _durationSeconds = d?.inSeconds);
+        final secs = d?.inSeconds;
+        setState(() {
+          _durationSeconds = secs;
+          if (secs != null && secs > 0) {
+            _sampleEnd = secs < _kSampleMax ? secs.toDouble() : _kSampleMax.toDouble();
+            _discoverClipEnd =
+                secs < _kDiscoverClipMax ? secs.toDouble() : _kDiscoverClipMax.toDouble();
+          }
+        });
       } catch (_) {
         // ignore
       } finally {
@@ -131,12 +165,74 @@ class _UploadScreenState extends State<UploadScreen> {
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
+      final file = File(pickedFile.path);
+      if (await file.length() > _kMaxImageBytes) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Artwork must be 15MB or smaller.')),
+        );
+        return;
+      }
       setState(() {
-        _artworkFile = File(pickedFile.path);
+        _artworkFile = file;
         _error = null;
         _readyForRotation = false;
       });
     }
+  }
+
+  Future<void> _pickDiscoverBackground() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile == null) return;
+    final file = File(pickedFile.path);
+    if (await file.length() > _kMaxImageBytes) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Discover background must be 15MB or smaller.'),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _discoverBackgroundFile = file;
+      _error = null;
+    });
+  }
+
+  Future<void> _openSampleClipWindow() async {
+    if (_audioFile == null) return;
+    final double start = _sampleStart ?? 0;
+    final double end = (_sampleEnd != null && _sampleEnd! > start)
+        ? _sampleEnd!
+        : start + _kSampleMax;
+    await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (_) => ClipWindowSheet(
+        audioFilePath: _audioFile!.path,
+        displayTitle: _titleController.text.trim().isEmpty
+            ? 'Your track'
+            : _titleController.text.trim(),
+        durationSeconds: _durationSeconds,
+        heading: 'Set preview sample',
+        saveLabel: 'Use this sample',
+        savedMessage: 'Sample window set',
+        minLength: _kSampleMin,
+        maxLength: _kSampleMax,
+        initialStart: start,
+        initialEnd: end,
+        onSave: (s, e) async {
+          if (!mounted) return;
+          setState(() {
+            _sampleStart = s;
+            _sampleEnd = e;
+          });
+        },
+      ),
+    );
   }
 
   Future<void> _openDiscoverClipWindow() async {
@@ -260,6 +356,34 @@ class _UploadScreenState extends State<UploadScreen> {
       );
       return;
     }
+    if (_cityController.text.trim().isEmpty ||
+        (_originState == null || _originState!.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('City and state are required.')),
+      );
+      return;
+    }
+    if (_stationIds.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select at least one station / category.'),
+        ),
+      );
+      return;
+    }
+    final sampleValid = _sampleStart != null &&
+        _sampleEnd != null &&
+        _sampleEnd! > _sampleStart! &&
+        (_sampleEnd! - _sampleStart!) >= _kSampleMin &&
+        (_sampleEnd! - _sampleStart!) <= _kSampleMax;
+    if (!sampleValid) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Set a sample preview window (5–30s) before uploading.'),
+        ),
+      );
+      return;
+    }
     final discoverValid = _discoverClipStart != null &&
         _discoverClipEnd != null &&
         _discoverClipEnd! > _discoverClipStart! &&
@@ -308,15 +432,34 @@ class _UploadScreenState extends State<UploadScreen> {
           isAudio: false,
         );
       }
-      setState(() => _progress = 0.8);
+      setState(() => _progress = 0.72);
 
+      String? discoverBackgroundPath;
+      if (_discoverBackgroundFile != null) {
+        discoverBackgroundPath = await _uploadToSignedUrl(
+          file: _discoverBackgroundFile!,
+          bucket: 'artwork',
+          isAudio: false,
+        );
+      }
+      setState(() => _progress = 0.88);
+
+      final stations = _stationIds.toList();
       await _apiService.post('songs', {
         'title': _titleController.text.trim(),
         'artistName': _artistNameController.text.trim(),
+        'artistOriginCity': _cityController.text.trim(),
+        'artistOriginState': _originState,
+        'stationId': stations.first,
+        'stationIds': stations,
         'audioPath': audioPath,
         if (artworkPath != null) 'artworkPath': artworkPath,
+        if (discoverBackgroundPath != null)
+          'discoverBackgroundPath': discoverBackgroundPath,
         if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
         'isExplicit': _isExplicit,
+        'sampleStartSeconds': _sampleStart,
+        'sampleEndSeconds': _sampleEnd,
         'discoverClipStartSeconds': _discoverClipStart,
         'discoverClipEndSeconds': _discoverClipEnd,
         if (_lyricsController.text.trim().isNotEmpty)
@@ -348,6 +491,7 @@ class _UploadScreenState extends State<UploadScreen> {
   void dispose() {
     _titleController.dispose();
     _artistNameController.dispose();
+    _cityController.dispose();
     _lyricsController.dispose();
     super.dispose();
   }
@@ -356,7 +500,7 @@ class _UploadScreenState extends State<UploadScreen> {
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     return DimensionScreenShell(
-      title: 'Upload',
+      title: 'Upload Music',
       showNeonLine: true,
       body: _readyForRotation
           ? Padding(
@@ -465,12 +609,106 @@ class _UploadScreenState extends State<UploadScreen> {
                       return null;
                     },
                   ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _cityController,
+                    decoration: const InputDecoration(
+                      labelText: 'City *',
+                      hintText: 'Where are you based?',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'City is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _originState,
+                    decoration: const InputDecoration(labelText: 'State *'),
+                    items: kUsStateCodes
+                        .map(
+                          (s) => DropdownMenuItem(value: s, child: Text(s)),
+                        )
+                        .toList(),
+                    onChanged: _isUploading
+                        ? null
+                        : (v) => setState(() => _originState = v),
+                    validator: (v) =>
+                        (v == null || v.isEmpty) ? 'State is required' : null,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Station / Category *',
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Select one or more stations for this song.',
+                    style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: DimensionTokens.neonCyan.withValues(alpha: 0.25),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ListView.separated(
+                      shrinkWrap: true,
+                      itemCount: kNationalStationTowers.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                      itemBuilder: (context, i) {
+                        final tower = kNationalStationTowers[i];
+                        final checked = _stationIds.contains(tower.id);
+                        return CheckboxListTile(
+                          dense: true,
+                          value: checked,
+                          controlAffinity: ListTileControlAffinity.leading,
+                          title: Text(
+                            '${tower.genre} (National)',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          onChanged: _isUploading
+                              ? null
+                              : (v) {
+                                  setState(() {
+                                    if (v == true) {
+                                      _stationIds.add(tower.id);
+                                    } else {
+                                      _stationIds.remove(tower.id);
+                                    }
+                                  });
+                                },
+                        );
+                      },
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      _stationIds.isEmpty
+                          ? 'None selected'
+                          : '${_stationIds.length} station'
+                              '${_stationIds.length == 1 ? '' : 's'} selected',
+                      style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                    ),
+                  ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
                     onPressed: _isUploading ? null : _pickAudioFile,
                     icon: const Icon(Icons.audio_file),
                     label: Text(_audioFile == null
-                        ? 'Select audio'
+                        ? 'Select audio * (max 100MB)'
                         : _audioFile!.path.split('/').last),
                   ),
                   if (_durationSeconds != null)
@@ -497,6 +735,92 @@ class _UploadScreenState extends State<UploadScreen> {
                         child: Image.file(
                           _artworkFile!,
                           height: 180,
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Sample preview (required)',
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Listener-facing preview clip (5–30s) used when someone '
+                    'taps play on your song card.',
+                    style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_audioFile == null)
+                    Text(
+                      'Select an audio file first to set the sample window.',
+                      style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: _isUploading ? null : _openSampleClipWindow,
+                      icon: const Icon(Icons.hearing_outlined),
+                      label: Text(
+                        _sampleStart != null && _sampleEnd != null
+                            ? 'Sample: ${clipFmtTime(_sampleStart!)} – '
+                                '${clipFmtTime(_sampleEnd!)} '
+                                '(${clipFmtLen(_sampleEnd! - _sampleStart!)})'
+                            : 'Set sample window',
+                      ),
+                    ),
+                  const SizedBox(height: 14),
+                  Text(
+                    'Discover clip (required)',
+                    style: TextStyle(
+                      color: surfaces.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'A short looping clip (5–15s) shown in the Discover feed.',
+                    style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_audioFile == null)
+                    Text(
+                      'Select an audio file first to set the Discover window.',
+                      style: TextStyle(color: surfaces.textMuted, fontSize: 12),
+                    )
+                  else
+                    OutlinedButton.icon(
+                      onPressed: _isUploading ? null : _openDiscoverClipWindow,
+                      icon: const Icon(Icons.swipe_outlined),
+                      label: Text(
+                        _discoverClipStart != null && _discoverClipEnd != null
+                            ? 'Discover: ${clipFmtTime(_discoverClipStart!)} – '
+                                '${clipFmtTime(_discoverClipEnd!)} '
+                                '(${clipFmtLen(_discoverClipEnd! - _discoverClipStart!)})'
+                            : 'Set Discover clip window',
+                      ),
+                    ),
+                  const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    onPressed: _isUploading ? null : _pickDiscoverBackground,
+                    icon: const Icon(Icons.wallpaper_outlined),
+                    label: Text(
+                      _discoverBackgroundFile == null
+                          ? 'Discover background image (optional)'
+                          : _discoverBackgroundFile!.path.split('/').last,
+                    ),
+                  ),
+                  if (_discoverBackgroundFile != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.file(
+                          _discoverBackgroundFile!,
+                          height: 120,
+                          width: double.infinity,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -588,66 +912,6 @@ class _UploadScreenState extends State<UploadScreen> {
                         color: surfaces.textSecondary,
                         fontSize: 13,
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Discover clip (required)',
-                      style: TextStyle(
-                        color: surfaces.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'A short looping clip (5–15s) shown in the Discover feed. '
-                      'Defaults to the first 15s of your track — tap to fine-tune '
-                      'the most memorable moment.',
-                      style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8, bottom: 4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (_audioFile == null)
-                          Text(
-                            'Select an audio file first to set the Discover window.',
-                            style: TextStyle(
-                                color: surfaces.textMuted, fontSize: 12),
-                          )
-                        else ...[
-                          OutlinedButton.icon(
-                            onPressed:
-                                _isUploading ? null : _openDiscoverClipWindow,
-                            icon: const Icon(Icons.swipe_outlined),
-                            label: Text(
-                              _discoverClipStart != null &&
-                                      _discoverClipEnd != null
-                                  ? 'Discover window: '
-                                      '${clipFmtTime(_discoverClipStart!)} – '
-                                      '${clipFmtTime(_discoverClipEnd!)}'
-                                  : 'Set Discover clip window',
-                            ),
-                          ),
-                          if (_discoverClipStart != null &&
-                              _discoverClipEnd != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Length: ${clipFmtLen(_discoverClipEnd! - _discoverClipStart!)}',
-                                style: TextStyle(
-                                    color: surfaces.textMuted, fontSize: 12),
-                              ),
-                            ),
-                        ],
-                      ],
                     ),
                   ),
                   const SizedBox(height: 16),

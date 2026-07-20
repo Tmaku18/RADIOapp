@@ -84,6 +84,19 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
     Navigator.of(context).pushNamed(AppRoutes.proNetworxLanding);
   }
 
+  void _goToAbout() {
+    Navigator.of(context).pushNamed(AppRoutes.about);
+  }
+
+  void _onMineFrequency() {
+    // Guest radio already started inside DimensionHomeSections; show the bar.
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Tuned in — use the bar below to play / pause.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -100,6 +113,39 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
               bottom: DimensionTokens.radioBarHeight + 32,
             ),
             children: [
+              SafeArea(
+                bottom: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                  child: Row(
+                    children: [
+                      Text(
+                        'NETWORX',
+                        style: DimensionTypography.cardTitle(fontSize: 16)
+                            .copyWith(letterSpacing: 1.2),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: _goToAbout,
+                        child: const Text('About'),
+                      ),
+                      TextButton(
+                        onPressed: _goToProNetworx,
+                        child: const Text('Pro'),
+                      ),
+                      FilledButton(
+                        onPressed: _goToLogin,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: DimensionTokens.neonCyan,
+                          foregroundColor: Colors.black,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                        child: const Text('Log in'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
               if (_loadingHome)
                 const Padding(
                   padding: EdgeInsets.all(32),
@@ -127,7 +173,7 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
                 DimensionHomeSections(
                   stats: _stats,
                   trending: _trending,
-                  onMineFrequency: () {},
+                  onMineFrequency: _onMineFrequency,
                   onGetStarted: _goToSignUp,
                   onExploreArtists: _goToProNetworx,
                   onLogin: _goToLogin,

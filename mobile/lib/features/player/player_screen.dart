@@ -87,10 +87,13 @@ const String _selectedStationPrefKey = 'selected_radio_station_id';
 const int _kTempBaseline = 50;
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key, this.onOpenNavDrawer});
+  const PlayerScreen({super.key, this.onOpenNavDrawer, this.onUpload});
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
   final VoidCallback? onOpenNavDrawer;
+
+  /// Shown for Gem / Catalyst / Admin — web dashboard header Upload CTA.
+  final VoidCallback? onUpload;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -1092,6 +1095,22 @@ class _PlayerScreenState extends State<PlayerScreen>
                 ],
               ),
               actions: [
+                if (widget.onUpload != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4),
+                    child: FilledButton.tonalIcon(
+                      onPressed: widget.onUpload,
+                      icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                      label: const Text('Upload'),
+                      style: FilledButton.styleFrom(
+                        backgroundColor:
+                            DimensionTokens.neonCyan.withValues(alpha: 0.22),
+                        foregroundColor: DimensionTokens.neonCyan,
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ),
+                  ),
                 TextButton.icon(
                   onPressed: _openStationPicker,
                   icon: const Icon(Icons.swap_horiz),

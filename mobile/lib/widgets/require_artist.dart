@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth/auth_service.dart';
+import '../core/auth/role_helpers.dart';
 import '../core/models/user.dart' as app_user;
 import '../features/apply/apply_screen.dart';
 
-/// Simple route guard for artist-only screens.
+/// Route guard for Gem upload capability (artist, Catalyst, admin).
 ///
 /// Web uses middleware + `/apply` redirects; on mobile we render `ApplyScreen`
 /// in place so navigation stays native.
@@ -25,8 +26,7 @@ class RequireArtist extends StatelessWidget {
         }
 
         final role = snapshot.data?.role;
-        final isArtist = role == 'artist' || role == 'admin';
-        if (!isArtist) return const ApplyScreen();
+        if (!hasArtistCapability(role)) return const ApplyScreen();
         return child;
       },
     );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/auth/auth_service.dart';
+import '../core/auth/role_helpers.dart';
 import '../core/models/user.dart' as app_user;
 import '../features/apply/apply_screen.dart';
 
@@ -10,11 +11,7 @@ class RequireGemCapability extends StatelessWidget {
 
   final Widget child;
 
-  static bool allowsRole(String? role) {
-    return role == 'artist' ||
-        role == 'service_provider' ||
-        role == 'admin';
-  }
+  static bool allowsRole(String? role) => hasArtistCapability(role);
 
   @override
   Widget build(BuildContext context) {

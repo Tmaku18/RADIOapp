@@ -103,8 +103,8 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
       ),
       if (widget.isArtist)
         const _NavSpec(
-          icon: Icons.mic,
-          label: 'My Uploaded Songs',
+          icon: Icons.dashboard_outlined,
+          label: 'Dashboard',
           tabIndex: 3,
         )
       else
@@ -113,12 +113,23 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
           label: 'Vote',
           tabIndex: 3,
         ),
-      if (widget.isArtist)
+      if (widget.isArtist) ...[
+        const _NavSpec(
+          icon: Icons.cloud_upload_outlined,
+          label: 'Upload',
+          route: AppRoutes.upload,
+        ),
+        const _NavSpec(
+          icon: Icons.library_music_outlined,
+          label: 'My Songs',
+          route: AppRoutes.studio,
+        ),
         const _NavSpec(
           icon: Icons.show_chart,
           label: 'Analytics',
           route: AppRoutes.analytics,
         ),
+      ],
       const _NavSpec(
         icon: Icons.science_outlined,
         label: 'The Refinery',
@@ -184,7 +195,6 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                         AppRoutes.proMeProfile,
                       ),
                       if (widget.isArtist) ...[
-                        _subRow('Upload', AppRoutes.upload),
                         _subRow('Credits', AppRoutes.credits),
                       ],
                       if (widget.isStreamerRole) ...[
@@ -520,8 +530,12 @@ class _UserFooter extends StatelessWidget {
 
   String get _roleLabel {
     if (isAdmin) return 'ADMIN';
-    if (isArtist) return 'ARTIST';
-    return 'LISTENER';
+    final role = user?.role;
+    if (role == 'service_provider') return 'CATALYST';
+    if (role == 'dj') return 'DJ';
+    if (role == 'musician') return 'MUSICIAN';
+    if (isArtist || role == 'artist') return 'GEM';
+    return 'PROSPECTOR';
   }
 
   @override
