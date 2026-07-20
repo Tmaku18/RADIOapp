@@ -14,10 +14,10 @@ class DiscoverAudioTab extends StatefulWidget {
   const DiscoverAudioTab({super.key});
 
   @override
-  State<DiscoverAudioTab> createState() => _DiscoverAudioTabState();
+  DiscoverAudioTabState createState() => DiscoverAudioTabState();
 }
 
-class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
+class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   static const int _pageSize = 12;
   static const String _selectedStationPrefKey = 'selected_radio_station_id';
   static const String _defaultStationId = 'us-ready-now-rap';
@@ -115,14 +115,17 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     return _defaultStationId;
   }
 
+  /// App-bar / pull-to-refresh: reshuffle the full remaining Discover deck.
+  Future<void> reshuffleFeed() => _loadPage(append: false);
+
   Future<void> _loadPage({required bool append}) async {
     if (!append) {
       _stationId = await _resolveStationId();
-    }
-    if (!append) {
-      // New seed on refresh gives a new random order.
+      // New seed every refresh randomizes the entire remaining clip list.
       _seed =
           '${DateTime.now().millisecondsSinceEpoch}-${Random().nextInt(1 << 30)}';
+      _nextCursor = null;
+      _cards = const [];
     }
     if (append) {
       setState(() => _loadingMore = true);
@@ -324,21 +327,30 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
 
     if (card == null) {
       return RefreshIndicator(
-        onRefresh: () => _loadPage(append: false),
+        onRefresh: reshuffleFeed,
         child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
           children: [
-            const SizedBox(height: 120),
-            Center(
+            const SizedBox(height: 100),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
               child: Text(
-                'You\'ve reached the end of our content for now! Check back soon.',
-                style: TextStyle(color: surfaces.textSecondary),
+                "You've ran out of artist to like try bringing some new ones "
+                'to the platform please and thanks!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: surfaces.textSecondary,
+                  fontSize: 15,
+                  height: 1.45,
+                ),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             Center(
-              child: FilledButton(
-                onPressed: () => _loadPage(append: false),
-                child: const Text('Refresh'),
+              child: FilledButton.icon(
+                onPressed: reshuffleFeed,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Refresh'),
               ),
             ),
           ],
@@ -347,7 +359,7 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
     }
 
     return RefreshIndicator(
-      onRefresh: () => _loadPage(append: false),
+      onRefresh: reshuffleFeed,
       child: ListView(
         padding: const EdgeInsets.all(12),
         children: [
@@ -539,10 +551,8 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                                   onPressed: _busySwipe
                                       ? null
                                       : () => _applySwipe('left_skip'),
-                                  icon: const Icon(
-                                    Icons.keyboard_double_arrow_left,
-                                  ),
-                                  label: const Text('Skip'),
+                                  icon: const Icon(Icons.thumb_down_alt_outlined),
+                                  label: const Text('Dislike'),
                                 ),
                               ),
                               const SizedBox(width: 10),
@@ -551,8 +561,8 @@ class _DiscoverAudioTabState extends State<DiscoverAudioTab> {
                                   onPressed: _busySwipe
                                       ? null
                                       : () => _applySwipe('right_like'),
-                                  icon: const Icon(Icons.favorite_outline),
-                                  label: const Text('Save'),
+                                  icon: const Icon(Icons.favorite),
+                                  label: const Text('Like'),
                                 ),
                               ),
                             ],

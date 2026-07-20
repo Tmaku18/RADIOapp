@@ -10,7 +10,6 @@ import '../../core/services/browse_like_events_service.dart';
 import '../../core/services/browse_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/songs_service.dart';
-import '../../core/services/payments_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/dimension_tokens.dart';
@@ -34,12 +33,19 @@ class DiscoveryScreen extends StatefulWidget {
   State<DiscoveryScreen> createState() => _DiscoveryScreenState();
 }
 
-class _DiscoveryScreenState extends State<DiscoveryScreen> {
+class _DiscoveryScreenState extends State<DiscoveryScreen>
+    with SingleTickerProviderStateMixin {
   static const int _pageSize = 12;
   final BrowseService _service = BrowseService();
   final BrowseLikeEventsService _likeEvents = BrowseLikeEventsService();
   final ScrollController _scroll = ScrollController();
   final String _seed = DateTime.now().millisecondsSinceEpoch.toString();
+  final GlobalKey<DiscoverAudioTabState> _swipeKey =
+      GlobalKey<DiscoverAudioTabState>();
+  final GlobalKey<_LibraryTabState> _libraryKey = GlobalKey<_LibraryTabState>();
+  final GlobalKey<_DiscoverListTabState> _savedKey =
+      GlobalKey<_DiscoverListTabState>();
+  late final TabController _tabController;
   StreamSubscription<BrowseLikeEvent>? _likeEventsSub;
 
   bool _loading = true;
@@ -54,6 +60,11 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     _loadPage(append: false);
     _likeEvents.start();
     _likeEventsSub = _likeEvents.stream.listen((event) {
@@ -81,7 +92,25 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     _likeEventsSub?.cancel();
     _likeEvents.stop();
     _scroll.dispose();
+    _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _onAppBarRefresh() async {
+    switch (_tabController.index) {
+      case 0:
+        await _swipeKey.currentState?.reshuffleFeed();
+        return;
+      case 1:
+        await _savedKey.currentState?.reload();
+        return;
+      case 3:
+        await _libraryKey.currentState?.reload();
+        return;
+      case 2:
+      default:
+        await _loadPage(append: false);
+    }
   }
 
   Future<void> _loadPage({required bool append}) async {
@@ -286,10 +315,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
     final scheme = Theme.of(context).colorScheme;
 
     final embedded = widget.onOpenNavDrawer != null;
-    final tabScaffold = DefaultTabController(
-      initialIndex: widget.initialTabIndex.clamp(0, 3),
-      length: 4,
-      child: Scaffold(
+    final tabScaffold = Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
@@ -301,9 +327,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                 )
               : null,
           title: const Text('Discover'),
-          bottom: const TabBar(
+          bottom: TabBar(
+            controller: _tabController,
             isScrollable: true,
-            tabs: [
+            tabs: const [
               Tab(text: 'Swipe'),
               Tab(text: 'Saved'),
               Tab(text: 'Artists'),
@@ -322,16 +349,17 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
               icon: const Icon(Icons.video_call_outlined),
             ),
             IconButton(
-              onPressed: () => _loadPage(append: false),
+              onPressed: _onAppBarRefresh,
               tooltip: 'Refresh',
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
         body: TabBarView(
+          controller: _tabController,
           children: [
-            const DiscoverAudioTab(),
-            const _DiscoverListTab(),
+            DiscoverAudioTab(key: _swipeKey),
+            _DiscoverListTab(key: _savedKey),
             _loading && _items.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : (_loadError != null && _items.isEmpty)
@@ -590,10 +618,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
                       },
                     ),
                   ),
-            const _LibraryTab(),
+            _LibraryTab(key: _libraryKey),
           ],
         ),
-      ),
     );
 
     // Pushed from the drawer (no home backdrop) — wrap in Dimension chrome.
@@ -611,7 +638,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
 // `features/social/social_feed_screen.dart`.
 
 class _DiscoverListTab extends StatefulWidget {
-  const _DiscoverListTab();
+  const _DiscoverListTab({super.key});
 
   @override
   State<_DiscoverListTab> createState() => _DiscoverListTabState();
@@ -630,6 +657,8 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
     _load();
   }
 
+  Future<void> reload() => _load();
+
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
@@ -645,6 +674,7 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
     setState(() => _removingSongId = songId);
     try {
       await _service.removeLikedSong(songId);
+      await _service.removeSwipe(songId);
       if (!mounted) return;
       setState(() => _items = _items.where((i) => i.songId != songId).toList());
     } finally {
@@ -671,7 +701,7 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
     if (_items.isEmpty) {
       return Center(
         child: Text(
-          'Your Discover list is empty. Swipe right in Discover to add songs.',
+          'No liked songs yet. Swipe right (Like) on Discover to save them here.',
           textAlign: TextAlign.center,
           style: TextStyle(color: surfaces.textSecondary),
         ),
@@ -732,7 +762,7 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
 }
 
 class _LibraryTab extends StatefulWidget {
-  const _LibraryTab();
+  const _LibraryTab({super.key});
 
   @override
   State<_LibraryTab> createState() => _LibraryTabState();
@@ -740,44 +770,46 @@ class _LibraryTab extends StatefulWidget {
 
 class _LibraryTabState extends State<_LibraryTab> {
   final SongsService _songs = SongsService();
-  final PaymentsService _payments = PaymentsService();
-  bool _loading = true;
-  List<LibrarySong> _items = const [];
-  String _sortBy = 'recent';
-  String? _busyLikedId;
+  final DiscoverAudioService _discover = DiscoverAudioService();
 
-  // 'liked' = saved/liked songs (30s sample only).
-  // 'music' = purchased songs (full play + download).
+  // 'liked' / 'disliked' = Discover swipes; 'music' = purchases.
   String _section = 'liked';
+  bool _historyLoading = true;
+  List<DiscoverAudioHistoryItem> _liked = const [];
+  List<DiscoverAudioHistoryItem> _disliked = const [];
+  String? _busyHistoryId;
+
   bool _purchasesLoading = true;
   List<PurchasedSong> _purchases = const [];
   String? _busyPurchaseId;
 
-  static const List<DropdownMenuItem<String>> _sortOptions = [
-    DropdownMenuItem(value: 'recent', child: Text('Recently added')),
-    DropdownMenuItem(value: 'oldest', child: Text('Oldest added')),
-    DropdownMenuItem(value: 'artist', child: Text('Artist')),
-    DropdownMenuItem(value: 'title', child: Text('Song title')),
-    DropdownMenuItem(value: 'likes', child: Text('Likes')),
-    DropdownMenuItem(value: 'plays', child: Text('Listens')),
-    DropdownMenuItem(value: 'temperature', child: Text('Temperature')),
-  ];
-
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadHistory();
     _loadPurchases();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
+  Future<void> reload() async {
+    await Future.wait([_loadHistory(), _loadPurchases()]);
+  }
+
+  Future<void> _loadHistory() async {
+    setState(() => _historyLoading = true);
     try {
-      final items = await _songs.getLibrary(limit: 100, offset: 0);
+      final results = await Future.wait([
+        _discover.getHistory(direction: 'right_like', limit: 100),
+        _discover.getHistory(direction: 'left_skip', limit: 100),
+      ]);
       if (!mounted) return;
-      setState(() => _items = items);
+      setState(() {
+        _liked = results[0];
+        _disliked = results[1];
+      });
+    } catch (_) {
+      // Best-effort.
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) setState(() => _historyLoading = false);
     }
   }
 
@@ -791,6 +823,63 @@ class _LibraryTabState extends State<_LibraryTab> {
       // Best-effort.
     } finally {
       if (mounted) setState(() => _purchasesLoading = false);
+    }
+  }
+
+  Future<void> _removeHistory(DiscoverAudioHistoryItem item) async {
+    setState(() => _busyHistoryId = item.songId);
+    try {
+      if (item.isLiked) {
+        await _discover.removeLikedSong(item.songId);
+      }
+      await _discover.removeSwipe(item.songId);
+      if (!mounted) return;
+      setState(() {
+        if (item.isLiked) {
+          _liked = _liked.where((i) => i.songId != item.songId).toList();
+        } else {
+          _disliked =
+              _disliked.where((i) => i.songId != item.songId).toList();
+        }
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busyHistoryId = null);
+    }
+  }
+
+  Future<void> _playDiscoverClip(DiscoverAudioHistoryItem item) async {
+    if (item.clipUrl.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No discover clip available.')),
+      );
+      return;
+    }
+    try {
+      final player = AudioPlayerService().player;
+      await player.setAudioSource(
+        AudioSource.uri(
+          Uri.parse(item.clipUrl),
+          tag: MediaItem(
+            id: item.songId,
+            title: item.title,
+            artist: item.artistDisplayName ?? item.artistName,
+            artUri: BrandAssets.mediaArtUri(item.backgroundUrl),
+            extras: const {'source': 'sample', 'noSeek': true},
+          ),
+        ),
+      );
+      await player.play();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not play: $e')));
     }
   }
 
@@ -848,161 +937,6 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
   }
 
-  Future<void> _remove(LibrarySong item) async {
-    await _songs.unlike(item.id);
-    if (!mounted) return;
-    setState(() => _items = _items.where((i) => i.id != item.id).toList());
-  }
-
-  Future<void> _playUrl(
-    String? url,
-    String missingMessage, {
-    LibrarySong? song,
-    bool seekable = false,
-  }) async {
-    if (url == null || url.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(missingMessage)));
-      return;
-    }
-    try {
-      final player = AudioPlayerService().player;
-      await player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          tag: song == null
-              ? null
-              : MediaItem(
-                  id: song.id,
-                  title: song.title,
-                  artist: song.artistName,
-                  artUri: BrandAssets.mediaArtUri(song.artworkUrl),
-                  extras: {
-                    'source': seekable ? 'discography' : 'sample',
-                    // Samples can fall back to the full file with an emulated
-                    // window; never allow scrubbing on non-entitled plays.
-                    'noSeek': !seekable,
-                  },
-                ),
-        ),
-      );
-      await player.play();
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not play: $e')));
-    }
-  }
-
-  Future<void> _playSample(LibrarySong item) => _playUrl(
-        item.sampleUrl ?? item.audioUrl,
-        'No sample available yet.',
-        song: item,
-      );
-
-  Future<void> _playClip(LibrarySong item) => _playUrl(
-        item.discoverClipUrl,
-        'This song has no discover clip.',
-        song: item,
-      );
-
-  Future<void> _playFull(LibrarySong item) async {
-    setState(() => _busyLikedId = item.id);
-    try {
-      // Full stream is entitlement-gated server-side (owner/purchaser only),
-      // so a successful URL means scrubbing is allowed.
-      final url = await _songs.getStreamUrl(item.id);
-      await _playUrl(url, 'Could not play the full song.',
-          song: item, seekable: true);
-    } finally {
-      if (mounted) setState(() => _busyLikedId = null);
-    }
-  }
-
-  Future<void> _buyLiked(LibrarySong item) async {
-    setState(() => _busyLikedId = item.id);
-    try {
-      final res = await _payments.buySong(songId: item.id);
-      final url = (res['url'] ?? res['checkoutUrl'])?.toString();
-      if (url == null || url.isEmpty) {
-        throw Exception('Could not start checkout.');
-      }
-      final uri = Uri.tryParse(url);
-      if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
-      }
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Complete your purchase in the browser, then pull to refresh.',
-          ),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Purchase failed: $e')));
-    } finally {
-      if (mounted) setState(() => _busyLikedId = null);
-    }
-  }
-
-  String _formatPrice(int cents) {
-    final dollars = cents / 100;
-    final text = dollars.toStringAsFixed(2);
-    return '\$${text.endsWith('.00') ? text.substring(0, text.length - 3) : text}';
-  }
-
-  List<LibrarySong> get _sortedItems {
-    final list = [..._items];
-    int byDateDesc(LibrarySong a, LibrarySong b) {
-      final av = a.likedAt;
-      final bv = b.likedAt;
-      if (av == null && bv == null) return 0;
-      if (av == null) return 1;
-      if (bv == null) return -1;
-      return bv.compareTo(av);
-    }
-
-    switch (_sortBy) {
-      case 'oldest':
-        list.sort((a, b) => -byDateDesc(a, b));
-        break;
-      case 'artist':
-        list.sort(
-          (a, b) =>
-              a.artistName.toLowerCase().compareTo(b.artistName.toLowerCase()),
-        );
-        break;
-      case 'title':
-        list.sort(
-          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        );
-        break;
-      case 'likes':
-        list.sort((a, b) => b.likeCount.compareTo(a.likeCount));
-        break;
-      case 'plays':
-        list.sort((a, b) => b.playCount.compareTo(a.playCount));
-        break;
-      case 'temperature':
-        list.sort(
-          (a, b) => b.temperaturePercent.compareTo(a.temperaturePercent),
-        );
-        break;
-      case 'recent':
-      default:
-        list.sort(byDateDesc);
-        break;
-    }
-    return list;
-  }
-
   @override
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
@@ -1019,192 +953,129 @@ class _LibraryTabState extends State<_LibraryTab> {
                 icon: Icon(Icons.favorite_border),
               ),
               ButtonSegment(
+                value: 'disliked',
+                label: Text('Disliked'),
+                icon: Icon(Icons.thumb_down_alt_outlined),
+              ),
+              ButtonSegment(
                 value: 'music',
                 label: Text('My Music'),
                 icon: Icon(Icons.library_music_outlined),
               ),
             ],
             selected: {_section},
-            onSelectionChanged: (s) =>
-                setState(() => _section = s.first),
+            onSelectionChanged: (s) => setState(() => _section = s.first),
           ),
         ),
         Expanded(
-          child: _section == 'liked'
-              ? _buildLikedSection(surfaces)
-              : _buildMusicSection(surfaces),
+          child: switch (_section) {
+            'liked' => _buildHistorySection(
+              surfaces,
+              items: _liked,
+              emptyMessage:
+                  'No liked songs yet. Swipe right (Like) on Discover to add them here.',
+            ),
+            'disliked' => _buildHistorySection(
+              surfaces,
+              items: _disliked,
+              emptyMessage:
+                  'No disliked songs yet. Swipe left (Dislike) on Discover to add them here.',
+            ),
+            _ => _buildMusicSection(surfaces),
+          },
         ),
       ],
     );
   }
 
-  Widget _buildLikedSection(NetworxSurfaces surfaces) {
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_items.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            'No liked songs yet. Give a song 🔥 on the radio to save its 30-second sample here.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: surfaces.textSecondary),
-          ),
+  Widget _buildHistorySection(
+    NetworxSurfaces surfaces, {
+    required List<DiscoverAudioHistoryItem> items,
+    required String emptyMessage,
+  }) {
+    if (_historyLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (items.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadHistory,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            const SizedBox(height: 80),
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                emptyMessage,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: surfaces.textSecondary),
+              ),
+            ),
+          ],
         ),
       );
     }
-    final items = _sortedItems;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Text('Sort by', style: TextStyle(color: surfaces.textSecondary)),
-              const SizedBox(width: 8),
-              DropdownButton<String>(
-                value: _sortBy,
-                items: _sortOptions,
-                onChanged: (value) {
-                  if (value != null) setState(() => _sortBy = value);
-                },
+    return RefreshIndicator(
+      onRefresh: _loadHistory,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: items.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          final busy = _busyHistoryId == item.songId;
+          final art = item.backgroundUrl;
+          return Card(
+            child: ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(
+                  DimensionTokens.tileRadius,
+                ),
+                child: (art != null && art.isNotEmpty)
+                    ? Image.network(
+                        art,
+                        width: 44,
+                        height: 44,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _artworkFallback(surfaces),
+                      )
+                    : _artworkFallback(surfaces),
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: _load,
-            child: ListView.separated(
-              padding: const EdgeInsets.all(12),
-              itemCount: items.length,
-              separatorBuilder: (_, index) => const SizedBox(height: 8),
-              itemBuilder: (context, i) {
-                final item = items[i];
-                final busy = _busyLikedId == item.id;
-                return Card(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 10, 8, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(
-                                DimensionTokens.tileRadius,
-                              ),
-                              child:
-                                  (item.artworkUrl != null &&
-                                      item.artworkUrl!.isNotEmpty)
-                                  ? Image.network(
-                                      item.artworkUrl!,
-                                      width: 44,
-                                      height: 44,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, _, _) =>
-                                          _artworkFallback(surfaces),
-                                    )
-                                  : _artworkFallback(surfaces),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Text(
-                                    item.artistName,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: surfaces.textSecondary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              tooltip: 'Remove',
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _remove(item),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '♥ ${item.likeCount}   🎧 ${item.playCount} listens   🌡 ${item.temperaturePercent}%',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: surfaces.textSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            OutlinedButton.icon(
-                              onPressed: () => _playSample(item),
-                              icon: const Icon(Icons.play_arrow, size: 18),
-                              label: const Text('Sample'),
-                            ),
-                            if (item.discoverEnabled &&
-                                item.discoverClipUrl != null)
-                              OutlinedButton.icon(
-                                onPressed: () => _playClip(item),
-                                icon: const Icon(
-                                  Icons.auto_awesome,
-                                  size: 18,
-                                ),
-                                label: const Text('Discover clip'),
-                              ),
-                            if (item.owned)
-                              FilledButton.icon(
-                                onPressed: busy ? null : () => _playFull(item),
-                                icon: busy
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.play_arrow, size: 18),
-                                label: const Text('Play full'),
-                              )
-                            else if (item.forSale)
-                              FilledButton(
-                                onPressed: busy ? null : () => _buyLiked(item),
-                                child: busy
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : Text('Buy ${_formatPrice(item.priceCents)}'),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ),
+              title: Text(
+                item.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                item.artistDisplayName ?? item.artistName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    tooltip: 'Play clip',
+                    onPressed: busy ? null : () => _playDiscoverClip(item),
+                    icon: const Icon(Icons.play_arrow),
                   ),
-                );
-              },
+                  IconButton(
+                    tooltip: 'Remove (show in Discover again)',
+                    onPressed: busy ? null : () => _removeHistory(item),
+                    icon: busy
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ],
+          );
+        },
+      ),
     );
   }
 

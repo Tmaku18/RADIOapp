@@ -2536,6 +2536,129 @@ export class SongsService {
     return { items: ordered, total: count ?? ordered.length };
   }
 
+  /**
+   * Liked or disliked Discover history for the Library tab.
+   * `right_like` → discover likes; `left_skip` → skip swipes.
+   */
+  async getDiscoverHistory(
+    userId: string,
+    direction: 'left_skip' | 'right_like',
+    limitInput = 50,
+    offsetInput = 0,
+  ): Promise<{
+    items: Array<DiscoverLikedListItem & { direction: 'left_skip' | 'right_like' }>;
+    total: number;
+  }> {
+    if (direction === 'right_like') {
+      const liked = await this.getDiscoverLikedList(
+        userId,
+        limitInput,
+        offsetInput,
+      );
+      return {
+        items: liked.items.map((item) => ({
+          ...item,
+          direction: 'right_like' as const,
+        })),
+        total: liked.total,
+      };
+    }
+
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(1, limitInput), 100);
+    const offset = Math.max(0, offsetInput);
+
+    const swipesRes = await supabase
+      .from('discover_swipes')
+      .select('song_id, direction, created_at, updated_at', { count: 'exact' })
+      .eq('user_id', userId)
+      .eq('direction', 'left_skip')
+      .order('updated_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (swipesRes.error) {
+      if (this.isMissingTableError(swipesRes.error, 'discover_swipes')) {
+        return { items: [], total: 0 };
+      }
+      throw new Error(
+        `Failed to load discover skips: ${swipesRes.error.message}`,
+      );
+    }
+
+    const swipes = (swipesRes.data || []) as Array<{
+      song_id: string;
+      direction: string;
+      created_at?: string | null;
+      updated_at?: string | null;
+    }>;
+    const total = swipesRes.count ?? swipes.length;
+    if (!swipes.length) return { items: [], total: total ?? 0 };
+
+    const songIds = swipes.map((s) => s.song_id);
+    const swipedAtBySongId = new Map(
+      swipes.map((s) => [
+        s.song_id,
+        s.updated_at ?? s.created_at ?? new Date().toISOString(),
+      ]),
+    );
+
+    const songsRes = await supabase
+      .from('songs')
+      .select(
+        'id, artist_id, artist_name, title, artwork_url, discover_clip_url, discover_background_url, discover_clip_start_seconds, discover_clip_end_seconds, discover_enabled, status, audio_url',
+      )
+      .in('id', songIds);
+
+    if (songsRes.error) {
+      throw new Error(
+        `Failed to load skipped discover songs: ${songsRes.error.message}`,
+      );
+    }
+
+    const songs = (songsRes.data || []).map((song: any) => ({
+      ...song,
+      discover_clip_url: song.discover_clip_url ?? song.audio_url ?? null,
+      discover_background_url:
+        song.discover_background_url ?? song.artwork_url ?? null,
+    }));
+
+    const artistIds = [
+      ...new Set(songs.map((s: any) => s.artist_id as string).filter(Boolean)),
+    ];
+    const artistsRes =
+      artistIds.length > 0
+        ? await supabase
+            .from('users')
+            .select('id, display_name, avatar_url, headline')
+            .in('id', artistIds)
+        : ({ data: [] as any[], error: null } as any);
+
+    const artistById = new Map(
+      (artistsRes.data || []).map((u: any) => [u.id, u]),
+    );
+    const songById = new Map(songs.map((s: any) => [s.id, s]));
+    const likeCountBySongId = new Map<string, number>();
+    const likedSongIds = new Set<string>();
+
+    const ordered = await this.signDiscoverClipUrls(
+      songIds
+        .map((songId) => songById.get(songId))
+        .filter(Boolean)
+        .map((song: any) => ({
+          ...this.toDiscoverCard(
+            song,
+            artistById.get(song.artist_id),
+            likeCountBySongId,
+            likedSongIds,
+          ),
+          likedAt: swipedAtBySongId.get(song.id) ?? new Date().toISOString(),
+          direction: 'left_skip' as const,
+        })),
+    );
+
+    return { items: ordered, total: total ?? ordered.length };
+  }
+
   async getSongLikes(
     songId: string,
     options?: { limit?: number; offset?: number },

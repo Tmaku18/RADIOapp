@@ -837,6 +837,39 @@ export class SongsController {
     );
   }
 
+  /** Liked or disliked Discover history for the Library tab. */
+  @Get('discover/history')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin')
+  async getDiscoverHistory(
+    @CurrentUser() user: FirebaseUser,
+    @Query('direction') direction?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    const supabase = getSupabaseClient();
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id')
+      .eq('firebase_uid', user.uid)
+      .single();
+    if (!userData) throw new BadRequestException('User not found');
+    const dir =
+      direction === 'left_skip' || direction === 'right_like'
+        ? direction
+        : 'right_like';
+    const limitNum = limit
+      ? Math.min(Math.max(parseInt(limit, 10) || 50, 1), 100)
+      : 50;
+    const offsetNum = offset ? Math.max(parseInt(offset, 10) || 0, 0) : 0;
+    return this.songsService.getDiscoverHistory(
+      userData.id,
+      dir,
+      limitNum,
+      offsetNum,
+    );
+  }
+
   @Delete('discover/list/:songId')
   @UseGuards(RolesGuard)
   @Roles('listener', 'artist', 'service_provider', 'admin')

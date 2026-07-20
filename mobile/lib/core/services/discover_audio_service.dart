@@ -58,11 +58,42 @@ class DiscoverAudioService {
         .toList();
   }
 
+  /// Liked (`right_like`) or disliked (`left_skip`) Discover history.
+  Future<List<DiscoverAudioHistoryItem>> getHistory({
+    required String direction,
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 200);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/discover/history?direction=${Uri.encodeQueryComponent(direction)}'
+      '&limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is! Map<String, dynamic>) {
+      return const <DiscoverAudioHistoryItem>[];
+    }
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => DiscoverAudioHistoryItem.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
   Future<void> removeLikedSong(String songId) async {
     await _api.delete('songs/discover/list/$songId');
   }
 
   Future<void> clearLikedList() async {
     await _api.delete('songs/discover/list');
+  }
+
+  /// Remove a swipe so the song can appear in Discover again.
+  Future<void> removeSwipe(String songId) async {
+    await _api.delete('songs/discover/swipes/$songId');
   }
 }

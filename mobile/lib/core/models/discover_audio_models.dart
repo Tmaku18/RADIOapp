@@ -117,3 +117,48 @@ class DiscoverAudioLikedItem extends DiscoverAudioSongCard {
     );
   }
 }
+
+/// Discover swipe history row for Library (liked or disliked).
+class DiscoverAudioHistoryItem extends DiscoverAudioLikedItem {
+  final String direction; // right_like | left_skip
+
+  const DiscoverAudioHistoryItem({
+    required super.songId,
+    required super.artistId,
+    required super.artistName,
+    required super.artistDisplayName,
+    required super.artistAvatarUrl,
+    required super.artistHeadline,
+    required super.title,
+    required super.clipUrl,
+    required super.backgroundUrl,
+    required super.clipDurationSeconds,
+    required super.likeCount,
+    required super.likedByMe,
+    required super.likedAt,
+    required this.direction,
+  });
+
+  bool get isLiked => direction == 'right_like';
+  bool get isDisliked => direction == 'left_skip';
+
+  factory DiscoverAudioHistoryItem.fromJson(Map<String, dynamic> json) {
+    final base = DiscoverAudioLikedItem.fromJson(json);
+    return DiscoverAudioHistoryItem(
+      songId: base.songId,
+      artistId: base.artistId,
+      artistName: base.artistName,
+      artistDisplayName: base.artistDisplayName,
+      artistAvatarUrl: base.artistAvatarUrl,
+      artistHeadline: base.artistHeadline,
+      title: base.title,
+      clipUrl: base.clipUrl,
+      backgroundUrl: base.backgroundUrl,
+      clipDurationSeconds: base.clipDurationSeconds,
+      likeCount: base.likeCount,
+      likedByMe: base.likedByMe,
+      likedAt: base.likedAt,
+      direction: (json['direction'] ?? 'right_like').toString(),
+    );
+  }
+}
