@@ -8,7 +8,10 @@ import '../../widgets/dimension/dimension_widgets.dart';
 import 'top7_vote_picker.dart';
 
 class CompetitionScreen extends StatefulWidget {
-  const CompetitionScreen({super.key});
+  const CompetitionScreen({super.key, this.onOpenNavDrawer});
+
+  /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
+  final VoidCallback? onOpenNavDrawer;
 
   @override
   State<CompetitionScreen> createState() => _CompetitionScreenState();
@@ -164,6 +167,13 @@ class _CompetitionScreenState extends State<CompetitionScreen> {
       title: 'Competition & Spotlight',
       showNeonLine: true,
       loading: _loading,
+      leading: widget.onOpenNavDrawer != null
+          ? IconButton(
+              icon: const Icon(Icons.menu),
+              tooltip: 'Menu',
+              onPressed: widget.onOpenNavDrawer,
+            )
+          : null,
       actions: [
         IconButton(
           onPressed: _loading ? null : _load,

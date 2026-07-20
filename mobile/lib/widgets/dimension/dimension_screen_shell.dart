@@ -11,6 +11,7 @@ class DimensionScreenShell extends StatelessWidget {
     super.key,
     this.title,
     this.actions,
+    this.leading,
     required this.body,
     this.floatingActionButton,
     this.showNeonLine = false,
@@ -19,6 +20,7 @@ class DimensionScreenShell extends StatelessWidget {
 
   final String? title;
   final List<Widget>? actions;
+  final Widget? leading;
   final Widget body;
   final Widget? floatingActionButton;
   final bool showNeonLine;
@@ -34,6 +36,7 @@ class DimensionScreenShell extends StatelessWidget {
               backgroundColor: Colors.transparent,
               elevation: 0,
               scrolledUnderElevation: 0,
+              leading: leading,
               title: Text(title!, style: DimensionTypography.pageTitle(fontSize: 18)),
               actions: actions,
             ),

@@ -88,7 +88,10 @@ const String _selectedStationPrefKey = 'selected_radio_station_id';
 const int _kTempBaseline = 50;
 
 class PlayerScreen extends StatefulWidget {
-  const PlayerScreen({super.key});
+  const PlayerScreen({super.key, this.onOpenNavDrawer});
+
+  /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
+  final VoidCallback? onOpenNavDrawer;
 
   @override
   State<PlayerScreen> createState() => _PlayerScreenState();
@@ -1023,6 +1026,13 @@ class _PlayerScreenState extends State<PlayerScreen>
             appBar: AppBar(
               backgroundColor: Colors.transparent,
               elevation: 0,
+              leading: widget.onOpenNavDrawer != null
+                  ? IconButton(
+                      icon: const Icon(Icons.menu),
+                      tooltip: 'Menu',
+                      onPressed: widget.onOpenNavDrawer,
+                    )
+                  : null,
               title: Row(
                 children: [
                   const LiveDot(label: 'ON AIR'),

@@ -19,7 +19,10 @@ import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
 
 class StudioScreen extends StatefulWidget {
-  const StudioScreen({super.key});
+  const StudioScreen({super.key, this.onOpenNavDrawer});
+
+  /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
+  final VoidCallback? onOpenNavDrawer;
 
   @override
   State<StudioScreen> createState() => _StudioScreenState();
@@ -305,6 +308,13 @@ class _StudioScreenState extends State<StudioScreen> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        leading: widget.onOpenNavDrawer != null
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Menu',
+                onPressed: widget.onOpenNavDrawer,
+              )
+            : null,
         title: const Text('My Songs'),
         actions: [
           IconButton(

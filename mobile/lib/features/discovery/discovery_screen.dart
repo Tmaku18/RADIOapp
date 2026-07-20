@@ -17,7 +17,10 @@ import '../../core/theme/dimension_tokens.dart';
 import 'discover_audio_tab.dart';
 
 class DiscoveryScreen extends StatefulWidget {
-  const DiscoveryScreen({super.key});
+  const DiscoveryScreen({super.key, this.onOpenNavDrawer});
+
+  /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
+  final VoidCallback? onOpenNavDrawer;
 
   @override
   State<DiscoveryScreen> createState() => _DiscoveryScreenState();
@@ -280,6 +283,13 @@ class _DiscoveryScreenState extends State<DiscoveryScreen> {
         backgroundColor: Colors.transparent,
         appBar: AppBar(
           backgroundColor: Colors.transparent,
+          leading: widget.onOpenNavDrawer != null
+              ? IconButton(
+                  icon: const Icon(Icons.menu),
+                  tooltip: 'Menu',
+                  onPressed: widget.onOpenNavDrawer,
+                )
+              : null,
           title: const Text('Discover'),
           bottom: const TabBar(
             isScrollable: true,

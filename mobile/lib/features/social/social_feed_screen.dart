@@ -15,7 +15,10 @@ import '../pro_networx/widgets/pro_feed_post_card.dart';
 /// prominent "Post on Pro-Networx" CTA that pushes users into the Pro-Networx
 /// shell.
 class SocialFeedScreen extends StatefulWidget {
-  const SocialFeedScreen({super.key});
+  const SocialFeedScreen({super.key, this.onOpenNavDrawer});
+
+  /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
+  final VoidCallback? onOpenNavDrawer;
 
   @override
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
@@ -111,6 +114,13 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
       backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        leading: widget.onOpenNavDrawer != null
+            ? IconButton(
+                icon: const Icon(Icons.menu),
+                tooltip: 'Menu',
+                onPressed: widget.onOpenNavDrawer,
+              )
+            : null,
         title: const Text('Social'),
         actions: [
           IconButton(
