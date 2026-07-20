@@ -6,9 +6,11 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/models/browse_models.dart';
 import '../../core/models/discover_audio_models.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/browse_like_events_service.dart';
 import '../../core/services/browse_service.dart';
 import '../../core/services/discover_audio_service.dart';
+import '../../core/services/nearby_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -37,8 +39,10 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
   static const int _pageSize = 12;
   final BrowseService _service = BrowseService();
+  final NearbyService _people = NearbyService();
   final BrowseLikeEventsService _likeEvents = BrowseLikeEventsService();
   final ScrollController _scroll = ScrollController();
+  final TextEditingController _searchCtrl = TextEditingController();
   final String _seed = DateTime.now().millisecondsSinceEpoch.toString();
   final GlobalKey<DiscoverAudioTabState> _swipeKey =
       GlobalKey<DiscoverAudioTabState>();
@@ -47,6 +51,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       GlobalKey<_DiscoverListTabState>();
   late final TabController _tabController;
   StreamSubscription<BrowseLikeEvent>? _likeEventsSub;
+  Timer? _searchDebounce;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -57,6 +62,12 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   String? _likingId;
   String? _bookmarkingId;
 
+  bool _searchingArtists = false;
+  String? _artistSearchError;
+  List<Map<String, dynamic>> _artistResults = const [];
+
+  bool get _hasArtistQuery => _searchCtrl.text.trim().length >= 2;
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +76,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       vsync: this,
       initialIndex: widget.initialTabIndex.clamp(0, 3),
     );
+    _searchCtrl.addListener(_onSearchTextChanged);
     _loadPage(append: false);
     _likeEvents.start();
     _likeEventsSub = _likeEvents.stream.listen((event) {
@@ -89,11 +101,76 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchCtrl.removeListener(_onSearchTextChanged);
+    _searchCtrl.dispose();
     _likeEventsSub?.cancel();
     _likeEvents.stop();
     _scroll.dispose();
     _tabController.dispose();
     super.dispose();
+  }
+
+  void _onSearchTextChanged() {
+    _searchDebounce?.cancel();
+    final q = _searchCtrl.text.trim();
+    if (q.length < 2) {
+      setState(() {
+        _artistResults = const [];
+        _artistSearchError = null;
+        _searchingArtists = false;
+      });
+      return;
+    }
+    setState(() => _searchingArtists = true);
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_searchArtists(q));
+    });
+  }
+
+  Future<void> _searchArtists(String query) async {
+    final q = query.trim();
+    if (q.length < 2) return;
+    setState(() {
+      _searchingArtists = true;
+      _artistSearchError = null;
+    });
+    try {
+      final res = await _people.listPeople(
+        role: 'artist',
+        search: q,
+        limit: 40,
+      );
+      final raw = (res['items'] is List) ? res['items'] as List : const [];
+      final items = raw
+          .whereType<Map>()
+          .map((m) => Map<String, dynamic>.from(m))
+          .toList();
+      if (!mounted || _searchCtrl.text.trim() != q) return;
+      setState(() => _artistResults = items);
+    } catch (e) {
+      if (!mounted || _searchCtrl.text.trim() != q) return;
+      setState(() {
+        _artistSearchError = "Couldn't search artists. Try again.";
+        _artistResults = const [];
+      });
+    } finally {
+      if (mounted && _searchCtrl.text.trim() == q) {
+        setState(() => _searchingArtists = false);
+      }
+    }
+  }
+
+  void _openArtist(Map<String, dynamic> person) {
+    final id = (person['userId'] ?? person['user_id'] ?? person['id'] ?? '')
+        .toString()
+        .trim();
+    if (id.isEmpty) return;
+    Navigator.pushNamed(
+      context,
+      AppRoutes.artistProfile,
+      arguments: id,
+    );
   }
 
   Future<void> _onAppBarRefresh() async {
@@ -349,13 +426,64 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               icon: const Icon(Icons.video_call_outlined),
             ),
             IconButton(
-              onPressed: _onAppBarRefresh,
-              tooltip: 'Refresh',
+              onPressed: _hasArtistQuery
+                  ? () => _searchArtists(_searchCtrl.text.trim())
+                  : _onAppBarRefresh,
+              tooltip: _hasArtistQuery ? 'Search' : 'Refresh',
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
-        body: TabBarView(
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: TextField(
+                controller: _searchCtrl,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (v) {
+                  if (v.trim().length >= 2) {
+                    unawaited(_searchArtists(v.trim()));
+                  }
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search artists by name…',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: _searchCtrl.text.isEmpty
+                      ? null
+                      : IconButton(
+                          tooltip: 'Clear',
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() {});
+                          },
+                          icon: const Icon(Icons.close),
+                        ),
+                  filled: true,
+                  fillColor: scheme.surface.withValues(alpha: 0.55),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: DimensionTokens.neonCyan.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide(
+                      color: DimensionTokens.neonCyan.withValues(alpha: 0.18),
+                    ),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                ),
+              ),
+            ),
+            Expanded(
+              child: _hasArtistQuery
+                  ? _buildArtistSearchBody(surfaces)
+                  : TabBarView(
           controller: _tabController,
           children: [
             DiscoverAudioTab(key: _swipeKey),
@@ -621,6 +749,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             _LibraryTab(key: _libraryKey),
           ],
         ),
+            ),
+          ],
+        ),
     );
 
     // Pushed from the drawer (no home backdrop) — wrap in Dimension chrome.
@@ -629,6 +760,112 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       title: null,
       showNeonLine: false,
       body: tabScaffold,
+    );
+  }
+
+  Widget _buildArtistSearchBody(NetworxSurfaces surfaces) {
+    if (_searchingArtists && _artistResults.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_artistSearchError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _artistSearchError!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: surfaces.textSecondary),
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: () => _searchArtists(_searchCtrl.text.trim()),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    if (_artistResults.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No artists match “${_searchCtrl.text.trim()}”.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: surfaces.textSecondary),
+          ),
+        ),
+      );
+    }
+
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 24),
+      itemCount: _artistResults.length + (_searchingArtists ? 1 : 0),
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        if (index >= _artistResults.length) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+          );
+        }
+        final person = _artistResults[index];
+        final name = (person['displayName'] ??
+                person['display_name'] ??
+                'Artist')
+            .toString();
+        final headline = (person['headline'] ?? '').toString();
+        final location = (person['locationRegion'] ??
+                person['location_region'] ??
+                '')
+            .toString();
+        final avatar = (person['avatarUrl'] ?? person['avatar_url'] ?? '')
+            .toString();
+        final subtitle = [
+          if (headline.isNotEmpty) headline,
+          if (location.isNotEmpty) location,
+        ].join(' · ');
+
+        return Card(
+          child: ListTile(
+            onTap: () => _openArtist(person),
+            leading: CircleAvatar(
+              backgroundColor:
+                  DimensionTokens.neonCyan.withValues(alpha: 0.15),
+              backgroundImage:
+                  avatar.isNotEmpty ? NetworkImage(avatar) : null,
+              child: avatar.isEmpty
+                  ? Text(
+                      name.isNotEmpty ? name[0].toUpperCase() : '?',
+                      style: const TextStyle(
+                        color: DimensionTokens.neonCyan,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    )
+                  : null,
+            ),
+            title: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+            subtitle: subtitle.isEmpty
+                ? null
+                : Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+            trailing: const Icon(Icons.chevron_right),
+          ),
+        );
+      },
     );
   }
 }

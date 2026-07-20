@@ -793,7 +793,7 @@ export class DiscoveryService {
     let userQuery = supabase
       .from('users')
       .select(
-        'id, display_name, headline, avatar_url, bio, location_region, role, created_at',
+        'id, display_name, username, headline, avatar_url, bio, location_region, role, created_at',
         { count: 'exact' },
       )
       .in('role', ['artist', 'service_provider'])
@@ -829,9 +829,11 @@ export class DiscoveryService {
       );
     }
     if (params.search?.trim()) {
-      const term = `%${params.search.trim()}%`;
+      // Escape commas/% so PostgREST or() filter stays valid for artist names.
+      const raw = params.search.trim().replace(/[,()]/g, ' ');
+      const term = `%${raw}%`;
       userQuery = userQuery.or(
-        `display_name.ilike.${term},headline.ilike.${term},bio.ilike.${term}`,
+        `display_name.ilike.${term},username.ilike.${term},headline.ilike.${term},bio.ilike.${term}`,
       );
     }
 
