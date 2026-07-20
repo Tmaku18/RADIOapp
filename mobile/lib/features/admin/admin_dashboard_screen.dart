@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
 import '../../core/services/admin_service.dart';
@@ -13,6 +14,8 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   final AdminService _admin = AdminService();
+  /// Dedicated preview player so admin listen doesn't fight the live radio bar.
+  final AudioPlayer _previewPlayer = AudioPlayer();
 
   bool _loading = true;
   bool _liveActionLoading = false;
@@ -30,6 +33,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   List<Map<String, dynamic>> _fallbackGroups = const [];
   List<Map<String, dynamic>> _freeRotationSongs = const [];
   List<Map<String, dynamic>> _streamerApplications = const [];
+
+  /// Matches web admin songs default filter.
+  String _songStatusFilter = 'pending';
+  /// `all` or a role like `artist`.
+  String _userRoleFilter = 'all';
+  String? _previewingSongId;
+  bool _songActionBusy = false;
 
   final TextEditingController _songSearchCtrl = TextEditingController();
   final TextEditingController _userSearchCtrl = TextEditingController();
@@ -49,6 +59,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   @override
   void dispose() {
+    _previewPlayer.dispose();
     _songSearchCtrl.dispose();
     _userSearchCtrl.dispose();
     _queueDraftCtrl.dispose();
@@ -81,7 +92,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       final analytics = await _admin.getAnalytics();
       final liveStatus = await _admin.getLiveStatus();
       final radios = await _admin.getRadios();
-      final songs = await _admin.getSongs(limit: 100, status: 'all');
+      final songs = await _admin.getSongs(
+        limit: 100,
+        status: _songStatusFilter,
+      );
       final users = await _admin.getUsers(limit: 100);
       // Non-critical sections: a single failing endpoint (e.g. feed-media)
       // should not blank the entire dashboard, so fall back to current values.
@@ -160,22 +174,348 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Future<void> _refreshSongs() async {
-    final songs = await _admin.getSongs(
-      limit: 100,
-      status: 'all',
-      search: _songSearchCtrl.text.trim().isEmpty ? null : _songSearchCtrl.text.trim(),
-    );
-    if (!mounted) return;
-    setState(() => _songs = songs);
+    try {
+      final songs = await _admin.getSongs(
+        limit: 100,
+        status: _songStatusFilter == 'all' ? null : _songStatusFilter,
+        search: _songSearchCtrl.text.trim().isEmpty
+            ? null
+            : _songSearchCtrl.text.trim(),
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+      );
+      if (!mounted) return;
+      setState(() => _songs = songs);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load songs: $e')),
+      );
+    }
   }
 
   Future<void> _refreshUsers() async {
-    final users = await _admin.getUsers(
-      limit: 100,
-      search: _userSearchCtrl.text.trim().isEmpty ? null : _userSearchCtrl.text.trim(),
+    try {
+      final users = await _admin.getUsers(
+        limit: 100,
+        role: _userRoleFilter == 'all' ? null : _userRoleFilter,
+        search: _userSearchCtrl.text.trim().isEmpty
+            ? null
+            : _userSearchCtrl.text.trim(),
+        sortBy: 'created_at',
+        sortOrder: 'desc',
+      );
+      if (!mounted) return;
+      setState(() => _users = users);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load users: $e')),
+      );
+    }
+  }
+
+  String _songField(Map<String, dynamic> song, String snake, [String? camel]) {
+    final a = song[snake];
+    if (a != null && '$a'.isNotEmpty) return '$a';
+    if (camel != null) {
+      final b = song[camel];
+      if (b != null && '$b'.isNotEmpty) return '$b';
+    }
+    return '';
+  }
+
+  Future<void> _togglePreview(Map<String, dynamic> song) async {
+    final id = _songField(song, 'id');
+    final url = _songField(song, 'audio_url', 'audioUrl');
+    if (id.isEmpty || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No audio URL for this song.')),
+      );
+      return;
+    }
+    try {
+      if (_previewingSongId == id && _previewPlayer.playing) {
+        await _previewPlayer.pause();
+        if (mounted) setState(() {});
+        return;
+      }
+      if (_previewingSongId == id && !_previewPlayer.playing) {
+        await _previewPlayer.play();
+        if (mounted) setState(() {});
+        return;
+      }
+      await _previewPlayer.setUrl(url);
+      await _previewPlayer.play();
+      if (mounted) setState(() => _previewingSongId = id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not play song: $e')),
+      );
+    }
+  }
+
+  Future<void> _runSongAction(Future<void> Function() action, String ok) async {
+    if (_songActionBusy) return;
+    setState(() => _songActionBusy = true);
+    try {
+      await action();
+      await _refreshSongs();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(ok)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Action failed: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _songActionBusy = false);
+    }
+  }
+
+  Future<void> _rejectSong(String id, String title) async {
+    final reasonCtrl = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Reject: $title'),
+        content: TextField(
+          controller: reasonCtrl,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Reason (optional)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
     );
-    if (!mounted) return;
-    setState(() => _users = users);
+    final reason = reasonCtrl.text.trim();
+    reasonCtrl.dispose();
+    if (confirmed != true) return;
+    await _runSongAction(
+      () => _admin.updateSongStatus(
+        id,
+        'rejected',
+        reason: reason.isEmpty ? null : reason,
+      ),
+      'Song rejected.',
+    );
+  }
+
+  Future<void> _editSongMetadata(Map<String, dynamic> song) async {
+    final id = _songField(song, 'id');
+    final titleCtrl = TextEditingController(
+      text: _songField(song, 'title'),
+    );
+    final artworkCtrl = TextEditingController(
+      text: _songField(song, 'artwork_url', 'artworkUrl'),
+    );
+    var isExplicit = song['is_explicit'] == true || song['isExplicit'] == true;
+    final saved = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setLocal) => AlertDialog(
+          title: const Text('Edit song'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Title',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: artworkCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Artwork URL',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Explicit'),
+                  value: isExplicit,
+                  onChanged: (v) => setLocal(() => isExplicit = v),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final title = titleCtrl.text.trim();
+    final artwork = artworkCtrl.text.trim();
+    titleCtrl.dispose();
+    artworkCtrl.dispose();
+    if (saved != true || id.isEmpty) return;
+    await _runSongAction(
+      () => _admin.updateSongMetadata(id, {
+        'title': title,
+        if (artwork.isNotEmpty) 'artworkUrl': artwork,
+        'isExplicit': isExplicit,
+      }),
+      'Song updated.',
+    );
+  }
+
+  Future<void> _openUserDetail(Map<String, dynamic> user) async {
+    final userId = '${user['id'] ?? ''}';
+    if (userId.isEmpty) return;
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    try {
+      final profile = await _admin.getUserProfile(userId);
+      if (!mounted) return;
+      Navigator.pop(context); // loading
+      final u = (profile['user'] as Map?)?.cast<String, dynamic>() ?? user;
+      final songs = ((profile['songs'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((e) => e.map((k, v) => MapEntry(k.toString(), v)))
+          .toList();
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: const Color(0xFF0A0A0C),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        builder: (context) {
+          return DraggableScrollableSheet(
+            expand: false,
+            initialChildSize: 0.75,
+            minChildSize: 0.45,
+            maxChildSize: 0.95,
+            builder: (context, scrollController) {
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Text(
+                    '${u['display_name'] ?? 'User'}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${u['email'] ?? ''} · ${u['role'] ?? ''}',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Plays: ${profile['totalPlays'] ?? 0} · Likes: ${profile['totalLikes'] ?? 0} · Listens: ${profile['totalListenCount'] ?? 0}',
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Songs',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (songs.isEmpty)
+                    Text(
+                      'No songs for this user.',
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+                    )
+                  else
+                    ...songs.map((s) {
+                      final sid = '${s['id']}';
+                      final st = '${s['status'] ?? ''}';
+                      return Card(
+                        child: ListTile(
+                          title: Text('${s['title'] ?? 'Untitled'}'),
+                          subtitle: Text(
+                            '${s['artist_name'] ?? ''} · $st · plays ${s['play_count'] ?? 0}',
+                          ),
+                          trailing: Wrap(
+                            spacing: 4,
+                            children: [
+                              if (st != 'approved')
+                                IconButton(
+                                  tooltip: 'Approve',
+                                  icon: const Icon(Icons.check_circle_outline),
+                                  onPressed: () async {
+                                    await _admin.updateSongStatus(
+                                      sid,
+                                      'approved',
+                                    );
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    await _refreshSongs();
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(this.context)
+                                        .showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Song approved.'),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              if (st != 'rejected')
+                                IconButton(
+                                  tooltip: 'Reject',
+                                  icon: const Icon(Icons.cancel_outlined),
+                                  onPressed: () async {
+                                    Navigator.pop(context);
+                                    await _rejectSong(
+                                      sid,
+                                      '${s['title'] ?? 'Song'}',
+                                    );
+                                  },
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              );
+            },
+          );
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load user: $e')),
+      );
+    }
   }
 
   Future<void> _saveQueueDraft() async {
@@ -375,6 +715,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildSongsTab() {
+    final filters = const ['pending', 'approved', 'rejected', 'all'];
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -383,8 +724,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Expanded(
               child: TextField(
                 controller: _songSearchCtrl,
+                onSubmitted: (_) => _refreshSongs(),
                 decoration: const InputDecoration(
-                  labelText: 'Search songs',
+                  labelText: 'Search songs by title',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -393,12 +735,46 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             FilledButton(onPressed: _refreshSongs, child: const Text('Search')),
           ],
         ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: filters
+              .map(
+                (f) => ChoiceChip(
+                  label: Text(f[0].toUpperCase() + f.substring(1)),
+                  selected: _songStatusFilter == f,
+                  onSelected: (_) async {
+                    setState(() => _songStatusFilter = f);
+                    await _refreshSongs();
+                  },
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _songs.isEmpty
+              ? 'No songs for this filter.'
+              : '${_songs.length} song(s)',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
+        ),
         const SizedBox(height: 12),
         ..._songs.map((song) {
-          final id = '${song['id']}';
-          final title = '${song['title'] ?? 'Untitled'}';
-          final artist = '${song['artist_name'] ?? 'Unknown artist'}';
-          final status = '${song['status'] ?? 'unknown'}';
+          final id = _songField(song, 'id');
+          final title = _songField(song, 'title').isEmpty
+              ? 'Untitled'
+              : _songField(song, 'title');
+          final artist = _songField(song, 'artist_name', 'artistName').isEmpty
+              ? 'Unknown artist'
+              : _songField(song, 'artist_name', 'artistName');
+          final status = _songField(song, 'status').isEmpty
+              ? 'unknown'
+              : _songField(song, 'status');
+          final duration = song['duration_seconds'] ?? song['durationSeconds'];
+          final audioUrl = _songField(song, 'audio_url', 'audioUrl');
+          final isPreviewing =
+              _previewingSongId == id && _previewPlayer.playing;
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(10),
@@ -406,47 +782,78 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-                  Text('$artist · $status', style: const TextStyle(color: Colors.grey)),
+                  Text(
+                    '$artist · $status${duration != null ? ' · ${duration}s' : ''}',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
                     children: [
+                      FilledButton.tonalIcon(
+                        onPressed: audioUrl.isEmpty
+                            ? null
+                            : () => _togglePreview(song),
+                        icon: Icon(
+                          isPreviewing ? Icons.pause : Icons.play_arrow,
+                        ),
+                        label: Text(isPreviewing ? 'Pause' : 'Play'),
+                      ),
                       OutlinedButton(
-                        onPressed: () async {
-                          await _admin.updateSongStatus(id, 'approved');
-                          await _refreshSongs();
-                        },
+                        onPressed: _songActionBusy
+                            ? null
+                            : () => _runSongAction(
+                                  () => _admin.updateSongStatus(
+                                    id,
+                                    'approved',
+                                  ),
+                                  'Song approved.',
+                                ),
                         child: const Text('Approve'),
                       ),
                       OutlinedButton(
-                        onPressed: () async {
-                          await _admin.updateSongStatus(id, 'rejected');
-                          await _refreshSongs();
-                        },
+                        onPressed: _songActionBusy
+                            ? null
+                            : () => _rejectSong(id, title),
                         child: const Text('Reject'),
                       ),
                       OutlinedButton(
-                        onPressed: () async {
-                          await _admin.toggleFreeRotation(
-                            id,
-                            song['admin_free_rotation'] != true,
-                          );
-                          await _refreshSongs();
-                        },
-                        child: const Text('Toggle Free Rotation'),
+                        onPressed: _songActionBusy
+                            ? null
+                            : () => _editSongMetadata(song),
+                        child: const Text('Edit'),
                       ),
                       OutlinedButton(
-                        onPressed: () async {
-                          await _showTrimDialog(id, title);
-                        },
+                        onPressed: _songActionBusy
+                            ? null
+                            : () => _runSongAction(
+                                  () => _admin.toggleFreeRotation(
+                                    id,
+                                    song['admin_free_rotation'] != true,
+                                  ),
+                                  'Free rotation updated.',
+                                ),
+                        child: const Text('Free Rotation'),
+                      ),
+                      OutlinedButton(
+                        onPressed: () => _showTrimDialog(
+                          id,
+                          title,
+                          audioUrl: audioUrl,
+                          durationSeconds: (duration is num)
+                              ? duration.toInt()
+                              : int.tryParse('$duration'),
+                        ),
                         child: const Text('Trim'),
                       ),
                       TextButton(
-                        onPressed: () async {
-                          await _admin.deleteSong(id);
-                          await _refreshSongs();
-                        },
+                        onPressed: _songActionBusy
+                            ? null
+                            : () => _runSongAction(
+                                  () => _admin.deleteSong(id),
+                                  'Song deleted.',
+                                ),
                         child: const Text('Delete'),
                       ),
                     ],
@@ -533,6 +940,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   }
 
   Widget _buildUsersTab() {
+    final roles = const ['all', 'artist', 'listener', 'admin', 'dj', 'musician'];
     return ListView(
       padding: const EdgeInsets.all(12),
       children: [
@@ -541,8 +949,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Expanded(
               child: TextField(
                 controller: _userSearchCtrl,
+                onSubmitted: (_) => _refreshUsers(),
                 decoration: const InputDecoration(
-                  labelText: 'Search users',
+                  labelText: 'Search users / artists (name or email)',
                   border: OutlineInputBorder(),
                 ),
               ),
@@ -550,6 +959,30 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             const SizedBox(width: 8),
             FilledButton(onPressed: _refreshUsers, child: const Text('Search')),
           ],
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: roles
+              .map(
+                (r) => ChoiceChip(
+                  label: Text(r[0].toUpperCase() + r.substring(1)),
+                  selected: _userRoleFilter == r,
+                  onSelected: (_) async {
+                    setState(() => _userRoleFilter = r);
+                    await _refreshUsers();
+                  },
+                ),
+              )
+              .toList(),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _users.isEmpty
+              ? 'No users for this filter.'
+              : '${_users.length} user(s)',
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.65)),
         ),
         const SizedBox(height: 12),
         ..._users.map((user) {
@@ -561,31 +994,67 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('${user['display_name'] ?? 'Unnamed'}',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text(
+                    '${user['display_name'] ?? 'Unnamed'}',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
                   Text('${user['email'] ?? ''} · $role'),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: [
-                      OutlinedButton(
-                        onPressed: () async {
-                          await _admin.updateUserRole(userId, role == 'artist' ? 'listener' : 'artist');
-                          await _refreshUsers();
-                        },
-                        child: const Text('Toggle Artist'),
+                      FilledButton.tonal(
+                        onPressed: () => _openUserDetail(user),
+                        child: const Text('Open / Songs'),
                       ),
                       OutlinedButton(
                         onPressed: () async {
-                          await _admin.lifetimeBanUser(userId, 'Lifetime ban by admin');
-                          await _refreshUsers();
+                          try {
+                            await _admin.updateUserRole(
+                              userId,
+                              role == 'artist' ? 'listener' : 'artist',
+                            );
+                            await _refreshUsers();
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Role update failed: $e')),
+                            );
+                          }
+                        },
+                        child: Text(
+                          role == 'artist' ? 'Make Listener' : 'Make Artist',
+                        ),
+                      ),
+                      OutlinedButton(
+                        onPressed: () async {
+                          try {
+                            await _admin.lifetimeBanUser(
+                              userId,
+                              'Lifetime ban by admin',
+                            );
+                            await _refreshUsers();
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Ban failed: $e')),
+                            );
+                          }
                         },
                         child: const Text('Lifetime Ban'),
                       ),
                       TextButton(
                         onPressed: () async {
-                          await _admin.deleteUserAccount(userId);
-                          await _refreshUsers();
+                          try {
+                            await _admin.deleteUserAccount(userId);
+                            await _refreshUsers();
+                          } catch (e) {
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Delete failed: $e')),
+                            );
+                          }
                         },
                         child: const Text('Delete Account'),
                       ),
@@ -627,10 +1096,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         const Text('Feed media moderation', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         ..._feedMedia.map(
-          (item) => Card(
+          (item) {
+            final provider = item['provider'];
+            final providerName = provider is Map
+                ? '${provider['displayName'] ?? provider['display_name'] ?? 'Unknown'}'
+                : '${item['authorDisplayName'] ?? 'Unknown'}';
+            final caption =
+                '${item['description'] ?? item['title'] ?? item['caption'] ?? ''}';
+            return Card(
             child: ListTile(
-              title: Text('${item['authorDisplayName'] ?? 'Unknown'}'),
-              subtitle: Text('${item['caption'] ?? ''}'),
+              title: Text(providerName),
+              subtitle: Text(caption),
               trailing: Wrap(
                 spacing: 4,
                 children: [
@@ -655,7 +1131,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                 ],
               ),
             ),
-          ),
+          );
+          },
         ),
       ],
     );
@@ -786,9 +1263,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Future<void> _showTrimDialog(String songId, String songTitle) async {
+  Future<void> _showTrimDialog(
+    String songId,
+    String songTitle, {
+    String audioUrl = '',
+    int? durationSeconds,
+  }) async {
+    final maxDur = (durationSeconds != null && durationSeconds > 0)
+        ? durationSeconds
+        : 180;
     final startCtrl = TextEditingController(text: '0');
-    final endCtrl = TextEditingController(text: '30');
+    final endCtrl = TextEditingController(
+      text: '${maxDur < 30 ? maxDur : 30}',
+    );
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -796,6 +1283,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Text(
+              'Song length ≈ ${maxDur}s. Set the keep-range, preview it, then save.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
             TextField(
               controller: startCtrl,
               keyboardType: TextInputType.number,
@@ -809,6 +1301,33 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
           ],
         ),
         actions: [
+          if (audioUrl.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                final start = int.tryParse(startCtrl.text.trim()) ?? 0;
+                final end = int.tryParse(endCtrl.text.trim()) ?? 0;
+                if (end <= start) return;
+                try {
+                  await _previewPlayer.setUrl(audioUrl);
+                  await _previewPlayer.seek(Duration(seconds: start));
+                  await _previewPlayer.play();
+                  if (mounted) setState(() => _previewingSongId = songId);
+                  // Stop at end of trim window.
+                  Future<void>.delayed(Duration(seconds: end - start), () async {
+                    if (_previewingSongId == songId) {
+                      await _previewPlayer.pause();
+                      if (mounted) setState(() {});
+                    }
+                  });
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Preview failed: $e')),
+                  );
+                }
+              },
+              child: const Text('Preview'),
+            ),
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
@@ -817,20 +1336,36 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             onPressed: () async {
               final start = int.tryParse(startCtrl.text.trim()) ?? 0;
               final end = int.tryParse(endCtrl.text.trim()) ?? 0;
-              if (end <= start) return;
-              await _admin.trimSong(songId, start, end);
-              if (!context.mounted) return;
-              Navigator.pop(context);
-              if (!mounted) return;
-              ScaffoldMessenger.of(this.context).showSnackBar(
-                const SnackBar(content: Text('Trim started/saved.')),
-              );
-              await _refreshSongs();
+              if (end <= start) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('End must be greater than start.'),
+                  ),
+                );
+                return;
+              }
+              try {
+                await _admin.trimSong(songId, start, end);
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                if (!mounted) return;
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(content: Text('Trim saved.')),
+                );
+                await _refreshSongs();
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Trim failed: $e')),
+                );
+              }
             },
             child: const Text('Trim'),
           ),
         ],
       ),
     );
+    startCtrl.dispose();
+    endCtrl.dispose();
   }
 }

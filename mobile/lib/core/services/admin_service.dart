@@ -46,8 +46,7 @@ class AdminService {
         ? 'admin/songs'
         : 'admin/songs?${queryParts.join('&')}';
     final res = await _api.get(endpoint);
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['songs']);
   }
 
   Future<void> updateSongStatus(
@@ -135,8 +134,7 @@ class AdminService {
         ? 'admin/fallback-songs'
         : 'admin/fallback-songs?radio=${Uri.encodeQueryComponent(radio)}';
     final res = await _api.get(endpoint);
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['songs']);
   }
 
   Future<List<Map<String, dynamic>>> getFallbackSongsGrouped() async {
@@ -189,30 +187,26 @@ class AdminService {
         ? 'admin/free-rotation/songs'
         : 'admin/free-rotation/songs?radio=${Uri.encodeQueryComponent(radio)}';
     final res = await _api.get(endpoint);
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['songs']);
   }
 
   Future<List<Map<String, dynamic>>> searchSongsForFreeRotation(String query) async {
     final res = await _api.get(
       'admin/free-rotation/search/songs?q=${Uri.encodeQueryComponent(query)}',
     );
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['songs']);
   }
 
   Future<List<Map<String, dynamic>>> searchUsersForFreeRotation(String query) async {
     final res = await _api.get(
       'admin/free-rotation/search/users?q=${Uri.encodeQueryComponent(query)}',
     );
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['users']);
   }
 
   Future<List<Map<String, dynamic>>> getUserSongsForFreeRotation(String userId) async {
     final res = await _api.get('admin/free-rotation/users/$userId/songs');
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['songs']);
   }
 
   Future<List<Map<String, dynamic>>> getSwipeCards({
@@ -243,8 +237,7 @@ class AdminService {
         ? 'admin/feed-media?reportedOnly=true'
         : 'admin/feed-media';
     final res = await _api.get(endpoint);
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['items']);
   }
 
   Future<void> removeFromFeed(String contentId) async {
@@ -276,8 +269,7 @@ class AdminService {
         ? 'admin/users'
         : 'admin/users?${query.join('&')}';
     final res = await _api.get(endpoint);
-    if (res is List) return _asMapList(res);
-    return [];
+    return _listFrom(res, const ['users']);
   }
 
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
@@ -306,6 +298,20 @@ class AdminService {
 
   Future<void> setStreamerApproval(String userId, String action) async {
     await _api.patch('admin/streamer-applications/$userId', {'action': action});
+  }
+
+  /// Backend admin list endpoints return `{ songs|users|items: [...] }`, not a
+  /// bare array. Accept either shape so the dashboard never silently empties.
+  List<Map<String, dynamic>> _listFrom(dynamic res, List<String> keys) {
+    if (res is List) return _asMapList(res);
+    if (res is Map) {
+      final map = res.map((k, v) => MapEntry(k.toString(), v));
+      for (final key in keys) {
+        final value = map[key];
+        if (value is List) return _asMapList(value);
+      }
+    }
+    return const [];
   }
 
   List<Map<String, dynamic>> _asMapList(List raw) {
