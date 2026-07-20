@@ -17,11 +17,15 @@ import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { DEFAULT_RADIO_ID } from '../radio/radio-state.service';
+import { AppVersionService } from '../app-version/app-version.service';
 
 @Controller('admin')
 @Roles('admin')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly appVersionService: AppVersionService,
+  ) {}
 
   /**
    * Helper to get admin's database user ID from Firebase UID.
@@ -674,5 +678,38 @@ export class AdminController {
     if (!adminId) throw new BadRequestException('Admin user not found');
     await this.adminService.deleteDiscoverFeedPost(postId, adminId);
     return { deleted: true };
+  }
+
+  // ========== App update / release broadcast ==========
+
+  /**
+   * Publish a new app release. Set broadcastPush=true to notify all
+   * registered mobile devices that an update is available.
+   */
+  @Post('app-releases')
+  async publishAppRelease(
+    @CurrentUser() admin: FirebaseUser,
+    @Body()
+    body: {
+      platform?: 'ios' | 'android' | 'all';
+      latestVersion: string;
+      latestBuild?: number;
+      minVersion?: string;
+      title?: string;
+      body?: string;
+      storeUrl?: string;
+      forceUpdate?: boolean;
+      broadcastPush?: boolean;
+    },
+  ) {
+    const adminId = await this.getAdminDbId(admin.uid, admin.email);
+    if (!adminId) throw new BadRequestException('Admin user not found');
+    if (!body?.latestVersion?.trim()) {
+      throw new BadRequestException('latestVersion is required');
+    }
+    return this.appVersionService.publishRelease({
+      ...body,
+      createdBy: adminId,
+    });
   }
 }

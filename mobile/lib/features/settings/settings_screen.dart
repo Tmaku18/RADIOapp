@@ -416,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   SwitchListTile(
                     title: const Text('Followed artists on radio'),
                     subtitle: const Text(
-                      'When an artist you follow has a song playing on-air',
+                      'When someone you follow is about to play or is on-air on any station',
                     ),
                     value: _notifyFollowedArtistOnRadio && _notificationsEnabled,
                     onChanged: _notificationsEnabled && !_savingFollowedRadio

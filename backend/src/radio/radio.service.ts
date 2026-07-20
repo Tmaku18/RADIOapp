@@ -3683,6 +3683,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       await this.pushNotificationService.scheduleUpNextNotification(
         nextSong,
         60,
+        radioId,
       );
       this.nextSongNotifiedFor.set(radioId, currentSongId);
     }

@@ -25,6 +25,33 @@ class AdminService {
     await _api.post('admin/live/stop', {});
   }
 
+  /// Publish an app release and optionally push “update available” to devices.
+  Future<Map<String, dynamic>> publishAppRelease({
+    required String latestVersion,
+    String? title,
+    String? body,
+    String platform = 'all',
+    String? storeUrl,
+    bool forceUpdate = false,
+    bool broadcastPush = true,
+    int? latestBuild,
+    String? minVersion,
+  }) async {
+    final res = await _api.post('admin/app-releases', {
+      'latestVersion': latestVersion,
+      if (title != null && title.isNotEmpty) 'title': title,
+      if (body != null && body.isNotEmpty) 'body': body,
+      'platform': platform,
+      if (storeUrl != null && storeUrl.isNotEmpty) 'storeUrl': storeUrl,
+      'forceUpdate': forceUpdate,
+      'broadcastPush': broadcastPush,
+      if (latestBuild != null) 'latestBuild': latestBuild,
+      if (minVersion != null && minVersion.isNotEmpty) 'minVersion': minVersion,
+    });
+    if (res is Map<String, dynamic>) return res;
+    return {};
+  }
+
   Future<List<Map<String, dynamic>>> getSongs({
     String? status,
     String? search,

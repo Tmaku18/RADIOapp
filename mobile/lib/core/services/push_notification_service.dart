@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'api_service.dart';
+import 'notification_settings_service.dart';
 
 /// Push notification service with production-grade features:
 /// - Lazy permission: Request only on first upload or "Notify me" toggle
@@ -169,45 +170,83 @@ class PushNotificationService {
     }
   }
 
+  /// Re-register the FCM token after login (auth header now available).
+  Future<void> ensureRegisteredAfterAuth() async {
+    try {
+      final enabled = await NotificationSettingsService().notificationsEnabled;
+      if (!enabled) return;
+      final settings = await _messaging.getNotificationSettings();
+      if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+        await _registerToken();
+      } else {
+        await requestPermissionLazy();
+      }
+    } catch (e) {
+      debugPrint('PushNotificationService: ensureRegisteredAfterAuth failed - $e');
+    }
+  }
+
+  Future<bool> _shouldShowForeground(String? type) async {
+    final settings = NotificationSettingsService();
+    if (!await settings.notificationsEnabled) return false;
+    switch (type) {
+      case 'song_up_next':
+      case 'up_next':
+        return await settings.upNextAlertsEnabled;
+      case 'song_live_now':
+      case 'live_now':
+        return await settings.liveNowAlertsEnabled;
+      case 'song_approved':
+      case 'song_rejected':
+        return await settings.songApprovalAlertsEnabled;
+      default:
+        return true;
+    }
+  }
+
   /// Handle foreground messages - display as local notification
-  void _handleForegroundMessage(RemoteMessage message) {
+  Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('PushNotificationService: Foreground message received');
-    
+
+    final type = message.data['type']?.toString();
+    if (!await _shouldShowForeground(type)) return;
+
     final notification = message.notification;
     final android = message.notification?.android;
+    if (notification == null) return;
 
-    // Show local notification for foreground messages
-    if (notification != null) {
-      _localNotifications.show(
-        id: notification.hashCode,
-        title: notification.title,
-        body: notification.body,
-        notificationDetails: NotificationDetails(
-          android: AndroidNotificationDetails(
-            'radio_alerts',
-            'Radio Alerts',
-            channelDescription: 'Notifications for when your song is about to play',
-            importance: Importance.high,
-            priority: Priority.high,
-            icon: android?.smallIcon ?? '@mipmap/ic_launcher',
-          ),
-          iOS: const DarwinNotificationDetails(
-            presentAlert: true,
-            presentBadge: true,
-            presentSound: true,
-            threadIdentifier: 'radio_alerts',
-            subtitle: 'NETWORX Radio',
-          ),
+    await _localNotifications.show(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
+      notificationDetails: NotificationDetails(
+        android: AndroidNotificationDetails(
+          'radio_alerts',
+          'Radio Alerts',
+          channelDescription:
+              'Alerts for radio plays, followed artists, and app updates',
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: android?.smallIcon ?? '@mipmap/ic_launcher',
         ),
-        payload: message.data.isNotEmpty ? jsonEncode(message.data) : null,
-      );
-    }
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+          threadIdentifier: 'radio_alerts',
+          subtitle: 'NETWORX Radio',
+        ),
+      ),
+      payload: message.data.isNotEmpty ? jsonEncode(message.data) : null,
+    );
   }
 
   /// Handle notification tap (opens app from background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
     debugPrint('PushNotificationService: Notification tapped - ${message.data}');
-    final type = message.data['type'];
+    final type = message.data['type']?.toString();
+    final payload = Map<String, dynamic>.from(message.data);
+
     if (type == 'song_played' && message.data['playId'] != null) {
       onNotificationTap?.call({
         'type': 'song_played',
@@ -215,14 +254,21 @@ class PushNotificationService {
       });
       return;
     }
-    if (type == 'up_next' || type == 'live_now') {
+
+    // Artist about-to-play / live (backend uses song_up_next / song_live_now).
+    if (type == 'up_next' ||
+        type == 'live_now' ||
+        type == 'song_up_next' ||
+        type == 'song_live_now') {
       onNotificationTap?.call({
         'type': type,
         'songId': message.data['songId'],
         'songTitle': message.data['songTitle'],
+        'radioId': message.data['radioId'],
       });
       return;
     }
+
     if (type == 'artist_live_now' && message.data['artistId'] != null) {
       onNotificationTap?.call({
         'type': 'artist_live_now',
@@ -230,16 +276,35 @@ class PushNotificationService {
       });
       return;
     }
+
     if (type == 'song_liked') {
       onNotificationTap?.call({'type': 'song_liked'});
       return;
     }
-    if (type == 'artist_song_on_radio') {
+
+    if (type == 'artist_song_on_radio' || type == 'followed_artist_up_next') {
       onNotificationTap?.call({
-        'type': 'artist_song_on_radio',
+        'type': type,
         'artistId': message.data['artistId'],
         'songId': message.data['songId'],
+        'radioId': message.data['radioId'],
       });
+      return;
+    }
+
+    if (type == 'app_update') {
+      onNotificationTap?.call({
+        'type': 'app_update',
+        'storeUrl': message.data['storeUrl'],
+        'latestVersion': message.data['latestVersion'],
+        'forceUpdate': message.data['forceUpdate'],
+      });
+      return;
+    }
+
+    // Fallback: forward raw payload so callers can still react.
+    if (type != null && type.isNotEmpty) {
+      onNotificationTap?.call(payload);
     }
   }
 

@@ -887,8 +887,136 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.system_update_alt_outlined),
+            title: const Text('Notify users of an app update'),
+            subtitle: const Text(
+              'Publish a release and push “update available” to all devices.',
+            ),
+            trailing: FilledButton.tonal(
+              onPressed: _publishAppUpdate,
+              child: const Text('Broadcast'),
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _publishAppUpdate() async {
+    final versionCtrl = TextEditingController(text: '1.0.16');
+    final titleCtrl = TextEditingController(text: 'Update available');
+    final bodyCtrl = TextEditingController(
+      text: 'A new version of NETWORX Radio is ready. Tap to update.',
+    );
+    var broadcastPush = true;
+    var platform = 'all';
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setLocal) {
+            return AlertDialog(
+              title: const Text('Broadcast app update'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: versionCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Latest version (e.g. 1.0.16)',
+                      ),
+                    ),
+                    TextField(
+                      controller: titleCtrl,
+                      decoration: const InputDecoration(labelText: 'Title'),
+                    ),
+                    TextField(
+                      controller: bodyCtrl,
+                      maxLines: 3,
+                      decoration: const InputDecoration(labelText: 'Message'),
+                    ),
+                    const SizedBox(height: 8),
+                    DropdownButtonFormField<String>(
+                      initialValue: platform,
+                      decoration: const InputDecoration(labelText: 'Platform'),
+                      items: const [
+                        DropdownMenuItem(value: 'all', child: Text('All')),
+                        DropdownMenuItem(value: 'ios', child: Text('iOS')),
+                        DropdownMenuItem(
+                          value: 'android',
+                          child: Text('Android'),
+                        ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setLocal(() => platform = v);
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Send push now'),
+                      value: broadcastPush,
+                      onChanged: (v) => setLocal(() => broadcastPush = v),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Publish'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      versionCtrl.dispose();
+      titleCtrl.dispose();
+      bodyCtrl.dispose();
+      return;
+    }
+
+    try {
+      await _admin.publishAppRelease(
+        latestVersion: versionCtrl.text.trim(),
+        title: titleCtrl.text.trim(),
+        body: bodyCtrl.text.trim(),
+        platform: platform,
+        broadcastPush: broadcastPush,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            broadcastPush
+                ? 'Release published and push broadcast started.'
+                : 'Release published (no push).',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to publish release: $e')),
+      );
+    } finally {
+      versionCtrl.dispose();
+      titleCtrl.dispose();
+      bodyCtrl.dispose();
+    }
   }
 
   Widget _buildSongsTab() {

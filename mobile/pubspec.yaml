@@ -105,6 +105,7 @@ dependencies:
   
   # Local storage for settings
   shared_preferences: ^2.2.2
+  package_info_plus: ^8.3.0
   geolocator: ^14.0.2
   http_parser: ^4.1.2
   flutter_webrtc: ^1.4.1

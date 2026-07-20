@@ -154,7 +154,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'song_played':
         return Icons.music_note_outlined;
       case 'artist_song_on_radio':
+      case 'followed_artist_up_next':
         return Icons.radio_outlined;
+      case 'song_up_next':
+      case 'up_next':
+        return Icons.queue_music_outlined;
+      case 'song_live_now':
+      case 'live_now':
+        return Icons.play_circle_outline;
+      case 'app_update':
+        return Icons.system_update_alt_outlined;
       default:
         return Icons.notifications_none;
     }
@@ -257,8 +266,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             onTap: () async {
                               await _markAsRead(n);
                               if (!mounted) return;
-                              if (n.type == 'artist_song_on_radio') {
-                                Navigator.of(context).pushNamed(AppRoutes.player);
+                              if (n.type == 'artist_song_on_radio' ||
+                                  n.type == 'followed_artist_up_next' ||
+                                  n.type == 'song_up_next' ||
+                                  n.type == 'song_live_now' ||
+                                  n.type == 'up_next' ||
+                                  n.type == 'live_now') {
+                                Navigator.of(context)
+                                    .pushNamed(AppRoutes.player);
                               }
                             },
                             leading: Icon(

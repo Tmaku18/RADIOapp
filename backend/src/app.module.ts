@@ -14,6 +14,7 @@ import { TasksModule } from './tasks/tasks.module';
 import { EmailModule } from './email/email.module';
 import { ChatModule } from './chat/chat.module';
 import { PushNotificationModule } from './push-notifications/push-notification.module';
+import { AppVersionModule } from './app-version/app-version.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { LeaderboardModule } from './leaderboard/leaderboard.module';
@@ -56,6 +57,7 @@ import { RequestIdMiddleware } from './common/middleware';
     EmailModule,
     ChatModule,
     PushNotificationModule,
+    AppVersionModule,
     AnalyticsModule,
     SuggestionsModule,
     LeaderboardModule,

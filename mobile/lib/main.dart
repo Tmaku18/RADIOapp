@@ -11,6 +11,7 @@ import 'core/services/radio_presence_service.dart';
 import 'core/services/radio_background_sync_service.dart';
 import 'core/auth/auth_service.dart';
 import 'core/services/push_notification_service.dart';
+import 'core/services/app_update_service.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/app_routes.dart';
 import 'core/theme/networx_theme.dart';
@@ -128,20 +129,39 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      final navContext = widget.navigatorKey.currentContext;
+      if (navContext != null) {
+        unawaited(AppUpdateService.instance.checkAndPrompt(navContext));
+      }
+
       if (!widget.firebaseInitialized) return;
       PushNotificationService().onNotificationTap = (data) {
         final nav = widget.navigatorKey.currentState;
         if (nav == null) return;
-        if (data['type'] == 'song_played' && data['playId'] != null) {
-          nav.pushNamed(AppRoutes.analytics, arguments: {'playId': data['playId']});
-        } else if (data['type'] == 'up_next' || data['type'] == 'live_now') {
+        final type = data['type']?.toString();
+        if (type == 'song_played' && data['playId'] != null) {
+          nav.pushNamed(
+            AppRoutes.analytics,
+            arguments: {'playId': data['playId']},
+          );
+        } else if (type == 'up_next' ||
+            type == 'live_now' ||
+            type == 'song_up_next' ||
+            type == 'song_live_now' ||
+            type == 'artist_song_on_radio' ||
+            type == 'followed_artist_up_next') {
           nav.pushNamed(AppRoutes.player);
-        } else if (data['type'] == 'artist_live_now' && data['artistId'] != null) {
-          nav.pushNamed(AppRoutes.watchLive, arguments: data['artistId'].toString());
-        } else if (data['type'] == 'song_liked') {
+        } else if (type == 'artist_live_now' && data['artistId'] != null) {
+          nav.pushNamed(
+            AppRoutes.watchLive,
+            arguments: data['artistId'].toString(),
+          );
+        } else if (type == 'song_liked') {
           nav.pushNamed(AppRoutes.notifications);
-        } else if (data['type'] == 'artist_song_on_radio') {
-          nav.pushNamed(AppRoutes.player);
+        } else if (type == 'app_update') {
+          unawaited(
+            AppUpdateService.openStoreUrl(data['storeUrl']?.toString()),
+          );
         }
       };
     });

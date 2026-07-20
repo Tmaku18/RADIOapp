@@ -124,7 +124,7 @@ export default function NotificationSettingsPage() {
             <div className="space-y-1">
               <Label htmlFor="followed-radio">Followed artists on radio</Label>
               <p className="text-sm text-muted-foreground">
-                Get notified when an artist you follow has a song playing on the radio.
+                Get notified when someone you follow is about to play or is on-air on any station.
               </p>
             </div>
             <Switch

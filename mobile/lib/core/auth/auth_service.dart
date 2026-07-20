@@ -104,6 +104,7 @@ class AuthService extends ChangeNotifier {
       if (credential.user != null) {
         final token = await credential.user!.getIdToken();
         _apiService.setAuthToken(token);
+        unawaited(PushNotificationService().ensureRegisteredAfterAuth());
         return await _getUserProfile();
       }
       return null;
@@ -496,7 +497,10 @@ class AuthService extends ChangeNotifier {
       _apiService.setAuthToken(token);
       // Cap the call so the UI never hangs on a slow/cold backend; fall back to
       // a Firebase-only profile if the backend is unreachable in time.
-      return await _getUserProfile().timeout(const Duration(seconds: 10));
+      final profile =
+          await _getUserProfile().timeout(const Duration(seconds: 10));
+      unawaited(PushNotificationService().ensureRegisteredAfterAuth());
+      return profile;
     } on TimeoutException {
       debugPrint('getUserProfile: backend timed out, using fallback user.');
       return _buildFallbackUser(firebaseUser);
