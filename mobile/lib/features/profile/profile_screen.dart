@@ -162,7 +162,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final usernameCtrl = TextEditingController(text: user.username ?? '');
     final headlineCtrl = TextEditingController(text: user.headline ?? '');
     final bioCtrl = TextEditingController(text: user.bio ?? '');
-    final locationCtrl = TextEditingController(text: user.locationRegion ?? '');
+    final cityCtrl = TextEditingController(text: user.city ?? '');
+    final zipCtrl = TextEditingController(text: user.zipCode ?? '');
     final instagramCtrl = TextEditingController(text: user.instagramUrl ?? '');
     final twitterCtrl = TextEditingController(text: user.twitterUrl ?? '');
     final tiktokCtrl = TextEditingController(text: user.tiktokUrl ?? '');
@@ -210,7 +211,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       : null,
                   headline: headlineCtrl.text.trim(),
                   bio: bioCtrl.text.trim(),
-                  locationRegion: locationCtrl.text.trim(),
+                  city: cityCtrl.text.trim(),
+                  zipCode: zipCtrl.text.trim(),
                   instagramUrl: instagramCtrl.text.trim(),
                   twitterUrl: twitterCtrl.text.trim(),
                   tiktokUrl: tiktokCtrl.text.trim(),
@@ -285,10 +287,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       const SizedBox(height: 10),
                       TextField(
-                        controller: locationCtrl,
+                        controller: cityCtrl,
                         decoration: const InputDecoration(
-                          labelText: 'Location region',
+                          labelText: 'City',
+                          helperText:
+                              'Shown on Nearby People map once saved.',
                         ),
+                        textCapitalization: TextCapitalization.words,
+                      ),
+                      const SizedBox(height: 10),
+                      TextField(
+                        controller: zipCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'ZIP / postal code',
+                        ),
+                        keyboardType: TextInputType.number,
                       ),
                       const SizedBox(height: 10),
                       TextField(
@@ -440,7 +453,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     usernameCtrl.dispose();
     headlineCtrl.dispose();
     bioCtrl.dispose();
-    locationCtrl.dispose();
+    cityCtrl.dispose();
+    zipCtrl.dispose();
     instagramCtrl.dispose();
     twitterCtrl.dispose();
     tiktokCtrl.dispose();

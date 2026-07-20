@@ -47,6 +47,36 @@ export class DiscoveryController {
     private readonly proNetworkSubscription: ProNetworkSubscriptionService,
   ) {}
 
+  /** Discoverable people with city/ZIP for map pins + directory lists. */
+  @Get('people/directory')
+  async listPeopleDirectory(
+    @CurrentUser() user: FirebaseUser,
+    @Query('lat') latStr?: string,
+    @Query('lng') lngStr?: string,
+    @Query('radiusKm') radiusKmStr?: string,
+    @Query('limit') limitStr?: string,
+  ) {
+    const viewerUserId = await this.getUserId(user.uid);
+    const lat = latStr != null ? parseFloat(latStr) : undefined;
+    const lng = lngStr != null ? parseFloat(lngStr) : undefined;
+    const radiusKm = radiusKmStr != null ? parseFloat(radiusKmStr) : undefined;
+    const limit = limitStr
+      ? Math.min(parseInt(limitStr, 10) || 200, 500)
+      : undefined;
+    return this.discovery.listPeopleDirectory({
+      viewerUserId,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined,
+      radiusKm:
+        typeof radiusKm === 'number' &&
+        Number.isFinite(radiusKm) &&
+        radiusKm > 0
+          ? radiusKm
+          : undefined,
+      limit,
+    });
+  }
+
   @Get('people')
   async listPeople(
     @CurrentUser() user: FirebaseUser,

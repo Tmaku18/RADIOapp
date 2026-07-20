@@ -8,6 +8,8 @@ class User {
   final String? avatarUrl;
   final String? headline;
   final String? locationRegion;
+  final String? city;
+  final String? zipCode;
   final String? bio;
   final String? instagramUrl;
   final String? twitterUrl;
@@ -33,6 +35,8 @@ class User {
     this.avatarUrl,
     this.headline,
     this.locationRegion,
+    this.city,
+    this.zipCode,
     this.bio,
     this.instagramUrl,
     this.twitterUrl,
@@ -78,6 +82,8 @@ class User {
       avatarUrl: (json['avatar_url'] ?? json['avatarUrl'])?.toString(),
       headline: (json['headline'])?.toString(),
       locationRegion: (json['location_region'] ?? json['locationRegion'])?.toString(),
+      city: (json['city'])?.toString(),
+      zipCode: (json['zip_code'] ?? json['zipCode'])?.toString(),
       bio: (json['bio'])?.toString(),
       instagramUrl:
           (json['instagram_url'] ?? json['instagramUrl'])?.toString(),
@@ -109,6 +115,8 @@ class User {
       'avatarUrl': avatarUrl,
       'headline': headline,
       'locationRegion': locationRegion,
+      'city': city,
+      'zipCode': zipCode,
       'bio': bio,
       'instagramUrl': instagramUrl,
       'twitterUrl': twitterUrl,

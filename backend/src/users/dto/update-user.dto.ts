@@ -85,6 +85,16 @@ export class UpdateUserDto {
   @IsOptional()
   locationRegion?: string;
 
+  /** City for Nearby People map pin + directory */
+  @IsString()
+  @IsOptional()
+  city?: string;
+
+  /** ZIP / postal code for Nearby People directory */
+  @IsString()
+  @IsOptional()
+  zipCode?: string;
+
   /** Whether user is discoverable in heatmap/nearby */
   @IsBoolean()
   @IsOptional()

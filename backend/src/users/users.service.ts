@@ -15,6 +15,7 @@ import { ImageModerationService } from '../moderation/image-moderation.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
+import { geocodeCityZip } from '../common/geocode.util';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -34,6 +35,8 @@ export interface UserResponse {
   bio?: string | null;
   headline?: string | null;
   locationRegion?: string | null;
+  city?: string | null;
+  zipCode?: string | null;
   discoverable?: boolean;
   instagramUrl?: string | null;
   twitterUrl?: string | null;
@@ -93,6 +96,8 @@ function transformUser(data: any): UserResponse {
     bio: data.bio ?? null,
     headline: data.headline ?? null,
     locationRegion: data.location_region ?? null,
+    city: data.city ?? null,
+    zipCode: data.zip_code ?? null,
     discoverable: data.discoverable ?? true,
     instagramUrl: data.instagram_url ?? null,
     twitterUrl: data.twitter_url ?? null,
@@ -625,6 +630,87 @@ export class UsersService {
       updatePayload.headline = updateUserDto.headline;
     if (updateUserDto.locationRegion !== undefined)
       updatePayload.location_region = updateUserDto.locationRegion;
+
+    const cityProvided = updateUserDto.city !== undefined;
+    const zipProvided = updateUserDto.zipCode !== undefined;
+    if (cityProvided) {
+      const city = updateUserDto.city?.trim() || null;
+      updatePayload.city = city;
+    }
+    if (zipProvided) {
+      const zip = updateUserDto.zipCode?.trim() || null;
+      updatePayload.zip_code = zip;
+    }
+
+    // Keep location_region in sync when city/zip change (unless caller set it).
+    if (
+      (cityProvided || zipProvided) &&
+      updateUserDto.locationRegion === undefined
+    ) {
+      const nextCity = cityProvided
+        ? (updateUserDto.city?.trim() || '')
+        : undefined;
+      const nextZip = zipProvided
+        ? (updateUserDto.zipCode?.trim() || '')
+        : undefined;
+      // Need current values when only one field is patched.
+      if (nextCity === undefined || nextZip === undefined) {
+        const { data: current } = await supabase
+          .from('users')
+          .select('city, zip_code')
+          .eq('id', user.id)
+          .maybeSingle();
+        const city =
+          nextCity !== undefined
+            ? nextCity
+            : ((current?.city as string | null) ?? '');
+        const zip =
+          nextZip !== undefined
+            ? nextZip
+            : ((current?.zip_code as string | null) ?? '');
+        updatePayload.location_region = [city, zip]
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(', ') || null;
+      } else {
+        updatePayload.location_region = [nextCity, nextZip]
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(', ') || null;
+      }
+    }
+
+    // Geocode city/ZIP → map pin when city (or zip) changes and coords not explicit.
+    if (
+      (cityProvided || zipProvided) &&
+      updateUserDto.artistLat === undefined &&
+      updateUserDto.artistLng === undefined
+    ) {
+      const { data: currentLoc } = await supabase
+        .from('users')
+        .select('city, zip_code')
+        .eq('id', user.id)
+        .maybeSingle();
+      const city =
+        (cityProvided
+          ? updateUserDto.city?.trim()
+          : (currentLoc?.city as string | null)?.trim()) || '';
+      const zip =
+        (zipProvided
+          ? updateUserDto.zipCode?.trim()
+          : (currentLoc?.zip_code as string | null)?.trim()) || '';
+      if (city || zip) {
+        const geo = await geocodeCityZip(city || zip, zip || null);
+        if (geo) {
+          updatePayload.artist_lat = geo.lat;
+          updatePayload.artist_lng = geo.lng;
+        }
+      } else {
+        updatePayload.artist_lat = null;
+        updatePayload.artist_lng = null;
+      }
+    }
+
     if (updateUserDto.discoverable !== undefined)
       updatePayload.discoverable = updateUserDto.discoverable;
     if (updateUserDto.instagramUrl !== undefined)

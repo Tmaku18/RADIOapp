@@ -11,12 +11,25 @@ export interface DiscoveryProfile {
   avatarUrl: string | null;
   bio: string | null;
   locationRegion: string | null;
-  role: 'artist' | 'service_provider';
+  city?: string | null;
+  zipCode?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  role: 'artist' | 'service_provider' | 'listener';
   serviceTypes: string[];
   createdAt: string;
   mentorOptIn?: boolean;
   distanceKm?: number;
   isFollowing?: boolean;
+}
+
+export interface PeopleDirectoryGroup {
+  key: string;
+  label: string;
+  city: string | null;
+  zipCode: string | null;
+  count: number;
+  people: DiscoveryProfile[];
 }
 
 export interface DiscoverFeedPost {
@@ -522,6 +535,160 @@ export class DiscoveryService {
       hash = (hash * 31 + input.charCodeAt(i)) >>> 0;
     }
     return hash;
+  }
+
+  private haversineKm(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number,
+  ): number {
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const r = 6371;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return 2 * r * Math.asin(Math.min(1, Math.sqrt(a)));
+  }
+
+  /**
+   * Nearby People directory: discoverable users who have set a city (and/or ZIP),
+   * with map coords when geocoded. Optional GPS radius filter.
+   */
+  async listPeopleDirectory(params: {
+    viewerUserId?: string;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
+    limit?: number;
+  }): Promise<{
+    items: DiscoveryProfile[];
+    byCity: PeopleDirectoryGroup[];
+    byZip: PeopleDirectoryGroup[];
+    total: number;
+  }> {
+    const limit = Math.min(Math.max(params.limit ?? 200, 1), 500);
+    const supabase = getSupabaseClient();
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select(
+        'id, display_name, headline, avatar_url, bio, location_region, city, zip_code, artist_lat, artist_lng, role, created_at',
+      )
+      .eq('discoverable', true)
+      .eq('is_banned', false)
+      .in('role', ['artist', 'service_provider', 'listener'])
+      .or('city.not.is.null,zip_code.not.is.null')
+      .order('city', { ascending: true, nullsFirst: false })
+      .limit(limit);
+
+    if (error) {
+      throw new Error(`Failed to load people directory: ${error.message}`);
+    }
+
+    let items: DiscoveryProfile[] = (users || [])
+      .filter((u: any) => {
+        if (params.viewerUserId && u.id === params.viewerUserId) return false;
+        const city = (u.city ?? '').toString().trim();
+        const zip = (u.zip_code ?? '').toString().trim();
+        return city.length > 0 || zip.length > 0;
+      })
+      .map((u: any) => {
+        const lat =
+          u.artist_lat != null && Number.isFinite(Number(u.artist_lat))
+            ? Number(u.artist_lat)
+            : null;
+        const lng =
+          u.artist_lng != null && Number.isFinite(Number(u.artist_lng))
+            ? Number(u.artist_lng)
+            : null;
+        let distanceKm: number | undefined;
+        if (
+          params.lat != null &&
+          params.lng != null &&
+          lat != null &&
+          lng != null
+        ) {
+          distanceKm = this.haversineKm(params.lat, params.lng, lat, lng);
+        }
+        return {
+          id: u.id,
+          userId: u.id,
+          displayName: u.display_name ?? null,
+          headline: u.headline ?? null,
+          avatarUrl: u.avatar_url ?? null,
+          bio: u.bio ?? null,
+          locationRegion: u.location_region ?? null,
+          city: (u.city ?? '').toString().trim() || null,
+          zipCode: (u.zip_code ?? '').toString().trim() || null,
+          lat,
+          lng,
+          role: u.role,
+          serviceTypes: [] as string[],
+          createdAt: u.created_at,
+          distanceKm,
+        };
+      });
+
+    if (
+      params.lat != null &&
+      params.lng != null &&
+      params.radiusKm != null &&
+      params.radiusKm > 0
+    ) {
+      items = items.filter(
+        (p) => p.distanceKm != null && p.distanceKm <= params.radiusKm!,
+      );
+      items.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+    } else {
+      items.sort((a, b) => {
+        const ca = (a.city ?? '').toLowerCase();
+        const cb = (b.city ?? '').toLowerCase();
+        if (ca !== cb) return ca.localeCompare(cb);
+        return (a.displayName ?? '').localeCompare(b.displayName ?? '');
+      });
+    }
+
+    const byCityMap = new Map<string, DiscoveryProfile[]>();
+    const byZipMap = new Map<string, DiscoveryProfile[]>();
+    for (const person of items) {
+      const cityKey = (person.city ?? '').trim() || 'Unknown city';
+      const zipKey = (person.zipCode ?? '').trim();
+      const cityList = byCityMap.get(cityKey) ?? [];
+      cityList.push(person);
+      byCityMap.set(cityKey, cityList);
+      if (zipKey) {
+        const zipList = byZipMap.get(zipKey) ?? [];
+        zipList.push(person);
+        byZipMap.set(zipKey, zipList);
+      }
+    }
+
+    const byCity: PeopleDirectoryGroup[] = [...byCityMap.entries()]
+      .map(([key, people]) => ({
+        key: `city:${key}`,
+        label: key,
+        city: key === 'Unknown city' ? null : key,
+        zipCode: null,
+        count: people.length,
+        people,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    const byZip: PeopleDirectoryGroup[] = [...byZipMap.entries()]
+      .map(([key, people]) => ({
+        key: `zip:${key}`,
+        label: key,
+        city: people[0]?.city ?? null,
+        zipCode: key,
+        count: people.length,
+        people,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+
+    return { items, byCity, byZip, total: items.length };
   }
 
   async listPeople(params: {

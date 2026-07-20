@@ -12,6 +12,7 @@ import '../features/dashboard/gem_dashboard_screen.dart';
 import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/services/push_notification_service.dart';
+import '../core/services/location_permission_service.dart';
 import 'dimension/dimension_radio_bar.dart';
 import 'dimension/cyber_backdrop.dart';
 import 'dimension/dimension_nav_drawer.dart';
@@ -35,7 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(_promptPushPermission());
+      unawaited(_promptLaunchPermissions());
     });
   }
 
@@ -53,10 +54,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  Future<void> _promptPushPermission() async {
+  Future<void> _promptLaunchPermissions() async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
     await PushNotificationService().promptOnFirstLogin(context);
+    if (!mounted) return;
+    // After notifications, ask for GPS so Nearby People can use location.
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (!mounted) return;
+    await LocationPermissionService.instance.promptOnLaunch(context);
   }
 
   void _openNavDrawer() => _scaffoldKey.currentState?.openDrawer();
