@@ -7,7 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import '../services/api_service.dart';
 import '../services/push_notification_service.dart';
 import '../models/user.dart' as app_user;
@@ -26,7 +26,7 @@ class ProfileSetupRequiredException implements Exception {
   String toString() => 'ProfileSetupRequiredException';
 }
 
-class AuthService extends ChangeNotifier {
+class AuthService extends ChangeNotifier with WidgetsBindingObserver {
   final bool firebaseInitialized;
   FirebaseAuth? _auth;
   // google_sign_in v7 is a singleton and must be initialized once before use.
@@ -43,27 +43,48 @@ class AuthService extends ChangeNotifier {
   static const String googlePlayAndroidClientId =
       '479427085382-k3nmr3f99lg4hlne6u60naephqn4pu6i.apps.googleusercontent.com';
   final ApiService _apiService = ApiService();
+  bool _lifecycleObserverAttached = false;
 
   AuthService({this.firebaseInitialized = true}) {
     // Only initialize FirebaseAuth if Firebase is initialized
     if (firebaseInitialized) {
       try {
         _auth = FirebaseAuth.instance;
-        _apiService.setAuthTokenProvider(() async {
+        // Web parity: resolve a (possibly refreshed) ID token on demand.
+        // Do not sign the user out on a single 401 — that broke “stay logged in”
+        // after backgrounding when a cached Bearer had expired.
+        _apiService.setAuthTokenProvider(({bool forceRefresh = false}) async {
           final user = _auth?.currentUser;
           if (user == null) return null;
-          return user.getIdToken();
+          return user.getIdToken(forceRefresh);
         });
         _apiService.setUnauthorizedHandler(() async {
-          if (_auth?.currentUser != null) {
-            await signOut();
-          }
+          await refreshIdToken(forceRefresh: true);
         });
+        WidgetsBinding.instance.addObserver(this);
+        _lifecycleObserverAttached = true;
       } catch (e) {
         debugPrint('Warning: Could not access FirebaseAuth: $e');
         _auth = null;
       }
     }
+  }
+
+  /// Keep the API Bearer warm when returning from background.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && _auth?.currentUser != null) {
+      unawaited(refreshIdToken(forceRefresh: false));
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_lifecycleObserverAttached) {
+      WidgetsBinding.instance.removeObserver(this);
+      _lifecycleObserverAttached = false;
+    }
+    super.dispose();
   }
 
   Stream<User?> get authStateChanges {

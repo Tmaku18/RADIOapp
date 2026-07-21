@@ -204,10 +204,21 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      // Returning from background: immediately catch up to the live queue
-      // instead of waiting for the next poll tick.
-      unawaited(_syncCurrentTrack());
+      // Returning from background: refresh auth (likes/votes need a valid
+      // Bearer), reload profile if needed, and catch up to the live queue.
+      unawaited(_onAppResumed());
     }
+  }
+
+  Future<void> _onAppResumed() async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken(forceRefresh: false);
+    } catch (_) {}
+    if (_me == null) {
+      await _loadMe();
+    }
+    await _syncCurrentTrack();
   }
 
   Future<void> _initializeStationAndPlayback() async {
@@ -828,6 +839,9 @@ class _PlayerScreenState extends State<PlayerScreen>
           fireVotes: serverTrack.fireVotes,
           shitVotes: serverTrack.shitVotes,
           temperaturePercent: serverTrack.temperaturePercent,
+          // Keep playId current — votes need it, and same-track resume sync
+          // used to leave a stale/empty playId until a station change.
+          playId: serverTrack.playId ?? localTrack.playId,
         );
         _isLoading = false;
         _noContent = false;
@@ -866,6 +880,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           fireVotes: latestTrack.fireVotes,
           shitVotes: latestTrack.shitVotes,
           temperaturePercent: latestTrack.temperaturePercent,
+          playId: latestTrack.playId ?? track.playId,
         );
       });
     } catch (_) {
@@ -906,12 +921,22 @@ class _PlayerScreenState extends State<PlayerScreen>
         playId: playId,
         reaction: reaction,
       );
+      if (result == null) {
+        if (!mounted) return;
+        setState(() => _isVoting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not save your vote. Check your connection and try again.'),
+          ),
+        );
+        return;
+      }
       final previousReaction =
-          ((result?['previousReaction'] as String?) ?? _selectedReaction);
-      String? serverReaction = result?['reaction'] as String?;
+          ((result['previousReaction'] as String?) ?? _selectedReaction);
+      String? serverReaction = result['reaction'] as String?;
       if (serverReaction != 'fire' && serverReaction != 'shit') {
         // Backward-compatible fallback if backend returns the old shape.
-        final alreadyVoted = result?['alreadyVoted'] == true;
+        final alreadyVoted = result['alreadyVoted'] == true;
         if (alreadyVoted) {
           serverReaction = previousReaction;
         } else {

@@ -281,13 +281,27 @@ class RadioService {
     String? playId,
     required String reaction, // 'fire' | 'shit'
   }) async {
-    try {
-      final response = await _apiService
-          .post('leaderboard/songs/$songId/like', {
-            if (playId != null && playId.isNotEmpty) 'playId': playId,
-            'reaction': reaction,
-          });
+    Future<Map<String, dynamic>?> attempt() async {
+      final response = await _apiService.post('leaderboard/songs/$songId/like', {
+        if (playId != null && playId.isNotEmpty) 'playId': playId,
+        'reaction': reaction,
+      });
       if (response is Map<String, dynamic>) return response;
+      return null;
+    }
+
+    try {
+      return await attempt();
+    } on ApiException catch (e) {
+      // ApiService already force-refreshes once on 401; one more soft retry
+      // covers a race right after resume.
+      if (e.statusCode == 401) {
+        try {
+          return await attempt();
+        } catch (_) {
+          return null;
+        }
+      }
       return null;
     } catch (_) {
       return null;

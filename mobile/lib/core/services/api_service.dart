@@ -32,14 +32,17 @@ class ApiService {
 
   String get baseUrl => env('API_BASE_URL') ?? 'https://www.networxradio.com';
   String? _authToken;
-  Future<String?> Function()? _tokenProvider;
+  /// Prefer named `forceRefresh` so Firebase can mint a new JWT after 401s.
+  Future<String?> Function({bool forceRefresh})? _tokenProvider;
   Future<void> Function()? _onUnauthorized;
 
   void setAuthToken(String? token) {
     _authToken = token;
   }
 
-  void setAuthTokenProvider(Future<String?> Function()? provider) {
+  void setAuthTokenProvider(
+    Future<String?> Function({bool forceRefresh})? provider,
+  ) {
     _tokenProvider = provider;
   }
 
@@ -47,13 +50,22 @@ class ApiService {
     _onUnauthorized = handler;
   }
 
-  Future<Map<String, String>> _headers() async {
-    String? token = _authToken;
-    if ((token == null || token.isEmpty) && _tokenProvider != null) {
+  /// Always resolve via the provider when available (web parity). Firebase's
+  /// [getIdToken] returns a cached JWT when still valid and refreshes when
+  /// expired — so likes/votes keep working after long background sessions.
+  Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
+    String? token = forceRefresh ? null : _authToken;
+    if (_tokenProvider != null) {
       try {
-        token = await _tokenProvider!.call();
-        _authToken = token;
-      } catch (_) {}
+        final fresh = await _tokenProvider!(forceRefresh: forceRefresh);
+        if (fresh != null && fresh.isNotEmpty) {
+          token = fresh;
+          _authToken = fresh;
+        }
+      } catch (_) {
+        // Keep any previously cached token if the provider briefly fails.
+        token ??= _authToken;
+      }
     }
     return {
       'Content-Type': 'application/json',
@@ -119,17 +131,30 @@ class ApiService {
     bool preferDirectBackend = false,
     Duration? timeout,
   }) async {
-    final headers = await _headers();
     final candidates = _baseUrlCandidates(
       preferDirectBackend: preferDirectBackend,
     );
     Object? lastError;
     final effectiveTimeout = timeout ?? _requestTimeout;
+    var authRetried = false;
 
     for (final base in candidates) {
       try {
-        final response =
-            await request(base, headers).timeout(effectiveTimeout);
+        Future<http.Response> send({required bool forceRefresh}) async {
+          final headers = await _headers(forceRefresh: forceRefresh);
+          return request(base, headers).timeout(effectiveTimeout);
+        }
+
+        var response = await send(forceRefresh: false);
+
+        // Stale Bearer after backgrounding: force-refresh once, then retry.
+        if (response.statusCode == 401 && !authRetried) {
+          authRetried = true;
+          _authToken = null;
+          await _handleUnauthorized();
+          response = await send(forceRefresh: true);
+        }
+
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = base;
           final body = response.body.trim();
@@ -137,9 +162,6 @@ class ApiService {
             return null;
           }
           return json.decode(body);
-        }
-        if (response.statusCode == 401) {
-          await _handleUnauthorized();
         }
         throw ApiException(
           statusCode: response.statusCode,
