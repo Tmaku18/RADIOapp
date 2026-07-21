@@ -22,6 +22,9 @@ CREATE TABLE users (
   shadow_ban_reason TEXT,
   shadow_banned_by UUID REFERENCES users(id),
   shadow_banned_until TIMESTAMPTZ,
+  city TEXT,           -- Nearby People (migration 106)
+  zip_code TEXT,       -- Nearby People (migration 106)
+  -- Also: artist_lat, artist_lng, location_region, discoverable, username, …
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -53,6 +56,10 @@ CREATE TABLE songs (
   is_explicit BOOLEAN DEFAULT FALSE,
   fallback_eligible BOOLEAN DEFAULT FALSE,
   opt_in_free_play BOOLEAN DEFAULT FALSE,
+  -- Full-Song Radio Opt-In Agreement (migration 103)
+  opt_in_full_song_radio BOOLEAN NOT NULL DEFAULT FALSE,
+  opt_in_dj_livestreams BOOLEAN NOT NULL DEFAULT FALSE,
+  opt_in_dj_archived_mixes BOOLEAN NOT NULL DEFAULT FALSE,
   last_played_at TIMESTAMPTZ,
   rejection_reason TEXT,
   rejected_at TIMESTAMPTZ,
@@ -641,6 +648,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 ```
+
+### song_lyrics (054 / 100 / 101)
+
+Timed captions for radio / player UI. `plain_text` from the artist (or STT); `timed_lines` JSON from force alignment; `auto_generated` when transcribed without artist lyrics.
+
+```sql
+-- See backend/supabase/migrations/054_song_lyrics.sql,
+-- 100_song_lyrics_alignment.sql, 101_song_lyrics_auto_generated.sql
+```
+
+### user_device_tokens & app_releases (105)
+
+FCM registration tokens and published app versions for soft/force update prompts.
+
+### users.city / users.zip_code (106)
+
+Nearby People directory and map pins (coords remain on `artist_lat` / `artist_lng`).
+
+### storage.buckets feed (107)
+
+Discover feed media: **75MB** limit; image + video MIME types (`video/mp4`, `video/webm`, `video/quicktime`, …).
 
 ## Migration notes: leaderboard reactions & temperature (047 → 049)
 

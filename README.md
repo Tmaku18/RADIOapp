@@ -57,13 +57,16 @@ cd mobile && flutter run
 
 - 🎵 **True Radio Experience** — synchronized playback across clients with LIVE indicator and radio-style controls
 - 🔄 **Continuous Playback** — auto-advance, deterministic shuffle, and no user-initiated skip in the core radio flow
-- 🎤 **Artist Uploads** — secure uploads with server-side validation and moderation workflows
+- 🎤 **Artist Uploads** — secure uploads with server-side validation, moderation, and **Full-Song Radio Opt-In** rights checkboxes
+- 📝 **Synced lyrics / captions** — optional artist lyrics force-aligned (or auto-transcribed) via ElevenLabs for timed captions on web + mobile
 - 💳 **Credit System** — artists buy credits and allocate airtime to tracks (audited allocation + play decisions)
 - 🆓 **Trial Rotation** — newly approved tracks receive free trial plays before paid rotation
 - ❤️ **Ripples** — profile “saves” (`likes`) plus **radio play votes** (`leaderboard_likes`: fire/shit, one row per user per `play_id`); **song temperature** is a decaying global score derived from those votes (see `song_temperature` + `refresh_song_temperature`)
 - 💬 **Live Radio Chat** — real-time chat + reactions for shared listening
-- 📲 **Artist Notifications** — “Up Next” and “Live Now” push alerts via FCM
-- 📊 **Admin Tools** — moderation, free rotation management, fallback playlist, and user enforcement tools
+- 📍 **Nearby People** — city/ZIP directory and map pins for discoverable creators (GPS optional)
+- 🎬 **Discover clips & videos** — swipe feed plus TikTok-style video replies to liked clips (up to 75MB / ~15s)
+- 📲 **Push + in-app notifications** — “Up Next”, “Live Now”, followed-artist alerts, and release update prompts via FCM
+- 📊 **Admin Tools** — moderation, free rotation management, fallback playlist, lyrics studio, and user enforcement tools
 - 🔐 **Secure Auth + Payments** — Firebase Auth + Stripe (mobile + web payment flows)
 - ⚡ **Scalable Backend State** — Redis-backed radio state, listener counts, and realtime fan-out
 - 🔍 **Observability** — structured logs, request tracing, and Sentry error reporting
@@ -77,18 +80,18 @@ NETWORX is in active development with working web, mobile, and backend surfaces.
 - 🚧 **In progress**: under active development
 - 📌 **Planned**: not implemented yet
 
-### Latest highlights (Jun 2026)
-- ✅ **Hard true-radio sync**: Playing clients always follow the server’s current song (no mid-song drift across devices). Web + mobile.
-- ✅ **Pro-Networx subscription gates**: **Resume** and **Message** buttons always visible; non-subscribers are routed to subscribe (protects contact info in resumes and DMs).
-- ✅ **Resume signed URLs**: Private `resumes` bucket paths are signed server-side before profile return (fixes 404 on Resume).
-- ✅ **Mobile 3D hero**: WebView loads web `/embed/butterfly` on physical devices (reliable parity vs native GL).
-- ✅ **Album covers on app player**: 2D `Image.network` instead of `three_js` cube (covers visible on all devices).
-- ✅ **Visualizer**: Dramatized FFT on web where safe; organic simulated motion on mobile (no mic permission / background breakage).
-- ✅ **Current Android release**: **1.0.12 (28)** — Pro-Networx resume/messaging subscribe gates.
+### Latest highlights (Jul 2026)
+- ✅ **Synced lyrics / closed captions**: Artists can paste lyrics on upload; backend force-aligns via ElevenLabs. Tracks without lyrics can be auto-transcribed. Web + mobile player panels; admin Lyrics studio.
+- ✅ **Full-Song Radio Opt-In Agreement**: Required upload checkbox for non-interactive radio streaming; optional DJ livestream / archived mix permissions (`opt_in_full_song_radio`, `opt_in_dj_livestreams`, `opt_in_dj_archived_mixes`). Legal page at `/full-song-radio-opt-in`.
+- ✅ **Networx Home + Gem dashboard**: Post-sign-in landing on mobile; Radio tab keeps the full player. Artist Gem dashboard shortcuts.
+- ✅ **Nearby People**: City/ZIP fields, geocoded map pins, directory lists, GPS radius filter.
+- ✅ **Discover create-video**: Listeners record selfie videos to liked clips (front camera, countdown); feed bucket raised to **75MB**.
+- ✅ **Push / app updates**: Device token registry, expanded push alerts, in-app notifications inbox, optional app-release update prompts.
+- ✅ **Current mobile release**: **1.0.21 (44)** (Android Play + iOS TestFlight).
 
-Earlier (Apr 2026): streamer approval, Discover tabs, live discovery, competition leaderboards, temperature model, package `com.discovermeradio.networxradio`.
+Earlier (Jun 2026): hard true-radio sync, Pro-Networx resume/messaging gates, mobile 3D hero WebView, album covers, visualizer parity — see **[`docs/changelog/2026-06.md`](docs/changelog/2026-06.md)**.
 
-See **[`docs/changelog/2026-06.md`](docs/changelog/2026-06.md)** (latest), **[`docs/changelog/2026-03.md`](docs/changelog/2026-03.md)**, and **[`docs/business/networx-executive-brief.md`](docs/business/networx-executive-brief.md)**.
+See **[`docs/changelog/2026-07.md`](docs/changelog/2026-07.md)** (latest), **[`docs/changelog/2026-06.md`](docs/changelog/2026-06.md)**, and **[`docs/business/networx-executive-brief.md`](docs/business/networx-executive-brief.md)**.
 
 ## Ads, interruptions, and rotation rules (clarifications)
 
@@ -101,15 +104,16 @@ See **[`docs/changelog/2026-06.md`](docs/changelog/2026-06.md)** (latest), **[`d
 - **Paid Rotation (credits)**: artists fund airtime by allocating credits to tracks; the backend pre-charges atomically before play.
 - **Auditability**: `play_decision_log` + allocation/transaction tables exist to support transparency.
 
-## Policies (placeholders)
+## Policies & legal
 
-NETWORX touches music rights, payments, and moderation. Before public release, add/confirm:
+Public legal documents live on the web app under **Legal Center** (`/legal`), including:
 
-- **Copyright / rights ownership**
-- **DMCA takedown process**
-- **Content moderation policy**
-- **Refund policy for credits/payments**
-- **Artist terms / listener terms**
+- Terms of Service, Privacy Policy, Community Guidelines, Prohibited Content, Child Safety (CSAE)
+- Artist / Seller Agreement, Buyer License, Music Upload Rights Confirmation
+- **[Full-Song Radio Opt-In Agreement](https://networxradio.com/full-song-radio-opt-in)** — radio + DJ programming authorization (required at upload)
+- DMCA / Copyright Policy, Refund & Chargeback, Livestream & Events Terms, Beta Tester Terms
+
+Source pages: `web/src/app/(marketing)/…`. Store compliance packets: `docs/legal/`.
 
 ### Branding & product terminology
 
@@ -512,6 +516,10 @@ docs/
 ├── api-spec.md                           # Complete API endpoint documentation
 ├── database-schema.md                    # Database schema and migrations
 ├── radio-logic.md                        # Radio track selection, tiers, artist spacing
+├── features-summary.md                   # Cross-platform feature matrix
+├── env-variables-setup.md                # Railway + Vercel env vars
+├── railway-setup.md                      # Railway deploy + MCP
+├── changelog/                            # Monthly changelogs (latest: 2026-07.md)
 ├── deliverables-verification.md          # README vs codebase verification
 └── notion/                               # Notion OS (NetworX hub + legacy archive)
     ├── networx-workspace.md              # NetworX Notion OS map (databases, views, URLs)
@@ -858,10 +866,12 @@ Supabase Storage (Audio Files)
 - ✅ Token refresh interceptor for API calls
 
 ### Music Management
-- ✅ Song upload with metadata (title, artist, genre, duration)
+- ✅ Song upload with metadata (title, artist, genre, duration, station, optional lyrics)
 - ✅ Album artwork upload and display
-- ✅ **Signed upload URLs** for direct-to-storage uploads (web)
+- ✅ **Signed upload URLs** for direct-to-storage uploads (web + mobile)
 - ✅ **Duration extraction/validation**: server-side for multipart uploads; for signed uploads the web client captures duration and the backend can validate/extract as available
+- ✅ **Full-Song Radio Opt-In** (required) + optional DJ livestream / archived-mix permissions at upload
+- ✅ **Synced lyrics / captions** (`song_lyrics`): force-align artist text or auto-transcribe via ElevenLabs; artist + admin edit; listener read-only
 - ✅ Song listing and search
 - ✅ Play history tracking
 - ✅ Like/unlike songs functionality
@@ -903,10 +913,11 @@ Supabase Storage (Audio Files)
 - ✅ Transaction history with status badges
 
 ### Notifications
-- ✅ **In-app notifications** for song approval/rejection
+- ✅ **In-app notifications** for song approval/rejection and social alerts
 - ✅ **Email notifications** (SendGrid/Resend integration)
-- ✅ **Push notifications**: "Up Next" (T-60s) and "Live Now" with 4-hour debounce per artist
-- ✅ **Notification bell** with unread count (styled as button)
+- ✅ **Push notifications**: "Up Next" (T-60s), "Live Now", followed-artist on radio, and related alerts (FCM device tokens in `user_device_tokens`)
+- ✅ **App update prompts** via `app_releases` (soft/force update + optional broadcast)
+- ✅ **Notification bell** with unread count (web + mobile inbox)
 - ✅ Mark as read / Mark all as read
 - ✅ **Soft delete**: Delete single or all notifications (audit trail preserved)
 
@@ -918,31 +929,34 @@ Supabase Storage (Audio Files)
 - ✅ **Connection indicators** and smart scroll behavior
 
 ### Mobile App Features
-- ✅ **Bottom navigation bar** (Player, Upload, Credits, Profile)
-- ✅ **Like button** on player screen
+- ✅ **Networx Home** landing after sign-in; Radio tab for full player
+- ✅ **Dimension nav drawer** (Nearby People, The Chat Room, Gem dashboard, Studio, etc.)
+- ✅ **Like button** and synced lyrics panel on player
+- ✅ **Discover** swipe feed, artist search, create-video to liked clips
+- ✅ **Nearby People** with GPS / city / ZIP directory
 - ✅ **Credits screen** with balance and transaction history
 - ✅ Stripe Payment Sheet integration
-- ✅ Role-based navigation
-- ✅ **WebView bridge** to web dashboard for credit management
+- ✅ Role-based navigation + push permission prompt
 
 ### Web App Features
-- ✅ **Marketing pages** (Homepage with real platform stats, About, Pricing, FAQ, Contact)
+- ✅ **Marketing pages** (Homepage with real platform stats, About, Pricing, FAQ, Contact, Legal Center)
 - ✅ **SSR/ISR** for SEO optimization with 60-second revalidation
 - ✅ **Session cookie authentication** for SSR
 - ✅ **Role-aware dashboard** with sidebar navigation
-- ✅ **Web radio player** with Hls.js, LIVE indicator, soft pause, and "Jump to Live"
-- ✅ **Artist upload page** with signed URLs
+- ✅ **Web radio player** with LIVE sync, FFT frequency visualizer, and synced lyrics
+- ✅ **Artist upload page** with signed URLs + radio opt-in checkboxes
 - ✅ **Credit Bank page** with Stripe Checkout and allocation link
-- ✅ **My Songs page** with status, duration, credits, trial plays, and actions
+- ✅ **My Songs page** with status, duration, credits, trial plays, lyrics player, and actions
 - ✅ **Credit allocation page** with minute bundles and opt-in toggle
 - ✅ **Notifications page** with unread indicator and delete functionality
-- ✅ **Artist analytics** (plays, credits, engagement, daily breakdown, Top Performing Songs from real API)
-- ✅ **Discover** (providers/artists with service type, location, search; link to profile and Messages)
+- ✅ **Artist analytics** (plays, ears reached, engagement, daily breakdown, Top Performing Songs from real API)
+- ✅ **Discover** (providers/artists, swipe clips, create video, search; link to profile and Messages)
 - ✅ **Messages** (conversations, thread view, send DM; Creator Network paywall with upgrade CTA)
 - ✅ **Job board** (browse/open service requests, apply with message; artists see applications per request)
-- ✅ **Creator Network** (Profile: subscribe via Stripe; DMs gated; webhook syncs subscription status)
+- ✅ **Creator Network / Pro-Networx** (Profile: subscribe via Stripe; DMs gated; webhook syncs subscription status)
 - ✅ **Competition** (leaderboards by likes, discoveries, positive votes, ratio, saves, and Trial by Fire; spotlight, vote Top 7)
 - ✅ **Admin dashboard** (analytics, song moderation with status transitions)
+- ✅ **Admin Lyrics studio** (full player + edit synced captions)
 - ✅ **Admin user management** with hard ban and shadow ban controls
 - ✅ **Admin fallback playlist** management page
 - ✅ **Admin free rotation search** with eligibility indicators and toggle

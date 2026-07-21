@@ -29,10 +29,14 @@ In [Railway](https://railway.app) → **RadioApp** → **backend** → **Variabl
 - `SUPABASE_SERVICE_KEY`
 - `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_CREATOR_NETWORK_PRICE_ID`
 - `REDIS_URL` (e.g. Railway Redis plugin or Upstash)
+- `ELEVENLABS_API_KEY` — synced lyrics force-alignment + STT auto-captions ([ElevenLabs](https://elevenlabs.io) API key)
+- `ELEVENLABS_STT_MODEL_ID` (optional, default `scribe_v1`)
 - `SENTRY_DSN` (optional)
 - `ADMIN_EMAILS` (optional, comma-separated)
 
 After the backend has a public URL, add it to `CORS_ORIGIN` in Railway if needed.
+
+Manage variables via Railway Dashboard or Cursor **Railway MCP** (`user-railway` → `list_variables` / `set_variables` with project/service IDs).
 
 ---
 

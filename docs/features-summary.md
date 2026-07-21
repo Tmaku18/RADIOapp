@@ -26,7 +26,9 @@ This document is a single reference for all platform features across web, mobile
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
 | **Song upload** | Secure uploads (signed URLs), artwork, server-side validation | ✅ | ✅ | Uploads service + Supabase Storage |
-| **Moderation workflow** | Pending → Approve / Reject; admin song management | ✅ | — | Admin + songs status |
+| **Full-Song Radio Opt-In** | Required radio streaming authorization + optional DJ livestream / archived-mix flags | ✅ | ✅ | `opt_in_full_song_radio`, DJ flags; legal `/full-song-radio-opt-in` |
+| **Synced lyrics / captions** | Artist lyrics force-aligned or auto-transcribed (ElevenLabs); player + admin edit | ✅ | ✅ | `song_lyrics`, LyricsService |
+| **Moderation workflow** | Pending → Approve / Reject; admin song management | ✅ | ✅ | Admin + songs status |
 | **Trial rotation** | Newly approved tracks get free trial plays before paid rotation | — | — | Radio selection logic |
 | **Paid rotation (credits)** | Artists allocate credits to tracks for airtime; atomic pre-charge before play | ✅ | ✅ | Credits + radio service |
 | **Play decision log** | Transparent logging of why a track was selected (auditability) | — | — | `play_decision_log` table |
@@ -105,8 +107,10 @@ This document is a single reference for all platform features across web, mobile
 |--------|-------------|-----|--------|---------|
 | **Up Next** | Notify artist when their track is coming up | — | ✅ | Push notification service |
 | **Live Now** | Notify artist when their track is playing | — | ✅ | Push notification service |
-| **FCM push** | Mobile push via Firebase Cloud Messaging | — | ✅ | Push notification module |
-| **In-app notifications** | Notification center (web dashboard) | ✅ | ✅ | Notifications API + UI |
+| **Followed artist on radio** | Notify followers when a followed artist is on air | — | ✅ | Radio + push |
+| **FCM push** | Mobile push via Firebase Cloud Messaging; tokens in `user_device_tokens` | — | ✅ | Push notification module |
+| **App update prompts** | Soft/force update from `app_releases` | — | ✅ | App version API + mobile service |
+| **In-app notifications** | Notification center / inbox (web + mobile) | ✅ | ✅ | Notifications API + UI |
 | **Creator Network events** | New message, job application, content liked | ✅ | ✅ | Notifications + creator-network |
 
 ---
@@ -168,6 +172,9 @@ This document is a single reference for all platform features across web, mobile
 | Feature | Description | Web | Mobile | Backend |
 |--------|-------------|-----|--------|---------|
 | **Discover people** | List Catalysts (service providers)/artists with filters (role, service type, search, location, radius) | ✅ | ✅ | `GET /discovery/people` |
+| **Nearby People** | City/ZIP directory + map pins; optional GPS radius | ✅ | ✅ | `listPeopleDirectory`, `users.city` / `zip_code` |
+| **Discover swipe / clips** | Swipe feed, artist search, liked/disliked library | ✅ | ✅ | Discovery + `discover_swipes` |
+| **Discover create-video** | Selfie video replies to liked clips (~15s, up to 75MB) | ✅ | ✅ | Feed bucket + uploads |
 | **Nearby (location)** | PostGIS-based nearby providers; location permission + radius UI | — | ✅ | Discovery service + `get_provider_ids_nearby` |
 | **Provider profile** | Service provider profile, listings, portfolio | ✅ | ✅ | `GET /service-providers/:userId` |
 | **Pro-NETWORX directory** | Separate app (pro-web) with skills, availability, Fiverr-style cards | ✅ | ✅ | Pro-networx module + pro-web app |
