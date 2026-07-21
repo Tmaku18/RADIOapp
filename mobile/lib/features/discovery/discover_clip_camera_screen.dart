@@ -89,38 +89,50 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     } catch (_) {}
 
     try {
-      final cameras = await availableCameras();
+      final all = await availableCameras();
       if (!mounted) return;
-      if (cameras.isEmpty) {
+
+      // Selfie-only: never open the rear camera for Discover videos.
+      final frontCameras = all
+          .where((c) => c.lensDirection == CameraLensDirection.front)
+          .toList(growable: false);
+
+      if (frontCameras.isEmpty) {
         setState(() {
           _initializing = false;
-          _error = 'No camera available on this device.';
+          _error =
+              'No front camera found. Discover videos need the selfie camera.';
         });
         return;
       }
 
-      // Prefer front camera for TikTok-style Discover videos.
-      var index = cameras.indexWhere(
-        (c) => c.lensDirection == CameraLensDirection.front,
-      );
-      if (index < 0) index = 0;
-
-      _cameras = cameras;
-      _cameraIndex = index;
-      await _openCamera(cameras[index]);
+      _cameras = frontCameras;
+      _cameraIndex = 0;
+      await _openCamera(frontCameras.first);
       if (!mounted) return;
+      if (_camera == null || !(_camera!.value.isInitialized)) {
+        setState(() {
+          _initializing = false;
+          _error = 'Could not start the front (selfie) camera.';
+        });
+        return;
+      }
       setState(() => _initializing = false);
       _startCountdown();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _initializing = false;
-        _error = 'Could not open camera: $e';
+        _error = 'Could not open front camera: $e';
       });
     }
   }
 
   Future<void> _openCamera(CameraDescription description) async {
+    // Hard-guard: Discover record is selfie-only.
+    if (description.lensDirection != CameraLensDirection.front) {
+      throw StateError('Discover recording requires the front camera.');
+    }
     final previous = _camera;
     final next = CameraController(
       description,
@@ -135,22 +147,8 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     setState(() {});
   }
 
-  Future<void> _flipCamera() async {
-    if (_cameras.length < 2 || _recording || _startingRecord) return;
-    final nextIndex = (_cameraIndex + 1) % _cameras.length;
-    setState(() {
-      _cameraIndex = nextIndex;
-      _initializing = true;
-    });
-    try {
-      await _openCamera(_cameras[nextIndex]);
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _error = 'Could not switch camera: $e');
-    } finally {
-      if (mounted) setState(() => _initializing = false);
-    }
-  }
+  bool get _isFrontCamera =>
+      _camera?.description.lensDirection == CameraLensDirection.front;
 
   void _startCountdown() {
     _countdownTimer?.cancel();
@@ -284,12 +282,19 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         fit: StackFit.expand,
         children: [
           if (ready)
-            FittedBox(
-              fit: BoxFit.cover,
-              child: SizedBox(
-                width: cam.value.previewSize?.height ?? 1,
-                height: cam.value.previewSize?.width ?? 1,
-                child: CameraPreview(cam),
+            // Mirror the front camera so the preview feels like a normal selfie.
+            Transform(
+              alignment: Alignment.center,
+              transform: _isFrontCamera
+                  ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
+                  : Matrix4.identity(),
+              child: FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: cam.value.previewSize?.height ?? 1,
+                  height: cam.value.previewSize?.width ?? 1,
+                  child: CameraPreview(cam),
+                ),
               ),
             )
           else
@@ -308,19 +313,28 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
                     ),
                   ),
                 ),
-                if (_cameras.length > 1 && !_recording && !_startingRecord)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: IconButton(
-                      onPressed: _flipCamera,
-                      icon: const Icon(
-                        Icons.cameraswitch_outlined,
+                Positioned(
+                  top: 14,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Text(
+                      'Selfie',
+                      style: TextStyle(
                         color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
-                      tooltip: 'Flip camera',
                     ),
                   ),
+                ),
                 if (_error != null)
                   Positioned(
                     left: 24,

@@ -426,10 +426,11 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Camera opens with a $_cameraCountdownSec-second '
-                          'countdown. Recording and clip audio start the '
-                          'moment it hits 1 (max $_maxDurationSec s). Keep '
-                          'volume up so the music is in your take.',
+                          'Opens the front (selfie) camera with a '
+                          '$_cameraCountdownSec-second countdown. Recording '
+                          'and clip audio start when it hits 1 (max '
+                          '$_maxDurationSec s). Keep volume up so the music '
+                          'is in your take.',
                           style: TextStyle(
                             color: surfaces.textSecondary,
                             fontSize: 13,
