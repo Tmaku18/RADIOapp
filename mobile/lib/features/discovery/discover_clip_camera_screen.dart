@@ -32,8 +32,6 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   final AudioPlayer _clipPlayer = AudioPlayer();
 
   CameraController? _camera;
-  List<CameraDescription> _cameras = const [];
-  int _cameraIndex = 0;
 
   Timer? _countdownTimer;
   Timer? _recordTimer;
@@ -106,8 +104,6 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         return;
       }
 
-      _cameras = frontCameras;
-      _cameraIndex = 0;
       await _openCamera(frontCameras.first);
       if (!mounted) return;
       if (_camera == null || !(_camera!.value.isInitialized)) {
@@ -286,7 +282,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
             Transform(
               alignment: Alignment.center,
               transform: _isFrontCamera
-                  ? (Matrix4.identity()..scale(-1.0, 1.0, 1.0))
+                  ? (Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0))
                   : Matrix4.identity(),
               child: FittedBox(
                 fit: BoxFit.cover,
