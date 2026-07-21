@@ -14,6 +14,7 @@ import '../../core/services/discover_audio_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import 'discover_clip_camera_screen.dart';
 
 /// Pick a liked Discover clip, then record a short TikTok-style video while
 /// the clip plays. Available to all signed-in roles (including listeners).
@@ -156,24 +157,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     } catch (_) {}
   }
 
-  /// Full-screen 10s countdown, then open the camera with the clip playing.
-  Future<bool> _showCameraCountdown() async {
-    final result = await showGeneralDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      barrierColor: Colors.black.withValues(alpha: 0.92),
-      transitionDuration: const Duration(milliseconds: 200),
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return _CameraCountdownOverlay(
-          seconds: _cameraCountdownSec,
-          songTitle: _selected?.title ?? 'Discover clip',
-        );
-      },
-    );
-    return result == true;
-  }
-
-  /// Play the Discover clip while the system camera records (TikTok-style).
+  /// In-app camera: countdown on preview, recording + clip audio start at 1.
   Future<void> _recordWithClip() async {
     final clip = _selected;
     if (clip == null || clip.clipUrl.isEmpty) {
@@ -188,27 +172,29 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
 
     try {
-      final proceed = await _showCameraCountdown();
-      if (!proceed || !mounted) return;
-
-      // Start clip audio as the camera opens so the take syncs to the beat.
-      await _clipPlayer.setUrl(clip.clipUrl);
-      await _clipPlayer.seek(Duration.zero);
-      unawaited(_clipPlayer.play());
-
+      await _stopClip();
+      if (!mounted) return;
       final maxSec = clip.clipDurationSeconds.isFinite &&
               clip.clipDurationSeconds > 0
           ? clip.clipDurationSeconds.clamp(3, _maxDurationSec).round()
           : _maxDurationSec;
 
-      final picked = await ImagePicker().pickVideo(
-        source: ImageSource.camera,
-        maxDuration: Duration(seconds: maxSec),
+      final path = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          fullscreenDialog: true,
+          builder: (_) => DiscoverClipCameraScreen(
+            clipUrl: clip.clipUrl,
+            songTitle: clip.title,
+            countdownSeconds: _cameraCountdownSec,
+            maxRecordSeconds: maxSec,
+          ),
+        ),
       );
-      await _stopClip();
-      await _handlePicked(picked);
+      if (!mounted) return;
+      if (path != null && path.isNotEmpty) {
+        await _handlePicked(XFile(path));
+      }
     } catch (e) {
-      await _stopClip();
       if (!mounted) return;
       setState(() => _error = 'Recording failed: $e');
     } finally {
@@ -440,10 +426,10 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'A $_cameraCountdownSec-second timer starts, then '
-                          'the camera opens with the clip playing (max '
-                          '$_maxDurationSec s). Keep volume up so the music '
-                          'is in your take.',
+                          'Camera opens with a $_cameraCountdownSec-second '
+                          'countdown. Recording and clip audio start the '
+                          'moment it hits 1 (max $_maxDurationSec s). Keep '
+                          'volume up so the music is in your take.',
                           style: TextStyle(
                             color: surfaces.textSecondary,
                             fontSize: 13,
@@ -473,7 +459,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                               : const Icon(Icons.videocam),
                           label: Text(
                             _recording
-                                ? 'Opening camera…'
+                                ? 'Recording…'
                                 : 'Record with this clip',
                           ),
                           style: FilledButton.styleFrom(
@@ -563,135 +549,6 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       height: 52,
       color: DimensionTokens.neonCyan.withValues(alpha: 0.12),
       child: const Icon(Icons.music_note, color: DimensionTokens.neonCyan),
-    );
-  }
-}
-
-/// Full-screen countdown shown before the system camera opens.
-class _CameraCountdownOverlay extends StatefulWidget {
-  const _CameraCountdownOverlay({
-    required this.seconds,
-    required this.songTitle,
-  });
-
-  final int seconds;
-  final String songTitle;
-
-  @override
-  State<_CameraCountdownOverlay> createState() =>
-      _CameraCountdownOverlayState();
-}
-
-class _CameraCountdownOverlayState extends State<_CameraCountdownOverlay> {
-  late int _remaining;
-  Timer? _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _remaining = widget.seconds;
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-      if (_remaining <= 1) {
-        timer.cancel();
-        Navigator.of(context).pop(true);
-        return;
-      }
-      setState(() => _remaining -= 1);
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: SafeArea(
-        child: Stack(
-          children: [
-            Positioned(
-              top: 8,
-              right: 8,
-              child: TextButton(
-                onPressed: () {
-                  _timer?.cancel();
-                  Navigator.of(context).pop(false);
-                },
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white70),
-                ),
-              ),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    'GET READY',
-                    style: TextStyle(
-                      color: DimensionTokens.neonCyan,
-                      fontSize: 12,
-                      letterSpacing: 3,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 220),
-                    transitionBuilder: (child, anim) {
-                      return ScaleTransition(
-                        scale: anim,
-                        child: FadeTransition(opacity: anim, child: child),
-                      );
-                    },
-                    child: Text(
-                      '$_remaining',
-                      key: ValueKey(_remaining),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 96,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Camera opens in $_remaining',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      widget.songTitle,
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
