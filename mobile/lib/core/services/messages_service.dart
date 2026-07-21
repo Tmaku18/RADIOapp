@@ -38,7 +38,7 @@ class MessagesService {
     return const [];
   }
 
-  Future<void> sendMessage(
+  Future<MessageRow?> sendMessage(
     String otherUserId,
     String body, {
     String? requestId,
@@ -48,7 +48,7 @@ class MessagesService {
     int? mediaDurationMs,
     String? sharedPostId,
   }) async {
-    await _api.post('messages/conversations/$otherUserId', {
+    final res = await _api.post('messages/conversations/$otherUserId', {
       'body': body,
       if (requestId != null) 'requestId': requestId,
       if (messageType != null) 'messageType': messageType,
@@ -57,6 +57,12 @@ class MessagesService {
       if (mediaDurationMs != null) 'mediaDurationMs': mediaDurationMs,
       if (sharedPostId != null) 'sharedPostId': sharedPostId,
     });
+    if (res is Map) {
+      return MessageRow.fromJson(
+        res.map((k, v) => MapEntry(k.toString(), v)),
+      );
+    }
+    return null;
   }
 
   /// Convenience helper for sharing a feed post into a DM.

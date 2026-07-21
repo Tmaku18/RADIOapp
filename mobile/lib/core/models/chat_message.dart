@@ -22,17 +22,21 @@ class ChatMessage {
     this.isSystemMessage = false,
   });
 
-  /// Create a ChatMessage from JSON response
+  /// Create a ChatMessage from JSON response (camelCase or snake_case).
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    final createdRaw =
+        (json['createdAt'] ?? json['created_at'] ?? '').toString();
     return ChatMessage(
-      id: json['id'] as String,
-      userId: json['userId'] as String,
-      songId: json['songId'] as String?,
-      radioId: (json['radioId'] ?? json['radio_id']) as String?,
-      displayName: json['displayName'] as String,
-      avatarUrl: json['avatarUrl'] as String?,
-      message: json['message'] as String,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      id: (json['id'] ?? '').toString(),
+      userId: (json['userId'] ?? json['user_id'] ?? '').toString(),
+      songId: (json['songId'] ?? json['song_id'])?.toString(),
+      radioId: (json['radioId'] ?? json['radio_id'])?.toString(),
+      displayName:
+          (json['displayName'] ?? json['display_name'] ?? 'Anonymous')
+              .toString(),
+      avatarUrl: (json['avatarUrl'] ?? json['avatar_url'])?.toString(),
+      message: (json['message'] ?? '').toString(),
+      createdAt: DateTime.tryParse(createdRaw) ?? DateTime.now(),
       isSystemMessage: false,
     );
   }

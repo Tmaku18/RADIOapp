@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../../core/auth/auth_service.dart';
 import '../../../core/services/chat_service.dart';
 import '../../../core/models/chat_message.dart';
 import '../../../core/theme/networx_extensions.dart';
@@ -41,6 +42,9 @@ class _ChatPanelState extends State<ChatPanel> {
   final FocusNode _focusNode = FocusNode();
   bool _isSending = false;
   String? _lastSongTitle;
+  String? _myUserId;
+  String? _myDisplayName;
+  String? _myAvatarUrl;
 
   // Allowed emojis for reactions
   static const List<String> _allowedEmojis = ['❤️', '🔥', '🎵', '👏', '😍', '🙌', '💯', '✨'];
@@ -49,12 +53,28 @@ class _ChatPanelState extends State<ChatPanel> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
-    if (widget.currentRadioId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (widget.currentRadioId != null) {
         final chatService = Provider.of<ChatService>(context, listen: false);
         chatService.setRadioId(widget.currentRadioId!);
+      }
+      _loadMyProfile();
+    });
+  }
+
+  Future<void> _loadMyProfile() async {
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final me = await auth.getUserProfile();
+      if (!mounted || me == null) return;
+      setState(() {
+        _myUserId = me.id;
+        _myDisplayName = me.displayName;
+        _myAvatarUrl = me.avatarUrl;
       });
+    } catch (_) {
+      // Own-message styling stays disabled until profile loads.
     }
   }
 
@@ -101,9 +121,15 @@ class _ChatPanelState extends State<ChatPanel> {
     setState(() => _isSending = true);
     
     final chatService = Provider.of<ChatService>(context, listen: false);
+    if (_myUserId == null) {
+      await _loadMyProfile();
+    }
     final success = await chatService.sendMessage(
       message,
       songId: widget.currentSongId,
+      senderUserId: _myUserId,
+      senderDisplayName: _myDisplayName,
+      senderAvatarUrl: _myAvatarUrl,
     );
 
     setState(() => _isSending = false);
@@ -424,8 +450,9 @@ class _ChatPanelState extends State<ChatPanel> {
                             itemCount: chatService.messages.length,
                             itemBuilder: (context, index) {
                               final message = chatService.messages[index];
-                              // TODO: Replace with actual user ID check
-                              final isOwnMessage = false;
+                              final isOwnMessage = _myUserId != null &&
+                                  _myUserId!.isNotEmpty &&
+                                  message.userId == _myUserId;
                               return _buildMessage(message, isOwnMessage);
                             },
                           ),

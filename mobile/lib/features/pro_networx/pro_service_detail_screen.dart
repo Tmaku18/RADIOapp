@@ -1,7 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../core/auth/auth_service.dart';
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
@@ -54,6 +56,27 @@ class _ProServiceDetailScreenState extends State<ProServiceDetailScreen> {
     if (ok == true) {
       _load();
     }
+  }
+
+  Future<void> _openMessageThread(ProServiceListing listing) async {
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final me = await auth.getUserProfile();
+    if (!mounted) return;
+    final myUserId = (me?.id ?? '').trim();
+    if (myUserId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to send a message.')),
+      );
+      return;
+    }
+    await Navigator.of(context).pushNamed(
+      AppRoutes.thread,
+      arguments: <String, dynamic>{
+        'myUserId': myUserId,
+        'otherUserId': listing.ownerUserId,
+        'otherDisplayName': listing.ownerDisplayName,
+      },
+    );
   }
 
   String _formatPrice() {
@@ -167,14 +190,7 @@ class _ProServiceDetailScreenState extends State<ProServiceDetailScreen> {
                 const Spacer(),
                 if (hasContact)
                   TextButton.icon(
-                    onPressed: () => Navigator.of(context).pushNamed(
-                      AppRoutes.thread,
-                      arguments: <String, dynamic>{
-                        'myUserId': '',
-                        'otherUserId': listing.ownerUserId,
-                        'otherDisplayName': listing.ownerDisplayName,
-                      },
-                    ),
+                    onPressed: () => _openMessageThread(listing),
                     icon: const Icon(Icons.message_outlined),
                     label: const Text('Message'),
                   ),

@@ -188,28 +188,39 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  /// Supabase Flutter wraps broadcast bodies as `{ type, event, payload: {...} }`.
+  /// Web already reads `payload.payload`; mobile must do the same.
+  Map<String, dynamic> _unwrapBroadcast(Map<String, dynamic> envelope) {
+    final inner = envelope['payload'];
+    if (inner is Map) {
+      return Map<String, dynamic>.from(inner);
+    }
+    return envelope;
+  }
+
   /// Handle new message from realtime broadcast
   void _handleNewMessage(Map<String, dynamic> payload) {
     try {
-      final message = ChatMessage.fromJson(payload);
+      final message = ChatMessage.fromJson(_unwrapBroadcast(payload));
+      if (message.id.isEmpty) return;
       final messageRadioId = (message.radioId ?? 'global').trim();
       if (messageRadioId != _radioId) return;
-      
-      // Avoid duplicates
+
+      // Avoid duplicates (including optimistic local inserts)
       if (_messages.any((m) => m.id == message.id)) return;
-      
+
       _messages.add(message);
-      
+
       // Keep last 100 messages
       if (_messages.length > 100) {
         _messages.removeAt(0);
       }
-      
+
       // Update unread count if user is scrolled up
       if (!_isUserAtBottom) {
         _unreadCount++;
       }
-      
+
       notifyListeners();
     } catch (e) {
       debugPrint('ChatService: Error handling new message - $e');
@@ -218,12 +229,16 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Handle message deletion from realtime broadcast
   void _handleMessageDeleted(Map<String, dynamic> payload) {
-    final deletedRadioId = (payload['radioId'] as String?)?.trim();
-    if (deletedRadioId != null && deletedRadioId.isNotEmpty && deletedRadioId != _radioId) {
+    final data = _unwrapBroadcast(payload);
+    final deletedRadioId = (data['radioId'] ?? data['radio_id'])?.toString().trim();
+    if (deletedRadioId != null &&
+        deletedRadioId.isNotEmpty &&
+        deletedRadioId != _radioId) {
       return;
     }
-    final messageId = payload['messageId'] as String?;
-    if (messageId != null) {
+    final messageId =
+        (data['messageId'] ?? data['message_id'] ?? data['id'])?.toString();
+    if (messageId != null && messageId.isNotEmpty) {
       _messages.removeWhere((m) => m.id == messageId);
       notifyListeners();
     }
@@ -231,21 +246,48 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
 
   /// Handle emoji burst from realtime broadcast
   void _handleEmojiBurst(Map<String, dynamic> payload) {
-    // Emoji burst handling - can be used by UI to display floating emojis
-    debugPrint('ChatService: Emoji burst received - $payload');
-    // This will be handled by a separate callback in the UI
+    final data = _unwrapBroadcast(payload);
+    debugPrint('ChatService: Emoji burst received - $data');
   }
 
-  /// Send a chat message
-  Future<bool> sendMessage(String message, {String? songId}) async {
+  /// Send a chat message. Optimistically inserts so the sender sees it
+  /// immediately even if Realtime echo is delayed or fails.
+  Future<bool> sendMessage(
+    String message, {
+    String? songId,
+    String? senderUserId,
+    String? senderDisplayName,
+    String? senderAvatarUrl,
+  }) async {
     if (!_chatEnabled || message.trim().isEmpty) return false;
-    
+
+    final text = message.trim();
     try {
-      await _apiService.post('chat/send', {
-        'message': message.trim(),
+      final response = await _apiService.post('chat/send', {
+        'message': text,
         if (songId != null) 'songId': songId,
         'radioId': _radioId,
       });
+      final id = response is Map ? response['id']?.toString() : null;
+      if (id != null && id.isNotEmpty && !_messages.any((m) => m.id == id)) {
+        final name = (senderDisplayName ?? 'You').trim();
+        _messages.add(
+          ChatMessage(
+            id: id,
+            userId: (senderUserId ?? '').trim(),
+            songId: songId,
+            radioId: _radioId,
+            displayName: name.isEmpty ? 'You' : name,
+            avatarUrl: senderAvatarUrl,
+            message: text,
+            createdAt: DateTime.now(),
+          ),
+        );
+        if (_messages.length > 100) {
+          _messages.removeAt(0);
+        }
+        notifyListeners();
+      }
       return true;
     } catch (e) {
       debugPrint('ChatService: Failed to send message - $e');

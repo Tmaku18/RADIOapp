@@ -160,12 +160,25 @@ class _ThreadScreenState extends State<ThreadScreen> {
   bool _paywallShown = false;
   bool? _hasAccess;
   List<MessageRow> _messages = const [];
+  late String _myUserId;
 
   @override
   void initState() {
     super.initState();
+    _myUserId = widget.myUserId.trim();
+    _ensureMyUserId();
     _load();
     _loadAccess();
+  }
+
+  Future<void> _ensureMyUserId() async {
+    if (_myUserId.isNotEmpty) return;
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final me = await auth.getUserProfile();
+      if (!mounted || me == null || me.id.trim().isEmpty) return;
+      setState(() => _myUserId = me.id.trim());
+    } catch (_) {}
   }
 
   @override
@@ -225,20 +238,24 @@ class _ThreadScreenState extends State<ThreadScreen> {
       _paywallShown = false;
     });
     try {
-      await _service.sendMessage(widget.otherUserId, body);
+      if (_myUserId.isEmpty) {
+        await _ensureMyUserId();
+      }
+      final sent = await _service.sendMessage(widget.otherUserId, body);
       if (!mounted) return;
-      setState(() {
-        _draft.text = '';
-        _messages = [
-          ..._messages,
+      final row = sent ??
           MessageRow(
             id: 'temp-${DateTime.now().millisecondsSinceEpoch}',
-            senderId: widget.myUserId,
+            senderId: _myUserId,
             recipientId: widget.otherUserId,
             body: body,
             createdAt: DateTime.now(),
-          ),
-        ];
+          );
+      setState(() {
+        _draft.text = '';
+        if (!_messages.any((m) => m.id == row.id)) {
+          _messages = [..._messages, row];
+        }
       });
       await Future.delayed(const Duration(milliseconds: 50));
       if (_scroll.hasClients) {
@@ -281,7 +298,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   void _showMessageActions(MessageRow m) {
     if (m.isUnsent) return;
-    final isMine = m.senderId == widget.myUserId;
+    final isMine = m.senderId == _myUserId;
     final canEdit = isMine && m.messageType == 'text';
     showModalBottomSheet<void>(
       context: context,
@@ -335,7 +352,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
 
   Future<void> _toggleReaction(MessageRow m, String emoji) async {
     final mine = m.reactions
-        .any((r) => r.userId == widget.myUserId && r.emoji == emoji);
+        .any((r) => r.userId == _myUserId && r.emoji == emoji);
     try {
       if (mine) {
         await _service.removeReaction(messageId: m.id, emoji: emoji);
@@ -608,7 +625,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
     final mineEmojis = <String>{};
     for (final r in m.reactions) {
       counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-      if (r.userId == widget.myUserId) mineEmojis.add(r.emoji);
+      if (r.userId == _myUserId) mineEmojis.add(r.emoji);
     }
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
@@ -699,7 +716,7 @@ class _ThreadScreenState extends State<ThreadScreen> {
                     itemCount: _messages.length,
                     itemBuilder: (context, i) {
                       final m = _messages[i];
-                      final isMine = m.senderId == widget.myUserId;
+                      final isMine = m.senderId == _myUserId;
                       return _buildMessage(m, isMine, surfaces, scheme);
                     },
                   ),

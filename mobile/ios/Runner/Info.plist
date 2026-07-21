@@ -50,9 +50,9 @@
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>We use your location to show Nearby People on the map and find others around you.</string>
 		<key>NSCameraUsageDescription</key>
-		<string>NETWORX uses your camera so you can broadcast live video when you go live.</string>
+		<string>NETWORX uses your camera so you can go live and record Discover videos.</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>NETWORX uses your microphone so you can broadcast live audio when you go live.</string>
+		<string>NETWORX uses your microphone so you can go live and record Discover videos.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>NETWORX needs access to your photos so you can upload artwork and share media.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
