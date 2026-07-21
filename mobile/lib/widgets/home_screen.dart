@@ -62,6 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _promptLaunchPermissions() async {
     await Future<void>.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
+    // Re-sync FCM token every launch so pushes keep working after reinstalls.
+    await PushNotificationService().ensureRegisteredAfterAuth();
+    if (!mounted) return;
     await PushNotificationService().promptOnFirstLogin(context);
     if (!mounted) return;
     // After notifications, ask for GPS so Nearby People can use location.

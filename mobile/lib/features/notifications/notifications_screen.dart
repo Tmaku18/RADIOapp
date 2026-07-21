@@ -154,9 +154,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'song_played':
         return Icons.music_note_outlined;
       case 'artist_song_on_radio':
+      case 'artist_song_first_play':
       case 'followed_artist_up_next':
+      case 'followed_artist_up_next_5min':
         return Icons.radio_outlined;
+      case 'followed_artist_new_upload':
+        return Icons.cloud_upload_outlined;
       case 'song_up_next':
+      case 'song_up_next_5min':
       case 'up_next':
         return Icons.queue_music_outlined;
       case 'song_live_now':

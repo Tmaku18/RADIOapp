@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import { getFirebaseAdmin } from '../config/firebase.config';
 import { NotificationService } from '../notifications/notification.service';
+import { stationDisplayName } from '../radio/station.constants';
 
 interface SendPushNotificationDto {
   userId: string;
@@ -16,6 +17,7 @@ interface Song {
   title: string;
   artist_id: string;
   artist_name: string;
+  play_count?: number;
 }
 
 interface ArtistLiveFanoutDto {
@@ -31,6 +33,18 @@ interface ArtistSongOnRadioFanoutDto {
   songId: string;
   songTitle: string;
   radioId?: string;
+  /** Minutes until play (5 or 1). */
+  minutesUntil?: number;
+  /** True when this is the song's first radio play. */
+  isFirstPlay?: boolean;
+}
+
+interface ArtistNewUploadFanoutDto {
+  artistId: string;
+  artistName: string;
+  songId: string;
+  songTitle: string;
+  stationIds?: string[];
 }
 
 interface AppUpdateBroadcastDto {
@@ -120,48 +134,71 @@ export class PushNotificationService {
   }
 
   /**
-   * Stage 1: Schedule "Up Next" notification with debounce
-   * Called when queue determines next song (T-60s before play)
+   * Schedule an upcoming-play alert (5 minutes or 1 minute) with debounce.
+   * @param minutesUntilPlay 5 or 1
    */
   async scheduleUpNextNotification(
     song: Song,
     secondsUntilPlay: number,
     radioId?: string,
   ) {
+    const minutes =
+      secondsUntilPlay >= 240 ? 5 : secondsUntilPlay >= 45 ? 1 : 1;
+    return this.scheduleUpcomingPlayNotification(song, minutes, radioId);
+  }
+
+  async scheduleUpcomingPlayNotification(
+    song: Song,
+    minutesUntilPlay: 5 | 1,
+    radioId?: string,
+    isFirstPlay?: boolean,
+  ) {
     const artistId = song.artist_id;
     if (!artistId) return;
 
-    // Cancel any pending notification for this artist (debounce)
-    if (this.pendingNotifications.has(artistId)) {
-      clearTimeout(this.pendingNotifications.get(artistId));
-      this.logger.debug(
-        `Cancelled pending notification for artist ${artistId}`,
-      );
+    const debounceKey = `${artistId}:${minutesUntilPlay}:${radioId ?? 'default'}`;
+    if (this.pendingNotifications.has(debounceKey)) {
+      clearTimeout(this.pendingNotifications.get(debounceKey));
     }
 
-    // Schedule notification after debounce period
     const timeout = setTimeout(async () => {
-      await this.sendUpNextNotification(song, radioId);
-      this.pendingNotifications.delete(artistId);
+      await this.sendUpcomingPlayNotification(
+        song,
+        minutesUntilPlay,
+        radioId,
+        isFirstPlay,
+      );
+      this.pendingNotifications.delete(debounceKey);
     }, this.DEBOUNCE_SECONDS * 1000);
 
-    this.pendingNotifications.set(artistId, timeout);
+    this.pendingNotifications.set(debounceKey, timeout);
     this.logger.log(
-      `Scheduled "Up Next" notification for "${song.title}" in ${this.DEBOUNCE_SECONDS}s` +
-        (radioId ? ` (station ${radioId})` : ''),
+      `Scheduled T-${minutesUntilPlay}m alert for "${song.title}"` +
+        (radioId ? ` on ${stationDisplayName(radioId)}` : ''),
     );
   }
 
   /**
-   * Send "Up Next" push notification with cooldown check, then fan out to
-   * followers who opted into followed-artist radio alerts.
+   * Send T-5m / T-1m push to the artist, then fan out to followers.
    */
-  private async sendUpNextNotification(song: Song, radioId?: string) {
+  private async sendUpcomingPlayNotification(
+    song: Song,
+    minutesUntilPlay: 5 | 1,
+    radioId?: string,
+    isFirstPlay?: boolean,
+  ) {
     const supabase = getSupabaseClient();
     const artistId = song.artist_id;
     if (!artistId) return;
 
-    // Check cooldown
+    const station = stationDisplayName(radioId);
+    const whenLabel =
+      minutesUntilPlay === 5 ? 'in about 5 minutes' : 'in about 1 minute';
+    const title =
+      minutesUntilPlay === 5 ? "You're coming up soon!" : "You're up next!";
+    const body = `"${song.title}" plays ${whenLabel} on ${station}. Tune in!`;
+
+    // Check cooldown (artists only — followers have their own cooldowns)
     const { data: cooldown } = await supabase
       .from('artist_notification_cooldowns')
       .select('last_push_sent_at, notification_count_today')
@@ -178,38 +215,42 @@ export class PushNotificationService {
     const isDailyLimitReached =
       (cooldown?.notification_count_today || 0) >= this.DAILY_PUSH_LIMIT;
 
+    const notifType =
+      minutesUntilPlay === 5 ? 'song_up_next_5min' : 'song_up_next';
+
     if (isInCooldown || isDailyLimitReached) {
-      // Within cooldown or daily limit - in-app notification only
       this.logger.log(
         `Artist ${artistId} ${isInCooldown ? 'in cooldown' : 'daily limit reached'}, sending in-app only`,
       );
       await this.notificationService.create({
         userId: artistId,
-        type: 'song_up_next',
-        title: "You're up next!",
-        message: `"${song.title}" plays in about a minute. Tune in to see reactions!`,
+        type: notifType,
+        title,
+        message: body,
         metadata: {
           songId: song.id,
           songTitle: song.title,
           radioId: radioId ?? null,
+          stationName: station,
+          minutesUntil: minutesUntilPlay,
         },
       });
     } else {
-      // Outside cooldown - send push notification
       await this.sendPushNotification({
         userId: artistId,
-        title: "You're up next!",
-        body: `"${song.title}" plays in about a minute. Tune in to see reactions!`,
+        title,
+        body,
         data: {
-          type: 'song_up_next',
+          type: notifType,
           songId: song.id,
           songTitle: song.title ?? '',
           radioId: radioId ?? '',
+          stationName: station,
+          minutesUntil: String(minutesUntilPlay),
           action: 'open_radio',
         },
       });
 
-      // Update cooldown
       const today = new Date().toDateString();
       const lastPushDate = cooldown?.last_push_sent_at
         ? new Date(cooldown.last_push_sent_at).toDateString()
@@ -225,19 +266,19 @@ export class PushNotificationService {
         last_push_sent_at: new Date().toISOString(),
         notification_count_today: newCount,
       });
-
-      this.logger.log(
-        `"Up Next" push sent to artist ${artistId} for "${song.title}"`,
-      );
     }
 
-    // Listeners who follow this artist: "about to play" (same opt-in pref).
+    const firstPlay =
+      isFirstPlay === true || !(Number(song.play_count || 0) > 0);
+
     await this.notifyFollowersArtistUpNext({
       artistId,
       artistName: song.artist_name || 'An artist you follow',
       songId: song.id,
       songTitle: song.title || 'a song',
       radioId,
+      minutesUntil: minutesUntilPlay,
+      isFirstPlay: firstPlay,
     }).catch((err) =>
       this.logger.warn(
         `Follower up-next fanout failed: ${(err as Error)?.message ?? err}`,
@@ -566,7 +607,7 @@ export class PushNotificationService {
   }
 
   /**
-   * Notify followers ~60s before a followed artist's song plays on any station.
+   * Notify followers 5 or 1 minute before a followed artist's song plays.
    */
   async notifyFollowersArtistUpNext(
     dto: ArtistSongOnRadioFanoutDto,
@@ -581,14 +622,31 @@ export class PushNotificationService {
       return { notified: 0, followers: followerIds.size };
     }
 
-    const title = `${dto.artistName} is up next`;
-    const body = `"${dto.songTitle}" plays in about a minute. Tune in now.`;
+    const minutes = dto.minutesUntil === 5 ? 5 : 1;
+    const station = stationDisplayName(dto.radioId);
+    const first =
+      dto.isFirstPlay === true
+        ? ' — first time on this station'
+        : '';
+    const title =
+      minutes === 5
+        ? `${dto.artistName} plays in 5 minutes`
+        : `${dto.artistName} is up next`;
+    const body = `"${dto.songTitle}" plays in about ${minutes} minute${
+      minutes === 1 ? '' : 's'
+    } on ${station}${first}.`;
     const notificationData = {
-      type: 'followed_artist_up_next',
+      type:
+        minutes === 5
+          ? 'followed_artist_up_next_5min'
+          : 'followed_artist_up_next',
       artistId: dto.artistId,
       songId: dto.songId,
       songTitle: dto.songTitle,
       radioId: dto.radioId || '',
+      stationName: station,
+      minutesUntil: String(minutes),
+      isFirstPlay: dto.isFirstPlay ? '1' : '0',
       action: 'open_radio',
       route: '/listen',
     };
@@ -596,7 +654,11 @@ export class PushNotificationService {
     let notified = 0;
     await Promise.allSettled(
       [...targets].map(async (userId) => {
-        if (this.isFollowerUpNextInCooldown(userId, dto.artistId)) {
+        // 5-minute alerts skip the short up-next cooldown so both can fire.
+        if (
+          minutes === 1 &&
+          this.isFollowerUpNextInCooldown(userId, dto.artistId)
+        ) {
           return;
         }
 
@@ -606,14 +668,16 @@ export class PushNotificationService {
           body,
           data: notificationData,
         });
-        this.markFollowerUpNextCooldown(userId, dto.artistId);
+        if (minutes === 1) {
+          this.markFollowerUpNextCooldown(userId, dto.artistId);
+        }
         if (sent) notified += 1;
-        else notified += 1; // in-app fallback still counts
+        else notified += 1;
       }),
     );
 
     this.logger.log(
-      `Follower up-next fanout for ${dto.artistId}: ${notified}/${targets.size}`,
+      `Follower T-${minutes}m fanout for ${dto.artistId}: ${notified}/${targets.size}`,
     );
     return { notified, followers: targets.size };
   }
@@ -634,14 +698,27 @@ export class PushNotificationService {
       return { notified: 0, followers: followerIds.size };
     }
 
-    const title = `${dto.artistName} is on the radio now`;
-    const body = `"${dto.songTitle}" is playing now. Join the radio stream.`;
+    const station = stationDisplayName(dto.radioId);
+    const first =
+      dto.isFirstPlay === true
+        ? ' for the first time'
+        : '';
+    const title =
+      dto.isFirstPlay === true
+        ? `${dto.artistName} is live for the first time`
+        : `${dto.artistName} is on the radio now`;
+    const body = `"${dto.songTitle}" is playing${first} on ${station}. Tune in now.`;
     const notificationData = {
-      type: 'artist_song_on_radio',
+      type:
+        dto.isFirstPlay === true
+          ? 'artist_song_first_play'
+          : 'artist_song_on_radio',
       artistId: dto.artistId,
       songId: dto.songId,
       songTitle: dto.songTitle,
       radioId: dto.radioId || '',
+      stationName: station,
+      isFirstPlay: dto.isFirstPlay ? '1' : '0',
       action: 'open_radio',
       route: '/listen',
     };
@@ -649,7 +726,10 @@ export class PushNotificationService {
     let notified = 0;
     await Promise.allSettled(
       [...targets].map(async (userId) => {
-        if (this.isFollowerRadioInCooldown(userId, dto.artistId)) {
+        if (
+          dto.isFirstPlay !== true &&
+          this.isFollowerRadioInCooldown(userId, dto.artistId)
+        ) {
           return;
         }
 
@@ -665,6 +745,65 @@ export class PushNotificationService {
       }),
     );
 
+    return { notified, followers: targets.size };
+  }
+
+  /**
+   * Notify followers when an artist they follow uploads a new song.
+   */
+  async notifyFollowersArtistNewUpload(
+    dto: ArtistNewUploadFanoutDto,
+  ): Promise<{ notified: number; followers: number }> {
+    const followerIds = await this.loadFollowerIds(dto.artistId);
+    if (followerIds.size === 0) {
+      return { notified: 0, followers: 0 };
+    }
+
+    const { targets } = await this.loadEligibleRadioFollowers(followerIds);
+    if (targets.size === 0) {
+      return { notified: 0, followers: followerIds.size };
+    }
+
+    const stations = (dto.stationIds ?? [])
+      .map((id) => stationDisplayName(id))
+      .filter(Boolean);
+    const stationHint =
+      stations.length === 0
+        ? 'Watch for it on Networx Radio.'
+        : stations.length === 1
+          ? `Look for it first on ${stations[0]}.`
+          : `Stations: ${stations.slice(0, 3).join(', ')}${
+              stations.length > 3 ? '…' : ''
+            }.`;
+
+    const title = `${dto.artistName} uploaded a new song`;
+    const body = `"${dto.songTitle}" is in. ${stationHint}`;
+    const notificationData = {
+      type: 'followed_artist_new_upload',
+      artistId: dto.artistId,
+      songId: dto.songId,
+      songTitle: dto.songTitle,
+      action: 'open_notifications',
+      route: '/notifications',
+    };
+
+    let notified = 0;
+    await Promise.allSettled(
+      [...targets].map(async (userId) => {
+        const sent = await this.sendPushNotification({
+          userId,
+          title,
+          body,
+          data: notificationData,
+        });
+        if (sent) notified += 1;
+        else notified += 1;
+      }),
+    );
+
+    this.logger.log(
+      `Follower new-upload fanout for ${dto.artistId}: ${notified}/${targets.size}`,
+    );
     return { notified, followers: targets.size };
   }
 

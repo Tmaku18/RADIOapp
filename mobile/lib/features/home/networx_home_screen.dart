@@ -8,6 +8,7 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/analytics_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../../widgets/notifications_bell_button.dart';
 
 /// Signed-in Networx Home — web `/dashboard` parity (hero, stats, role actions).
 class NetworxHomeScreen extends StatefulWidget {
@@ -303,6 +304,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
               style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
             ),
             actions: [
+              const NotificationsBellButton(),
               if (hasArtistCapability(role))
                 Padding(
                   padding: const EdgeInsets.only(right: 8),

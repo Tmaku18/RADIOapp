@@ -109,6 +109,11 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
         tabIndex: 2,
       ),
       const _NavSpec(
+        icon: Icons.notifications_outlined,
+        label: 'Notifications',
+        route: AppRoutes.notifications,
+      ),
+      const _NavSpec(
         icon: Icons.local_fire_department_outlined,
         label: 'Discover',
         tabIndex: 3,

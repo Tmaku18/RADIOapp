@@ -2,6 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { SongsService } from './songs.service';
 import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 import { getSupabaseClient } from '../config/supabase.config';
 
 jest.mock('../config/supabase.config', () => ({
@@ -24,11 +25,20 @@ const createLyricsServiceMock = () =>
     alignLyricsInBackground: jest.fn(),
   }) as unknown as LyricsService;
 
+const createPushServiceMock = () =>
+  ({
+    notifyFollowersArtistNewUpload: jest.fn().mockResolvedValue({
+      notified: 0,
+      followers: 0,
+    }),
+  }) as unknown as PushNotificationService;
+
 describe('SongsService', () => {
   it('rejects non-artist uploads', async () => {
     const service = new SongsService(
       createCopyrightServiceMock(),
       createLyricsServiceMock(),
+      createPushServiceMock(),
     );
     const usersBuilder = createBuilder();
     usersBuilder.single.mockResolvedValue({
@@ -61,6 +71,7 @@ describe('SongsService', () => {
     const service = new SongsService(
       createCopyrightServiceMock(),
       createLyricsServiceMock(),
+      createPushServiceMock(),
     );
     const usersBuilder = createBuilder();
     const songsBuilder = createBuilder();

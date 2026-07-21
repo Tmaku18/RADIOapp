@@ -199,7 +199,9 @@ function seededShuffle<T>(array: T[], seed: string): T[] {
 @Injectable()
 export class RadioService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(RadioService.name);
-  private nextSongNotifiedFor = new Map<string, string>();
+  /** Track which current song already triggered T-5m / T-1m next-song alerts. */
+  private nextSongNotified5MinFor = new Map<string, string>();
+  private nextSongNotified1MinFor = new Map<string, string>();
   private readonly lastKnownTrackByRadio = new Map<
     string,
     { payload: any; updatedAt: number }
@@ -1473,7 +1475,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     const endTime = startedAt + durationMs;
     const timeRemainingMs = Math.max(0, endTime - now);
 
-    if (timeRemainingMs <= 60000 && timeRemainingMs > SONG_END_BUFFER_MS) {
+    // Fire follower/artist alerts at ~5 minutes and ~1 minute before the next song.
+    if (timeRemainingMs <= 330_000 && timeRemainingMs > SONG_END_BUFFER_MS) {
       this.checkAndScheduleUpNext(timeRemainingMs, song.id, radioId).catch(
         (e) => this.logger.warn(`Failed to schedule Up Next: ${e.message}`),
       );
@@ -2475,7 +2478,8 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     this.lastAdvanceAt.set(radioId, now);
 
     const currentSongId = currentState?.songId;
-    this.nextSongNotifiedFor.delete(radioId);
+    this.nextSongNotified5MinFor.delete(radioId);
+    this.nextSongNotified1MinFor.delete(radioId);
 
     if (currentState?.songId && currentState.startedAt) {
       await this.pushTrackHistory(radioId, currentState, now);
@@ -2793,18 +2797,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
-    void this.pushNotificationService
-      .notifyFollowersArtistOnRadio({
-        artistId: song.artist_id,
-        artistName: song.artist_name ?? 'Artist',
-        songId: song.id,
-        songTitle: song.title ?? 'A song',
-      })
-      .catch((e) =>
-        this.logger.warn(
-          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
-        ),
-      );
+    this.notifyFollowersSongOnAir(song, radioId);
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -2913,18 +2906,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
-    void this.pushNotificationService
-      .notifyFollowersArtistOnRadio({
-        artistId: song.artist_id,
-        artistName: song.artist_name ?? 'Artist',
-        songId: song.id,
-        songTitle: song.title ?? 'A song',
-      })
-      .catch((e) =>
-        this.logger.warn(
-          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
-        ),
-      );
+    this.notifyFollowersSongOnAir(song, radioId);
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -3030,18 +3012,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     }
 
     await this.maybeSendGoLiveNudge(song);
-    void this.pushNotificationService
-      .notifyFollowersArtistOnRadio({
-        artistId: song.artist_id,
-        artistName: song.artist_name ?? 'Artist',
-        songId: song.id,
-        songTitle: song.title ?? 'A song',
-      })
-      .catch((e) =>
-        this.logger.warn(
-          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
-        ),
-      );
+    this.notifyFollowersSongOnAir(song, radioId);
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -3137,20 +3108,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         last_played_at: startedAt,
       })
       .eq('id', song.id);
-    if (song.artist_id) {
-      void this.pushNotificationService
-        .notifyFollowersArtistOnRadio({
-          artistId: song.artist_id,
-          artistName: song.artist_name ?? 'Artist',
-          songId: song.id,
-          songTitle: song.title ?? 'A song',
-        })
-        .catch((e) =>
-          this.logger.warn(
-            `Failed to notify followers for on-air song: ${e?.message ?? e}`,
-          ),
-        );
-    }
+    this.notifyFollowersSongOnAir(song, radioId);
 
     const durationMs = durationSeconds * 1000;
     const pinnedCatalysts = await this.getPinnedCatalystsForSong(song.id);
@@ -3668,24 +3626,72 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Schedule Up Next notification around 60 seconds before the song ends.
+   * Schedule upcoming-play alerts at ~5 minutes and ~1 minute before the
+   * current track ends (i.e. before the next song starts).
    */
   private async checkAndScheduleUpNext(
     timeRemainingMs: number,
     currentSongId: string,
     radioId: string = DEFAULT_RADIO_ID,
   ): Promise<void> {
-    if (timeRemainingMs > 60000 || timeRemainingMs < 30000) return;
-    if (this.nextSongNotifiedFor.get(radioId) === currentSongId) return;
+    const inFiveMinWindow =
+      timeRemainingMs <= 330_000 && timeRemainingMs >= 270_000;
+    const inOneMinWindow =
+      timeRemainingMs <= 60_000 && timeRemainingMs >= 30_000;
+    if (!inFiveMinWindow && !inOneMinWindow) return;
+
+    const needFive =
+      inFiveMinWindow &&
+      this.nextSongNotified5MinFor.get(radioId) !== currentSongId;
+    const needOne =
+      inOneMinWindow &&
+      this.nextSongNotified1MinFor.get(radioId) !== currentSongId;
+    if (!needFive && !needOne) return;
 
     const nextSong = await this.preSelectNextSong(currentSongId, radioId);
-    if (nextSong) {
-      await this.pushNotificationService.scheduleUpNextNotification(
+    if (!nextSong) return;
+
+    const isFirstPlay = !(
+      Number((nextSong as { play_count?: number }).play_count || 0) > 0
+    );
+
+    if (needFive) {
+      await this.pushNotificationService.scheduleUpcomingPlayNotification(
         nextSong,
-        60,
+        5,
         radioId,
+        isFirstPlay,
       );
-      this.nextSongNotifiedFor.set(radioId, currentSongId);
+      this.nextSongNotified5MinFor.set(radioId, currentSongId);
     }
+
+    if (needOne) {
+      await this.pushNotificationService.scheduleUpcomingPlayNotification(
+        nextSong,
+        1,
+        radioId,
+        isFirstPlay,
+      );
+      this.nextSongNotified1MinFor.set(radioId, currentSongId);
+    }
+  }
+
+  private notifyFollowersSongOnAir(song: any, radioId: string) {
+    if (!song?.artist_id) return;
+    const isFirstPlay = !(Number(song.play_count || 0) > 0);
+    void this.pushNotificationService
+      .notifyFollowersArtistOnRadio({
+        artistId: song.artist_id,
+        artistName: song.artist_name ?? 'Artist',
+        songId: song.id,
+        songTitle: song.title ?? 'A song',
+        radioId,
+        isFirstPlay,
+      })
+      .catch((e) =>
+        this.logger.warn(
+          `Failed to notify followers for on-air song: ${e?.message ?? e}`,
+        ),
+      );
   }
 }

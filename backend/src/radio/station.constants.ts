@@ -154,3 +154,44 @@ export function stationIdsForGenres(genreIds: string[]): string[] {
   }
   return [...ids];
 }
+
+/** Human-readable station labels for push / in-app notification copy. */
+export const STATION_DISPLAY_NAMES: Record<string, string> = {
+  [RAP_STATION_ID]: 'New School Rap Radio',
+  [OLD_SCHOOL_RAP_STATION_ID]: 'Old School Rap Radio',
+  [CLEAN_RAP_STATION_ID]: 'Clean Rap Radio',
+  [READY_NOW_RAP_STATION_ID]: 'Ready Now Radio',
+  [HIP_HOP_STATION_ID]: 'Hip Hop',
+  [COUNTRY_STATION_ID]: 'Country',
+  [ROCK_STATION_ID]: 'Rock',
+  [METAL_STATION_ID]: 'Metal Radio',
+  [POP_STATION_ID]: 'Pop',
+  [EDM_STATION_ID]: 'EDM',
+  [RNB_STATION_ID]: 'R&B',
+  [PODCASTS_STATION_ID]: 'Podcasts',
+  [SPOKEN_WORD_STATION_ID]: 'Spoken Word',
+  [COMEDIAN_STATION_ID]: 'Comedian',
+  [GOSPEL_STATION_ID]: 'Gospel',
+  [CLASSICAL_STATION_ID]: 'Classical Radio',
+  [EMO_STATION_ID]: 'Emo Radio',
+  [AI_CREATED_STATION_ID]: 'AI Created Radio',
+  [BEATS_STATION_ID]: 'Beats Radio',
+  [FREESTYLE_STATION_ID]: 'Freestyle Radio',
+  [INSTRUMENTAL_STATION_ID]: 'Instrumental Radio',
+  [LOFI_STATION_ID]: 'Lo-Fi Radio',
+  [JAZZ_STATION_ID]: 'Jazz Radio',
+  [AUDIOBOOK_STATION_ID]: 'Audiobook Radio',
+  [SPANISH_STATION_ID]: 'Spanish Radio',
+  [AFROBEATS_STATION_ID]: 'Afro-Beats Radio',
+  [DJ_MIXES_STATION_ID]: 'DJ Mixes Radio',
+  [KIDS_FRIENDLY_STATION_ID]: 'Kids Friendly Radio',
+  [TESTING_GROUNDS_STATION_ID]: 'Testing Grounds Radio',
+  [RIDESHARE_STATION_ID]: 'Rideshare Radio',
+};
+
+export function stationDisplayName(radioId?: string | null): string {
+  const trimmed = (radioId ?? '').trim();
+  if (!trimmed) return 'Networx Radio';
+  const normalized = normalizeSongStationId(trimmed);
+  return STATION_DISPLAY_NAMES[normalized] ?? STATION_DISPLAY_NAMES[trimmed] ?? trimmed;
+}

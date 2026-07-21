@@ -9,6 +9,7 @@ import { getSupabaseClient } from '../config/supabase.config';
 import { CreateSongDto } from './dto/create-song.dto';
 import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { promises as fs } from 'node:fs';
@@ -83,6 +84,7 @@ export class SongsService {
   constructor(
     private readonly copyrightService: CopyrightService,
     private readonly lyricsService: LyricsService,
+    private readonly pushNotificationService: PushNotificationService,
   ) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
@@ -1368,6 +1370,36 @@ export class SongsService {
         .catch((err) => {
           this.logger.warn(
             `Failed to save lyrics for new song ${newSongId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+    }
+
+    // Notify listeners who follow this artist about the new upload.
+    if (newSongId) {
+      const stationIds = Array.isArray(insertRes.data?.station_ids)
+        ? (insertRes.data.station_ids as string[])
+        : insertRes.data?.station_id
+          ? [String(insertRes.data.station_id)]
+          : [];
+      void this.pushNotificationService
+        .notifyFollowersArtistNewUpload({
+          artistId: userId,
+          artistName:
+            (insertRes.data?.artist_name as string | undefined) ||
+            createSongDto.artistName ||
+            'An artist you follow',
+          songId: newSongId,
+          songTitle:
+            (insertRes.data?.title as string | undefined) ||
+            createSongDto.title ||
+            'a new song',
+          stationIds,
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Follower new-upload fanout failed: ${
               err instanceof Error ? err.message : String(err)
             }`,
           );

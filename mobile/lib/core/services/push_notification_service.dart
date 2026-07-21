@@ -202,9 +202,10 @@ class PushNotificationService {
               return AlertDialog(
                 title: const Text('Stay in the loop'),
                 content: const Text(
-                  'Allow notifications so we can alert you when your song is '
-                  'about to play, when an artist you follow is coming up on '
-                  'any station, and when a new app update is ready.',
+                  'Allow notifications so we can alert you 5 minutes and '
+                  '1 minute before a song plays, when artists you follow '
+                  'upload or go live on a station, and when an app update '
+                  'is ready.',
                 ),
                 actions: [
                   TextButton(
@@ -246,15 +247,19 @@ class PushNotificationService {
     }
   }
 
-  /// Get FCM token and register with backend
+  /// Get FCM token and register with backend (always re-sync so server stays current).
   Future<void> _registerToken() async {
     try {
       final token = await _messaging.getToken();
-      if (token != null && token != _currentToken) {
-        _currentToken = token;
-        await _sendTokenToBackend(token);
-        debugPrint('PushNotificationService: Token registered - ${token.substring(0, 20)}...');
+      if (token == null || token.isEmpty) {
+        debugPrint('PushNotificationService: No FCM token available yet');
+        return;
       }
+      _currentToken = token;
+      await _sendTokenToBackend(token);
+      debugPrint(
+        'PushNotificationService: Token registered - ${token.substring(0, 20)}...',
+      );
     } catch (e) {
       debugPrint('PushNotificationService: Failed to get token - $e');
     }
@@ -303,14 +308,22 @@ class PushNotificationService {
     if (!await settings.notificationsEnabled) return false;
     switch (type) {
       case 'song_up_next':
+      case 'song_up_next_5min':
       case 'up_next':
+      case 'followed_artist_up_next':
+      case 'followed_artist_up_next_5min':
         return await settings.upNextAlertsEnabled;
       case 'song_live_now':
       case 'live_now':
+      case 'artist_song_on_radio':
+      case 'artist_song_first_play':
         return await settings.liveNowAlertsEnabled;
       case 'song_approved':
       case 'song_rejected':
         return await settings.songApprovalAlertsEnabled;
+      case 'followed_artist_new_upload':
+      case 'app_update':
+        return true;
       default:
         return true;
     }

@@ -147,16 +147,20 @@ class _MyAppState extends State<MyApp> {
         } else if (type == 'up_next' ||
             type == 'live_now' ||
             type == 'song_up_next' ||
+            type == 'song_up_next_5min' ||
             type == 'song_live_now' ||
             type == 'artist_song_on_radio' ||
-            type == 'followed_artist_up_next') {
+            type == 'artist_song_first_play' ||
+            type == 'followed_artist_up_next' ||
+            type == 'followed_artist_up_next_5min') {
           nav.pushNamed(AppRoutes.player);
         } else if (type == 'artist_live_now' && data['artistId'] != null) {
           nav.pushNamed(
             AppRoutes.watchLive,
             arguments: data['artistId'].toString(),
           );
-        } else if (type == 'song_liked') {
+        } else if (type == 'song_liked' ||
+            type == 'followed_artist_new_upload') {
           nav.pushNamed(AppRoutes.notifications);
         } else if (type == 'app_update') {
           unawaited(
