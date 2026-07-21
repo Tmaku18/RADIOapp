@@ -468,7 +468,7 @@ export class DiscoveryController {
   @Roles('listener', 'artist', 'service_provider', 'admin')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+      limits: { fileSize: 75 * 1024 * 1024 }, // 75MB — room for 15s phone videos
     }),
   )
   async createFeedPost(

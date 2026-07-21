@@ -61,7 +61,7 @@ interface DiscoveryProfile {
 
 const PAGE_SIZE = 20;
 const FEED_PAGE_SIZE = 16;
-const FEED_UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
+const FEED_UPLOAD_MAX_BYTES = 75 * 1024 * 1024;
 const FEED_VIDEO_MAX_SECONDS = 15;
 const FEED_ALLOWED_UPLOAD_MIME_TYPES = [
   'image/jpeg',
@@ -95,7 +95,7 @@ async function validateFeedUploadFile(file: File): Promise<string | null> {
     return 'Unsupported file type. Allowed: JPG, PNG, WEBP, MP4, WEBM, MOV.';
   }
   if (file.size > FEED_UPLOAD_MAX_BYTES) {
-    return 'File size exceeds 15MB.';
+    return 'File size exceeds 75MB.';
   }
   if (file.type.startsWith('video/')) {
     try {

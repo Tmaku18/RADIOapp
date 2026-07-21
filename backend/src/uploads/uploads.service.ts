@@ -33,6 +33,8 @@ interface UploadOptions {
 export class UploadsService {
   private readonly songBucketTargetBytes = 100 * 1024 * 1024;
   private readonly imageUploadMaxBytes = 15 * 1024 * 1024;
+  /** Discover feed posts (images + ≤15s phone videos). */
+  private readonly feedUploadMaxBytes = 75 * 1024 * 1024;
   private readonly feedUploadAllowedMimeTypes = [
     'image/jpeg',
     'image/jpg',
@@ -103,15 +105,18 @@ export class UploadsService {
         allowedMimeTypes: this.songBucketAllowedMimeTypes,
       };
     }
-    if (bucket === 'artwork' || bucket === 'avatars' || bucket === 'feed') {
-      const requiredMimeTypes =
-        bucket === 'feed'
-          ? this.feedUploadAllowedMimeTypes
-          : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (bucket === 'feed') {
+      return {
+        public: true,
+        fileSizeLimit: this.feedUploadMaxBytes,
+        allowedMimeTypes: this.feedUploadAllowedMimeTypes,
+      };
+    }
+    if (bucket === 'artwork' || bucket === 'avatars') {
       return {
         public: true,
         fileSizeLimit: this.imageUploadMaxBytes,
-        allowedMimeTypes: requiredMimeTypes,
+        allowedMimeTypes: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'],
       };
     }
     if (bucket === 'portfolio') {
@@ -221,6 +226,10 @@ export class UploadsService {
       bucketName === 'feed'
         ? this.feedUploadAllowedMimeTypes
         : ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const targetLimitBytes =
+      bucketName === 'feed'
+        ? this.feedUploadMaxBytes
+        : this.imageUploadMaxBytes;
     const currentMimeTypes = Array.isArray((bucket as any).allowed_mime_types)
       ? (bucket as any).allowed_mime_types
       : Array.isArray((bucket as any).allowedMimeTypes)
@@ -232,7 +241,7 @@ export class UploadsService {
 
     if (
       currentLimit !== null &&
-      currentLimit >= this.imageUploadMaxBytes &&
+      currentLimit >= targetLimitBytes &&
       !missingRequiredMimeType
     ) {
       this.lastImageBucketEnsureAt.set(bucketName, now);
@@ -246,7 +255,7 @@ export class UploadsService {
     try {
       await supabase.storage.updateBucket(bucketName, {
         public: Boolean((bucket as any).public),
-        fileSizeLimit: this.imageUploadMaxBytes,
+        fileSizeLimit: targetLimitBytes,
         allowedMimeTypes:
           nextMimeTypes.length > 0 ? nextMimeTypes : requiredMimeTypes,
       });
@@ -471,8 +480,8 @@ export class UploadsService {
   }
 
   /**
-   * Upload a discover feed post media file (catalyst posts in Discover tab).
-   * Accepts images (JPEG/PNG/WebP) and short videos (MP4/WEBM/MOV) up to 15MB.
+   * Upload a discover feed post media file (Discover tab).
+   * Accepts images (JPEG/PNG/WebP) and short videos (MP4/WEBM/MOV) up to 75MB.
    */
   async uploadFeedPostMedia(
     file: Express.Multer.File,
@@ -481,7 +490,7 @@ export class UploadsService {
     return this._uploadFile(file, userId, {
       bucket: 'feed',
       allowedMimeTypes: this.feedUploadAllowedMimeTypes,
-      maxSizeBytes: this.imageUploadMaxBytes, // 15MB
+      maxSizeBytes: this.feedUploadMaxBytes,
       errorPrefix: 'Feed media',
       pathPrefix: 'posts',
     });

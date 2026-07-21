@@ -40,7 +40,7 @@ class DiscoverCreateVideoScreen extends StatefulWidget {
 class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _maxDurationSec = 15;
   static const int _cameraCountdownSec = 10;
-  static const int _maxFileSizeBytes = 15 * 1024 * 1024;
+  static const int _maxFileSizeBytes = 75 * 1024 * 1024;
 
   final ApiService _api = ApiService();
   final DiscoverAudioService _discover = DiscoverAudioService();
@@ -219,7 +219,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     final file = File(picked.path);
     final size = await file.length();
     if (size > _maxFileSizeBytes) {
-      setState(() => _error = 'File too large (max 15 MB)');
+      setState(() => _error = 'File too large (max 75 MB)');
       return;
     }
     setState(() {
