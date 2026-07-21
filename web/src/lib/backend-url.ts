@@ -15,6 +15,8 @@ export function getBackendBaseUrls(): string[] {
   const candidates = [
     process.env.BACKEND_URL,
     process.env.NEXT_PUBLIC_API_URL,
+    // Production Nest host — used when env vars are missing at build/runtime.
+    'https://backend-production-17cc.up.railway.app',
   ].filter((value): value is string => !!value && value.trim().length > 0);
 
   // Local fallback is useful for dev, but breaks cloud builds/prerendering.

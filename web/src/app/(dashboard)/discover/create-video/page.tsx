@@ -10,9 +10,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-type RecorderState = 'idle' | 'recording' | 'recorded';
+type RecorderState = 'idle' | 'countdown' | 'recording' | 'recorded';
 
 const MAX_SECONDS = 15;
+const COUNTDOWN_SECONDS = 5;
 
 function pickRecorderMimeType(): string {
   const candidates = [
@@ -72,6 +73,7 @@ export default function CreateDiscoverFeedVideoPage() {
   const [recordedUrl, setRecordedUrl] = useState<string | null>(null);
   const [recordedFile, setRecordedFile] = useState<File | null>(null);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [countdownRemaining, setCountdownRemaining] = useState(COUNTDOWN_SECONDS);
   const [isMirrored, setIsMirrored] = useState(true);
 
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -85,6 +87,12 @@ export default function CreateDiscoverFeedVideoPage() {
   const clipAudioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const stopTimerRef = useRef<number | null>(null);
   const recordingIntervalRef = useRef<number | null>(null);
+  const countdownTimerRef = useRef<number | null>(null);
+  const activeClipRef = useRef<{
+    clipUrl: string;
+    songTitle: string;
+    artistName: string;
+  } | null>(null);
   const previewVideoRef = useRef<HTMLVideoElement | null>(null);
   // Canvas pipeline used to bake the selfie mirror into the recorded file so
   // the saved clip matches the mirrored preview (instead of flipping on stop).
@@ -160,6 +168,9 @@ export default function CreateDiscoverFeedVideoPage() {
       if (recordingIntervalRef.current != null) {
         window.clearInterval(recordingIntervalRef.current);
       }
+      if (countdownTimerRef.current != null) {
+        window.clearInterval(countdownTimerRef.current);
+      }
       if (recordedUrl) {
         URL.revokeObjectURL(recordedUrl);
       }
@@ -182,13 +193,15 @@ export default function CreateDiscoverFeedVideoPage() {
     };
   }, [recordedUrl]);
 
-  const clearRecordedPreview = () => {
+  const clearRecordedPreview = (opts?: { resetState?: boolean }) => {
     if (recordedUrl) {
       URL.revokeObjectURL(recordedUrl);
     }
     setRecordedUrl(null);
     setRecordedFile(null);
-    setState('idle');
+    if (opts?.resetState !== false) {
+      setState('idle');
+    }
   };
 
   const resetRecorderSession = () => {
@@ -241,19 +254,22 @@ export default function CreateDiscoverFeedVideoPage() {
   };
 
   const startRecording = async () => {
-    if (!selectedClip?.clipUrl) {
+    const clip = activeClipRef.current ?? selectedClip;
+    if (!clip?.clipUrl) {
       setError('Missing clip URL. Go back and choose a Discover clip first.');
+      setState('idle');
       return;
     }
     if (!canPostToFeed) {
       setError('Sign in to post a Discover video.');
+      setState('idle');
       return;
     }
     setError(null);
     setStarting(true);
     try {
       resetRecorderSession();
-      clearRecordedPreview();
+      clearRecordedPreview({ resetState: false });
       const cameraStream = await ensureCamera();
       if (previewVideoRef.current) {
         previewVideoRef.current.srcObject = cameraStream;
@@ -271,7 +287,7 @@ export default function CreateDiscoverFeedVideoPage() {
         micSource.connect(destination);
       }
 
-      const clipAudio = new Audio(selectedClip.clipUrl);
+      const clipAudio = new Audio(clip.clipUrl);
       clipAudio.crossOrigin = 'anonymous';
       clipAudio.preload = 'auto';
       clipAudio.currentTime = 0;
@@ -365,9 +381,83 @@ export default function CreateDiscoverFeedVideoPage() {
     }
   };
 
+  const cancelCountdown = () => {
+    if (countdownTimerRef.current != null) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setCountdownRemaining(COUNTDOWN_SECONDS);
+    if (state === 'countdown') setState('idle');
+  };
+
+  const beginCountdownThenRecord = async (clipOverride?: {
+    clipUrl: string;
+    songTitle: string;
+    artistName: string;
+  }) => {
+    const clip = clipOverride ?? selectedClip;
+    if (!clip?.clipUrl) {
+      setError('Missing clip URL. Go back and choose a Discover clip first.');
+      return;
+    }
+    if (!canPostToFeed) {
+      setError('Sign in to post a Discover video.');
+      return;
+    }
+    if (state === 'countdown' || state === 'recording' || starting) return;
+    if (clipOverride) setSelectedClip(clipOverride);
+    activeClipRef.current = clip;
+    setError(null);
+    clearRecordedPreview({ resetState: false });
+    setCountdownRemaining(COUNTDOWN_SECONDS);
+    setState('countdown');
+    try {
+      await ensureCamera();
+    } catch (err) {
+      setState('idle');
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to open camera. Check camera/mic permissions.',
+      );
+      return;
+    }
+    if (countdownTimerRef.current != null) {
+      window.clearInterval(countdownTimerRef.current);
+    }
+    countdownTimerRef.current = window.setInterval(() => {
+      setCountdownRemaining((prev) => {
+        if (prev <= 1) {
+          if (countdownTimerRef.current != null) {
+            window.clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          void startRecording();
+          return 1;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const selectClipAndMaybeRecord = (
+    clip: DiscoverAudioSongCard & { likedAt: string },
+    startAfterSelect: boolean,
+  ) => {
+    const next = {
+      clipUrl: clip.clipUrl,
+      songTitle: clip.title,
+      artistName: clip.artistDisplayName ?? clip.artistName,
+    };
+    setSelectedClip(next);
+    if (startAfterSelect) {
+      void beginCountdownThenRecord(next);
+    }
+  };
+
   const reRecord = async () => {
     clearRecordedPreview();
-    await startRecording();
+    await beginCountdownThenRecord();
   };
 
   const postToFeed = async () => {
@@ -394,8 +484,9 @@ export default function CreateDiscoverFeedVideoPage() {
         <div>
           <h1 className="text-2xl font-semibold text-foreground">Create feed video</h1>
           <p className="text-sm text-muted-foreground">
-            Start recording and the Discover clip audio plays immediately so your
-            video syncs to the beat.
+            Double-click a liked clip to select and start a {COUNTDOWN_SECONDS}
+            -second countdown. The selfie preview is mirrored; your take can be
+            watched, deleted, or re-recorded before posting.
           </p>
         </div>
         <Button variant="outline" asChild>
@@ -432,7 +523,7 @@ export default function CreateDiscoverFeedVideoPage() {
             <div>
               <p className="font-medium text-foreground">Choose a Discover clip</p>
               <p className="text-sm text-muted-foreground">
-                Pick one of your liked clips to sync against while recording.
+                Click to select. Double-click to select and start recording.
               </p>
             </div>
             {loadingLikedClips ? (
@@ -454,13 +545,8 @@ export default function CreateDiscoverFeedVideoPage() {
                   <button
                     key={clip.songId}
                     type="button"
-                    onClick={() =>
-                      setSelectedClip({
-                        clipUrl: clip.clipUrl,
-                        songTitle: clip.title,
-                        artistName: clip.artistDisplayName ?? clip.artistName,
-                      })
-                    }
+                    onClick={() => selectClipAndMaybeRecord(clip, false)}
+                    onDoubleClick={() => selectClipAndMaybeRecord(clip, true)}
                     className="flex w-full items-center justify-between rounded-lg border p-3 text-left hover:bg-muted/40"
                   >
                     <div>
@@ -489,7 +575,13 @@ export default function CreateDiscoverFeedVideoPage() {
               className={`h-[420px] w-full object-cover ${isMirrored ? '-scale-x-100' : ''}`}
             />
             <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-3 py-2 text-xs text-white">
-              <span>{state === 'recording' ? 'Recording in progress' : 'Camera preview'}</span>
+              <span>
+                {state === 'countdown'
+                  ? 'Get ready'
+                  : state === 'recording'
+                    ? 'Recording in progress'
+                    : 'Mirrored selfie preview'}
+              </span>
               {state === 'recording' && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-red-600/90 px-2 py-0.5 font-medium">
                   <span className="h-2 w-2 rounded-full bg-white" />
@@ -497,21 +589,51 @@ export default function CreateDiscoverFeedVideoPage() {
                 </span>
               )}
             </div>
+            {state === 'countdown' && (
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-black/35">
+                <p className="text-xs font-semibold tracking-[0.3em] text-cyan-300">
+                  GET READY
+                </p>
+                <p className="mt-2 text-7xl font-extrabold text-white drop-shadow">
+                  {countdownRemaining}
+                </p>
+                <p className="mt-2 text-sm text-white/80">
+                  Recording starts at 1
+                </p>
+              </div>
+            )}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               onClick={() => setIsMirrored((prev) => !prev)}
-              disabled={starting}
+              disabled={starting || state === 'countdown'}
             >
               Flip mirror
             </Button>
             <Button
-              onClick={() => void startRecording()}
-              disabled={starting || state === 'recording' || !canPostToFeed || !selectedClip?.clipUrl}
+              onClick={() => void beginCountdownThenRecord()}
+              disabled={
+                starting ||
+                state === 'recording' ||
+                state === 'countdown' ||
+                !canPostToFeed ||
+                !selectedClip?.clipUrl
+              }
             >
-              {starting ? 'Preparing...' : state === 'recording' ? 'Recording...' : 'Start recording with clip'}
+              {starting
+                ? 'Preparing...'
+                : state === 'countdown'
+                  ? `Starting in ${countdownRemaining}…`
+                  : state === 'recording'
+                    ? 'Recording...'
+                    : 'Start recording with clip'}
             </Button>
+            {state === 'countdown' && (
+              <Button variant="outline" onClick={cancelCountdown}>
+                Cancel countdown
+              </Button>
+            )}
             <Button
               variant="destructive"
               onClick={() => void stopRecording()}
@@ -543,6 +665,13 @@ export default function CreateDiscoverFeedVideoPage() {
               className="w-full rounded-lg border"
             />
             <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={clearRecordedPreview}
+                disabled={posting}
+              >
+                Delete take
+              </Button>
               <Button
                 variant="outline"
                 onClick={() => void reRecord()}

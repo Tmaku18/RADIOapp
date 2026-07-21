@@ -26,8 +26,9 @@ function normalizeBaseUrl(raw: string): string {
 function getClientBackendApiBases(): string[] {
   const candidates = [
     process.env.NEXT_PUBLIC_API_URL,
-    // Production fallback: Railway backend public domain.
-    // Keeps direct media uploads working even if NEXT_PUBLIC_API_URL is unset.
+    // Prefer the Railway Nest host for large multipart uploads. The Vercel
+    // front door (networxradio.com) returns 413 for phone videos before Nest runs.
+    'https://backend-production-17cc.up.railway.app',
     'https://networxradio.com',
   ].filter(
     (value): value is string => !!value && value.trim().length > 0,
@@ -1097,12 +1098,21 @@ export const discoveryApi = {
           ? { Authorization: `Bearer ${token}` }
           : undefined;
 
+      let lastStatus: number | undefined;
+      let lastParsed: unknown;
+
       for (const apiBase of getClientBackendApiBases()) {
         try {
+          // Rebuild FormData per attempt — some hosts consume the body stream.
+          const attemptForm = new FormData();
+          attemptForm.append('file', file);
+          if (caption != null && caption.trim()) {
+            attemptForm.set('caption', caption.trim());
+          }
           const response = await fetch(`${apiBase}/discovery/feed`, {
             method: 'POST',
             headers: authHeader,
-            body: form,
+            body: attemptForm,
           });
 
           const text = await response.text();
@@ -1119,9 +1129,30 @@ export const discoveryApi = {
           if (response.ok) {
             return { data: parsed as DiscoverFeedPost };
           }
-        } catch {
-          // Try next configured backend URL.
+          lastStatus = response.status;
+          lastParsed = parsed;
+          // Keep trying other hosts on 413 (proxy body limit).
+          if (response.status !== 413) {
+            throw { response: { status: response.status, data: parsed } };
+          }
+        } catch (err) {
+          if (err && typeof err === 'object' && 'response' in err) {
+            throw err;
+          }
+          // Network error — try next host.
         }
+      }
+
+      if (lastStatus === 413) {
+        throw {
+          response: {
+            status: 413,
+            data: lastParsed ?? {
+              message:
+                'Upload rejected as too large. Try a shorter clip (max 15s / 75MB).',
+            },
+          },
+        };
       }
 
       return api.post<DiscoverFeedPost>('/discovery/feed', form);

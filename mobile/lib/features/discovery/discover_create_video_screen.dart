@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart' as http_parser;
 import 'package:image_picker/image_picker.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/models/discover_audio_models.dart';
 import '../../core/services/api_service.dart';
@@ -39,18 +40,20 @@ class DiscoverCreateVideoScreen extends StatefulWidget {
 
 class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   static const int _maxDurationSec = 15;
-  static const int _cameraCountdownSec = 10;
+  static const int _cameraCountdownSec = 5;
   static const int _maxFileSizeBytes = 75 * 1024 * 1024;
 
   final ApiService _api = ApiService();
   final DiscoverAudioService _discover = DiscoverAudioService();
   final AudioPlayer _clipPlayer = AudioPlayer();
   final _captionCtrl = TextEditingController();
+  final _listController = ScrollController();
 
   bool _loadingClips = true;
   List<DiscoverAudioLikedItem> _likedClips = const [];
   DiscoverAudioLikedItem? _selected;
   File? _videoFile;
+  VideoPlayerController? _previewPlayer;
   bool _uploading = false;
   bool _recording = false;
   String? _error;
@@ -64,7 +67,9 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   @override
   void dispose() {
     unawaited(_clipPlayer.dispose());
+    unawaited(_previewPlayer?.dispose() ?? Future<void>.value());
     _captionCtrl.dispose();
+    _listController.dispose();
     super.dispose();
   }
 
@@ -128,14 +133,21 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     return '${clip.title} - $artist';
   }
 
-  Future<void> _selectClip(DiscoverAudioLikedItem clip) async {
+  Future<void> _selectClip(
+    DiscoverAudioLikedItem clip, {
+    bool startRecording = false,
+  }) async {
     await _stopClip();
+    await _clearRecordedPreview(disposeOnly: true);
     setState(() {
       _selected = clip;
       _videoFile = null;
       _error = null;
       _captionCtrl.text = _defaultCaption(clip);
     });
+    if (startRecording) {
+      await _recordWithClip();
+    }
   }
 
   Future<void> _previewClip() async {
@@ -157,7 +169,41 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     } catch (_) {}
   }
 
-  /// In-app camera: countdown on preview, recording + clip audio start at 1.
+  Future<void> _clearRecordedPreview({bool disposeOnly = false}) async {
+    final player = _previewPlayer;
+    _previewPlayer = null;
+    if (player != null) {
+      try {
+        await player.dispose();
+      } catch (_) {}
+    }
+    if (!disposeOnly && mounted) {
+      setState(() => _videoFile = null);
+    }
+  }
+
+  Future<void> _initVideoPreview(File file) async {
+    await _clearRecordedPreview(disposeOnly: true);
+    final controller = VideoPlayerController.file(file);
+    try {
+      await controller.initialize();
+      await controller.setLooping(true);
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _previewPlayer = controller);
+      unawaited(controller.play());
+    } catch (e) {
+      try {
+        await controller.dispose();
+      } catch (_) {}
+      if (!mounted) return;
+      setState(() => _error = 'Could not preview recording: $e');
+    }
+  }
+
+  /// In-app camera: countdown on mirrored selfie preview; recording + clip at 1.
   Future<void> _recordWithClip() async {
     final clip = _selected;
     if (clip == null || clip.clipUrl.isEmpty) {
@@ -173,6 +219,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
 
     try {
       await _stopClip();
+      await _clearRecordedPreview();
       if (!mounted) return;
       final maxSec = clip.clipDurationSeconds.isFinite &&
               clip.clipDurationSeconds > 0
@@ -226,6 +273,17 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       _videoFile = file;
       _error = null;
     });
+    await _initVideoPreview(file);
+  }
+
+  Future<void> _deleteRecording() async {
+    await _clearRecordedPreview();
+    setState(() => _error = null);
+  }
+
+  Future<void> _reRecord() async {
+    await _clearRecordedPreview();
+    await _recordWithClip();
   }
 
   String _mimeForPath(String path) {
@@ -281,7 +339,12 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = e.toString());
+      final msg = e.toString();
+      setState(() {
+        _error = msg.contains('413')
+            ? 'Upload failed: file too large for the network path. Try a shorter take, or check your connection.'
+            : msg;
+      });
     } finally {
       if (mounted) setState(() => _uploading = false);
     }
@@ -291,246 +354,339 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
+    final preview = _previewPlayer;
 
     return DimensionScreenShell(
       title: 'Create Video',
       showNeonLine: true,
       body: _loadingClips
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+          : Column(
               children: [
-                Text(
-                  'Pick a song you’ve liked on Discover, then record a short '
-                  'video while the 15-second clip plays.',
-                  style: TextStyle(
-                    color: surfaces.textSecondary,
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'YOUR LIKED CLIPS',
-                  style: TextStyle(
-                    color: DimensionTokens.neonCyan,
-                    fontSize: 10,
-                    letterSpacing: 2,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_likedClips.isEmpty)
-                  GlassCard(
-                    padding: const EdgeInsets.all(16),
-                    child: Text(
-                      'No liked Discover songs yet. Swipe right (Like) on '
-                      'Discover clips first, then come back to make a video.',
-                      style: TextStyle(color: surfaces.textSecondary),
-                    ),
-                  )
-                else
-                  ..._likedClips.map((clip) {
-                    final selected = _selected?.songId == clip.songId &&
-                        _selected?.clipUrl == clip.clipUrl;
-                    final artist =
-                        clip.artistDisplayName ?? clip.artistName;
-                    final art = clip.backgroundUrl;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Material(
-                        color: selected
-                            ? DimensionTokens.neonCyan.withValues(alpha: 0.12)
-                            : scheme.surface.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(14),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(14),
-                          onTap: _uploading || _recording
-                              ? null
-                              : () => _selectClip(clip),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: (art != null && art.isNotEmpty)
-                                      ? Image.network(
-                                          art,
-                                          width: 52,
-                                          height: 52,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, _, _) =>
-                                              _artFallback(),
-                                        )
-                                      : _artFallback(),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                Expanded(
+                  child: ListView(
+                    controller: _listController,
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    children: [
+                      Text(
+                        'Tap a liked song to select it. Double-tap to select and '
+                        'start recording. Preview your take before publishing.',
+                        style: TextStyle(
+                          color: surfaces.textSecondary,
+                          fontSize: 14,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'YOUR LIKED CLIPS',
+                        style: TextStyle(
+                          color: DimensionTokens.neonCyan,
+                          fontSize: 10,
+                          letterSpacing: 2,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_likedClips.isEmpty)
+                        GlassCard(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'No liked Discover songs yet. Swipe right (Like) on '
+                            'Discover clips first, then come back to make a video.',
+                            style: TextStyle(color: surfaces.textSecondary),
+                          ),
+                        )
+                      else
+                        ..._likedClips.map((clip) {
+                          final selected = _selected?.songId == clip.songId &&
+                              _selected?.clipUrl == clip.clipUrl;
+                          final artist =
+                              clip.artistDisplayName ?? clip.artistName;
+                          final art = clip.backgroundUrl;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Material(
+                              color: selected
+                                  ? DimensionTokens.neonCyan
+                                      .withValues(alpha: 0.12)
+                                  : scheme.surface.withValues(alpha: 0.55),
+                              borderRadius: BorderRadius.circular(14),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: _uploading || _recording
+                                    ? null
+                                    : () => _selectClip(clip),
+                                onDoubleTap: _uploading || _recording
+                                    ? null
+                                    : () => _selectClip(
+                                          clip,
+                                          startRecording: true,
+                                        ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: Row(
                                     children: [
-                                      Text(
-                                        clip.title,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w700,
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(10),
+                                        child: (art != null && art.isNotEmpty)
+                                            ? Image.network(
+                                                art,
+                                                width: 52,
+                                                height: 52,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, _, _) =>
+                                                    _artFallback(),
+                                              )
+                                            : _artFallback(),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              clip.title,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            Text(
+                                              artist,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: surfaces.textSecondary,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                            Text(
+                                              selected
+                                                  ? 'Selected · double-tap to record'
+                                                  : '${clip.clipDurationSeconds.round()}s clip · double-tap to record',
+                                              style: TextStyle(
+                                                color: surfaces.textMuted,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                      Text(
-                                        artist,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: surfaces.textSecondary,
-                                          fontSize: 13,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${clip.clipDurationSeconds.round()}s clip',
-                                        style: TextStyle(
-                                          color: surfaces.textMuted,
-                                          fontSize: 11,
-                                        ),
+                                      Icon(
+                                        selected
+                                            ? Icons.check_circle
+                                            : Icons.radio_button_unchecked,
+                                        color: selected
+                                            ? DimensionTokens.neonCyan
+                                            : surfaces.textMuted,
                                       ),
                                     ],
                                   ),
                                 ),
-                                Icon(
-                                  selected
-                                      ? Icons.check_circle
-                                      : Icons.radio_button_unchecked,
-                                  color: selected
-                                      ? DimensionTokens.neonCyan
-                                      : surfaces.textMuted,
-                                ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                if (_selected != null) ...[
-                  const SizedBox(height: 8),
-                  GlassCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Selected: ${_selected!.title}',
-                          style: const TextStyle(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Opens the front (selfie) camera with a '
-                          '$_cameraCountdownSec-second countdown. Recording '
-                          'and clip audio start when it hits 1 (max '
-                          '$_maxDurationSec s). Keep volume up so the music '
-                          'is in your take.',
-                          style: TextStyle(
-                            color: surfaces.textSecondary,
-                            fontSize: 13,
+                          );
+                        }),
+                      if (_videoFile != null) ...[
+                        const SizedBox(height: 12),
+                        GlassCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              const Text(
+                                'Your take',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                              const SizedBox(height: 10),
+                              if (preview != null &&
+                                  preview.value.isInitialized)
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: AspectRatio(
+                                    aspectRatio: preview.value.aspectRatio == 0
+                                        ? 9 / 16
+                                        : preview.value.aspectRatio,
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        VideoPlayer(preview),
+                                        Positioned(
+                                          bottom: 8,
+                                          child: IconButton.filled(
+                                            style: IconButton.styleFrom(
+                                              backgroundColor: Colors.black54,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                if (preview.value.isPlaying) {
+                                                  preview.pause();
+                                                } else {
+                                                  preview.play();
+                                                }
+                                              });
+                                            },
+                                            icon: Icon(
+                                              preview.value.isPlaying
+                                                  ? Icons.pause
+                                                  : Icons.play_arrow,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                              else
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 24),
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              const SizedBox(height: 10),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: OutlinedButton.icon(
+                                      onPressed: _uploading || _recording
+                                          ? null
+                                          : _deleteRecording,
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('Delete'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: FilledButton.icon(
+                                      onPressed: _uploading || _recording
+                                          ? null
+                                          : _reRecord,
+                                      icon: const Icon(Icons.videocam),
+                                      label: const Text('Re-record'),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor:
+                                            DimensionTokens.neonCyan,
+                                        foregroundColor: Colors.black,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 12),
-                        OutlinedButton.icon(
-                          onPressed: _uploading || _recording
-                              ? null
-                              : _previewClip,
-                          icon: const Icon(Icons.play_arrow),
-                          label: const Text('Preview clip'),
-                        ),
-                        const SizedBox(height: 8),
-                        FilledButton.icon(
-                          onPressed: _uploading || _recording
-                              ? null
-                              : _recordWithClip,
-                          icon: _recording
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Icon(Icons.videocam),
-                          label: Text(
-                            _recording
-                                ? 'Recording…'
-                                : 'Record with this clip',
+                        TextField(
+                          controller: _captionCtrl,
+                          decoration: const InputDecoration(
+                            hintText: 'Write a caption (optional)',
+                            border: OutlineInputBorder(),
                           ),
-                          style: FilledButton.styleFrom(
-                            backgroundColor: DimensionTokens.neonCyan,
-                            foregroundColor: Colors.black,
-                            minimumSize: const Size.fromHeight(48),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        OutlinedButton.icon(
-                          onPressed: _uploading || _recording
-                              ? null
-                              : _pickFromGallery,
-                          icon: const Icon(Icons.video_library_outlined),
-                          label: const Text('Use gallery video instead'),
+                          maxLines: 3,
+                          maxLength: 280,
+                          enabled: !_uploading && !_recording,
                         ),
                       ],
-                    ),
-                  ),
-                ],
-                if (_videoFile != null) ...[
-                  const SizedBox(height: 12),
-                  GlassCard(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      children: [
-                        const Icon(Icons.check_circle_outline, size: 36),
+                      if (_error != null) ...[
                         const SizedBox(height: 8),
                         Text(
-                          _videoFile!.path.split(Platform.pathSeparator).last,
-                          style: TextStyle(
-                            color: surfaces.textMuted,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        TextButton(
-                          onPressed: _uploading
-                              ? null
-                              : () => setState(() => _videoFile = null),
-                          child: const Text('Remove video'),
+                          _error!,
+                          style: TextStyle(color: scheme.error, fontSize: 13),
                         ),
                       ],
-                    ),
+                      const SizedBox(height: 80),
+                    ],
                   ),
-                ],
-                const SizedBox(height: 16),
-                TextField(
-                  controller: _captionCtrl,
-                  decoration: const InputDecoration(
-                    hintText: 'Write a caption (optional)',
-                    border: OutlineInputBorder(),
-                  ),
-                  maxLines: 3,
-                  maxLength: 280,
-                  enabled: !_uploading && !_recording,
                 ),
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    _error!,
-                    style: TextStyle(color: scheme.error, fontSize: 13),
-                  ),
-                ],
-                const SizedBox(height: 12),
+                if (_selected != null) _buildStickyBar(surfaces),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildStickyBar(NetworxSurfaces surfaces) {
+    final hasVideo = _videoFile != null;
+    return Material(
+      elevation: 8,
+      color: surfaces.elevated.withValues(alpha: 0.98),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'Selected: ${_selected!.title}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                hasVideo
+                    ? 'Watch your take above, then publish — or delete / re-record.'
+                    : '$_cameraCountdownSec-second selfie countdown · max '
+                        '$_maxDurationSec s · double-tap a song to jump straight in.',
+                style: TextStyle(
+                  color: surfaces.textSecondary,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (!hasVideo) ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed:
+                            _uploading || _recording ? null : _previewClip,
+                        icon: const Icon(Icons.play_arrow),
+                        label: const Text('Preview'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      flex: 2,
+                      child: FilledButton.icon(
+                        onPressed:
+                            _uploading || _recording ? null : _recordWithClip,
+                        icon: _recording
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.videocam),
+                        label: Text(
+                          _recording ? 'Recording…' : 'Record',
+                        ),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: DimensionTokens.neonCyan,
+                          foregroundColor: Colors.black,
+                          minimumSize: const Size.fromHeight(44),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed:
+                      _uploading || _recording ? null : _pickFromGallery,
+                  child: const Text('Use gallery video instead'),
+                ),
+              ] else
                 FilledButton(
-                  onPressed: _uploading || _recording || _videoFile == null
-                      ? null
-                      : _publish,
+                  onPressed: _uploading || _recording ? null : _publish,
                   child: _uploading
                       ? const SizedBox(
                           height: 20,
@@ -539,8 +695,10 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
                         )
                       : const Text('Publish'),
                 ),
-              ],
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 

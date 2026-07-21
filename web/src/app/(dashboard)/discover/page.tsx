@@ -420,7 +420,7 @@ export default function DiscoverPage() {
                             onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                           />
                           <p className="mt-2 text-xs text-muted-foreground">
-                            Max size: 15MB. Videos must be 15 seconds or less.
+                            Max size: 75MB. Videos must be 15 seconds or less.
                           </p>
                         </div>
                         <div>

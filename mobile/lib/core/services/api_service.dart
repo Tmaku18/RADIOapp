@@ -23,6 +23,11 @@ class ApiService {
   factory ApiService() => _instance;
   ApiService._internal();
   static const Duration _requestTimeout = Duration(seconds: 15);
+  static const Duration _uploadTimeout = Duration(seconds: 120);
+  /// Direct Nest/Railway host — Vercel (networxradio.com) rejects large
+  /// multipart bodies with 413 before the Nest 75MB limit applies.
+  static const String _directBackendFallback =
+      'https://backend-production-17cc.up.railway.app';
   String? _resolvedBaseUrl;
 
   String get baseUrl => env('API_BASE_URL') ?? 'https://www.networxradio.com';
@@ -64,16 +69,23 @@ class ApiService {
     }
   }
 
-  List<String> _baseUrlCandidates() {
+  List<String> _baseUrlCandidates({bool preferDirectBackend = false}) {
     final urls = <String>[];
 
     void add(String? raw) {
       if (raw == null) return;
-      final trimmed = raw.trim();
+      final trimmed = raw.trim().replaceAll(RegExp(r'/$'), '');
       if (trimmed.isEmpty) return;
       if (!urls.contains(trimmed)) {
         urls.add(trimmed);
       }
+    }
+
+    if (preferDirectBackend) {
+      // Large uploads must hit Nest/Railway, not the Vercel web proxy.
+      add(env('API_DIRECT_URL'));
+      add(env('BACKEND_URL'));
+      add(_directBackendFallback);
     }
 
     add(_resolvedBaseUrl);
@@ -81,6 +93,9 @@ class ApiService {
     // Production fallbacks so mobile still works when local dev API is unavailable.
     add('https://www.networxradio.com');
     add('https://networxradio.com');
+    if (!preferDirectBackend) {
+      add(_directBackendFallback);
+    }
     add('http://10.0.2.2:3000');
     add('http://10.0.2.2:3005');
     add('http://localhost:3000');
@@ -91,6 +106,8 @@ class ApiService {
   bool _shouldTryNextBaseUrl(Object error) {
     if (error is TimeoutException) return true;
     if (error is http.ClientException) return true;
+    // Vercel / edge proxies return 413 for large multipart bodies.
+    if (error is ApiException && error.statusCode == 413) return true;
     return false;
   }
 
@@ -98,16 +115,21 @@ class ApiService {
     Future<http.Response> Function(String base, Map<String, String> headers)
         request,
     String endpoint,
-    String method,
-  ) async {
+    String method, {
+    bool preferDirectBackend = false,
+    Duration? timeout,
+  }) async {
     final headers = await _headers();
-    final candidates = _baseUrlCandidates();
+    final candidates = _baseUrlCandidates(
+      preferDirectBackend: preferDirectBackend,
+    );
     Object? lastError;
+    final effectiveTimeout = timeout ?? _requestTimeout;
 
     for (final base in candidates) {
       try {
         final response =
-            await request(base, headers).timeout(_requestTimeout);
+            await request(base, headers).timeout(effectiveTimeout);
         if (response.statusCode >= 200 && response.statusCode < 300) {
           _resolvedBaseUrl = base;
           final body = response.body.trim();
@@ -121,7 +143,9 @@ class ApiService {
         }
         throw ApiException(
           statusCode: response.statusCode,
-          message: '$method $endpoint failed',
+          message: response.statusCode == 413
+              ? '$method $endpoint failed: file too large for this host'
+              : '$method $endpoint failed',
           responseBody: response.body,
         );
       } catch (error) {
@@ -213,25 +237,33 @@ class ApiService {
     );
   }
 
-  /// Multipart POST request for file uploads - returns dynamic
+  /// Multipart POST request for file uploads - returns dynamic.
+  /// Prefers the direct Railway/Nest host so large videos are not rejected
+  /// with HTTP 413 by the Vercel web proxy.
   Future<dynamic> postMultipart(
     String endpoint,
     Map<String, String> fields,
     List<http.MultipartFile> files,
   ) async {
-    return _withFallback((base, headers) async {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse('$base/api/$endpoint'),
-      );
-      request.headers.addAll({
-        if (headers['Authorization'] != null)
-          'Authorization': headers['Authorization']!,
-      });
-      request.fields.addAll(fields);
-      request.files.addAll(files);
-      final streamedResponse = await request.send();
-      return http.Response.fromStream(streamedResponse);
-    }, endpoint, 'UPLOAD');
+    return _withFallback(
+      (base, headers) async {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('$base/api/$endpoint'),
+        );
+        request.headers.addAll({
+          if (headers['Authorization'] != null)
+            'Authorization': headers['Authorization']!,
+        });
+        request.fields.addAll(fields);
+        request.files.addAll(files);
+        final streamedResponse = await request.send();
+        return http.Response.fromStream(streamedResponse);
+      },
+      endpoint,
+      'UPLOAD',
+      preferDirectBackend: true,
+      timeout: _uploadTimeout,
+    );
   }
 }

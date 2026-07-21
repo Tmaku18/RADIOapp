@@ -14,7 +14,7 @@ class DiscoverClipCameraScreen extends StatefulWidget {
     super.key,
     required this.clipUrl,
     required this.songTitle,
-    this.countdownSeconds = 10,
+    this.countdownSeconds = 5,
     this.maxRecordSeconds = 15,
   });
 
@@ -132,7 +132,8 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     final previous = _camera;
     final next = CameraController(
       description,
-      ResolutionPreset.high,
+      // Medium keeps ~15s phone takes under typical edge/proxy body limits.
+      ResolutionPreset.medium,
       enableAudio: true,
       imageFormatGroup: ImageFormatGroup.jpeg,
     );
@@ -278,18 +279,17 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         fit: StackFit.expand,
         children: [
           if (ready)
-            // Mirror the front camera so the preview feels like a normal selfie.
-            Transform(
-              alignment: Alignment.center,
-              transform: _isFrontCamera
-                  ? (Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0))
-                  : Matrix4.identity(),
+            // Mirror the front camera so preview matches a normal selfie.
+            SizedBox.expand(
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
                   width: cam.value.previewSize?.height ?? 1,
                   height: cam.value.previewSize?.width ?? 1,
-                  child: CameraPreview(cam),
+                  child: Transform.flip(
+                    flipX: _isFrontCamera,
+                    child: CameraPreview(cam),
+                  ),
                 ),
               ),
             )
