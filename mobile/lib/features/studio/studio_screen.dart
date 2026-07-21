@@ -408,50 +408,80 @@ class _StudioScreenState extends State<StudioScreen> {
                   ..._items.map((s) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: Card(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              ListTile(
-                                leading: _PlayFullButton(
-                                  song: s,
-                                  isActive: _activeSongId == s.id,
-                                  isPlaying:
-                                      _activeSongId == s.id && _isPlaying,
-                                  isPreparing: _preparingSongId == s.id,
-                                  onPressed: () => _playFull(s),
-                                ),
-                                title: Text(
-                                  s.title,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  '${s.status} · ${s.playCount} discoveries · ${s.likeCount} likes',
-                                  style: TextStyle(color: surfaces.textSecondary),
-                                ),
-                                trailing: Row(
-                                  mainAxisSize: MainAxisSize.min,
+                          child: Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
+                                    _PlayFullButton(
+                                      song: s,
+                                      isActive: _activeSongId == s.id,
+                                      isPlaying:
+                                          _activeSongId == s.id && _isPlaying,
+                                      isPreparing: _preparingSongId == s.id,
+                                      onPressed: () => _playFull(s),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            s.title,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 15,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${s.status} · ${s.playCount} discoveries · ${s.likeCount} likes',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: surfaces.textSecondary,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       children: [
                                         Text(
                                           '${s.creditsRemaining}',
                                           style: TextStyle(
-                                              color: scheme.primary,
-                                              fontWeight: FontWeight.w700),
+                                            color: scheme.primary,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 16,
+                                          ),
                                         ),
                                         Text(
                                           'plays',
                                           style: TextStyle(
-                                              color: surfaces.textMuted,
-                                              fontSize: 12),
+                                            color: surfaces.textMuted,
+                                            fontSize: 11,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                    if (s.status == 'approved') ...[
-                                      const SizedBox(width: 4),
+                                  ],
+                                ),
+                                if (s.status == 'approved') ...[
+                                  const SizedBox(height: 10),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
                                       OutlinedButton(
                                         onPressed: () {
                                           Navigator.pushNamed(
@@ -462,7 +492,6 @@ class _StudioScreenState extends State<StudioScreen> {
                                         },
                                         child: const Text('Allocate'),
                                       ),
-                                      const SizedBox(width: 4),
                                       FilledButton(
                                         onPressed: () {
                                           Navigator.pushNamed(
@@ -476,19 +505,17 @@ class _StudioScreenState extends State<StudioScreen> {
                                         child: const Text('Buy plays'),
                                       ),
                                     ],
-                                  ],
-                                ),
-                              ),
-                              if (s.status == 'approved')
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 4,
+                                    runSpacing: 0,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
                                     children: [
                                       if (s.inRefinery)
                                         Chip(
+                                          visualDensity: VisualDensity.compact,
                                           label: const Text('In The Refinery'),
                                           avatar: Icon(
                                             Icons.science_outlined,
@@ -545,7 +572,9 @@ class _StudioScreenState extends State<StudioScreen> {
                                       ),
                                       TextButton.icon(
                                         onPressed: () => _openLyricsEditor(s),
-                                        icon: const Icon(Icons.lyrics_outlined),
+                                        icon: const Icon(
+                                          Icons.lyrics_outlined,
+                                        ),
                                         label: const Text('Lyrics'),
                                       ),
                                       TextButton.icon(
@@ -553,7 +582,9 @@ class _StudioScreenState extends State<StudioScreen> {
                                             ? null
                                             : () async {
                                                 final messenger =
-                                                    ScaffoldMessenger.of(context);
+                                                    ScaffoldMessenger.of(
+                                                  context,
+                                                );
                                                 try {
                                                   await _refinery
                                                       .addSongToRefinery(s.id);
@@ -562,13 +593,17 @@ class _StudioScreenState extends State<StudioScreen> {
                                                   if (mounted) {
                                                     messenger.showSnackBar(
                                                       SnackBar(
-                                                          content: Text(
-                                                              'Refinery: $e')),
+                                                        content: Text(
+                                                          'Refinery: $e',
+                                                        ),
+                                                      ),
                                                     );
                                                   }
                                                 }
                                               },
-                                        icon: const Icon(Icons.add_circle_outline),
+                                        icon: const Icon(
+                                          Icons.add_circle_outline,
+                                        ),
                                         label: const Text('Add to Refinery'),
                                       ),
                                       TextButton.icon(
@@ -576,29 +611,39 @@ class _StudioScreenState extends State<StudioScreen> {
                                             ? null
                                             : () async {
                                                 final messenger =
-                                                    ScaffoldMessenger.of(context);
+                                                    ScaffoldMessenger.of(
+                                                  context,
+                                                );
                                                 try {
                                                   await _refinery
                                                       .removeSongFromRefinery(
-                                                          s.id);
+                                                    s.id,
+                                                  );
                                                   if (mounted) await _load();
                                                 } catch (e) {
                                                   if (mounted) {
                                                     messenger.showSnackBar(
                                                       SnackBar(
-                                                          content: Text(
-                                                              'Refinery: $e')),
+                                                        content: Text(
+                                                          'Refinery: $e',
+                                                        ),
+                                                      ),
                                                     );
                                                   }
                                                 }
                                               },
-                                        icon: const Icon(Icons.remove_circle_outline),
-                                        label: const Text('Remove from Refinery'),
+                                        icon: const Icon(
+                                          Icons.remove_circle_outline,
+                                        ),
+                                        label: const Text(
+                                          'Remove from Refinery',
+                                        ),
                                       ),
                                     ],
                                   ),
-                                ),
-                            ],
+                                ],
+                              ],
+                            ),
                           ),
                         ),
                       )),
