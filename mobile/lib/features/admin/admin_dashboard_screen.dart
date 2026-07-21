@@ -6,6 +6,7 @@ import '../../core/services/admin_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../widgets/clip_window_sheet.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../../widgets/station_assignment_field.dart';
 
 const int _kAdminSampleMinSeconds = 5;
 const int _kAdminSampleMaxSeconds = 30;
@@ -489,37 +490,71 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       text: _songField(song, 'artwork_url', 'artworkUrl'),
     );
     var isExplicit = song['is_explicit'] == true || song['isExplicit'] == true;
+    var stationIds = List<String>.from(stationIdsFromSongMap(song));
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setLocal) => AlertDialog(
-          title: const Text('Edit song'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Title',
-                    border: OutlineInputBorder(),
+          title: const Text('Edit Song Metadata'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Title',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: artworkCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Artwork URL',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Stations / Genres',
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                   ),
-                ),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('Explicit'),
-                  value: isExplicit,
-                  onChanged: (v) => setLocal(() => isExplicit = v),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  StationAssignmentField(
+                    value: stationIds,
+                    onChanged: (next) => setLocal(() => stationIds = next),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: artworkCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Album Cover URL',
+                      hintText: 'https://...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .outline
+                            .withValues(alpha: 0.35),
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SwitchListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      title: const Text('Explicit content'),
+                      subtitle: const Text(
+                        'Mark this song explicit when audio includes '
+                        'explicit language/content.',
+                      ),
+                      value: isExplicit,
+                      onChanged: (v) => setLocal(() => isExplicit = v),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -528,8 +563,24 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               child: const Text('Cancel'),
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Save'),
+              onPressed: () {
+                if (titleCtrl.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Title cannot be empty')),
+                  );
+                  return;
+                }
+                if (stationIds.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Please select at least one station'),
+                    ),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Save Metadata'),
             ),
           ],
         ),
@@ -537,13 +588,17 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
     final title = titleCtrl.text.trim();
     final artwork = artworkCtrl.text.trim();
+    final stations = List<String>.from(stationIds);
     titleCtrl.dispose();
     artworkCtrl.dispose();
     if (saved != true || id.isEmpty) return;
+    if (title.isEmpty || stations.isEmpty) return;
     await _runSongAction(
       () => _admin.updateSongMetadata(id, {
         'title': title,
-        if (artwork.isNotEmpty) 'artworkUrl': artwork,
+        'stationId': stations.first,
+        'stationIds': stations,
+        'artworkUrl': artwork,
         'isExplicit': isExplicit,
       }),
       'Song updated.',
@@ -1090,6 +1145,25 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                   Text(
                     '$artist · $status${duration != null ? ' · ${duration}s' : ''}',
                     style: const TextStyle(color: Colors.grey),
+                  ),
+                  Builder(
+                    builder: (_) {
+                      final stations = stationIdsFromSongMap(song);
+                      final labels = stationLabelsForIds(stations);
+                      if (labels.isEmpty) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Text(
+                          'Stations: $labels',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 12,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 8),
                   Wrap(

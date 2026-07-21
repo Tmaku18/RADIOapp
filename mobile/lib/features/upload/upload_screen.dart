@@ -9,10 +9,10 @@ import 'package:just_audio/just_audio.dart';
 import '../../core/data/station_towers.dart';
 import '../../core/services/api_service.dart';
 import '../../core/legal/full_song_radio_opt_in.dart';
-import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import '../../widgets/clip_window_sheet.dart';
+import '../../widgets/station_assignment_field.dart';
 
 class UploadScreen extends StatefulWidget {
   const UploadScreen({super.key});
@@ -640,68 +640,21 @@ class _UploadScreenState extends State<UploadScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Station / Category *',
+                    'Stations / Genres *',
                     style: TextStyle(
                       color: surfaces.textSecondary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Select one or more stations for this song.',
-                    style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-                  ),
                   const SizedBox(height: 8),
-                  Container(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: DimensionTokens.neonCyan.withValues(alpha: 0.25),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      itemCount: kNationalStationTowers.length,
-                      separatorBuilder: (_, __) => Divider(
-                        height: 1,
-                        color: Colors.white.withValues(alpha: 0.08),
-                      ),
-                      itemBuilder: (context, i) {
-                        final tower = kNationalStationTowers[i];
-                        final checked = _stationIds.contains(tower.id);
-                        return CheckboxListTile(
-                          dense: true,
-                          value: checked,
-                          controlAffinity: ListTileControlAffinity.leading,
-                          title: Text(
-                            '${tower.genre} (National)',
-                            style: const TextStyle(fontSize: 13),
-                          ),
-                          onChanged: _isUploading
-                              ? null
-                              : (v) {
-                                  setState(() {
-                                    if (v == true) {
-                                      _stationIds.add(tower.id);
-                                    } else {
-                                      _stationIds.remove(tower.id);
-                                    }
-                                  });
-                                },
-                        );
-                      },
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      _stationIds.isEmpty
-                          ? 'None selected'
-                          : '${_stationIds.length} station'
-                              '${_stationIds.length == 1 ? '' : 's'} selected',
-                      style: TextStyle(color: surfaces.textMuted, fontSize: 12),
-                    ),
+                  StationAssignmentField(
+                    value: _stationIds.toList(),
+                    enabled: !_isUploading,
+                    onChanged: (next) => setState(() {
+                      _stationIds
+                        ..clear()
+                        ..addAll(next);
+                    }),
                   ),
                   const SizedBox(height: 16),
                   OutlinedButton.icon(
