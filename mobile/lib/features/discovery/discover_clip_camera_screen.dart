@@ -35,6 +35,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   CameraController? _camera;
 
   Timer? _countdownTimer;
+  Timer? _countdownEndTimer;
   Timer? _recordTimer;
 
   late int _remaining;
@@ -55,6 +56,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _countdownEndTimer?.cancel();
     _recordTimer?.cancel();
     unawaited(_clipPlayer.dispose());
     final cam = _camera;
@@ -65,19 +67,24 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     super.dispose();
   }
 
-  /// Mute live radio for countdown + take. Parent create-video screen resumes.
-  Future<void> _softPauseRadio() async {
+  /// Silence live radio for countdown + take. Parent create-video resumes.
+  /// Soft-mute alone is not enough: the music stream must hard-pause so the
+  /// camera mic can start recording (iOS rejects startVideoRecording while
+  /// another player still owns the session).
+  Future<void> _pauseRadioForCamera() async {
     try {
       final handler = AudioPlayerService.handler;
       if (!handler.userPaused) {
         await handler.setUserPaused(true);
       }
     } catch (_) {}
+    try {
+      await AudioPlayerService().player.pause();
+    } catch (_) {}
   }
 
   Future<void> _setup() async {
-    // Mute live radio for the whole countdown + take.
-    await _softPauseRadio();
+    await _pauseRadioForCamera();
 
     try {
       final session = await AudioSession.instance;
@@ -86,7 +93,8 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
           avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
           avAudioSessionCategoryOptions:
               AVAudioSessionCategoryOptions.defaultToSpeaker |
-                  AVAudioSessionCategoryOptions.allowBluetooth,
+                  AVAudioSessionCategoryOptions.allowBluetooth |
+                  AVAudioSessionCategoryOptions.mixWithOthers,
           avAudioSessionMode: AVAudioSessionMode.videoRecording,
           avAudioSessionRouteSharingPolicy:
               AVAudioSessionRouteSharingPolicy.defaultPolicy,
@@ -100,6 +108,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
           androidWillPauseWhenDucked: false,
         ),
       );
+      await session.setActive(true);
     } catch (_) {}
 
     try {
@@ -174,20 +183,25 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
   void _startCountdown() {
     _countdownTimer?.cancel();
-    // Show N … 1 for a full second each, then start — never play audio during
-    // the countdown.
+    _countdownEndTimer?.cancel();
+    final total = _remaining;
+    // Tick UI every second; fire recording with a single end timer so a missed
+    // periodic tick can't leave us stuck on "1".
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
       if (_remaining <= 1) {
-        // "1" has been on screen for a full tick — countdown is over.
         timer.cancel();
-        unawaited(_beginRecording());
         return;
       }
       setState(() => _remaining = _remaining - 1);
+    });
+    _countdownEndTimer = Timer(Duration(seconds: total), () {
+      if (!mounted || _recording || _startingRecord || _finishing) return;
+      _countdownTimer?.cancel();
+      unawaited(_beginRecording());
     });
   }
 
@@ -200,6 +214,15 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         _finishing) {
       return;
     }
+    if (cam.value.isRecordingVideo) {
+      if (mounted) {
+        setState(() {
+          _recording = true;
+          _startingRecord = false;
+        });
+      }
+      return;
+    }
 
     setState(() {
       _startingRecord = true;
@@ -208,19 +231,16 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     });
 
     try {
-      // Ensure clip is loaded and rewound, but do not play until the camera
-      // recorder is actually running.
-      if (_clipPlayer.audioSource == null) {
-        await _clipPlayer.setUrl(widget.clipUrl);
-      }
-      await _clipPlayer.seek(Duration.zero);
-      await _clipPlayer.pause();
+      // Radio must be hard-paused so the mic session can start.
+      await _pauseRadioForCamera();
+
+      // iOS: prepare first — otherwise startVideoRecording often no-ops/fails
+      // right after the countdown.
+      try {
+        await cam.prepareForVideoRecording();
+      } catch (_) {}
 
       await cam.startVideoRecording();
-      if (!mounted) return;
-
-      // Music starts only after countdown ended and recording has begun.
-      await _clipPlayer.play();
       if (!mounted) return;
 
       setState(() {
@@ -228,6 +248,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         _startingRecord = false;
         _recordedSeconds = 0;
       });
+
+      // Clip audio after the camera is rolling — never block recording on it.
+      unawaited(_startClipAudio());
 
       _recordTimer?.cancel();
       _recordTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -250,8 +273,23 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
       setState(() {
         _startingRecord = false;
         _recording = false;
-        _error = 'Could not start recording: $e';
+        _error =
+            'Could not start recording. Check camera/mic permission and try again.\n$e';
       });
+    }
+  }
+
+  Future<void> _startClipAudio() async {
+    try {
+      if (_clipPlayer.audioSource == null) {
+        await _clipPlayer
+            .setUrl(widget.clipUrl)
+            .timeout(const Duration(seconds: 8));
+      }
+      await _clipPlayer.seek(Duration.zero);
+      await _clipPlayer.play();
+    } catch (e) {
+      debugPrint('DiscoverClipCamera: clip audio failed - $e');
     }
   }
 
@@ -285,6 +323,7 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
   Future<void> _cancel() async {
     _countdownTimer?.cancel();
+    _countdownEndTimer?.cancel();
     _recordTimer?.cancel();
     try {
       await _clipPlayer.stop();
