@@ -290,12 +290,12 @@ export default function StatsPage() {
 
         <Card>
           <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground font-medium">ROI</div>
+            <div className="text-sm text-muted-foreground font-medium">New Followers</div>
             <div className="text-3xl font-bold text-foreground mt-1">
-              {roi?.roi == null ? '—' : `${roi.roi.toFixed(1)}%`}
+              {(roi?.newFollowers ?? 0).toLocaleString()}
             </div>
             <div className="text-xs text-muted-foreground mt-2">
-              {roi?.newFollowers ?? 0} new followers / {roi?.creditsSpentInWindow ?? 0} credits (last {roi?.days ?? 30}d)
+              Last {roi?.days ?? 30} days
             </div>
           </CardContent>
         </Card>

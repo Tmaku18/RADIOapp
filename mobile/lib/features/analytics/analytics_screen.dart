@@ -193,14 +193,12 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'ROI',
+                            'New Followers',
                             style: DimensionTypography.cardTitle(fontSize: 16),
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            _roi == null || _roi!['roi'] == null
-                                ? '—'
-                                : '${(_roi!['roi'] as num).toDouble().toStringAsFixed(1)}%',
+                            '${_roi?['newFollowers'] ?? 0}',
                             style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   color: scheme.primary,
                                   fontWeight: FontWeight.w800,
@@ -208,7 +206,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            '${_roi?['newFollowers'] ?? 0} new followers / ${_roi?['creditsSpentInWindow'] ?? 0} credits (last ${_roi?['days'] ?? 30}d)',
+                            'Last ${_roi?['days'] ?? 30} days',
                             style: TextStyle(color: surfaces.textSecondary),
                           ),
                         ],
