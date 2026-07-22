@@ -356,40 +356,45 @@ export class PushNotificationService {
       stringData[key] = typeof value === 'string' ? value : String(value);
     }
 
-    // Build FCM messages
-    const messages = tokens.map((t) => ({
-      token: t.fcm_token,
-      notification: {
+    // Build FCM messages (omit undefined imageUrl — it can break APNs delivery).
+    const messages = tokens.map((t) => {
+      const notification: { title: string; body: string; imageUrl?: string } = {
         title: dto.title,
         body: dto.body,
-        imageUrl: dto.imageUrl,
-      },
-      data: stringData,
-      android: {
-        priority: 'high' as const,
-        notification: {
-          // Must match mobile AndroidNotificationChannel id.
-          channelId: 'radio_alerts',
-          sound: 'default',
-        },
-      },
-      apns: {
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert',
-        },
-        payload: {
-          aps: {
-            alert: {
-              title: dto.title,
-              body: dto.body,
-            },
+      };
+      if (dto.imageUrl && dto.imageUrl.trim()) {
+        notification.imageUrl = dto.imageUrl.trim();
+      }
+      return {
+        token: t.fcm_token,
+        notification,
+        data: stringData,
+        android: {
+          priority: 'high' as const,
+          notification: {
+            // Must match mobile AndroidNotificationChannel id.
+            channelId: 'radio_alerts',
             sound: 'default',
-            badge: 1,
           },
         },
-      },
-    }));
+        apns: {
+          headers: {
+            'apns-priority': '10',
+            'apns-push-type': 'alert',
+          },
+          payload: {
+            aps: {
+              alert: {
+                title: dto.title,
+                body: dto.body,
+              },
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+      };
+    });
 
     try {
       const response = await admin.messaging().sendEach(messages);
@@ -428,6 +433,87 @@ export class PushNotificationService {
       this.logger.error(`FCM send failed: ${error.message}`);
       return false;
     }
+  }
+
+  /**
+   * Send a diagnostic push to the caller's registered devices and return
+   * per-device success/error (surfaces missing APNs key, bad tokens, etc.).
+   */
+  async sendTestPush(userId: string): Promise<{
+    sent: boolean;
+    deviceCount: number;
+    results: Array<{
+      deviceType: string;
+      success: boolean;
+      errorCode?: string;
+      errorMessage?: string;
+    }>;
+  }> {
+    const supabase = getSupabaseClient();
+    const admin = getFirebaseAdmin();
+    const { data: tokens, error } = await supabase
+      .from('user_device_tokens')
+      .select('fcm_token, device_type')
+      .eq('user_id', userId)
+      .in('device_type', ['ios', 'android']);
+
+    if (error || !tokens || tokens.length === 0) {
+      return { sent: false, deviceCount: 0, results: [] };
+    }
+
+    const title = 'NETWORX test notification';
+    const body =
+      'If you see this, push delivery is working on this device.';
+    const messages = tokens.map((t) => ({
+      token: t.fcm_token,
+      notification: { title, body },
+      data: {
+        type: 'test_push',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      android: {
+        priority: 'high' as const,
+        notification: {
+          channelId: 'radio_alerts',
+          sound: 'default',
+        },
+      },
+      apns: {
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert',
+        },
+        payload: {
+          aps: {
+            alert: { title, body },
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
+    }));
+
+    const response = await admin.messaging().sendEach(messages);
+    const results = response.responses.map((resp, idx) => ({
+      deviceType: String(tokens[idx]?.device_type ?? 'unknown'),
+      success: resp.success,
+      errorCode: resp.error?.code,
+      errorMessage: resp.error?.message,
+    }));
+
+    for (const r of results) {
+      if (!r.success) {
+        this.logger.warn(
+          `Test push failed (${r.deviceType}): ${r.errorCode} ${r.errorMessage}`,
+        );
+      }
+    }
+
+    return {
+      sent: response.successCount > 0,
+      deviceCount: tokens.length,
+      results,
+    };
   }
 
   /**

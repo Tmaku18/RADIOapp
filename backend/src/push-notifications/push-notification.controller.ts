@@ -72,4 +72,15 @@ export class PushNotificationController {
     const devices = await this.pushNotificationService.getUserDevices(userId);
     return { devices };
   }
+
+  /**
+   * Send a test push to this user's registered devices.
+   * POST /api/v1/push-notifications/test
+   * Returns per-device success/error so iOS APNs misconfig is visible.
+   */
+  @Post('test')
+  async sendTest(@CurrentUser() firebaseUser: FirebaseUser) {
+    const userId = await this.getUserId(firebaseUser.uid);
+    return this.pushNotificationService.sendTestPush(userId);
+  }
 }

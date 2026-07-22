@@ -267,6 +267,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _sendTestPush() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Sending test notification…')),
+    );
+    final summary = await _pushService.sendTestPush();
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Test notification'),
+        content: Text(summary),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showPermissionDeniedDialog() {
     showDialog(
       context: context,
@@ -457,6 +478,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onChanged: _toggleMasterNotifications,
                     secondary: const Icon(Icons.notifications_outlined),
                     activeThumbColor: primary,
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.notification_important_outlined),
+                    title: const Text('Send test notification'),
+                    subtitle: const Text(
+                      'Checks iPhone/Android delivery for this logged-in account',
+                    ),
+                    onTap: _sendTestPush,
                   ),
                   SwitchListTile(
                     title: const Text('Up Next Alerts'),

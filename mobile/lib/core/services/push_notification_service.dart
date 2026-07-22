@@ -519,4 +519,46 @@ class PushNotificationService {
 
   /// Get the current FCM token (for debugging)
   String? get currentToken => _currentToken;
+
+  /// Ask the backend to send a diagnostic push to this account's devices.
+  /// Returns a short human-readable summary (includes iOS APNs errors).
+  Future<String> sendTestPush() async {
+    // Make sure this device is registered before asking for a test.
+    await requestPermissionLazy();
+    try {
+      final res = await _apiService.post('push-notifications/test', {});
+      if (res is! Map) {
+        return 'Test push failed: unexpected server response.';
+      }
+      final deviceCount = res['deviceCount'];
+      final results = res['results'];
+      if (deviceCount is num && deviceCount == 0) {
+        return 'No devices registered for this account. '
+            'Allow notifications, then try again while logged into the same account.';
+      }
+      if (results is! List || results.isEmpty) {
+        return res['sent'] == true
+            ? 'Test push sent.'
+            : 'Test push failed.';
+      }
+      final lines = <String>[];
+      for (final raw in results) {
+        if (raw is! Map) continue;
+        final type = (raw['deviceType'] ?? 'device').toString();
+        final ok = raw['success'] == true;
+        if (ok) {
+          lines.add('$type: delivered');
+        } else {
+          final code = (raw['errorCode'] ?? 'error').toString();
+          final msg = (raw['errorMessage'] ?? '').toString();
+          lines.add(
+            '$type: FAILED ($code)${msg.isEmpty ? '' : ' — $msg'}',
+          );
+        }
+      }
+      return lines.isEmpty ? 'Test push finished.' : lines.join('\n');
+    } catch (e) {
+      return 'Test push failed: $e';
+    }
+  }
 }
