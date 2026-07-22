@@ -4,11 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/brand/brand_assets.dart';
-import '../../core/models/browse_models.dart';
 import '../../core/models/discover_audio_models.dart';
 import '../../core/navigation/app_routes.dart';
-import '../../core/services/browse_like_events_service.dart';
-import '../../core/services/browse_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/services/nearby_service.dart';
 import '../../core/services/songs_service.dart';
@@ -37,30 +34,17 @@ class DiscoveryScreen extends StatefulWidget {
 
 class _DiscoveryScreenState extends State<DiscoveryScreen>
     with SingleTickerProviderStateMixin {
-  static const int _pageSize = 12;
-  final BrowseService _service = BrowseService();
   final NearbyService _people = NearbyService();
-  final BrowseLikeEventsService _likeEvents = BrowseLikeEventsService();
-  final ScrollController _scroll = ScrollController();
   final TextEditingController _searchCtrl = TextEditingController();
-  final String _seed = DateTime.now().millisecondsSinceEpoch.toString();
   final GlobalKey<DiscoverAudioTabState> _swipeKey =
       GlobalKey<DiscoverAudioTabState>();
   final GlobalKey<_LibraryTabState> _libraryKey = GlobalKey<_LibraryTabState>();
   final GlobalKey<_DiscoverListTabState> _savedKey =
       GlobalKey<_DiscoverListTabState>();
+  final GlobalKey<_LikedArtistsTabState> _likedArtistsKey =
+      GlobalKey<_LikedArtistsTabState>();
   late final TabController _tabController;
-  StreamSubscription<BrowseLikeEvent>? _likeEventsSub;
   Timer? _searchDebounce;
-
-  bool _loading = true;
-  bool _loadingMore = false;
-  String? _nextCursor;
-  String? _loadError;
-  List<BrowseFeedItem> _items = <BrowseFeedItem>[];
-
-  String? _likingId;
-  String? _bookmarkingId;
 
   bool _searchingArtists = false;
   String? _artistSearchError;
@@ -77,36 +61,22 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       initialIndex: widget.initialTabIndex.clamp(0, 3),
     );
     _searchCtrl.addListener(_onSearchTextChanged);
-    _loadPage(append: false);
-    _likeEvents.start();
-    _likeEventsSub = _likeEvents.stream.listen((event) {
-      if (!mounted) return;
-      setState(() {
-        _items = _items
-            .map(
-              (item) => item.id == event.contentId
-                  ? item.copyWith(likeCount: item.likeCount + 1)
-                  : item,
-            )
-            .toList();
-      });
-    });
-    _scroll.addListener(() {
-      if (_nextCursor == null || _loadingMore) return;
-      if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
-        _loadPage(append: true);
-      }
-    });
+    _tabController.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    if (_tabController.index == 2) {
+      unawaited(_likedArtistsKey.currentState?.reload() ?? Future<void>.value());
+    }
   }
 
   @override
   void dispose() {
     _searchDebounce?.cancel();
     _searchCtrl.removeListener(_onSearchTextChanged);
+    _tabController.removeListener(_onTabChanged);
     _searchCtrl.dispose();
-    _likeEventsSub?.cancel();
-    _likeEvents.stop();
-    _scroll.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -181,209 +151,15 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
       case 1:
         await _savedKey.currentState?.reload();
         return;
+      case 2:
+        await _likedArtistsKey.currentState?.reload();
+        return;
       case 3:
         await _libraryKey.currentState?.reload();
         return;
-      case 2:
       default:
-        await _loadPage(append: false);
+        return;
     }
-  }
-
-  Future<void> _loadPage({required bool append}) async {
-    if (append) {
-      setState(() => _loadingMore = true);
-    } else {
-      setState(() {
-        _loading = true;
-        _loadError = null;
-      });
-    }
-
-    try {
-      final page = await _service.getFeed(
-        limit: _pageSize,
-        cursor: append ? _nextCursor : null,
-        seed: _seed,
-      );
-      if (!mounted) return;
-      setState(() {
-        _items = append ? [..._items, ...page.items] : page.items;
-        _nextCursor = page.nextCursor;
-        _loadError = null;
-      });
-    } catch (_) {
-      // The feed can transiently fail (e.g. backend cold start). Surface a
-      // friendly retry state instead of letting the exception go unhandled.
-      // A failed "load more" keeps the existing items and just stops paging.
-      if (!mounted) return;
-      if (!append) {
-        setState(() => _loadError =
-            "Couldn't load the feed. Pull to refresh or tap retry.");
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _loadingMore = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _toggleLike(BrowseFeedItem item) async {
-    if (_likingId != null) return;
-    setState(() => _likingId = item.id);
-    try {
-      final res = await _service.toggleLike(item.id);
-      final liked = res['liked'] == true;
-      final likeCount =
-          (res['likeCount'] ?? res['like_count'] ?? item.likeCount);
-      if (!mounted) return;
-      setState(() {
-        _items = _items
-            .map(
-              (i) => i.id == item.id
-                  ? i.copyWith(
-                      liked: liked,
-                      likeCount: likeCount is int
-                          ? likeCount
-                          : int.tryParse(likeCount.toString()) ?? i.likeCount,
-                    )
-                  : i,
-            )
-            .toList();
-      });
-    } finally {
-      if (mounted) setState(() => _likingId = null);
-    }
-  }
-
-  Future<void> _toggleBookmark(BrowseFeedItem item) async {
-    if (_bookmarkingId != null) return;
-    setState(() => _bookmarkingId = item.id);
-    try {
-      if (item.bookmarked) {
-        await _service.removeBookmark(item.id);
-        if (!mounted) return;
-        setState(() {
-          _items = _items
-              .map(
-                (i) => i.id == item.id
-                    ? i.copyWith(
-                        bookmarked: false,
-                        bookmarkCount: (i.bookmarkCount - 1).clamp(0, 1 << 30),
-                      )
-                    : i,
-              )
-              .toList();
-        });
-      } else {
-        await _service.addBookmark(item.id);
-        if (!mounted) return;
-        setState(() {
-          _items = _items
-              .map(
-                (i) => i.id == item.id
-                    ? i.copyWith(
-                        bookmarked: true,
-                        bookmarkCount: i.bookmarkCount + 1,
-                      )
-                    : i,
-              )
-              .toList();
-        });
-      }
-    } finally {
-      if (mounted) setState(() => _bookmarkingId = null);
-    }
-  }
-
-  Future<void> _report(BrowseFeedItem item) async {
-    final controller = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Report'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              labelText: 'Reason',
-              hintText: 'Spam, unsafe, copyrighted...',
-            ),
-            maxLines: 3,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Report'),
-            ),
-          ],
-        );
-      },
-    );
-
-    final reason = controller.text.trim();
-    controller.dispose();
-    if (ok != true) return;
-    if (reason.isEmpty) return;
-    await _service.report(item.id, reason);
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reported. Thanks for keeping it clean.')),
-    );
-  }
-
-  Future<void> _previewAudio(String url) async {
-    final player = AudioPlayer();
-    await player.setUrl(url);
-    if (!mounted) return;
-    await showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Preview', style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 10),
-              StreamBuilder<PlayerState>(
-                stream: player.playerStateStream,
-                builder: (context, snap) {
-                  final playing = snap.data?.playing == true;
-                  return Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        iconSize: 48,
-                        onPressed: () =>
-                            playing ? player.pause() : player.play(),
-                        icon: Icon(
-                          playing ? Icons.pause_circle : Icons.play_circle,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: () => player.stop(),
-                        icon: const Icon(Icons.stop),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-    await player.dispose();
   }
 
   @override
@@ -450,7 +226,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   }
                 },
                 decoration: InputDecoration(
-                  hintText: 'Search artists by name…',
+                  hintText: 'Search all artists by name…',
                   prefixIcon: const Icon(Icons.search),
                   suffixIcon: _searchCtrl.text.isEmpty
                       ? null
@@ -491,264 +267,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
           children: [
             DiscoverAudioTab(key: _swipeKey),
             _DiscoverListTab(key: _savedKey),
-            _loading && _items.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : (_loadError != null && _items.isEmpty)
-                ? RefreshIndicator(
-                    onRefresh: () => _loadPage(append: false),
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      children: [
-                        SizedBox(
-                          height: MediaQuery.of(context).size.height * 0.6,
-                          child: Center(
-                            child: Padding(
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.cloud_off_outlined,
-                                    size: 48,
-                                    color: surfaces.textSecondary,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _loadError!,
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: surfaces.textSecondary,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  FilledButton.icon(
-                                    onPressed: () => _loadPage(append: false),
-                                    icon: const Icon(Icons.refresh),
-                                    label: const Text('Retry'),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : _items.isEmpty
-                ? Center(
-                    child: Text(
-                      'No content in the feed yet.',
-                      style: TextStyle(color: surfaces.textSecondary),
-                    ),
-                  )
-                : RefreshIndicator(
-                    onRefresh: () => _loadPage(append: false),
-                    child: GridView.builder(
-                      controller: _scroll,
-                      padding: const EdgeInsets.all(12),
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 0.82,
-                          ),
-                      itemCount: _items.length + (_loadingMore ? 2 : 0),
-                      itemBuilder: (context, idx) {
-                        if (idx >= _items.length) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        }
-                        final item = _items[idx];
-                        return Card(
-                          clipBehavior: Clip.antiAlias,
-                          child: Column(
-                            children: [
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    Positioned.fill(
-                                      child: item.type == 'image'
-                                          ? Image.network(
-                                              item.fileUrl,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (
-                                                    context,
-                                                    error,
-                                                    stackTrace,
-                                                  ) => const Center(
-                                                    child: Icon(
-                                                      Icons.broken_image,
-                                                    ),
-                                                  ),
-                                            )
-                                          : Container(
-                                              decoration: BoxDecoration(
-                                                gradient:
-                                                    surfaces.signatureGradient,
-                                              ),
-                                              child: Center(
-                                                child: FilledButton.tonalIcon(
-                                                  onPressed: () =>
-                                                      _previewAudio(
-                                                        item.fileUrl,
-                                                      ),
-                                                  icon: const Icon(
-                                                    Icons.play_arrow,
-                                                  ),
-                                                  label: const Text('Preview'),
-                                                ),
-                                              ),
-                                            ),
-                                    ),
-                                    Positioned(
-                                      left: 8,
-                                      bottom: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.45,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            CircleAvatar(
-                                              radius: 10,
-                                              backgroundColor: scheme.primary
-                                                  .withValues(alpha: 0.25),
-                                              backgroundImage:
-                                                  item.provider.avatarUrl ==
-                                                      null
-                                                  ? null
-                                                  : NetworkImage(
-                                                      item.provider.avatarUrl!,
-                                                    ),
-                                              child:
-                                                  item.provider.avatarUrl ==
-                                                      null
-                                                  ? Text(
-                                                      (item
-                                                                  .provider
-                                                                  .displayName ??
-                                                              '?')
-                                                          .characters
-                                                          .first
-                                                          .toUpperCase(),
-                                                      style: const TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    )
-                                                  : null,
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                item.provider.displayName ??
-                                                    'Creator',
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 12,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(10),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      item.title ?? 'Untitled',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    if (item.description != null &&
-                                        item.description!.isNotEmpty)
-                                      Text(
-                                        item.description!,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: surfaces.textSecondary,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          tooltip: 'Ripple',
-                                          onPressed: _likingId == item.id
-                                              ? null
-                                              : () => _toggleLike(item),
-                                          icon: Text(item.liked ? '❤️' : '🤍'),
-                                        ),
-                                        Text(
-                                          '${item.likeCount}',
-                                          style: TextStyle(
-                                            color: surfaces.textMuted,
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
-                                        IconButton(
-                                          tooltip: 'Save',
-                                          onPressed: _bookmarkingId == item.id
-                                              ? null
-                                              : () => _toggleBookmark(item),
-                                          icon: Text(
-                                            item.bookmarked ? '🔖' : '📑',
-                                          ),
-                                        ),
-                                        Text(
-                                          '${item.bookmarkCount}',
-                                          style: TextStyle(
-                                            color: surfaces.textMuted,
-                                          ),
-                                        ),
-                                        const Spacer(),
-                                        IconButton(
-                                          tooltip: 'Report',
-                                          onPressed: () => _report(item),
-                                          icon: Icon(
-                                            Icons.flag_outlined,
-                                            color: surfaces.textMuted,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
+            _LikedArtistsTab(key: _likedArtistsKey),
             _LibraryTab(key: _libraryKey),
           ],
         ),
@@ -1017,6 +536,171 @@ class _DiscoverListTabState extends State<_DiscoverListTab> {
                   ),
                 ],
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+
+class _LikedArtistsTab extends StatefulWidget {
+  const _LikedArtistsTab({super.key});
+
+  @override
+  State<_LikedArtistsTab> createState() => _LikedArtistsTabState();
+}
+
+class _LikedArtistsTabState extends State<_LikedArtistsTab> {
+  final DiscoverAudioService _discover = DiscoverAudioService();
+  bool _loading = true;
+  String? _error;
+  List<DiscoverLikedArtist> _artists = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(reload());
+  }
+
+  Future<void> reload() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final items = await _discover.getLikedArtists(limit: 100);
+      if (!mounted) return;
+      setState(() => _artists = items);
+    } catch (_) {
+      if (!mounted) return;
+      setState(
+        () => _error =
+            "Couldn't load artists you've liked. Pull to refresh or tap retry.",
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _open(DiscoverLikedArtist artist) {
+    if (artist.userId.isEmpty) return;
+    Navigator.pushNamed(
+      context,
+      AppRoutes.artistProfile,
+      arguments: artist.userId,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = context.networxSurfaces;
+    if (_loading && _artists.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_error != null && _artists.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _error!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: surfaces.textSecondary),
+                      ),
+                      const SizedBox(height: 12),
+                      FilledButton.icon(
+                        onPressed: reload,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_artists.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: reload,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(
+              height: MediaQuery.of(context).size.height * 0.55,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    'Artists you like show up here.\nSwipe right on Discover songs to add them.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: surfaces.textSecondary),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: reload,
+      child: ListView.separated(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+        itemCount: _artists.length,
+        separatorBuilder: (_, _) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final artist = _artists[index];
+          final name = (artist.displayName ?? 'Artist').trim().isEmpty
+              ? 'Artist'
+              : artist.displayName!.trim();
+          final subtitle = [
+            if ((artist.username ?? '').isNotEmpty) '@${artist.username}',
+            if ((artist.headline ?? '').isNotEmpty) artist.headline!,
+            if (artist.likedSongCount > 0)
+              '${artist.likedSongCount} liked song${artist.likedSongCount == 1 ? '' : 's'}',
+          ].join(' · ');
+          return Card(
+            child: ListTile(
+              onTap: () => _open(artist),
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context)
+                    .colorScheme
+                    .surfaceContainerHighest,
+                backgroundImage: (artist.avatarUrl ?? '').isNotEmpty
+                    ? NetworkImage(artist.avatarUrl!)
+                    : null,
+                child: (artist.avatarUrl ?? '').isEmpty
+                    ? const Icon(Icons.person_outline)
+                    : null,
+              ),
+              title: Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: subtitle.isEmpty
+                  ? null
+                  : Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+              trailing: const Icon(Icons.chevron_right),
             ),
           );
         },

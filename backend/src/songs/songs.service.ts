@@ -2577,6 +2577,185 @@ export class SongsService {
   }
 
   /**
+   * Artist profiles for anyone the viewer has liked at least one song from
+   * (Discover swipe likes, falling back to global `likes` when needed).
+   * Powers the Discover → Artists tab.
+   */
+  async getDiscoverLikedArtists(
+    userId: string,
+    limitInput = 50,
+    offsetInput = 0,
+  ): Promise<{
+    items: Array<{
+      userId: string;
+      displayName: string | null;
+      username: string | null;
+      avatarUrl: string | null;
+      headline: string | null;
+      likedSongCount: number;
+      lastLikedAt: string | null;
+    }>;
+    total: number;
+  }> {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(1, limitInput), 100);
+    const offset = Math.max(0, offsetInput);
+
+    // Prefer Discover swipe likes; also include radio/global likes so "liked
+    // at least one of their songs" covers both surfaces.
+    let likedRows: Array<{ song_id: string; liked_at: string | null }> = [];
+
+    const discoverLikesRes = await supabase
+      .from('discover_song_likes')
+      .select('song_id, created_at')
+      .eq('user_id', userId);
+    if (
+      discoverLikesRes.error &&
+      !this.isMissingTableError(discoverLikesRes.error, 'discover_song_likes')
+    ) {
+      throw new Error(
+        `Failed to load discover likes: ${discoverLikesRes.error.message}`,
+      );
+    }
+    if (!discoverLikesRes.error) {
+      likedRows = (discoverLikesRes.data || []).map((r: any) => ({
+        song_id: r.song_id as string,
+        liked_at: (r.created_at as string | null) ?? null,
+      }));
+    }
+
+    const globalLikesRes = await supabase
+      .from('likes')
+      .select('song_id, created_at')
+      .eq('user_id', userId);
+    if (!globalLikesRes.error) {
+      for (const r of globalLikesRes.data || []) {
+        likedRows.push({
+          song_id: r.song_id as string,
+          liked_at: (r.created_at as string | null) ?? null,
+        });
+      }
+    } else if (
+      likedRows.length === 0 &&
+      !this.isMissingTableError(globalLikesRes.error, 'likes')
+    ) {
+      throw new Error(
+        `Failed to load song likes: ${globalLikesRes.error.message}`,
+      );
+    }
+
+    if (!likedRows.length) {
+      return { items: [], total: 0 };
+    }
+
+    const songIds = [...new Set(likedRows.map((r) => r.song_id).filter(Boolean))];
+    const songsRes = await supabase
+      .from('songs')
+      .select('id, artist_id')
+      .in('id', songIds);
+    if (songsRes.error) {
+      throw new Error(
+        `Failed to load liked songs for artists: ${songsRes.error.message}`,
+      );
+    }
+
+    const artistIdBySong = new Map<string, string>();
+    for (const s of songsRes.data || []) {
+      if (s.id && s.artist_id) {
+        artistIdBySong.set(s.id as string, s.artist_id as string);
+      }
+    }
+
+    const artistAgg = new Map<
+      string,
+      { likedSongIds: Set<string>; lastLikedAt: string | null }
+    >();
+    for (const row of likedRows) {
+      const artistId = artistIdBySong.get(row.song_id);
+      if (!artistId || artistId === userId) continue;
+      const agg = artistAgg.get(artistId) ?? {
+        likedSongIds: new Set<string>(),
+        lastLikedAt: null,
+      };
+      agg.likedSongIds.add(row.song_id);
+      if (
+        row.liked_at &&
+        (!agg.lastLikedAt || row.liked_at > agg.lastLikedAt)
+      ) {
+        agg.lastLikedAt = row.liked_at;
+      }
+      artistAgg.set(artistId, agg);
+    }
+
+    const ranked = [...artistAgg.entries()]
+      .map(([artistId, agg]) => ({
+        artistId,
+        likedSongCount: agg.likedSongIds.size,
+        lastLikedAt: agg.lastLikedAt,
+      }))
+      .sort((a, b) => {
+        const ta = a.lastLikedAt ?? '';
+        const tb = b.lastLikedAt ?? '';
+        if (ta !== tb) return tb.localeCompare(ta);
+        return b.likedSongCount - a.likedSongCount;
+      });
+
+    const total = ranked.length;
+    const page = ranked.slice(offset, offset + limit);
+    const pageIds = page.map((p) => p.artistId);
+    if (!pageIds.length) return { items: [], total };
+
+    let usersRes = await supabase
+      .from('users')
+      .select('id, display_name, username, avatar_url, headline')
+      .in('id', pageIds);
+    if (
+      usersRes.error &&
+      this.isMissingAnyColumnError(usersRes.error, ['username', 'headline'])
+    ) {
+      usersRes = await supabase
+        .from('users')
+        .select('id, display_name, avatar_url')
+        .in('id', pageIds);
+    }
+    if (usersRes.error) {
+      throw new Error(
+        `Failed to load liked artists: ${usersRes.error.message}`,
+      );
+    }
+
+    const userById = new Map(
+      (usersRes.data || []).map((u: any) => [u.id as string, u]),
+    );
+
+    const items = page
+      .map((p) => {
+        const u = userById.get(p.artistId);
+        if (!u) return null;
+        return {
+          userId: p.artistId,
+          displayName: (u.display_name as string | null) ?? null,
+          username: (u.username as string | null) ?? null,
+          avatarUrl: (u.avatar_url as string | null) ?? null,
+          headline: (u.headline as string | null) ?? null,
+          likedSongCount: p.likedSongCount,
+          lastLikedAt: p.lastLikedAt,
+        };
+      })
+      .filter(Boolean) as Array<{
+      userId: string;
+      displayName: string | null;
+      username: string | null;
+      avatarUrl: string | null;
+      headline: string | null;
+      likedSongCount: number;
+      lastLikedAt: string | null;
+    }>;
+
+    return { items, total };
+  }
+
+  /**
    * Liked or disliked Discover history for the Library tab.
    * `right_like` → discover likes; `left_skip` → skip swipes.
    */

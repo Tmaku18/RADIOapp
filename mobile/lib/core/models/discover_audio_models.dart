@@ -118,6 +118,43 @@ class DiscoverAudioLikedItem extends DiscoverAudioSongCard {
   }
 }
 
+/// Artist profile derived from songs the viewer has liked.
+class DiscoverLikedArtist {
+  final String userId;
+  final String? displayName;
+  final String? username;
+  final String? avatarUrl;
+  final String? headline;
+  final int likedSongCount;
+  final DateTime? lastLikedAt;
+
+  const DiscoverLikedArtist({
+    required this.userId,
+    required this.displayName,
+    required this.username,
+    required this.avatarUrl,
+    required this.headline,
+    required this.likedSongCount,
+    required this.lastLikedAt,
+  });
+
+  factory DiscoverLikedArtist.fromJson(Map<String, dynamic> json) {
+    return DiscoverLikedArtist(
+      userId: (json['userId'] ?? json['id'] ?? '').toString(),
+      displayName: json['displayName']?.toString(),
+      username: json['username']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
+      headline: json['headline']?.toString(),
+      likedSongCount: json['likedSongCount'] is int
+          ? json['likedSongCount'] as int
+          : int.tryParse('${json['likedSongCount'] ?? 0}') ?? 0,
+      lastLikedAt: json['lastLikedAt'] != null
+          ? DateTime.tryParse(json['lastLikedAt'].toString())
+          : null,
+    );
+  }
+}
+
 /// Discover swipe history row for Library (liked or disliked).
 class DiscoverAudioHistoryItem extends DiscoverAudioLikedItem {
   final String direction; // right_like | left_skip

@@ -58,6 +58,28 @@ class DiscoverAudioService {
         .toList();
   }
 
+  /// Artist profiles for songs you've liked (Discover Artists tab).
+  Future<List<DiscoverLikedArtist>> getLikedArtists({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 100);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/discover/liked-artists?limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is! Map<String, dynamic>) return const <DiscoverLikedArtist>[];
+    final raw = (res['items'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map(
+          (e) => DiscoverLikedArtist.fromJson(
+            e.map((k, v) => MapEntry(k.toString(), v)),
+          ),
+        )
+        .toList();
+  }
+
   /// Liked (`right_like`) or disliked (`left_skip`) Discover history.
   Future<List<DiscoverAudioHistoryItem>> getHistory({
     required String direction,
