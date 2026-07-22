@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { songsApi } from '@/lib/api';
 import { bindExclusivePreview } from '@/lib/preview-audio';
 
@@ -80,7 +81,9 @@ type Props = {
  * The server renders the actual sample file.
  */
 export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
+  const playback = usePlaybackOptional();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const didSoftPauseRadioRef = useRef(false);
   const [duration, setDuration] = useState<number>(song?.durationSeconds ?? 0);
   const [start, setStart] = useState<number>(song?.sampleStartSeconds ?? 0);
   const [end, setEnd] = useState<number>(
@@ -98,6 +101,18 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
   const endRef = useRef(end);
   startRef.current = start;
   endRef.current = end;
+
+  const softPauseRadio = useCallback(() => {
+    if (!playback?.actions || didSoftPauseRadioRef.current) return;
+    playback.actions.softPause();
+    didSoftPauseRadioRef.current = true;
+  }, [playback]);
+
+  const softResumeRadioIfNeeded = useCallback(() => {
+    if (!playback?.actions || !didSoftPauseRadioRef.current) return;
+    didSoftPauseRadioRef.current = false;
+    void playback.actions.softResume();
+  }, [playback]);
 
   const maxStart = Math.max(0, (duration || MAX_SAMPLE) - MIN_SAMPLE);
   const total = duration || end || start + MAX_SAMPLE;
@@ -196,13 +211,15 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
       unbindExclusive();
       audio.pause();
       audioRef.current = null;
+      softResumeRadioIfNeeded();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, song?.audioUrl]);
+  }, [open, song?.audioUrl, softResumeRadioIfNeeded]);
 
   const previewWindow = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    softPauseRadio();
     audio.loop = false;
     audio.currentTime = start;
     void audio.play();
@@ -212,6 +229,7 @@ export function SampleTrimDialog({ open, onOpenChange, song, onSaved }: Props) {
   const pause = () => {
     audioRef.current?.pause();
     setPlaying(false);
+    softResumeRadioIfNeeded();
   };
 
   const nudgeStart = (delta: number) => {
