@@ -207,6 +207,24 @@ export default function GoLiveStudioPage() {
                 <CameraBroadcaster
                   whipUrl={ingest.webRtcUrl}
                   startCameraOff={hostKind === 'dj'}
+                  onPublishing={() => {
+                    void artistLiveApi
+                      .markPublishing(sessionId ?? undefined)
+                      .catch(() => undefined);
+                  }}
+                  onError={(message) => {
+                    setError(message);
+                    // Tear down the ghost session so watchers aren't stuck on
+                    // a black player and the host can start again.
+                    void artistLiveApi
+                      .stop()
+                      .then(() => {
+                        setIsLive(false);
+                        setSessionId(null);
+                        setIngest(null);
+                      })
+                      .catch(() => undefined);
+                  }}
                 />
                 {sessionId && artistId && (
                   <div className="absolute right-2 top-2 z-10 flex h-[55%] max-h-[440px] w-[72%] max-w-[20rem] sm:w-80">

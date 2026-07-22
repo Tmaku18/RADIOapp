@@ -956,6 +956,11 @@ export const artistLiveApi = {
     hostType?: 'dj' | 'artist' | 'musician';
   }) => api.post('/artist-live/start', data ?? {}),
   stop: () => api.post('/artist-live/stop'),
+  markPublishing: (sessionId?: string) =>
+    api.post<{ live: boolean; sessionId: string; alreadyLive?: boolean }>(
+      '/artist-live/publishing',
+      sessionId ? { sessionId } : {},
+    ),
   listSessions: () => api.get<{ sessions: Array<{ sessionId: string; artistId: string; displayName: string; avatarUrl: string | null; title: string | null; currentViewers: number; peakViewers: number; startedAt: string; status: string; hostRole?: string }> }>('/artist-live/sessions'),
   getStreamerStatus: () =>
     api.get<{ canStream: boolean; appliedAt: string | null; approvedAt: string | null; rejectedAt: string | null; role: string }>('/artist-live/streamer-status'),

@@ -18,9 +18,10 @@ class WhipBroadcaster {
   bool get isFrontCamera => _facingMode == 'user';
   bool get isPublishing => _pc != null;
 
-  /// Acquire camera/mic, then negotiate a WHIP session with Cloudflare.
-  /// Returns the local [MediaStream] so the caller can render a self-preview.
-  Future<MediaStream> start(String whipUrl) async {
+  /// Acquire camera/mic only so the host can see a local preview before WHIP
+  /// negotiation finishes (or if publish fails).
+  Future<MediaStream> acquireLocalMedia() async {
+    if (_localStream != null) return _localStream!;
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': true,
       'video': {
@@ -29,6 +30,15 @@ class WhipBroadcaster {
         'optional': [],
       },
     });
+    return _localStream!;
+  }
+
+  /// Acquire camera/mic (if needed), then negotiate a WHIP session.
+  /// Returns the local [MediaStream] for self-preview.
+  Future<MediaStream> start(String whipUrl) async {
+    final stream = await acquireLocalMedia();
+    // Drop any half-open peer from a previous attempt before renegotiating.
+    await _closePeerOnly();
 
     final pc = await createPeerConnection({
       'iceServers': [
@@ -38,8 +48,8 @@ class WhipBroadcaster {
     });
     _pc = pc;
 
-    for (final track in _localStream!.getTracks()) {
-      await pc.addTrack(track, _localStream!);
+    for (final track in stream.getTracks()) {
+      await pc.addTrack(track, stream);
     }
 
     final offer = await pc.createOffer({});
@@ -49,20 +59,37 @@ class WhipBroadcaster {
     final local = await pc.getLocalDescription();
     final sdp = local?.sdp ?? offer.sdp ?? '';
 
-    final res = await http.post(
-      Uri.parse(whipUrl),
-      headers: {'Content-Type': 'application/sdp'},
-      body: sdp,
-    );
+    late final http.Response res;
+    try {
+      res = await http
+          .post(
+            Uri.parse(whipUrl),
+            headers: {'Content-Type': 'application/sdp'},
+            body: sdp,
+          )
+          .timeout(const Duration(seconds: 20));
+    } on TimeoutException {
+      await _closePeerOnly();
+      throw Exception(
+        'Publish timed out. Check your connection and try again.',
+      );
+    }
     if (res.statusCode >= 300) {
-      await dispose();
+      await _closePeerOnly();
       throw Exception('Publish failed (${res.statusCode})');
     }
 
     await pc.setRemoteDescription(
       RTCSessionDescription(res.body, 'answer'),
     );
-    return _localStream!;
+    return stream;
+  }
+
+  Future<void> _closePeerOnly() async {
+    try {
+      await _pc?.close();
+    } catch (_) {}
+    _pc = null;
   }
 
   Future<void> _waitForIceGathering(RTCPeerConnection pc) async {

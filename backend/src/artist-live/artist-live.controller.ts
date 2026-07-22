@@ -35,6 +35,15 @@ export class ArtistLiveController {
     return this.artistLive.stopLive(user.uid);
   }
 
+  /** Broadcaster confirms WHIP/RTMP is publishing (promotes starting → live). */
+  @Post('publishing')
+  async markPublishing(
+    @CurrentUser() user: FirebaseUser,
+    @Body() body?: { sessionId?: string },
+  ) {
+    return this.artistLive.markPublishing(user.uid, body?.sessionId);
+  }
+
   @Get('sessions')
   @Public()
   async listSessions() {

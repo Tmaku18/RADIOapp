@@ -38,6 +38,14 @@ class LivestreamService {
     return data is Map<String, dynamic> ? data : null;
   }
 
+  /// Promote starting → live after the device successfully publishes via WHIP.
+  Future<Map<String, dynamic>?> markPublishing({String? sessionId}) async {
+    final data = await _api.post('artist-live/publishing', {
+      if (sessionId != null) 'sessionId': sessionId,
+    });
+    return data is Map<String, dynamic> ? data : null;
+  }
+
   Future<Map<String, dynamic>?> join(String sessionId, {String source = 'mobile_watch', String? viewerToken}) async {
     final data = await _api.post('artist-live/$sessionId/join', {
       'source': source,

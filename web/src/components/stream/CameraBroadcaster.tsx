@@ -23,6 +23,10 @@ type Props = {
    * or sent, which avoids paying to stream video.
    */
   startCameraOff?: boolean;
+  /** Fired once WHIP publish succeeds so the host session can leave `starting`. */
+  onPublishing?: () => void;
+  /** Fired when camera/WHIP setup fails after the live session already exists. */
+  onError?: (message: string) => void;
 };
 
 /**
@@ -35,7 +39,12 @@ type Props = {
  * the session continues audio-only until the camera is turned back on. A video
  * transceiver is always created up front so toggling needs no renegotiation.
  */
-export function CameraBroadcaster({ whipUrl, startCameraOff = false }: Props) {
+export function CameraBroadcaster({
+  whipUrl,
+  startCameraOff = false,
+  onPublishing,
+  onError,
+}: Props) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -141,11 +150,26 @@ export function CameraBroadcaster({ whipUrl, startCameraOff = false }: Props) {
       await pc.setLocalDescription(offer);
       await waitForIceGathering(pc);
 
-      const res = await fetch(whipUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/sdp' },
-        body: pc.localDescription?.sdp ?? offer.sdp ?? '',
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 20000);
+      let res: Response;
+      try {
+        res = await fetch(whipUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: pc.localDescription?.sdp ?? offer.sdp ?? '',
+          signal: controller.signal,
+        });
+      } catch (err) {
+        if ((err as Error)?.name === 'AbortError') {
+          throw new Error(
+            'Publish timed out. Check your connection and try again.',
+          );
+        }
+        throw err;
+      } finally {
+        clearTimeout(timeout);
+      }
       if (!res.ok) {
         throw new Error(`Publish failed (${res.status})`);
       }
@@ -160,18 +184,28 @@ export function CameraBroadcaster({ whipUrl, startCameraOff = false }: Props) {
       const answer = await res.text();
       await pc.setRemoteDescription({ type: 'answer', sdp: answer });
       setState('live');
+      try {
+        onPublishing?.();
+      } catch {
+        /* noop */
+      }
     } catch (e) {
       const msg =
         e instanceof Error ? e.message : 'Could not start camera broadcast';
-      setError(
+      const friendly =
         msg.includes('Permission') || msg.includes('denied')
           ? 'Camera/microphone permission was denied. Allow access and try again.'
-          : msg,
-      );
+          : msg;
+      setError(friendly);
       setState('error');
       await teardown();
+      try {
+        onError?.(friendly);
+      } catch {
+        /* noop */
+      }
     }
-  }, [whipUrl, waitForIceGathering, teardown]);
+  }, [whipUrl, waitForIceGathering, teardown, onPublishing, onError]);
 
   useEffect(() => {
     startCameraOffRef.current = startCameraOff;

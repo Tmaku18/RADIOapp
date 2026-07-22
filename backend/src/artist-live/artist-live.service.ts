@@ -301,12 +301,34 @@ export class ArtistLiveService {
 
     const { data: active } = await supabase
       .from('artist_live_sessions')
-      .select('id')
+      .select('id, status, created_at')
       .eq('artist_id', dbUser.id)
       .in('status', ['starting', 'live'])
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
     if (active) {
-      throw new BadRequestException('You already have an active live session');
+      // Stale "starting" sessions happen when WHIP never connects (or the CF
+      // webhook never fires). Auto-end them so the host isn't permanently locked
+      // out of Go Live / viewers aren't stuck on a black player.
+      const ageMs = Date.now() - new Date(active.created_at).getTime();
+      const staleStarting =
+        active.status === 'starting' && ageMs > 2 * 60 * 1000;
+      if (staleStarting) {
+        await supabase
+          .from('artist_live_sessions')
+          .update({
+            status: 'ended',
+            ended_at: new Date().toISOString(),
+            current_viewers: 0,
+            metadata: {
+              autoEndedReason: 'stale_starting_reclaim',
+            },
+          })
+          .eq('id', active.id);
+      } else {
+        throw new BadRequestException('You already have an active live session');
+      }
     }
 
     const cf = await this.ensureCloudflareInput(dbUser.id);
@@ -419,6 +441,53 @@ export class ArtistLiveService {
     }
 
     return { stopped: true, endedAt, sessionId: active.id };
+  }
+
+  /**
+   * Called by the broadcaster after WHIP/RTMP publish succeeds so we don't
+   * depend solely on Cloudflare webhooks to leave `starting` (black player).
+   */
+  async markPublishing(firebaseUid: string, sessionId?: string) {
+    this.ensureLiveEnabled();
+    const supabase = getSupabaseClient();
+    const dbUser = await this.getDbUser(firebaseUid);
+    let activeQuery = supabase
+      .from('artist_live_sessions')
+      .select('id, status, started_at, metadata')
+      .eq('artist_id', dbUser.id)
+      .in('status', ['starting', 'live']);
+    if (sessionId) {
+      activeQuery = activeQuery.eq('id', sessionId);
+    } else {
+      activeQuery = activeQuery
+        .order('created_at', { ascending: false })
+        .limit(1);
+    }
+    const { data: active } = await activeQuery.maybeSingle();
+    if (!active) {
+      throw new NotFoundException('No active stream to mark live');
+    }
+    if (active.status === 'live' && active.started_at) {
+      return { live: true, sessionId: active.id, alreadyLive: true };
+    }
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase
+      .from('artist_live_sessions')
+      .update({
+        status: 'live',
+        started_at: active.started_at || nowIso,
+        metadata: {
+          ...(active.metadata || {}),
+          publishingConfirmedAt: nowIso,
+        },
+      })
+      .eq('id', active.id);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to mark stream live: ${error.message}`,
+      );
+    }
+    return { live: true, sessionId: active.id, alreadyLive: false };
   }
 
   /** Current user's streamer application/approval status. */

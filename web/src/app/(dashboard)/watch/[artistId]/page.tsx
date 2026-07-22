@@ -446,6 +446,13 @@ export default function WatchArtistLivePage() {
                     allowFullScreen
                     title={isDj ? 'Live DJ set' : 'Artist livestream'}
                   />
+                  {session.status === 'starting' && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55">
+                      <span className="rounded-full bg-black/80 px-3 py-1.5 text-xs text-white">
+                        Waiting for broadcaster to connect…
+                      </span>
+                    </div>
+                  )}
                 </div>
               ) : session?.playback_hls_url ? (
                 <HlsPlayer src={session.playback_hls_url} />

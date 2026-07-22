@@ -29,7 +29,6 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   final TextEditingController _description = TextEditingController();
   final TextEditingController _category = TextEditingController();
 
-  bool _rendererReady = false;
   bool _loading = false;
   bool _live2 = false;
   bool _micOn = true;
@@ -51,7 +50,15 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     // radio stream into a sudden full-volume blast.
     unawaited(_softPauseRadio());
     _renderer.initialize().then((_) {
-      if (mounted) setState(() => _rendererReady = true);
+      if (!mounted) return;
+      // Re-bind if WHIP already attached a stream before init finished.
+      final pending = _broadcaster.localStream;
+      if (pending != null) {
+        _renderer.srcObject = pending;
+        setState(() {});
+      }
+    }).catchError((_) {
+      // Preview may still work once srcObject is assigned later.
     });
   }
 
@@ -111,8 +118,10 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       _loading = true;
       _statusText = 'Starting session…';
     });
+    var sessionCreated = false;
     try {
       await _softPauseRadio();
+      await AudioPlayerService.prepareForBroadcast();
       final data = await _live.start(
         title: _title.text.trim().isEmpty ? null : _title.text.trim(),
         description:
@@ -127,6 +136,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
           ? data!['session'] as Map<String, dynamic>
           : null;
       _sessionId = session?['id']?.toString();
+      sessionCreated = _sessionId != null;
       final whipUrl = _ingest?['webRtcUrl'] as String?;
 
       if (whipUrl == null || whipUrl.isEmpty) {
@@ -141,21 +151,54 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       }
 
       setState(() => _statusText = 'Requesting camera & mic…');
+      // Show local preview immediately so the host isn't stuck on a black
+      // "Connecting…" screen while WHIP negotiates.
+      final local = await _broadcaster.acquireLocalMedia();
+      _renderer.srcObject = local;
+      if (mounted) {
+        setState(() {
+          _live2 = true;
+          _streamSource = 'device';
+          _micOn = true;
+          _camOn = true;
+          _statusText = 'Connecting to stream…';
+        });
+      }
+
       final stream = await _broadcaster.start(whipUrl);
       _renderer.srcObject = stream;
+      try {
+        await _live.markPublishing(sessionId: _sessionId);
+      } catch (_) {
+        // Non-fatal — Cloudflare webhook may still promote the session.
+      }
       if (!mounted) return;
       setState(() {
-        _live2 = true;
-        _streamSource = 'device';
-        _micOn = true;
-        _camOn = true;
         _statusText = null;
       });
     } catch (e) {
+      // Don't leave a ghost "starting" session that blacks out watchers and
+      // blocks the next Go Live attempt.
+      if (sessionCreated) {
+        try {
+          await _live.stop();
+        } catch (_) {}
+        _sessionId = null;
+        _ingest = null;
+      }
+      try {
+        await _broadcaster.dispose();
+      } catch (_) {}
+      try {
+        _renderer.srcObject = null;
+      } catch (_) {}
       if (!mounted) return;
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Start failed: $e')));
-      setState(() => _statusText = null);
+      setState(() {
+        _live2 = false;
+        _statusText = null;
+      });
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -188,13 +231,24 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         });
       } else {
         setState(() => _statusText = 'Requesting camera & mic…');
+        await AudioPlayerService.prepareForBroadcast();
+        final local = await _broadcaster.acquireLocalMedia();
+        _renderer.srcObject = local;
+        if (mounted) {
+          setState(() {
+            _streamSource = 'device';
+            _micOn = true;
+            _camOn = true;
+            _statusText = 'Connecting to stream…';
+          });
+        }
         final stream = await _broadcaster.start(whipUrl!);
         _renderer.srcObject = stream;
+        try {
+          await _live.markPublishing(sessionId: _sessionId);
+        } catch (_) {}
         if (!mounted) return;
         setState(() {
-          _streamSource = 'device';
-          _micOn = true;
-          _camOn = true;
           _statusText = null;
         });
       }
@@ -400,7 +454,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                if (_rendererReady && hasVideo && _camOn)
+                if (hasVideo && _camOn)
                   RTCVideoView(
                     _renderer,
                     objectFit:
@@ -412,7 +466,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                     child: Text(
                       _streamSource == 'obs'
                           ? 'Streaming via OBS / encoder'
-                          : (hasVideo
+                          : (!_camOn
                               ? 'Camera off'
                               : (_statusText ?? 'Connecting…')),
                       style: const TextStyle(color: Colors.white70),
