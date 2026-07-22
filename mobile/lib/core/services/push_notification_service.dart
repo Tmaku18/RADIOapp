@@ -9,6 +9,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api_service.dart';
 import 'notification_settings_service.dart';
 
+/// Top-level handler required by firebase_messaging for background isolates.
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  // Notification+data messages are presented by the OS on iOS/Android.
+  // Keep this registered so background delivery is wired correctly.
+  debugPrint(
+    'PushNotificationService: background message '
+    '${message.messageId ?? message.data['type']}',
+  );
+}
+
 /// Push notification service with production-grade features:
 /// - First-login permission prompt (iOS/Android system dialog)
 /// - Token refresh: Listen to onTokenRefresh stream
@@ -41,6 +52,15 @@ class PushNotificationService {
     // Initialize local notifications for foreground display
     await _initializeLocalNotifications();
 
+    // iOS: allow system banners while the app is in the foreground.
+    if (Platform.isIOS) {
+      await _messaging.setForegroundNotificationPresentationOptions(
+        alert: true,
+        badge: true,
+        sound: true,
+      );
+    }
+
     // Set up token refresh listener immediately
     _messaging.onTokenRefresh.listen(_onTokenRefresh).onError((error) {
       debugPrint('PushNotificationService: Token refresh error - $error');
@@ -60,13 +80,17 @@ class PushNotificationService {
 
     // Check if permission already granted
     final settings = await _messaging.getNotificationSettings();
-    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+    if (_isAuthorized(settings.authorizationStatus)) {
       await _registerToken();
     }
 
     _initialized = true;
     debugPrint('PushNotificationService: Initialized');
   }
+
+  bool _isAuthorized(AuthorizationStatus status) =>
+      status == AuthorizationStatus.authorized ||
+      status == AuthorizationStatus.provisional;
 
   /// Initialize flutter_local_notifications for foreground display
   Future<void> _initializeLocalNotifications() async {
@@ -111,7 +135,8 @@ class PushNotificationService {
       );
 
       await _localNotifications
-          .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
     }
   }
@@ -119,8 +144,7 @@ class PushNotificationService {
   /// Request OS notification permission (iOS alert + Android 13+ runtime).
   Future<bool> requestPermissionLazy() async {
     final current = await _messaging.getNotificationSettings();
-    if (current.authorizationStatus == AuthorizationStatus.authorized ||
-        current.authorizationStatus == AuthorizationStatus.provisional) {
+    if (_isAuthorized(current.authorizationStatus)) {
       await _registerToken();
       return true;
     }
@@ -149,9 +173,7 @@ class PushNotificationService {
       criticalAlert: false,
     );
 
-    final granted =
-        settings.authorizationStatus == AuthorizationStatus.authorized ||
-            settings.authorizationStatus == AuthorizationStatus.provisional;
+    final granted = _isAuthorized(settings.authorizationStatus);
 
     if (granted) {
       // Persist master toggle without re-entering permission request.
@@ -180,8 +202,7 @@ class PushNotificationService {
       final settings = await _messaging.getNotificationSettings();
       final status = settings.authorizationStatus;
 
-      if (status == AuthorizationStatus.authorized ||
-          status == AuthorizationStatus.provisional) {
+      if (_isAuthorized(status)) {
         await prefs.setBool(_firstLoginPromptKey, true);
         await _registerToken();
         return;
@@ -247,10 +268,41 @@ class PushNotificationService {
     }
   }
 
+  /// Wait briefly for the APNs device token — required before FCM getToken on iOS.
+  Future<void> _waitForApnsToken() async {
+    if (!Platform.isIOS) return;
+    try {
+      var apns = await _messaging.getAPNSToken();
+      for (var i = 0; i < 12 && (apns == null || apns.isEmpty); i++) {
+        await Future<void>.delayed(Duration(milliseconds: 250 * (i + 1)));
+        apns = await _messaging.getAPNSToken();
+      }
+      if (apns == null || apns.isEmpty) {
+        debugPrint(
+          'PushNotificationService: APNs token not ready '
+          '(check Push capability + Firebase APNs key)',
+        );
+      } else {
+        debugPrint('PushNotificationService: APNs token ready');
+      }
+    } catch (e) {
+      debugPrint('PushNotificationService: getAPNSToken failed - $e');
+    }
+  }
+
   /// Get FCM token and register with backend (always re-sync so server stays current).
   Future<void> _registerToken() async {
     try {
-      final token = await _messaging.getToken();
+      await _waitForApnsToken();
+
+      String? token = await _messaging.getToken();
+      // Retry a few times — iOS often needs a beat after APNs registration.
+      for (var i = 0; i < 5 && (token == null || token.isEmpty); i++) {
+        await Future<void>.delayed(Duration(milliseconds: 400 * (i + 1)));
+        await _waitForApnsToken();
+        token = await _messaging.getToken();
+      }
+
       if (token == null || token.isEmpty) {
         debugPrint('PushNotificationService: No FCM token available yet');
         return;
@@ -267,7 +319,9 @@ class PushNotificationService {
 
   /// Handle token refresh from FCM
   void _onTokenRefresh(String newToken) async {
-    debugPrint('PushNotificationService: Token refreshed - ${newToken.substring(0, 20)}...');
+    debugPrint(
+      'PushNotificationService: Token refreshed - ${newToken.substring(0, 20)}...',
+    );
     _currentToken = newToken;
     await _sendTokenToBackend(newToken);
   }
@@ -280,7 +334,9 @@ class PushNotificationService {
         'deviceType': Platform.isIOS ? 'ios' : 'android',
       });
     } catch (e) {
-      debugPrint('PushNotificationService: Failed to register token with backend - $e');
+      debugPrint(
+        'PushNotificationService: Failed to register token with backend - $e',
+      );
     }
   }
 
@@ -292,8 +348,7 @@ class PushNotificationService {
       final enabled = await NotificationSettingsService().notificationsEnabled;
       if (!enabled) return;
       final settings = await _messaging.getNotificationSettings();
-      if (settings.authorizationStatus == AuthorizationStatus.authorized ||
-          settings.authorizationStatus == AuthorizationStatus.provisional) {
+      if (_isAuthorized(settings.authorizationStatus)) {
         await _registerToken();
       }
     } catch (e) {
@@ -337,13 +392,19 @@ class PushNotificationService {
     if (!await _shouldShowForeground(type)) return;
 
     final notification = message.notification;
+    final title = notification?.title ?? message.data['title']?.toString();
+    final body = notification?.body ?? message.data['body']?.toString();
+    if ((title == null || title.isEmpty) && (body == null || body.isEmpty)) {
+      return;
+    }
+
     final android = message.notification?.android;
-    if (notification == null) return;
 
     await _localNotifications.show(
-      id: notification.hashCode,
-      title: notification.title,
-      body: notification.body,
+      id: notification?.hashCode ??
+          (type?.hashCode ?? DateTime.now().millisecondsSinceEpoch),
+      title: title,
+      body: body,
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
           'radio_alerts',
@@ -368,7 +429,9 @@ class PushNotificationService {
 
   /// Handle notification tap (opens app from background/terminated)
   void _handleNotificationTap(RemoteMessage message) {
-    debugPrint('PushNotificationService: Notification tapped - ${message.data}');
+    debugPrint(
+      'PushNotificationService: Notification tapped - ${message.data}',
+    );
     final type = message.data['type']?.toString();
     final payload = Map<String, dynamic>.from(message.data);
 
@@ -451,7 +514,7 @@ class PushNotificationService {
   /// Check if notifications are enabled
   Future<bool> areNotificationsEnabled() async {
     final settings = await _messaging.getNotificationSettings();
-    return settings.authorizationStatus == AuthorizationStatus.authorized;
+    return _isAuthorized(settings.authorizationStatus);
   }
 
   /// Get the current FCM token (for debugging)

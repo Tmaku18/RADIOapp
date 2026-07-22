@@ -347,6 +347,15 @@ export class PushNotificationService {
       return false;
     }
 
+    // FCM data payloads must be string → string (non-strings break iOS delivery).
+    const stringData: Record<string, string> = {
+      click_action: 'FLUTTER_NOTIFICATION_CLICK',
+    };
+    for (const [key, value] of Object.entries(dto.data ?? {})) {
+      if (value == null) continue;
+      stringData[key] = typeof value === 'string' ? value : String(value);
+    }
+
     // Build FCM messages
     const messages = tokens.map((t) => ({
       token: t.fcm_token,
@@ -355,10 +364,7 @@ export class PushNotificationService {
         body: dto.body,
         imageUrl: dto.imageUrl,
       },
-      data: {
-        ...dto.data,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK',
-      },
+      data: stringData,
       android: {
         priority: 'high' as const,
         notification: {
@@ -368,8 +374,16 @@ export class PushNotificationService {
         },
       },
       apns: {
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert',
+        },
         payload: {
           aps: {
+            alert: {
+              title: dto.title,
+              body: dto.body,
+            },
             sound: 'default',
             badge: 1,
           },
@@ -383,8 +397,14 @@ export class PushNotificationService {
         `Push sent: ${response.successCount} success, ${response.failureCount} failed`,
       );
 
-      // Clean up invalid tokens
+      // Clean up invalid tokens; log platform-specific failures (often APNs auth).
       response.responses.forEach((resp, idx) => {
+        if (!resp.success) {
+          const deviceType = tokens[idx]?.device_type ?? 'unknown';
+          this.logger.warn(
+            `Push failed (${deviceType}): ${resp.error?.code ?? 'unknown'} ${resp.error?.message ?? ''}`,
+          );
+        }
         if (
           !resp.success &&
           (resp.error?.code === 'messaging/invalid-registration-token' ||

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
@@ -66,6 +67,9 @@ void main() async {
     );
     firebaseInitialized = true;
     debugPrint('Firebase initialized successfully');
+
+    // Must be registered before runApp for background/terminated iOS delivery.
+    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
     try {
       await AuthService.warmUpGoogleSignIn();
