@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import '../core/services/audio_player_service.dart';
 import '../core/theme/networx_extensions.dart';
 
 /// Nudge / scrub granularity in seconds.
@@ -105,9 +106,32 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   double _end = 0;
   bool _saving = false;
   bool _previewing = false;
+  bool _didSoftPauseRadio = false;
 
   int get _minLen => widget.minLength;
   int get _maxLen => widget.maxLength;
+
+  /// Mute/pause live radio while the clip window preview plays.
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+      // Soft-mute keeps the stream advancing silently; hard-pause so the
+      // separate preview player is the only audible source.
+      await AudioPlayerService().player.pause();
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioIfNeeded() async {
+    if (!_didSoftPauseRadio) return;
+    _didSoftPauseRadio = false;
+    try {
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
+  }
 
   @override
   void initState() {
@@ -220,6 +244,7 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
 
   Future<void> _preview() async {
     try {
+      await _softPauseRadio();
       // Clip + loop-one plays only the selected window, repeating it.
       await _player.setClip(
         start: Duration(milliseconds: (_start * 1000).round()),
@@ -230,6 +255,7 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
       if (!mounted) return;
       setState(() => _previewing = true);
     } catch (_) {
+      await _softResumeRadioIfNeeded();
       if (mounted) setState(() => _previewing = false);
     }
   }
@@ -240,6 +266,7 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
       await _player.setLoopMode(LoopMode.off);
       await _player.setClip();
     } catch (_) {}
+    await _softResumeRadioIfNeeded();
     if (mounted) setState(() => _previewing = false);
   }
 
@@ -266,6 +293,16 @@ class _ClipWindowSheetState extends State<ClipWindowSheet> {
   void dispose() {
     _startCtrl.dispose();
     _endCtrl.dispose();
+    // Best-effort: stop preview and unmute radio if this sheet paused it.
+    try {
+      _player.pause();
+    } catch (_) {}
+    if (_didSoftPauseRadio) {
+      _didSoftPauseRadio = false;
+      try {
+        AudioPlayerService.handler.setUserPaused(false);
+      } catch (_) {}
+    }
     _player.dispose();
     super.dispose();
   }

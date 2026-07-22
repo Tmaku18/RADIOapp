@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { bindExclusivePreview } from '@/lib/preview-audio';
 
 const STEP = 0.5;
@@ -71,7 +72,9 @@ export function ClipWindowEditor({
   maxLength = 15,
   disabled = false,
 }: Props) {
+  const playback = usePlaybackOptional();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const didSoftPauseRadioRef = useRef(false);
   const [duration, setDuration] = useState<number>(durationSeconds ?? 0);
   const [current, setCurrent] = useState(0);
   const [playing, setPlaying] = useState(false);
@@ -82,6 +85,18 @@ export function ClipWindowEditor({
   const endRef = useRef(endSeconds);
   startRef.current = startSeconds;
   endRef.current = endSeconds;
+
+  const softPauseRadio = useCallback(() => {
+    if (!playback?.actions || didSoftPauseRadioRef.current) return;
+    playback.actions.softPause();
+    didSoftPauseRadioRef.current = true;
+  }, [playback]);
+
+  const softResumeRadioIfNeeded = useCallback(() => {
+    if (!playback?.actions || !didSoftPauseRadioRef.current) return;
+    didSoftPauseRadioRef.current = false;
+    void playback.actions.softResume();
+  }, [playback]);
 
   useEffect(() => {
     setStartText(fmt(startSeconds));
@@ -163,12 +178,14 @@ export function ClipWindowEditor({
       unbindExclusive();
       audio.pause();
       audioRef.current = null;
+      softResumeRadioIfNeeded();
     };
-  }, [audioUrl]);
+  }, [audioUrl, softResumeRadioIfNeeded]);
 
   const previewWindow = () => {
     const audio = audioRef.current;
     if (!audio) return;
+    softPauseRadio();
     audio.loop = false;
     audio.currentTime = startSeconds;
     void audio.play();
@@ -178,6 +195,7 @@ export function ClipWindowEditor({
   const pause = () => {
     audioRef.current?.pause();
     setPlaying(false);
+    softResumeRadioIfNeeded();
   };
 
   const nudgeStart = (delta: number) => {
