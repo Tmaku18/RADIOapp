@@ -1107,7 +1107,7 @@ export class SongsService {
       );
     }
 
-    // Any authenticated app role can upload songs.
+    // Everyone except listeners can upload songs.
     const { data: user } = await supabase
       .from('users')
       .select('role')
@@ -1116,9 +1116,17 @@ export class SongsService {
 
     if (
       !user ||
-      !['listener', 'artist', 'service_provider', 'admin'].includes(user.role)
+      ![
+        'artist',
+        'service_provider',
+        'admin',
+        'dj',
+        'musician',
+      ].includes(user.role)
     ) {
-      throw new ForbiddenException('Your account role cannot upload songs');
+      throw new ForbiddenException(
+        'Listeners cannot upload songs. Switch to Artist or Producer in settings.',
+      );
     }
 
     const discoverStartRaw = createSongDto.discoverClipStartSeconds;

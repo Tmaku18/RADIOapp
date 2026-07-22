@@ -308,10 +308,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
       return;
     }
     final handler = AudioPlayerService.handler;
-    if (handler.userPaused) {
-      await _player.setVolume(0);
-    } else {
-      await _player.setVolume(1);
+    // Never hardcode volume to 1 — that blasts after temporary mutes/ducks.
+    await handler.applyOutputVolume();
+    if (!handler.userPaused) {
       await _player.play();
     }
     if (reportPlay) {

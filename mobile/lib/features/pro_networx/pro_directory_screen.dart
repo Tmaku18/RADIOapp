@@ -173,7 +173,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
                               final preview = (p.mediaPreviewUrl ?? '').trim().isEmpty ? null : p.mediaPreviewUrl!;
                               final title = (p.serviceTitle ?? p.skillsHeadline ?? p.headline ?? p.skills.firstOrNull ?? 'Service')
                                   .toString();
-                              final name = p.displayName ?? 'Catalyst';
+                              final name = p.displayName ?? 'Producer';
                               final price = p.startingAtCents == null
                                   ? null
                                   : '\$${(p.startingAtCents! / 100).toStringAsFixed(0)}';
@@ -302,7 +302,7 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
                                           const Spacer(),
                                           if (p.verifiedCatalyst)
                                             _Pill(
-                                              text: 'Verified Catalyst',
+                                              text: 'Verified Producer',
                                               color: scheme.primary,
                                               border: scheme.primary.withValues(alpha: 0.35),
                                               fill: scheme.primary.withValues(alpha: 0.10),

@@ -8,7 +8,7 @@ import '../../core/services/pro_networx_service.dart';
 
 const int _kMaxPortfolioBytes = 25 * 1024 * 1024; // 25MB
 
-/// Lets a Catalyst (service provider) manage their "Featured work" portfolio:
+/// Lets a Producer (service provider) manage their "Featured work" portfolio:
 /// upload audio, image, or video samples (or link external media), and remove
 /// items. Mirrors the web portfolio editor.
 class ProPortfolioScreen extends StatefulWidget {
@@ -42,7 +42,7 @@ class _ProPortfolioScreenState extends State<ProPortfolioScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loadError =
-          'Portfolio is for Catalyst (service provider) accounts. Switch to a Catalyst account to add work samples.');
+          'Portfolio is for Producer accounts. Switch to a Producer role in Settings to add work samples.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

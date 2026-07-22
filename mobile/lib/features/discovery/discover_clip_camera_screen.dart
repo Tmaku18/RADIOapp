@@ -5,10 +5,11 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../../core/services/audio_player_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 
-/// Full-screen camera: countdown on preview, then auto-starts recording when
-/// the timer hits 1 while the Discover clip plays.
+/// Full-screen camera: silent countdown on preview, then starts recording +
+/// Discover clip audio only after the countdown fully ends.
 class DiscoverClipCameraScreen extends StatefulWidget {
   const DiscoverClipCameraScreen({
     super.key,
@@ -59,10 +60,25 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
     final cam = _camera;
     _camera = null;
     unawaited(cam?.dispose() ?? Future<void>.value());
+    // Hand audio route back to music before parent unmutes radio.
+    unawaited(AudioPlayerService.restoreMusicSession());
     super.dispose();
   }
 
+  /// Mute live radio for countdown + take. Parent create-video screen resumes.
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+      }
+    } catch (_) {}
+  }
+
   Future<void> _setup() async {
+    // Mute live radio for the whole countdown + take.
+    await _softPauseRadio();
+
     try {
       final session = await AudioSession.instance;
       await session.configure(
@@ -113,6 +129,15 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         });
         return;
       }
+      // Preload clip silently so playback can start exactly when recording does.
+      try {
+        await _clipPlayer.setUrl(widget.clipUrl);
+        await _clipPlayer.seek(Duration.zero);
+        await _clipPlayer.pause();
+      } catch (_) {
+        // Non-fatal: _beginRecording will retry setUrl.
+      }
+      if (!mounted) return;
       setState(() => _initializing = false);
       _startCountdown();
     } catch (e) {
@@ -149,24 +174,20 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
   void _startCountdown() {
     _countdownTimer?.cancel();
+    // Show N … 1 for a full second each, then start — never play audio during
+    // the countdown.
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
       }
       if (_remaining <= 1) {
-        // Already showing 1 — start recording now.
+        // "1" has been on screen for a full tick — countdown is over.
         timer.cancel();
         unawaited(_beginRecording());
         return;
       }
-      final next = _remaining - 1;
-      setState(() => _remaining = next);
-      if (next == 1) {
-        // Countdown just hit 1 — start recording immediately.
-        timer.cancel();
-        unawaited(_beginRecording());
-      }
+      setState(() => _remaining = _remaining - 1);
     });
   }
 
@@ -182,17 +203,24 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     setState(() {
       _startingRecord = true;
-      _remaining = 1;
+      _remaining = 0;
       _error = null;
     });
 
     try {
-      // Clip audio starts with the take.
-      await _clipPlayer.setUrl(widget.clipUrl);
+      // Ensure clip is loaded and rewound, but do not play until the camera
+      // recorder is actually running.
+      if (_clipPlayer.audioSource == null) {
+        await _clipPlayer.setUrl(widget.clipUrl);
+      }
       await _clipPlayer.seek(Duration.zero);
-      unawaited(_clipPlayer.play());
+      await _clipPlayer.pause();
 
       await cam.startVideoRecording();
+      if (!mounted) return;
+
+      // Music starts only after countdown ended and recording has begun.
+      await _clipPlayer.play();
       if (!mounted) return;
 
       setState(() {
@@ -240,6 +268,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     try {
       final file = await cam.stopVideoRecording();
+      try {
+        await AudioPlayerService.restoreMusicSession();
+      } catch (_) {}
       if (!mounted) return;
       Navigator.of(context).pop(file.path);
     } catch (e) {
@@ -264,6 +295,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         await cam.stopVideoRecording();
       } catch (_) {}
     }
+    try {
+      await AudioPlayerService.restoreMusicSession();
+    } catch (_) {}
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -387,9 +421,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          _remaining == 1
-                              ? 'Recording…'
-                              : 'Recording starts at 1',
+                          _remaining <= 1
+                              ? 'Get ready…'
+                              : 'Music starts when recording begins',
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 16,

@@ -1036,7 +1036,7 @@ const List<_ValueProp> _valueProps = [
   _ValueProp(
     Icons.handshake_outlined,
     'ProNetworx mentorship',
-    'Connect with Catalysts — producers, photographers, and mentors.',
+    'Connect with Producers — beatmakers, photographers, and mentors.',
   ),
 ];
 
@@ -1072,11 +1072,11 @@ const List<_GlossaryGroupData> _glossary = [
     [
       _GlossaryItem('Metamorphosis',
           'The transformation every artist undergoes — from an unknown upload to a name the people know.'),
-      _GlossaryItem('Gem',
-          'An artist. A hidden gem, ready to be heard and refined by the community.'),
+      _GlossaryItem('Artist',
+          'A creator who uploads music and grows through the radio and community.'),
       _GlossaryItem('Diamond',
-          'A Gem refined under pressure — a standout artist the community has voted into the spotlight.'),
-      _GlossaryItem('Catalyst',
+          'An artist refined under pressure — a standout the community has voted into the spotlight.'),
+      _GlossaryItem('Producer',
           'A creative service provider (producer, photographer, mentor) who speeds up the metamorphosis through Pro-Networx.'),
     ],
   ),

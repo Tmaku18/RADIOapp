@@ -66,6 +66,9 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   /// True when the listener tapped pause — audio is paused and muted until resume.
   bool get userPaused => _userPaused;
 
+  /// Last non-muted music level the listener chose (0..1).
+  double get baseMusicVolume => _baseMusicVolume;
+
   final ValueNotifier<bool> userPausedNotifier = ValueNotifier(false);
 
   MediaItem _withBrandArtwork(MediaItem item) {
@@ -174,11 +177,32 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   // --- Media notification controls delegate to the music player ---
 
+  /// Apply the correct audible music level for the current pause/overlay state.
+  Future<void> applyOutputVolume() async {
+    if (_userPaused) {
+      await music.setVolume(0);
+      return;
+    }
+    if (_overlayActive) {
+      await music.setVolume(_overlayDuckVolume);
+      return;
+    }
+    await music.setVolume(_baseMusicVolume.clamp(0.0, 1.0));
+  }
+
   /// "Pause" the radio = stay live but mute. The music stream keeps playing and
   /// advancing on the live server timeline (so every device stays in sync); we
   /// only silence the output. Unmuting rejoins instantly with no catch-up. The
   /// DJ voice overlay is paused+muted since it shouldn't accumulate while muted.
   Future<void> setUserPaused(bool paused) async {
+    if (paused && !_userPaused && !_overlayActive) {
+      // Remember the level the listener was actually hearing so resume doesn't
+      // jump to a stale/default 1.0 after temporary mutes (Discover record, etc.).
+      final current = music.volume;
+      if (current > 0) {
+        _baseMusicVolume = current.clamp(0.0, 1.0);
+      }
+    }
     _userPaused = paused;
     userPausedNotifier.value = paused;
     if (paused) {
@@ -190,11 +214,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
         await voice.setVolume(0);
       } catch (_) {}
     } else {
-      if (_overlayActive) {
-        await music.setVolume(_overlayDuckVolume);
-      } else {
-        await music.setVolume(_baseMusicVolume);
-      }
+      await applyOutputVolume();
       try {
         if (_overlayActive) {
           await voice.setVolume(1.0);
@@ -295,7 +315,8 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     } catch (_) {
       // Ignore stop failures on an already-idle overlay player.
     }
-    await music.setVolume(_baseMusicVolume);
+    // Respect soft-pause / user mute — never blast music back on while muted.
+    await applyOutputVolume();
   }
 
   Future<void> dispose() async {

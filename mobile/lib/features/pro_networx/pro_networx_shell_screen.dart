@@ -2,16 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/dimension_tokens.dart';
+import '../../features/job_board/job_board_screen.dart';
+import '../../features/social/social_feed_screen.dart';
 import '../../widgets/dimension/dimension_radio_bar.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 import 'pro_home_feed_screen.dart';
+import 'pro_networx_nav_drawer.dart';
 import 'pro_radio_screen.dart';
 import 'pro_search_screen.dart';
 import 'pro_services_screen.dart';
 
-/// Authenticated Pro-Networx app shell. Hosts 4 tabs (Home / Search / Services
-/// / Radio) plus a "My profile" action and the persistent radio mini-bar so
-/// audio keeps playing while users browse.
+/// Authenticated Pro-Networx app shell — side menu parity with web
+/// [ProNetworxAppShell] (Home / Discover / Search / Services / Projects /
+/// Radio / My profile), plus the persistent radio mini-bar.
 class ProNetworxShellScreen extends StatefulWidget {
   const ProNetworxShellScreen({
     super.key,
@@ -25,19 +28,28 @@ class ProNetworxShellScreen extends StatefulWidget {
   /// for listeners), the shell pops / resets to home instead.
   final VoidCallback? onExitToRadio;
 
+  static const int tabHome = 0;
+  static const int tabDiscover = 1;
+  static const int tabSearch = 2;
+  static const int tabServices = 3;
+  static const int tabProjects = 4;
+  static const int tabRadio = 5;
+  static const int tabCount = 6;
+
   @override
   State<ProNetworxShellScreen> createState() => _ProNetworxShellScreenState();
 }
 
 class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
-  late int _index = widget.initialTab.clamp(0, 3);
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  late int _index =
+      widget.initialTab.clamp(0, ProNetworxShellScreen.tabCount - 1);
 
-  static const _tabs = <_ProTab>[
-    _ProTab(label: 'Home', icon: Icons.home_outlined),
-    _ProTab(label: 'Search', icon: Icons.search),
-    _ProTab(label: 'Services', icon: Icons.work_outline),
-    _ProTab(label: 'Radio', icon: Icons.radio),
-  ];
+  String get _sectionLabel {
+    final tabs = ProNetworxNavDrawer.tabLabels;
+    if (_index >= 0 && _index < tabs.length) return tabs[_index];
+    return 'Pro-Networx';
+  }
 
   void _exitToRadio() {
     final onExit = widget.onExitToRadio;
@@ -53,37 +65,62 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
     navigator.pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
   }
 
+  void _openDrawer() => _scaffoldKey.currentState?.openDrawer();
+
+  void _selectTab(int index) {
+    setState(() => _index = index.clamp(0, ProNetworxShellScreen.tabCount - 1));
+  }
+
+  void _openRoute(String route) {
+    Navigator.of(context).pushNamed(route);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      key: _scaffoldKey,
       backgroundColor: DimensionTokens.bgBase,
+      drawer: ProNetworxNavDrawer(
+        currentTabIndex: _index,
+        onSelectTab: _selectTab,
+        onOpenRoute: _openRoute,
+        onBackToRadio: _exitToRadio,
+      ),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(
-          tooltip: 'Back to Networx Radio',
-          icon: const Icon(Icons.arrow_back),
-          onPressed: _exitToRadio,
+          tooltip: 'Menu',
+          icon: const Icon(Icons.menu),
+          onPressed: _openDrawer,
         ),
-        title: const Text('Pro-Networx'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'NETWORX / PRO-NETWORX',
+              style: TextStyle(
+                color: DimensionTokens.cyan300.withValues(alpha: 0.85),
+                fontSize: 9,
+                letterSpacing: 2.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              _sectionLabel.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.6,
+              ),
+            ),
+          ],
+        ),
         actions: [
           BackToNetworxRadioButton(
             compact: true,
             authenticatedTarget: true,
             onPressed: _exitToRadio,
-          ),
-          IconButton(
-            tooltip: 'My profile',
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => Navigator.of(context).pushNamed(
-              AppRoutes.proMeProfile,
-            ),
-          ),
-          IconButton(
-            tooltip: 'Messages',
-            icon: const Icon(Icons.mail_outline),
-            onPressed: () => Navigator.of(context).pushNamed(
-              AppRoutes.messages,
-            ),
           ),
         ],
       ),
@@ -98,8 +135,10 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                   index: _index,
                   children: const [
                     ProHomeFeedScreen(),
+                    SocialFeedScreen(embeddedInProShell: true),
                     ProSearchScreen(),
                     ProServicesScreen(),
+                    JobBoardScreen(embedded: true),
                     ProRadioScreen(),
                   ],
                 ),
@@ -109,22 +148,6 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: _tabs
-            .map(
-              (t) =>
-                  NavigationDestination(icon: Icon(t.icon), label: t.label),
-            )
-            .toList(),
-      ),
     );
   }
-}
-
-class _ProTab {
-  const _ProTab({required this.label, required this.icon});
-  final String label;
-  final IconData icon;
 }

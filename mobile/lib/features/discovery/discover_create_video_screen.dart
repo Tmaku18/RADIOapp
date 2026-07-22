@@ -11,6 +11,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/models/discover_audio_models.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/discover_audio_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../core/theme/networx_extensions.dart';
@@ -57,6 +58,8 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
   bool _uploading = false;
   bool _recording = false;
   String? _error;
+  /// True when this screen muted live radio so clip preview/recording is solo.
+  bool _didSoftPauseRadio = false;
 
   @override
   void initState() {
@@ -66,11 +69,34 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
 
   @override
   void dispose() {
+    unawaited(_softResumeRadioIfNeeded());
     unawaited(_clipPlayer.dispose());
     unawaited(_previewPlayer?.dispose() ?? Future<void>.value());
     _captionCtrl.dispose();
     _listController.dispose();
     super.dispose();
+  }
+
+  /// Mute live radio (keeps sync) while Discover clip audio is in use.
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioIfNeeded() async {
+    if (!_didSoftPauseRadio) return;
+    _didSoftPauseRadio = false;
+    try {
+      // Leave playAndRecord (camera) before unmuting so gain isn't stuck quiet
+      // then suddenly loud when another screen reconfigures the session.
+      await AudioPlayerService.restoreMusicSession();
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
   }
 
   Future<void> _bootstrap() async {
@@ -154,6 +180,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     final clip = _selected;
     if (clip == null || clip.clipUrl.isEmpty) return;
     try {
+      await _softPauseRadio();
       await _clipPlayer.setUrl(clip.clipUrl);
       await _clipPlayer.seek(Duration.zero);
       await _clipPlayer.play();
@@ -203,7 +230,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     }
   }
 
-  /// In-app camera: countdown on mirrored selfie preview; recording + clip at 1.
+  /// In-app camera: silent countdown on mirrored selfie preview; recording + clip after.
   Future<void> _recordWithClip() async {
     final clip = _selected;
     if (clip == null || clip.clipUrl.isEmpty) {
@@ -218,6 +245,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
     });
 
     try {
+      await _softPauseRadio();
       await _stopClip();
       await _clearRecordedPreview();
       if (!mounted) return;

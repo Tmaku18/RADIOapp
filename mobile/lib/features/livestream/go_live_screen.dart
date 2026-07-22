@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/whip_broadcaster.dart';
 import 'widgets/live_chat_panel.dart';
@@ -39,10 +42,14 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
   // RTMP. Only one publishes to Cloudflare at a time — switching to 'obs'
   // releases the phone camera/mic so the encoder can take over.
   String _streamSource = 'device';
+  bool _didSoftPauseRadio = false;
 
   @override
   void initState() {
     super.initState();
+    // Mute radio immediately — opening camera/mic must not un-duck a quiet
+    // radio stream into a sudden full-volume blast.
+    unawaited(_softPauseRadio());
     _renderer.initialize().then((_) {
       if (mounted) setState(() => _rendererReady = true);
     });
@@ -50,12 +57,53 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
 
   @override
   void dispose() {
+    // Best-effort teardown if the host swipes away / the route is removed
+    // without tapping End live — otherwise the session stays "live" server-side.
+    if (_live2 || _sessionId != null) {
+      unawaited(_teardownBroadcast(callApi: true));
+    } else {
+      unawaited(_broadcaster.dispose());
+    }
+    unawaited(_softResumeRadioIfNeeded());
     _title.dispose();
     _description.dispose();
     _category.dispose();
-    _broadcaster.dispose();
     _renderer.dispose();
     super.dispose();
+  }
+
+  /// Stop WHIP/camera and mark the session ended on the backend.
+  Future<void> _teardownBroadcast({required bool callApi}) async {
+    try {
+      await _broadcaster.dispose();
+    } catch (_) {}
+    try {
+      _renderer.srcObject = null;
+    } catch (_) {}
+    if (callApi) {
+      try {
+        await _live.stop();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioIfNeeded() async {
+    if (!_didSoftPauseRadio) return;
+    _didSoftPauseRadio = false;
+    try {
+      await AudioPlayerService.restoreMusicSession();
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
   }
 
   Future<void> _start() async {
@@ -64,6 +112,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       _statusText = 'Starting session…';
     });
     try {
+      await _softPauseRadio();
       final data = await _live.start(
         title: _title.text.trim().isEmpty ? null : _title.text.trim(),
         description:
@@ -159,41 +208,126 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
     }
   }
 
-  Future<void> _stop() async {
+  Future<bool> _confirmEndLive() async {
+    if (!_live2 && _sessionId == null) return true;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('End live stream?'),
+        content: const Text(
+          'This stops broadcasting and ends the session for viewers.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Keep streaming'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('End live'),
+          ),
+        ],
+      ),
+    );
+    return confirmed == true;
+  }
+
+  /// Ends the stream. Returns true when local+API teardown finished.
+  Future<bool> _stop({bool confirm = true}) async {
+    if (confirm) {
+      final ok = await _confirmEndLive();
+      if (!ok) return false;
+    }
+    if (!mounted) return false;
     setState(() => _loading = true);
     try {
-      await _broadcaster.dispose();
-      _renderer.srcObject = null;
-      await _live.stop();
-      if (!mounted) return;
+      await _teardownBroadcast(callApi: true);
+      if (!mounted) return true;
       setState(() {
         _live2 = false;
         _ingest = null;
         _sessionId = null;
+        _streamSource = 'device';
         _statusText = null;
       });
+      await _softResumeRadioIfNeeded();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Live stream ended.')),
+        );
+      }
+      return true;
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Stop failed: $e')));
+      // Still clear local live state so the host isn't stuck "broadcasting".
+      if (mounted) {
+        setState(() {
+          _live2 = false;
+          _ingest = null;
+          _sessionId = null;
+          _statusText = null;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ended locally. Server stop failed: $e')),
+        );
+      }
+      return true;
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _handleBack() async {
+    if (!_live2 && _sessionId == null) {
+      if (mounted) Navigator.of(context).maybePop();
+      return;
+    }
+    final ended = await _stop(confirm: true);
+    if (ended && mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.hostType == 'dj'
-              ? 'Go Live as DJ'
-              : widget.hostType == 'musician'
-                  ? 'Go Live as Musician'
-                  : 'Go Live',
+    return PopScope(
+      canPop: !_live2 && _sessionId == null,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        await _handleBack();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(
+            widget.hostType == 'dj'
+                ? 'Go Live as DJ'
+                : widget.hostType == 'musician'
+                    ? 'Go Live as Musician'
+                    : 'Go Live',
+          ),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: _loading ? null : _handleBack,
+          ),
+          actions: [
+            if (_live2 || _sessionId != null)
+              TextButton(
+                onPressed: _loading
+                    ? null
+                    : () async {
+                        final ended = await _stop(confirm: true);
+                        if (ended && mounted) Navigator.of(context).pop();
+                      },
+                child: Text(
+                  _loading ? 'Ending…' : 'End live',
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+          ],
         ),
+        body: _live2 ? _buildLiveView() : _buildSetupView(),
       ),
-      body: _live2 ? _buildLiveView() : _buildSetupView(),
     );
   }
 
@@ -304,6 +438,28 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                     ),
                   ),
                 ),
+                // Always-visible end control over the preview (chat can bury
+                // the bottom button on small phones).
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.red.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _loading
+                        ? null
+                        : () async {
+                            final ended = await _stop(confirm: true);
+                            if (ended && mounted) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                    icon: const Icon(Icons.stop, size: 18),
+                    label: Text(_loading ? 'Ending…' : 'End'),
+                  ),
+                ),
               ],
             ),
           ),
@@ -352,9 +508,6 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                     ],
                   ),
                 const SizedBox(height: 12),
-                // Streamers see and respond to the live chat right here while
-                // broadcasting; their messages are tagged HOST and they can
-                // long-press any message to remove it.
                 if (_sessionId != null)
                   Expanded(
                     child: LiveChatPanel(
@@ -365,15 +518,26 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
                 else
                   const Expanded(child: SizedBox.shrink()),
                 const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: Colors.red,
+                SafeArea(
+                  top: false,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: _loading
+                          ? null
+                          : () async {
+                              final ended = await _stop(confirm: true);
+                              if (ended && mounted) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                      icon: const Icon(Icons.stop),
+                      label: Text(_loading ? 'Ending…' : 'End live'),
                     ),
-                    onPressed: _loading ? null : _stop,
-                    icon: const Icon(Icons.stop),
-                    label: Text(_loading ? 'Ending…' : 'End live'),
                   ),
                 ),
               ],

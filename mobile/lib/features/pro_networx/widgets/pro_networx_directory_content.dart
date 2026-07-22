@@ -18,7 +18,7 @@ class ProNetworxDirectoryContent extends StatefulWidget {
   const ProNetworxDirectoryContent({
     super.key,
     this.title = 'Directory',
-    this.subtitle = 'Find Catalysts by skill, availability, and location.',
+    this.subtitle = 'Find Producers by skill, availability, and location.',
     this.showEditProfile = true,
     this.smartRanking = false,
   });

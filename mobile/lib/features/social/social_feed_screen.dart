@@ -5,6 +5,8 @@ import '../../core/navigation/app_routes.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import '../pro_networx/pro_create_post_screen.dart';
+import '../pro_networx/pro_networx_shell_screen.dart';
 import '../pro_networx/widgets/pro_feed_post_card.dart';
 
 /// Networks Radio "Social" tab — a read-only reader for the Pro-Networx feed.
@@ -15,10 +17,17 @@ import '../pro_networx/widgets/pro_feed_post_card.dart';
 /// prominent "Post on Pro-Networx" CTA that pushes users into the Pro-Networx
 /// shell.
 class SocialFeedScreen extends StatefulWidget {
-  const SocialFeedScreen({super.key, this.onOpenNavDrawer});
+  const SocialFeedScreen({
+    super.key,
+    this.onOpenNavDrawer,
+    this.embeddedInProShell = false,
+  });
 
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
   final VoidCallback? onOpenNavDrawer;
+
+  /// When true, render as a Pro-Networx Discover tab body (no nested AppBar).
+  final bool embeddedInProShell;
 
   @override
   State<SocialFeedScreen> createState() => _SocialFeedScreenState();
@@ -100,16 +109,90 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
     }
   }
 
-  void _openProNetworxToPost() {
+  Future<void> _openProNetworxToPost() async {
+    if (widget.embeddedInProShell) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => const ProCreatePostScreen()),
+      );
+      if (mounted) await _load(refresh: true);
+      return;
+    }
     Navigator.of(context).pushNamed(
       AppRoutes.proNetworxShell,
-      arguments: 0, // initialTab = Home (where post composer lives)
+      arguments: ProNetworxShellScreen.tabDiscover,
     );
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final body = Column(
+      children: [
+        Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: BoxDecoration(
+            color: scheme.primaryContainer.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.08),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.workspaces_outlined, color: scheme.primary),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.embeddedInProShell
+                          ? 'Discover'
+                          : 'Posts from Pro-Networx',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    Text(
+                      widget.embeddedInProShell
+                          ? 'Browse creator posts. Share your work from here.'
+                          : 'Like and comment here. To share your work, post from Pro-Networx.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              FilledButton.icon(
+                onPressed: _openProNetworxToPost,
+                icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                label: const Text('Post'),
+              ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 2),
+          child: Row(
+            children: [
+              const Expanded(child: NeonLine()),
+              if (widget.embeddedInProShell)
+                IconButton(
+                  tooltip: 'Refresh',
+                  icon: const Icon(Icons.refresh, size: 20),
+                  onPressed: _loading ? null : () => _load(refresh: true),
+                ),
+            ],
+          ),
+        ),
+        Expanded(child: _buildBody()),
+      ],
+    );
+
+    if (widget.embeddedInProShell) {
+      return body;
+    }
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
@@ -130,54 +213,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-            decoration: BoxDecoration(
-              color: scheme.primaryContainer.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(DimensionTokens.cardRadius),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.08),
-              ),
-            ),
-            child: Row(
-              children: [
-                Icon(Icons.workspaces_outlined, color: scheme.primary),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Posts from Pro-Networx',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      Text(
-                        'Like and comment here. To share your work, post from Pro-Networx.',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton.icon(
-                  onPressed: _openProNetworxToPost,
-                  icon: const Icon(Icons.add_a_photo_outlined, size: 18),
-                  label: const Text('Post'),
-                ),
-              ],
-            ),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(12, 10, 12, 2),
-            child: NeonLine(),
-          ),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+      body: body,
     );
   }
 

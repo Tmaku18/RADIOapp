@@ -4,7 +4,7 @@ import '../../core/services/livestream_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
 /// Stream settings: request streaming access, show pending, or open Go Live.
-/// Streaming requires admin approval; artists and Catalysts can apply here.
+/// Streaming requires admin approval; artists and producers can apply here.
 class StreamSettingsScreen extends StatefulWidget {
   const StreamSettingsScreen({super.key});
 
@@ -97,7 +97,7 @@ class _StreamSettingsScreenState extends State<StreamSettingsScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Only artists, Catalysts (service providers), or DJs can request streaming access.',
+                'Only artists, producers, or DJs can request streaming access.',
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
             ],

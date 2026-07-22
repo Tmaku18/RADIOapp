@@ -56,7 +56,7 @@ const GROUPS: FeatureGroup[] = [
     ],
   },
   {
-    audience: 'For Gems (Artists)',
+    audience: 'For Artists',
     tagline: 'Gain verified exposure, prove demand, and get paid directly.',
     features: [
       {
@@ -83,7 +83,7 @@ const GROUPS: FeatureGroup[] = [
     ],
   },
   {
-    audience: 'For Catalysts (ProNetworx)',
+    audience: 'For Producers (ProNetworx)',
     tagline: 'A creative marketplace where talent and opportunity meet.',
     features: [
       {
@@ -92,7 +92,7 @@ const GROUPS: FeatureGroup[] = [
       },
       {
         title: 'Profiles, Feed, Messaging, and the Job Board',
-        body: 'A professional profile with portfolio, an Instagram-style feed, direct messaging, and a job board where members post requests and Catalysts apply. Find work, collaborate, and grow together.',
+        body: 'A professional profile with portfolio, an Instagram-style feed, direct messaging, and a job board where members post requests and Producers apply. Find work, collaborate, and grow together.',
       },
       {
         title: 'Beyond Music - Any Creative Niche',

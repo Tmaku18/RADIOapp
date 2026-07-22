@@ -7,6 +7,7 @@ import '../../core/services/users_service.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/theme/theme_controller.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/role_helpers.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../widgets/dimension/dimension_widgets.dart';
 
@@ -44,11 +45,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _artistLikeMinLikesTrigger = 1;
   int _artistLikeCooldownMinutes = 0;
   bool _savingArtistLikeSettings = false;
+  bool _savingRole = false;
 
   @override
   void initState() {
     super.initState();
     _loadSettings();
+  }
+
+  Future<void> _changeRole(String nextRole) async {
+    if (_savingRole || nextRole == _role) return;
+    setState(() => _savingRole = true);
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      await _usersService.updateMe(role: nextRole);
+      final me = await _usersService.getMe();
+      if (!mounted) return;
+      setState(() {
+        _role = me['role'] as String? ?? nextRole;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Role updated to ${roleDisplayLabel(_role)}'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update role: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingRole = false);
+    }
   }
 
   Future<void> _loadSettings() async {
@@ -274,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     final primary = Theme.of(context).colorScheme.primary;
     final role = _role ?? _me?.role;
-    final isArtist = role == 'artist' || role == 'admin';
+    final isArtist = hasArtistCapability(role);
     final isAdmin = role == 'admin';
 
     return DimensionScreenShell(
@@ -309,6 +338,61 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     subtitle: 'Display name, photo, bio, headline',
                     onTap: () => Navigator.pushNamed(context, AppRoutes.profile),
                   ),
+                  if (!isAdmin)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Role',
+                            style: Theme.of(context).textTheme.titleSmall,
+                          ),
+                          const SizedBox(height: 8),
+                          DropdownButtonFormField<String>(
+                            key: ValueKey('role-$role'),
+                            initialValue: (role == 'artist' ||
+                                    role == 'service_provider' ||
+                                    role == 'listener')
+                                ? role
+                                : 'listener',
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                            items: const [
+                              DropdownMenuItem(
+                                value: 'listener',
+                                child: Text('Listener'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'artist',
+                                child: Text('Artist'),
+                              ),
+                              DropdownMenuItem(
+                                value: 'service_provider',
+                                child: Text('Producer'),
+                              ),
+                            ],
+                            onChanged: _savingRole
+                                ? null
+                                : (value) {
+                                    if (value != null) _changeRole(value);
+                                  },
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Artists and Producers can upload music. Listeners cannot.',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.7),
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
                   _navTile(
                     context,
                     icon: Icons.delete_forever_outlined,

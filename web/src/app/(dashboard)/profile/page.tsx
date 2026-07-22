@@ -340,10 +340,14 @@ export default function ProfilePage() {
     profile?.role === 'admin'
       ? 'Admin'
       : profile?.role === 'service_provider'
-        ? 'Catalyst'
+        ? 'Producer'
         : profile?.role === 'artist'
           ? 'Artist'
-          : 'Listener';
+          : profile?.role === 'dj'
+            ? 'DJ'
+            : profile?.role === 'musician'
+              ? 'Musician'
+              : 'Listener';
   const ownPublicProfileHref =
     profile?.id && hasArtistCapability(profile?.role)
       ? profile.role === 'service_provider'
@@ -625,7 +629,7 @@ export default function ProfilePage() {
                 >
                   <option value="listener">Listener</option>
                   <option value="artist">Artist</option>
-                  <option value="service_provider">Catalyst</option>
+                  <option value="service_provider">Producer</option>
                 </select>
               ) : (
                 <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-foreground font-medium">
@@ -634,7 +638,8 @@ export default function ProfilePage() {
               )}
               {!isAdmin && (
                 <p className="text-sm text-muted-foreground">
-                  You can switch between Listener, Artist, and Catalyst here.
+                  You can switch between Listener, Artist, and Producer here.
+                  Artists and Producers can upload music.
                 </p>
               )}
               {isCatalyst && (

@@ -1,8 +1,9 @@
 /**
- * Role hierarchy: listener (parent) ← artist (Gem) ← service_provider (Catalyst).
- * - Listener capabilities: listen, ripple, follow, yield, refinery (Prospector).
- * - Artist capabilities: everything listener + upload, credits, The Wake, live (Gem).
- * - Service provider capabilities: everything artist + offer services (Catalyst).
+ * Role hierarchy: listener ← artist ← service_provider (producer).
+ * - Listener: listen, ripple, follow, yield, refinery.
+ * - Artist+: everything listener + upload, credits, The Wake, live.
+ * - Producer (service_provider): everything artist + offer Pro-Networx services.
+ * Upload is available to every role except listener (includes dj / musician / admin).
  */
 
 export type AppRole =
@@ -31,14 +32,33 @@ export function hasMusicianCapability(role: AppRole | null | undefined): boolean
   return role === 'musician' || role === 'admin';
 }
 
-/** User has Gem (artist) capabilities: upload, credits, The Wake, live services, artist profile. */
+/** Upload / studio capability: everyone except listeners. */
 export function hasArtistCapability(role: AppRole | null | undefined): boolean {
   if (!role) return false;
-  return ['artist', 'service_provider', 'admin'].includes(role);
+  return role !== 'listener';
 }
 
-/** User has Catalyst (service provider) capabilities: offer services, ProNetworx. */
+/** Producer (service provider) capabilities: offer services, ProNetworx. */
 export function hasServiceProviderCapability(role: AppRole | null | undefined): boolean {
   if (!role) return false;
   return role === 'service_provider' || role === 'admin';
+}
+
+/** User-facing role label. DB values stay `artist` / `service_provider`. */
+export function roleDisplayLabel(role: AppRole | string | null | undefined): string {
+  switch (role) {
+    case 'admin':
+      return 'Admin';
+    case 'service_provider':
+      return 'Producer';
+    case 'artist':
+      return 'Artist';
+    case 'dj':
+      return 'DJ';
+    case 'musician':
+      return 'Musician';
+    case 'listener':
+    default:
+      return 'Listener';
+  }
 }

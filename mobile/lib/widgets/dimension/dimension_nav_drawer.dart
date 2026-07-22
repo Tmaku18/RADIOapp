@@ -548,11 +548,11 @@ class _UserFooter extends StatelessWidget {
   String get _roleLabel {
     if (isAdmin) return 'ADMIN';
     final role = user?.role;
-    if (role == 'service_provider') return 'CATALYST';
+    if (role == 'service_provider') return 'PRODUCER';
     if (role == 'dj') return 'DJ';
     if (role == 'musician') return 'MUSICIAN';
-    if (isArtist || role == 'artist') return 'GEM';
-    return 'PROSPECTOR';
+    if (isArtist || role == 'artist') return 'ARTIST';
+    return 'LISTENER';
   }
 
   @override

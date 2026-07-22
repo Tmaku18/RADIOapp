@@ -20,6 +20,7 @@ function SignupForm() {
 
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
+  const [role, setRole] = useState<'listener' | 'artist' | 'service_provider'>('artist');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ function SignupForm() {
     setIsSubmitting(true);
 
     try {
-      await signUpWithEmail(email, password, displayName.trim());
+      await signUpWithEmail(email, password, displayName.trim(), role);
       router.push(redirectTo);
     } catch (err) {
       setLocalError(err instanceof Error ? err.message : 'Failed to sign up');
@@ -103,7 +104,7 @@ function SignupForm() {
     <div className="bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
       <div className="text-center mb-8">
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
-        <p className="text-muted-foreground mt-2">Join Networx — discover gems, share your music, or offer your craft</p>
+        <p className="text-muted-foreground mt-2">Join Networx — discover artists, share your music, or offer your craft</p>
       </div>
 
       {displayError && (
@@ -188,6 +189,25 @@ function SignupForm() {
             onChange={(e) => setDisplayName(e.target.value)}
             placeholder="How you want to be shown"
           />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="role">Role</Label>
+          <select
+            id="role"
+            value={role}
+            onChange={(e) =>
+              setRole(e.target.value as 'listener' | 'artist' | 'service_provider')
+            }
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          >
+            <option value="listener">Listener</option>
+            <option value="artist">Artist</option>
+            <option value="service_provider">Producer</option>
+          </select>
+          <p className="text-xs text-muted-foreground">
+            Artists and Producers can upload music. You can change this later in Profile.
+          </p>
         </div>
 
         <div className="space-y-2">

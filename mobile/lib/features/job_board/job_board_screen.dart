@@ -11,7 +11,10 @@ import '../../widgets/dimension/dimension_widgets.dart';
 import '../pro_networx/widgets/pro_network_paywall_sheet.dart';
 
 class JobBoardScreen extends StatefulWidget {
-  const JobBoardScreen({super.key});
+  const JobBoardScreen({super.key, this.embedded = false});
+
+  /// When true, render as a Pro-Networx Projects tab body (no nested shell).
+  final bool embedded;
 
   @override
   State<JobBoardScreen> createState() => _JobBoardScreenState();
@@ -202,54 +205,39 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
-    return DimensionScreenShell(
-      title: 'Pro-Networx',
-      showNeonLine: true,
-      floatingActionButton: _canPost
-          ? FloatingActionButton.extended(
-              onPressed: _showCreateDialog,
-              icon: const Icon(Icons.add),
-              label: const Text('Post a request'),
-            )
-          : null,
-      actions: [
-        IconButton(
-          onPressed: _loading ? null : _load,
-          icon: const Icon(Icons.refresh),
-        ),
-      ],
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: surfaces.signatureGradient,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Pro-Networx',
-                        style: DimensionTypography.cardTitle(fontSize: 18)
-                            .copyWith(color: Colors.white),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Exclusive service requests and collaborations for creators.',
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
-                      ),
-                    ],
-                  ),
+    final listBody = ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            gradient: surfaces.signatureGradient,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: scheme.primary.withValues(alpha: 0.25)),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.embedded ? 'Projects' : 'Pro-Networx',
+                      style: DimensionTypography.cardTitle(fontSize: 18)
+                          .copyWith(color: Colors.white),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Exclusive service requests and collaborations for creators.',
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: Colors.white.withValues(alpha: 0.85)),
+                    ),
+                  ],
                 ),
+              ),
+              if (!widget.embedded)
                 Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -266,129 +254,166 @@ class _JobBoardScreenState extends State<JobBoardScreen> {
                           letterSpacing: 0.4,
                         ),
                   ),
+                )
+              else
+                IconButton(
+                  tooltip: 'Refresh',
+                  onPressed: _loading ? null : _load,
+                  icon: const Icon(Icons.refresh, color: Colors.white),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'browse', label: Text('Browse')),
-              ButtonSegment(value: 'mine', label: Text('Mine')),
             ],
-            selected: <String>{_tab},
-            onSelectionChanged: (v) {
-              setState(() => _tab = v.first);
-              _load();
-            },
           ),
-          const SizedBox(height: 12),
-
-          Wrap(
-            spacing: 10,
-            runSpacing: 8,
-            children: [
+        ),
+        const SizedBox(height: 16),
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'browse', label: Text('Browse')),
+            ButtonSegment(value: 'mine', label: Text('Mine')),
+          ],
+          selected: <String>{_tab},
+          onSelectionChanged: (v) {
+            setState(() => _tab = v.first);
+            _load();
+          },
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            DropdownButton<String>(
+              value: _serviceType,
+              items: [
+                const DropdownMenuItem(value: 'all', child: Text('All types')),
+                ...serviceTypes.map((s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(s),
+                    )),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _serviceType = v);
+                _load();
+              },
+            ),
+            if (_tab == 'browse')
               DropdownButton<String>(
-                value: _serviceType,
-                items: [
-                  const DropdownMenuItem(value: 'all', child: Text('All types')),
-                  ...serviceTypes.map((s) => DropdownMenuItem(
-                        value: s,
-                        child: Text(s),
-                      )),
+                value: _status,
+                items: const [
+                  DropdownMenuItem(value: 'open', child: Text('Open')),
+                  DropdownMenuItem(value: 'closed', child: Text('Closed')),
+                  DropdownMenuItem(value: 'all', child: Text('All')),
                 ],
                 onChanged: (v) {
                   if (v == null) return;
-                  setState(() => _serviceType = v);
+                  setState(() => _status = v);
                   _load();
                 },
               ),
-              if (_tab == 'browse')
-                DropdownButton<String>(
-                  value: _status,
-                  items: const [
-                    DropdownMenuItem(value: 'open', child: Text('Open')),
-                    DropdownMenuItem(value: 'closed', child: Text('Closed')),
-                    DropdownMenuItem(value: 'all', child: Text('All')),
-                  ],
-                  onChanged: (v) {
-                    if (v == null) return;
-                    setState(() => _status = v);
-                    _load();
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          '$_total request(s) found',
+          style: TextStyle(color: surfaces.textMuted),
+        ),
+        const SizedBox(height: 8),
+        if (_loading)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 32),
+            child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_items.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 32),
+            child: Center(
+              child: Text(
+                'No requests match your filters.',
+                style: TextStyle(color: surfaces.textSecondary),
+              ),
+            ),
+          )
+        else
+          ..._items.map((req) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Card(
+                child: ListTile(
+                  title: Text(req.title),
+                  subtitle: Text(
+                    'by ${req.artistDisplayName ?? 'Artist'} · ${req.serviceType ?? 'General'}',
+                    style: TextStyle(color: surfaces.textSecondary),
+                  ),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(999),
+                      color: req.status == 'open'
+                          ? scheme.primary.withValues(alpha: 0.14)
+                          : surfaces.elevated,
+                      border: Border.all(color: surfaces.border),
+                    ),
+                    child: Text(
+                      req.status,
+                      style: TextStyle(
+                        color: req.status == 'open'
+                            ? scheme.primary
+                            : surfaces.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      AppRouter.routeToRequestDetail(
+                        request: req,
+                        myUserId: _me?.id,
+                      ),
+                    ).then((_) => _load());
                   },
                 ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          Text(
-            '$_total request(s) found',
-            style: TextStyle(color: surfaces.textMuted),
-          ),
-          const SizedBox(height: 8),
-
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 32),
-              child: Center(child: CircularProgressIndicator()),
-            )
-          else if (_items.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
-              child: Center(
-                child: Text(
-                  'No requests match your filters.',
-                  style: TextStyle(color: surfaces.textSecondary),
-                ),
               ),
-            )
-          else
-            ..._items.map((req) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  child: ListTile(
-                    title: Text(req.title),
-                    subtitle: Text(
-                      'by ${req.artistDisplayName ?? 'Artist'} · ${req.serviceType ?? 'General'}',
-                      style: TextStyle(color: surfaces.textSecondary),
-                    ),
-                    trailing: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: req.status == 'open'
-                            ? scheme.primary.withValues(alpha: 0.14)
-                            : surfaces.elevated,
-                        border: Border.all(color: surfaces.border),
-                      ),
-                      child: Text(
-                        req.status,
-                        style: TextStyle(
-                          color: req.status == 'open'
-                              ? scheme.primary
-                              : surfaces.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        AppRouter.routeToRequestDetail(
-                          request: req,
-                          myUserId: _me?.id,
-                        ),
-                      ).then((_) => _load());
-                    },
-                  ),
-                ),
-              );
-            }),
+            );
+          }),
+        if (_canPost) const SizedBox(height: 72),
+      ],
+    );
+
+    final fab = _canPost
+        ? FloatingActionButton.extended(
+            onPressed: _showCreateDialog,
+            icon: const Icon(Icons.add),
+            label: const Text('Post a request'),
+          )
+        : null;
+
+    if (widget.embedded) {
+      return Stack(
+        children: [
+          listBody,
+          if (fab != null)
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: fab,
+            ),
         ],
-      ),
+      );
+    }
+
+    return DimensionScreenShell(
+      title: 'Pro-Networx',
+      showNeonLine: true,
+      floatingActionButton: fab,
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+      body: listBody,
     );
   }
 }

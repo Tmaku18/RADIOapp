@@ -57,14 +57,31 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     _load();
     _player.playerStateStream.listen((s) {
       if (!mounted) return;
-      setState(() => _isPlaying = s.playing);
+      if (!_isOurSourceActive) {
+        if (_isPlaying) setState(() => _isPlaying = false);
+        return;
+      }
+      final handler = AudioPlayerService.handler;
+      final audible = s.playing && !handler.userPaused;
+      if (_isPlaying != audible) setState(() => _isPlaying = audible);
     });
     _player.processingStateStream.listen((st) {
       if (!mounted) return;
-      if (st == ProcessingState.completed) {
+      if (st == ProcessingState.completed && _isOurSourceActive) {
         _playNext();
       }
     });
+  }
+
+  /// True when the shared player is currently on this profile's song/sample.
+  bool get _isOurSourceActive {
+    final tag = _player.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return false;
+    final source = tag.extras?['source']?.toString();
+    if (source != 'discography' && source != 'sample') return false;
+    final id = _activeSongId;
+    if (id == null) return false;
+    return tag.id == id;
   }
 
   @override
@@ -180,18 +197,31 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _playSong(Song s, {bool toggle = true}) async {
-    final same = _activeSongId == s.id;
+    final same = _activeSongId == s.id && _isOurSourceActive;
     if (same && toggle) {
-      if (_isPlaying) {
+      final handler = AudioPlayerService.handler;
+      if (_player.playing && !handler.userPaused && _player.volume > 0) {
+        // Hard-pause discography (soft-pause would keep advancing silently).
         await _player.pause();
       } else {
+        await handler.setUserPaused(false);
+        await handler.applyOutputVolume();
         await _player.play();
+      }
+      if (mounted) {
+        setState(() => _isPlaying = _player.playing && !handler.userPaused);
       }
       return;
     }
 
     _listenTimer?.cancel();
     _sampleStopTimer?.cancel();
+    if (mounted) {
+      setState(() {
+        _activeSongId = s.id;
+        _isPlaying = true;
+      });
+    }
 
     final owns = _ownsSong(s);
     // Owners/buyers stream the full track; everyone else gets the 30s sample.
@@ -203,6 +233,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
     if (playUrl == null || playUrl.isEmpty) {
       if (!mounted) return;
+      setState(() {
+        _activeSongId = null;
+        _isPlaying = false;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Preview not available yet.')),
       );
@@ -212,32 +246,44 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     final usingFallbackSample =
         !owns && ((s.sampleUrl ?? '').isEmpty) && s.audioUrl.isNotEmpty;
 
-    await _player.setAudioSource(
-      AudioSource.uri(
-        Uri.parse(playUrl),
-        tag: MediaItem(
-          id: s.id,
-          title: s.title,
-          artist: s.artistName,
-          artUri: BrandAssets.mediaArtUri(s.artworkUrl),
-          extras: {
-            'source': owns ? 'discography' : 'sample',
-            // Non-owners must not scrub: the emulated sample plays the full
-            // file with a 30s stop timer, so seeking would expose the track.
-            'noSeek': !owns,
-          },
+    try {
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(playUrl),
+          tag: MediaItem(
+            id: s.id,
+            title: s.title,
+            artist: s.artistName,
+            artUri: BrandAssets.mediaArtUri(s.artworkUrl),
+            extras: {
+              'source': owns ? 'discography' : 'sample',
+              // Non-owners must not scrub: the emulated sample plays the full
+              // file with a 30s stop timer, so seeking would expose the track.
+              'noSeek': !owns,
+            },
+          ),
         ),
-      ),
-    );
+        initialPosition: usingFallbackSample && s.sampleStartSeconds > 0
+            ? Duration(milliseconds: (s.sampleStartSeconds * 1000).round())
+            : null,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e.toString();
+      if (msg.contains('Loading interrupted')) return;
+      setState(() {
+        _activeSongId = null;
+        _isPlaying = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not start playback.')),
+      );
+      return;
+    }
 
-    // When no rendered sample exists, emulate it: seek to the chosen window
-    // and stop after 30 seconds so non-buyers can't hear the full track.
+    // When no rendered sample exists, stop after 30s so non-buyers can't hear
+    // the full track.
     if (usingFallbackSample) {
-      if (s.sampleStartSeconds > 0) {
-        await _player.seek(
-          Duration(milliseconds: (s.sampleStartSeconds * 1000).round()),
-        );
-      }
       _sampleStopTimer = Timer(const Duration(seconds: 30), () async {
         try {
           await _player.pause();
@@ -245,9 +291,16 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       });
     }
 
+    // Clear radio soft-mute so the first tap is audible, then play.
+    final handler = AudioPlayerService.handler;
+    await handler.setUserPaused(false);
+    await handler.applyOutputVolume();
     await _player.play();
     if (!mounted) return;
-    setState(() => _activeSongId = s.id);
+    setState(() {
+      _activeSongId = s.id;
+      _isPlaying = true;
+    });
     if (owns) _scheduleListenRecord(s.id);
   }
 
@@ -324,10 +377,20 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   }
 
   Future<void> _playNext() async {
+    // Only auto-advance while this profile still owns the shared player.
+    if (_activeSongId == null) return;
+    final tag = _player.sequenceState.currentSource?.tag;
+    if (tag is MediaItem) {
+      final source = tag.extras?['source']?.toString();
+      if (source != 'discography' && source != 'sample') return;
+    }
     final idx = _activeIndex;
     if (idx < 0) return;
     final next = idx + 1;
-    if (next >= _tracks.length) return;
+    if (next >= _tracks.length) {
+      if (mounted) setState(() => _isPlaying = false);
+      return;
+    }
     await _playSong(_tracks[next], toggle: false);
   }
 

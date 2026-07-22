@@ -5,7 +5,7 @@ import '../core/auth/role_helpers.dart';
 import '../core/models/user.dart' as app_user;
 import '../features/apply/apply_screen.dart';
 
-/// Route guard for Gem upload capability (artist, Catalyst, admin).
+/// Route guard for upload capability (everyone except listeners).
 ///
 /// Web uses middleware + `/apply` redirects; on mobile we render `ApplyScreen`
 /// in place so navigation stays native.

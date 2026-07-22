@@ -143,7 +143,7 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     }
 
     final p = _profile!;
-    final displayName = (p['displayName'] ?? p['display_name'] ?? 'Catalyst').toString();
+    final displayName = (p['displayName'] ?? p['display_name'] ?? 'Producer').toString();
     final headline = (p['headline'] ?? '').toString();
     final bio = (p['bio'] ?? '').toString();
     final location = (p['locationRegion'] ?? p['location_region'] ?? '').toString();

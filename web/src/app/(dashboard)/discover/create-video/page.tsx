@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { discoverAudioApi, discoveryApi, type DiscoverAudioSongCard } from '@/lib/api';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +36,7 @@ export default function CreateDiscoverFeedVideoPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { profile } = useAuth();
+  const playback = usePlaybackOptional();
 
   const initialClipUrl = searchParams.get('clipUrl') ?? '';
   const initialSongTitle = searchParams.get('title') ?? 'Discover clip';
@@ -409,6 +411,8 @@ export default function CreateDiscoverFeedVideoPage() {
     activeClipRef.current = clip;
     setError(null);
     clearRecordedPreview({ resetState: false });
+    // Soft-pause live radio for countdown + take (clip audio is a separate element).
+    playback?.softPause();
     setCountdownRemaining(COUNTDOWN_SECONDS);
     setState('countdown');
     try {
@@ -425,6 +429,8 @@ export default function CreateDiscoverFeedVideoPage() {
     if (countdownTimerRef.current != null) {
       window.clearInterval(countdownTimerRef.current);
     }
+    // Silent countdown: show N…1 for a full second each, then start recording
+    // (and clip audio) only after the countdown fully ends.
     countdownTimerRef.current = window.setInterval(() => {
       setCountdownRemaining((prev) => {
         if (prev <= 1) {
@@ -432,8 +438,11 @@ export default function CreateDiscoverFeedVideoPage() {
             window.clearInterval(countdownTimerRef.current);
             countdownTimerRef.current = null;
           }
-          void startRecording();
-          return 1;
+          // Defer out of the setState updater so we don't start audio mid-tick.
+          queueMicrotask(() => {
+            void startRecording();
+          });
+          return 0;
         }
         return prev - 1;
       });
@@ -595,10 +604,10 @@ export default function CreateDiscoverFeedVideoPage() {
                   GET READY
                 </p>
                 <p className="mt-2 text-7xl font-extrabold text-white drop-shadow">
-                  {countdownRemaining}
+                  {countdownRemaining > 0 ? countdownRemaining : 'GO'}
                 </p>
                 <p className="mt-2 text-sm text-white/80">
-                  Recording starts at 1
+                  Music starts when recording begins
                 </p>
               </div>
             )}

@@ -52,12 +52,20 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<void>;
-  signUpWithEmail: (email: string, password: string, displayName?: string) => Promise<void>;
+  signUpWithEmail: (
+    email: string,
+    password: string,
+    displayName?: string,
+    role?: 'listener' | 'artist' | 'service_provider',
+  ) => Promise<void>;
   signOut: () => Promise<void>;
   getIdToken: (forceRefresh?: boolean) => Promise<string | null>;
   refreshProfile: () => Promise<void>;
   pendingProfileSetup: boolean;
-  completeProfileSetup: (displayName: string) => Promise<void>;
+  completeProfileSetup: (
+    displayName: string,
+    role?: 'listener' | 'artist' | 'service_provider',
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -121,7 +129,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Finishes account creation once a display name has been chosen. Used by the
   // mandatory display-name gate for new OAuth users.
   const completeProfileSetup = useCallback(
-    async (displayName: string) => {
+    async (
+      displayName: string,
+      role: 'listener' | 'artist' | 'service_provider' = 'artist',
+    ) => {
       const name = displayName.trim();
       if (!name) {
         throw new Error('Display name is required');
@@ -130,7 +141,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!current?.email) {
         throw new Error('You must be signed in to finish setting up your account.');
       }
-      await usersApi.create({ email: current.email, displayName: name });
+      await usersApi.create({
+        email: current.email,
+        displayName: name,
+        role,
+      });
       await fetchProfile();
       setPendingProfileSetup(false);
     },
@@ -314,7 +329,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleSignUpWithEmail = async (
     email: string,
     password: string,
-    displayName?: string
+    displayName?: string,
+    role: 'listener' | 'artist' | 'service_provider' = 'artist',
   ) => {
     setError(null);
     setLoading(true);
@@ -337,11 +353,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('Session cookie creation failed during sign-up:', sessionErr);
       }
 
-      // Create profile with the required display name; backend defaults
-      // non-admin users to listener.
       await usersApi.create({
         email: firebaseUser.email!,
         displayName: name,
+        role,
       });
 
       setPendingProfileSetup(false);

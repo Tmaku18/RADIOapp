@@ -192,8 +192,11 @@ class _PlayerScreenState extends State<PlayerScreen>
       if (mounted && !handler.userPaused && _isPlaying != state.playing) {
         setState(() => _isPlaying = state.playing);
       }
+      // Only advance the live queue when the shared player is still on radio.
+      // Discography/sample (public profile, etc.) must not trigger radio skip.
       if (state.processingState == ProcessingState.completed &&
-          !handler.userPaused) {
+          !handler.userPaused &&
+          _hasLiveRadioSource) {
         _handleTrackEnded();
       }
     });
@@ -274,6 +277,15 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool get _hasLiveRadioSource {
     final tag = _audioPlayer.sequenceState.currentSource?.tag;
     return tag is MediaItem && tag.extras?['source'] == 'radio';
+  }
+
+  /// True when another feature (public profile, sample, Discover) owns the
+  /// shared player. Radio sync must stand down so it doesn't interrupt them.
+  bool get _nonRadioOwnsPlayer {
+    final tag = _audioPlayer.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return false;
+    final source = tag.extras?['source']?.toString();
+    return source != null && source.isNotEmpty && source != 'radio';
   }
 
   Future<void> _restoreStationSelection() async {
@@ -590,7 +602,10 @@ class _PlayerScreenState extends State<PlayerScreen>
       case 'queue_updated':
         // Hard live sync: jump to the server's current track as soon as the
         // shared queue advances (don't wait for the next poll tick).
-        unawaited(_syncCurrentTrack());
+        // Skip while discography/sample owns the player.
+        if (!_nonRadioOwnsPlayer) {
+          unawaited(_syncCurrentTrack());
+        }
         break;
       default:
         break;
@@ -678,6 +693,7 @@ class _PlayerScreenState extends State<PlayerScreen>
   /// so synced devices converge on one song instead of skipping ahead.
   Future<void> _handleTrackEnded() async {
     if (!mounted || _trackAdvanceInFlight || _trackSyncInFlight) return;
+    if (_nonRadioOwnsPlayer) return;
     _trackAdvanceInFlight = true;
     _trackBoundaryTimer?.cancel();
     final endedId = _currentTrack?.id;
@@ -686,6 +702,7 @@ class _PlayerScreenState extends State<PlayerScreen>
         radioId: _radioId,
       );
       if (!mounted) return;
+      if (_nonRadioOwnsPlayer) return;
 
       if (res.noContent) {
         setState(() {
@@ -707,6 +724,7 @@ class _PlayerScreenState extends State<PlayerScreen>
           force: true,
         );
         if (!mounted) return;
+        if (_nonRadioOwnsPlayer) return;
         if (!forced.noContent && forced.track != null) {
           res = forced;
         }
@@ -715,6 +733,7 @@ class _PlayerScreenState extends State<PlayerScreen>
       final track = res.track;
       if (track == null || track.audioUrl.trim().isEmpty) return;
       if (_isStaleServerTrack(track.id)) return;
+      if (_nonRadioOwnsPlayer) return;
 
       final previousId = _currentTrack?.id;
       if (previousId != null && previousId != track.id) {
@@ -771,12 +790,16 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
   }
 
-  Future<void> _syncCurrentTrack() async {
+  Future<void> _syncCurrentTrack({bool force = false}) async {
     if (!mounted || _trackSyncInFlight || _trackAdvanceInFlight) return;
+    // Public profile / samples share this player — don't steal or seek them.
+    if (!force && _nonRadioOwnsPlayer) return;
     _trackSyncInFlight = true;
     try {
       final res = await _radioService.getCurrentTrack(radioId: _radioId);
       if (!mounted) return;
+      // Profile may have taken over while we awaited the server.
+      if (!force && _nonRadioOwnsPlayer) return;
 
       if (res.noContent) {
         setState(() {
@@ -799,10 +822,14 @@ class _PlayerScreenState extends State<PlayerScreen>
         return;
       }
 
+      // After a non-radio takeover, local UI track can still match server id
+      // while the player is on discography — always reload when forcing reclaim.
+      final playerOnRadio = _hasLiveRadioSource;
       final trackChanged =
           localTrack == null || localTrack.id != serverTrack.id;
 
-      if (trackChanged) {
+      if ((force && !playerOnRadio) || trackChanged) {
+        if (!force && _nonRadioOwnsPlayer) return;
         // Hard live sync: always follow the server's current song, even mid-
         // song, so every device on a station hears the same track. Explicit
         // user pause is still respected inside [_loadAndPlay].
@@ -822,6 +849,8 @@ class _PlayerScreenState extends State<PlayerScreen>
         );
         return;
       }
+
+      if (!_hasLiveRadioSource) return;
 
       final localSeconds = _audioPlayer.position.inSeconds;
       final serverSeconds = serverTrack.positionSeconds;
@@ -1006,6 +1035,16 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   Future<void> _togglePlayPause() async {
     final handler = AudioPlayerService.handler;
+    // Reclaim live radio if a profile/sample took over the shared player.
+    if (_nonRadioOwnsPlayer) {
+      await _syncCurrentTrack(force: true);
+      if (!mounted) return;
+      if (handler.userPaused) {
+        await handler.setUserPaused(false);
+      }
+      setState(() => _isPlaying = !handler.userPaused && _audioPlayer.playing);
+      return;
+    }
     final shouldPlay = handler.userPaused;
     try {
       await handler.setUserPaused(!shouldPlay);

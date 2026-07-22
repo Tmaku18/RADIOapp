@@ -74,9 +74,9 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
 
   String _roleHomeTitle(String? role) {
     if (role == 'admin') return 'Admin Home';
-    if (role == 'service_provider') return 'Catalyst Home';
-    if (hasArtistCapability(role)) return 'Gem Home';
-    return 'Prospector Home';
+    if (role == 'service_provider') return 'Producer Home';
+    if (hasArtistCapability(role)) return 'Artist Home';
+    return 'Listener Home';
   }
 
   String _roleHomeSubtitle(String? role) {
@@ -84,12 +84,12 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
       return 'Manage songs, users, feed, and platform settings.';
     }
     if (role == 'service_provider') {
-      return 'Offer your services to gems and manage your listings.';
+      return 'Offer your services to artists and manage your listings.';
     }
     if (hasArtistCapability(role)) {
       return 'Upload music and grow your discoveries.';
     }
-    return 'Discover gems, tune in to the radio, and refine songs into signal.';
+    return 'Discover artists, tune in to the radio, and refine songs into signal.';
   }
 
   List<_HomeAction> _actionsForRole(String? role) {
@@ -130,9 +130,15 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     if (role == 'service_provider') {
       return [
         _HomeAction(
+          Icons.cloud_upload_outlined,
+          'Upload Music',
+          'Submit tracks to the radio rotation.',
+          () => Navigator.pushNamed(context, AppRoutes.upload),
+        ),
+        _HomeAction(
           Icons.work_outline,
           'Pro-Networx',
-          'Manage your Catalyst profile and services.',
+          'Manage your Producer profile and services.',
           openPro,
         ),
         _HomeAction(
@@ -144,7 +150,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
         _HomeAction(
           Icons.auto_awesome,
           'Discover',
-          'Find gems and other providers.',
+          'Find artists and other producers.',
           openDiscover,
         ),
         _HomeAction(

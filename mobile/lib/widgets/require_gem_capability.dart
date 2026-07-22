@@ -5,7 +5,7 @@ import '../core/auth/role_helpers.dart';
 import '../core/models/user.dart' as app_user;
 import '../features/apply/apply_screen.dart';
 
-/// Gem (artist) + Catalyst (service_provider) + admin — matches web `hasArtistCapability`.
+/// Upload capability guard — everyone except listeners (matches web `hasArtistCapability`).
 class RequireGemCapability extends StatelessWidget {
   const RequireGemCapability({super.key, required this.child});
 

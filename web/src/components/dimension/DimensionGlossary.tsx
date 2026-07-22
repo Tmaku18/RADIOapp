@@ -40,16 +40,17 @@ const GLOSSARY: Array<{
           'The transformation every artist undergoes on Networx — from an unknown upload to a name the people know.',
       },
       {
-        term: 'Gem',
-        definition: 'An artist. A hidden gem, ready to be heard and refined by the community.',
+        term: 'Artist',
+        definition:
+          'A creator who uploads music and grows through the radio and community.',
       },
       {
         term: 'Diamond',
         definition:
-          'A Gem refined under pressure — a standout artist the community has voted into the spotlight.',
+          'An artist refined under pressure — a standout the community has voted into the spotlight.',
       },
       {
-        term: 'Catalyst',
+        term: 'Producer',
         definition:
           'A creative service provider (producer, photographer, mentor) who speeds up the metamorphosis through ProNetworx.',
       },

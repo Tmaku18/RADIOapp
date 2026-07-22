@@ -454,7 +454,7 @@ export class SongsController {
    */
   @Post('upload-url')
   @UseGuards(RolesGuard)
-  @Roles('listener', 'artist', 'service_provider', 'admin')
+  @Roles('artist')
   async getUploadUrl(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: GetUploadUrlDto,
@@ -475,7 +475,7 @@ export class SongsController {
    */
   @Post()
   @UseGuards(RolesGuard)
-  @Roles('listener', 'artist', 'service_provider', 'admin')
+  @Roles('artist')
   async createSong(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CreateSongFromPathDto,
@@ -988,7 +988,7 @@ export class SongsController {
    */
   @Get('mine')
   @UseGuards(RolesGuard)
-  @Roles('listener', 'artist', 'service_provider', 'admin')
+  @Roles('listener', 'artist', 'service_provider', 'admin', 'dj', 'musician')
   async getMySongs(@CurrentUser() user: FirebaseUser) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase

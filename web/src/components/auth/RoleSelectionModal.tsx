@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
-type OnboardingRole = 'listener' | 'artist';
+type OnboardingRole = 'listener' | 'artist' | 'service_provider';
 
 interface RoleSelectionModalProps {
   onSelect: (role: OnboardingRole) => void;
@@ -22,13 +22,39 @@ interface RoleSelectionModalProps {
 }
 
 export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleSelectionModalProps) {
-  const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>(null);
+  const [selectedRole, setSelectedRole] = useState<OnboardingRole | null>('artist');
 
   const handleContinue = () => {
     if (selectedRole) {
       onSelect(selectedRole);
     }
   };
+
+  const roles: Array<{
+    value: OnboardingRole;
+    title: string;
+    body: string;
+    emoji: string;
+  }> = [
+    {
+      value: 'listener',
+      title: 'Listener',
+      body: 'Discover new music, send ripples, and chat with the community',
+      emoji: '🎧',
+    },
+    {
+      value: 'artist',
+      title: 'Artist',
+      body: 'Upload your music and grow your audience',
+      emoji: '🎤',
+    },
+    {
+      value: 'service_provider',
+      title: 'Producer',
+      body: 'Upload music and offer creative services on Pro-Networx',
+      emoji: '🎛️',
+    },
+  ];
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -45,68 +71,43 @@ export function RoleSelectionModal({ onSelect, onCancel, loading, error }: RoleS
         )}
 
         <div className="space-y-4 py-4">
-          <button
-            type="button"
-            onClick={() => setSelectedRole('listener')}
-            disabled={loading}
-            className={cn(
-              'w-full p-4 rounded-xl border-2 text-left transition-all',
-              selectedRole === 'listener'
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-primary/50',
-              loading && 'opacity-50 cursor-not-allowed'
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className="text-3xl">🎧</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Prospector</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Discover new music, send ripples to tracks, and chat with the community
-                </p>
-              </div>
-              {selectedRole === 'listener' && (
-                <div className="text-primary">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
+          {roles.map((role) => (
+            <button
+              key={role.value}
+              type="button"
+              onClick={() => setSelectedRole(role.value)}
+              disabled={loading}
+              className={cn(
+                'w-full p-4 rounded-xl border-2 text-left transition-all',
+                selectedRole === role.value
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50',
+                loading && 'opacity-50 cursor-not-allowed',
               )}
-            </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setSelectedRole('artist')}
-            disabled={loading}
-            className={cn(
-              'w-full p-4 rounded-xl border-2 text-left transition-all',
-              selectedRole === 'artist'
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-primary/50',
-              loading && 'opacity-50 cursor-not-allowed'
-            )}
-          >
-            <div className="flex items-start gap-4">
-              <div className="text-3xl">🎤</div>
-              <div className="flex-1">
-                <h3 className="font-semibold text-foreground">Gem</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Upload your music and grow your audience
-                </p>
-              </div>
-              {selectedRole === 'artist' && (
-                <div className="text-primary">
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
+            >
+              <div className="flex items-start gap-4">
+                <div className="text-3xl">{role.emoji}</div>
+                <div className="flex-1">
+                  <h3 className="font-semibold text-foreground">{role.title}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">{role.body}</p>
                 </div>
-              )}
-            </div>
-          </button>
+                {selectedRole === role.value && (
+                  <div className="text-primary">
+                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                )}
+              </div>
+            </button>
+          ))}
 
           <p className="text-xs text-muted-foreground text-center">
-            Prospectors can upgrade to Gems later from profile. To offer services as a Catalyst, sign in at ProNetworx.
+            Artists and Producers can upload music. You can change your role anytime in Profile.
           </p>
         </div>
 

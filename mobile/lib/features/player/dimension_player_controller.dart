@@ -177,7 +177,10 @@ class DimensionPlayerController extends ChangeNotifier {
   }
 
   Future<void> setVolume(double percent) async {
-    await _player.setVolume((percent / 100).clamp(0, 1));
+    final level = (percent / 100).clamp(0.0, 1.0);
+    // Keep handler base in sync so soft-pause / DJ duck restore the same level
+    // instead of jumping to a stale default (often 1.0 → blast).
+    await AudioPlayerService.handler.setBaseMusicVolume(level);
     notifyListeners();
   }
 

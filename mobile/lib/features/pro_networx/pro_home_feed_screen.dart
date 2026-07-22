@@ -10,7 +10,7 @@ class ProHomeFeedScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const ProNetworxDirectoryContent(
-      title: 'Discover Catalysts',
+      title: 'Discover Producers',
       subtitle: 'Browse the directory by skill, availability, and location.',
       showEditProfile: true,
       smartRanking: true,

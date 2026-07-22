@@ -224,8 +224,18 @@ export class UsersService {
 
     const emailLower = createUserDto.email.trim().toLowerCase();
     const adminEmails = this.getAdminEmails();
-    // Default all non-admin users to listener. They can switch roles later in profile settings.
-    const role = adminEmails.includes(emailLower) ? 'admin' : 'listener';
+    const requestedRole = createUserDto.role;
+    const allowedSelfServeRoles = new Set([
+      'listener',
+      'artist',
+      'service_provider',
+    ]);
+    // Honor signup role (listener / artist / producer). Admin emails always become admin.
+    const role = adminEmails.includes(emailLower)
+      ? 'admin'
+      : requestedRole && allowedSelfServeRoles.has(requestedRole)
+        ? requestedRole
+        : 'listener';
     const displayName = createUserDto.displayName?.trim();
     if (!displayName) {
       throw new BadRequestException('Display name is required');
@@ -304,6 +314,27 @@ export class UsersService {
       throw new BadRequestException(
         `Failed to create account: ${error.message}. Please try again.`,
       );
+    }
+
+    // Seed credits (and producer profile) when signing up as a creative role.
+    if (role === 'artist' || role === 'service_provider') {
+      const { error: creditsError } = await supabase
+        .from('credits')
+        .insert({ artist_id: data.id, balance: 0 });
+      if (creditsError && creditsError.code !== '23505') {
+        console.error('Failed to create credits for new artist:', creditsError);
+      }
+    }
+    if (role === 'service_provider') {
+      const { error: providerError } = await supabase
+        .from('service_providers')
+        .insert({ user_id: data.id });
+      if (providerError && providerError.code !== '23505') {
+        console.error(
+          'Failed to create service_providers row for new producer:',
+          providerError,
+        );
+      }
     }
 
     return transformUser(data);
@@ -700,7 +731,8 @@ export class UsersService {
           ? updateUserDto.zipCode?.trim()
           : (currentLoc?.zip_code as string | null)?.trim()) || '';
       if (city || zip) {
-        const geo = await geocodeCityZip(city || zip, zip || null);
+        // City centroid only (ZIP alone is a fallback). Exact GPS is never stored here.
+        const geo = await geocodeCityZip(city, zip);
         if (geo) {
           updatePayload.artist_lat = geo.lat;
           updatePayload.artist_lng = geo.lng;

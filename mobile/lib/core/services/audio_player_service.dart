@@ -91,4 +91,17 @@ class AudioPlayerService {
     );
     _initialized = true;
   }
+
+  /// Restore the standard music session after camera/mic (`playAndRecord`) use
+  /// so radio output returns to a normal route/gain instead of staying ducked.
+  static Future<void> restoreMusicSession() async {
+    try {
+      final session = await AudioSession.instance;
+      await session.configure(const AudioSessionConfiguration.music());
+      await session.setActive(true);
+    } catch (_) {}
+    try {
+      await handler.applyOutputVolume();
+    } catch (_) {}
+  }
 }

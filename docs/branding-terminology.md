@@ -24,9 +24,9 @@ All Networx terminology hangs off three connected metaphors. This grouping is th
 ### 2. Metamorphosis — *the journey from unseen talent to recognized artist*
 
 - **Metamorphosis**: The transformation an artist undergoes on Networx, from an unknown upload to a name the people know.
-- **Gem**: An artist; a hidden gem ready to be heard and refined. (Technical: role `artist`.)
-- **Diamond**: A Gem refined under pressure — a standout artist the community has voted into the spotlight (competition/featured).
-- **Catalyst**: A creative service provider (producer, photographer, mentor) who accelerates the metamorphosis via Pro-Networx. (Technical: role `service_provider`.)
+- **Artist**: A creator who uploads music and grows through radio + community. (Technical: role `artist`. Legacy UI term: Gem.)
+- **Diamond**: An artist refined under pressure — a standout the community has voted into the spotlight (competition/featured).
+- **Producer**: A creative service provider (producer, photographer, mentor) who accelerates the metamorphosis via Pro-Networx. (Technical: role `service_provider`. Legacy UI term: Catalyst.)
 
 ### 3. Mining — *surfacing value from the live frequency*
 

@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
+import {
+  approximatePublicCoords,
+  geocodeCityZip,
+} from '../common/geocode.util';
 import { isExplicitFilteredStation } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
 
@@ -538,8 +542,9 @@ export class DiscoveryService {
   }
 
   /**
-   * Nearby People directory: discoverable users who have set a city (and/or ZIP),
-   * with map coords when geocoded. Optional GPS radius filter.
+   * Nearby People directory: discoverable users with a city / region / ZIP.
+   * Map pins are approximate (city-level + fuzzed) — never exact GPS.
+   * Lazy-geocodes missing coords so older profiles still appear on the map.
    */
   async listPeopleDirectory(params: {
     viewerUserId?: string;
@@ -564,7 +569,7 @@ export class DiscoveryService {
       .eq('discoverable', true)
       .eq('is_banned', false)
       .in('role', ['artist', 'service_provider', 'listener'])
-      .or('city.not.is.null,zip_code.not.is.null')
+      .or('city.not.is.null,zip_code.not.is.null,location_region.not.is.null')
       .order('city', { ascending: true, nullsFirst: false })
       .limit(limit);
 
@@ -572,49 +577,122 @@ export class DiscoveryService {
       throw new Error(`Failed to load people directory: ${error.message}`);
     }
 
-    let items: DiscoveryProfile[] = (users || [])
-      .filter((u: any) => {
-        if (params.viewerUserId && u.id === params.viewerUserId) return false;
-        const city = (u.city ?? '').toString().trim();
-        const zip = (u.zip_code ?? '').toString().trim();
-        return city.length > 0 || zip.length > 0;
-      })
-      .map((u: any) => {
-        const lat =
-          u.artist_lat != null && Number.isFinite(Number(u.artist_lat))
-            ? Number(u.artist_lat)
-            : null;
-        const lng =
-          u.artist_lng != null && Number.isFinite(Number(u.artist_lng))
-            ? Number(u.artist_lng)
-            : null;
-        let distanceKm: number | undefined;
-        if (
-          params.lat != null &&
-          params.lng != null &&
-          lat != null &&
-          lng != null
-        ) {
-          distanceKm = this.haversineKm(params.lat, params.lng, lat, lng);
-        }
-        return {
-          id: u.id,
-          userId: u.id,
-          displayName: u.display_name ?? null,
-          headline: u.headline ?? null,
-          avatarUrl: u.avatar_url ?? null,
-          bio: u.bio ?? null,
-          locationRegion: u.location_region ?? null,
-          city: (u.city ?? '').toString().trim() || null,
-          zipCode: (u.zip_code ?? '').toString().trim() || null,
-          lat,
-          lng,
-          role: u.role,
-          serviceTypes: [] as string[],
-          createdAt: u.created_at,
-          distanceKm,
-        };
-      });
+    type RawUser = {
+      id: string;
+      display_name: string | null;
+      headline: string | null;
+      avatar_url: string | null;
+      bio: string | null;
+      location_region: string | null;
+      city: string | null;
+      zip_code: string | null;
+      artist_lat: number | null;
+      artist_lng: number | null;
+      role: DiscoveryProfile['role'];
+      created_at: string;
+    };
+
+    const eligible = ((users || []) as RawUser[]).filter((u) => {
+      if (params.viewerUserId && u.id === params.viewerUserId) return false;
+      const city = (u.city ?? '').toString().trim();
+      const zip = (u.zip_code ?? '').toString().trim();
+      const region = (u.location_region ?? '').toString().trim();
+      return city.length > 0 || zip.length > 0 || region.length > 0;
+    });
+
+    // Lazy-geocode users missing map coords (city/region first — general, not street).
+    const missing = eligible.filter((u) => {
+      const lat = u.artist_lat != null ? Number(u.artist_lat) : NaN;
+      const lng = u.artist_lng != null ? Number(u.artist_lng) : NaN;
+      return !Number.isFinite(lat) || !Number.isFinite(lng);
+    });
+    const placeKey = (u: RawUser) => {
+      const city = (u.city ?? '').toString().trim();
+      const region = (u.location_region ?? '').toString().trim();
+      const zip = (u.zip_code ?? '').toString().trim();
+      return city || region || zip;
+    };
+    const uniquePlaces = [
+      ...new Set(missing.map(placeKey).filter((p) => p.length > 0)),
+    ].slice(0, 25);
+    const placeGeo = new Map<string, { lat: number; lng: number }>();
+    await Promise.all(
+      uniquePlaces.map(async (place) => {
+        const geo = await geocodeCityZip(place, null);
+        if (geo) placeGeo.set(place.toLowerCase(), geo);
+      }),
+    );
+
+    const persistUpdates: Array<{ id: string; lat: number; lng: number }> = [];
+    for (const u of missing) {
+      const place = placeKey(u);
+      const geo = place ? placeGeo.get(place.toLowerCase()) : undefined;
+      if (!geo) continue;
+      u.artist_lat = geo.lat;
+      u.artist_lng = geo.lng;
+      persistUpdates.push({ id: u.id, lat: geo.lat, lng: geo.lng });
+    }
+    // Best-effort persist so the next load doesn't re-geocode.
+    if (persistUpdates.length > 0) {
+      void Promise.all(
+        persistUpdates.map((p) =>
+          supabase
+            .from('users')
+            .update({ artist_lat: p.lat, artist_lng: p.lng })
+            .eq('id', p.id),
+        ),
+      ).catch(() => undefined);
+    }
+
+    let items: DiscoveryProfile[] = eligible.map((u) => {
+      const city =
+        (u.city ?? '').toString().trim() ||
+        (u.location_region ?? '').toString().trim() ||
+        null;
+      const zipCode = (u.zip_code ?? '').toString().trim() || null;
+      const rawLat =
+        u.artist_lat != null && Number.isFinite(Number(u.artist_lat))
+          ? Number(u.artist_lat)
+          : null;
+      const rawLng =
+        u.artist_lng != null && Number.isFinite(Number(u.artist_lng))
+          ? Number(u.artist_lng)
+          : null;
+      // Never expose exact stored coords — coarse cell + per-user jitter.
+      let lat: number | null = null;
+      let lng: number | null = null;
+      if (rawLat != null && rawLng != null) {
+        const approx = approximatePublicCoords(rawLat, rawLng, u.id);
+        lat = approx.lat;
+        lng = approx.lng;
+      }
+      let distanceKm: number | undefined;
+      if (
+        params.lat != null &&
+        params.lng != null &&
+        lat != null &&
+        lng != null
+      ) {
+        distanceKm = this.haversineKm(params.lat, params.lng, lat, lng);
+      }
+      return {
+        id: u.id,
+        userId: u.id,
+        displayName: u.display_name ?? null,
+        headline: u.headline ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        bio: u.bio ?? null,
+        locationRegion: u.location_region ?? null,
+        city,
+        zipCode,
+        lat,
+        lng,
+        role: u.role,
+        serviceTypes: [] as string[],
+        createdAt: u.created_at,
+        distanceKm,
+      };
+    });
 
     if (
       params.lat != null &&
@@ -625,7 +703,9 @@ export class DiscoveryService {
       items = items.filter(
         (p) => p.distanceKm != null && p.distanceKm <= params.radiusKm!,
       );
-      items.sort((a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity));
+      items.sort(
+        (a, b) => (a.distanceKm ?? Infinity) - (b.distanceKm ?? Infinity),
+      );
     } else {
       items.sort((a, b) => {
         const ca = (a.city ?? '').toLowerCase();

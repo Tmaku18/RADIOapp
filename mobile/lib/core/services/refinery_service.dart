@@ -277,8 +277,53 @@ class RefineryAnalytics {
   }
 }
 
+class RefineryReviewerStatus {
+  final bool isReviewer;
+  final String? signedUpAt;
+  final int totalReviews;
+
+  const RefineryReviewerStatus({
+    required this.isReviewer,
+    this.signedUpAt,
+    this.totalReviews = 0,
+  });
+
+  factory RefineryReviewerStatus.fromJson(Map<String, dynamic> json) {
+    return RefineryReviewerStatus(
+      isReviewer: json['isReviewer'] == true || json['is_reviewer'] == true,
+      signedUpAt:
+          (json['signedUpAt'] ?? json['signed_up_at'])?.toString(),
+      totalReviews: _toInt(json['totalReviews'] ?? json['total_reviews']),
+    );
+  }
+}
+
+/// Shared Refinery program copy / pricing (kept in sync with web).
+class RefineryProgram {
+  static const String submissionPriceUsd = '4.99';
+  static const String submissionOriginalPriceUsd = '9.99';
+  static const int minReviews = 100;
+  static const int reviewRewardCents = 10;
+  static const int maxCustomQuestions = 10;
+
+  static String get reviewRewardUsd =>
+      (reviewRewardCents / 100).toStringAsFixed(2);
+}
+
 class RefineryService {
   final ApiService _api = ApiService();
+
+  Future<RefineryReviewerStatus> getReviewerStatus() async {
+    final res = await _api.get('refinery/reviewer/status');
+    if (res is Map<String, dynamic>) {
+      return RefineryReviewerStatus.fromJson(res);
+    }
+    return const RefineryReviewerStatus(isReviewer: false);
+  }
+
+  Future<void> signUpAsReviewer() async {
+    await _api.post('refinery/reviewer/signup', {});
+  }
 
   Future<List<RefinerySong>> listSongs({int limit = 100, int offset = 0}) async {
     final res = await _api.get('refinery/songs?limit=$limit&offset=$offset');

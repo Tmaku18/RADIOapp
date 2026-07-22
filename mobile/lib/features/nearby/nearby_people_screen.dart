@@ -235,15 +235,15 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                   context,
                   groups: _byCity,
                   emptyLabel:
-                      'No one has added a city yet. Set your city in Profile '
-                      'to appear on the map.',
+                      'No one nearby yet. Set your city in Profile to appear '
+                      'on the map (approximate area only).',
                 ),
                 _buildGroupList(
                   context,
                   groups: _byZip,
                   emptyLabel:
-                      'No ZIP codes yet. Add your ZIP in Profile to show up '
-                      'in this list.',
+                      'No ZIP codes yet. Add your city or ZIP in Profile to '
+                      'show up here.',
                   isZip: true,
                 ),
               ],
@@ -264,8 +264,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Text(
-                'Pins show people who’ve set a city. '
-                '${_pos != null ? 'Green mark is you.' : 'Enable location to center the map on you.'}',
+                'Pins show an approximate city area — not exact addresses or live GPS. '
+                '${_pos != null ? 'Green mark is you (for centering only).' : 'Enable location to center the map on you.'}',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: scheme.onSurface.withValues(alpha: 0.7),
                     ),
@@ -304,6 +304,18 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
             ],
           ),
         ),
+        if (!_loading && _items.where((i) => _asDouble(i['lat']) != null).isEmpty)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Text(
+              _items.isEmpty
+                  ? 'No discoverable people found. Try Show all, or set your city in Profile.'
+                  : 'People are listed by city, but map pins aren’t ready yet. Pull refresh in a moment.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: scheme.onSurface.withValues(alpha: 0.65),
+                  ),
+            ),
+          ),
         Expanded(
           child: ClipRRect(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
@@ -311,7 +323,7 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
               mapController: _mapController,
               options: MapOptions(
                 initialCenter: _mapCenter(_items, _pos),
-                initialZoom: _pos != null ? 10 : 4,
+                initialZoom: _pos != null ? 9 : 4,
                 interactionOptions: const InteractionOptions(
                   flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
                 ),

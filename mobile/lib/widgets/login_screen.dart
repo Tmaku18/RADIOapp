@@ -23,7 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _displayNameController = TextEditingController();
   bool _isSignUp = false;
   bool _isSubmitting = false;
-  String _selectedRole = 'listener';
+  String _selectedRole = 'artist';
   bool _appliedRouteArgs = false;
 
   @override
@@ -167,14 +167,16 @@ class _LoginScreenState extends State<LoginScreen> {
   ) async {
     String suggested = setup.suggestedName;
     while (mounted) {
-      final name = await _promptForDisplayName(suggested);
-      if (name == null) {
+      final setupResult = await _promptForDisplayName(suggested);
+      if (setupResult == null) {
         // User cancelled: sign out so we don't leave a half-created account.
         await authService.signOut();
         return;
       }
+      final name = setupResult.name;
+      final role = setupResult.role;
       try {
-        await authService.completeOAuthProfile(name);
+        await authService.completeOAuthProfile(name, role: role);
         if (!mounted) return;
         Navigator.of(context)
             .pushNamedAndRemoveUntil(AppRoutes.home, (route) => false);
@@ -183,64 +185,98 @@ class _LoginScreenState extends State<LoginScreen> {
         suggested = name;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not save your name: $e')),
+            SnackBar(content: Text('Could not save your profile: $e')),
           );
         }
       }
     }
   }
 
-  Future<String?> _promptForDisplayName(String suggested) async {
+  /// Returns display name + role, or null if cancelled.
+  Future<({String name, String role})?> _promptForDisplayName(
+    String suggested,
+  ) async {
     final controller = TextEditingController(text: suggested);
     final formKey = GlobalKey<FormState>();
-    final result = await showDialog<String>(
+    var selectedRole = 'artist';
+    final result = await showDialog<({String name, String role})>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        return AlertDialog(
-          title: const Text('Choose your display name'),
-          content: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  "This is how you'll appear across Networx. You can change it "
-                  'later in settings.',
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Finish setting up'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      "Choose how you'll appear and your role. "
+                      'You can change your role later in settings.',
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: controller,
+                      autofocus: true,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(
+                        labelText: 'Display name',
+                        hintText: 'How you want to be shown',
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter a display name';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: selectedRole,
+                      decoration: const InputDecoration(labelText: 'Role'),
+                      items: const [
+                        DropdownMenuItem(
+                          value: 'listener',
+                          child: Text('Listener'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'artist',
+                          child: Text('Artist'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'service_provider',
+                          child: Text('Producer'),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setDialogState(() => selectedRole = value);
+                      },
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: controller,
-                  autofocus: true,
-                  textCapitalization: TextCapitalization.words,
-                  decoration: const InputDecoration(
-                    labelText: 'Display name',
-                    hintText: 'How you want to be shown',
-                  ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return 'Please enter a display name';
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(null),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (formKey.currentState!.validate()) {
+                      Navigator.of(dialogContext).pop((
+                        name: controller.text.trim(),
+                        role: selectedRole,
+                      ));
                     }
-                    return null;
                   },
+                  child: const Text('Continue'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(null),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (formKey.currentState!.validate()) {
-                  Navigator.of(dialogContext).pop(controller.text.trim());
-                }
-              },
-              child: const Text('Continue'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -418,8 +454,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(color: onCard),
                             items: const [
                               DropdownMenuItem(value: 'listener', child: Text('Listener')),
-                              DropdownMenuItem(value: 'artist', child: Text('Gem')),
-                              DropdownMenuItem(value: 'service_provider', child: Text('Catalyst')),
+                              DropdownMenuItem(value: 'artist', child: Text('Artist')),
+                              DropdownMenuItem(value: 'service_provider', child: Text('Producer')),
                             ],
                             onChanged: (value) {
                               setState(() {

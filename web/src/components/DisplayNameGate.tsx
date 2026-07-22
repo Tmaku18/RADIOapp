@@ -6,17 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+export type SetupRole = 'listener' | 'artist' | 'service_provider';
+
 interface DisplayNameGateProps {
   suggestedName: string;
   email: string;
-  onSubmit: (displayName: string) => Promise<void>;
+  onSubmit: (displayName: string, role: SetupRole) => Promise<void>;
   onCancel: () => Promise<void> | void;
 }
 
 /**
  * Blocking overlay shown to a newly authenticated user who has no backend
- * profile yet (typically a Google/Apple sign-up). A display name is mandatory,
- * so the account is only created once a non-empty name is chosen here.
+ * profile yet (typically a Google/Apple sign-up).
  */
 export function DisplayNameGate({
   suggestedName,
@@ -25,6 +26,7 @@ export function DisplayNameGate({
   onCancel,
 }: DisplayNameGateProps) {
   const [name, setName] = useState(suggestedName ?? '');
+  const [role, setRole] = useState<SetupRole>('artist');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,13 +40,13 @@ export function DisplayNameGate({
     }
     setSubmitting(true);
     try {
-      await onSubmit(trimmed);
+      await onSubmit(trimmed, role);
     } catch (err) {
       const apiMessage = (err as { response?: { data?: { message?: string } } })
         ?.response?.data?.message;
       setError(
         apiMessage ??
-          (err instanceof Error ? err.message : 'Could not save your name. Please try again.'),
+          (err instanceof Error ? err.message : 'Could not save your profile. Please try again.'),
       );
       setSubmitting(false);
     }
@@ -54,12 +56,9 @@ export function DisplayNameGate({
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-card text-card-foreground rounded-2xl border border-border shadow-xl p-8">
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-foreground">
-            Choose your display name
-          </h1>
+          <h1 className="text-2xl font-bold text-foreground">Finish setting up</h1>
           <p className="text-muted-foreground mt-2">
-            This is how you&apos;ll appear across Networx. You can change it later
-            in settings.
+            Choose how you&apos;ll appear and your role. Artists and Producers can upload music.
           </p>
         </div>
 
@@ -82,10 +81,22 @@ export function DisplayNameGate({
               placeholder="How you want to be shown"
             />
             {email && (
-              <p className="text-xs text-muted-foreground">
-                Signed in as {email}
-              </p>
+              <p className="text-xs text-muted-foreground">Signed in as {email}</p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gate-role">Role</Label>
+            <select
+              id="gate-role"
+              value={role}
+              onChange={(e) => setRole(e.target.value as SetupRole)}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+            >
+              <option value="listener">Listener</option>
+              <option value="artist">Artist</option>
+              <option value="service_provider">Producer</option>
+            </select>
           </div>
 
           <Button type="submit" className="w-full" disabled={submitting}>

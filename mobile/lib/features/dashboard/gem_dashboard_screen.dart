@@ -26,12 +26,12 @@ class GemDashboardScreen extends StatelessWidget {
         final title = role == 'admin'
             ? 'Admin Home'
             : role == 'service_provider'
-                ? 'Catalyst Home'
-                : 'Gem Home';
+                ? 'Producer Home'
+                : 'Artist Home';
         final subtitle = role == 'admin'
             ? 'Upload music, manage the platform, and grow the network.'
             : role == 'service_provider'
-                ? 'Upload music, offer services, and grow with gems.'
+                ? 'Upload music, offer services, and grow with artists.'
                 : 'Upload music and grow your discoveries.';
 
         return Scaffold(
