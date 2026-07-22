@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:audio_session/audio_session.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/video_mirror_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 
 /// Full-screen camera: silent countdown on preview, then starts recording +
@@ -306,11 +309,17 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     try {
       final file = await cam.stopVideoRecording();
+      // iOS front-camera files are often unmirrored even though the preview is
+      // flipped — bake the selfie mirror into the clip before returning.
+      var path = file.path;
+      if (!kIsWeb && Platform.isIOS && _isFrontCamera) {
+        path = await VideoMirrorService.mirrorHorizontallyIfIos(path);
+      }
       try {
         await AudioPlayerService.restoreMusicSession();
       } catch (_) {}
       if (!mounted) return;
-      Navigator.of(context).pop(file.path);
+      Navigator.of(context).pop(path);
     } catch (e) {
       if (!mounted) return;
       setState(() {

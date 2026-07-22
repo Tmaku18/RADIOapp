@@ -16,5 +16,46 @@ import UserNotifications
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+
+    let channel = FlutterMethodChannel(
+      name: "com.tmaktechnologies.networxradio/video_mirror",
+      binaryMessenger: engineBridge.applicationRegistrar.messenger()
+    )
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "mirrorHorizontally" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let args = call.arguments as? [String: Any],
+        let path = args["path"] as? String,
+        !path.isEmpty
+      else {
+        result(
+          FlutterError(
+            code: "bad_args",
+            message: "Expected { path: String }",
+            details: nil
+          )
+        )
+        return
+      }
+      VideoMirror.mirrorHorizontally(inputPath: path) { mirrorResult in
+        DispatchQueue.main.async {
+          switch mirrorResult {
+          case .success(let outputPath):
+            result(outputPath)
+          case .failure(let error):
+            result(
+              FlutterError(
+                code: "mirror_failed",
+                message: error.localizedDescription,
+                details: nil
+              )
+            )
+          }
+        }
+      }
+    }
   }
 }
