@@ -137,7 +137,9 @@ export function ArtistPageView({
   const [data, setData] = useState<ArtistProfileResponse | null>(null);
   const [likedBySongId, setLikedBySongId] = useState<Record<string, boolean>>({});
   const [following, setFollowing] = useState(false);
+  const [favorited, setFavorited] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [likesDialogOpen, setLikesDialogOpen] = useState(false);
@@ -147,14 +149,19 @@ export function ArtistPageView({
   const [buyingId, setBuyingId] = useState<string | null>(null);
 
   const refreshFollowState = async (targetUserId: string) => {
-    const [followRes, countRes] = await Promise.all([
-      profile?.id && profile.id !== targetUserId
+    const canRelate = !!profile?.id && profile.id !== targetUserId;
+    const [followRes, favoriteRes, countRes] = await Promise.all([
+      canRelate
         ? usersApi.isFollowing(targetUserId)
         : Promise.resolve({ data: { following: false } }),
+      canRelate
+        ? usersApi.isFavorited(targetUserId)
+        : Promise.resolve({ data: { favorited: false } }),
       usersApi.getFollowCounts(targetUserId),
     ]);
 
     setFollowing(!!followRes.data?.following);
+    setFavorited(!!favoriteRes.data?.favorited);
     setData((prev) => {
       if (!prev) return prev;
       return {
@@ -319,27 +326,11 @@ export function ArtistPageView({
 
     (async () => {
       try {
-        const [followRes, countRes] = await Promise.all([
-          profile?.id && profile.id !== targetUserId
-            ? usersApi.isFollowing(targetUserId)
-            : Promise.resolve({ data: { following: false } }),
-          usersApi.getFollowCounts(targetUserId),
-        ]);
-        if (ignore) return;
-        setFollowing(!!followRes.data?.following);
-        setData((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            stats: {
-              ...prev.stats,
-              followerCount: Number(countRes.data?.followers ?? prev.stats.followerCount ?? 0),
-            },
-          };
-        });
+        await refreshFollowState(targetUserId);
       } catch {
         if (!ignore) {
           setFollowing(false);
+          setFavorited(false);
         }
       }
     })();
@@ -347,6 +338,8 @@ export function ArtistPageView({
     return () => {
       ignore = true;
     };
+    // refreshFollowState closes over profile; reload when viewer or artist changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profile?.id, data?.artist?.id]);
 
   // Load the viewer's purchased song ids so owned tracks unlock full playback.
@@ -469,6 +462,7 @@ export function ArtistPageView({
     const nextFollowing = !following;
     setFollowLoading(true);
     setFollowing(nextFollowing);
+    if (!nextFollowing) setFavorited(false);
     setData((prev) => {
       if (!prev) return prev;
       return {
@@ -514,6 +508,44 @@ export function ArtistPageView({
     }
   };
 
+  const toggleFavorite = async () => {
+    if (!data?.artist?.id || !profile?.id || profile.id === data.artist.id) return;
+    const targetUserId = data.artist.id;
+    const nextFavorited = !favorited;
+    setFavoriteLoading(true);
+    setFavorited(nextFavorited);
+    if (nextFavorited && !following) {
+      setFollowing(true);
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          stats: {
+            ...prev.stats,
+            followerCount: prev.stats.followerCount + 1,
+          },
+        };
+      });
+    }
+    try {
+      if (nextFavorited) {
+        await usersApi.favorite(targetUserId);
+      } else {
+        await usersApi.unfavorite(targetUserId);
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite state:', error);
+      setFavorited(!nextFavorited);
+    } finally {
+      try {
+        await refreshFollowState(targetUserId);
+      } catch (refreshError) {
+        console.error('Failed to refresh favorite state:', refreshError);
+      }
+      setFavoriteLoading(false);
+    }
+  };
+
   if (loading) {
     return <div className="p-6 text-muted-foreground">Loading artist page...</div>;
   }
@@ -549,14 +581,29 @@ export function ArtistPageView({
             </div>
             <div className="md:ml-auto flex w-full md:w-auto flex-wrap items-center gap-2">
               {profile?.id && profile.id !== data.artist.id && (
-                <Button
-                  variant={following ? 'secondary' : 'default'}
-                  onClick={toggleFollow}
-                  disabled={followLoading}
-                  className="w-full sm:w-auto"
-                >
-                  {followLoading ? '...' : following ? 'Following' : 'Follow'}
-                </Button>
+                <>
+                  <Button
+                    variant={following ? 'secondary' : 'default'}
+                    onClick={toggleFollow}
+                    disabled={followLoading || favoriteLoading}
+                    className="w-full sm:w-auto"
+                  >
+                    {followLoading ? '...' : following ? 'Following' : 'Follow'}
+                  </Button>
+                  <Button
+                    variant={favorited ? 'secondary' : 'outline'}
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading || followLoading}
+                    className="w-full sm:w-auto"
+                    title="Favorite for radio notifications"
+                  >
+                    {favoriteLoading
+                      ? '...'
+                      : favorited
+                        ? 'Favorited'
+                        : 'Favorite'}
+                  </Button>
+                </>
               )}
               {mode === 'dashboard' ? (
                 <Link href="/listen">

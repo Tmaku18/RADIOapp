@@ -818,6 +818,11 @@ export const usersApi = {
   follow: (id: string) => api.post(`/users/${id}/follow`),
   unfollow: (id: string) => api.delete(`/users/${id}/follow`),
   isFollowing: (id: string) => api.get<{ following: boolean }>(`/users/${id}/follow`),
+  favorite: (id: string) => api.post<{ favorited: true; following: true }>(`/users/${id}/favorite`),
+  unfavorite: (id: string) => api.delete<{ favorited: false }>(`/users/${id}/favorite`),
+  isFavorited: (id: string) => api.get<{ favorited: boolean }>(`/users/${id}/favorite`),
+  listMyFavorites: (params?: { limit?: number; offset?: number }) =>
+    api.get<{ items: FollowListItem[] }>('/users/me/favorites', { params: params ?? {} }),
   getFollowCounts: (id: string) => api.get<{ followers: number; following: number }>(`/users/${id}/follow-counts`),
   getFollowers: (id: string, params?: { limit?: number; offset?: number }) =>
     api.get<{ items: FollowListItem[]; total: number }>(

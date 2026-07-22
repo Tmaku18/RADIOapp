@@ -640,6 +640,7 @@ export class PushNotificationService {
 
   /**
    * Load follower IDs for an artist (user_follows, with artist_follows fallback).
+   * Used for social fanout (e.g. new uploads). Radio alerts use favorites.
    */
   private async loadFollowerIds(artistId: string): Promise<Set<string>> {
     const supabase = getSupabaseClient();
@@ -682,25 +683,51 @@ export class PushNotificationService {
   }
 
   /**
-   * Followers who opted into followed-artist radio alerts.
+   * Users who favorited this artist (radio alert recipients).
+   */
+  private async loadFavoriterIds(artistId: string): Promise<Set<string>> {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('artist_favorites')
+      .select('user_id')
+      .eq('artist_id', artistId);
+
+    if (error) {
+      // Table missing during rolling deploys — fall back to followers so
+      // alerts don't go silent until migration lands.
+      this.logger.warn(
+        `Failed to load artist favorites for fanout (${error.message}); falling back to followers`,
+      );
+      return this.loadFollowerIds(artistId);
+    }
+
+    const ids = new Set(
+      (data || []).map((row: any) => row.user_id as string).filter(Boolean),
+    );
+    ids.delete(artistId);
+    return ids;
+  }
+
+  /**
+   * Users who opted into radio alerts (global pref) from a candidate set.
    */
   private async loadEligibleRadioFollowers(
-    followerIds: Set<string>,
+    candidateIds: Set<string>,
   ): Promise<{ targets: Set<string>; prefsError: boolean }> {
-    if (followerIds.size === 0) {
+    if (candidateIds.size === 0) {
       return { targets: new Set(), prefsError: false };
     }
     const supabase = getSupabaseClient();
     const { data: followerPrefs, error: prefsError } = await supabase
       .from('users')
       .select('id, notify_followed_artist_on_radio')
-      .in('id', [...followerIds]);
+      .in('id', [...candidateIds]);
 
     if (prefsError) {
       this.logger.warn(
-        `Failed to load follower radio notification prefs: ${prefsError.message}`,
+        `Failed to load radio notification prefs: ${prefsError.message}`,
       );
-      return { targets: followerIds, prefsError: true };
+      return { targets: candidateIds, prefsError: true };
     }
 
     const eligible = new Set(
@@ -718,14 +745,15 @@ export class PushNotificationService {
   async notifyFollowersArtistUpNext(
     dto: ArtistSongOnRadioFanoutDto,
   ): Promise<{ notified: number; followers: number }> {
-    const followerIds = await this.loadFollowerIds(dto.artistId);
-    if (followerIds.size === 0) {
+    // Radio alerts go to favoriters only (not the full follow graph).
+    const favoriterIds = await this.loadFavoriterIds(dto.artistId);
+    if (favoriterIds.size === 0) {
       return { notified: 0, followers: 0 };
     }
 
-    const { targets } = await this.loadEligibleRadioFollowers(followerIds);
+    const { targets } = await this.loadEligibleRadioFollowers(favoriterIds);
     if (targets.size === 0) {
-      return { notified: 0, followers: followerIds.size };
+      return { notified: 0, followers: favoriterIds.size };
     }
 
     const minutes = dto.minutesUntil === 5 ? 5 : 1;
@@ -794,14 +822,15 @@ export class PushNotificationService {
   async notifyFollowersArtistOnRadio(
     dto: ArtistSongOnRadioFanoutDto,
   ): Promise<{ notified: number; followers: number }> {
-    const followerIds = await this.loadFollowerIds(dto.artistId);
-    if (followerIds.size === 0) {
+    // On-air alerts go to favoriters only.
+    const favoriterIds = await this.loadFavoriterIds(dto.artistId);
+    if (favoriterIds.size === 0) {
       return { notified: 0, followers: 0 };
     }
 
-    const { targets } = await this.loadEligibleRadioFollowers(followerIds);
+    const { targets } = await this.loadEligibleRadioFollowers(favoriterIds);
     if (targets.size === 0) {
-      return { notified: 0, followers: followerIds.size };
+      return { notified: 0, followers: favoriterIds.size };
     }
 
     const station = stationDisplayName(dto.radioId);

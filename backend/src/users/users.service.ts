@@ -1542,7 +1542,159 @@ export class UsersService {
       .eq('user_id', followerUserId)
       .eq('artist_id', resolvedFollowedUserId);
 
+    // Unfollow also clears favorite so radio alerts stop.
+    await supabase
+      .from('artist_favorites')
+      .delete()
+      .eq('user_id', followerUserId)
+      .eq('artist_id', resolvedFollowedUserId);
+
     return { unfollowed: true };
+  }
+
+  /**
+   * Favorite an artist for radio alerts. Also follows them (favorite ⊆ follow).
+   */
+  async favoriteArtist(
+    firebaseUid: string,
+    artistId: string,
+  ): Promise<{ favorited: true; following: true }> {
+    const supabase = getSupabaseClient();
+    const userId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const resolvedArtistId = await this.resolveUserId(artistId);
+    if (userId === resolvedArtistId) {
+      throw new ForbiddenException('Cannot favorite yourself');
+    }
+
+    const { data: targetUser } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', resolvedArtistId)
+      .maybeSingle();
+    if (!targetUser) {
+      throw new NotFoundException('Artist not found');
+    }
+
+    // Favorite implies follow so the social graph stays consistent.
+    await this.followUser(firebaseUid, resolvedArtistId);
+
+    const { error } = await supabase.from('artist_favorites').upsert(
+      {
+        user_id: userId,
+        artist_id: resolvedArtistId,
+        created_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id,artist_id' },
+    );
+    if (error) {
+      throw new BadRequestException(
+        `Failed to favorite artist: ${error.message}`,
+      );
+    }
+
+    return { favorited: true, following: true };
+  }
+
+  async unfavoriteArtist(
+    firebaseUid: string,
+    artistId: string,
+  ): Promise<{ favorited: false }> {
+    const supabase = getSupabaseClient();
+    const userId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const resolvedArtistId = await this.resolveUserId(artistId);
+
+    const { error } = await supabase
+      .from('artist_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('artist_id', resolvedArtistId);
+    if (error) {
+      throw new BadRequestException(
+        `Failed to unfavorite artist: ${error.message}`,
+      );
+    }
+
+    return { favorited: false };
+  }
+
+  async isFavoritingArtist(
+    firebaseUid: string,
+    artistId: string,
+  ): Promise<{ favorited: boolean }> {
+    const supabase = getSupabaseClient();
+    const userId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const resolvedArtistId = await this.resolveUserId(artistId);
+
+    const { data, error } = await supabase
+      .from('artist_favorites')
+      .select('artist_id')
+      .eq('user_id', userId)
+      .eq('artist_id', resolvedArtistId)
+      .maybeSingle();
+    if (error) {
+      throw new BadRequestException(
+        `Failed to check favorite: ${error.message}`,
+      );
+    }
+    return { favorited: !!data };
+  }
+
+  async listMyFavoriteArtists(
+    firebaseUid: string,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<{ items: Array<Record<string, unknown>> }> {
+    const supabase = getSupabaseClient();
+    const userId = await this.getDbUserIdByFirebaseUid(firebaseUid);
+    const limit = Math.min(Math.max(opts?.limit ?? 50, 1), 100);
+    const offset = Math.max(opts?.offset ?? 0, 0);
+
+    const { data, error } = await supabase
+      .from('artist_favorites')
+      .select('artist_id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      throw new BadRequestException(
+        `Failed to list favorites: ${error.message}`,
+      );
+    }
+
+    const rows = data || [];
+    const ids = rows.map((r: any) => r.artist_id as string).filter(Boolean);
+    if (!ids.length) return { items: [] };
+
+    const { data: users, error: usersError } = await this.selectFollowProfiles(
+      supabase,
+      ids,
+    );
+    if (usersError) {
+      throw new BadRequestException(
+        `Failed to list favorite profiles: ${usersError.message}`,
+      );
+    }
+
+    const usersById = new Map(
+      (users || []).map((u: any) => [u.id as string, u]),
+    );
+    const favoritedAtById = new Map(
+      rows.map((r: any) => [r.artist_id as string, r.created_at]),
+    );
+
+    const items = ids
+      .map((id) => usersById.get(id))
+      .filter(Boolean)
+      .map((u: any) => ({
+        id: u.id,
+        displayName: u.display_name ?? null,
+        username: u.username ?? null,
+        avatarUrl: u.avatar_url ?? null,
+        headline: u.headline ?? null,
+        role: u.role ?? null,
+        favoritedAt: favoritedAtById.get(u.id) ?? null,
+      }));
+    return { items };
   }
 
   async isFollowingUser(
@@ -2079,6 +2231,12 @@ export class UsersService {
       );
     await supabase
       .from('artist_follows')
+      .delete()
+      .or(
+        `and(user_id.eq.${blockerId},artist_id.eq.${targetId}),and(user_id.eq.${targetId},artist_id.eq.${blockerId})`,
+      );
+    await supabase
+      .from('artist_favorites')
       .delete()
       .or(
         `and(user_id.eq.${blockerId},artist_id.eq.${targetId}),and(user_id.eq.${targetId},artist_id.eq.${blockerId})`,

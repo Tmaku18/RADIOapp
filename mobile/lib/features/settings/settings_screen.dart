@@ -236,7 +236,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() => _notifyFollowedArtistOnRadio = !value);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Failed to save followed-artist radio alerts'),
+          content: Text('Failed to save favorite-artist radio alerts'),
         ),
       );
     } finally {
@@ -538,15 +538,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     activeThumbColor: primary,
                   ),
                   SwitchListTile(
-                    title: const Text('Followed artists on radio'),
+                    title: const Text('Favorite artists on radio'),
                     subtitle: const Text(
-                      'When someone you follow is about to play or is on-air on any station',
+                      'When an artist you favorited is about to play or is on-air on any station',
                     ),
                     value: _notifyFollowedArtistOnRadio && _notificationsEnabled,
                     onChanged: _notificationsEnabled && !_savingFollowedRadio
                         ? _toggleFollowedArtistOnRadio
                         : null,
-                    secondary: const Icon(Icons.radio_outlined),
+                    secondary: const Icon(Icons.star_outline),
                     activeThumbColor: primary,
                   ),
                   SwitchListTile(

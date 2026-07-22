@@ -16,6 +16,7 @@ import '../../core/services/songs_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../core/services/users_service.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -33,6 +34,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   final PaymentsService _payments = PaymentsService();
   final AudioPlayer _player = AudioPlayerService().player;
   final LivestreamService _live = LivestreamService();
+  final UsersService _users = UsersService();
 
   bool _loading = true;
   String? _error;
@@ -50,6 +52,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   Map<String, dynamic>? _liveSession;
   bool _liveActionLoading = false;
   bool _isOwnerProfile = false;
+  bool _following = false;
+  bool _favorited = false;
+  bool _followLoading = false;
+  bool _favoriteLoading = false;
 
   @override
   void initState() {
@@ -118,6 +124,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       });
       if (!isOwner && me != null) {
         await _loadPurchases();
+        await _loadFollowFavoriteState();
+      } else if (mounted) {
+        setState(() {
+          _following = false;
+          _favorited = false;
+        });
       }
       await _loadLikes();
       await _loadLiveStatus();
@@ -126,6 +138,76 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadFollowFavoriteState() async {
+    try {
+      final results = await Future.wait([
+        _users.isFollowing(widget.artistId),
+        _users.isFavorited(widget.artistId),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _following = results[0];
+        _favorited = results[1];
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _following = false;
+        _favorited = false;
+      });
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_isOwnerProfile || _followLoading) return;
+    final next = !_following;
+    setState(() {
+      _followLoading = true;
+      _following = next;
+      if (!next) _favorited = false;
+    });
+    try {
+      if (next) {
+        await _users.follow(widget.artistId);
+      } else {
+        await _users.unfollow(widget.artistId);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _following = !next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update follow: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _followLoading = false);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (_isOwnerProfile || _favoriteLoading) return;
+    final next = !_favorited;
+    setState(() {
+      _favoriteLoading = true;
+      _favorited = next;
+      if (next) _following = true;
+    });
+    try {
+      if (next) {
+        await _users.favorite(widget.artistId);
+      } else {
+        await _users.unfavorite(widget.artistId);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _favorited = !next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update favorite: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _favoriteLoading = false);
     }
   }
 
@@ -744,6 +826,34 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                   ],
                 ),
               ),
+              if (!_isOwnerProfile && isLoggedIn) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _followLoading || _favoriteLoading
+                            ? null
+                            : _toggleFollow,
+                        child: Text(_following ? 'Following' : 'Follow'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.tonalIcon(
+                        onPressed: _favoriteLoading || _followLoading
+                            ? null
+                            : _toggleFavorite,
+                        icon: Icon(
+                          _favorited ? Icons.star : Icons.star_border,
+                          size: 18,
+                        ),
+                        label: Text(_favorited ? 'Favorited' : 'Favorite'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 10),
               Row(
                 children: [

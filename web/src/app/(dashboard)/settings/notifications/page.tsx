@@ -72,7 +72,7 @@ export default function NotificationSettingsPage() {
       await refreshProfile?.();
       setFollowedRadioSaved(true);
     } catch {
-      setError('Failed to save followed-artist radio alerts.');
+      setError('Failed to save favorite-artist radio alerts.');
       setNotifyFollowedArtistOnRadio(profile?.notifyFollowedArtistOnRadio !== false);
     } finally {
       setSavingFollowedRadio(false);
@@ -114,7 +114,7 @@ export default function NotificationSettingsPage() {
 
       {followedRadioSaved && (
         <Alert>
-          <AlertDescription>Followed-artist radio alerts updated.</AlertDescription>
+          <AlertDescription>Favorite-artist radio alerts updated.</AlertDescription>
         </Alert>
       )}
 
@@ -122,9 +122,9 @@ export default function NotificationSettingsPage() {
         <CardContent className="space-y-4 pt-6">
           <div className="flex items-center justify-between gap-4">
             <div className="space-y-1">
-              <Label htmlFor="followed-radio">Followed artists on radio</Label>
+              <Label htmlFor="followed-radio">Favorite artists on radio</Label>
               <p className="text-sm text-muted-foreground">
-                Get notified when someone you follow is about to play or is on-air on any station.
+                Get notified when an artist you favorited is about to play or is on-air on any station.
               </p>
             </div>
             <Switch

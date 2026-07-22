@@ -10,6 +10,7 @@ import {
   Play,
   Radio as RadioIcon,
   Share2,
+  Star,
   Volume2,
 } from 'lucide-react';
 import { usePlayback } from '@/components/playback';
@@ -179,7 +180,9 @@ export function RadioPlayer({
   const [showCheckInPrompt, setShowCheckInPrompt] = useState(false);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [followingArtist, setFollowingArtist] = useState(false);
+  const [favoritedArtist, setFavoritedArtist] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<string | null>(null);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -403,17 +406,24 @@ export function RadioPlayer({
   useEffect(() => {
     if (!artistUserId || !profile?.id || profile.id === artistUserId) {
       setFollowingArtist(false);
+      setFavoritedArtist(false);
       return;
     }
 
     let cancelled = false;
-    usersApi
-      .isFollowing(artistUserId)
-      .then((res) => {
-        if (!cancelled) setFollowingArtist(!!res.data?.following);
+    Promise.all([
+      usersApi.isFollowing(artistUserId),
+      usersApi.isFavorited(artistUserId),
+    ])
+      .then(([followRes, favoriteRes]) => {
+        if (cancelled) return;
+        setFollowingArtist(!!followRes.data?.following);
+        setFavoritedArtist(!!favoriteRes.data?.favorited);
       })
       .catch(() => {
-        if (!cancelled) setFollowingArtist(false);
+        if (cancelled) return;
+        setFollowingArtist(false);
+        setFavoritedArtist(false);
       });
 
     return () => {
@@ -429,6 +439,7 @@ export function RadioPlayer({
     const nextFollowing = !followingArtist;
     setFollowLoading(true);
     setFollowingArtist(nextFollowing);
+    if (!nextFollowing) setFavoritedArtist(false);
     try {
       if (nextFollowing) {
         await usersApi.follow(artistUserId);
@@ -440,6 +451,34 @@ export function RadioPlayer({
       setFollowingArtist(!nextFollowing);
     } finally {
       setFollowLoading(false);
+    }
+  };
+
+  const toggleFavoriteArtist = async () => {
+    if (
+      !artistUserId ||
+      !profile?.id ||
+      profile.id === artistUserId ||
+      favoriteLoading
+    ) {
+      return;
+    }
+
+    const nextFavorited = !favoritedArtist;
+    setFavoriteLoading(true);
+    setFavoritedArtist(nextFavorited);
+    if (nextFavorited) setFollowingArtist(true);
+    try {
+      if (nextFavorited) {
+        await usersApi.favorite(artistUserId);
+      } else {
+        await usersApi.unfavorite(artistUserId);
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite state:', error);
+      setFavoritedArtist(!nextFavorited);
+    } finally {
+      setFavoriteLoading(false);
     }
   };
 
@@ -1408,19 +1447,42 @@ export function RadioPlayer({
                   )}
                 </button>
                 {artistUserId && profile?.id && profile.id !== artistUserId && (
-                  <button
-                    type="button"
-                    onClick={() => void toggleFollowArtist()}
-                    disabled={followLoading || !state.track}
-                    data-testid="radio-follow-artist"
-                    className={`h-10 px-4 rounded-full border text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 ${
-                      followingArtist
-                        ? 'border-pink-400/50 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
-                        : 'border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10'
-                    }`}
-                  >
-                    {followLoading ? '…' : followingArtist ? 'Following' : 'Follow'}
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void toggleFollowArtist()}
+                      disabled={followLoading || favoriteLoading || !state.track}
+                      data-testid="radio-follow-artist"
+                      className={`h-10 px-4 rounded-full border text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 ${
+                        followingArtist
+                          ? 'border-pink-400/50 bg-pink-500/10 text-pink-300 hover:bg-pink-500/20'
+                          : 'border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10'
+                      }`}
+                    >
+                      {followLoading ? '…' : followingArtist ? 'Following' : 'Follow'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void toggleFavoriteArtist()}
+                      disabled={favoriteLoading || followLoading || !state.track}
+                      data-testid="radio-favorite-artist"
+                      title="Favorite for radio notifications"
+                      className={`h-10 px-4 rounded-full border text-xs font-dim-mono tracking-[0.18em] uppercase transition disabled:opacity-40 inline-flex items-center gap-2 ${
+                        favoritedArtist
+                          ? 'border-amber-400/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                          : 'border-cyan-400/40 text-cyan-300 hover:bg-cyan-400/10'
+                      }`}
+                    >
+                      <Star
+                        className={`w-3.5 h-3.5 ${favoritedArtist ? 'fill-current' : ''}`}
+                      />
+                      {favoriteLoading
+                        ? '…'
+                        : favoritedArtist
+                          ? 'Favorited'
+                          : 'Favorite'}
+                    </button>
+                  </>
                 )}
                 {artistUserId && (
                   <button

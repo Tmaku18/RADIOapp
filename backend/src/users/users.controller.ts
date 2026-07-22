@@ -116,6 +116,19 @@ export class UsersController {
     }
   }
 
+  /** Artists the current user favorited (radio-alert list). */
+  @Get('me/favorites')
+  async listMyFavorites(
+    @CurrentUser() user: FirebaseUser,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.usersService.listMyFavoriteArtists(user.uid, {
+      limit: limit ? parseInt(limit, 10) : undefined,
+      offset: offset ? parseInt(offset, 10) : undefined,
+    });
+  }
+
   @Get('me/artist-like-notifications')
   async getArtistLikeNotificationSettings(@CurrentUser() user: FirebaseUser) {
     return this.usersService.getArtistLikeNotificationSettings(user.uid);
@@ -226,6 +239,30 @@ export class UsersController {
     @Param('id') id: string,
   ) {
     return this.usersService.isFollowingUser(user.uid, id);
+  }
+
+  @Post(':id/favorite')
+  async favoriteArtist(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.favoriteArtist(user.uid, id);
+  }
+
+  @Delete(':id/favorite')
+  async unfavoriteArtist(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.unfavoriteArtist(user.uid, id);
+  }
+
+  @Get(':id/favorite')
+  async isFavoritingArtist(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') id: string,
+  ) {
+    return this.usersService.isFavoritingArtist(user.uid, id);
   }
 
   @Get(':id/block-status')

@@ -211,6 +211,20 @@ class UsersService {
     await _api.delete('users/$userId/follow');
   }
 
+  Future<bool> isFavorited(String userId) async {
+    final res = await _api.get('users/$userId/favorite');
+    if (res is! Map<String, dynamic>) return false;
+    return res['favorited'] == true;
+  }
+
+  Future<void> favorite(String userId) async {
+    await _api.post('users/$userId/favorite', {});
+  }
+
+  Future<void> unfavorite(String userId) async {
+    await _api.delete('users/$userId/favorite');
+  }
+
   /// Self-service account deletion (Google Play / Apple App Store requirement).
   /// Permanently deletes the current user's data and Firebase credentials.
   Future<void> deleteMyAccount() async {
