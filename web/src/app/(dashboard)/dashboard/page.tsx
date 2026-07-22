@@ -38,7 +38,7 @@ interface DashboardStats {
     totalPlays: number;
     totalListenCount: number;
     earsReached: number;
-    totalProfileClicks: number;
+    totalLikes: number;
   };
   artist?: {
     totalPlays: number;
@@ -165,8 +165,8 @@ const PLATFORM_STATS = [
     borderClass: 'border-cyan-400/40',
   },
   {
-    label: 'Discoveries',
-    key: 'totalProfileClicks' as const,
+    label: 'Likes',
+    key: 'totalLikes' as const,
     Icon: Flame,
     valueClass: 'text-cyan-300',
     borderClass: 'border-cyan-400/40',
@@ -288,7 +288,7 @@ export default function DashboardPage() {
             totalListenCount?: number;
             listens?: number;
             earsReached?: number;
-            totalProfileClicks?: number;
+            totalLikes?: number;
           };
           next.platform = {
             totalArtists: platform.totalArtists ?? 0,
@@ -299,7 +299,7 @@ export default function DashboardPage() {
               platform.totalListenCount ??
               0,
             earsReached: platform.earsReached ?? 0,
-            totalProfileClicks: platform.totalProfileClicks ?? 0,
+            totalLikes: platform.totalLikes ?? 0,
           };
         } catch (platformError) {
           console.error('Failed to load platform stats:', platformError);

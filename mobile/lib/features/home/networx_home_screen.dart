@@ -39,7 +39,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
   int _songs = 0;
   int _ears = 0;
   int _listens = 0;
-  int _discoveries = 0;
+  int _likes = 0;
 
   @override
   void initState() {
@@ -61,8 +61,8 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
               stats['totalListenCount'] ??
               stats['total_listen_count'],
         );
-        _discoveries = asInt(
-          stats['totalProfileClicks'] ?? stats['total_profile_clicks'],
+        _likes = asInt(
+          stats['totalLikes'] ?? stats['total_likes'],
         );
       });
     } catch (_) {
@@ -434,8 +434,8 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                         accent: DimensionTokens.neonCyan,
                       ),
                       _StatTile(
-                        label: 'Discoveries',
-                        value: _discoveries,
+                        label: 'Likes',
+                        value: _likes,
                         icon: Icons.local_fire_department_outlined,
                         accent: DimensionTokens.neonCyan,
                       ),
