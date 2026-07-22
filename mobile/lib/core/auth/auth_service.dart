@@ -551,6 +551,16 @@ class AuthService extends ChangeNotifier with WidgetsBindingObserver {
     await _apiService.post('users/upgrade-to-artist', null);
   }
 
+  /// Upgrade to Producer / Catalyst (POST /users/upgrade-to-catalyst).
+  Future<void> requestProducerUpgrade() async {
+    if (_auth == null || _auth!.currentUser == null) {
+      throw Exception('Not authenticated');
+    }
+    final token = await _auth!.currentUser!.getIdToken();
+    _apiService.setAuthToken(token);
+    await _apiService.post('users/upgrade-to-catalyst', null);
+  }
+
   app_user.User _buildFallbackUser(User firebaseUser) {
     final now = DateTime.now();
     return app_user.User(

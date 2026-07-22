@@ -67,6 +67,7 @@ const ROLE_HOME: Record<
     title: "Prospector Home",
     subtitle: 'Discover gems, tune in to the radio, and refine songs into signal.',
     actions: [
+      { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Join Trial by Fire to become an Artist and submit tracks.' },
       { href: '/listen', icon: '🎵', title: 'Listen Now', desc: 'Tune in to the radio stream.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find underground talent and Catalysts (service providers).' },
       { href: '/competition', icon: '🏆', title: 'Competition', desc: 'Leaderboards, diamonds, and Top 7.' },
@@ -109,6 +110,7 @@ const ROLE_HOME: Record<
     title: "Catalyst (service provider) Home",
     subtitle: "Offer your services to gems and manage your listings.",
     actions: [
+      { href: '/artist/upload', icon: '📤', title: 'Upload Music', desc: 'Submit tracks to the radio rotation.' },
       { href: PRO_NETWORX_EXTERNAL_URL, icon: '💼', title: 'Pro-Networx', desc: 'Manage your Catalyst profile and services.', external: true },
       { href: '/artist/live-services', icon: '📅', title: 'Live Services', desc: 'Schedule live sessions.' },
       { href: '/discover', icon: '✨', title: 'Discover', desc: 'Find gems and other providers.' },

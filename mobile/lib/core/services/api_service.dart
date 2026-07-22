@@ -14,8 +14,28 @@ class ApiException implements Exception {
     this.responseBody,
   });
 
+  /// Prefer Nest/API body message when present (string or validation array).
+  static String messageFromBody(String? body, {required String fallback}) {
+    if (body == null || body.trim().isEmpty) return fallback;
+    try {
+      final decoded = json.decode(body);
+      if (decoded is Map) {
+        final msg = decoded['message'];
+        if (msg is String && msg.trim().isNotEmpty) return msg.trim();
+        if (msg is List && msg.isNotEmpty) {
+          final parts = msg
+              .map((e) => e?.toString().trim() ?? '')
+              .where((e) => e.isNotEmpty)
+              .toList();
+          if (parts.isNotEmpty) return parts.join(' ');
+        }
+      }
+    } catch (_) {}
+    return fallback;
+  }
+
   @override
-  String toString() => 'ApiException($statusCode): $message';
+  String toString() => message;
 }
 
 class ApiService {
@@ -163,11 +183,15 @@ class ApiService {
           }
           return json.decode(body);
         }
+        final fallback = response.statusCode == 413
+            ? '$method $endpoint failed: file too large for this host'
+            : '$method $endpoint failed';
         throw ApiException(
           statusCode: response.statusCode,
-          message: response.statusCode == 413
-              ? '$method $endpoint failed: file too large for this host'
-              : '$method $endpoint failed',
+          message: ApiException.messageFromBody(
+            response.body,
+            fallback: fallback,
+          ),
           responseBody: response.body,
         );
       } catch (error) {

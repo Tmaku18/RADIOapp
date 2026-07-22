@@ -418,17 +418,17 @@ export default function DashboardLayout({
                     isActive={pathname.startsWith(streamerNav.href)}
                   />
                 )}
+                <DimensionNavSubLink
+                  href="/artist/upload"
+                  label="Upload"
+                  isActive={pathname.startsWith('/artist/upload')}
+                />
                 {hasArtistCapability(effectiveRole) && (
                   <>
                     <DimensionNavSubLink
                       href="/artist/songs"
                       label="My Uploaded Songs"
                       isActive={pathname.startsWith('/artist/songs')}
-                    />
-                    <DimensionNavSubLink
-                      href="/artist/upload"
-                      label="Upload"
-                      isActive={pathname.startsWith('/artist/upload')}
                     />
                     <DimensionNavSubLink
                       href="/artist/payouts"
@@ -511,10 +511,10 @@ export default function DashboardLayout({
 
           <div className="ml-auto flex items-center gap-2">
             <Link
-              href={isArtistMode ? '/artist/upload' : '/competition'}
+              href="/artist/upload"
               className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-cyan-400 text-black font-dim-mono text-[10px] tracking-[0.2em] uppercase font-bold glow-cyan hover:bg-white transition-colors"
             >
-              {isArtistMode ? 'Upload' : 'Amplify'}
+              Upload
             </Link>
 
             <ThemeToggle triggerClassName="chrome-icon-button" />

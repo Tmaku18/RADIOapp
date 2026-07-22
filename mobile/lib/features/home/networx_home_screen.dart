@@ -230,6 +230,12 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
     // Listener / Prospector
     return [
       _HomeAction(
+        Icons.cloud_upload_outlined,
+        'Upload Music',
+        'Join Trial by Fire to become an Artist and submit tracks.',
+        () => Navigator.pushNamed(context, AppRoutes.upload),
+      ),
+      _HomeAction(
         Icons.radio,
         'Listen Now',
         'Tune in to the radio stream.',
@@ -311,21 +317,20 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
             ),
             actions: [
               const NotificationsBellButton(),
-              if (hasArtistCapability(role))
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilledButton.icon(
-                    onPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.upload),
-                    icon: const Icon(Icons.cloud_upload_outlined, size: 18),
-                    label: const Text('Upload'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: DimensionTokens.neonCyan,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                    ),
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.upload),
+                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  label: const Text('Upload'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: DimensionTokens.neonCyan,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
                   ),
                 ),
+              ),
             ],
           ),
           body: RefreshIndicator(

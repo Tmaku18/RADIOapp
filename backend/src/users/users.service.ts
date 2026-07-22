@@ -1021,11 +1021,11 @@ export class UsersService {
     }
 
     if (user.role === 'service_provider') {
-      throw new BadRequestException('You are already a Catalyst');
+      throw new BadRequestException('You are already a Producer');
     }
     if (user.role === 'admin') {
       throw new BadRequestException(
-        'Admin users cannot be upgraded to Catalyst',
+        'Admin users cannot be upgraded to Producer',
       );
     }
 

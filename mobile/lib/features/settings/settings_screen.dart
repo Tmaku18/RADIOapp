@@ -59,7 +59,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       await auth.refreshIdToken();
-      await _usersService.updateMe(role: nextRole);
+      // Prefer dedicated upgrade endpoints so credits / service_providers rows
+      // are created reliably (especially listener/artist → producer).
+      if (nextRole == 'artist' && _role == 'listener') {
+        await auth.requestArtistUpgrade();
+      } else if (nextRole == 'service_provider' &&
+          _role != 'service_provider') {
+        await auth.requestProducerUpgrade();
+      } else {
+        await _usersService.updateMe(role: nextRole);
+      }
       final me = await _usersService.getMe();
       if (!mounted) return;
       setState(() {
@@ -403,7 +412,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Artists and Producers can upload music. Listeners cannot.',
+                            'Listeners can join Trial by Fire to become Artists. '
+                            'Listeners and Artists can upgrade to Producer. '
+                            'Artists and Producers can upload music.',
                             style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                   color: Theme.of(context)
                                       .colorScheme

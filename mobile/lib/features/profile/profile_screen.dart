@@ -5,10 +5,12 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/auth/role_helpers.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/follow_models.dart';
 import '../../core/brand/brand_assets.dart';
+import '../../core/services/api_service.dart';
 import '../../core/services/users_service.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
@@ -155,6 +157,56 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _upgradeRole({required bool toArtist}) async {
+    final label = toArtist ? 'Artist' : 'Producer';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(toArtist ? 'Join Trial by Fire?' : 'Become a Producer?'),
+        content: Text(
+          toArtist
+              ? 'Join Trial by Fire and become an Artist so you can upload music, compete on the leaderboard, and grow on Networx.'
+              : 'Upgrade to Producer to offer services on Pro-Networx. You can still upload music as a Producer.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(toArtist ? 'Join Trial by Fire' : 'Become Producer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      if (toArtist) {
+        await auth.requestArtistUpgrade();
+      } else {
+        await auth.requestProducerUpgrade();
+      }
+      await _loadProfile();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('You are now a $label.')),
+      );
+      if (toArtist) {
+        Navigator.pushNamed(context, AppRoutes.upload);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is ApiException ? e.message : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not upgrade: $msg')),
+      );
+    }
+  }
+
   Future<void> _openEditProfileSheet() async {
     final user = _user;
     if (user == null) return;
@@ -185,6 +237,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
           builder: (context, setModalState) {
             Future<void> submit() async {
               if (saving) return;
+              final trimmedName = nameCtrl.text.trim();
+              if (trimmedName.isEmpty) {
+                ScaffoldMessenger.of(this.context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Display name cannot be empty.'),
+                  ),
+                );
+                return;
+              }
               final trimmedUsername =
                   usernameCtrl.text.trim().toLowerCase();
               final usernameChanged =
@@ -204,8 +265,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
               setModalState(() => saving = true);
               setState(() => _isUpdatingProfile = true);
               try {
+                if (usernameChanged && trimmedUsername.isNotEmpty) {
+                  final available = await _usersService
+                      .checkUsernameAvailable(trimmedUsername);
+                  if (!available) {
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
+                      const SnackBar(
+                        content: Text('That username is already taken.'),
+                      ),
+                    );
+                    return;
+                  }
+                }
+                // Only patch social fields that changed so a bad unused
+                // field cannot block username / bio saves.
+                String? socialPatch(String current, String original) {
+                  final next = current.trim();
+                  final prev = original.trim();
+                  if (next == prev) return null;
+                  return next;
+                }
+
                 await _usersService.updateMe(
-                  displayName: nameCtrl.text.trim(),
+                  displayName: trimmedName,
                   username: usernameChanged && trimmedUsername.isNotEmpty
                       ? trimmedUsername
                       : null,
@@ -213,16 +296,46 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   bio: bioCtrl.text.trim(),
                   city: cityCtrl.text.trim(),
                   zipCode: zipCtrl.text.trim(),
-                  instagramUrl: instagramCtrl.text.trim(),
-                  twitterUrl: twitterCtrl.text.trim(),
-                  tiktokUrl: tiktokCtrl.text.trim(),
-                  youtubeUrl: youtubeCtrl.text.trim(),
-                  websiteUrl: websiteCtrl.text.trim(),
-                  soundcloudUrl: soundcloudCtrl.text.trim(),
-                  spotifyUrl: spotifyCtrl.text.trim(),
-                  appleMusicUrl: appleMusicCtrl.text.trim(),
-                  facebookUrl: facebookCtrl.text.trim(),
-                  snapchatUrl: snapchatCtrl.text.trim(),
+                  instagramUrl: socialPatch(
+                    instagramCtrl.text,
+                    user.instagramUrl ?? '',
+                  ),
+                  twitterUrl: socialPatch(
+                    twitterCtrl.text,
+                    user.twitterUrl ?? '',
+                  ),
+                  tiktokUrl: socialPatch(
+                    tiktokCtrl.text,
+                    user.tiktokUrl ?? '',
+                  ),
+                  youtubeUrl: socialPatch(
+                    youtubeCtrl.text,
+                    user.youtubeUrl ?? '',
+                  ),
+                  websiteUrl: socialPatch(
+                    websiteCtrl.text,
+                    user.websiteUrl ?? '',
+                  ),
+                  soundcloudUrl: socialPatch(
+                    soundcloudCtrl.text,
+                    user.soundcloudUrl ?? '',
+                  ),
+                  spotifyUrl: socialPatch(
+                    spotifyCtrl.text,
+                    user.spotifyUrl ?? '',
+                  ),
+                  appleMusicUrl: socialPatch(
+                    appleMusicCtrl.text,
+                    user.appleMusicUrl ?? '',
+                  ),
+                  facebookUrl: socialPatch(
+                    facebookCtrl.text,
+                    user.facebookUrl ?? '',
+                  ),
+                  snapchatUrl: socialPatch(
+                    snapchatCtrl.text,
+                    user.snapchatUrl ?? '',
+                  ),
                 );
                 if (!mounted || !context.mounted) return;
                 Navigator.pop(context);
@@ -233,8 +346,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 );
               } catch (e) {
                 if (!mounted) return;
+                final msg = e is ApiException
+                    ? e.message
+                    : e.toString();
                 ScaffoldMessenger.of(this.context).showSnackBar(
-                  SnackBar(content: Text('Failed to update profile: $e')),
+                  SnackBar(content: Text('Failed to update profile: $msg')),
                 );
               } finally {
                 if (mounted) {
@@ -968,7 +1084,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                     ),
                     const SizedBox(height: 32),
+                    ListTile(
+                      leading: const Icon(Icons.upload_outlined),
+                      title: const Text('Upload'),
+                      subtitle: Text(
+                        _user!.role == 'listener'
+                            ? 'Join Trial by Fire to become an Artist and upload'
+                            : 'Add a track to the rotation',
+                      ),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () {
+                        Navigator.pushNamed(context, AppRoutes.upload);
+                      },
+                    ),
+                    if (_user!.role == 'listener') ...[
+                      ListTile(
+                        leading: const Icon(Icons.local_fire_department_outlined),
+                        title: const Text('Join Trial by Fire'),
+                        subtitle: const Text('Become an Artist and upload music'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _upgradeRole(toArtist: true),
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.work_outline),
+                        title: const Text('Become a Producer'),
+                        subtitle: const Text('Offer services on Pro-Networx'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _upgradeRole(toArtist: false),
+                      ),
+                    ],
                     if (_user!.role == 'artist') ...[
+                      ListTile(
+                        leading: const Icon(Icons.work_outline),
+                        title: const Text('Become a Producer'),
+                        subtitle: const Text('Offer services on Pro-Networx'),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () => _upgradeRole(toArtist: false),
+                      ),
                       Card(
                         margin: const EdgeInsets.only(bottom: 16),
                         color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.3),
@@ -1027,13 +1179,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           Navigator.pushNamed(context, AppRoutes.credits);
                         },
                       ),
+                    ],
+                    if (hasArtistCapability(_user!.role) &&
+                        _user!.role != 'artist') ...[
                       ListTile(
-                        leading: const Icon(Icons.upload_outlined),
-                        title: const Text('Upload'),
-                        subtitle: const Text('Add a track to the rotation'),
+                        leading: const Icon(Icons.mic_none),
+                        title: const Text('My Songs'),
+                        subtitle: const Text('Manage your songs'),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
-                          Navigator.pushNamed(context, AppRoutes.upload);
+                          Navigator.pushNamed(context, AppRoutes.studio);
                         },
                       ),
                     ],

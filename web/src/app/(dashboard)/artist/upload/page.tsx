@@ -3,7 +3,9 @@
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { songsApi } from '@/lib/api';
+import { songsApi, usersApi } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { hasArtistCapability } from '@/lib/roles';
 import { FULL_SONG_RADIO_OPT_IN } from '@/lib/legal/full-song-radio-opt-in';
 import { ClipWindowEditor } from '@/components/songs/ClipWindowEditor';
 import { StationAssignmentField } from '@/components/songs/StationAssignmentField';
@@ -72,10 +74,13 @@ function errorMessage(err: unknown, fallback: string): string {
 
 export default function UploadPage() {
   const router = useRouter();
+  const { profile, refreshProfile } = useAuth();
   const audioInputRef = useRef<HTMLInputElement>(null);
   const artworkInputRef = useRef<HTMLInputElement>(null);
   const discoverBackgroundInputRef = useRef<HTMLInputElement>(null);
 
+  const [upgradeBusy, setUpgradeBusy] = useState(false);
+  const [upgradeError, setUpgradeError] = useState<string | null>(null);
   const [audioFile, setAudioFile] = useState<File | null>(null);
   const [artworkFile, setArtworkFile] = useState<File | null>(null);
   const [artworkPreview, setArtworkPreview] = useState<string | null>(null);
@@ -466,6 +471,71 @@ export default function UploadPage() {
       setIsUploading(false);
     }
   };
+
+  const joinTrialByFire = async () => {
+    setUpgradeBusy(true);
+    setUpgradeError(null);
+    try {
+      await usersApi.upgradeToArtist();
+      await refreshProfile();
+    } catch (err) {
+      setUpgradeError(errorMessage(err, 'Could not join Trial by Fire.'));
+    } finally {
+      setUpgradeBusy(false);
+    }
+  };
+
+  const becomeProducer = async () => {
+    setUpgradeBusy(true);
+    setUpgradeError(null);
+    try {
+      await usersApi.upgradeToCatalyst();
+      await refreshProfile();
+    } catch (err) {
+      setUpgradeError(errorMessage(err, 'Could not upgrade to Producer.'));
+    } finally {
+      setUpgradeBusy(false);
+    }
+  };
+
+  if (profile && !hasArtistCapability(profile.role)) {
+    return (
+      <div className="max-w-2xl mx-auto">
+        <Card className="glass-panel border-border/80">
+          <CardContent className="pt-8 pb-8 space-y-4">
+            <h2 className="heading-serif text-2xl font-semibold text-foreground">
+              Join Trial by Fire?
+            </h2>
+            <p className="text-muted-foreground">
+              Listeners can&apos;t upload yet. Join Trial by Fire to become an Artist
+              and submit tracks — or upgrade to Producer to offer services on
+              Pro-Networx (Producers can upload too).
+            </p>
+            {upgradeError && (
+              <Alert variant="destructive">
+                <AlertDescription>{upgradeError}</AlertDescription>
+              </Alert>
+            )}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <Button onClick={() => void joinTrialByFire()} disabled={upgradeBusy}>
+                {upgradeBusy ? 'Upgrading…' : 'Join Trial by Fire'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void becomeProducer()}
+                disabled={upgradeBusy}
+              >
+                Become a Producer
+              </Button>
+              <Button variant="ghost" asChild>
+                <Link href="/competition">View competition</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (readyForRotation) {
     return (

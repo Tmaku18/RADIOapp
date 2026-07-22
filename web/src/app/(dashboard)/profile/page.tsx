@@ -185,6 +185,18 @@ export default function ProfilePage() {
     };
   }, [profile?.id]);
 
+  const formatApiError = (err: unknown, fallback: string): string => {
+    const data = (err as { response?: { data?: { message?: unknown } } })?.response
+      ?.data?.message;
+    if (typeof data === 'string' && data.trim()) return data.trim();
+    if (Array.isArray(data)) {
+      const parts = data.map((e) => String(e).trim()).filter(Boolean);
+      if (parts.length) return parts.join(' ');
+    }
+    if (err instanceof Error && err.message) return err.message;
+    return fallback;
+  };
+
   const handleSave = async () => {
     setError(null);
     setSuccess(false);
@@ -193,16 +205,60 @@ export default function ProfilePage() {
     try {
       const normalizedRegion = region.trim();
       const normalizedLocation = locationRegion.trim();
-      const trimmedUsername = username.trim().toLowerCase();
-      const usernameChanged =
-        trimmedUsername !== (profile?.username ?? '').toLowerCase();
-      if (usernameChanged && usernameStatus === 'taken') {
-        setError('That username is already taken.');
+      const trimmedDisplayName = displayName.trim();
+      if (!trimmedDisplayName) {
+        setError('Display name cannot be empty.');
         setIsSaving(false);
         return;
       }
+      const trimmedUsername = username.trim().toLowerCase();
+      const usernameChanged =
+        trimmedUsername !== (profile?.username ?? '').toLowerCase();
+      if (usernameChanged) {
+        if (!trimmedUsername || usernameStatus === 'invalid') {
+          setError(
+            'Username must be 3-30 characters using lowercase letters, numbers, underscores, or dots.',
+          );
+          setIsSaving(false);
+          return;
+        }
+        if (usernameStatus === 'checking') {
+          setError('Still checking username availability. Try again in a moment.');
+          setIsSaving(false);
+          return;
+        }
+        if (usernameStatus === 'taken') {
+          setError('That username is already taken.');
+          setIsSaving(false);
+          return;
+        }
+      }
+      const currentAccountRole =
+        profile?.role === 'listener' ||
+        profile?.role === 'artist' ||
+        profile?.role === 'service_provider'
+          ? profile.role
+          : null;
+      const roleChanged =
+        !isAdmin &&
+        currentAccountRole != null &&
+        selectedRole !== currentAccountRole;
+
+      // Prefer dedicated upgrade endpoints for artist/producer so side tables
+      // (credits, service_providers) stay in sync.
+      if (roleChanged) {
+        if (selectedRole === 'artist' && currentAccountRole === 'listener') {
+          await usersApi.upgradeToArtist();
+        } else if (
+          selectedRole === 'service_provider' &&
+          currentAccountRole !== 'service_provider'
+        ) {
+          await usersApi.upgradeToCatalyst();
+        }
+      }
+
       await usersApi.updateMe({
-        displayName,
+        displayName: trimmedDisplayName,
         username:
           usernameChanged && trimmedUsername ? trimmedUsername : undefined,
         // Region powers some legacy ranking/discovery paths; when users only set
@@ -222,16 +278,22 @@ export default function ProfilePage() {
         appleMusicUrl: appleMusicUrl.trim() || undefined,
         facebookUrl: facebookUrl.trim() || undefined,
         snapchatUrl: snapchatUrl.trim() || undefined,
-        role: !isAdmin ? selectedRole : undefined,
+        role:
+          roleChanged &&
+          !(
+            (selectedRole === 'artist' && currentAccountRole === 'listener') ||
+            (selectedRole === 'service_provider' &&
+              currentAccountRole !== 'service_provider')
+          )
+            ? selectedRole
+            : undefined,
       });
       await refreshProfile();
       setIsEditing(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
-        ?? (err instanceof Error ? err.message : 'Failed to update profile');
-      setError(msg);
+      setError(formatApiError(err, 'Failed to update profile'));
     } finally {
       setIsSaving(false);
     }
@@ -638,8 +700,9 @@ export default function ProfilePage() {
               )}
               {!isAdmin && (
                 <p className="text-sm text-muted-foreground">
-                  You can switch between Listener, Artist, and Producer here.
-                  Artists and Producers can upload music.
+                  Listeners can join Trial by Fire to become Artists. Listeners
+                  and Artists can upgrade to Producer. Artists and Producers can
+                  upload music.
                 </p>
               )}
               {isCatalyst && (

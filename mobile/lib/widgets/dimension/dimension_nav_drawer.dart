@@ -16,6 +16,7 @@ class DimensionNavDrawer extends StatefulWidget {
     super.key,
     required this.user,
     required this.isArtist,
+    this.showUpload = false,
     required this.isAdmin,
     required this.isStreamerRole,
     required this.currentTabIndex,
@@ -26,6 +27,8 @@ class DimensionNavDrawer extends StatefulWidget {
 
   final app_user.User? user;
   final bool isArtist;
+  /// When true, Upload appears even for listeners (gated by ApplyScreen).
+  final bool showUpload;
   final bool isAdmin;
   final bool isStreamerRole;
 
@@ -131,12 +134,13 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
           label: 'Vote',
           tabIndex: 4,
         ),
-      if (widget.isArtist) ...[
+      if (widget.isArtist || widget.showUpload)
         const _NavSpec(
           icon: Icons.cloud_upload_outlined,
           label: 'Upload',
           route: AppRoutes.upload,
         ),
+      if (widget.isArtist) ...[
         const _NavSpec(
           icon: Icons.library_music_outlined,
           label: 'My Songs',

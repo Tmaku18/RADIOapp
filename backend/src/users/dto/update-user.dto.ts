@@ -24,6 +24,16 @@ import {
   normalizeYoutubeUrl,
 } from '../utils/normalize-social-url';
 
+/** Preserve omitted fields; empty/null clears; otherwise normalize. */
+function transformOptionalSocialUrl(
+  value: unknown,
+  normalize: (v: unknown) => string | undefined,
+): string | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  return normalize(value) ?? null;
+}
+
 export class UpdateUserDto {
   @IsString()
   @IsOptional()
@@ -100,66 +110,86 @@ export class UpdateUserDto {
   @IsOptional()
   discoverable?: boolean;
 
-  /** Artist social links */
-  @Transform(({ value }) => normalizeInstagramUrl(value))
+  /** Artist social links. Empty string / null clears; omitted leaves unchanged. */
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeInstagramUrl),
+  )
   @ValidateIf((o) => o.instagramUrl != null && o.instagramUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  instagramUrl?: string;
+  instagramUrl?: string | null;
 
-  @Transform(({ value }) => normalizeTwitterUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeTwitterUrl),
+  )
   @ValidateIf((o) => o.twitterUrl != null && o.twitterUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  twitterUrl?: string;
+  twitterUrl?: string | null;
 
-  @Transform(({ value }) => normalizeYoutubeUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeYoutubeUrl),
+  )
   @ValidateIf((o) => o.youtubeUrl != null && o.youtubeUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  youtubeUrl?: string;
+  youtubeUrl?: string | null;
 
-  @Transform(({ value }) => normalizeTiktokUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeTiktokUrl),
+  )
   @ValidateIf((o) => o.tiktokUrl != null && o.tiktokUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  tiktokUrl?: string;
+  tiktokUrl?: string | null;
 
-  @Transform(({ value }) => normalizeWebsiteUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeWebsiteUrl),
+  )
   @ValidateIf((o) => o.websiteUrl != null && o.websiteUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  websiteUrl?: string;
+  websiteUrl?: string | null;
 
-  @Transform(({ value }) => normalizeSoundcloudUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeSoundcloudUrl),
+  )
   @ValidateIf((o) => o.soundcloudUrl != null && o.soundcloudUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  soundcloudUrl?: string;
+  soundcloudUrl?: string | null;
 
-  @Transform(({ value }) => normalizeSpotifyUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeSpotifyUrl),
+  )
   @ValidateIf((o) => o.spotifyUrl != null && o.spotifyUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  spotifyUrl?: string;
+  spotifyUrl?: string | null;
 
-  @Transform(({ value }) => normalizeAppleMusicUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeAppleMusicUrl),
+  )
   @ValidateIf((o) => o.appleMusicUrl != null && o.appleMusicUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  appleMusicUrl?: string;
+  appleMusicUrl?: string | null;
 
-  @Transform(({ value }) => normalizeFacebookUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeFacebookUrl),
+  )
   @ValidateIf((o) => o.facebookUrl != null && o.facebookUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  facebookUrl?: string;
+  facebookUrl?: string | null;
 
-  @Transform(({ value }) => normalizeSnapchatUrl(value))
+  @Transform(({ value }) =>
+    transformOptionalSocialUrl(value, normalizeSnapchatUrl),
+  )
   @ValidateIf((o) => o.snapchatUrl != null && o.snapchatUrl !== '')
   @IsUrl({ protocols: ['http', 'https'], require_protocol: true })
   @IsOptional()
-  snapchatUrl?: string;
+  snapchatUrl?: string | null;
 
   /** Artist map latitude for discovery map. */
   @IsNumber()

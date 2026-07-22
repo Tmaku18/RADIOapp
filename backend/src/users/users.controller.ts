@@ -11,6 +11,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { UsersService } from './users.service';
@@ -105,6 +106,10 @@ export class UsersController {
     try {
       return await this.usersService.updateUser(user.uid, updateUserDto);
     } catch (err) {
+      // Preserve Nest HttpExceptions (409 taken username, 404, etc.)
+      if (err instanceof HttpException) {
+        throw err;
+      }
       const message =
         err instanceof Error ? err.message : 'Failed to update profile';
       throw new BadRequestException(message);
