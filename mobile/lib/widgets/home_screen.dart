@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/navigation/app_routes.dart';
+import '../core/navigation/home_tab_intent.dart';
 import '../core/auth/role_helpers.dart';
 import '../features/home/networx_home_screen.dart';
 import '../features/player/player_screen.dart';
@@ -39,10 +40,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    HomeTabIntent.selectTab = _selectTab;
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_promptLaunchPermissions());
     });
+  }
+
+  @override
+  void dispose() {
+    if (identical(HomeTabIntent.selectTab, _selectTab)) {
+      HomeTabIntent.selectTab = null;
+    }
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {

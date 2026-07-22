@@ -127,6 +127,7 @@ export default function DiscoverPage() {
   const initialTab: 'station' | 'map' | 'feed' | 'artist' | 'service_provider' =
     initialTabParam === 'station' ||
     initialTabParam === 'map' ||
+    initialTabParam === 'feed' ||
     initialTabParam === 'artist' ||
     initialTabParam === 'service_provider'
       ? initialTabParam
@@ -455,32 +456,57 @@ export default function DiscoverPage() {
                 </div>
               ) : feedPosts.length === 0 ? (
                 <p className="text-center text-muted-foreground py-12">
-                  No posts yet. Catalysts can share photos and short videos here—check back soon.
+                  No posts yet. Share a photo or short video — posts also show on your profile.
                 </p>
               ) : (
                 <div className="grid gap-6 sm:grid-cols-2">
-                  {feedPosts.map((post) => (
+                  {feedPosts.map((post) => {
+                    const canDelete =
+                      profile?.id === post.authorUserId ||
+                      profile?.role === 'admin';
+                    return (
                     <Card key={post.id} className="overflow-hidden border-border/80">
                       <CardContent className="p-0">
-                        <Link href={artistProfilePath(post.authorUserId)} className="flex items-center gap-3 p-3 border-b border-border/60">
-                          {post.authorAvatarUrl ? (
-                            <Image
-                              src={post.authorAvatarUrl}
-                              alt={post.authorDisplayName ?? 'Avatar'}
-                              width={40}
-                              height={40}
-                              className="rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg">🛠️</div>
-                          )}
-                          <div className="min-w-0">
-                            <p className="font-medium text-foreground truncate">{post.authorDisplayName || 'Catalyst'}</p>
-                            {post.authorHeadline && (
-                              <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+                        <div className="flex items-center gap-3 p-3 border-b border-border/60">
+                          <Link href={artistProfilePath(post.authorUserId)} className="flex min-w-0 flex-1 items-center gap-3">
+                            {post.authorAvatarUrl ? (
+                              <Image
+                                src={post.authorAvatarUrl}
+                                alt={post.authorDisplayName ?? 'Avatar'}
+                                width={40}
+                                height={40}
+                                className="rounded-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-lg">🛠️</div>
                             )}
-                          </div>
-                        </Link>
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground truncate">{post.authorDisplayName || 'Creator'}</p>
+                              {post.authorHeadline && (
+                                <p className="text-xs text-muted-foreground truncate">{post.authorHeadline}</p>
+                              )}
+                            </div>
+                          </Link>
+                          {canDelete && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={async () => {
+                                if (!window.confirm('Delete this post from the feed?')) return;
+                                try {
+                                  await discoveryApi.deletePost(post.id);
+                                  setFeedPosts((prev) => prev.filter((p) => p.id !== post.id));
+                                } catch {
+                                  // leave card; user can retry
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          )}
+                        </div>
                         <div className="relative aspect-square w-full bg-muted">
                           {post.mediaType === 'video' ? (
                             <video
@@ -509,7 +535,8 @@ export default function DiscoverPage() {
                         </p>
                       </CardContent>
                     </Card>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <div ref={feedSentinelRef} className="h-4" />

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/pro_networx_models.dart';
+import '../../core/navigation/home_tab_intent.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
@@ -139,8 +140,9 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         caption: caption.isEmpty ? null : caption,
       );
       if (!mounted) return;
+      SocialFeedRefresh.request();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Posted to your network')),
+        const SnackBar(content: Text('Posted to Feed')),
       );
       Navigator.pop(context, post);
     } catch (_) {

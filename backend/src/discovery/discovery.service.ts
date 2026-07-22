@@ -1538,6 +1538,59 @@ export class DiscoveryService {
   }
 
   /**
+   * Delete a feed post. Authors can delete their own; admins can delete any.
+   * Also removes the media object from the `feed` storage bucket.
+   */
+  async deleteFeedPost(params: {
+    postId: string;
+    requesterUserId: string;
+    isAdmin: boolean;
+  }): Promise<{ deleted: true }> {
+    const supabase = getSupabaseClient();
+    const { data: post, error: loadError } = await supabase
+      .from('discover_feed_posts')
+      .select('id, author_user_id, image_url')
+      .eq('id', params.postId)
+      .maybeSingle();
+    if (loadError) {
+      throw new Error(`Failed to load feed post: ${loadError.message}`);
+    }
+    if (!post) {
+      throw new Error('Post not found');
+    }
+    if (
+      !params.isAdmin &&
+      (post.author_user_id as string) !== params.requesterUserId
+    ) {
+      throw new Error('Forbidden');
+    }
+
+    const imageUrl = post.image_url as string | null;
+    if (imageUrl) {
+      try {
+        const urlObj = new URL(imageUrl);
+        const pathMatch = urlObj.pathname.match(
+          /\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
+        );
+        if (pathMatch?.[1]) {
+          await supabase.storage.from('feed').remove([pathMatch[1]]);
+        }
+      } catch {
+        // Best-effort storage cleanup.
+      }
+    }
+
+    const { error } = await supabase
+      .from('discover_feed_posts')
+      .delete()
+      .eq('id', params.postId);
+    if (error) {
+      throw new Error(`Failed to delete feed post: ${error.message}`);
+    }
+    return { deleted: true };
+  }
+
+  /**
    * Create a discover feed post (catalyst only). Caller must ensure user is service_provider.
    */
   async createFeedPost(params: {

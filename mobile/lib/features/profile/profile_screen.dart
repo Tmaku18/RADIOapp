@@ -9,9 +9,12 @@ import '../../core/auth/role_helpers.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/models/user.dart' as app_user;
 import '../../core/models/follow_models.dart';
+import '../../core/models/pro_networx_models.dart';
 import '../../core/brand/brand_assets.dart';
 import '../../core/services/api_service.dart';
+import '../../core/services/pro_networx_service.dart';
 import '../../core/services/users_service.dart';
+import '../../core/navigation/home_tab_intent.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -32,6 +35,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   int _followingCount = 0;
   int _friendsCount = 0;
   final UsersService _usersService = UsersService();
+  final ProNetworxService _feedService = ProNetworxService();
+  List<ProFeedPost> _myPosts = const [];
+  bool _loadingPosts = false;
 
   @override
   void didChangeDependencies() {
@@ -52,7 +58,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
       });
     }
     if (user != null) {
-      await _loadFollowCounts(user.id);
+      await Future.wait([
+        _loadFollowCounts(user.id),
+        _loadMyPosts(user.id),
+      ]);
+    }
+  }
+
+  Future<void> _loadMyPosts(String userId) async {
+    setState(() => _loadingPosts = true);
+    try {
+      final res = await _feedService.listUserPosts(userId, limit: 24);
+      if (!mounted) return;
+      setState(() => _myPosts = res.items);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _myPosts = const []);
+    } finally {
+      if (mounted) setState(() => _loadingPosts = false);
+    }
+  }
+
+  Future<void> _deleteMyPost(ProFeedPost post) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text('This removes it from the feed for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _feedService.deleteFeedPost(post.id);
+      if (!mounted) return;
+      setState(() => _myPosts = _myPosts.where((p) => p.id != post.id).toList());
+      SocialFeedRefresh.request();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post deleted')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete: $e')),
+      );
     }
   }
 
@@ -1043,6 +1102,123 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                             ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text(
+                                  'Your posts',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.w700),
+                                ),
+                                const Spacer(),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.of(context).pop();
+                                    HomeTabIntent.openFeed();
+                                  },
+                                  child: const Text('Open Feed'),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Videos and photos you share on Feed.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                            const SizedBox(height: 10),
+                            if (_loadingPosts)
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 24),
+                                child: Center(
+                                  child: CircularProgressIndicator(),
+                                ),
+                              )
+                            else if (_myPosts.isEmpty)
+                              Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Text(
+                                  'No posts yet. Create a video from Discover or tap Post on Feed.',
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              )
+                            else
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _myPosts.length,
+                                gridDelegate:
+                                    const SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 3,
+                                  crossAxisSpacing: 4,
+                                  mainAxisSpacing: 4,
+                                ),
+                                itemBuilder: (context, i) {
+                                  final post = _myPosts[i];
+                                  return Stack(
+                                    fit: StackFit.expand,
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(8),
+                                        child: post.mediaType == 'video'
+                                            ? ColoredBox(
+                                                color: Colors.black87,
+                                                child: Stack(
+                                                  fit: StackFit.expand,
+                                                  children: [
+                                                    // Videos don't have poster frames in storage;
+                                                    // show a play affordance so the grid stays light.
+                                                    const Center(
+                                                      child: Icon(
+                                                        Icons.play_circle_outline,
+                                                        color: Colors.white70,
+                                                        size: 28,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            : CachedNetworkImage(
+                                                imageUrl: post.imageUrl,
+                                                fit: BoxFit.cover,
+                                              ),
+                                      ),
+                                      Positioned(
+                                        right: 2,
+                                        top: 2,
+                                        child: Material(
+                                          color: Colors.black54,
+                                          shape: const CircleBorder(),
+                                          child: InkWell(
+                                            customBorder: const CircleBorder(),
+                                            onTap: () => _deleteMyPost(post),
+                                            child: const Padding(
+                                              padding: EdgeInsets.all(4),
+                                              child: Icon(
+                                                Icons.delete_outline,
+                                                size: 16,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              ),
                           ],
                         ),
                       ),

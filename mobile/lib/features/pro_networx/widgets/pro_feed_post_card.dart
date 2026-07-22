@@ -1,10 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../../../core/auth/auth_service.dart';
+import '../../../core/auth/role_helpers.dart';
 import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/pro_networx_service.dart';
+import 'feed_post_video.dart';
 import 'pro_network_paywall_sheet.dart';
 import 'share_post_sheet.dart';
 
@@ -13,11 +17,13 @@ class ProFeedPostCard extends StatefulWidget {
     super.key,
     required this.post,
     required this.onChange,
+    this.onDeleted,
     this.expandedComments = false,
   });
 
   final ProFeedPost post;
   final ValueChanged<ProFeedPost> onChange;
+  final VoidCallback? onDeleted;
   final bool expandedComments;
 
   @override
@@ -31,11 +37,66 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
   bool _loadingComments = false;
   final TextEditingController _commentController = TextEditingController();
   bool _busy = false;
+  String? _myUserId;
+  bool _isAdmin = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMe();
+  }
+
+  Future<void> _loadMe() async {
+    try {
+      final me =
+          await Provider.of<AuthService>(context, listen: false).getUserProfile();
+      if (!mounted || me == null) return;
+      setState(() {
+        _myUserId = me.id;
+        _isAdmin = isAdminRole(me.role);
+      });
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+
+  Future<void> _confirmDelete() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete post?'),
+        content: const Text('This removes the post from the feed for everyone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    try {
+      await _service.deleteFeedPost(widget.post.id);
+      if (!mounted) return;
+      widget.onDeleted?.call();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Post deleted')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not delete: $e')),
+      );
+    }
   }
 
   Future<void> _toggleLike() async {
@@ -148,6 +209,9 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
     final cs = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
     final post = widget.post;
+    final canDelete =
+        _myUserId != null &&
+        (_myUserId == post.authorUserId || _isAdmin);
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -159,74 +223,88 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          InkWell(
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.proProfile,
-              arguments: post.authorUserId,
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(10),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: cs.surfaceContainerHighest,
-                    backgroundImage:
-                        post.authorAvatarUrl != null && post.authorAvatarUrl!.isNotEmpty
-                            ? CachedNetworkImageProvider(post.authorAvatarUrl!)
-                            : null,
-                    child: (post.authorAvatarUrl == null ||
-                            post.authorAvatarUrl!.isEmpty)
-                        ? const Icon(Icons.brush, size: 18)
-                        : null,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: () => Navigator.of(context).pushNamed(
+                      AppRoutes.proProfile,
+                      arguments: post.authorUserId,
+                    ),
+                    child: Row(
                       children: [
-                        Text(
-                          post.authorDisplayName ?? 'Creator',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: cs.surfaceContainerHighest,
+                          backgroundImage:
+                              post.authorAvatarUrl != null &&
+                                  post.authorAvatarUrl!.isNotEmpty
+                              ? CachedNetworkImageProvider(post.authorAvatarUrl!)
+                              : null,
+                          child: (post.authorAvatarUrl == null ||
+                                  post.authorAvatarUrl!.isEmpty)
+                              ? const Icon(Icons.brush, size: 18)
+                              : null,
                         ),
-                        if ((post.authorUsername ?? '').isNotEmpty)
-                          Text(
-                            '@${post.authorUsername}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                post.authorDisplayName ?? 'Creator',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if ((post.authorUsername ?? '').isNotEmpty)
+                                Text(
+                                  '@${post.authorUsername}',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              if ((post.authorHeadline ?? '').isNotEmpty)
+                                Text(
+                                  post.authorHeadline!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.onSurfaceVariant,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                            ],
                           ),
-                        if ((post.authorHeadline ?? '').isNotEmpty)
-                          Text(
-                            post.authorHeadline!,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: cs.onSurfaceVariant,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+                if (canDelete)
+                  PopupMenuButton<String>(
+                    onSelected: (v) {
+                      if (v == 'delete') _confirmDelete();
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete post'),
+                      ),
+                    ],
+                  ),
+              ],
             ),
           ),
           AspectRatio(
             aspectRatio: 1,
             child: post.mediaType == 'video'
-                ? Container(
-                    color: Colors.black,
-                    alignment: Alignment.center,
-                    child: const Icon(Icons.play_circle_outline,
-                        size: 64, color: Colors.white70),
-                  )
+                ? FeedPostVideo(url: post.imageUrl)
                 : CachedNetworkImage(
                     imageUrl: post.imageUrl,
                     fit: BoxFit.cover,

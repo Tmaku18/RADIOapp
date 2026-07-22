@@ -173,6 +173,31 @@ export class DiscoveryController {
     return { ok: true };
   }
 
+  /** Delete a feed post (author or admin). */
+  @Delete('feed/posts/:id')
+  async deleteFeedPost(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') postId: string,
+  ) {
+    const requester = await this.getUserWithRole(user.uid);
+    try {
+      return await this.discovery.deleteFeedPost({
+        postId,
+        requesterUserId: requester.id,
+        isAdmin: requester.role === 'admin',
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete';
+      if (message === 'Post not found') {
+        throw new BadRequestException('Post not found');
+      }
+      if (message === 'Forbidden') {
+        throw new ForbiddenException('You can only delete your own posts');
+      }
+      throw new BadRequestException(message);
+    }
+  }
+
   /** Bookmark (save) a feed post (idempotent). */
   @Post('feed/posts/:id/bookmark')
   async bookmarkPost(
@@ -517,13 +542,20 @@ export class DiscoveryController {
   }
 
   private async getUserId(firebaseUid: string): Promise<string> {
+    const row = await this.getUserWithRole(firebaseUid);
+    return row.id;
+  }
+
+  private async getUserWithRole(
+    firebaseUid: string,
+  ): Promise<{ id: string; role: string | null }> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('users')
-      .select('id')
+      .select('id, role')
       .eq('firebase_uid', firebaseUid)
       .single();
     if (error || !data) throw new UnauthorizedException('User not found');
-    return data.id;
+    return { id: data.id as string, role: (data.role as string) ?? null };
   }
 }

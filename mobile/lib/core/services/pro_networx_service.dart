@@ -199,6 +199,10 @@ class ProNetworxService {
     return _parseFeedResponse(res);
   }
 
+  Future<void> deleteFeedPost(String postId) async {
+    await _api.delete('discovery/feed/posts/$postId');
+  }
+
   Future<({List<ProFeedPost> items, String? nextCursor})> exploreStream({
     String? cursor,
     String? anchorPostId,

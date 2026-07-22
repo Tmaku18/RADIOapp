@@ -10,6 +10,7 @@ import 'package:just_audio/just_audio.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/models/discover_audio_models.dart';
+import '../../core/navigation/home_tab_intent.dart';
 import '../../core/services/api_service.dart';
 import '../../core/services/audio_player_service.dart';
 import '../../core/services/discover_audio_service.dart';
@@ -361,8 +362,10 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
 
       await _api.postMultipart('discovery/feed', fields, [multipartFile]);
       if (!mounted) return;
+      SocialFeedRefresh.request();
+      HomeTabIntent.openFeed();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video posted!')),
+        const SnackBar(content: Text('Posted to Feed — find it on your profile too.')),
       );
       Navigator.pop(context, true);
     } catch (e) {

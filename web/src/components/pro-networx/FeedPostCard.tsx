@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react';
+import { Heart, MessageCircle, Send, Bookmark, Trash2 } from 'lucide-react';
 import {
   discoveryApi,
   proNetworkSubscriptionApi,
@@ -17,6 +17,7 @@ import { SharePostDialog } from './SharePostDialog';
 import { PaywallCard } from './PaywallCard';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserSafetyMenu } from '@/components/safety/UserSafetyMenu';
+import { toast } from 'sonner';
 
 function shouldUnoptimize(url?: string | null): boolean {
   return !!url && /^https?:\/\//i.test(url);
@@ -32,7 +33,9 @@ interface FeedPostCardProps {
 export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: FeedPostCardProps) {
   const { profile } = useAuth();
   const isOwnPost = profile?.id === post.authorUserId;
+  const canDelete = isOwnPost || profile?.role === 'admin';
   const [likedByMe, setLikedByMe] = useState(post.likedByMe);
+  const [deleting, setDeleting] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [showComments, setShowComments] = useState(variant === 'detail');
@@ -66,6 +69,30 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
       propagate({ bookmarkedByMe: wasBookmarked });
     } finally {
       setBookmarkBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (deleting) return;
+    if (
+      !window.confirm(
+        'Delete this post? It will be removed from the feed for everyone.',
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    try {
+      await discoveryApi.deletePost(post.id);
+      toast.success('Post deleted');
+      onHidden?.();
+    } catch (err) {
+      toast.error(
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? 'Could not delete post',
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -182,15 +209,31 @@ export function FeedPostCard({ post, onChange, onHidden, variant = 'feed' }: Fee
             )}
           </div>
         </Link>
-        {!isOwnPost && (
-          <UserSafetyMenu
-            userId={post.authorUserId}
-            displayName={post.authorDisplayName}
-            postId={post.id}
-            onPostHidden={onHidden}
-            onBlocked={onHidden}
-          />
-        )}
+        <div className="flex items-center gap-1">
+          {canDelete && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              aria-label="Delete post"
+              title="Delete post"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          {!isOwnPost && (
+            <UserSafetyMenu
+              userId={post.authorUserId}
+              displayName={post.authorDisplayName}
+              postId={post.id}
+              onPostHidden={onHidden}
+              onBlocked={onHidden}
+            />
+          )}
+        </div>
       </div>
 
       <div className="relative w-full bg-muted aspect-square">

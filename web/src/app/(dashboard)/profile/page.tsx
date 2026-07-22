@@ -4,8 +4,16 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { usersApi, creatorNetworkApi, paymentsApi } from '@/lib/api';
+import {
+  usersApi,
+  creatorNetworkApi,
+  paymentsApi,
+  discoveryApi,
+  type DiscoverFeedPost,
+} from '@/lib/api';
+import Image from 'next/image';
 import { hasArtistCapability } from '@/lib/roles';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -73,6 +81,8 @@ export default function ProfilePage() {
   const [socialTab, setSocialTab] = useState<SocialTab>('friends');
   const [followLoading, setFollowLoading] = useState(false);
   const [followMutatingId, setFollowMutatingId] = useState<string | null>(null);
+  const [myPosts, setMyPosts] = useState<DiscoverFeedPost[]>([]);
+  const [myPostsLoading, setMyPostsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const searchParams = useSearchParams();
@@ -93,6 +103,29 @@ export default function ProfilePage() {
     };
     if (profile) load();
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile?.id) {
+      setMyPosts([]);
+      return;
+    }
+    let cancelled = false;
+    setMyPostsLoading(true);
+    discoveryApi
+      .listUserPosts(profile.id, { limit: 24 })
+      .then((res) => {
+        if (!cancelled) setMyPosts(res.data?.items ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setMyPosts([]);
+      })
+      .finally(() => {
+        if (!cancelled) setMyPostsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [profile?.id]);
 
   // Sync local state when profile changes (e.g., after refreshProfile)
   useEffect(() => {
@@ -846,12 +879,67 @@ export default function ProfilePage() {
       </Card>
 
       <Card>
-        <CardContent className="pt-6">
-          <h3 className="text-lg font-semibold text-foreground mb-1">Your posts</h3>
-          <p className="text-sm text-muted-foreground mb-4">
-            Revisit what you&apos;ve saved and liked across the feed.
-          </p>
-          <div className="flex flex-wrap gap-3">
+        <CardContent className="pt-6 space-y-4">
+          <div>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Your posts</h3>
+            <p className="text-sm text-muted-foreground">
+              Videos and photos you share on Feed show up here.
+            </p>
+          </div>
+          {myPostsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading posts…</p>
+          ) : myPosts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              No posts yet. Share a video from Discover or post on Feed.
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 sm:gap-2">
+              {myPosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="relative aspect-square overflow-hidden rounded-md bg-muted group"
+                >
+                  {post.mediaType === 'video' ? (
+                    <video
+                      src={post.imageUrl}
+                      muted
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={post.imageUrl}
+                      alt={post.caption || 'Post'}
+                      fill
+                      sizes="(max-width: 640px) 33vw, 200px"
+                      className="object-cover"
+                      unoptimized={/^https?:\/\//i.test(post.imageUrl)}
+                    />
+                  )}
+                  <button
+                    type="button"
+                    className="absolute right-1 top-1 rounded bg-black/60 px-2 py-0.5 text-[10px] text-white opacity-0 transition group-hover:opacity-100"
+                    onClick={async () => {
+                      if (!window.confirm('Delete this post?')) return;
+                      try {
+                        await discoveryApi.deletePost(post.id);
+                        setMyPosts((prev) => prev.filter((p) => p.id !== post.id));
+                        toast.success('Post deleted');
+                      } catch {
+                        toast.error('Could not delete post');
+                      }
+                    }}
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Button variant="outline" asChild>
+              <Link href="/social">Open Feed</Link>
+            </Button>
             <Button variant="outline" asChild>
               <Link href="/saved">Saved posts</Link>
             </Button>

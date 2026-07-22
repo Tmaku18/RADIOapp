@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/app_routes.dart';
+import '../../core/navigation/home_tab_intent.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -9,13 +10,10 @@ import '../pro_networx/pro_create_post_screen.dart';
 import '../pro_networx/pro_networx_shell_screen.dart';
 import '../pro_networx/widgets/pro_feed_post_card.dart';
 
-/// Networks Radio "Social" tab — a read-only reader for the Pro-Networx feed.
+/// Networks Radio "Social"/Feed tab — public Discover + Pro-Networx posts.
 ///
-/// Listeners and artists on Networks Radio see all public Pro-Networx posts
-/// (newest first), can like and comment, but cannot create posts here.
-/// Posting only happens inside Pro-Networx itself, so this screen surfaces a
-/// prominent "Post on Pro-Networx" CTA that pushes users into the Pro-Networx
-/// shell.
+/// Posts come from Pro-Networx create-post and Discover create-video. Listeners
+/// and artists can like/comment here; create via Post or Discover create video.
 class SocialFeedScreen extends StatefulWidget {
   const SocialFeedScreen({
     super.key,
@@ -46,14 +44,20 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
   void initState() {
     super.initState();
     _controller.addListener(_onScroll);
+    SocialFeedRefresh.tick.addListener(_onExternalRefresh);
     _load();
   }
 
   @override
   void dispose() {
+    SocialFeedRefresh.tick.removeListener(_onExternalRefresh);
     _controller.removeListener(_onScroll);
     _controller.dispose();
     super.dispose();
+  }
+
+  void _onExternalRefresh() {
+    if (mounted) _load(refresh: true);
   }
 
   Future<void> _load({bool refresh = false}) async {
@@ -156,7 +160,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
                     Text(
                       widget.embeddedInProShell
                           ? 'Browse creator posts. Share your work from here.'
-                          : 'Like and comment here. To share your work, post from Pro-Networx.',
+                          : 'Videos and posts you share show up here and on your profile.',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -280,6 +284,7 @@ class _SocialFeedScreenState extends State<SocialFeedScreen> {
           return ProFeedPostCard(
             post: _posts[i],
             onChange: (next) => setState(() => _posts[i] = next),
+            onDeleted: () => setState(() => _posts.removeAt(i)),
           );
         },
       ),

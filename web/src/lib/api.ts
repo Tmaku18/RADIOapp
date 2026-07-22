@@ -1070,6 +1070,8 @@ export const discoveryApi = {
     api.post<{ reported: true }>(`/discovery/feed/posts/${postId}/report`, {
       reason,
     }),
+  deletePost: (postId: string) =>
+    api.delete<{ deleted: true }>(`/discovery/feed/posts/${postId}`),
   searchFeed: (q: string) =>
     api.get<DiscoverFeedSearchResult>('/discovery/feed/search', {
       params: { q },
