@@ -170,7 +170,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
   Widget build(BuildContext context) {
     return Drawer(
       width: 300,
-      backgroundColor: const Color(0xFF08080A),
+      backgroundColor: DimensionTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(24),
@@ -322,7 +322,7 @@ class _LogoCard extends StatelessWidget {
                   ),
                   boxShadow: DimensionTokens.glowCyan(spread: 10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.graphic_eq,
                   color: DimensionTokens.neonCyan,
                   size: 22,
@@ -333,10 +333,10 @@ class _LogoCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text(
+                  Text(
                     'NETWORX',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: DimensionTokens.textPrimary,
                       fontWeight: FontWeight.w900,
                       fontSize: 15,
                       letterSpacing: 0.5,
@@ -405,17 +405,21 @@ class _NavRow extends StatelessWidget {
                     shape: BoxShape.circle,
                     color: active
                         ? DimensionTokens.neonCyan
-                        : Colors.white.withValues(alpha: 0.04),
+                        : DimensionTokens.textPrimary.withValues(alpha: 0.04),
                     border: active
                         ? null
                         : Border.all(
-                            color: Colors.white.withValues(alpha: 0.10),
+                            color: DimensionTokens.glassBorder,
                           ),
                   ),
                   child: Icon(
                     icon,
                     size: 18,
-                    color: active ? Colors.black : DimensionTokens.cyan300,
+                    color: active
+                        ? (DimensionTokens.isDark
+                            ? Colors.black
+                            : Colors.white)
+                        : DimensionTokens.cyan300,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -428,8 +432,8 @@ class _NavRow extends StatelessWidget {
                       fontSize: 14,
                       fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                       color: active
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.8),
+                          ? DimensionTokens.textPrimary
+                          : DimensionTokens.textSecondary,
                     ),
                   ),
                 ),
@@ -458,7 +462,7 @@ class _NavSubRow extends StatelessWidget {
           label,
           style: TextStyle(
             fontSize: 13,
-            color: Colors.white.withValues(alpha: 0.65),
+            color: DimensionTokens.textMuted,
           ),
         ),
       ),
@@ -498,9 +502,9 @@ class _CollapsibleSection extends StatelessWidget {
                   height: 36,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: Colors.white.withValues(alpha: 0.04),
+                    color: DimensionTokens.textPrimary.withValues(alpha: 0.04),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.10),
+                      color: DimensionTokens.glassBorder,
                     ),
                   ),
                   child: Icon(icon, size: 18, color: DimensionTokens.cyan300),
@@ -511,7 +515,7 @@ class _CollapsibleSection extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: DimensionTokens.textSecondary,
                     ),
                   ),
                 ),
@@ -521,7 +525,7 @@ class _CollapsibleSection extends StatelessWidget {
                   child: Icon(
                     Icons.keyboard_arrow_down,
                     size: 20,
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: DimensionTokens.textMuted,
                   ),
                 ),
               ],
@@ -571,7 +575,7 @@ class _UserFooter extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
         border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+          top: BorderSide(color: DimensionTokens.glassBorder),
         ),
       ),
       child: Column(
@@ -585,7 +589,9 @@ class _UserFooter extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 18,
-                    backgroundColor: Colors.black.withValues(alpha: 0.6),
+                    backgroundColor: DimensionTokens.bgBase.withValues(
+                      alpha: DimensionTokens.isDark ? 0.6 : 0.9,
+                    ),
                     backgroundImage:
                         (avatarUrl != null && avatarUrl.isNotEmpty)
                             ? NetworkImage(avatarUrl)
@@ -593,7 +599,7 @@ class _UserFooter extends StatelessWidget {
                     child: (avatarUrl == null || avatarUrl.isEmpty)
                         ? Text(
                             initial,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: DimensionTokens.cyan300,
                               fontWeight: FontWeight.w700,
                             ),
@@ -609,8 +615,8 @@ class _UserFooter extends StatelessWidget {
                           name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: DimensionTokens.textPrimary,
                             fontWeight: FontWeight.w700,
                             fontSize: 14,
                           ),
@@ -644,12 +650,12 @@ class _UserFooter extends StatelessWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withValues(alpha: 0.04),
+                      color: DimensionTokens.textPrimary.withValues(alpha: 0.04),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.10),
+                        color: DimensionTokens.glassBorder,
                       ),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.logout,
                       size: 18,
                       color: DimensionTokens.pink400,
@@ -660,7 +666,7 @@ class _UserFooter extends StatelessWidget {
                     'Sign out',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: DimensionTokens.textSecondary,
                     ),
                   ),
                 ],

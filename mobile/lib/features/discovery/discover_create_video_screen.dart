@@ -737,7 +737,7 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       width: 52,
       height: 52,
       color: DimensionTokens.neonCyan.withValues(alpha: 0.12),
-      child: const Icon(Icons.music_note, color: DimensionTokens.neonCyan),
+      child: Icon(Icons.music_note, color: DimensionTokens.neonCyan),
     );
   }
 }

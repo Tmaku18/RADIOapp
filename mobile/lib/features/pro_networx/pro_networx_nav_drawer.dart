@@ -60,7 +60,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Drawer(
       width: 300,
-      backgroundColor: const Color(0xFF08080A),
+      backgroundColor: DimensionTokens.bgSurface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.only(
           topRight: Radius.circular(24),
@@ -89,7 +89,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
                     child: Image.asset(
                       BrandAssets.logoCyanAsset,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const Icon(
+                      errorBuilder: (_, _, _) => Icon(
                         Icons.graphic_eq,
                         color: DimensionTokens.neonCyan,
                         size: 20,

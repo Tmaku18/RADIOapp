@@ -50,15 +50,19 @@ class NetworxTokens {
   static const Color darkTextSecondary = Color(0xC7F5F5F5); // ~78%
   static const Color darkTextMuted = Color(0x99F5F5F5); // ~60%
 
-  // Light (adaptive; dark is primary)
-  static const Color lightBg = Color(0xFFFAFAFA);
+  // Light — web `.light` “Daylight Studio” (globals.css)
+  static const Color lightBg = Color(0xFFF4F6FB);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightElevated = Color(0xFFF2F2F2);
-  static const Color lightBorder = Color(0x1F0A0A0A); // ~12%
+  static const Color lightElevated = Color(0xFFECF0F7);
+  static const Color lightBorder = Color(0x1A0F172A); // ~10% slate
 
-  static const Color lightTextPrimary = Color(0xFF0A0A0A);
-  static const Color lightTextSecondary = Color(0xC70A0A0A); // ~78%
-  static const Color lightTextMuted = Color(0x990A0A0A); // ~60%
+  static const Color lightTextPrimary = Color(0xFF0F172A);
+  static const Color lightTextSecondary = Color(0xFF334155);
+  static const Color lightTextMuted = Color(0xFF64748B);
+
+  /// Web light `--primary` teal (dark mode keeps [electricCyan]).
+  static const Color lightPrimary = Color(0xFF0E9AA7);
+  static const Color lightPrimaryHover = Color(0xFF0B7E89);
 
   static const List<Color> signatureGradientStops = <Color>[
     deepMidnight,

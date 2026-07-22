@@ -85,27 +85,27 @@ class NetworxSurfaces extends ThemeExtension<NetworxSurfaces> {
       border: NetworxTokens.lightBorder,
       textSecondary: NetworxTokens.lightTextSecondary,
       textMuted: NetworxTokens.lightTextMuted,
-      primaryHover: NetworxTokens.butterflyElectricHover,
+      primaryHover: NetworxTokens.lightPrimaryHover,
       roseGold: NetworxTokens.roseGold,
       success: NetworxTokens.success,
       warning: NetworxTokens.warning,
       error: NetworxTokens.error,
-      signatureGradient: LinearGradient(
+      signatureGradient: const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
-        colors: const <Color>[
+        colors: <Color>[
           NetworxTokens.lightBg,
+          Color(0xFFE8EDF4),
           NetworxTokens.lightElevated,
-          NetworxTokens.lightBorder,
         ],
-        stops: const <double>[0, 0.6, 1],
+        stops: <double>[0, 0.55, 1],
       ),
       glassBlur: 12,
-      glassBgOpacity: 0.70,
-      glassBorderOpacity: 0.80,
+      glassBgOpacity: 0.85,
+      glassBorderOpacity: 0.16,
       glassShadow: <BoxShadow>[
         BoxShadow(
-          color: Colors.black.withValues(alpha: 0.08),
+          color: const Color(0xFF0F172A).withValues(alpha: 0.06),
           blurRadius: 32,
           offset: const Offset(0, 12),
         ),

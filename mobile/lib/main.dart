@@ -15,6 +15,7 @@ import 'core/services/push_notification_service.dart';
 import 'core/services/app_update_service.dart';
 import 'core/navigation/app_router.dart';
 import 'core/navigation/app_routes.dart';
+import 'core/theme/dimension_tokens.dart';
 import 'core/theme/networx_theme.dart';
 import 'core/theme/theme_controller.dart';
 import 'widgets/login_screen.dart';
@@ -196,6 +197,12 @@ class _MyAppState extends State<MyApp> {
             darkTheme:
                 buildNetworxTheme(brightness: Brightness.dark, brand: brand),
             themeMode: theme.themeMode,
+            builder: (context, child) {
+              // DimensionTokens static getters follow the resolved Material
+              // brightness (system/light/dark) so Dimension chrome matches web.
+              DimensionTokens.bindBrightness(Theme.of(context).brightness);
+              return child ?? const SizedBox.shrink();
+            },
             initialRoute: AppRoutes.root,
             routes: {
               AppRoutes.root: (context) => const AuthWrapper(),

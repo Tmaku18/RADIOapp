@@ -157,7 +157,7 @@ class _FrequencyVisualizerState extends State<FrequencyVisualizer>
                     height: _maxHeight * _barFraction(i),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(2),
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
                         end: Alignment.topCenter,
                         colors: [

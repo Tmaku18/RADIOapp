@@ -210,7 +210,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                               width: 44,
                               height: 44,
                               color: DimensionTokens.bgSurface,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.music_note,
                                 color: DimensionTokens.neonCyan,
                               ),
@@ -316,7 +316,7 @@ class _RadioUpNextQueueState extends State<RadioUpNextQueue> {
                           width: 28,
                           height: 28,
                           color: DimensionTokens.bgSurface,
-                          child: const Icon(
+                          child: Icon(
                             Icons.music_note,
                             size: 14,
                             color: DimensionTokens.neonCyan,

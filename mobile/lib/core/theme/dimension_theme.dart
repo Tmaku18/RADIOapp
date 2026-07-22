@@ -21,10 +21,12 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
   final Color glassStrongColor;
 
   static DimensionTheme of(BuildContext context) {
-    return Theme.of(context).extension<DimensionTheme>() ?? dark();
+    return Theme.of(context).extension<DimensionTheme>() ??
+        (Theme.of(context).brightness == Brightness.light ? light() : dark());
   }
 
   static DimensionTheme dark() {
+    DimensionTokens.bindBrightness(Brightness.dark);
     return DimensionTheme(
       headlineStyle: GoogleFonts.unbounded(
         color: DimensionTokens.textPrimary,
@@ -49,6 +51,36 @@ class DimensionTheme extends ThemeExtension<DimensionTheme> {
       ),
       glassColor: DimensionTokens.bgSurface.withValues(alpha: 0.55),
       glassStrongColor: const Color(0xFF08080A).withValues(alpha: 0.8),
+    );
+  }
+
+  /// Web `.light [data-dimension]` — cool slate canvas, teal accents.
+  static DimensionTheme light() {
+    DimensionTokens.bindBrightness(Brightness.light);
+    return DimensionTheme(
+      headlineStyle: GoogleFonts.unbounded(
+        color: DimensionTokens.textPrimary,
+        fontWeight: FontWeight.w900,
+        letterSpacing: -0.5,
+      ),
+      sectionLabelStyle: GoogleFonts.jetBrainsMono(
+        color: DimensionTokens.cyan300,
+        fontSize: 10,
+        letterSpacing: 3.2,
+        fontWeight: FontWeight.w500,
+      ),
+      monoLabelStyle: GoogleFonts.jetBrainsMono(
+        color: DimensionTokens.textSecondary,
+        fontSize: 10,
+        letterSpacing: 2.5,
+      ),
+      bodyStyle: GoogleFonts.outfit(
+        color: DimensionTokens.textSecondary,
+        fontSize: 15,
+        height: 1.5,
+      ),
+      glassColor: const Color(0xFFF1F5F9).withValues(alpha: 0.82),
+      glassStrongColor: const Color(0xFFE2E8F0).withValues(alpha: 0.95),
     );
   }
 

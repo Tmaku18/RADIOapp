@@ -7,7 +7,8 @@ import 'networx_tokens.dart';
 
 enum NetworxBrand { listener, artist }
 
-Color _brandPrimary(NetworxBrand brand) {
+Color _brandPrimary(NetworxBrand brand, {required bool isDark}) {
+  if (!isDark) return NetworxTokens.lightPrimary;
   switch (brand) {
     case NetworxBrand.listener:
       return NetworxTokens.electricCyan;
@@ -25,7 +26,9 @@ ThemeData buildNetworxTheme({
   NetworxBrand brand = NetworxBrand.artist,
 }) {
   final isDark = brightness == Brightness.dark;
-  final primary = _brandPrimary(brand);
+  // Keep Dimension static getters aligned even before MaterialApp.builder runs.
+  DimensionTokens.bindBrightness(brightness);
+  final primary = _brandPrimary(brand, isDark: isDark);
 
   final bg = isDark ? NetworxTokens.darkBg : NetworxTokens.lightBg;
   final surface = isDark ? NetworxTokens.darkSurface : NetworxTokens.lightSurface;
@@ -44,7 +47,7 @@ ThemeData buildNetworxTheme({
   final scheme = ColorScheme(
     brightness: brightness,
     primary: primary,
-    onPrimary: NetworxTokens.deepMidnight,
+    onPrimary: isDark ? NetworxTokens.deepMidnight : Colors.white,
     primaryContainer: primary.withValues(alpha: isDark ? 0.20 : 0.14),
     onPrimaryContainer: textPrimary,
     secondary: NetworxTokens.deepCobalt,
@@ -203,7 +206,7 @@ ThemeData buildNetworxTheme({
     ),
     extensions: <ThemeExtension<dynamic>>[
       surfaces,
-      DimensionTheme.dark(),
+      isDark ? DimensionTheme.dark() : DimensionTheme.light(),
     ],
   );
 }

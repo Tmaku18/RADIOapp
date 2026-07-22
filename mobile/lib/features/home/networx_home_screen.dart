@@ -365,7 +365,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                             const TextSpan(text: 'Hey '),
                             TextSpan(
                               text: '$name.',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 color: DimensionTokens.neonCyan,
                               ),
                             ),
@@ -393,7 +393,7 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
                             errorBuilder: (_, _, _) => Container(
                               color: Colors.black26,
                               alignment: Alignment.center,
-                              child: const Icon(
+                              child: Icon(
                                 Icons.music_note,
                                 color: DimensionTokens.neonCyan,
                                 size: 48,

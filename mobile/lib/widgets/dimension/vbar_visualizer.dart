@@ -115,7 +115,7 @@ class _VbarVisualizerState extends State<VbarVisualizer>
             margin: const EdgeInsets.symmetric(horizontal: 1.5),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(2),
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [

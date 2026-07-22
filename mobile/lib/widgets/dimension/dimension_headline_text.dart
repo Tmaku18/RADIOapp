@@ -41,7 +41,7 @@ class DimensionHeadlineLine extends StatelessWidget {
         return _GradientGlowText(
           text: text,
           style: _baseStyle(),
-          gradientColors: const [DimensionTokens.cyan300, DimensionTokens.textPrimary],
+          gradientColors: [DimensionTokens.cyan300, DimensionTokens.textPrimary],
           shadows: DimensionTokens.textGlowCyan,
         );
       case DimensionHeadlineAccent.pinkGlitch:
@@ -49,7 +49,7 @@ class DimensionHeadlineLine extends StatelessWidget {
           text: text,
           style: _baseStyle(),
           glowShadows: DimensionTokens.textGlowPink,
-          gradientColors: const [DimensionTokens.pink400, DimensionTokens.textPrimary],
+          gradientColors: [DimensionTokens.pink400, DimensionTokens.textPrimary],
         );
     }
   }

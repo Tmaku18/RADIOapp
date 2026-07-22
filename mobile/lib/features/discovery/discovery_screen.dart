@@ -845,7 +845,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
               child: avatar.isEmpty
                   ? Text(
                       name.isNotEmpty ? name[0].toUpperCase() : '?',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: DimensionTokens.neonCyan,
                         fontWeight: FontWeight.w700,
                       ),

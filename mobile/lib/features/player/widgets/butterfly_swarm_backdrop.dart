@@ -147,7 +147,7 @@ class _ButterflySwarmPainter extends CustomPainter {
   final List<_Star> stars;
   final double intensity;
 
-  static const _cyan = DimensionTokens.neonCyan;
+  static Color get _cyan => DimensionTokens.neonCyan;
   static const _spaceTop = Color(0xFF02040A);
   static const _spaceMid = Color(0xFF050B18);
   static const _spaceBottom = Color(0xFF0A1228);

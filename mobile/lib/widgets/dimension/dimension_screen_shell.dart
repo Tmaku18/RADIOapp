@@ -5,7 +5,7 @@ import 'cyber_backdrop.dart';
 import 'dimension_typography.dart';
 import 'neon_line.dart';
 
-/// Dimension marketing/listen screen chrome — cyber backdrop + dark base.
+/// Dimension marketing/listen screen chrome — cyber backdrop + themed base.
 class DimensionScreenShell extends StatelessWidget {
   const DimensionScreenShell({
     super.key,

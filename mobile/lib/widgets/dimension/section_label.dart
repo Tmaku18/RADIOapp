@@ -8,19 +8,20 @@ class SectionLabel extends StatelessWidget {
     super.key,
     required this.number,
     required this.title,
-    this.color = DimensionTokens.cyan300,
+    this.color,
   });
 
   final String number;
   final String title;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final dim = DimensionTheme.of(context);
     return Text(
       '◤ SECTION $number — $title',
-      style: dim.sectionLabelStyle.copyWith(color: color),
+      style: dim.sectionLabelStyle
+          .copyWith(color: color ?? DimensionTokens.cyan300),
     );
   }
 }

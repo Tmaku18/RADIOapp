@@ -77,7 +77,9 @@ class DimensionRadioBar extends StatelessWidget {
                 ),
                 child: DecoratedBox(
                   decoration: BoxDecoration(
-                    color: const Color(0xFF08080A).withValues(alpha: 0.92),
+                    color: DimensionTokens.isDark
+                        ? const Color(0xFF08080A).withValues(alpha: 0.92)
+                        : DimensionTokens.bgSurface.withValues(alpha: 0.96),
                     border: Border(
                       top: BorderSide(
                         color: DimensionTokens.neonCyan.withValues(alpha: 0.15),

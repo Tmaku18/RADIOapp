@@ -13,17 +13,18 @@ class DimensionSectionHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.trailing,
-    this.color = DimensionTokens.cyan300,
+    this.color,
     this.padding = const EdgeInsets.only(top: 20, bottom: 10),
   });
 
   final String title;
   final Widget? trailing;
-  final Color color;
+  final Color? color;
   final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
+    final labelColor = color ?? DimensionTokens.cyan300;
     return Padding(
       padding: padding,
       child: Column(
@@ -35,7 +36,7 @@ class DimensionSectionHeader extends StatelessWidget {
                 child: Text(
                   title.toUpperCase(),
                   style: TextStyle(
-                    color: color,
+                    color: labelColor,
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     letterSpacing: 1.6,
