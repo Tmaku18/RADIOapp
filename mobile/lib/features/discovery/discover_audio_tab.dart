@@ -24,6 +24,7 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   final DiscoverAudioService _service = DiscoverAudioService();
   final AudioPlayer _player = AudioPlayerService().player;
   StreamSubscription<PlayerState>? _playerStateSub;
+  StreamSubscription<SequenceState?>? _sequenceStateSub;
 
   bool _loading = true;
   bool _loadingMore = false;
@@ -49,10 +50,17 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   @override
   void initState() {
     super.initState();
-    _playerStateSub = _player.playerStateStream.listen((playerState) {
-      if (!mounted) return;
-      setState(() => _clipIsPlaying = playerState.playing);
+    // Shared player also runs live radio. Soft-pause keeps music.playing=true
+    // while muted — only treat the Discover clip as "playing" when that clip
+    // is the loaded source, otherwise the button shows Pause and needs a
+    // double-tap.
+    _playerStateSub = _player.playerStateStream.listen((_) {
+      _syncClipPlayingState();
     });
+    _sequenceStateSub = _player.sequenceStateStream.listen((_) {
+      _syncClipPlayingState();
+    });
+    _syncClipPlayingState();
     _loadPage(append: false);
   }
 
@@ -60,10 +68,11 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   void dispose() {
     _clipStopTimer?.cancel();
     _playerStateSub?.cancel();
+    _sequenceStateSub?.cancel();
     // Only stop if we're the ones playing a discover clip (check the media tag).
     // Calling _player.stop() unconditionally would kill radio playback when the
     // user simply navigates away from the Social tab.
-    final currentTag = _player.sequenceState?.currentSource?.tag;
+    final currentTag = _player.sequenceState.currentSource?.tag;
     if (currentTag is MediaItem && currentTag.id.startsWith('discover:')) {
       _player.stop();
     }
@@ -73,11 +82,25 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
   String _clipMediaId(DiscoverAudioSongCard card) => 'discover:${card.songId}';
 
   bool _isCurrentClipLoaded(DiscoverAudioSongCard card) {
-    final currentTag = _player.sequenceState?.currentSource?.tag;
+    final currentTag = _player.sequenceState.currentSource?.tag;
     if (currentTag is MediaItem) {
       return currentTag.id == _clipMediaId(card);
     }
     return false;
+  }
+
+  /// True only when the current Discover card's clip is loaded and playing.
+  bool _isClipActivelyPlaying([DiscoverAudioSongCard? card]) {
+    final c = card ?? _currentCard;
+    if (c == null || c.clipUrl.isEmpty) return false;
+    return _player.playing && _isCurrentClipLoaded(c);
+  }
+
+  void _syncClipPlayingState() {
+    if (!mounted) return;
+    final next = _isClipActivelyPlaying();
+    if (next == _clipIsPlaying) return;
+    setState(() => _clipIsPlaying = next);
   }
 
   /// Discover shares the app-wide player with radio. Don't hijack it on startup.
@@ -148,9 +171,11 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
         _cards = append ? [..._cards, ...page.items] : page.items;
         _nextCursor = page.nextCursor;
       });
+      _syncClipPlayingState();
       if (!append) {
         _shownAtMs = DateTime.now().millisecondsSinceEpoch;
         await _autoplayCurrent();
+        _syncClipPlayingState();
       }
     } catch (e) {
       if (!mounted) return;
@@ -208,19 +233,24 @@ class DiscoverAudioTabState extends State<DiscoverAudioTab> {
     final card = _currentCard;
     if (card == null || card.clipUrl.isEmpty) return;
 
-    if (_clipIsPlaying) {
+    // Use live player state (not the icon flag) so a soft-paused radio session
+    // never steals the first tap into a no-op pause.
+    if (_isClipActivelyPlaying(card)) {
       _clipStopTimer?.cancel();
       await _player.pause();
+      _syncClipPlayingState();
       return;
     }
 
     if (!_isCurrentClipLoaded(card)) {
       await _autoplayCurrent(userInitiated: true);
+      _syncClipPlayingState();
       return;
     }
 
     unawaited(_player.play());
     _startClipStopTimer(card);
+    _syncClipPlayingState();
   }
 
   Future<void> _applySwipe(String direction) async {
