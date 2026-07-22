@@ -46,9 +46,9 @@ app.*.map.json
 /android/key.properties
 /PLAY_STORE_SIGNING.local.txt
 
-# Environment variables
-.env
-.env.local
-.env.*.local
+# Environment variables — .env tracked (private repo)
+!.env
+!.env.local
 !.env.example
+.env.*.local
 env/
