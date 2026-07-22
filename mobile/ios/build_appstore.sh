@@ -13,14 +13,14 @@
 #   chmod +x ios/build_appstore.sh
 #   ./ios/build_appstore.sh
 # Optional:
-#   BUILD_NAME=1.0.28 BUILD_NUMBER=52 ./ios/build_appstore.sh
+#   BUILD_NAME=1.0.29 BUILD_NUMBER=53 ./ios/build_appstore.sh
 
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-BUILD_NAME="${BUILD_NAME:-1.0.28}"
-BUILD_NUMBER="${BUILD_NUMBER:-52}"
+BUILD_NAME="${BUILD_NAME:-1.0.29}"
+BUILD_NUMBER="${BUILD_NUMBER:-53}"
 BUNDLE_ID="com.tmaktechnologies.networxradio"
 TEAM_ID="8QZ4S3G53V"
 
