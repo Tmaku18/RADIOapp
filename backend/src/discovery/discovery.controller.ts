@@ -489,13 +489,16 @@ export class DiscoveryController {
 
     const mediaType = file.mimetype.startsWith('video/') ? 'video' : 'image';
     if (mediaType === 'video') {
-      const durationSeconds = await this.durationService.extractDuration(
+      // Camera / mirrored exports often lack parseable duration metadata.
+      // Never treat "unknown" as 180s — that falsely rejects every short take.
+      const durationSeconds = await this.durationService.extractDurationOrNull(
         file.buffer,
         file.mimetype,
       );
+      // +1s slack for encoder/timer rounding on a 15s cap.
       if (
-        !Number.isFinite(durationSeconds) ||
-        durationSeconds > this.maxFeedVideoDurationSeconds
+        durationSeconds != null &&
+        durationSeconds > this.maxFeedVideoDurationSeconds + 1
       ) {
         throw new BadRequestException(
           `Video length must be ${this.maxFeedVideoDurationSeconds} seconds or less.`,

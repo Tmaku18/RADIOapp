@@ -367,11 +367,13 @@ class _DiscoverCreateVideoScreenState extends State<DiscoverCreateVideoScreen> {
       Navigator.pop(context, true);
     } catch (e) {
       if (!mounted) return;
-      final msg = e.toString();
+      final raw = e is ApiException ? e.message : e.toString();
       setState(() {
-        _error = msg.contains('413')
+        _error = raw.contains('413')
             ? 'Upload failed: file too large for the network path. Try a shorter take, or check your connection.'
-            : msg;
+            : raw.contains('Video length')
+                ? raw
+                : 'Upload failed: $raw';
       });
     } finally {
       if (mounted) setState(() => _uploading = false);

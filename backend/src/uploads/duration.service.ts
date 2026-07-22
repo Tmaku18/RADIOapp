@@ -13,14 +13,31 @@ export class DurationService {
   private readonly logger = new Logger(DurationService.name);
 
   /**
-   * Extract real duration from audio file buffer.
+   * Extract real duration from a media buffer.
    * Returns duration in seconds (rounded up to nearest second).
    *
-   * @param buffer - The audio file buffer
+   * @param buffer - The media file buffer
    * @param mimeType - Optional MIME type hint for faster parsing
    * @returns Duration in seconds, or default (180) if extraction fails
+   *          (legacy song/credit path — prefer {@link extractDurationOrNull}
+   *          for hard length gates like Discover feed videos)
    */
   async extractDuration(buffer: Buffer, mimeType?: string): Promise<number> {
+    const duration = await this.extractDurationOrNull(buffer, mimeType);
+    if (duration != null) return duration;
+    this.logger.warn('Duration not found in metadata, using default 180s');
+    return 180; // Default 3 minutes (song credit path)
+  }
+
+  /**
+   * Like {@link extractDuration}, but returns null when duration cannot be
+   * read. Camera / mirrored phone videos often lack parseable metadata; callers
+   * that enforce a max length must not treat "unknown" as 180s.
+   */
+  async extractDurationOrNull(
+    buffer: Buffer,
+    mimeType?: string,
+  ): Promise<number | null> {
     try {
       const metadata = await mm.parseBuffer(buffer, { mimeType });
 
@@ -30,11 +47,12 @@ export class DurationService {
         return durationSeconds;
       }
 
-      this.logger.warn('Duration not found in metadata, using default');
-      return 180; // Default 3 minutes
+      this.logger.warn('Duration not found in metadata');
+      return null;
     } catch (error) {
-      this.logger.error(`Failed to extract duration: ${error.message}`);
-      return 180; // Default 3 minutes on error
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Failed to extract duration: ${message}`);
+      return null;
     }
   }
 
