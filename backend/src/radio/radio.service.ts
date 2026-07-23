@@ -1661,9 +1661,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * When the next track is about to start: update the previous play with end metrics
-   * (listeners, likes/comments/profile clicks during the play) and send the artist
-   * a "Your song has been played" notification with a link to view analytics.
+   * When the next track is about to start: update the previous play with end
+   * metrics (listeners, likes/comments/profile clicks during the play).
+   *
+   * Intentionally does **not** notify the artist after every play — that was
+   * too noisy. Up-next / live-now / favorite-artist alerts still cover airtime.
    */
   private async finalizePreviousPlay(
     radioId: string = DEFAULT_RADIO_ID,
@@ -1721,25 +1723,6 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
         profile_clicks_during: profileRes.count ?? 0,
       })
       .eq('id', info.playId);
-
-    const { data: song } = await supabase
-      .from('songs')
-      .select('title')
-      .eq('id', play.song_id)
-      .single();
-    const songTitle = song?.title ?? 'Your song';
-
-    try {
-      await this.pushNotificationService.sendSongPlayedNotification({
-        artistId: info.artistId,
-        songTitle,
-        playId: info.playId,
-      });
-    } catch (e) {
-      this.logger.warn(
-        `Failed to send song-played notification: ${e?.message ?? e}`,
-      );
-    }
 
     await this.radioStateService.clearCurrentPlayInfo(radioId);
   }
