@@ -2742,7 +2742,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Update emoji service with current song for aggregation
-    this.emojiService.setCurrentSong(song.id);
+    this.emojiService.setCurrentSong(song.id, radioId);
 
     // Log play decision for transparency
     const listenerCount =
@@ -2848,7 +2848,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Update emoji service with current song for aggregation
-    this.emojiService.setCurrentSong(song.id);
+    this.emojiService.setCurrentSong(song.id, radioId);
 
     // Decrement trial plays, increment used counter, update last_played_at and play_count
     const remaining = Math.max(0, (song.trial_plays_remaining || 0) - 1);
@@ -2958,7 +2958,7 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
     );
 
     // Update emoji service with current song for aggregation
-    this.emojiService.setCurrentSong(song.id);
+    this.emojiService.setCurrentSong(song.id, radioId);
 
     // Log play decision
     const listenerCount =

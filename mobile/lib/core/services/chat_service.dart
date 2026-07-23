@@ -36,6 +36,9 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   bool _isUserAtBottom = true;
   bool _initialized = false;
   String _radioId = 'global';
+  /// Latest emoji burst for UI floaters: `{ "❤️": 3, "🔥": 1 }`.
+  Map<String, int> _lastEmojiBurst = const {};
+  int _emojiBurstSeq = 0;
 
   // Getters
   ChatConnectionState get connectionState => _connectionState;
@@ -46,6 +49,8 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   bool get isUserAtBottom => _isUserAtBottom;
 
   String get radioId => _radioId;
+  Map<String, int> get lastEmojiBurst => _lastEmojiBurst;
+  int get emojiBurstSeq => _emojiBurstSeq;
 
   /// Initialize the chat service and register lifecycle observer
   Future<void> initialize({String radioId = 'global'}) async {
@@ -248,6 +253,29 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   void _handleEmojiBurst(Map<String, dynamic> payload) {
     final data = _unwrapBroadcast(payload);
     debugPrint('ChatService: Emoji burst received - $data');
+    final raw = data['emojis'];
+    if (raw is! Map) return;
+    final parsed = <String, int>{};
+    raw.forEach((key, value) {
+      final count = value is int
+          ? value
+          : int.tryParse(value?.toString() ?? '') ?? 0;
+      if (count > 0 && key != null) {
+        parsed[key.toString()] = count;
+      }
+    });
+    if (parsed.isEmpty) return;
+    _lastEmojiBurst = parsed;
+    _emojiBurstSeq++;
+    notifyListeners();
+  }
+
+  /// Local optimistic burst so the sender sees feedback immediately.
+  void emitLocalEmojiBurst(String emoji, {int count = 1}) {
+    if (emoji.isEmpty || count < 1) return;
+    _lastEmojiBurst = {emoji: count};
+    _emojiBurstSeq++;
+    notifyListeners();
   }
 
   /// Send a chat message. Optimistically inserts so the sender sees it
@@ -298,10 +326,16 @@ class ChatService extends ChangeNotifier with WidgetsBindingObserver {
   /// Send an emoji reaction
   Future<bool> sendEmoji(String emoji) async {
     try {
-      await _apiService.post('chat/emoji', {
+      // Immediate floater so taps feel responsive even before the 2s aggregate.
+      emitLocalEmojiBurst(emoji);
+      final res = await _apiService.post('chat/emoji', {
         'emoji': emoji,
         'radioId': _radioId,
       });
+      if (res is Map && res['success'] == false) {
+        debugPrint('ChatService: Emoji rejected by server');
+        return false;
+      }
       return true;
     } catch (e) {
       debugPrint('ChatService: Failed to send emoji - $e');

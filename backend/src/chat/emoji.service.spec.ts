@@ -9,7 +9,8 @@ jest.mock('../config/redis.config', () => ({
 describe('EmojiService', () => {
   it('rejects invalid emoji', async () => {
     (isRedisAvailable as jest.Mock).mockResolvedValue(false);
-    const service = new EmojiService();
+    const chatService = { broadcastEmojiBurst: jest.fn() };
+    const service = new EmojiService(chatService as any);
     const result = await service.addReaction('user', '🚫');
     expect(result).toBe(false);
   });

@@ -1,8 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { getRedisClient, isRedisAvailable } from '../config/redis.config';
-import { getSupabaseClient } from '../config/supabase.config';
 import { ALLOWED_EMOJIS } from './dto/emoji-reaction.dto';
+import { ChatService } from './chat.service';
 
 /**
  * Redis-backed emoji aggregation service.
@@ -22,6 +22,8 @@ export class EmojiService {
 
   // Current song being played (set by RadioService)
   private currentSongId: string | null = null;
+  /** Station channel suffix — must match chat clients (`radio-chat:{radioId}`). */
+  private currentRadioId: string = 'global';
 
   // Rate limiting: 1 emoji per second per user (in-memory, should use Redis in production)
   private lastEmojiTime: Map<string, number> = new Map();
@@ -30,7 +32,10 @@ export class EmojiService {
   private inMemoryCounters: Map<string, number> = new Map();
   private useRedis = true;
 
-  constructor() {
+  constructor(
+    @Inject(forwardRef(() => ChatService))
+    private readonly chatService: ChatService,
+  ) {
     // Check Redis availability on startup
     this.checkRedisAvailability();
   }
@@ -47,8 +52,11 @@ export class EmojiService {
   /**
    * Set the current song ID (called by RadioService when track changes)
    */
-  setCurrentSong(songId: string) {
+  setCurrentSong(songId: string, radioId: string = 'global') {
     this.currentSongId = songId;
+    const normalized = radioId?.trim();
+    this.currentRadioId =
+      normalized && normalized.length > 0 ? normalized.slice(0, 64) : 'global';
     // Clear in-memory counters on song change
     this.inMemoryCounters.clear();
   }
@@ -65,8 +73,11 @@ export class EmojiService {
    * Returns true if accepted, false if rate limited or invalid
    */
   async addReaction(userId: string, emoji: string): Promise<boolean> {
+    // iOS/Flutter may send ❤ without the emoji presentation selector.
+    const normalizedEmoji = emoji === '❤' ? '❤️' : emoji;
+
     // Validate emoji is in allowlist
-    if (!ALLOWED_EMOJIS.includes(emoji)) {
+    if (!ALLOWED_EMOJIS.includes(normalizedEmoji)) {
       this.logger.warn(`Invalid emoji rejected: ${emoji} from user ${userId}`);
       return false;
     }
@@ -85,6 +96,9 @@ export class EmojiService {
     }
 
     if (!this.currentSongId) {
+      this.logger.warn(
+        `Emoji rejected — no current song (user=${userId}, emoji=${normalizedEmoji})`,
+      );
       return false; // No song playing
     }
 
@@ -92,10 +106,14 @@ export class EmojiService {
       if (this.useRedis) {
         // Atomic increment in Redis
         const redis = getRedisClient();
-        await redis.hincrby(`song:${this.currentSongId}:emojis`, emoji, 1);
+        await redis.hincrby(
+          `song:${this.currentSongId}:emojis`,
+          normalizedEmoji,
+          1,
+        );
       } else {
         // Fallback to in-memory
-        const key = emoji;
+        const key = normalizedEmoji;
         this.inMemoryCounters.set(
           key,
           (this.inMemoryCounters.get(key) || 0) + 1,
@@ -144,21 +162,16 @@ export class EmojiService {
         this.inMemoryCounters.clear();
       }
 
-      // Broadcast to Supabase Realtime
-      const supabase = getSupabaseClient();
-      const channel = supabase.channel('radio-chat');
-
-      await channel.send({
-        type: 'broadcast',
-        event: 'emoji_burst',
-        payload: {
-          songId: this.currentSongId,
-          emojis: counts, // { "❤️": "5", "🔥": "3" }
-          timestamp: new Date().toISOString(),
-        },
+      // Same persistent channel chat clients use (`radio-chat:{radioId}`).
+      await this.chatService.broadcastEmojiBurst(this.currentRadioId, {
+        songId: this.currentSongId,
+        emojis: counts, // { "❤️": "5", "🔥": "3" }
+        timestamp: new Date().toISOString(),
       });
 
-      this.logger.debug(`Broadcasted emoji burst: ${JSON.stringify(counts)}`);
+      this.logger.debug(
+        `Broadcasted emoji burst on radio-chat:${this.currentRadioId}: ${JSON.stringify(counts)}`,
+      );
     } catch (error) {
       this.logger.error(`Failed to broadcast emoji counts: ${error.message}`);
     }

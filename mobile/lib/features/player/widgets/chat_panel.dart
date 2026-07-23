@@ -45,6 +45,9 @@ class _ChatPanelState extends State<ChatPanel> {
   String? _myUserId;
   String? _myDisplayName;
   String? _myAvatarUrl;
+  int _lastHandledBurstSeq = 0;
+  final List<_FloatingEmoji> _floatingEmojis = [];
+  int _floaterId = 0;
 
   // Allowed emojis for reactions
   static const List<String> _allowedEmojis = ['❤️', '🔥', '🎵', '👏', '😍', '🙌', '💯', '✨'];
@@ -61,6 +64,31 @@ class _ChatPanelState extends State<ChatPanel> {
       }
       _loadMyProfile();
     });
+  }
+
+  void _spawnBurst(Map<String, int> counts) {
+    final next = <_FloatingEmoji>[];
+    counts.forEach((emoji, count) {
+      final n = count.clamp(1, 8);
+      for (var i = 0; i < n; i++) {
+        next.add(
+          _FloatingEmoji(
+            id: ++_floaterId,
+            emoji: emoji,
+            // Spread across the chat width.
+            x: 0.08 + ((i * 0.11 + emoji.hashCode % 7 * 0.05) % 0.84),
+          ),
+        );
+      }
+    });
+    if (next.isEmpty) return;
+    setState(() => _floatingEmojis.addAll(next));
+    for (final f in next) {
+      Future<void>.delayed(const Duration(milliseconds: 1600), () {
+        if (!mounted) return;
+        setState(() => _floatingEmojis.removeWhere((e) => e.id == f.id));
+      });
+    }
   }
 
   Future<void> _loadMyProfile() async {
@@ -151,7 +179,14 @@ class _ChatPanelState extends State<ChatPanel> {
 
   Future<void> _sendEmoji(String emoji) async {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    await chatService.sendEmoji(emoji);
+    final ok = await chatService.sendEmoji(emoji);
+    if (!mounted || ok) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Couldn’t send reaction — try again in a moment.'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   Widget _buildConnectionIndicator(ChatConnectionState state) {
@@ -401,105 +436,155 @@ class _ChatPanelState extends State<ChatPanel> {
 
               // Emoji reaction bar
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: surfaces.border),
+                  ),
+                ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: _allowedEmojis.map((emoji) {
-                    return GestureDetector(
-                      onTap: () => _sendEmoji(emoji),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: Text(emoji, style: const TextStyle(fontSize: 20)),
+                    return Expanded(
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: () => _sendEmoji(emoji),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Center(
+                              child: Text(
+                                emoji,
+                                style: const TextStyle(fontSize: 22),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     );
                   }).toList(),
                 ),
               ),
 
-              // Messages list
+              // Messages list + floating emoji bursts
               Expanded(
-                child: Stack(
-                  children: [
-                    chatService.messages.isEmpty
-                        ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.chat_bubble_outline,
-                                    size: 48, color: surfaces.textMuted),
-                                const SizedBox(height: 12),
-                                Text(
-                                  'No messages yet',
-                                  style: TextStyle(color: surfaces.textSecondary),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Be the first to say something!',
-                                  style: TextStyle(
-                                    color: surfaces.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          )
-                        : ListView.builder(
-                            controller: _scrollController,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 8),
-                            itemCount: chatService.messages.length,
-                            itemBuilder: (context, index) {
-                              final message = chatService.messages[index];
-                              final isOwnMessage = _myUserId != null &&
-                                  _myUserId!.isNotEmpty &&
-                                  message.userId == _myUserId;
-                              return _buildMessage(message, isOwnMessage);
-                            },
-                          ),
+                child: Builder(
+                  builder: (context) {
+                    // Spawn floaters when ChatService reports a new burst.
+                    final seq = chatService.emojiBurstSeq;
+                    if (seq != _lastHandledBurstSeq && seq > 0) {
+                      _lastHandledBurstSeq = seq;
+                      final burst = Map<String, int>.from(
+                        chatService.lastEmojiBurst,
+                      );
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _spawnBurst(burst);
+                      });
+                    }
 
-                    // "New Messages" badge
-                    if (chatService.unreadCount > 0 && !chatService.isUserAtBottom)
-                      Positioned(
-                        bottom: 8,
-                        left: 0,
-                        right: 0,
-                        child: Center(
-                          child: GestureDetector(
-                            onTap: _scrollToBottom,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                              decoration: BoxDecoration(
-                                color: scheme.primary,
-                                borderRadius: BorderRadius.circular(16),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: scheme.shadow.withValues(alpha: 0.18),
-                                    blurRadius: 8,
-                                  ),
-                                ],
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    '${chatService.unreadCount} new message${chatService.unreadCount > 1 ? 's' : ''}',
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
+                    return Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        chatService.messages.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.chat_bubble_outline,
+                                        size: 48, color: surfaces.textMuted),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'No messages yet',
+                                      style: TextStyle(
+                                          color: surfaces.textSecondary),
                                     ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Be the first to say something!',
+                                      style: TextStyle(
+                                        color: surfaces.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                itemCount: chatService.messages.length,
+                                itemBuilder: (context, index) {
+                                  final message =
+                                      chatService.messages[index];
+                                  final isOwnMessage = _myUserId != null &&
+                                      _myUserId!.isNotEmpty &&
+                                      message.userId == _myUserId;
+                                  return _buildMessage(
+                                      message, isOwnMessage);
+                                },
+                              ),
+
+                        // Floating emoji reactions (rise from bottom).
+                        ..._floatingEmojis.map((f) {
+                          return Positioned.fill(
+                            child: IgnorePointer(
+                              child: _EmojiFloater(
+                                key: ValueKey('floater-${f.id}'),
+                                emoji: f.emoji,
+                                xFraction: f.x,
+                              ),
+                            ),
+                          );
+                        }),
+
+                        // "New Messages" badge
+                        if (chatService.unreadCount > 0 &&
+                            !chatService.isUserAtBottom)
+                          Positioned(
+                            bottom: 8,
+                            left: 0,
+                            right: 0,
+                            child: Center(
+                              child: GestureDetector(
+                                onTap: _scrollToBottom,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: scheme.primary,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: scheme.shadow
+                                            .withValues(alpha: 0.18),
+                                        blurRadius: 8,
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 4),
-                                  const Icon(Icons.arrow_downward,
-                                      color: Colors.white, size: 14),
-                                ],
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${chatService.unreadCount} new message${chatService.unreadCount > 1 ? 's' : ''}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      const Icon(Icons.arrow_downward,
+                                          color: Colors.white, size: 14),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                  ],
+                      ],
+                    );
+                  },
                 ),
               ),
 
@@ -626,5 +711,77 @@ class _ChatPanelState extends State<ChatPanel> {
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+}
+
+class _FloatingEmoji {
+  const _FloatingEmoji({
+    required this.id,
+    required this.emoji,
+    required this.x,
+  });
+
+  final int id;
+  final String emoji;
+  final double x;
+}
+
+/// Rises from the bottom of the chat and fades out.
+class _EmojiFloater extends StatefulWidget {
+  const _EmojiFloater({
+    super.key,
+    required this.emoji,
+    required this.xFraction,
+  });
+
+  final String emoji;
+  final double xFraction;
+
+  @override
+  State<_EmojiFloater> createState() => _EmojiFloaterState();
+}
+
+class _EmojiFloaterState extends State<_EmojiFloater>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..forward();
+
+  late final Animation<double> _rise = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOutCubic,
+  );
+  late final Animation<double> _fade = Tween<double>(begin: 1, end: 0).animate(
+    CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.45, 1, curve: Curves.easeIn),
+    ),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Align(
+          alignment: Alignment(
+            (widget.xFraction * 2) - 1,
+            1 - (_rise.value * 1.35),
+          ),
+          child: Opacity(
+            opacity: _fade.value.clamp(0.0, 1.0),
+            child: child,
+          ),
+        );
+      },
+      child: Text(widget.emoji, style: const TextStyle(fontSize: 28)),
+    );
   }
 }

@@ -285,6 +285,51 @@ export class ChatService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
+   * Broadcast an emoji burst on the station chat channel.
+   * Uses the same persistent subscribed channel as chat messages.
+   */
+  async broadcastEmojiBurst(
+    radioId: string,
+    payload: {
+      songId: string;
+      emojis: Record<string, string>;
+      timestamp: string;
+    },
+  ): Promise<void> {
+    const normalized = this.normalizeRadioId(radioId);
+    await this.ensureChannel(normalized);
+    const channel = this.channels.get(normalized);
+    if (!channel) return;
+
+    if (!this.channelReady.get(normalized)) {
+      const ready = await this.waitForChannel(normalized, 5000);
+      if (!ready) {
+        this.logger.warn(
+          `Emoji burst skipped — chat channel not ready for ${normalized}`,
+        );
+        return;
+      }
+    }
+
+    try {
+      await channel.send({
+        type: 'broadcast',
+        event: 'emoji_burst',
+        payload: {
+          songId: payload.songId,
+          radioId: normalized,
+          emojis: payload.emojis,
+          timestamp: payload.timestamp,
+        },
+      });
+    } catch (error) {
+      this.logger.error(
+        `Failed to broadcast emoji burst: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /**
    * Broadcast message to Supabase Realtime channel
    * ONLY the backend should call this - never clients
    *
