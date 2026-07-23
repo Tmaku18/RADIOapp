@@ -2705,28 +2705,42 @@ export class SongsService {
     const pageIds = page.map((p) => p.artistId);
     if (!pageIds.length) return { items: [], total };
 
+    // Fallback omit username/headline when older DBs lack those columns.
+    // Use a loose row type so the narrow select remains assignable.
+    type LikedArtistUserRow = {
+      id: string;
+      display_name: string | null;
+      username?: string | null;
+      avatar_url: string | null;
+      headline?: string | null;
+    };
     let usersRes = await supabase
       .from('users')
       .select('id, display_name, username, avatar_url, headline')
       .in('id', pageIds);
+    let users: LikedArtistUserRow[] = (usersRes.data ||
+      []) as LikedArtistUserRow[];
     if (
       usersRes.error &&
       this.isMissingAnyColumnError(usersRes.error, ['username', 'headline'])
     ) {
-      usersRes = await supabase
+      const fallback = await supabase
         .from('users')
         .select('id, display_name, avatar_url')
         .in('id', pageIds);
-    }
-    if (usersRes.error) {
+      if (fallback.error) {
+        throw new Error(
+          `Failed to load liked artists: ${fallback.error.message}`,
+        );
+      }
+      users = (fallback.data || []) as LikedArtistUserRow[];
+    } else if (usersRes.error) {
       throw new Error(
         `Failed to load liked artists: ${usersRes.error.message}`,
       );
     }
 
-    const userById = new Map(
-      (usersRes.data || []).map((u: any) => [u.id as string, u]),
-    );
+    const userById = new Map(users.map((u) => [u.id, u]));
 
     const items = page
       .map((p) => {
