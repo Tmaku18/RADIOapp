@@ -8,7 +8,6 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/services/audio_player_service.dart';
-import '../../core/services/video_mirror_service.dart';
 import '../../core/theme/dimension_tokens.dart';
 
 /// Full-screen camera: silent countdown on preview, then starts recording +
@@ -184,6 +183,12 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
   bool get _isFrontCamera =>
       _camera?.description.lensDirection == CameraLensDirection.front;
 
+  /// Android needs a Flutter-side horizontal flip for Snapchat-style selfie
+  /// preview. iOS `camera_avfoundation` already sets `isVideoMirrored` on the
+  /// front-camera connection — flipping again would reverse it.
+  bool get _shouldFlipPreview =>
+      _isFrontCamera && !kIsWeb && !Platform.isIOS;
+
   void _startCountdown() {
     _countdownTimer?.cancel();
     _countdownEndTimer?.cancel();
@@ -309,12 +314,9 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
 
     try {
       final file = await cam.stopVideoRecording();
-      // iOS front-camera files are often unmirrored even though the preview is
-      // flipped — bake the selfie mirror into the clip before returning.
-      var path = file.path;
-      if (!kIsWeb && Platform.isIOS && _isFrontCamera) {
-        path = await VideoMirrorService.mirrorHorizontallyIfIos(path);
-      }
+      // iOS front-camera capture already mirrors via isVideoMirrored, so the
+      // file matches the Snapchat-style preview without a post-record flip.
+      final path = file.path;
       try {
         await AudioPlayerService.restoreMusicSession();
       } catch (_) {}
@@ -361,15 +363,17 @@ class _DiscoverClipCameraScreenState extends State<DiscoverClipCameraScreen> {
         fit: StackFit.expand,
         children: [
           if (ready)
-            // Mirror the front camera so preview matches a normal selfie.
+            // Snapchat-style selfie: flip on Android only (iOS is native-mirrored).
             SizedBox.expand(
               child: FittedBox(
                 fit: BoxFit.cover,
                 child: SizedBox(
                   width: cam.value.previewSize?.height ?? 1,
                   height: cam.value.previewSize?.width ?? 1,
-                  child: Transform.flip(
-                    flipX: _isFrontCamera,
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..scaleByDouble(_shouldFlipPreview ? -1.0 : 1.0, 1.0, 1.0, 1.0),
                     child: CameraPreview(cam),
                   ),
                 ),

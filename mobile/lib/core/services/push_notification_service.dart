@@ -268,39 +268,57 @@ class PushNotificationService {
     }
   }
 
-  /// Wait briefly for the APNs device token — required before FCM getToken on iOS.
-  Future<void> _waitForApnsToken() async {
-    if (!Platform.isIOS) return;
+  /// Wait for the APNs device token — required before FCM getToken on iOS.
+  /// AppDelegate sets Messaging.apnsToken explicitly; still allow up to ~15s.
+  Future<bool> _waitForApnsToken() async {
+    if (!Platform.isIOS) return true;
     try {
       var apns = await _messaging.getAPNSToken();
-      for (var i = 0; i < 12 && (apns == null || apns.isEmpty); i++) {
-        await Future<void>.delayed(Duration(milliseconds: 250 * (i + 1)));
+      for (var i = 0; i < 20 && (apns == null || apns.isEmpty); i++) {
+        await Future<void>.delayed(Duration(milliseconds: 300 + (150 * i)));
         apns = await _messaging.getAPNSToken();
       }
       if (apns == null || apns.isEmpty) {
         debugPrint(
           'PushNotificationService: APNs token not ready '
-          '(check Push capability + Firebase APNs key)',
+          '(check Push capability + Firebase APNs Auth Key)',
         );
-      } else {
-        debugPrint('PushNotificationService: APNs token ready');
+        return false;
       }
+      debugPrint('PushNotificationService: APNs token ready');
+      return true;
     } catch (e) {
       debugPrint('PushNotificationService: getAPNSToken failed - $e');
+      return false;
     }
   }
 
   /// Get FCM token and register with backend (always re-sync so server stays current).
   Future<void> _registerToken() async {
     try {
-      await _waitForApnsToken();
+      final apnsReady = await _waitForApnsToken();
+      if (Platform.isIOS && !apnsReady) {
+        // Token may still arrive via onTokenRefresh once AppDelegate hands off APNs.
+        debugPrint(
+          'PushNotificationService: deferring FCM register until APNs/onTokenRefresh',
+        );
+      }
 
-      String? token = await _messaging.getToken();
-      // Retry a few times — iOS often needs a beat after APNs registration.
-      for (var i = 0; i < 5 && (token == null || token.isEmpty); i++) {
-        await Future<void>.delayed(Duration(milliseconds: 400 * (i + 1)));
-        await _waitForApnsToken();
+      String? token;
+      try {
         token = await _messaging.getToken();
+      } catch (e) {
+        debugPrint('PushNotificationService: getToken threw - $e');
+      }
+      // Retry — iOS often needs a beat after APNs registration.
+      for (var i = 0; i < 8 && (token == null || token.isEmpty); i++) {
+        await Future<void>.delayed(Duration(milliseconds: 500 * (i + 1)));
+        await _waitForApnsToken();
+        try {
+          token = await _messaging.getToken();
+        } catch (e) {
+          debugPrint('PushNotificationService: getToken retry threw - $e');
+        }
       }
 
       if (token == null || token.isEmpty) {

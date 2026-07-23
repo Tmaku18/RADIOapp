@@ -3,8 +3,12 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-/// iOS-only helper: bake a horizontal flip into a recorded selfie clip so the
-/// file matches the mirrored front-camera preview.
+/// iOS-only helper: bake a horizontal flip into a recorded clip.
+///
+/// Discover selfie recording does **not** use this — `camera_avfoundation`
+/// already sets `isVideoMirrored` on the front-camera connection, so both
+/// preview and the written file are Snapchat-mirrored. Applying this on top
+/// would reverse the take. Kept for other callers that need an explicit flip.
 class VideoMirrorService {
   VideoMirrorService._();
 

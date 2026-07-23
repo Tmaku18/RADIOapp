@@ -1,10 +1,9 @@
 import AVFoundation
 import Foundation
 
-/// Horizontally mirrors a recorded video so front-camera takes match the
-/// mirrored selfie preview (Flutter `Transform.flip`). iOS camera orientation
-/// updates often clear `isVideoMirrored`, so the file would otherwise look
-/// flipped vs what the user saw while recording.
+/// Horizontally mirrors a recorded video file.
+/// Discover selfie recording does not use this path — front-camera capture
+/// already sets `isVideoMirrored`, so preview and file match without a bake-in.
 enum VideoMirror {
   enum MirrorError: LocalizedError {
     case missingInput

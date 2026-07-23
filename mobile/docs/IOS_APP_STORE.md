@@ -47,11 +47,9 @@ Skip any step you already finished.
 
 Confirm Firebase Console → project **radioapp-4c14a** has an iOS app with bundle ID `com.tmaktechnologies.networxradio`.
 
-The file is already in the repo at:
-
-`mobile/ios/Runner/GoogleService-Info.plist`
-
-If you re-download it later, replace that file and keep the same name.
+Keep `mobile/ios/Runner/GoogleService-Info.plist` on the build machine
+(it is gitignored — download from Firebase Console → Project settings → Your apps → iOS
+if missing). Without it, Firebase Messaging / Auth will not initialize correctly.
 
 ### A4. (Recommended) APNs key for push
 
