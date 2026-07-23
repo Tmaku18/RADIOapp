@@ -68,23 +68,59 @@ export class ProNetworkSubscriptionService {
 
   async setSubscription(params: {
     userId: string;
+    store?: 'stripe' | 'app_store' | 'play';
     stripeCustomerId?: string | null;
     stripeSubscriptionId?: string | null;
+    appleOriginalTransactionId?: string | null;
+    googlePurchaseToken?: string | null;
+    googleOrderId?: string | null;
+    storeProductId?: string | null;
     status: ProNetworkSubStatus;
     currentPeriodEnd?: Date | null;
     introCouponRedeemed?: boolean;
   }): Promise<void> {
     const supabase = getSupabaseClient();
+    const { data: existing } = await supabase
+      .from('pro_network_subscriptions')
+      .select('*')
+      .eq('user_id', params.userId)
+      .maybeSingle();
+
     const updateRow: Record<string, unknown> = {
       user_id: params.userId,
       status: params.status,
-      stripe_subscription_id: params.stripeSubscriptionId ?? null,
-      stripe_customer_id: params.stripeCustomerId ?? null,
       current_period_end: params.currentPeriodEnd?.toISOString() ?? null,
       updated_at: new Date().toISOString(),
+      store: params.store ?? existing?.store ?? 'stripe',
+      stripe_subscription_id:
+        params.stripeSubscriptionId !== undefined
+          ? params.stripeSubscriptionId
+          : (existing?.stripe_subscription_id ?? null),
+      stripe_customer_id:
+        params.stripeCustomerId !== undefined
+          ? params.stripeCustomerId
+          : (existing?.stripe_customer_id ?? null),
+      apple_original_transaction_id:
+        params.appleOriginalTransactionId !== undefined
+          ? params.appleOriginalTransactionId
+          : (existing?.apple_original_transaction_id ?? null),
+      google_purchase_token:
+        params.googlePurchaseToken !== undefined
+          ? params.googlePurchaseToken
+          : (existing?.google_purchase_token ?? null),
+      google_order_id:
+        params.googleOrderId !== undefined
+          ? params.googleOrderId
+          : (existing?.google_order_id ?? null),
+      store_product_id:
+        params.storeProductId !== undefined
+          ? params.storeProductId
+          : (existing?.store_product_id ?? null),
     };
     if (params.introCouponRedeemed === true) {
       updateRow.intro_coupon_redeemed = true;
+    } else if (existing?.intro_coupon_redeemed != null) {
+      updateRow.intro_coupon_redeemed = existing.intro_coupon_redeemed;
     }
     await supabase
       .from('pro_network_subscriptions')
@@ -99,6 +135,30 @@ export class ProNetworkSubscriptionService {
       .from('pro_network_subscriptions')
       .select('user_id')
       .eq('stripe_subscription_id', stripeSubscriptionId)
+      .maybeSingle();
+    return (data?.user_id as string | undefined) ?? null;
+  }
+
+  async getUserIdByAppleOriginalTransactionId(
+    originalTransactionId: string,
+  ): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('pro_network_subscriptions')
+      .select('user_id')
+      .eq('apple_original_transaction_id', originalTransactionId)
+      .maybeSingle();
+    return (data?.user_id as string | undefined) ?? null;
+  }
+
+  async getUserIdByGooglePurchaseToken(
+    purchaseToken: string,
+  ): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('pro_network_subscriptions')
+      .select('user_id')
+      .eq('google_purchase_token', purchaseToken)
       .maybeSingle();
     return (data?.user_id as string | undefined) ?? null;
   }

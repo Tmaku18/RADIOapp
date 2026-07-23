@@ -10,4 +10,9 @@ export class CompleteGooglePlayPurchaseDto {
   @IsOptional()
   @IsUUID()
   songId?: string;
+
+  /** Required when product type is tip (livestream). */
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
 }

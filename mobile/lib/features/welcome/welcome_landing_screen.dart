@@ -246,34 +246,6 @@ class _WelcomeLandingScreenState extends State<WelcomeLandingScreen> {
             ),
           ],
           ),
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.only(top: 8, right: 12),
-                child: OutlinedButton(
-                  onPressed: _goToLogin,
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: DimensionTokens.cyan300,
-                    side: BorderSide(
-                      color: DimensionTokens.cyan300.withValues(alpha: 0.35),
-                    ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                  ),
-                  child: Text(
-                    'LOG IN',
-                    style: DimensionTypography.monoCaps(
-                      color: DimensionTokens.cyan300,
-                      fontSize: 10,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
           const Positioned(
             left: 0,
             right: 0,

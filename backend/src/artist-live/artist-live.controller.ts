@@ -148,8 +148,12 @@ export class ArtistLiveController {
     @CurrentUser() user: FirebaseUser,
     @Param('sessionId') sessionId: string,
     @Body() body: { amountCents: number; message?: string },
+    @Headers('x-client-platform') platform?: string,
   ) {
-    return this.artistLive.createDonationIntent(user.uid, sessionId, body);
+    return this.artistLive.createDonationIntent(user.uid, sessionId, {
+      ...body,
+      platform,
+    });
   }
 
   @Post(':sessionId/donations/checkout')

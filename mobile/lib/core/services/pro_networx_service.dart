@@ -140,8 +140,8 @@ class ProNetworxService {
     );
   }
 
-  /// Creates a Stripe Checkout session URL on web. On mobile, prefer
-  /// [createProNetworxPaymentSheet] for the native sheet experience.
+  /// Creates a Stripe Checkout session URL on web.
+  /// On iOS/Android, Pro-Networx uses store IAP (see ProNetworkPaywallSheet).
   Future<Map<String, dynamic>> createProNetworxCheckoutSession({
     String? successUrl,
     String? cancelUrl,

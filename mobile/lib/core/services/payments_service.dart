@@ -77,11 +77,13 @@ class PaymentsService {
     required String productId,
     required String purchaseToken,
     String? songId,
+    String? sessionId,
   }) async {
     final res = await _api.post('payments/google-play/complete', {
       'productId': productId,
       'purchaseToken': purchaseToken,
       if (songId != null) 'songId': songId,
+      if (sessionId != null) 'sessionId': sessionId,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }
@@ -91,6 +93,7 @@ class PaymentsService {
     String? signedTransaction,
     String? transactionId,
     String? songId,
+    String? sessionId,
   }) async {
     final res = await _api.post('payments/app-store/complete', {
       'productId': productId,
@@ -99,6 +102,33 @@ class PaymentsService {
       if (transactionId != null && transactionId.isNotEmpty)
         'transactionId': transactionId,
       if (songId != null) 'songId': songId,
+      if (sessionId != null) 'sessionId': sessionId,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> completeAppStoreSubscription({
+    required String productId,
+    String? signedTransaction,
+    String? transactionId,
+  }) async {
+    final res = await _api.post('payments/app-store/complete-subscription', {
+      'productId': productId,
+      if (signedTransaction != null && signedTransaction.isNotEmpty)
+        'signedTransaction': signedTransaction,
+      if (transactionId != null && transactionId.isNotEmpty)
+        'transactionId': transactionId,
+    });
+    return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> completeGooglePlaySubscription({
+    required String productId,
+    required String purchaseToken,
+  }) async {
+    final res = await _api.post('payments/google-play/complete-subscription', {
+      'productId': productId,
+      'purchaseToken': purchaseToken,
     });
     return (res is Map<String, dynamic>) ? res : <String, dynamic>{};
   }

@@ -8,6 +8,7 @@ import '../../core/services/payments_service.dart';
 import '../../core/services/play_billing_service.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../core/utils/mobile_store.dart';
 
 /// Response from GET /payments/song-play-price
 class SongPlayPrice {
@@ -148,7 +149,7 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
 
     setState(() => _submitting = true);
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (isMobileStorePlatform) {
         final totalCents = option.totalCents;
         final productId = PlayBillingService.instance.songPlaysProductIdForPricing(
           plays: _selectedPlays!,
@@ -156,8 +157,10 @@ class _BuyPlaysScreenState extends State<BuyPlaysScreen> {
         );
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No store product mapping found for $_selectedPlays placement(s) at '
-            '\$${option.totalDollars} (key: ${_selectedPlays!}:$totalCents).',
+            'No $mobileStoreLabel product mapping found for $_selectedPlays '
+            'placement(s) at \$${option.totalDollars} '
+            '(key: ${_selectedPlays!}:$totalCents). '
+            'Checkout on this device uses $mobileStoreLabel only.',
           );
         }
         final purchase =

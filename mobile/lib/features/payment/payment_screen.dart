@@ -5,6 +5,7 @@ import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import '../../core/services/payments_service.dart';
 import '../../core/services/play_billing_service.dart';
 import '../../core/theme/networx_tokens.dart';
+import '../../core/utils/mobile_store.dart';
 
 class PaymentScreen extends StatefulWidget {
   const PaymentScreen({super.key});
@@ -56,11 +57,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
     });
 
     try {
-      if (Platform.isAndroid || Platform.isIOS) {
+      if (isMobileStorePlatform) {
         final productId = PlayBillingService.instance.creditProductIdFor(credits);
         if (productId == null || productId.isEmpty) {
           throw Exception(
-            'No store product mapping found for $credits credits.',
+            'No $mobileStoreLabel product mapping found for $credits credits. '
+            'Checkout on this device uses $mobileStoreLabel only.',
           );
         }
         final purchase =
@@ -88,7 +90,7 @@ class _PaymentScreenState extends State<PaymentScreen> {
         return;
       }
 
-      // Non-mobile fallback: Stripe Payment Sheet
+      // Web / non-store platforms: Stripe Payment Sheet
       final response = await _payments.createIntent(
         amountCents: price,
         credits: credits,

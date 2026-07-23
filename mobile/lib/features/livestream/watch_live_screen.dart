@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
@@ -6,6 +7,9 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
 import '../../core/services/livestream_service.dart';
+import '../../core/services/payments_service.dart';
+import '../../core/services/play_billing_service.dart';
+import '../../core/utils/mobile_store.dart';
 
 class WatchLiveScreen extends StatefulWidget {
   final String artistId;
@@ -17,6 +21,7 @@ class WatchLiveScreen extends StatefulWidget {
 
 class _WatchLiveScreenState extends State<WatchLiveScreen> {
   final LivestreamService _live = LivestreamService();
+  final PaymentsService _payments = PaymentsService();
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _session;
@@ -35,8 +40,9 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   final ScrollController _chatScroll = ScrollController();
   bool _sendingChat = false;
 
-  // Donation state
-  static const List<int> _presets = [1, 5, 10, 20, 50];
+  // Donation state — mobile uses fixed store tip SKUs; web allows custom $.
+  static const List<int> _webPresetsDollars = [1, 5, 10, 20, 50];
+  int? _presetTipCents = 499;
   int? _presetDollars = 5;
   bool _custom = false;
   final TextEditingController _customAmount = TextEditingController();
@@ -242,48 +248,89 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
   }
 
   int get _amountCents {
+    if (isMobileStorePlatform) {
+      return _presetTipCents ?? 0;
+    }
     final dollars = _custom
         ? (double.tryParse(_customAmount.text.trim()) ?? 0)
         : (_presetDollars ?? 0).toDouble();
     return (dollars * 100).round();
   }
 
+  Future<void> _donateWithStore(String sessionId, int cents) async {
+    final productId =
+        PlayBillingService.instance.tipProductIdForCents(cents);
+    if (productId == null || productId.isEmpty) {
+      throw Exception(
+        'No $mobileStoreLabel tip product for '
+        '\$${(cents / 100).toStringAsFixed(2)}.',
+      );
+    }
+    final purchase =
+        await PlayBillingService.instance.buyConsumable(productId);
+    if (Platform.isIOS) {
+      await _payments.completeAppStorePurchase(
+        productId: purchase.productId,
+        signedTransaction: purchase.purchaseToken,
+        transactionId: purchase.transactionId,
+        sessionId: sessionId,
+      );
+    } else {
+      await _payments.completeGooglePlayPurchase(
+        productId: purchase.productId,
+        purchaseToken: purchase.purchaseToken,
+        sessionId: sessionId,
+      );
+    }
+  }
+
   Future<void> _donate() async {
     final sessionId = _session?['id']?.toString();
     if (sessionId == null || sessionId.isEmpty) return;
     final cents = _amountCents;
-    if (cents < 100) {
-      _snack('Minimum donation is \$1.00');
-      return;
-    }
-    if (cents > 25000) {
-      _snack('Maximum donation is \$250.00');
-      return;
+    if (isMobileStorePlatform) {
+      if (!PlayBillingService.tipAmountCentsOptions.contains(cents)) {
+        _snack('Pick a tip amount to continue.');
+        return;
+      }
+    } else {
+      if (cents < 100) {
+        _snack('Minimum donation is \$1.00');
+        return;
+      }
+      if (cents > 25000) {
+        _snack('Maximum donation is \$250.00');
+        return;
+      }
     }
     setState(() => _donating = true);
     try {
-      final res = await _live.createDonationIntent(
-        sessionId,
-        cents,
-        message: _message.text,
-      );
-      final clientSecret = res?['clientSecret']?.toString();
-      if (clientSecret == null || clientSecret.isEmpty) {
-        throw Exception('No payment client secret');
-      }
+      if (isMobileStorePlatform) {
+        await _donateWithStore(sessionId, cents);
+      } else {
+        final res = await _live.createDonationIntent(
+          sessionId,
+          cents,
+          message: _message.text,
+        );
+        final clientSecret = res?['clientSecret']?.toString();
+        if (clientSecret == null || clientSecret.isEmpty) {
+          throw Exception('No payment client secret');
+        }
 
-      await Stripe.instance.initPaymentSheet(
-        paymentSheetParameters: SetupPaymentSheetParameters(
-          paymentIntentClientSecret: clientSecret,
-          merchantDisplayName: 'NETWORX',
-          style: ThemeMode.system,
-        ),
-      );
-      await Stripe.instance.presentPaymentSheet();
+        await Stripe.instance.initPaymentSheet(
+          paymentSheetParameters: SetupPaymentSheetParameters(
+            paymentIntentClientSecret: clientSecret,
+            merchantDisplayName: 'NETWORX',
+            style: ThemeMode.system,
+          ),
+        );
+        await Stripe.instance.presentPaymentSheet();
+      }
 
       if (!mounted) return;
       _message.clear();
-      _snack('Thanks for the tip! 🎉');
+      _snack('Thanks for the tip!');
     } on StripeException catch (e) {
       if (!mounted) return;
       _snack(e.error.localizedMessage ?? 'Payment canceled');
@@ -345,7 +392,9 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'Send a tip — pick an amount or enter your own.',
+                        isMobileStorePlatform
+                            ? 'Send a tip via $mobileStoreLabel — pick a preset amount.'
+                            : 'Send a tip — pick an amount or enter your own.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 12),
@@ -353,26 +402,43 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          ..._presets.map((amt) {
-                            final selected = !_custom && _presetDollars == amt;
-                            return ChoiceChip(
-                              label: Text('\$$amt'),
-                              selected: selected,
-                              onSelected: (_) => setState(() {
-                                _custom = false;
-                                _presetDollars = amt;
-                              }),
-                            );
-                          }),
-                          ChoiceChip(
-                            label: const Text('Custom'),
-                            selected: _custom,
-                            onSelected: (_) =>
-                                setState(() => _custom = true),
-                          ),
+                          if (isMobileStorePlatform)
+                            ...PlayBillingService.tipAmountCentsOptions
+                                .map((cents) {
+                              final selected = _presetTipCents == cents;
+                              final label =
+                                  '\$${(cents / 100).toStringAsFixed(2)}';
+                              return ChoiceChip(
+                                label: Text(label),
+                                selected: selected,
+                                onSelected: (_) => setState(() {
+                                  _presetTipCents = cents;
+                                }),
+                              );
+                            })
+                          else ...[
+                            ..._webPresetsDollars.map((amt) {
+                              final selected =
+                                  !_custom && _presetDollars == amt;
+                              return ChoiceChip(
+                                label: Text('\$$amt'),
+                                selected: selected,
+                                onSelected: (_) => setState(() {
+                                  _custom = false;
+                                  _presetDollars = amt;
+                                }),
+                              );
+                            }),
+                            ChoiceChip(
+                              label: const Text('Custom'),
+                              selected: _custom,
+                              onSelected: (_) =>
+                                  setState(() => _custom = true),
+                            ),
+                          ],
                         ],
                       ),
-                      if (_custom) ...[
+                      if (!isMobileStorePlatform && _custom) ...[
                         const SizedBox(height: 12),
                         TextField(
                           controller: _customAmount,
@@ -385,14 +451,16 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                           onChanged: (_) => setState(() {}),
                         ),
                       ],
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: _message,
-                        maxLength: 140,
-                        decoration: const InputDecoration(
-                          labelText: 'Message (optional)',
+                      if (!isMobileStorePlatform) ...[
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _message,
+                          maxLength: 140,
+                          decoration: const InputDecoration(
+                            labelText: 'Message (optional)',
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(height: 4),
                       SizedBox(
                         width: double.infinity,
@@ -401,7 +469,9 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                           child: Text(
                             _donating
                                 ? 'Processing…'
-                                : 'Donate \$${(_amountCents / 100).toStringAsFixed(2)}',
+                                : isMobileStorePlatform
+                                    ? 'Tip \$${(_amountCents / 100).toStringAsFixed(2)}'
+                                    : 'Donate \$${(_amountCents / 100).toStringAsFixed(2)}',
                           ),
                         ),
                       ),

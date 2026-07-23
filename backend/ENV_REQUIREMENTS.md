@@ -32,6 +32,29 @@ The following environment variables are **required** for the backend to start:
 
 - `STRIPE_WEBHOOK_SECRET` - Only needed if you're using the webhook endpoint (`/api/payments/webhook`)
 
+## Mobile store IAP (App Store + Google Play)
+
+Required for verifying mobile digital purchases (credits, song plays, Pro-Networx, tips):
+
+| Variable | Notes |
+|----------|--------|
+| `APPLE_IAP_BUNDLE_ID` | `com.tmaktechnologies.networxradio` |
+| `APPLE_IAP_ENVIRONMENT` | `Sandbox` (TestFlight) or `Production` |
+| `APPLE_APP_APPLE_ID` | Numeric App Store Connect app id (required for Production JWS verify) |
+| `APPLE_IAP_KEY_ID` | App Store Connect → Integrations → In-App Purchase key |
+| `APPLE_IAP_ISSUER_ID` | Same key’s Issuer ID |
+| `APPLE_IAP_PRIVATE_KEY` | `.p8` PEM (`\n` escaped) |
+| `GOOGLE_PLAY_PACKAGE_NAME` | `com.tmaktechnologies.networxradio` |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Optional if `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` already have Android Publisher access |
+| `STREAM_DONATIONS_ENABLED` | `true` to allow livestream tips |
+
+Webhook URLs (configure in store consoles):
+
+- App Store Server Notifications V2 → `https://backend-production-17cc.up.railway.app/payments/app-store/notifications`
+- Google Play RTDN → `https://backend-production-17cc.up.railway.app/payments/google-play/rtdn`
+
+Product catalog defaults ship in code (`src/payments/iap-product-catalog.ts`). Optional overrides: `APPLE_IAP_PRODUCT_CATALOG_JSON` / `GOOGLE_PLAY_PRODUCT_CATALOG_JSON`.
+
 ## Testing Checklist
 
 To test if your .env is sufficient:

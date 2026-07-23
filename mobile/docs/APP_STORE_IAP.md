@@ -1,29 +1,74 @@
-# Apple In-App Purchase (iOS)
+# Mobile store billing (App Store + Google Play)
 
-Digital credits and discovery placements on iOS use **Apple In-App Purchase (StoreKit)**, not Stripe / Apple Pay. Android continues to use Google Play Billing. Web continues to use Stripe Checkout.
+On **iOS** and **Android**, every digital purchase goes through the platform store — never Stripe.
 
-## Code (done in repo)
+| Purchase | iOS | Android | Web |
+|----------|-----|---------|-----|
+| Artist credits | App Store consumable | Play consumable | Stripe |
+| Song plays / placements | App Store consumable | Play consumable | Stripe |
+| Pro-Networx subscription | App Store auto-renewable | Play subscription | Stripe |
+| Livestream tips | App Store consumable tiers | Play consumable tiers | Stripe |
 
-- Mobile: `PlayBillingService` + purchase screens call StoreKit on iOS.
-- Mobile API: `POST payments/app-store/complete` via `PaymentsService.completeAppStorePurchase`.
-- Backend: `AppStoreBillingService` verifies StoreKit 2 JWS (and can look up by transaction id) using `@apple/app-store-server-library`.
-- Product IDs default to the same strings as Android (`nwx_credits_*`, `nwx_song_plays_*`).
+Stripe Connect artist **payout** onboarding stays Stripe (not consumer IAP).
 
-## App Store Connect (required once)
+## Product IDs (create in both consoles)
+
+### Credits (consumable)
+- `nwx_credits_10` / `25` / `50` / `100`
+
+### Discovery placements (consumable)
+- `nwx_song_plays_1` / `3` / `5` / `10` / `25` / `50` / `100`
+
+### Pro-Networx (subscription)
+- Product ID: `nwx_pro_networx_monthly`
+- Price: **$9.99/mo**, introductory first month **$4.99**
+- App Store Connect: subscription group “Pro-Networx”, auto-renewable
+- Play Console: subscription + base plan $9.99/mo + intro/offer $4.99 first period
+
+### Livestream tips (consumable)
+- `nwx_tip_199` ($1.99)
+- `nwx_tip_499` ($4.99)
+- `nwx_tip_999` ($9.99)
+- `nwx_tip_2499` ($24.99)
+
+Mobile tip UI only offers these presets (no custom dollar amount on device).
+
+## App Store Connect checklist
 
 1. Enable **In-App Purchase** on App ID `com.tmaktechnologies.networxradio`.
-2. In App Store Connect → your app → **Monetization → In-App Purchases**, create **Consumable** products, for example:
-   - `nwx_credits_10` / `25` / `50` / `100`
-   - `nwx_song_plays_1` / `3` / `5` / `10` / `25` / `50` / `100`
-   - Or priced SKUs matching your Play map, e.g. `nwx_song_plays_5_995` for 5×$1.99
-3. Submit products for review with the app (or as needed for your release track).
-4. Create an **In-App Purchase** API key:
-   - Users and Access → Integrations → In-App Purchase → Generate
-   - Save **Issuer ID**, **Key ID**, and the `.p8` private key
+2. Create consumables above (credits, song plays, tips).
+3. Create subscription group + `nwx_pro_networx_monthly` with intro offer.
+4. App Store Server Notifications V2 →  
+   `POST https://<API_HOST>/payments/app-store/notifications`
+5. In-App Purchase API key (Issuer ID, Key ID, `.p8`) for backend verification.
+
+## Google Play Console checklist
+
+1. Confirm credit/play product IDs match App Store.
+2. Create subscription `nwx_pro_networx_monthly` + tip consumables.
+3. Real-time developer notifications (RTDN) → Pub/Sub push to  
+   `POST https://<API_HOST>/payments/google-play/rtdn`
+4. Service account with Android Publisher access for backend verify/acknowledge.
+
+## Code (repo)
+
+- Mobile: `PlayBillingService` (consumables + subscriptions + tip IDs).
+- Mobile paywall: `ProNetworkPaywallSheet` → StoreKit / Play Billing + Restore.
+- Mobile tips: `watch_live_screen.dart` store consumables on iOS/Android.
+- Credits / plays: store-only on mobile; missing SKU → clear error (no Stripe fallback).
+- API header: `x-client-platform: ios|android|web` — backend rejects Stripe intents for digital goods on mobile.
+- Backend:  
+  - `POST /payments/app-store/complete` (+ tips via `sessionId`)  
+  - `POST /payments/google-play/complete`  
+  - `POST /payments/app-store/complete-subscription`  
+  - `POST /payments/google-play/complete-subscription`  
+  - ASSN V2 + Play RTDN handlers above  
+- DB: `pro_network_subscriptions.store` + Apple/Play id columns (migration `109_pro_network_store_billing.sql`).
 
 ## Backend env
 
-Set in `backend/.env` (see `.env.example`):
+See `backend/.env.example`. Defaults for product catalog live in
+`backend/src/payments/iap-product-catalog.ts` and merge with:
 
 ```env
 APPLE_IAP_BUNDLE_ID=com.tmaktechnologies.networxradio
@@ -32,31 +77,30 @@ APPLE_APP_APPLE_ID=<numeric App Store Connect app id>
 APPLE_IAP_KEY_ID=...
 APPLE_IAP_ISSUER_ID=...
 APPLE_IAP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
-# Reuse Play catalog if product IDs match:
+GOOGLE_PLAY_PACKAGE_NAME=com.tmaktechnologies.networxradio
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON=...
+# Optional overrides (merged on top of defaults):
 # APPLE_IAP_PRODUCT_CATALOG_JSON=
-GOOGLE_PLAY_PRODUCT_CATALOG_JSON={"nwx_credits_10":{"type":"credits","amountCents":999,"credits":10},...}
+# GOOGLE_PLAY_PRODUCT_CATALOG_JSON=
 ```
 
-Apple root CA files live in `backend/certs/apple/` (committed).
-
-## Mobile env (optional overrides)
-
-Same product IDs work on both stores by default. Optional iOS-only overrides:
+## Mobile env (optional product ID overrides)
 
 ```env
-IOS_APP_STORE_CREDITS_10_PRODUCT_ID=nwx_credits_10
-IOS_APP_STORE_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON={"1:199":"nwx_song_plays_1_199","5:995":"nwx_song_plays_5_995"}
+IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
+ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID=nwx_pro_networx_monthly
+IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
+# ... same pattern for 499 / 999 / 2499
 ```
 
 ## Verify
 
-1. Use a Sandbox Apple ID on a real device / TestFlight.
-2. Artist account → Purchase Credits → complete an IAP.
-3. Confirm backend logs a succeeded `payment_method: app_store` transaction and credits increase.
-4. Repeat for discovery placements on a song.
-5. Replay the same transaction id → API returns `alreadyProcessed: true`.
+1. iOS Sandbox + Android license tester: credits, plays, tips — store UI only; grants land.
+2. Subscribe Pro-Networx on each store → `getAccess()` true; Restore works; expire/revoke clears access.
+3. No Stripe PaymentSheet on iOS/Android for those flows.
+4. Web Stripe checkout / tips still work.
 
 ## What this is not
 
-- **Apple Pay** / **Google Wallet** are wallet payment methods (often via Stripe on web). They are not required for digital IAP.
-- Pro Network / Connect / web song checkout may still use Stripe where App Store rules allow (or must move to auto-renewable IAP if sold inside the iOS app as digital subscriptions).
+- **Apple Pay** / **Google Wallet** via Stripe are not used for these digital goods on mobile.
+- Migrating existing Stripe Pro-Networx subscribers onto Apple/Play is out of scope.

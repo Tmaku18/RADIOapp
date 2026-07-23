@@ -41,6 +41,15 @@ class PlayBillingService {
   static const String _defaultSongPlays50 = 'nwx_song_plays_50';
   static const String _defaultSongPlays100 = 'nwx_song_plays_100';
 
+  static const String defaultProNetworxMonthly = 'nwx_pro_networx_monthly';
+  static const String _defaultTip199 = 'nwx_tip_199';
+  static const String _defaultTip499 = 'nwx_tip_499';
+  static const String _defaultTip999 = 'nwx_tip_999';
+  static const String _defaultTip2499 = 'nwx_tip_2499';
+
+  /// Tip tiers shown on mobile (custom free-text tips are web/Stripe only).
+  static const List<int> tipAmountCentsOptions = [199, 499, 999, 2499];
+
   String get _storeLabel {
     if (Platform.isIOS) return 'App Store';
     if (Platform.isAndroid) return 'Google Play';
@@ -59,6 +68,11 @@ class PlayBillingService {
         songPlaysProductIdFor(25)!,
         songPlaysProductIdFor(50)!,
         songPlaysProductIdFor(100)!,
+        proNetworxMonthlyProductId,
+        tipProductIdForCents(199)!,
+        tipProductIdForCents(499)!,
+        tipProductIdForCents(999)!,
+        tipProductIdForCents(2499)!,
       };
 
   String? _envOrDefault(String key, String fallback) {
@@ -138,6 +152,40 @@ class PlayBillingService {
     }
   }
 
+  String get proNetworxMonthlyProductId =>
+      _envOrDefault(
+        'IOS_APP_STORE_PRO_NETWORX_MONTHLY_PRODUCT_ID',
+        env('ANDROID_PLAY_PRO_NETWORX_MONTHLY_PRODUCT_ID') ??
+            defaultProNetworxMonthly,
+      )!;
+
+  String? tipProductIdForCents(int amountCents) {
+    switch (amountCents) {
+      case 199:
+        return _envOrDefault(
+          'IOS_APP_STORE_TIP_199_PRODUCT_ID',
+          env('ANDROID_PLAY_TIP_199_PRODUCT_ID') ?? _defaultTip199,
+        );
+      case 499:
+        return _envOrDefault(
+          'IOS_APP_STORE_TIP_499_PRODUCT_ID',
+          env('ANDROID_PLAY_TIP_499_PRODUCT_ID') ?? _defaultTip499,
+        );
+      case 999:
+        return _envOrDefault(
+          'IOS_APP_STORE_TIP_999_PRODUCT_ID',
+          env('ANDROID_PLAY_TIP_999_PRODUCT_ID') ?? _defaultTip999,
+        );
+      case 2499:
+        return _envOrDefault(
+          'IOS_APP_STORE_TIP_2499_PRODUCT_ID',
+          env('ANDROID_PLAY_TIP_2499_PRODUCT_ID') ?? _defaultTip2499,
+        );
+      default:
+        return null;
+    }
+  }
+
   /// Dynamic song-play product mapping by `(plays, totalCents)` key.
   ///
   /// Prefers `IOS_APP_STORE_SONG_PLAYS_PRICE_PRODUCT_MAP_JSON` on iOS, then
@@ -188,6 +236,87 @@ class PlayBillingService {
   }
 
   Future<PlayPurchaseResult> buyConsumable(String productId) async {
+    return _buy(
+      productId: productId,
+      startPurchase: (product) => _iap.buyConsumable(
+        purchaseParam: PurchaseParam(productDetails: product),
+      ),
+    );
+  }
+
+  /// Auto-renewable / non-consumable subscription purchase (Pro-Networx).
+  Future<PlayPurchaseResult> buySubscription(String productId) async {
+    return _buy(
+      productId: productId,
+      startPurchase: (product) => _iap.buyNonConsumable(
+        purchaseParam: PurchaseParam(productDetails: product),
+      ),
+    );
+  }
+
+  /// Restore prior Pro-Networx subscription purchases from the store.
+  Future<PlayPurchaseResult?> restoreSubscription(String productId) async {
+    final available = await isAvailable();
+    if (!available) {
+      throw Exception('$_storeLabel Billing is not available on this device.');
+    }
+
+    final completer = Completer<PlayPurchaseResult?>();
+    late final StreamSubscription<List<PurchaseDetails>> subscription;
+    subscription = _iap.purchaseStream.listen(
+      (updates) async {
+        for (final purchase in updates) {
+          if (purchase.productID != productId) continue;
+          if (purchase.status == PurchaseStatus.error) {
+            await _finishPurchaseIfNeeded(purchase);
+            if (!completer.isCompleted) {
+              completer.completeError(
+                Exception(
+                  purchase.error?.message ?? '$_storeLabel restore failed.',
+                ),
+              );
+            }
+            continue;
+          }
+          if (purchase.status == PurchaseStatus.restored ||
+              purchase.status == PurchaseStatus.purchased) {
+            await _finishPurchaseIfNeeded(purchase);
+            final token = purchase.verificationData.serverVerificationData;
+            if (!completer.isCompleted) {
+              completer.complete(
+                PlayPurchaseResult(
+                  productId: productId,
+                  purchaseToken: token,
+                  transactionId: purchase.purchaseID,
+                ),
+              );
+            }
+          }
+        }
+      },
+      onError: (Object error, StackTrace stackTrace) {
+        if (!completer.isCompleted) {
+          completer.completeError(error, stackTrace);
+        }
+      },
+    );
+
+    try {
+      await _iap.restorePurchases();
+      final result = await completer.future.timeout(
+        const Duration(seconds: 45),
+        onTimeout: () => null,
+      );
+      return result;
+    } finally {
+      await subscription.cancel();
+    }
+  }
+
+  Future<PlayPurchaseResult> _buy({
+    required String productId,
+    required Future<bool> Function(ProductDetails product) startPurchase,
+  }) async {
     final available = await isAvailable();
     if (!available) {
       throw Exception('$_storeLabel Billing is not available on this device.');
@@ -252,9 +381,7 @@ class PlayBillingService {
     );
 
     try {
-      final started = await _iap.buyConsumable(
-        purchaseParam: PurchaseParam(productDetails: product),
-      );
+      final started = await startPurchase(product);
       if (!started) {
         throw Exception(
           '$_storeLabel did not start purchase flow for $productId.',

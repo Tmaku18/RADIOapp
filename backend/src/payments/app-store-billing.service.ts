@@ -17,8 +17,16 @@ export type AppStoreVerifiedPurchase = {
   productId: string;
   bundleId: string | null;
   purchaseDate: number | null;
+  expiresDate: number | null;
   environment: string | null;
   quantity: number;
+  type: string | null;
+};
+
+export type AppStoreNotificationResult = {
+  notificationType: string | null;
+  subtype: string | null;
+  transaction: AppStoreVerifiedPurchase | null;
 };
 
 function normalizePemKey(raw: string): string {
@@ -141,9 +149,20 @@ export class AppStoreBillingService {
       productId: decoded.productId,
       bundleId: decoded.bundleId ?? null,
       purchaseDate: decoded.purchaseDate ?? null,
+      expiresDate: decoded.expiresDate ?? null,
       environment: decoded.environment ?? null,
       quantity: decoded.quantity ?? 1,
+      type: decoded.type ?? null,
     };
+  }
+
+  private assertSubscriptionActive(verified: AppStoreVerifiedPurchase): void {
+    if (
+      verified.expiresDate != null &&
+      verified.expiresDate <= Date.now()
+    ) {
+      throw new Error('App Store subscription is expired');
+    }
   }
 
   private async verifyJwsWithFallback(
@@ -250,5 +269,67 @@ export class AppStoreBillingService {
       );
     }
     return verified;
+  }
+
+  /**
+   * Verify an auto-renewable subscription purchase (StoreKit JWS or API lookup).
+   */
+  async verifySubscriptionPurchase(params: {
+    productId: string;
+    signedTransaction?: string;
+    transactionId?: string;
+    requireActive?: boolean;
+  }): Promise<AppStoreVerifiedPurchase> {
+    const verified = await this.verifyConsumablePurchase({
+      productId: params.productId,
+      signedTransaction: params.signedTransaction,
+      transactionId: params.transactionId,
+    });
+    if (params.requireActive !== false) {
+      this.assertSubscriptionActive(verified);
+    }
+    return verified;
+  }
+
+  async verifyNotification(
+    signedPayload: string,
+  ): Promise<AppStoreNotificationResult> {
+    const preferred = this.getConfiguredEnvironment();
+    const environments =
+      preferred === Environment.PRODUCTION
+        ? [Environment.PRODUCTION, Environment.SANDBOX]
+        : [Environment.SANDBOX, Environment.PRODUCTION];
+
+    let lastError: unknown;
+    for (const environment of environments) {
+      try {
+        const verifier = await this.createVerifier(environment);
+        const notification =
+          await verifier.verifyAndDecodeNotification(signedPayload);
+        let transaction: AppStoreVerifiedPurchase | null = null;
+        const signedTx = notification.data?.signedTransactionInfo;
+        if (signedTx) {
+          const decoded = await verifier.verifyAndDecodeTransaction(signedTx);
+          transaction = this.toVerifiedPurchase(decoded);
+        }
+        return {
+          notificationType: notification.notificationType ?? null,
+          subtype: notification.subtype ?? null,
+          transaction,
+        };
+      } catch (error) {
+        lastError = error;
+        if (
+          error instanceof VerificationException &&
+          error.status === VerificationStatus.INVALID_ENVIRONMENT
+        ) {
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError instanceof Error
+      ? lastError
+      : new Error('Failed to verify App Store Server Notification');
   }
 }

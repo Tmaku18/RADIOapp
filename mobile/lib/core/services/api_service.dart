@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../env.dart';
 
@@ -87,8 +89,14 @@ class ApiService {
         token ??= _authToken;
       }
     }
+    final platform = !kIsWeb && Platform.isIOS
+        ? 'ios'
+        : !kIsWeb && Platform.isAndroid
+            ? 'android'
+            : 'web';
     return {
       'Content-Type': 'application/json',
+      'x-client-platform': platform,
       if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
     };
   }

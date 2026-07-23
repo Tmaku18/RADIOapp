@@ -17,4 +17,9 @@ export class CompleteAppStorePurchaseDto {
   @IsOptional()
   @IsUUID()
   songId?: string;
+
+  /** Required when product type is tip (livestream). */
+  @IsOptional()
+  @IsUUID()
+  sessionId?: string;
 }

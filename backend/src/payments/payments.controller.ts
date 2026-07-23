@@ -18,12 +18,17 @@ import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { BuySongPlaysDto } from './dto/buy-song-plays.dto';
 import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
 import { CompleteAppStorePurchaseDto } from './dto/complete-app-store-purchase.dto';
+import {
+  CompleteAppStoreSubscriptionDto,
+  CompleteGooglePlaySubscriptionDto,
+} from './dto/complete-store-subscription.dto';
 import { CurrentUser } from '../auth/decorators/user.decorator';
 import type { FirebaseUser } from '../auth/decorators/user.decorator';
 import { getSupabaseClient } from '../config/supabase.config';
 import { FirebaseAuthGuard } from '../auth/guards/firebase-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 
 @Controller('payments')
 export class PaymentsController {
@@ -36,6 +41,7 @@ export class PaymentsController {
   async createPaymentIntent(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CreatePaymentIntentDto,
+    @Headers('x-client-platform') platform?: string,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -48,12 +54,16 @@ export class PaymentsController {
       throw new Error('User not found');
     }
 
-    return this.paymentsService.createPaymentIntent(userData.id, dto);
+    return this.paymentsService.createPaymentIntent(
+      userData.id,
+      dto,
+      platform,
+    );
   }
 
   @Post('google-play/complete')
   @UseGuards(FirebaseAuthGuard, RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('listener')
   async completeGooglePlayPurchase(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CompleteGooglePlayPurchaseDto,
@@ -72,7 +82,7 @@ export class PaymentsController {
 
   @Post('app-store/complete')
   @UseGuards(FirebaseAuthGuard, RolesGuard)
-  @Roles('artist', 'admin')
+  @Roles('listener')
   async completeAppStorePurchase(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: CompleteAppStorePurchaseDto,
@@ -87,6 +97,55 @@ export class PaymentsController {
       throw new Error('User not found');
     }
     return this.paymentsService.completeAppStorePurchase(userData.id, dto);
+  }
+
+  @Post('app-store/complete-subscription')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener')
+  async completeAppStoreSubscription(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CompleteAppStoreSubscriptionDto,
+  ) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.completeAppStoreSubscription(userId, dto);
+  }
+
+  @Post('google-play/complete-subscription')
+  @UseGuards(FirebaseAuthGuard, RolesGuard)
+  @Roles('listener')
+  async completeGooglePlaySubscription(
+    @CurrentUser() user: FirebaseUser,
+    @Body() dto: CompleteGooglePlaySubscriptionDto,
+  ) {
+    const userId = await this.resolveUserId(user.uid);
+    return this.paymentsService.completeGooglePlaySubscription(userId, dto);
+  }
+
+  /** App Store Server Notifications V2 (ASSN). Configure in App Store Connect. */
+  @Public()
+  @Post('app-store/notifications')
+  async appStoreNotifications(@Body() body: { signedPayload?: string }) {
+    if (!body?.signedPayload) {
+      throw new Error('signedPayload is required');
+    }
+    return this.paymentsService.handleAppStoreNotification(body.signedPayload);
+  }
+
+  /** Google Play Real-time developer notifications (Pub/Sub push). */
+  @Public()
+  @Post('google-play/rtdn')
+  async googlePlayRtdn(
+    @Body()
+    body: {
+      message?: { data?: string };
+      subscriptionNotification?: {
+        notificationType?: number;
+        purchaseToken?: string;
+        subscriptionId?: string;
+      };
+    },
+  ) {
+    return this.paymentsService.handleGooglePlayRtdn(body);
   }
 
   /**
@@ -170,6 +229,7 @@ export class PaymentsController {
   async createPaymentIntentSongPlays(
     @CurrentUser() user: FirebaseUser,
     @Body() dto: BuySongPlaysDto,
+    @Headers('x-client-platform') platform?: string,
   ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
@@ -178,7 +238,11 @@ export class PaymentsController {
       .eq('firebase_uid', user.uid)
       .single();
     if (!userData) throw new Error('User not found');
-    return this.paymentsService.createPaymentIntentSongPlays(userData.id, dto);
+    return this.paymentsService.createPaymentIntentSongPlays(
+      userData.id,
+      dto,
+      platform,
+    );
   }
 
   /**
@@ -270,7 +334,10 @@ export class PaymentsController {
    */
   @Post('create-pro-networx-payment-sheet')
   @UseGuards(FirebaseAuthGuard)
-  async createProNetworxPaymentSheet(@CurrentUser() user: FirebaseUser) {
+  async createProNetworxPaymentSheet(
+    @CurrentUser() user: FirebaseUser,
+    @Headers('x-client-platform') platform?: string,
+  ) {
     const supabase = getSupabaseClient();
     const { data: userData } = await supabase
       .from('users')
@@ -281,6 +348,7 @@ export class PaymentsController {
     return this.paymentsService.createProNetworxPaymentSheet({
       userId: userData.id,
       customerEmail: (userData as { email?: string }).email ?? null,
+      platform,
     });
   }
 

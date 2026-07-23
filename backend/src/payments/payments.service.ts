@@ -1,4 +1,10 @@
-import { Inject, Injectable, forwardRef } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+  forwardRef,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { getSupabaseClient } from '../config/supabase.config';
 import { StripeService } from './stripe.service';
@@ -13,13 +19,15 @@ import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { ALLOWED_PLAYS_LIST, BuySongPlaysDto } from './dto/buy-song-plays.dto';
 import { CompleteGooglePlayPurchaseDto } from './dto/complete-google-play-purchase.dto';
 import { CompleteAppStorePurchaseDto } from './dto/complete-app-store-purchase.dto';
-
-type IapCatalogEntry = {
-  type: 'credits' | 'song_plays';
-  amountCents: number;
-  credits?: number;
-  plays?: number;
-};
+import {
+  CompleteAppStoreSubscriptionDto,
+  CompleteGooglePlaySubscriptionDto,
+} from './dto/complete-store-subscription.dto';
+import {
+  DEFAULT_IAP_PRODUCT_CATALOG,
+  PRO_NETWORX_MONTHLY_PRODUCT_ID,
+  type IapCatalogEntry,
+} from './iap-product-catalog';
 
 /**
  * A Discovery Placement is the unit artists buy to promote a track. Per the
@@ -46,6 +54,8 @@ export function pricePerPlayCents(durationSeconds: number): number {
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     private stripeService: StripeService,
     private configService: ConfigService,
@@ -56,6 +66,16 @@ export class PaymentsService {
     @Inject(forwardRef(() => RefineryService))
     private readonly refineryService: RefineryService,
   ) {}
+
+  /** Digital goods on iOS/Android must use store IAP — never Stripe. */
+  assertStripeAllowedForDigitalGoods(platform?: string | null): void {
+    const p = (platform ?? '').trim().toLowerCase();
+    if (p === 'ios' || p === 'android') {
+      throw new BadRequestException(
+        'Digital purchases on mobile must use the App Store or Google Play. Stripe is web-only for these products.',
+      );
+    }
+  }
 
   private getIapCatalog(storeLabel: 'Google Play' | 'App Store'): Record<
     string,
@@ -69,14 +89,10 @@ export class PaymentsService {
     );
     const raw =
       storeLabel === 'App Store' ? appleRaw || googleRaw : googleRaw || appleRaw;
-    if (!raw) {
-      throw new Error(
-        storeLabel === 'App Store'
-          ? 'APPLE_IAP_PRODUCT_CATALOG_JSON or GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map IAP products'
-          : 'GOOGLE_PLAY_PRODUCT_CATALOG_JSON is required to map Play products to credits/plays',
-      );
-    }
-    return JSON.parse(raw) as Record<string, IapCatalogEntry>;
+    const fromEnv = raw
+      ? (JSON.parse(raw) as Record<string, IapCatalogEntry>)
+      : {};
+    return { ...DEFAULT_IAP_PRODUCT_CATALOG, ...fromEnv };
   }
 
   private resolveIapProduct(
@@ -110,6 +126,16 @@ export class PaymentsService {
     ) {
       throw new Error(
         `Invalid plays mapping for ${storeLabel} product: ${productId}`,
+      );
+    }
+    if (
+      product.type !== 'credits' &&
+      product.type !== 'song_plays' &&
+      product.type !== 'tip' &&
+      product.type !== 'pro_networx_subscription'
+    ) {
+      throw new Error(
+        `Unsupported ${storeLabel} product type for ${productId}: ${product.type}`,
       );
     }
     return product;
@@ -155,18 +181,103 @@ export class PaymentsService {
     }
   }
 
+  private async grantLivestreamTip(params: {
+    userId: string;
+    sessionId: string;
+    amountCents: number;
+    paymentMethod: 'app_store' | 'google_play';
+    storeChargeId: string;
+    message?: string | null;
+  }) {
+    if (
+      (process.env.STREAM_DONATIONS_ENABLED || 'false').toLowerCase() !== 'true'
+    ) {
+      throw new BadRequestException('Stream donations are disabled');
+    }
+    const supabase = getSupabaseClient();
+
+    const { data: existing } = await supabase
+      .from('stream_donations')
+      .select('id, status')
+      .eq('stripe_payment_intent_id', params.storeChargeId)
+      .maybeSingle();
+    if (existing?.status === 'succeeded') {
+      return { donationId: existing.id, alreadyProcessed: true };
+    }
+
+    const { data: session, error: sessionError } = await supabase
+      .from('artist_live_sessions')
+      .select('id, artist_id, status')
+      .eq('id', params.sessionId)
+      .single();
+    if (sessionError || !session) {
+      throw new BadRequestException('Live session not found');
+    }
+    if (!['starting', 'live'].includes(session.status)) {
+      throw new BadRequestException('Session is not accepting donations');
+    }
+
+    const { data: donationRow, error: donationError } = await supabase
+      .from('stream_donations')
+      .insert({
+        session_id: session.id,
+        artist_id: session.artist_id,
+        donor_user_id: params.userId,
+        amount_cents: params.amountCents,
+        currency: 'usd',
+        status: 'succeeded',
+        message: params.message?.trim() || null,
+        stripe_payment_intent_id: params.storeChargeId,
+      })
+      .select('id')
+      .single();
+    if (donationError || !donationRow) {
+      throw new Error(
+        `Failed to record ${params.paymentMethod} tip: ${donationError?.message}`,
+      );
+    }
+    return { donationId: donationRow.id, alreadyProcessed: false };
+  }
+
   async completeGooglePlayPurchase(
     userId: string,
     dto: CompleteGooglePlayPurchaseDto,
   ) {
     const supabase = getSupabaseClient();
     const product = this.resolveGooglePlayProduct(dto.productId);
+    if (product.type === 'pro_networx_subscription') {
+      throw new BadRequestException(
+        'Use /payments/google-play/complete-subscription for Pro-Networx',
+      );
+    }
+
     const verification =
       await this.googlePlayBillingService.verifyManagedProductPurchase({
         productId: dto.productId,
         purchaseToken: dto.purchaseToken,
       });
     const orderId = verification.orderId ?? dto.purchaseToken;
+
+    if (product.type === 'tip') {
+      if (!dto.sessionId) {
+        throw new BadRequestException(
+          'sessionId is required for Google Play tip purchases',
+        );
+      }
+      const tip = await this.grantLivestreamTip({
+        userId,
+        sessionId: dto.sessionId,
+        amountCents: product.amountCents,
+        paymentMethod: 'google_play',
+        storeChargeId: orderId,
+      });
+      return {
+        ...tip,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'tip' as const,
+      };
+    }
 
     const { data: existingTransaction } = await supabase
       .from('transactions')
@@ -254,6 +365,12 @@ export class PaymentsService {
   ) {
     const supabase = getSupabaseClient();
     const product = this.resolveIapProduct(dto.productId, 'App Store');
+    if (product.type === 'pro_networx_subscription') {
+      throw new BadRequestException(
+        'Use /payments/app-store/complete-subscription for Pro-Networx',
+      );
+    }
+
     const verification =
       await this.appStoreBillingService.verifyConsumablePurchase({
         productId: dto.productId,
@@ -261,6 +378,28 @@ export class PaymentsService {
         transactionId: dto.transactionId,
       });
     const orderId = verification.transactionId;
+
+    if (product.type === 'tip') {
+      if (!dto.sessionId) {
+        throw new BadRequestException(
+          'sessionId is required for App Store tip purchases',
+        );
+      }
+      const tip = await this.grantLivestreamTip({
+        userId,
+        sessionId: dto.sessionId,
+        amountCents: product.amountCents,
+        paymentMethod: 'app_store',
+        storeChargeId: orderId,
+      });
+      return {
+        ...tip,
+        orderId,
+        amountCents: product.amountCents,
+        type: 'tip' as const,
+        environment: verification.environment,
+      };
+    }
 
     const { data: existingTransaction } = await supabase
       .from('transactions')
@@ -342,7 +481,241 @@ export class PaymentsService {
     };
   }
 
-  async createPaymentIntent(userId: string, dto: CreatePaymentIntentDto) {
+  async completeAppStoreSubscription(
+    userId: string,
+    dto: CompleteAppStoreSubscriptionDto,
+  ) {
+    const productId = dto.productId || PRO_NETWORX_MONTHLY_PRODUCT_ID;
+    const product = this.resolveIapProduct(productId, 'App Store');
+    if (product.type !== 'pro_networx_subscription') {
+      throw new BadRequestException(
+        `Product ${productId} is not a Pro-Networx subscription`,
+      );
+    }
+    const verification =
+      await this.appStoreBillingService.verifySubscriptionPurchase({
+        productId,
+        signedTransaction: dto.signedTransaction,
+        transactionId: dto.transactionId,
+        requireActive: true,
+      });
+    const periodEnd = verification.expiresDate
+      ? new Date(verification.expiresDate)
+      : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await this.proNetworkSub.setSubscription({
+      userId,
+      store: 'app_store',
+      appleOriginalTransactionId:
+        verification.originalTransactionId ?? verification.transactionId,
+      storeProductId: productId,
+      status: 'active',
+      currentPeriodEnd: periodEnd,
+      introCouponRedeemed: true,
+    });
+    return {
+      hasAccess: true,
+      status: 'active' as const,
+      currentPeriodEnd: periodEnd.toISOString(),
+      store: 'app_store' as const,
+      transactionId: verification.transactionId,
+    };
+  }
+
+  async completeGooglePlaySubscription(
+    userId: string,
+    dto: CompleteGooglePlaySubscriptionDto,
+  ) {
+    const productId = dto.productId || PRO_NETWORX_MONTHLY_PRODUCT_ID;
+    const product = this.resolveGooglePlayProduct(productId);
+    if (product.type !== 'pro_networx_subscription') {
+      throw new BadRequestException(
+        `Product ${productId} is not a Pro-Networx subscription`,
+      );
+    }
+    const verification =
+      await this.googlePlayBillingService.verifySubscriptionPurchase({
+        productId,
+        purchaseToken: dto.purchaseToken,
+        requireActive: true,
+      });
+    await this.proNetworkSub.setSubscription({
+      userId,
+      store: 'play',
+      googlePurchaseToken: dto.purchaseToken,
+      googleOrderId: verification.orderId,
+      storeProductId: productId,
+      status: 'active',
+      currentPeriodEnd: verification.expiryTime,
+      introCouponRedeemed: true,
+    });
+    return {
+      hasAccess: true,
+      status: 'active' as const,
+      currentPeriodEnd: verification.expiryTime?.toISOString() ?? null,
+      store: 'play' as const,
+      orderId: verification.orderId,
+    };
+  }
+
+  async handleAppStoreNotification(signedPayload: string) {
+    const notification =
+      await this.appStoreBillingService.verifyNotification(signedPayload);
+    const tx = notification.transaction;
+    if (!tx?.originalTransactionId && !tx?.transactionId) {
+      this.logger.warn(
+        `ASSN ${notification.notificationType}: missing transaction payload`,
+      );
+      return { ok: true, ignored: true };
+    }
+    const originalId = tx.originalTransactionId ?? tx.transactionId;
+    const userId =
+      await this.proNetworkSub.getUserIdByAppleOriginalTransactionId(
+        originalId,
+      );
+    if (!userId) {
+      this.logger.warn(
+        `ASSN ${notification.notificationType}: no user for originalTransactionId=${originalId}`,
+      );
+      return { ok: true, ignored: true };
+    }
+
+    const type = (notification.notificationType ?? '').toUpperCase();
+    const expireTypes = new Set([
+      'EXPIRED',
+      'REVOKE',
+      'REFUND',
+      'GRACE_PERIOD_EXPIRED',
+    ]);
+    const activeTypes = new Set([
+      'SUBSCRIBED',
+      'DID_RENEW',
+      'DID_RECOVER',
+      'OFFER_REDEEMED',
+      'RENEWAL_EXTENDED',
+    ]);
+
+    if (expireTypes.has(type)) {
+      await this.proNetworkSub.setSubscription({
+        userId,
+        store: 'app_store',
+        appleOriginalTransactionId: originalId,
+        storeProductId: tx.productId,
+        status: 'canceled',
+        currentPeriodEnd: tx.expiresDate ? new Date(tx.expiresDate) : new Date(),
+      });
+      return { ok: true, status: 'canceled' };
+    }
+
+    if (activeTypes.has(type) || type === 'DID_CHANGE_RENEWAL_STATUS') {
+      const stillActive =
+        tx.expiresDate == null || tx.expiresDate > Date.now();
+      await this.proNetworkSub.setSubscription({
+        userId,
+        store: 'app_store',
+        appleOriginalTransactionId: originalId,
+        storeProductId: tx.productId,
+        status: stillActive ? 'active' : 'canceled',
+        currentPeriodEnd: tx.expiresDate
+          ? new Date(tx.expiresDate)
+          : stillActive
+            ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            : new Date(),
+      });
+      return { ok: true, status: stillActive ? 'active' : 'canceled' };
+    }
+
+    return { ok: true, ignored: true, notificationType: type };
+  }
+
+  async handleGooglePlayRtdn(body: {
+    message?: { data?: string };
+    subscriptionNotification?: {
+      notificationType?: number;
+      purchaseToken?: string;
+      subscriptionId?: string;
+    };
+  }) {
+    let notification = body.subscriptionNotification;
+    if (!notification && body.message?.data) {
+      const decoded = Buffer.from(body.message.data, 'base64').toString('utf8');
+      const parsed = JSON.parse(decoded) as {
+        subscriptionNotification?: {
+          notificationType?: number;
+          purchaseToken?: string;
+          subscriptionId?: string;
+        };
+      };
+      notification = parsed.subscriptionNotification;
+    }
+    if (!notification?.purchaseToken || !notification.subscriptionId) {
+      return { ok: true, ignored: true };
+    }
+
+    const productId = notification.subscriptionId;
+    if (productId !== PRO_NETWORX_MONTHLY_PRODUCT_ID) {
+      return { ok: true, ignored: true, reason: 'unknown_product' };
+    }
+
+    const purchaseToken = notification.purchaseToken;
+    let userId =
+      await this.proNetworkSub.getUserIdByGooglePurchaseToken(purchaseToken);
+
+    let verification: Awaited<
+      ReturnType<GooglePlayBillingService['verifySubscriptionPurchase']>
+    >;
+    try {
+      verification =
+        await this.googlePlayBillingService.verifySubscriptionPurchase({
+          productId,
+          purchaseToken,
+          requireActive: false,
+        });
+    } catch (error) {
+      this.logger.warn(
+        `Play RTDN verify failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+      return { ok: true, ignored: true };
+    }
+
+    if (!userId && verification.orderId) {
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
+        .from('pro_network_subscriptions')
+        .select('user_id')
+        .eq('google_order_id', verification.orderId)
+        .maybeSingle();
+      userId = (data?.user_id as string | undefined) ?? null;
+    }
+    if (!userId) {
+      this.logger.warn(
+        `Play RTDN: no user for purchaseToken/order ${verification.orderId}`,
+      );
+      return { ok: true, ignored: true };
+    }
+
+    await this.proNetworkSub.setSubscription({
+      userId,
+      store: 'play',
+      googlePurchaseToken: purchaseToken,
+      googleOrderId: verification.orderId,
+      storeProductId: productId,
+      status: verification.isEntitled ? 'active' : 'canceled',
+      currentPeriodEnd: verification.expiryTime,
+    });
+    return {
+      ok: true,
+      status: verification.isEntitled ? 'active' : 'canceled',
+    };
+  }
+
+  async createPaymentIntent(
+    userId: string,
+    dto: CreatePaymentIntentDto,
+    platform?: string | null,
+  ) {
+    this.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
 
     // Create transaction record
@@ -651,7 +1024,9 @@ export class PaymentsService {
   async createProNetworxPaymentSheet(args: {
     userId: string;
     customerEmail?: string | null;
+    platform?: string | null;
   }) {
+    this.assertStripeAllowedForDigitalGoods(args.platform);
     const applyIntroCoupon = await this.proNetworkSub.hasNeverSubscribed(
       args.userId,
     );
@@ -939,7 +1314,12 @@ export class PaymentsService {
   /**
    * Create a PaymentIntent for buying plays for a specific song (mobile app).
    */
-  async createPaymentIntentSongPlays(userId: string, dto: BuySongPlaysDto) {
+  async createPaymentIntentSongPlays(
+    userId: string,
+    dto: BuySongPlaysDto,
+    platform?: string | null,
+  ) {
+    this.assertStripeAllowedForDigitalGoods(platform);
     const supabase = getSupabaseClient();
 
     const price = await this.getSongPlayPrice(userId, dto.songId);

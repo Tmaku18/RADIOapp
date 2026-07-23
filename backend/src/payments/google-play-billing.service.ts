@@ -9,6 +9,16 @@ type GooglePlayProductPurchase = {
   acknowledgementState: number | null;
 };
 
+export type GooglePlaySubscriptionPurchase = {
+  orderId: string | null;
+  productId: string;
+  purchaseToken: string;
+  subscriptionState: string | null;
+  expiryTime: Date | null;
+  acknowledgementState: string | null;
+  isEntitled: boolean;
+};
+
 function normalizeServiceAccountPrivateKey(raw: string): string {
   let key = raw.trim();
   if (
@@ -122,6 +132,89 @@ export class GooglePlayBillingService {
       purchaseState: purchase.purchaseState ?? null,
       consumptionState: purchase.consumptionState ?? null,
       acknowledgementState: purchase.acknowledgementState ?? null,
+    };
+  }
+
+  private async getAndroidPublisher() {
+    const credentials = this.getServiceAccountCredentials();
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/androidpublisher'],
+    });
+    return google.androidpublisher({
+      version: 'v3',
+      auth,
+    });
+  }
+
+  /**
+   * Verify a Play Billing subscription via purchases.subscriptionsv2.get,
+   * then acknowledge via the v1 subscriptions API when needed.
+   */
+  async verifySubscriptionPurchase(params: {
+    productId: string;
+    purchaseToken: string;
+    requireActive?: boolean;
+  }): Promise<GooglePlaySubscriptionPurchase> {
+    const packageName = this.getPackageName();
+    const androidPublisher = await this.getAndroidPublisher();
+
+    const purchaseRes = await androidPublisher.purchases.subscriptionsv2.get({
+      packageName,
+      token: params.purchaseToken,
+    });
+    const purchase = purchaseRes.data;
+    const lineItems = purchase.lineItems ?? [];
+    const matching =
+      lineItems.find((item) => item.productId === params.productId) ??
+      lineItems[0];
+    if (!matching?.productId) {
+      throw new Error('Google Play subscription has no line items');
+    }
+    if (matching.productId !== params.productId) {
+      throw new Error(
+        `Google Play subscription product mismatch. Expected ${params.productId}, got ${matching.productId}`,
+      );
+    }
+
+    const subscriptionState = purchase.subscriptionState ?? null;
+    const entitledStates = new Set([
+      'SUBSCRIPTION_STATE_ACTIVE',
+      'SUBSCRIPTION_STATE_IN_GRACE_PERIOD',
+      'SUBSCRIPTION_STATE_ON_HOLD',
+    ]);
+    const isEntitled =
+      subscriptionState != null && entitledStates.has(subscriptionState);
+
+    if (params.requireActive !== false && !isEntitled) {
+      throw new Error(
+        `Google Play subscription is not entitled (state=${subscriptionState ?? 'unknown'})`,
+      );
+    }
+
+    const acknowledgementState = purchase.acknowledgementState ?? null;
+    if (acknowledgementState === 'ACKNOWLEDGEMENT_STATE_PENDING') {
+      await androidPublisher.purchases.subscriptions.acknowledge({
+        packageName,
+        subscriptionId: params.productId,
+        token: params.purchaseToken,
+        requestBody: {},
+      });
+    }
+
+    const expiryRaw = matching.expiryTime ?? null;
+    const expiryTime = expiryRaw ? new Date(expiryRaw) : null;
+    const orderId =
+      (purchase as { latestOrderId?: string | null }).latestOrderId ?? null;
+
+    return {
+      orderId,
+      productId: matching.productId,
+      purchaseToken: params.purchaseToken,
+      subscriptionState,
+      expiryTime,
+      acknowledgementState,
+      isEntitled,
     };
   }
 }

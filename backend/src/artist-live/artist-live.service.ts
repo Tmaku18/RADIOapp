@@ -968,12 +968,18 @@ export class ArtistLiveService {
   async createDonationIntent(
     firebaseUid: string,
     sessionId: string,
-    payload: { amountCents: number; message?: string },
+    payload: { amountCents: number; message?: string; platform?: string },
   ) {
     if (
       (process.env.STREAM_DONATIONS_ENABLED || 'false').toLowerCase() !== 'true'
     ) {
       throw new BadRequestException('Stream donations are disabled');
+    }
+    const platform = (payload.platform ?? '').trim().toLowerCase();
+    if (platform === 'ios' || platform === 'android') {
+      throw new BadRequestException(
+        'Livestream tips on mobile must use App Store or Google Play in-app purchases. Stripe is web-only.',
+      );
     }
     const supabase = getSupabaseClient();
     const donor = await this.getDbUser(firebaseUid);
