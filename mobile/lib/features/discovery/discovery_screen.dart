@@ -25,7 +25,8 @@ class DiscoveryScreen extends StatefulWidget {
   /// Opens the app's left navigation drawer (shown as a hamburger in the bar).
   final VoidCallback? onOpenNavDrawer;
 
-  /// 0 Swipe · 1 Saved · 2 Artists · 3 Library (web `/browse/saved` ≈ Library).
+  /// 0 Swipe · 1 Artists · 2 Library.
+  /// Legacy indices (Saved=1, Artists=2, Library=3) are remapped in [initState].
   final int initialTabIndex;
 
   @override
@@ -39,8 +40,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
   final GlobalKey<DiscoverAudioTabState> _swipeKey =
       GlobalKey<DiscoverAudioTabState>();
   final GlobalKey<_LibraryTabState> _libraryKey = GlobalKey<_LibraryTabState>();
-  final GlobalKey<_DiscoverListTabState> _savedKey =
-      GlobalKey<_DiscoverListTabState>();
   final GlobalKey<_LikedArtistsTabState> _likedArtistsKey =
       GlobalKey<_LikedArtistsTabState>();
   late final TabController _tabController;
@@ -52,13 +51,29 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   bool get _hasArtistQuery => _searchCtrl.text.trim().length >= 2;
 
+  /// Map old 4-tab indices onto Swipe / Artists / Library.
+  static int _normalizeTabIndex(int raw) {
+    switch (raw) {
+      case 0:
+        return 0; // Swipe
+      case 1:
+        return 2; // legacy Saved → Library
+      case 2:
+        return 1; // legacy Artists → Artists
+      case 3:
+        return 2; // legacy Library → Library
+      default:
+        return raw.clamp(0, 2);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _tabController = TabController(
-      length: 4,
+      length: 3,
       vsync: this,
-      initialIndex: widget.initialTabIndex.clamp(0, 3),
+      initialIndex: _normalizeTabIndex(widget.initialTabIndex),
     );
     _searchCtrl.addListener(_onSearchTextChanged);
     _tabController.addListener(_onTabChanged);
@@ -66,7 +81,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 
   void _onTabChanged() {
     if (_tabController.indexIsChanging) return;
-    if (_tabController.index == 2) {
+    if (_tabController.index == 1) {
       unawaited(_likedArtistsKey.currentState?.reload() ?? Future<void>.value());
     }
   }
@@ -149,12 +164,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
         await _swipeKey.currentState?.reshuffleFeed();
         return;
       case 1:
-        await _savedKey.currentState?.reload();
-        return;
-      case 2:
         await _likedArtistsKey.currentState?.reload();
         return;
-      case 3:
+      case 2:
         await _libraryKey.currentState?.reload();
         return;
       default:
@@ -185,7 +197,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
             isScrollable: true,
             tabs: const [
               Tab(text: 'Swipe'),
-              Tab(text: 'Saved'),
               Tab(text: 'Artists'),
               Tab(text: 'Library'),
             ],
@@ -197,8 +208,9 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
                   context,
                   AppRoutes.discoverCreateVideo,
                 ).then((_) {
-                  final saved = _savedKey.currentState;
-                  if (saved != null) unawaited(saved.reload());
+                  unawaited(
+                    _libraryKey.currentState?.reload() ?? Future<void>.value(),
+                  );
                 });
               },
               tooltip: 'Create Video',
@@ -266,7 +278,6 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
           controller: _tabController,
           children: [
             DiscoverAudioTab(key: _swipeKey),
-            _DiscoverListTab(key: _savedKey),
             _LikedArtistsTab(key: _likedArtistsKey),
             _LibraryTab(key: _libraryKey),
           ],
@@ -396,154 +407,7 @@ class _DiscoveryScreenState extends State<DiscoveryScreen>
 // Pro-Networx, and the read-only Pro-Networx feed reader lives in
 // `features/social/social_feed_screen.dart`.
 
-class _DiscoverListTab extends StatefulWidget {
-  const _DiscoverListTab({super.key});
-
-  @override
-  State<_DiscoverListTab> createState() => _DiscoverListTabState();
-}
-
-class _DiscoverListTabState extends State<_DiscoverListTab> {
-  final DiscoverAudioService _service = DiscoverAudioService();
-  bool _loading = true;
-  bool _clearing = false;
-  String? _removingSongId;
-  List<DiscoverAudioLikedItem> _items = const [];
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> reload() => _load();
-
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    try {
-      final items = await _service.getLikedList(limit: 100, offset: 0);
-      if (!mounted) return;
-      setState(() => _items = items);
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _remove(String songId) async {
-    setState(() => _removingSongId = songId);
-    try {
-      await _service.removeLikedSong(songId);
-      await _service.removeSwipe(songId);
-      if (!mounted) return;
-      setState(() => _items = _items.where((i) => i.songId != songId).toList());
-    } finally {
-      if (mounted) setState(() => _removingSongId = null);
-    }
-  }
-
-  Future<void> _clearAll() async {
-    if (_items.isEmpty || _clearing) return;
-    setState(() => _clearing = true);
-    try {
-      await _service.clearLikedList();
-      if (!mounted) return;
-      setState(() => _items = const []);
-    } finally {
-      if (mounted) setState(() => _clearing = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaces = context.networxSurfaces;
-    if (_loading) return const Center(child: CircularProgressIndicator());
-    if (_items.isEmpty) {
-      return Center(
-        child: Text(
-          'No liked songs yet. Swipe right (Like) on Discover to save them here.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: surfaces.textSecondary),
-        ),
-      );
-    }
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _items.length + 1,
-        itemBuilder: (context, i) {
-          if (i == 0) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: OutlinedButton.icon(
-                  onPressed: _clearing ? null : _clearAll,
-                  icon: const Icon(Icons.clear_all),
-                  label: Text(_clearing ? 'Clearing...' : 'Clear list'),
-                ),
-              ),
-            );
-          }
-          final item = _items[i - 1];
-          final canMakeVideo = item.clipUrl.trim().isNotEmpty;
-          return Card(
-            margin: const EdgeInsets.only(bottom: 10),
-            child: ListTile(
-              leading:
-                  item.backgroundUrl != null && item.backgroundUrl!.isNotEmpty
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(
-                        DimensionTokens.tileRadius,
-                      ),
-                      child: Image.network(
-                        item.backgroundUrl!,
-                        width: 44,
-                        height: 44,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  : const Icon(Icons.music_note),
-              title: Text(item.title),
-              subtitle: Text(item.artistDisplayName ?? item.artistName),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (canMakeVideo)
-                    IconButton(
-                      tooltip: 'Make video',
-                      onPressed: () {
-                        Navigator.pushNamed(
-                          context,
-                          AppRoutes.discoverCreateVideo,
-                          arguments: {
-                            'clipUrl': item.clipUrl,
-                            'title': item.title,
-                            'artistName':
-                                item.artistDisplayName ?? item.artistName,
-                            'songId': item.songId,
-                          },
-                        );
-                      },
-                      icon: const Icon(Icons.videocam_outlined),
-                    ),
-                  IconButton(
-                    onPressed: _removingSongId == item.songId
-                        ? null
-                        : () => _remove(item.songId),
-                    icon: const Icon(Icons.delete_outline),
-                    tooltip: 'Remove',
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
+// Discover "Saved" tab removed — swipe likes live under Library → Liked.
 
 class _LikedArtistsTab extends StatefulWidget {
   const _LikedArtistsTab({super.key});
@@ -720,8 +584,12 @@ class _LibraryTabState extends State<_LibraryTab> {
   final SongsService _songs = SongsService();
   final DiscoverAudioService _discover = DiscoverAudioService();
 
-  // 'liked' / 'disliked' = Discover swipes; 'music' = purchases.
-  String _section = 'liked';
+  // favorites = ⭐ · liked/disliked = Discover swipes · music = purchases.
+  String _section = 'favorites';
+  bool _favoritesLoading = true;
+  List<LibrarySong> _favorites = const [];
+  String? _busyFavoriteId;
+
   bool _historyLoading = true;
   List<DiscoverAudioHistoryItem> _liked = const [];
   List<DiscoverAudioHistoryItem> _disliked = const [];
@@ -734,12 +602,30 @@ class _LibraryTabState extends State<_LibraryTab> {
   @override
   void initState() {
     super.initState();
+    _loadFavorites();
     _loadHistory();
     _loadPurchases();
   }
 
   Future<void> reload() async {
-    await Future.wait([_loadHistory(), _loadPurchases()]);
+    await Future.wait([
+      _loadFavorites(),
+      _loadHistory(),
+      _loadPurchases(),
+    ]);
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() => _favoritesLoading = true);
+    try {
+      final items = await _songs.getFavorites(limit: 200);
+      if (!mounted) return;
+      setState(() => _favorites = items);
+    } catch (_) {
+      // Best-effort.
+    } finally {
+      if (mounted) setState(() => _favoritesLoading = false);
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -893,30 +779,39 @@ class _LibraryTabState extends State<_LibraryTab> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(
-                value: 'liked',
-                label: Text('Liked'),
-                icon: Icon(Icons.favorite_border),
-              ),
-              ButtonSegment(
-                value: 'disliked',
-                label: Text('Disliked'),
-                icon: Icon(Icons.thumb_down_alt_outlined),
-              ),
-              ButtonSegment(
-                value: 'music',
-                label: Text('My Music'),
-                icon: Icon(Icons.library_music_outlined),
-              ),
-            ],
-            selected: {_section},
-            onSelectionChanged: (s) => setState(() => _section = s.first),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'favorites',
+                  label: Text('Favorites'),
+                  icon: Icon(Icons.star_outline),
+                ),
+                ButtonSegment(
+                  value: 'liked',
+                  label: Text('Liked'),
+                  icon: Icon(Icons.favorite_border),
+                ),
+                ButtonSegment(
+                  value: 'disliked',
+                  label: Text('Disliked'),
+                  icon: Icon(Icons.thumb_down_alt_outlined),
+                ),
+                ButtonSegment(
+                  value: 'music',
+                  label: Text('My Music'),
+                  icon: Icon(Icons.library_music_outlined),
+                ),
+              ],
+              selected: {_section},
+              onSelectionChanged: (s) => setState(() => _section = s.first),
+            ),
           ),
         ),
         Expanded(
           child: switch (_section) {
+            'favorites' => _buildFavoritesSection(surfaces),
             'liked' => _buildHistorySection(
               surfaces,
               items: _liked,
@@ -934,6 +829,101 @@ class _LibraryTabState extends State<_LibraryTab> {
         ),
       ],
     );
+  }
+
+  Widget _buildFavoritesSection(NetworxSurfaces surfaces) {
+    if (_favoritesLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_favorites.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadFavorites,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          children: [
+            const SizedBox(height: 48),
+            Text(
+              'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song for alerts.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: surfaces.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: _favorites.length,
+        itemBuilder: (context, i) {
+          final fav = _favorites[i];
+          final artwork = (fav.artworkUrl ?? '').trim();
+          final busy = _busyFavoriteId == fav.id;
+          return Card(
+            margin: const EdgeInsets.only(bottom: 10),
+            child: ListTile(
+              leading: ClipRRect(
+                borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: artwork.isNotEmpty
+                      ? Image.network(
+                          artwork,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, error, stackTrace) =>
+                              const ColoredBox(
+                            color: Colors.black26,
+                            child: Icon(Icons.music_note),
+                          ),
+                        )
+                      : const ColoredBox(
+                          color: Colors.black26,
+                          child: Icon(Icons.music_note),
+                        ),
+                ),
+              ),
+              title: Text(fav.title),
+              subtitle: Text(fav.artistName),
+              trailing: busy
+                  ? const SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : IconButton(
+                      tooltip: 'Remove favorite',
+                      onPressed: () => _removeFavorite(fav),
+                      icon: const Icon(
+                        Icons.star,
+                        color: Color(0xFFFFC107),
+                      ),
+                    ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _removeFavorite(LibrarySong fav) async {
+    setState(() => _busyFavoriteId = fav.id);
+    try {
+      await _songs.unfavorite(fav.id);
+      if (!mounted) return;
+      setState(() {
+        _favorites = _favorites.where((f) => f.id != fav.id).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove favorite: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _busyFavoriteId = null);
+    }
   }
 
   Widget _buildHistorySection(

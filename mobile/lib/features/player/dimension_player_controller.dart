@@ -128,7 +128,7 @@ class DimensionPlayerController extends ChangeNotifier {
     if (_favoriteSongId == id && _favoriteBusy) return;
     _favoriteSongId = id;
     try {
-      _isFavorite = await _radio.isLiked(id);
+      _isFavorite = await _radio.isFavorited(id);
     } catch (_) {
       // Keep last known state on transient failures.
     }
@@ -146,12 +146,13 @@ class DimensionPlayerController extends ChangeNotifier {
     notifyListeners();
     try {
       if (next) {
-        await _radio.like(songId);
+        await _radio.favorite(songId);
       } else {
-        await _radio.unlike(songId);
+        await _radio.unfavorite(songId);
       }
       _isFavorite = next;
     } catch (_) {
+      // Revert — do not leave a filled star when the API did not save.
       _isFavorite = !next;
     } finally {
       _favoriteBusy = false;

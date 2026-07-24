@@ -531,9 +531,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   Future<void> _loadFavorite(String songId) async {
     if (songId.isEmpty) return;
     try {
-      final liked = await _radioService.isLiked(songId);
+      final favorited = await _radioService.isFavorited(songId);
       if (!mounted || _currentTrack?.id != songId) return;
-      setState(() => _isFavorite = liked);
+      setState(() => _isFavorite = favorited);
     } catch (_) {}
   }
 
@@ -547,9 +547,9 @@ class _PlayerScreenState extends State<PlayerScreen>
     });
     try {
       if (next) {
-        await _radioService.like(track.id);
+        await _radioService.favorite(track.id);
       } else {
-        await _radioService.unlike(track.id);
+        await _radioService.unfavorite(track.id);
       }
       if (!mounted) return;
       setState(() => _isFavorite = next);

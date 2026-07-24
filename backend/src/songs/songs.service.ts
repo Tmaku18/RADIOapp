@@ -3137,18 +3137,83 @@ export class SongsService {
     return { liked: !!existingLike };
   }
 
-  async getLibrarySongs(userId: string) {
+  /** Star a song for radio alerts. Separate from 🔥 likes. */
+  async favoriteSong(userId: string, songId: string) {
     const supabase = getSupabaseClient();
+    const { data: existing, error: existingError } = await supabase
+      .from('song_favorites')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+      .maybeSingle();
+    if (existingError) {
+      throw new Error(
+        `Failed to check favorite status: ${existingError.message}`,
+      );
+    }
+    if (existing) return { favorited: true };
+
+    const { error: insertError } = await supabase.from('song_favorites').insert({
+      user_id: userId,
+      song_id: songId,
+    });
+    if (insertError) {
+      if (insertError.code === '23505') return { favorited: true };
+      throw new Error(`Failed to favorite song: ${insertError.message}`);
+    }
+    return { favorited: true };
+  }
+
+  async unfavoriteSong(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+    const { error } = await supabase
+      .from('song_favorites')
+      .delete()
+      .eq('user_id', userId)
+      .eq('song_id', songId);
+    if (error) {
+      throw new Error(`Failed to remove favorite: ${error.message}`);
+    }
+    return { favorited: false };
+  }
+
+  async isFavorited(userId: string, songId: string) {
+    const supabase = getSupabaseClient();
+    const { data } = await supabase
+      .from('song_favorites')
+      .select('user_id')
+      .eq('user_id', userId)
+      .eq('song_id', songId)
+      .maybeSingle();
+    return { favorited: !!data };
+  }
+
+  /** 🔥 liked songs (library). */
+  async getLibrarySongs(userId: string) {
+    return this.getUserSavedSongs(userId, 'likes');
+  }
+
+  /** ⭐ starred songs (radio alert list). Starts empty — not seeded from likes. */
+  async getFavoriteSongs(userId: string) {
+    return this.getUserSavedSongs(userId, 'song_favorites');
+  }
+
+  private async getUserSavedSongs(
+    userId: string,
+    table: 'likes' | 'song_favorites',
+  ) {
+    const supabase = getSupabaseClient();
+    const label = table === 'likes' ? 'library' : 'favorites';
 
     const { data: likesRows, error: likesError } = await supabase
-      .from('likes')
+      .from(table)
       .select('song_id, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(500);
 
     if (likesError) {
-      throw new Error(`Failed to load library songs: ${likesError.message}`);
+      throw new Error(`Failed to load ${label} songs: ${likesError.message}`);
     }
 
     type SongRow = {
@@ -3208,7 +3273,7 @@ export class SongsService {
         )
         .in('id', uniqueSongIds);
       if (songsError) {
-        throw new Error(`Failed to load library songs: ${songsError.message}`);
+        throw new Error(`Failed to load ${label} songs: ${songsError.message}`);
       }
       for (const song of (songRows ?? []) as SongRow[]) {
         songsById.set(song.id, song);
@@ -3223,7 +3288,7 @@ export class SongsService {
           .in('id', uniqueSongIds);
       if (adminFallbackError) {
         throw new Error(
-          `Failed to load fallback library songs: ${adminFallbackError.message}`,
+          `Failed to load fallback ${label} songs: ${adminFallbackError.message}`,
         );
       }
       for (const row of (adminFallbackRows ?? []) as Array<{

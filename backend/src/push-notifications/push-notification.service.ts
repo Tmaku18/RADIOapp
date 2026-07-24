@@ -704,8 +704,9 @@ export class PushNotificationService {
     artistId: string,
   ): Promise<Set<string>> {
     const supabase = getSupabaseClient();
+    // Stars only — fire/likes must not trigger radio alerts.
     const { data, error } = await supabase
-      .from('likes')
+      .from('song_favorites')
       .select('user_id')
       .eq('song_id', songId);
 

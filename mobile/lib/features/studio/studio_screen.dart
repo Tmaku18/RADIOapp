@@ -35,33 +35,45 @@ class _StudioScreenState extends State<StudioScreen>
   final AudioPlayer _player = AudioPlayerService().player;
   late final TabController _tabController;
   bool _loading = true;
+  bool _likedLoading = false;
   bool _favoritesLoading = false;
   List<Song> _items = const [];
+  List<LibrarySong> _liked = const [];
   List<LibrarySong> _favorites = const [];
   String? _activeSongId;
   String? _preparingSongId;
   bool _isPlaying = false;
   StreamSubscription<PlayerState>? _playerStateSub;
 
+  // Tab indices: 0 Tracks · 1 Liked (🔥) · 2 Favorites (⭐)
+  static const int _tabLiked = 1;
+  static const int _tabFavorites = 2;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _tabController.addListener(() {
-      if (_tabController.index == 1 &&
-          !_tabController.indexIsChanging &&
+      if (_tabController.indexIsChanging) return;
+      if (_tabController.index == _tabLiked &&
+          _liked.isEmpty &&
+          !_likedLoading) {
+        unawaited(_loadLiked());
+      }
+      if (_tabController.index == _tabFavorites &&
           _favorites.isEmpty &&
           !_favoritesLoading) {
         unawaited(_loadFavorites());
       }
     });
     _load();
+    unawaited(_loadLiked());
     unawaited(_loadFavorites());
     _playerStateSub = _player.playerStateStream.listen((s) {
       if (!mounted) return;
       setState(() => _isPlaying = s.playing);
     });
-    // Listeners land on Favorites; artists keep Tracks first.
+    // Listeners land on Liked; artists keep Tracks first.
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final auth = Provider.of<AuthService>(context, listen: false);
       final profile = await auth.getUserProfile();
@@ -72,7 +84,7 @@ class _StudioScreenState extends State<StudioScreen>
           role == 'dj' ||
           role == 'musician';
       if (!isUploader && mounted) {
-        _tabController.index = 1;
+        _tabController.index = _tabLiked;
       }
     });
   }
@@ -84,10 +96,25 @@ class _StudioScreenState extends State<StudioScreen>
     super.dispose();
   }
 
+  Future<void> _loadLiked() async {
+    setState(() => _likedLoading = true);
+    try {
+      final items = await _songs.getLibrary(limit: 200);
+      if (!mounted) return;
+      setState(() {
+        _liked = items;
+        _likedLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _likedLoading = false);
+    }
+  }
+
   Future<void> _loadFavorites() async {
     setState(() => _favoritesLoading = true);
     try {
-      final items = await _songs.getLibrary(limit: 200);
+      final items = await _songs.getFavorites(limit: 200);
       if (!mounted) return;
       setState(() {
         _favorites = items;
@@ -153,7 +180,7 @@ class _StudioScreenState extends State<StudioScreen>
       try {
         items = await _songs.getMine();
       } catch (_) {
-        // Listeners may not have upload access — Favorites tab still works.
+        // Listeners may not have upload access — Liked / Favorites still work.
         items = const [];
       }
       if (!mounted) return;
@@ -372,9 +399,8 @@ class _StudioScreenState extends State<StudioScreen>
                 ? null
                 : () {
                     unawaited(_load());
-                    if (_tabController.index == 1) {
-                      unawaited(_loadFavorites());
-                    }
+                    unawaited(_loadLiked());
+                    unawaited(_loadFavorites());
                   },
             icon: const Icon(Icons.refresh),
           ),
@@ -383,6 +409,7 @@ class _StudioScreenState extends State<StudioScreen>
           controller: _tabController,
           tabs: const [
             Tab(text: 'Tracks'),
+            Tab(text: 'Liked'),
             Tab(text: 'Favorites'),
           ],
         ),
@@ -722,7 +749,50 @@ class _StudioScreenState extends State<StudioScreen>
                       )),
                   ],
                 ),
+          _buildLikedTab(surfaces),
           _buildFavoritesTab(surfaces),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLikedTab(NetworxSurfaces surfaces) {
+    if (_likedLoading && _liked.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return RefreshIndicator(
+      onRefresh: _loadLiked,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Songs you liked with 🔥. These stay here — they don’t trigger radio alerts.',
+            style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          if (_liked.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'No liked songs yet. Tap 🔥 on the radio to like a track.',
+                  style: TextStyle(color: surfaces.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            ..._liked.map(
+              (song) => _buildLibrarySongTile(
+                surfaces,
+                song,
+                trailingIcon: const Icon(Icons.local_fire_department),
+                removeTooltip: 'Remove like',
+                onRemove: () => _unlike(song),
+                source: 'liked',
+              ),
+            ),
         ],
       ),
     );
@@ -748,89 +818,108 @@ class _StudioScreenState extends State<StudioScreen>
               padding: const EdgeInsets.symmetric(vertical: 32),
               child: Center(
                 child: Text(
-                  'No favorites yet. Tap ⭐ next to 🔥 on the radio to save a song.',
+                  'No favorites yet. Tap ⭐ next to 🔥 on the radio to star a song.',
                   style: TextStyle(color: surfaces.textSecondary),
                   textAlign: TextAlign.center,
                 ),
               ),
             )
           else
-            ..._favorites.map((fav) {
-              final artwork = (fav.artworkUrl ?? '').trim();
-              final active = _activeSongId == fav.id;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Card(
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    leading: ClipRRect(
-                      borderRadius:
-                          BorderRadius.circular(DimensionTokens.tileRadius),
-                      child: SizedBox(
-                        width: 48,
-                        height: 48,
-                        child: artwork.isNotEmpty
-                            ? Image.network(
-                                artwork,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, error, stackTrace) =>
-                                    const ColoredBox(
-                                  color: Colors.black26,
-                                  child: Icon(Icons.music_note),
-                                ),
-                              )
-                            : const ColoredBox(
-                                color: Colors.black26,
-                                child: Icon(Icons.music_note),
-                              ),
-                      ),
-                    ),
-                    title: Text(
-                      fav.title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    subtitle: Text(
-                      fav.artistName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        IconButton(
-                          tooltip: active && _isPlaying ? 'Pause' : 'Play',
-                          onPressed: () => _playFavorite(fav),
-                          icon: Icon(
-                            active && _isPlaying
-                                ? Icons.pause_circle
-                                : Icons.play_circle,
-                          ),
-                        ),
-                        IconButton(
-                          tooltip: 'Remove favorite',
-                          onPressed: () => _unfavorite(fav),
-                          icon: const Icon(
-                            Icons.star,
-                            color: Color(0xFFFFC107),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+            ..._favorites.map(
+              (fav) => _buildLibrarySongTile(
+                surfaces,
+                fav,
+                trailingIcon: const Icon(
+                  Icons.star,
+                  color: Color(0xFFFFC107),
                 ),
-              );
-            }),
+                removeTooltip: 'Remove favorite',
+                onRemove: () => _unfavorite(fav),
+                source: 'favorites',
+              ),
+            ),
         ],
       ),
     );
   }
 
-  Future<void> _playFavorite(LibrarySong fav) async {
-    if (_activeSongId == fav.id) {
+  Widget _buildLibrarySongTile(
+    NetworxSurfaces surfaces,
+    LibrarySong song, {
+    required Widget trailingIcon,
+    required String removeTooltip,
+    required VoidCallback onRemove,
+    required String source,
+  }) {
+    final artwork = (song.artworkUrl ?? '').trim();
+    final active = _activeSongId == song.id;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Card(
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 6,
+          ),
+          leading: ClipRRect(
+            borderRadius: BorderRadius.circular(DimensionTokens.tileRadius),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: artwork.isNotEmpty
+                  ? Image.network(
+                      artwork,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, error, stackTrace) => const ColoredBox(
+                        color: Colors.black26,
+                        child: Icon(Icons.music_note),
+                      ),
+                    )
+                  : const ColoredBox(
+                      color: Colors.black26,
+                      child: Icon(Icons.music_note),
+                    ),
+            ),
+          ),
+          title: Text(
+            song.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            song.artistName,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                tooltip: active && _isPlaying ? 'Pause' : 'Play',
+                onPressed: () => _playLibrarySong(song, source: source),
+                icon: Icon(
+                  active && _isPlaying
+                      ? Icons.pause_circle
+                      : Icons.play_circle,
+                ),
+              ),
+              IconButton(
+                tooltip: removeTooltip,
+                onPressed: onRemove,
+                icon: trailingIcon,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _playLibrarySong(
+    LibrarySong song, {
+    required String source,
+  }) async {
+    if (_activeSongId == song.id) {
       if (_isPlaying) {
         await _player.pause();
       } else {
@@ -839,11 +928,11 @@ class _StudioScreenState extends State<StudioScreen>
       return;
     }
     if (_preparingSongId != null) return;
-    setState(() => _preparingSongId = fav.id);
+    setState(() => _preparingSongId = song.id);
     try {
-      final url = (await _songs.getStreamUrl(fav.id)) ??
-          ((fav.audioUrl ?? '').isNotEmpty ? fav.audioUrl : null) ??
-          ((fav.sampleUrl ?? '').isNotEmpty ? fav.sampleUrl : null);
+      final url = (await _songs.getStreamUrl(song.id)) ??
+          ((song.audioUrl ?? '').isNotEmpty ? song.audioUrl : null) ??
+          ((song.sampleUrl ?? '').isNotEmpty ? song.sampleUrl : null);
       if (url == null || url.isEmpty) {
         throw Exception('No playable audio for this song yet.');
       }
@@ -851,17 +940,17 @@ class _StudioScreenState extends State<StudioScreen>
         AudioSource.uri(
           Uri.parse(url),
           tag: MediaItem(
-            id: fav.id,
-            title: fav.title,
-            artist: fav.artistName,
-            artUri: BrandAssets.mediaArtUri(fav.artworkUrl),
-            extras: const {'source': 'favorites'},
+            id: song.id,
+            title: song.title,
+            artist: song.artistName,
+            artUri: BrandAssets.mediaArtUri(song.artworkUrl),
+            extras: {'source': source},
           ),
         ),
       );
       await _player.play();
       if (!mounted) return;
-      setState(() => _activeSongId = fav.id);
+      setState(() => _activeSongId = song.id);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -872,9 +961,24 @@ class _StudioScreenState extends State<StudioScreen>
     }
   }
 
+  Future<void> _unlike(LibrarySong song) async {
+    try {
+      await _songs.unlike(song.id);
+      if (!mounted) return;
+      setState(() {
+        _liked = _liked.where((f) => f.id != song.id).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove like: $e')),
+      );
+    }
+  }
+
   Future<void> _unfavorite(LibrarySong fav) async {
     try {
-      await _songs.unlike(fav.id);
+      await _songs.unfavorite(fav.id);
       if (!mounted) return;
       setState(() {
         _favorites = _favorites.where((f) => f.id != fav.id).toList();

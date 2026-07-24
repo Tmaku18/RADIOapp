@@ -248,7 +248,7 @@ class RadioService {
     }
   }
 
-  /// Check if a song is liked by the current user
+  /// Check if a song is 🔥 liked (library) by the current user.
   Future<bool> isLiked(String songId) async {
     try {
       final response = await _apiService.get('songs/$songId/like');
@@ -258,7 +258,7 @@ class RadioService {
     }
   }
 
-  /// Favorite (star) a song — saved to library / favorites.
+  /// 🔥 Like a song — saved to Liked library (not radio favorites).
   Future<bool> like(String songId) async {
     try {
       final response = await _apiService.post('songs/$songId/like', {});
@@ -268,7 +268,7 @@ class RadioService {
     }
   }
 
-  /// Remove song favorite (star).
+  /// Remove a 🔥 like from the Liked library.
   Future<bool> unlike(String songId) async {
     try {
       final response = await _apiService.delete('songs/$songId/like');
@@ -277,6 +277,32 @@ class RadioService {
     } catch (e) {
       return true;
     }
+  }
+
+  /// Whether the user starred this song for radio alerts.
+  Future<bool> isFavorited(String songId) async {
+    try {
+      final response = await _apiService.get('songs/$songId/favorite');
+      return response['favorited'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// ⭐ Favorite (star) a song — radio alerts only; separate from 🔥 likes.
+  /// Throws [ApiException] on failure so the UI can revert optimistic state.
+  Future<bool> favorite(String songId) async {
+    final response = await _apiService.post('songs/$songId/favorite', {});
+    if (response is Map && response['favorited'] == true) return true;
+    throw Exception('Could not favorite song');
+  }
+
+  /// Remove song favorite (star).
+  Future<bool> unfavorite(String songId) async {
+    final response = await _apiService.delete('songs/$songId/favorite');
+    if (response is Map && response['favorited'] == false) return false;
+    // DELETE success with empty/alternate body still means unfavorited.
+    return false;
   }
 
   /// Toggle like status for a song (like if not liked, unlike if liked)

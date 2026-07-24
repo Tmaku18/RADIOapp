@@ -444,6 +444,41 @@ class SongsService {
     return const <LibrarySong>[];
   }
 
+  /// ⭐ Starred songs (radio alerts). Not the same as 🔥 liked library.
+  Future<List<LibrarySong>> getFavorites({
+    int limit = 100,
+    int offset = 0,
+  }) async {
+    final safeLimit = limit.clamp(1, 200);
+    final safeOffset = offset < 0 ? 0 : offset;
+    final res = await _api.get(
+      'songs/favorites?limit=$safeLimit&offset=$safeOffset',
+    );
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map(
+            (e) => LibrarySong.fromJson(
+              e.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .toList();
+    }
+    return const <LibrarySong>[];
+  }
+
+  Future<bool> favorite(String songId) async {
+    final res = await _api.post('songs/$songId/favorite', {});
+    if (res is Map<String, dynamic>) return res['favorited'] == true;
+    return true;
+  }
+
+  Future<bool> unfavorite(String songId) async {
+    final res = await _api.delete('songs/$songId/favorite');
+    if (res is Map<String, dynamic>) return res['favorited'] == true;
+    return false;
+  }
+
   Future<SongLikesResponse> getLikes(
     String songId, {
     int limit = 200,

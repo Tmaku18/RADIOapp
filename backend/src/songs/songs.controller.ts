@@ -1167,6 +1167,15 @@ export class SongsController {
     return this.songsService.getLibrarySongs(id);
   }
 
+  /** ⭐ Starred songs for radio alerts (separate from 🔥 likes / library). */
+  @Get('favorites')
+  @UseGuards(RolesGuard)
+  @Roles('listener', 'artist', 'service_provider', 'admin', 'dj', 'musician')
+  async getFavoriteSongs(@CurrentUser() user: FirebaseUser) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.getFavoriteSongs(id);
+  }
+
   // ─── Song sales: samples, purchases, entitled playback/download ──────
 
   private async resolveUserIdAndRole(
@@ -1817,6 +1826,33 @@ export class SongsController {
     }
 
     return this.songsService.unlikeSong(userData.id, songId);
+  }
+
+  @Get(':id/favorite')
+  async getFavoriteStatus(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.isFavorited(id, songId);
+  }
+
+  @Post(':id/favorite')
+  async favoriteSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.favoriteSong(id, songId);
+  }
+
+  @Delete(':id/favorite')
+  async unfavoriteSong(
+    @CurrentUser() user: FirebaseUser,
+    @Param('id') songId: string,
+  ) {
+    const { id } = await this.resolveUserIdAndRole(user.uid);
+    return this.songsService.unfavoriteSong(id, songId);
   }
 
   /**
