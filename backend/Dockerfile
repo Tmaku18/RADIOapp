@@ -14,6 +14,10 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# System ffmpeg is required for Discover/sample trims. The npm ffmpeg-static
+# binary is glibc-based and often fails on Alpine/musl at runtime.
+RUN apk add --no-cache ffmpeg
+
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 

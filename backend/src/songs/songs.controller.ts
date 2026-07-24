@@ -524,9 +524,12 @@ export class SongsController {
     // SECURITY + DATA QUALITY:
     // For direct-to-storage uploads, compute the real duration server-side from the stored file.
     // This prevents spoofing and avoids the UI/credits falling back to the default 180s.
+    // The `songs` bucket is private — always sign before fetching.
     let durationSeconds = dto.durationSeconds;
     try {
-      const audioUrl = audioUrlData.publicUrl;
+      const audioUrl =
+        (await signSongAudioUrl(audioUrlData.publicUrl)) ??
+        audioUrlData.publicUrl;
       if (audioUrl) {
         const abortController = new AbortController();
         const timeout = setTimeout(() => abortController.abort(), 15000);

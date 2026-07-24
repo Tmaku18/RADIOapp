@@ -8,6 +8,7 @@ import '../../../core/models/pro_networx_models.dart';
 import '../../../core/navigation/app_routes.dart';
 import '../../../core/services/api_service.dart';
 import '../../../core/services/pro_networx_service.dart';
+import '../../../core/services/users_service.dart';
 import 'feed_post_video.dart';
 import 'pro_network_paywall_sheet.dart';
 import 'share_post_sheet.dart';
@@ -48,14 +49,25 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
 
   Future<void> _loadMe() async {
     try {
-      final me =
-          await Provider.of<AuthService>(context, listen: false).getUserProfile();
-      if (!mounted || me == null) return;
+      // Prefer /users/me so we get the DB uuid (not a Firebase-uid fallback),
+      // which must match post.authorUserId for delete to appear.
+      final me = await UsersService().getMe();
+      if (!mounted) return;
       setState(() {
-        _myUserId = me.id;
-        _isAdmin = isAdminRole(me.role);
+        _myUserId = me['id']?.toString();
+        _isAdmin = isAdminRole(me['role']?.toString());
       });
-    } catch (_) {}
+    } catch (_) {
+      try {
+        final me = await Provider.of<AuthService>(context, listen: false)
+            .getUserProfile();
+        if (!mounted || me == null) return;
+        setState(() {
+          _myUserId = me.id;
+          _isAdmin = isAdminRole(me.role);
+        });
+      } catch (_) {}
+    }
   }
 
   @override
@@ -65,11 +77,16 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
   }
 
   Future<void> _confirmDelete() async {
+    final isVideo = widget.post.mediaType == 'video';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete post?'),
-        content: const Text('This removes the post from the feed for everyone.'),
+        title: Text(isVideo ? 'Delete video?' : 'Delete post?'),
+        content: Text(
+          isVideo
+              ? 'This removes your video from Discover/Feed for everyone.'
+              : 'This removes the post from the feed for everyone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -89,7 +106,7 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
       if (!mounted) return;
       widget.onDeleted?.call();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post deleted')),
+        SnackBar(content: Text(isVideo ? 'Video deleted' : 'Post deleted')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -287,34 +304,54 @@ class _ProFeedPostCardState extends State<ProFeedPostCard> {
                   ),
                 ),
                 if (canDelete)
-                  PopupMenuButton<String>(
-                    onSelected: (v) {
-                      if (v == 'delete') _confirmDelete();
-                    },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete post'),
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    tooltip: post.mediaType == 'video'
+                        ? 'Delete video'
+                        : 'Delete post',
+                    color: cs.error,
+                    onPressed: _confirmDelete,
                   ),
               ],
             ),
           ),
           AspectRatio(
             aspectRatio: 1,
-            child: post.mediaType == 'video'
-                ? FeedPostVideo(url: post.imageUrl)
-                : CachedNetworkImage(
-                    imageUrl: post.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => Container(color: cs.surfaceContainerHighest),
-                    errorWidget: (_, _, _) => Container(
-                      color: cs.surfaceContainerHighest,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.broken_image_outlined),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                post.mediaType == 'video'
+                    ? FeedPostVideo(url: post.imageUrl)
+                    : CachedNetworkImage(
+                        imageUrl: post.imageUrl,
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) =>
+                            Container(color: cs.surfaceContainerHighest),
+                        errorWidget: (_, _, _) => Container(
+                          color: cs.surfaceContainerHighest,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.broken_image_outlined),
+                        ),
+                      ),
+                if (canDelete)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Material(
+                      color: Colors.black54,
+                      shape: const CircleBorder(),
+                      child: IconButton(
+                        icon: const Icon(Icons.delete_outline),
+                        color: Colors.white,
+                        tooltip: post.mediaType == 'video'
+                            ? 'Delete video'
+                            : 'Delete post',
+                        onPressed: _confirmDelete,
+                      ),
                     ),
                   ),
+              ],
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(10),

@@ -51,10 +51,21 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
-      } else if (typeof exceptionResponse === 'object') {
+      } else if (typeof exceptionResponse === 'object' && exceptionResponse) {
         const responseObj = exceptionResponse as Record<string, unknown>;
-        message = (responseObj.message as string) || message;
-        errorName = (responseObj.error as string) || exception.name;
+        const rawMessage = responseObj.message;
+        if (Array.isArray(rawMessage)) {
+          message =
+            rawMessage
+              .map((part) => (part == null ? '' : String(part).trim()))
+              .filter(Boolean)
+              .join(' ') || message;
+        } else if (typeof rawMessage === 'string' && rawMessage.trim()) {
+          message = rawMessage.trim();
+        }
+        errorName =
+          (typeof responseObj.error === 'string' && responseObj.error) ||
+          exception.name;
         details = responseObj.details;
       }
     } else if (exception instanceof Error) {

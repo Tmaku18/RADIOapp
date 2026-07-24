@@ -224,6 +224,11 @@ class DimensionRadioBar extends StatelessWidget {
                                           onTap: () =>
                                               ctrl.submitReaction('shit'),
                                         ),
+                                        _FavoriteBtn(
+                                          selected: ctrl.isFavorite,
+                                          busy: ctrl.favoriteBusy,
+                                          onTap: ctrl.toggleFavorite,
+                                        ),
                                         _VoteBtn(
                                           emoji: '🔥',
                                           selected:
@@ -390,6 +395,42 @@ class _VoteBtn extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: Text(emoji, style: const TextStyle(fontSize: 14)),
+        ),
+      ),
+    );
+  }
+}
+
+class _FavoriteBtn extends StatelessWidget {
+  const _FavoriteBtn({
+    required this.selected,
+    required this.busy,
+    required this.onTap,
+  });
+
+  final bool selected;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? const Color(0xFFFFC107).withValues(alpha: 0.2)
+          : Colors.white.withValues(alpha: 0.05),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: busy ? null : onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(4),
+          child: Icon(
+            selected ? Icons.star : Icons.star_border,
+            size: 16,
+            color: selected
+                ? const Color(0xFFFFC107)
+                : DimensionTokens.textPrimary,
+          ),
         ),
       ),
     );

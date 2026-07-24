@@ -16,6 +16,7 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdateArtistLikeNotificationSettingsDto } from './dto/update-artist-like-notification-settings.dto';
 import { geocodeCityZip } from '../common/geocode.util';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 
 // Transform snake_case DB response to camelCase for frontend
 export interface UserResponse {
@@ -30,6 +31,9 @@ export interface UserResponse {
   region?: string | null;
   suggestLocalArtists?: boolean;
   notifyFollowedArtistOnRadio?: boolean;
+  notifyNewFollower?: boolean;
+  notifyFeedPostLike?: boolean;
+  notificationsEnabled?: boolean;
   favoriteGenres?: string[];
   genreOnboardingCompletedAt?: string | null;
   bio?: string | null;
@@ -89,6 +93,9 @@ function transformUser(data: any): UserResponse {
     suggestLocalArtists: data.suggest_local_artists ?? true,
     notifyFollowedArtistOnRadio:
       data.notify_followed_artist_on_radio ?? true,
+    notifyNewFollower: data.notify_new_follower ?? true,
+    notifyFeedPostLike: data.notify_feed_post_like ?? true,
+    notificationsEnabled: data.notifications_enabled ?? true,
     favoriteGenres: Array.isArray(data.favorite_genres)
       ? data.favorite_genres
       : [],
@@ -122,6 +129,7 @@ export class UsersService {
     private readonly uploadsService: UploadsService,
     private readonly configService: ConfigService,
     private readonly imageModeration: ImageModerationService,
+    private readonly pushNotification: PushNotificationService,
   ) {}
 
   /** Admin emails from env (comma-separated); login with one of these gets role admin. */
@@ -643,6 +651,12 @@ export class UsersService {
     if (updateUserDto.notifyFollowedArtistOnRadio !== undefined)
       updatePayload.notify_followed_artist_on_radio =
         updateUserDto.notifyFollowedArtistOnRadio;
+    if (updateUserDto.notifyNewFollower !== undefined)
+      updatePayload.notify_new_follower = updateUserDto.notifyNewFollower;
+    if (updateUserDto.notifyFeedPostLike !== undefined)
+      updatePayload.notify_feed_post_like = updateUserDto.notifyFeedPostLike;
+    if (updateUserDto.notificationsEnabled !== undefined)
+      updatePayload.notifications_enabled = updateUserDto.notificationsEnabled;
     if (updateUserDto.favoriteGenres !== undefined) {
       const normalized = [
         ...new Set(
@@ -1478,12 +1492,20 @@ export class UsersService {
 
     const { data: targetUser } = await supabase
       .from('users')
-      .select('id')
+      .select('id, notify_new_follower, notifications_enabled')
       .eq('id', resolvedFollowedUserId)
       .maybeSingle();
     if (!targetUser) {
       throw new NotFoundException('Target user not found');
     }
+
+    const { data: existingFollow } = await supabase
+      .from('user_follows')
+      .select('follower_user_id')
+      .eq('follower_user_id', followerUserId)
+      .eq('followed_user_id', resolvedFollowedUserId)
+      .maybeSingle();
+    const alreadyFollowing = !!existingFollow;
 
     const { error } = await supabase.from('user_follows').upsert(
       {
@@ -1514,7 +1536,49 @@ export class UsersService {
       );
     }
 
+    if (!alreadyFollowing && targetUser.notify_new_follower !== false) {
+      void this.notifyNewFollower(
+        followerUserId,
+        resolvedFollowedUserId,
+      ).catch((err) =>
+        this.logger.warn(
+          `New-follower notify failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+      );
+    }
+
     return { followed: true };
+  }
+
+  private async notifyNewFollower(
+    followerUserId: string,
+    followedUserId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: follower } = await supabase
+      .from('users')
+      .select('id, display_name, username')
+      .eq('id', followerUserId)
+      .maybeSingle();
+    const name =
+      (follower?.display_name as string | null)?.trim() ||
+      (follower?.username as string | null)?.trim() ||
+      'Someone';
+    const title = 'New follower';
+    const body = `${name} started following you`;
+    await this.pushNotification.sendPushNotification({
+      userId: followedUserId,
+      title,
+      body,
+      data: {
+        type: 'new_follower',
+        followerId: followerUserId,
+        action: 'open_profile',
+        route: `/users/${followerUserId}`,
+      },
+    });
   }
 
   async unfollowUser(

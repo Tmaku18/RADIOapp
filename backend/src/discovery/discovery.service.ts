@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { getSupabaseClient } from '../config/supabase.config';
 import {
   approximatePublicCoords,
@@ -6,6 +6,7 @@ import {
 } from '../common/geocode.util';
 import { isExplicitFilteredStation } from '../radio/station.constants';
 import { UsersService } from '../users/users.service';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 
 export interface DiscoveryProfile {
   id: string;
@@ -105,7 +106,12 @@ type MapRoleFilter = 'artist' | 'service_provider' | 'all';
 
 @Injectable()
 export class DiscoveryService {
-  constructor(private readonly usersService: UsersService) {}
+  private readonly logger = new Logger(DiscoveryService.name);
+
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly pushNotification: PushNotificationService,
+  ) {}
 
   private async filterBlockedPosts(
     items: DiscoverFeedPost[],
@@ -127,6 +133,26 @@ export class DiscoveryService {
       return 'video';
     }
     return 'image';
+  }
+
+  /** Extract `{userId}/posts/{file}` from a public feed bucket URL. */
+  private feedStoragePathFromPublicUrl(imageUrl: string): string | null {
+    try {
+      const urlObj = new URL(imageUrl);
+      const feedMarker = '/storage/v1/object/public/feed/';
+      const feedIdx = urlObj.pathname.indexOf(feedMarker);
+      if (feedIdx >= 0) {
+        return decodeURIComponent(
+          urlObj.pathname.slice(feedIdx + feedMarker.length),
+        );
+      }
+      const pathMatch = urlObj.pathname.match(
+        /\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
+      );
+      return pathMatch?.[1] ? decodeURIComponent(pathMatch[1]) : null;
+    } catch {
+      return null;
+    }
   }
 
   private clampZoom(zoom?: number): number {
@@ -1231,13 +1257,82 @@ export class DiscoveryService {
   // ---------------------------------------------------------------------------
   async likePost(viewerUserId: string, postId: string): Promise<void> {
     const supabase = getSupabaseClient();
-    const { error } = await supabase
+
+    const { data: existing } = await supabase
       .from('discover_feed_post_likes')
-      .upsert(
-        { post_id: postId, user_id: viewerUserId },
-        { onConflict: 'post_id,user_id', ignoreDuplicates: true },
-      );
-    if (error) throw new Error(`Failed to like post: ${error.message}`);
+      .select('post_id')
+      .eq('post_id', postId)
+      .eq('user_id', viewerUserId)
+      .maybeSingle();
+    if (existing) return;
+
+    const { data: post, error: postError } = await supabase
+      .from('discover_feed_posts')
+      .select('id, author_user_id')
+      .eq('id', postId)
+      .maybeSingle();
+    if (postError || !post) {
+      throw new Error(`Failed to like post: post not found`);
+    }
+
+    const { error } = await supabase.from('discover_feed_post_likes').insert({
+      post_id: postId,
+      user_id: viewerUserId,
+    });
+    if (error) {
+      if ((error as { code?: string }).code === '23505') return;
+      throw new Error(`Failed to like post: ${error.message}`);
+    }
+
+    const authorId = post.author_user_id as string;
+    if (!authorId || authorId === viewerUserId) return;
+
+    void this.notifyFeedPostLiked(authorId, viewerUserId, postId).catch(
+      (err) =>
+        this.logger.warn(
+          `Feed-like notify failed: ${
+            err instanceof Error ? err.message : String(err)
+          }`,
+        ),
+    );
+  }
+
+  private async notifyFeedPostLiked(
+    authorUserId: string,
+    likerUserId: string,
+    postId: string,
+  ): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: author } = await supabase
+      .from('users')
+      .select('notify_feed_post_like, notifications_enabled')
+      .eq('id', authorUserId)
+      .maybeSingle();
+    if (author?.notify_feed_post_like === false) return;
+
+    const { data: liker } = await supabase
+      .from('users')
+      .select('display_name, username')
+      .eq('id', likerUserId)
+      .maybeSingle();
+    const name =
+      (liker?.display_name as string | null)?.trim() ||
+      (liker?.username as string | null)?.trim() ||
+      'Someone';
+    const title = 'New like on your post';
+    const body = `${name} liked your feed post`;
+    await this.pushNotification.sendPushNotification({
+      userId: authorUserId,
+      title,
+      body,
+      data: {
+        type: 'feed_post_liked',
+        postId,
+        likerId: likerUserId,
+        action: 'open_notifications',
+        route: '/notifications',
+      },
+    });
   }
 
   async unlikePost(viewerUserId: string, postId: string): Promise<void> {
@@ -1568,12 +1663,9 @@ export class DiscoveryService {
     const imageUrl = post.image_url as string | null;
     if (imageUrl) {
       try {
-        const urlObj = new URL(imageUrl);
-        const pathMatch = urlObj.pathname.match(
-          /\/storage\/v1\/object\/public\/[^/]+\/(.+)/,
-        );
-        if (pathMatch?.[1]) {
-          await supabase.storage.from('feed').remove([pathMatch[1]]);
+        const storagePath = this.feedStoragePathFromPublicUrl(imageUrl);
+        if (storagePath) {
+          await supabase.storage.from('feed').remove([storagePath]);
         }
       } catch {
         // Best-effort storage cleanup.

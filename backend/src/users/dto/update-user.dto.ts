@@ -69,6 +69,21 @@ export class UpdateUserDto {
   @IsOptional()
   notifyFollowedArtistOnRadio?: boolean;
 
+  /** Notify when someone follows you */
+  @IsBoolean()
+  @IsOptional()
+  notifyNewFollower?: boolean;
+
+  /** Notify when someone likes your feed post */
+  @IsBoolean()
+  @IsOptional()
+  notifyFeedPostLike?: boolean;
+
+  /** Master switch — when false, skip all push notifications for this user */
+  @IsBoolean()
+  @IsOptional()
+  notificationsEnabled?: boolean;
+
   /** Genre ids from onboarding (e.g. hip-hop, rap, country). */
   @IsArray()
   @IsString({ each: true })

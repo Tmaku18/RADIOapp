@@ -140,18 +140,17 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
           label: 'Upload',
           route: AppRoutes.upload,
         ),
-      if (widget.isArtist) ...[
-        const _NavSpec(
-          icon: Icons.library_music_outlined,
-          label: 'My Songs',
-          route: AppRoutes.studio,
-        ),
+      const _NavSpec(
+        icon: Icons.library_music_outlined,
+        label: 'My Songs',
+        route: AppRoutes.studio,
+      ),
+      if (widget.isArtist)
         const _NavSpec(
           icon: Icons.show_chart,
           label: 'Analytics',
           route: AppRoutes.analytics,
         ),
-      ],
       const _NavSpec(
         icon: Icons.science_outlined,
         label: 'The Refinery',

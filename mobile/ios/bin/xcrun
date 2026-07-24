@@ -1,0 +1,5 @@
+#!/bin/sh
+# Shim: Xcode script phases sometimes invoke xcrun without a usable SDK lookup.
+# Force the full Xcode toolchain before delegating to the real binary.
+export DEVELOPER_DIR="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
+exec /usr/bin/xcrun "$@"

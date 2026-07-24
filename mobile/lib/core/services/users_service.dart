@@ -21,6 +21,9 @@ class UsersService {
     String? region,
     bool? suggestLocalArtists,
     bool? notifyFollowedArtistOnRadio,
+    bool? notifyNewFollower,
+    bool? notifyFeedPostLike,
+    bool? notificationsEnabled,
     String? bio,
     String? headline,
     String? locationRegion,
@@ -47,6 +50,10 @@ class UsersService {
       if (suggestLocalArtists != null) 'suggestLocalArtists': suggestLocalArtists,
       if (notifyFollowedArtistOnRadio != null)
         'notifyFollowedArtistOnRadio': notifyFollowedArtistOnRadio,
+      if (notifyNewFollower != null) 'notifyNewFollower': notifyNewFollower,
+      if (notifyFeedPostLike != null) 'notifyFeedPostLike': notifyFeedPostLike,
+      if (notificationsEnabled != null)
+        'notificationsEnabled': notificationsEnabled,
       if (bio != null) 'bio': bio,
       if (headline != null) 'headline': headline,
       if (locationRegion != null) 'locationRegion': locationRegion,

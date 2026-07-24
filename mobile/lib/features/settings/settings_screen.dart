@@ -32,6 +32,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _savingDiscoverable = false;
   bool _notifyFollowedArtistOnRadio = true;
   bool _savingFollowedRadio = false;
+  bool _notifyNewFollower = true;
+  bool _savingNewFollower = false;
+  bool _notifyFeedPostLike = true;
+  bool _savingFeedPostLike = false;
   app_user.User? _me;
   String? _role;
 
@@ -101,6 +105,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final discoverable = (me['discoverable'] ?? true) == true;
     final notifyFollowedArtistOnRadio =
         (me['notifyFollowedArtistOnRadio'] ?? true) == true;
+    final notifyNewFollower = (me['notifyNewFollower'] ?? true) == true;
+    final notifyFeedPostLike = (me['notifyFeedPostLike'] ?? true) == true;
+    final serverNotificationsEnabled =
+        (me['notificationsEnabled'] ?? true) == true;
     Map<String, dynamic>? artistLikeSettings;
     if (role == 'artist' || role == 'admin') {
       try {
@@ -120,7 +128,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _me = user;
         _role = role ?? user?.role;
         _systemNotificationsEnabled = systemEnabled;
-        _notificationsEnabled = settings['notificationsEnabled'] ?? true;
         _upNextAlerts = settings['upNextAlerts'] ?? true;
         _liveNowAlerts = settings['liveNowAlerts'] ?? true;
         _songApprovalAlerts = settings['songApprovalAlerts'] ?? true;
@@ -133,6 +140,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ((artistLikeSettings?['cooldownMinutes'] ?? 0) as num).toInt();
         _discoverable = discoverable;
         _notifyFollowedArtistOnRadio = notifyFollowedArtistOnRadio;
+        _notifyNewFollower = notifyNewFollower;
+        _notifyFeedPostLike = notifyFeedPostLike;
+        // Master off if either local or server says off.
+        _notificationsEnabled =
+            (settings['notificationsEnabled'] ?? true) &&
+            serverNotificationsEnabled;
         _isLoading = false;
       });
     }
@@ -266,13 +279,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleMasterNotifications(bool value) async {
     setState(() => _notificationsEnabled = value);
     await _settingsService.setNotificationsEnabled(value);
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      await _usersService.updateMe(notificationsEnabled: value);
+    } catch (_) {
+      // Local unregister still applied; server sync best-effort.
+    }
+    if (!mounted) return;
 
     if (value && !_systemNotificationsEnabled) {
       final granted = await _pushService.requestPermissionLazy();
-      if (mounted) {
-        setState(() => _systemNotificationsEnabled = granted);
-        if (!granted) _showPermissionDeniedDialog();
-      }
+      if (!mounted) return;
+      setState(() => _systemNotificationsEnabled = granted);
+      if (!granted) _showPermissionDeniedDialog();
+    }
+  }
+
+  Future<void> _toggleNewFollower(bool value) async {
+    if (_savingNewFollower) return;
+    setState(() {
+      _notifyNewFollower = value;
+      _savingNewFollower = true;
+    });
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      await _usersService.updateMe(notifyNewFollower: value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notifyNewFollower = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save new-follower alerts')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingNewFollower = false);
+    }
+  }
+
+  Future<void> _toggleFeedPostLike(bool value) async {
+    if (_savingFeedPostLike) return;
+    setState(() {
+      _notifyFeedPostLike = value;
+      _savingFeedPostLike = true;
+    });
+    try {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      await auth.refreshIdToken();
+      await _usersService.updateMe(notifyFeedPostLike: value);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _notifyFeedPostLike = !value);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to save feed-like alerts')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingFeedPostLike = false);
     }
   }
 
@@ -538,15 +600,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     activeThumbColor: primary,
                   ),
                   SwitchListTile(
-                    title: const Text('Favorite artists on radio'),
+                    title: const Text('Favorite songs on radio'),
                     subtitle: const Text(
-                      'When an artist you favorited is about to play or is on-air on any station',
+                      'When a song you starred is about to play or is on-air on any station',
                     ),
                     value: _notifyFollowedArtistOnRadio && _notificationsEnabled,
                     onChanged: _notificationsEnabled && !_savingFollowedRadio
                         ? _toggleFollowedArtistOnRadio
                         : null,
                     secondary: const Icon(Icons.star_outline),
+                    activeThumbColor: primary,
+                  ),
+                  SwitchListTile(
+                    title: const Text('New followers'),
+                    subtitle: const Text(
+                      'When someone starts following you',
+                    ),
+                    value: _notifyNewFollower && _notificationsEnabled,
+                    onChanged: _notificationsEnabled && !_savingNewFollower
+                        ? _toggleNewFollower
+                        : null,
+                    secondary: const Icon(Icons.person_add_alt_1_outlined),
+                    activeThumbColor: primary,
+                  ),
+                  SwitchListTile(
+                    title: const Text('Feed post likes'),
+                    subtitle: const Text(
+                      'When someone likes your Discover feed post',
+                    ),
+                    value: _notifyFeedPostLike && _notificationsEnabled,
+                    onChanged: _notificationsEnabled && !_savingFeedPostLike
+                        ? _toggleFeedPostLike
+                        : null,
+                    secondary: const Icon(Icons.favorite_border),
                     activeThumbColor: primary,
                   ),
                   SwitchListTile(

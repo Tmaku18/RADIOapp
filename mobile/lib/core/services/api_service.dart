@@ -234,8 +234,10 @@ class ApiService {
   /// POST request - returns dynamic (can be Map or List depending on endpoint)
   Future<dynamic> post(
     String endpoint,
-    Map<String, dynamic>? body,
-  ) async {
+    Map<String, dynamic>? body, {
+    bool preferDirectBackend = false,
+    Duration? timeout,
+  }) async {
     return _withFallback(
       (base, headers) => http.post(
         Uri.parse('$base/api/$endpoint'),
@@ -244,6 +246,8 @@ class ApiService {
       ),
       endpoint,
       'POST',
+      preferDirectBackend: preferDirectBackend,
+      timeout: timeout,
     );
   }
 

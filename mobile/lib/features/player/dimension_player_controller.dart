@@ -26,10 +26,15 @@ class DimensionPlayerController extends ChangeNotifier {
 
   String? _selectedReaction;
   bool _isVoting = false;
+  bool _isFavorite = false;
+  bool _favoriteBusy = false;
+  String? _favoriteSongId;
   int? _temperature;
   String _radioId = RadioService.defaultRadioId;
 
   bool get isVoting => _isVoting;
+  bool get isFavorite => _isFavorite;
+  bool get favoriteBusy => _favoriteBusy;
   String? get selectedReaction => _selectedReaction;
   int? get temperature => _temperature;
 
@@ -99,6 +104,7 @@ class DimensionPlayerController extends ChangeNotifier {
       }
       notifyListeners();
       _loadStoredReaction();
+      unawaited(_refreshFavorite());
       unawaited(_refreshTemperature());
     });
     _pausedListener = _onPausedChanged;
@@ -107,7 +113,50 @@ class DimensionPlayerController extends ChangeNotifier {
       unawaited(_refreshTemperature());
     });
     await _loadStoredReaction();
+    await _refreshFavorite();
     await _refreshTemperature();
+  }
+
+  Future<void> _refreshFavorite() async {
+    final id = _media?.id;
+    if (id == null || id.isEmpty) {
+      _isFavorite = false;
+      _favoriteSongId = null;
+      notifyListeners();
+      return;
+    }
+    if (_favoriteSongId == id && _favoriteBusy) return;
+    _favoriteSongId = id;
+    try {
+      _isFavorite = await _radio.isLiked(id);
+    } catch (_) {
+      // Keep last known state on transient failures.
+    }
+    if (_favoriteSongId == id) notifyListeners();
+  }
+
+  Future<void> toggleFavorite() async {
+    final media = _media;
+    if (media == null || _favoriteBusy) return;
+    final songId = media.id;
+    if (songId.isEmpty) return;
+    final next = !_isFavorite;
+    _favoriteBusy = true;
+    _isFavorite = next;
+    notifyListeners();
+    try {
+      if (next) {
+        await _radio.like(songId);
+      } else {
+        await _radio.unlike(songId);
+      }
+      _isFavorite = next;
+    } catch (_) {
+      _isFavorite = !next;
+    } finally {
+      _favoriteBusy = false;
+      notifyListeners();
+    }
   }
 
   Future<void> _refreshTemperature() async {

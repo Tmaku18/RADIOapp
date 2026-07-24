@@ -258,8 +258,8 @@ class RadioService {
     }
   }
 
-  /// Toggle like status for a song (like if not liked, unlike if liked)
-  Future<bool> toggleLike(String songId) async {
+  /// Favorite (star) a song — saved to library / favorites.
+  Future<bool> like(String songId) async {
     try {
       final response = await _apiService.post('songs/$songId/like', {});
       return response['liked'] == true;
@@ -268,11 +268,32 @@ class RadioService {
     }
   }
 
+  /// Remove song favorite (star).
+  Future<bool> unlike(String songId) async {
+    try {
+      final response = await _apiService.delete('songs/$songId/like');
+      if (response is Map) return response['liked'] == true;
+      return false;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  /// Toggle like status for a song (like if not liked, unlike if liked)
+  Future<bool> toggleLike(String songId) async {
+    final liked = await isLiked(songId);
+    if (liked) {
+      await unlike(songId);
+      return false;
+    }
+    return like(songId);
+  }
+
   /// Ensure song is liked (saved to library) without accidentally unliking.
   Future<void> ensureLiked(String songId) async {
     final liked = await isLiked(songId);
     if (liked) return;
-    await toggleLike(songId);
+    await like(songId);
   }
 
   /// Submit a radio reaction vote for the current play.

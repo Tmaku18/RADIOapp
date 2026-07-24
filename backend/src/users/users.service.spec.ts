@@ -15,12 +15,16 @@ const createBuilder = () => ({
 
 const mockUploadsService = { uploadProfileImage: jest.fn() };
 const mockConfigService = { get: jest.fn().mockReturnValue(undefined) };
+const mockImageModeration = { assertImageUrlAllowed: jest.fn() };
+const mockPushNotification = { sendPushNotification: jest.fn() };
 
 describe('UsersService', () => {
   it('returns existing user if already present', async () => {
     const service = new UsersService(
       mockUploadsService as any,
       mockConfigService as any,
+      mockImageModeration as any,
+      mockPushNotification as any,
     );
     const usersBuilder = createBuilder();
     const supabase = {
@@ -55,6 +59,8 @@ describe('UsersService', () => {
     const service = new UsersService(
       mockUploadsService as any,
       mockConfigService as any,
+      mockImageModeration as any,
+      mockPushNotification as any,
     );
     const usersBuilder = createBuilder();
     const insertChain = {
@@ -103,6 +109,8 @@ describe('UsersService', () => {
     const service = new UsersService(
       mockUploadsService as any,
       configWithAdmin as any,
+      mockImageModeration as any,
+      mockPushNotification as any,
     );
     const usersBuilder = createBuilder();
     const insertChain = {

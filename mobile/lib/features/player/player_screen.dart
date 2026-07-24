@@ -118,6 +118,8 @@ class _PlayerScreenState extends State<PlayerScreen>
   bool _hasVoted = false;
   String? _selectedReaction;
   bool _isVoting = false;
+  bool _isFavorite = false;
+  bool _favoriteBusy = false;
   String? _lastVotedPlayId;
   bool _noContent = false;
   String? _noContentMessage;
@@ -517,11 +519,59 @@ class _PlayerScreenState extends State<PlayerScreen>
         _selectedReaction = null;
       }
       _songAccess = null;
+      _isFavorite = false;
     });
     _scheduleTrackBoundarySync(track);
     unawaited(_refreshTrackStats());
     unawaited(_loadSongAccess(track.id));
+    unawaited(_loadFavorite(track.id));
     unawaited(_applyBoothState(track));
+  }
+
+  Future<void> _loadFavorite(String songId) async {
+    if (songId.isEmpty) return;
+    try {
+      final liked = await _radioService.isLiked(songId);
+      if (!mounted || _currentTrack?.id != songId) return;
+      setState(() => _isFavorite = liked);
+    } catch (_) {}
+  }
+
+  Future<void> _toggleFavorite() async {
+    final track = _currentTrack;
+    if (track == null || _favoriteBusy) return;
+    final next = !_isFavorite;
+    setState(() {
+      _favoriteBusy = true;
+      _isFavorite = next;
+    });
+    try {
+      if (next) {
+        await _radioService.like(track.id);
+      } else {
+        await _radioService.unlike(track.id);
+      }
+      if (!mounted) return;
+      setState(() => _isFavorite = next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            next
+                ? '⭐ Added to Favorites. We’ll notify you when it plays.'
+                : 'Removed from Favorites.',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isFavorite = !next);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not update favorite: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _favoriteBusy = false);
+    }
   }
 
   /// Fetch purchase/sale status for the current song so the player can show a
@@ -972,10 +1022,6 @@ class _PlayerScreenState extends State<PlayerScreen>
           serverReaction = reaction;
         }
       }
-      if (serverReaction == 'fire') {
-        await _radioService.ensureLiked(track.id);
-      }
-
       var fireVotes = track.fireVotes;
       var shitVotes = track.shitVotes;
       if (previousReaction == 'fire') fireVotes -= 1;
@@ -1013,7 +1059,7 @@ class _PlayerScreenState extends State<PlayerScreen>
               serverReaction == null
                   ? 'Vote removed.'
                   : changedToFire
-                  ? '🔥 Vote locked in. Saved to your library.'
+                  ? '🔥 Vote locked in.'
                   : changedToShit
                   ? '💩 Vote locked in.'
                   : 'Vote updated.',
@@ -1250,6 +1296,8 @@ class _PlayerScreenState extends State<PlayerScreen>
                       hasVoted: _hasVoted,
                       isVoting: _isVoting,
                       selectedReaction: _selectedReaction,
+                      isFavorite: _isFavorite,
+                      favoriteBusy: _favoriteBusy,
                       canVote: (_currentTrack?.playId ?? '').isNotEmpty,
                       fireVotes: _currentTrack?.fireVotes ?? 0,
                       shitVotes: _currentTrack?.shitVotes ?? 0,
@@ -1259,6 +1307,7 @@ class _PlayerScreenState extends State<PlayerScreen>
                       isBuying: _isBuying,
                       onBuy: _buySong,
                       onReact: _react,
+                      onToggleFavorite: _toggleFavorite,
                       onPlayPause: _togglePlayPause,
                       onEnterRoom: () => _openRoom(providerContext),
                       audioPlayer: _audioPlayer,
@@ -1545,6 +1594,8 @@ class _PlayerBody extends StatelessWidget {
   final bool hasVoted;
   final bool isVoting;
   final String? selectedReaction;
+  final bool isFavorite;
+  final bool favoriteBusy;
   final bool canVote;
   final int fireVotes;
   final int shitVotes;
@@ -1553,6 +1604,7 @@ class _PlayerBody extends StatelessWidget {
   final bool isBuying;
   final VoidCallback onBuy;
   final Future<void> Function(String reaction) onReact;
+  final VoidCallback onToggleFavorite;
   final VoidCallback onPlayPause;
   final VoidCallback onEnterRoom;
   final AudioPlayer audioPlayer;
@@ -1568,6 +1620,8 @@ class _PlayerBody extends StatelessWidget {
     required this.hasVoted,
     required this.isVoting,
     required this.selectedReaction,
+    required this.isFavorite,
+    required this.favoriteBusy,
     required this.canVote,
     required this.fireVotes,
     required this.shitVotes,
@@ -1576,6 +1630,7 @@ class _PlayerBody extends StatelessWidget {
     required this.isBuying,
     required this.onBuy,
     required this.onReact,
+    required this.onToggleFavorite,
     required this.onPlayPause,
     required this.onEnterRoom,
     required this.audioPlayer,
@@ -2059,6 +2114,17 @@ class _PlayerBody extends StatelessWidget {
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
                         : const Text('💩'),
+                  ),
+                  const SizedBox(width: 6),
+                  IconButton.filledTonal(
+                    tooltip: isFavorite
+                        ? 'Remove from Favorites'
+                        : 'Add to Favorites',
+                    onPressed: favoriteBusy ? null : onToggleFavorite,
+                    icon: Icon(
+                      isFavorite ? Icons.star : Icons.star_border,
+                      color: isFavorite ? const Color(0xFFFFC107) : null,
+                    ),
                   ),
                   const SizedBox(width: 6),
                   FilledButton.tonal(

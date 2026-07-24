@@ -51,16 +51,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final authService = Provider.of<AuthService>(context, listen: false);
     final user = await authService.getUserProfile();
+    // Prefer /users/me DB uuid — Auth fallback can return Firebase uid, which
+    // won't match discover_feed_posts.author_user_id or listUserPosts.
+    String? dbUserId = user?.id;
+    try {
+      final me = await _usersService.getMe();
+      final id = me['id']?.toString();
+      if (id != null && id.isNotEmpty) dbUserId = id;
+    } catch (_) {}
     if (mounted) {
       setState(() {
         _user = user;
         _isLoading = false;
       });
     }
-    if (user != null) {
+    if (dbUserId != null && dbUserId.isNotEmpty) {
       await Future.wait([
-        _loadFollowCounts(user.id),
-        _loadMyPosts(user.id),
+        _loadFollowCounts(dbUserId),
+        _loadMyPosts(dbUserId),
       ]);
     }
   }
@@ -80,11 +88,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _deleteMyPost(ProFeedPost post) async {
+    final isVideo = post.mediaType == 'video';
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete post?'),
-        content: const Text('This removes it from the feed for everyone.'),
+        title: Text(isVideo ? 'Delete video?' : 'Delete post?'),
+        content: Text(
+          isVideo
+              ? 'This removes your video from Discover/Feed for everyone.'
+              : 'This removes it from the feed for everyone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
@@ -105,7 +118,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() => _myPosts = _myPosts.where((p) => p.id != post.id).toList());
       SocialFeedRefresh.request();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Post deleted')),
+        SnackBar(content: Text(isVideo ? 'Video deleted' : 'Post deleted')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -1196,8 +1209,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                               ),
                                       ),
                                       Positioned(
-                                        right: 2,
-                                        top: 2,
+                                        right: 4,
+                                        top: 4,
                                         child: Material(
                                           color: Colors.black54,
                                           shape: const CircleBorder(),
@@ -1205,10 +1218,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             customBorder: const CircleBorder(),
                                             onTap: () => _deleteMyPost(post),
                                             child: const Padding(
-                                              padding: EdgeInsets.all(4),
+                                              padding: EdgeInsets.all(6),
                                               child: Icon(
                                                 Icons.delete_outline,
-                                                size: 16,
+                                                size: 18,
                                                 color: Colors.white,
                                               ),
                                             ),

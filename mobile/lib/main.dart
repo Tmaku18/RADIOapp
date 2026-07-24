@@ -165,8 +165,14 @@ class _MyAppState extends State<MyApp> {
             arguments: data['artistId'].toString(),
           );
         } else if (type == 'song_liked' ||
+            type == 'feed_post_liked' ||
             type == 'followed_artist_new_upload') {
           nav.pushNamed(AppRoutes.notifications);
+        } else if (type == 'new_follower' && data['followerId'] != null) {
+          nav.pushNamed(
+            AppRoutes.artistProfile,
+            arguments: data['followerId'].toString(),
+          );
         } else if (type == 'app_update') {
           unawaited(
             AppUpdateService.openStoreUrl(data['storeUrl']?.toString()),

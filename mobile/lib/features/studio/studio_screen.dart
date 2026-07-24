@@ -28,12 +28,16 @@ class StudioScreen extends StatefulWidget {
   State<StudioScreen> createState() => _StudioScreenState();
 }
 
-class _StudioScreenState extends State<StudioScreen> {
+class _StudioScreenState extends State<StudioScreen>
+    with SingleTickerProviderStateMixin {
   final SongsService _songs = SongsService();
   final RefineryService _refinery = RefineryService();
   final AudioPlayer _player = AudioPlayerService().player;
+  late final TabController _tabController;
   bool _loading = true;
+  bool _favoritesLoading = false;
   List<Song> _items = const [];
+  List<LibrarySong> _favorites = const [];
   String? _activeSongId;
   String? _preparingSongId;
   bool _isPlaying = false;
@@ -42,17 +46,57 @@ class _StudioScreenState extends State<StudioScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index == 1 &&
+          !_tabController.indexIsChanging &&
+          _favorites.isEmpty &&
+          !_favoritesLoading) {
+        unawaited(_loadFavorites());
+      }
+    });
     _load();
+    unawaited(_loadFavorites());
     _playerStateSub = _player.playerStateStream.listen((s) {
       if (!mounted) return;
       setState(() => _isPlaying = s.playing);
+    });
+    // Listeners land on Favorites; artists keep Tracks first.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final auth = Provider.of<AuthService>(context, listen: false);
+      final profile = await auth.getUserProfile();
+      final role = profile?.role;
+      final isUploader = role == 'artist' ||
+          role == 'admin' ||
+          role == 'service_provider' ||
+          role == 'dj' ||
+          role == 'musician';
+      if (!isUploader && mounted) {
+        _tabController.index = 1;
+      }
     });
   }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _playerStateSub?.cancel();
     super.dispose();
+  }
+
+  Future<void> _loadFavorites() async {
+    setState(() => _favoritesLoading = true);
+    try {
+      final items = await _songs.getLibrary(limit: 200);
+      if (!mounted) return;
+      setState(() {
+        _favorites = items;
+        _favoritesLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _favoritesLoading = false);
+    }
   }
 
   /// Artists always stream their own uploads in full — the backend entitles
@@ -105,7 +149,13 @@ class _StudioScreenState extends State<StudioScreen> {
     try {
       final auth = Provider.of<AuthService>(context, listen: false);
       await auth.getUserProfile();
-      final items = await _songs.getMine();
+      List<Song> items = const [];
+      try {
+        items = await _songs.getMine();
+      } catch (_) {
+        // Listeners may not have upload access — Favorites tab still works.
+        items = const [];
+      }
       if (!mounted) return;
       setState(() => _items = items);
     } finally {
@@ -318,105 +368,128 @@ class _StudioScreenState extends State<StudioScreen> {
         title: const Text('My Songs'),
         actions: [
           IconButton(
-            onPressed: _loading ? null : _load,
+            onPressed: _loading
+                ? null
+                : () {
+                    unawaited(_load());
+                    if (_tabController.index == 1) {
+                      unawaited(_loadFavorites());
+                    }
+                  },
             icon: const Icon(Icons.refresh),
           ),
         ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: 'Tracks'),
+            Tab(text: 'Favorites'),
+          ],
+        ),
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Text(
-                          'Manage your uploaded songs and track performance',
-                          style: TextStyle(
-                            color: surfaces.textSecondary,
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          alignment: WrapAlignment.end,
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _loading
+              ? const Center(child: CircularProgressIndicator())
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            FilledButton.icon(
-                              onPressed: () {
-                                Navigator.pushNamed(context, AppRoutes.upload)
-                                    .then((_) => _load());
-                              },
-                              icon: const Icon(Icons.upload),
-                              label: const Text('Upload New Song'),
+                            Text(
+                              'Manage your uploaded songs and track performance',
+                              style: TextStyle(
+                                color: surfaces.textSecondary,
+                                fontSize: 13,
+                              ),
                             ),
-                            OutlinedButton.icon(
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                        context, AppRoutes.liveServices)
-                                    .then((_) => _load());
-                              },
-                              icon: const Icon(Icons.event_available_outlined),
-                              label: const Text('Live services'),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: _openPayouts,
-                              icon: const Icon(Icons.payments_outlined),
-                              label: const Text('Payouts'),
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              alignment: WrapAlignment.end,
+                              children: [
+                                FilledButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                            context, AppRoutes.upload)
+                                        .then((_) => _load());
+                                  },
+                                  icon: const Icon(Icons.upload),
+                                  label: const Text('Upload New Song'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                            context, AppRoutes.liveServices)
+                                        .then((_) => _load());
+                                  },
+                                  icon: const Icon(
+                                      Icons.event_available_outlined),
+                                  label: const Text('Live services'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: _openPayouts,
+                                  icon: const Icon(Icons.payments_outlined),
+                                  label: const Text('Payouts'),
+                                ),
+                              ],
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Tracks',
+                            style: DimensionTypography.cardTitle(fontSize: 20),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pushNamed(context, AppRoutes.credits)
+                                .then((_) => _load());
+                          },
+                          child: const Text('History'),
+                        ),
                       ],
                     ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Tracks',
-                        style: DimensionTypography.cardTitle(fontSize: 20),
-                      ),
-                    ),
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pushNamed(context, AppRoutes.credits).then((_) => _load());
-                      },
-                      child: const Text('History'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (_items.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(
-                        'No songs yet. Upload your first song to get on the radio.',
-                        style: TextStyle(color: surfaces.textSecondary),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  )
-                else
-                  ..._items.map((s) => Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 8),
+                    if (_items.isEmpty)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 24),
+                          child: Text(
+                            'No songs yet. Upload your first song to get on the radio.',
+                            style: TextStyle(color: surfaces.textSecondary),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      )
+                    else
+                      ..._items.map((s) => Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Card(
+                              child: Padding(
+                                padding:
+                                    const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
-                                    _PlayFullButton(
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        _PlayFullButton(
                                       song: s,
                                       isActive: _activeSongId == s.id,
                                       isPlaying:
@@ -647,9 +720,171 @@ class _StudioScreenState extends State<StudioScreen> {
                           ),
                         ),
                       )),
-              ],
-            ),
+                  ],
+                ),
+          _buildFavoritesTab(surfaces),
+        ],
+      ),
     );
+  }
+
+  Widget _buildFavoritesTab(NetworxSurfaces surfaces) {
+    if (_favoritesLoading && _favorites.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text(
+            'Songs you starred. We’ll notify you when they’re about to play.',
+            style: TextStyle(color: surfaces.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          if (_favorites.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              child: Center(
+                child: Text(
+                  'No favorites yet. Tap ⭐ next to 🔥 on the radio to save a song.',
+                  style: TextStyle(color: surfaces.textSecondary),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            ..._favorites.map((fav) {
+              final artwork = (fav.artworkUrl ?? '').trim();
+              final active = _activeSongId == fav.id;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Card(
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    leading: ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(DimensionTokens.tileRadius),
+                      child: SizedBox(
+                        width: 48,
+                        height: 48,
+                        child: artwork.isNotEmpty
+                            ? Image.network(
+                                artwork,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, error, stackTrace) =>
+                                    const ColoredBox(
+                                  color: Colors.black26,
+                                  child: Icon(Icons.music_note),
+                                ),
+                              )
+                            : const ColoredBox(
+                                color: Colors.black26,
+                                child: Icon(Icons.music_note),
+                              ),
+                      ),
+                    ),
+                    title: Text(
+                      fav.title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    subtitle: Text(
+                      fav.artistName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          tooltip: active && _isPlaying ? 'Pause' : 'Play',
+                          onPressed: () => _playFavorite(fav),
+                          icon: Icon(
+                            active && _isPlaying
+                                ? Icons.pause_circle
+                                : Icons.play_circle,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove favorite',
+                          onPressed: () => _unfavorite(fav),
+                          icon: const Icon(
+                            Icons.star,
+                            color: Color(0xFFFFC107),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _playFavorite(LibrarySong fav) async {
+    if (_activeSongId == fav.id) {
+      if (_isPlaying) {
+        await _player.pause();
+      } else {
+        await _player.play();
+      }
+      return;
+    }
+    if (_preparingSongId != null) return;
+    setState(() => _preparingSongId = fav.id);
+    try {
+      final url = (await _songs.getStreamUrl(fav.id)) ??
+          ((fav.audioUrl ?? '').isNotEmpty ? fav.audioUrl : null) ??
+          ((fav.sampleUrl ?? '').isNotEmpty ? fav.sampleUrl : null);
+      if (url == null || url.isEmpty) {
+        throw Exception('No playable audio for this song yet.');
+      }
+      await AudioPlayerService().loadSource(
+        AudioSource.uri(
+          Uri.parse(url),
+          tag: MediaItem(
+            id: fav.id,
+            title: fav.title,
+            artist: fav.artistName,
+            artUri: BrandAssets.mediaArtUri(fav.artworkUrl),
+            extras: const {'source': 'favorites'},
+          ),
+        ),
+      );
+      await _player.play();
+      if (!mounted) return;
+      setState(() => _activeSongId = fav.id);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not play this song: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _preparingSongId = null);
+    }
+  }
+
+  Future<void> _unfavorite(LibrarySong fav) async {
+    try {
+      await _songs.unlike(fav.id);
+      if (!mounted) return;
+      setState(() {
+        _favorites = _favorites.where((f) => f.id != fav.id).toList();
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not remove favorite: $e')),
+      );
+    }
   }
 }
 

@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:just_audio/just_audio.dart';
 
 import '../../core/data/station_towers.dart';
-import '../../core/services/api_service.dart';
+import '../../core/services/api_service.dart' show ApiException, ApiService;
 import '../../core/legal/full_song_radio_opt_in.dart';
 import '../../core/theme/networx_extensions.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
@@ -445,29 +445,36 @@ class _UploadScreenState extends State<UploadScreen> {
       setState(() => _progress = 0.88);
 
       final stations = _stationIds.toList();
-      await _apiService.post('songs', {
-        'title': _titleController.text.trim(),
-        'artistName': _artistNameController.text.trim(),
-        'artistOriginCity': _cityController.text.trim(),
-        'artistOriginState': _originState,
-        'stationId': stations.first,
-        'stationIds': stations,
-        'audioPath': audioPath,
-        if (artworkPath != null) 'artworkPath': artworkPath,
-        if (discoverBackgroundPath != null)
-          'discoverBackgroundPath': discoverBackgroundPath,
-        if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
-        'isExplicit': _isExplicit,
-        'sampleStartSeconds': _sampleStart,
-        'sampleEndSeconds': _sampleEnd,
-        'discoverClipStartSeconds': _discoverClipStart,
-        'discoverClipEndSeconds': _discoverClipEnd,
-        if (_lyricsController.text.trim().isNotEmpty)
-          'lyricsPlainText': _lyricsController.text.trim(),
-        'optInFullSongRadio': _optInFullSongRadio,
-        'optInDjLivestreams': _optInDjLivestreams,
-        'optInDjArchivedMixes': _optInDjArchivedMixes,
-      });
+      // Hit Nest/Railway directly — Vercel’s /api/songs proxy can time out or
+      // strip useful 400 bodies while the server creates the song record.
+      await _apiService.post(
+        'songs',
+        {
+          'title': _titleController.text.trim(),
+          'artistName': _artistNameController.text.trim(),
+          'artistOriginCity': _cityController.text.trim(),
+          'artistOriginState': _originState,
+          'stationId': stations.first,
+          'stationIds': stations,
+          'audioPath': audioPath,
+          if (artworkPath != null) 'artworkPath': artworkPath,
+          if (discoverBackgroundPath != null)
+            'discoverBackgroundPath': discoverBackgroundPath,
+          if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
+          'isExplicit': _isExplicit,
+          'sampleStartSeconds': _sampleStart,
+          'sampleEndSeconds': _sampleEnd,
+          'discoverClipStartSeconds': _discoverClipStart,
+          'discoverClipEndSeconds': _discoverClipEnd,
+          if (_lyricsController.text.trim().isNotEmpty)
+            'lyricsPlainText': _lyricsController.text.trim(),
+          'optInFullSongRadio': _optInFullSongRadio,
+          'optInDjLivestreams': _optInDjLivestreams,
+          'optInDjArchivedMixes': _optInDjArchivedMixes,
+        },
+        preferDirectBackend: true,
+        timeout: const Duration(seconds: 90),
+      );
 
       if (!mounted) return;
       setState(() {
@@ -476,7 +483,12 @@ class _UploadScreenState extends State<UploadScreen> {
       });
     } catch (e) {
       if (mounted) {
-        setState(() => _error = e.toString());
+        final message = e is ApiException
+            ? (e.message.trim().isNotEmpty
+                ? e.message
+                : 'Upload failed (${e.statusCode})')
+            : e.toString();
+        setState(() => _error = message);
       }
     } finally {
       if (mounted) {

@@ -396,6 +396,10 @@ class PushNotificationService {
         return await settings.songApprovalAlertsEnabled;
       case 'followed_artist_new_upload':
       case 'app_update':
+      case 'new_follower':
+      case 'feed_post_liked':
+      case 'content_liked':
+      case 'song_liked':
         return true;
       default:
         return true;
@@ -483,8 +487,16 @@ class PushNotificationService {
       return;
     }
 
-    if (type == 'song_liked') {
-      onNotificationTap?.call({'type': 'song_liked'});
+    if (type == 'song_liked' || type == 'feed_post_liked') {
+      onNotificationTap?.call({'type': type});
+      return;
+    }
+
+    if (type == 'new_follower' && message.data['followerId'] != null) {
+      onNotificationTap?.call({
+        'type': 'new_follower',
+        'followerId': message.data['followerId'],
+      });
       return;
     }
 

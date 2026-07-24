@@ -12,7 +12,7 @@ import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
-import { promises as fs } from 'node:fs';
+import { existsSync, promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -88,13 +88,47 @@ export class SongsService {
   ) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
-    const ffmpegPath = configuredPath || bundledPath;
+    // Prefer system ffmpeg (Alpine Dockerfile installs `/usr/bin/ffmpeg`).
+    // `ffmpeg-static` is often a glibc binary and fails on musl.
+    const systemPath = existsSync('/usr/bin/ffmpeg')
+      ? '/usr/bin/ffmpeg'
+      : existsSync('/usr/local/bin/ffmpeg')
+        ? '/usr/local/bin/ffmpeg'
+        : '';
+    const ffmpegPath = configuredPath || systemPath || bundledPath;
     if (ffmpegPath) {
       ffmpeg.setFfmpegPath(ffmpegPath);
       this.ffmpegConfigured = true;
+      this.logger.log(`FFmpeg path: ${ffmpegPath}`);
     } else {
       this.ffmpegConfigured = false;
+      this.logger.warn('FFmpeg is not configured; Discover/sample trims will fail');
     }
+  }
+
+  /** Pick a real audio extension so ffmpeg can demux phone exports (m4a/aac). */
+  private guessAudioExtension(
+    sourceUrl: string,
+    contentType?: string | null,
+  ): string {
+    const ct = (contentType ?? '').toLowerCase();
+    const path = sourceUrl.toLowerCase().split('?')[0];
+    if (ct.includes('mpeg') || path.endsWith('.mp3')) return 'mp3';
+    if (ct.includes('wav') || path.endsWith('.wav')) return 'wav';
+    if (
+      ct.includes('mp4') ||
+      ct.includes('m4a') ||
+      ct.includes('aac') ||
+      path.endsWith('.m4a') ||
+      path.endsWith('.mp4') ||
+      path.endsWith('.aac')
+    ) {
+      return 'm4a';
+    }
+    if (ct.includes('flac') || path.endsWith('.flac')) return 'flac';
+    if (ct.includes('ogg') || path.endsWith('.ogg')) return 'ogg';
+    if (ct.includes('webm') || path.endsWith('.webm')) return 'webm';
+    return 'm4a';
   }
 
   private async createTrimmedDiscoverClip(params: {
@@ -121,9 +155,13 @@ export class SongsService {
     }
 
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const ext = this.guessAudioExtension(
+      params.sourceUrl,
+      sourceResponse.headers.get('content-type'),
+    );
     const inputPath = join(
       tmpdir(),
-      `discover-input-${params.songKey}-${runId}.bin`,
+      `discover-input-${params.songKey}-${runId}.${ext}`,
     );
     const outputPath = join(
       tmpdir(),
@@ -213,8 +251,18 @@ export class SongsService {
     }
 
     const runId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const inputPath = join(tmpdir(), `sample-input-${params.songKey}-${runId}.bin`);
-    const outputPath = join(tmpdir(), `sample-output-${params.songKey}-${runId}.mp3`);
+    const ext = this.guessAudioExtension(
+      params.sourceUrl,
+      sourceResponse.headers.get('content-type'),
+    );
+    const inputPath = join(
+      tmpdir(),
+      `sample-input-${params.songKey}-${runId}.${ext}`,
+    );
+    const outputPath = join(
+      tmpdir(),
+      `sample-output-${params.songKey}-${runId}.mp3`,
+    );
     const duration = Math.min(
       SONG_SAMPLE_MAX_SECONDS,
       Math.max(1, params.endSeconds - params.startSeconds),
@@ -275,6 +323,64 @@ export class SongsService {
     void this.regenerateSongSample(songId).catch(() => {
       // Best-effort: sample can be (re)generated later via the sample endpoint.
     });
+  }
+
+  /**
+   * Render the Discover clip from stored trim windows after upload succeeds.
+   * Failures are logged but never fail the upload itself.
+   */
+  generateDiscoverClipInBackground(songId: string): void {
+    void this.regenerateDiscoverClip(songId).catch((err) => {
+      this.logger.warn(
+        `Background Discover clip failed for ${songId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    });
+  }
+
+  private async regenerateDiscoverClip(songId: string): Promise<string | null> {
+    const supabase = getSupabaseClient();
+    const { data: song } = await supabase
+      .from('songs')
+      .select(
+        'id, artist_id, title, audio_url, discover_clip_url, discover_clip_start_seconds, discover_clip_end_seconds',
+      )
+      .eq('id', songId)
+      .single();
+    if (!song?.audio_url) return null;
+    const start = Number(song.discover_clip_start_seconds);
+    const end = Number(song.discover_clip_end_seconds);
+    if (
+      !Number.isFinite(start) ||
+      !Number.isFinite(end) ||
+      end <= start ||
+      end - start > this.discoverMaxClipSeconds
+    ) {
+      return null;
+    }
+    const discoverClipUrl = await this.createTrimmedDiscoverClip({
+      sourceUrl: song.discover_clip_url || song.audio_url,
+      artistId: song.artist_id,
+      songKey: (song.title ?? song.id)
+        .replace(/[^a-z0-9]+/gi, '-')
+        .toLowerCase()
+        .slice(0, 40),
+      startSeconds: start,
+      endSeconds: end,
+    });
+    await supabase
+      .from('songs')
+      .update({
+        discover_clip_url: discoverClipUrl,
+        discover_enabled: true,
+        discover_clip_duration_seconds: this.getDiscoverClipDuration(
+          start,
+          end,
+        ),
+      })
+      .eq('id', songId);
+    return discoverClipUrl;
   }
 
   private async regenerateSongSample(songId: string): Promise<string | null> {
@@ -1144,6 +1250,10 @@ export class SongsService {
       Number.isFinite(discoverClipStartSeconds) &&
       Number.isFinite(discoverClipEndSeconds);
 
+    // When the artist sets a Discover window, persist the range and trim in the
+    // background after insert. Sync ffmpeg trim used to fail the whole upload
+    // (m4a demux / missing Alpine ffmpeg) with a generic client 400.
+    let needsBackgroundDiscoverClip = false;
     if (hasTrimRange) {
       if (
         discoverClipStartSeconds < 0 ||
@@ -1161,17 +1271,10 @@ export class SongsService {
           `Discover clip trim range must be ${this.discoverMaxClipSeconds} seconds or less`,
         );
       }
-
-      // Admin-style server trim: render a separate discover clip file.
-      const trimSourceUrl = discoverClipUrl ?? createSongDto.audioUrl;
-      discoverClipUrl = await this.createTrimmedDiscoverClip({
-        sourceUrl: trimSourceUrl,
-        artistId: userId,
-        songKey: createSongDto.title.replace(/[^a-z0-9]+/gi, '-').toLowerCase(),
-        startSeconds: discoverClipStartSeconds,
-        endSeconds: discoverClipEndSeconds,
-      });
       discoverEnabled = true;
+      if (!discoverClipUrl) {
+        needsBackgroundDiscoverClip = true;
+      }
     } else if (discoverStartRaw != null || discoverEndRaw != null) {
       throw new BadRequestException(
         'Provide both discover clip start and end seconds to trim',
@@ -1361,6 +1464,9 @@ export class SongsService {
     // and Liked library can preview without exposing the full track.
     if (insertRes.data?.id) {
       this.generateSampleInBackground(insertRes.data.id);
+      if (needsBackgroundDiscoverClip) {
+        this.generateDiscoverClipInBackground(insertRes.data.id);
+      }
     }
 
     // Save lyrics and queue automatic caption alignment (non-blocking, like

@@ -24,6 +24,15 @@ BUILD_NUMBER="${BUILD_NUMBER:-56}"
 BUNDLE_ID="com.tmaktechnologies.networxradio"
 TEAM_ID="8QZ4S3G53V"
 
+# Native-assets hooks (objective_c) call `xcrun --sdk iphoneos` and fail if
+# DEVELOPER_DIR is unset / points at CommandLineTools.
+# shellcheck disable=SC1091
+source "$(dirname "$0")/xcode_env.sh"
+export PATH="$(cd "$(dirname "$0")" && pwd)/bin:$PATH"
+
+echo "==> Xcode: $("$DEVELOPER_DIR/usr/bin/xcodebuild" -version | head -1)"
+echo "==> SDKROOT: ${SDKROOT:-}"
+
 echo "==> Flutter clean / pub get"
 flutter clean
 flutter pub get

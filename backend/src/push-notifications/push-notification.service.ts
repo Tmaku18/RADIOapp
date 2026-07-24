@@ -326,6 +326,19 @@ export class PushNotificationService {
     const supabase = getSupabaseClient();
     const admin = getFirebaseAdmin();
 
+    // Server master kill switch (Settings → Enable Notifications).
+    const { data: recipient } = await supabase
+      .from('users')
+      .select('notifications_enabled')
+      .eq('id', dto.userId)
+      .maybeSingle();
+    if (recipient?.notifications_enabled === false) {
+      this.logger.debug(
+        `Skipping push for user ${dto.userId}: notifications_enabled=false`,
+      );
+      return false;
+    }
+
     // Get user's MOBILE device tokens only (web deprioritized for Phase 1)
     const { data: tokens, error } = await supabase
       .from('user_device_tokens')
@@ -683,22 +696,24 @@ export class PushNotificationService {
   }
 
   /**
-   * Users who favorited this artist (radio alert recipients).
+   * Users who favorited this song (star / library like). Radio alerts are
+   * song-scoped so listeners only hear about tracks they starred.
    */
-  private async loadFavoriterIds(artistId: string): Promise<Set<string>> {
+  private async loadSongFavoriterIds(
+    songId: string,
+    artistId: string,
+  ): Promise<Set<string>> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('artist_favorites')
+      .from('likes')
       .select('user_id')
-      .eq('artist_id', artistId);
+      .eq('song_id', songId);
 
     if (error) {
-      // Table missing during rolling deploys — fall back to followers so
-      // alerts don't go silent until migration lands.
       this.logger.warn(
-        `Failed to load artist favorites for fanout (${error.message}); falling back to followers`,
+        `Failed to load song favorites for fanout (${error.message})`,
       );
-      return this.loadFollowerIds(artistId);
+      return new Set();
     }
 
     const ids = new Set(
@@ -740,13 +755,15 @@ export class PushNotificationService {
   }
 
   /**
-   * Notify followers 5 or 1 minute before a followed artist's song plays.
+   * Notify listeners 5 or 1 minute before a song they favorited (starred) plays.
    */
   async notifyFollowersArtistUpNext(
     dto: ArtistSongOnRadioFanoutDto,
   ): Promise<{ notified: number; followers: number }> {
-    // Radio alerts go to favoriters only (not the full follow graph).
-    const favoriterIds = await this.loadFavoriterIds(dto.artistId);
+    const favoriterIds = await this.loadSongFavoriterIds(
+      dto.songId,
+      dto.artistId,
+    );
     if (favoriterIds.size === 0) {
       return { notified: 0, followers: 0 };
     }
@@ -764,9 +781,9 @@ export class PushNotificationService {
         : '';
     const title =
       minutes === 5
-        ? `${dto.artistName} plays in 5 minutes`
-        : `${dto.artistName} is up next`;
-    const body = `"${dto.songTitle}" plays in about ${minutes} minute${
+        ? `Your favorite plays in 5 minutes`
+        : `Your favorite is up next`;
+    const body = `"${dto.songTitle}" by ${dto.artistName} plays in about ${minutes} minute${
       minutes === 1 ? '' : 's'
     } on ${station}${first}.`;
     const notificationData = {
@@ -788,10 +805,10 @@ export class PushNotificationService {
     let notified = 0;
     await Promise.allSettled(
       [...targets].map(async (userId) => {
-        // 5-minute alerts skip the short up-next cooldown so both can fire.
+        // Cooldown is per song so other favorites can still alert.
         if (
           minutes === 1 &&
-          this.isFollowerUpNextInCooldown(userId, dto.artistId)
+          this.isFollowerUpNextInCooldown(userId, dto.songId)
         ) {
           return;
         }
@@ -803,7 +820,7 @@ export class PushNotificationService {
           data: notificationData,
         });
         if (minutes === 1) {
-          this.markFollowerUpNextCooldown(userId, dto.artistId);
+          this.markFollowerUpNextCooldown(userId, dto.songId);
         }
         if (sent) notified += 1;
         else notified += 1;
@@ -811,19 +828,21 @@ export class PushNotificationService {
     );
 
     this.logger.log(
-      `Follower T-${minutes}m fanout for ${dto.artistId}: ${notified}/${targets.size}`,
+      `Song-favorite T-${minutes}m fanout for ${dto.songId}: ${notified}/${targets.size}`,
     );
     return { notified, followers: targets.size };
   }
 
   /**
-   * Notify followers when an artist's song is currently playing on radio.
+   * Notify listeners when a song they favorited (starred) is on the radio.
    */
   async notifyFollowersArtistOnRadio(
     dto: ArtistSongOnRadioFanoutDto,
   ): Promise<{ notified: number; followers: number }> {
-    // On-air alerts go to favoriters only.
-    const favoriterIds = await this.loadFavoriterIds(dto.artistId);
+    const favoriterIds = await this.loadSongFavoriterIds(
+      dto.songId,
+      dto.artistId,
+    );
     if (favoriterIds.size === 0) {
       return { notified: 0, followers: 0 };
     }
@@ -840,9 +859,9 @@ export class PushNotificationService {
         : '';
     const title =
       dto.isFirstPlay === true
-        ? `${dto.artistName} is live for the first time`
-        : `${dto.artistName} is on the radio now`;
-    const body = `"${dto.songTitle}" is playing${first} on ${station}. Tune in now.`;
+        ? `Your favorite is live for the first time`
+        : `Your favorite is on the radio now`;
+    const body = `"${dto.songTitle}" by ${dto.artistName} is playing${first} on ${station}. Tune in now.`;
     const notificationData = {
       type:
         dto.isFirstPlay === true
@@ -863,7 +882,7 @@ export class PushNotificationService {
       [...targets].map(async (userId) => {
         if (
           dto.isFirstPlay !== true &&
-          this.isFollowerRadioInCooldown(userId, dto.artistId)
+          this.isFollowerRadioInCooldown(userId, dto.songId)
         ) {
           return;
         }
@@ -874,7 +893,7 @@ export class PushNotificationService {
           body,
           data: notificationData,
         });
-        this.markFollowerRadioCooldown(userId, dto.artistId);
+        this.markFollowerRadioCooldown(userId, dto.songId);
         if (sent) notified += 1;
         else notified += 1;
       }),

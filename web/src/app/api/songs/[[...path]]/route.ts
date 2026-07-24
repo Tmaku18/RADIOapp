@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendBaseUrls } from '@/lib/backend-url';
 
+export const runtime = 'nodejs';
+/** Song create can wait on storage/ffmpeg; keep the proxy alive long enough. */
+export const maxDuration = 60;
+
 /**
  * Proxy all /api/songs/* requests to the backend so upload and song endpoints
  * are reliably reached in production.
