@@ -412,7 +412,7 @@ export default function CreateDiscoverFeedVideoPage() {
     setError(null);
     clearRecordedPreview({ resetState: false });
     // Soft-pause live radio for countdown + take (clip audio is a separate element).
-    playback?.softPause();
+    playback?.actions.softPause();
     setCountdownRemaining(COUNTDOWN_SECONDS);
     setState('countdown');
     try {
