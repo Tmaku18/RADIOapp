@@ -676,7 +676,7 @@ export default function CreateDiscoverFeedVideoPage() {
             <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
-                onClick={clearRecordedPreview}
+                onClick={() => clearRecordedPreview()}
                 disabled={posting}
               >
                 Delete take
