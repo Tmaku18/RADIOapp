@@ -81,6 +81,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   String? _overlayUrl;
   double _overlayDuckVolume = 0.25;
   bool _userPaused = false;
+  bool _suppressVoiceOverlay = false;
 
   /// True when the listener tapped pause — audio is paused and muted until resume.
   bool get userPaused => _userPaused;
@@ -286,6 +287,20 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
+  /// True while THIS device is publishing the DJ booth mic (admin DJ Booth
+  /// screen). The booth admin must never play their own talk-over back:
+  /// starting the WHEP overlay reconfigures the shared iOS audio session
+  /// mid-WHIP-publish, which kills the outgoing mic capture — listeners then
+  /// get ducked music but silence. It would also echo the admin's own voice.
+  bool get suppressVoiceOverlay => _suppressVoiceOverlay;
+
+  Future<void> setSuppressVoiceOverlay(bool suppress) async {
+    _suppressVoiceOverlay = suppress;
+    if (suppress && (_overlayActive || whepVoice.isActive)) {
+      await stopVoiceOverlay();
+    }
+  }
+
   /// Duck the music and start playing the DJ voice [url] layered on top.
   /// WHEP URLs (`…/webRTC/play`) stream over WebRTC; anything else uses the
   /// legacy just_audio path. Safe to call repeatedly; restarts only when the
@@ -295,6 +310,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     double duckVolume = 0.25,
   }) async {
     if (_userPaused) return;
+    if (_suppressVoiceOverlay) return;
 
     final duck = duckVolume.clamp(0.0, 1.0);
     _overlayDuckVolume = duck;

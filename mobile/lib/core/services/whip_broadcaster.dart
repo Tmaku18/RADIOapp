@@ -170,6 +170,30 @@ class WhipBroadcaster {
     }
   }
 
+  /// True when the peer connection reports outbound audio RTP flowing.
+  /// Used by the DJ booth to verify the mic is actually reaching Cloudflare
+  /// (a connected WHIP session can still carry silence if the OS killed the
+  /// capture unit, e.g. after an audio-session reconfigure).
+  Future<bool> hasOutboundAudio() async {
+    final pc = _pc;
+    if (pc == null) return false;
+    try {
+      final stats = await pc.getStats();
+      for (final report in stats) {
+        if (report.type != 'outbound-rtp') continue;
+        final values = report.values;
+        final kind = (values['kind'] ?? values['mediaType'])?.toString();
+        if (kind != 'audio') continue;
+        final packets = values['packetsSent'];
+        final sent = packets is num
+            ? packets.toInt()
+            : int.tryParse(packets?.toString() ?? '') ?? 0;
+        if (sent > 0) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   bool toggleMic() {
     final track = _localStream?.getAudioTracks().isNotEmpty == true
         ? _localStream!.getAudioTracks().first

@@ -67,6 +67,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     unawaited(_eventSub?.cancel() ?? Future.value());
     unawaited(() async {
       await _micBroadcaster.dispose();
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
       if (_publishing) {
         await AudioPlayerService.restoreMusicSession();
       }
@@ -108,6 +109,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     if (_publishing) {
       await _micBroadcaster.dispose();
       _publishing = false;
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
     }
     setState(() {
       _stationId = stationId;
@@ -277,6 +279,10 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     final stationId = _stationId;
     if (whip == null || stationId == null || _publishing) return;
     try {
+      // This device is the broadcaster: it must NOT also play the talk-over
+      // back to itself. Starting the local WHEP overlay reconfigures the iOS
+      // audio session mid-publish, which silences the outgoing mic.
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(true);
       await AudioPlayerService.prepareForBroadcast();
       await _micBroadcaster.start(whip, video: false);
       if (!mounted) return;
@@ -286,8 +292,10 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
         await _booth.micOn(stationId);
         await _loadStatus();
       }
+      unawaited(_verifyOutboundAudio());
     } catch (e) {
       await _micBroadcaster.dispose();
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
       try {
         await AudioPlayerService.restoreMusicSession();
       } catch (_) {}
@@ -299,6 +307,21 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       try {
         await _booth.micOff(stationId);
       } catch (_) {}
+    }
+  }
+
+  /// A connected WHIP session can still carry silence if the OS killed the
+  /// capture unit. Check outbound RTP a moment after publish and surface a
+  /// clear warning instead of leaving listeners with ducked music and no voice.
+  Future<void> _verifyOutboundAudio() async {
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted || !_publishing) return;
+    final flowing = await _micBroadcaster.hasOutboundAudio();
+    if (!mounted || !_publishing) return;
+    if (!flowing) {
+      setState(() => _error =
+          'Mic connected but no audio is being sent. Toggle Mic Off/On to '
+          'restart the capture, and make sure no other app holds the mic.');
     }
   }
 
@@ -327,6 +350,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       } catch (_) {}
       await _micBroadcaster.dispose();
       _publishing = false;
+      await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
       await _booth.deleteMicSession(stationId);
       await AudioPlayerService.restoreMusicSession();
     });
