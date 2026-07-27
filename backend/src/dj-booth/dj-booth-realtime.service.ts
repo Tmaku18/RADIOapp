@@ -10,7 +10,12 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 export type DjBoothEvent =
   | { type: 'transport_pause'; positionSeconds: number }
   | { type: 'transport_play'; positionSeconds: number }
-  | { type: 'mic_on'; duckVolume: number; hlsUrl: string | null }
+  | {
+      type: 'mic_on';
+      duckVolume: number;
+      hlsUrl: string | null;
+      whepUrl: string | null;
+    }
   | { type: 'mic_off' }
   | { type: 'duck_volume'; duckVolume: number }
   | {

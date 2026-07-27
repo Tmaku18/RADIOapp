@@ -447,7 +447,11 @@ export class ArtistLiveService {
    * Called by the broadcaster after WHIP/RTMP publish succeeds so we don't
    * depend solely on Cloudflare webhooks to leave `starting` (black player).
    */
-  async markPublishing(firebaseUid: string, sessionId?: string) {
+  async markPublishing(
+    firebaseUid: string,
+    sessionId?: string,
+    ingestMode?: 'whip' | 'rtmp',
+  ) {
     this.ensureLiveEnabled();
     const supabase = getSupabaseClient();
     const dbUser = await this.getDbUser(firebaseUid);
@@ -468,6 +472,16 @@ export class ArtistLiveService {
       throw new NotFoundException('No active stream to mark live');
     }
     if (active.status === 'live' && active.started_at) {
+      // Still record the ingest mode so viewers pick the right player
+      // (WHIP streams are only playable via WHEP, RTMP via HLS).
+      if (ingestMode && active.metadata?.ingestMode !== ingestMode) {
+        await supabase
+          .from('artist_live_sessions')
+          .update({
+            metadata: { ...(active.metadata || {}), ingestMode },
+          })
+          .eq('id', active.id);
+      }
       return { live: true, sessionId: active.id, alreadyLive: true };
     }
     const nowIso = new Date().toISOString();
@@ -479,6 +493,7 @@ export class ArtistLiveService {
         metadata: {
           ...(active.metadata || {}),
           publishingConfirmedAt: nowIso,
+          ...(ingestMode ? { ingestMode } : {}),
         },
       })
       .eq('id', active.id);
@@ -682,6 +697,18 @@ export class ArtistLiveService {
           session.playback_dash_url || playback.dashUrl;
         session.watch_url = session.watch_url || playback.watchUrl;
       }
+    }
+
+    // WHEP playback URL: the ONLY way to watch a WHIP-published (in-app
+    // camera) stream — Cloudflare serves no HLS/DASH for WebRTC ingest.
+    if (session) {
+      const enriched = session as Record<string, unknown>;
+      enriched.whep_url = this.cloudflareStream.buildWhepUrl(
+        session.provider_input_uid,
+      );
+      enriched.ingest_mode =
+        (session.metadata as { ingestMode?: string } | null)?.ingestMode ??
+        null;
     }
 
     // Reflect true concurrent viewers (presence-based) rather than the cached
@@ -943,6 +970,13 @@ export class ArtistLiveService {
             ...(activeSession.metadata || {}),
             lastWebhook: payload.eventType,
             lastWebhookAt: nowIso,
+            // Webhooks with a video UID come from RTMP/SRT ingest (WHIP is a
+            // WebRTC passthrough that creates no video). Don't overwrite a
+            // mode the broadcaster already confirmed.
+            ...((activeSession.metadata as { ingestMode?: string } | null)
+              ?.ingestMode
+              ? {}
+              : { ingestMode: payload.videoUid ? 'rtmp' : 'whip' }),
           },
         })
         .eq('id', activeSession.id);

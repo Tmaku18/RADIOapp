@@ -576,10 +576,15 @@ export default function AdminSongsPage() {
 
   const handleReject = async () => {
     if (!rejectingId) return;
-    
+    const reason = rejectionReason.trim();
+    if (reason.length < 10) {
+      alert('Please provide a detailed rejection reason (at least 10 characters).');
+      return;
+    }
+
     setActionLoading(rejectingId);
     try {
-      await adminApi.updateSongStatus(rejectingId, 'rejected', rejectionReason || undefined);
+      await adminApi.updateSongStatus(rejectingId, 'rejected', reason);
       setSongs(songs.map(s => 
         s.id === rejectingId ? { ...s, status: 'rejected', rejection_reason: rejectionReason } : s
       ));
@@ -1252,15 +1257,21 @@ export default function AdminSongsPage() {
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Reject Song</h3>
             <p className="text-gray-600 mb-4">
-              Provide a reason for rejection (optional). The artist will be notified and have 48 hours to respond before the song is deleted.
+              Explain clearly why this song is being rejected (required, at least 10 characters). The artist and other admins will see this exact explanation. The artist has 48 hours to respond before the song may be deleted.
             </p>
             <textarea
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="e.g., Audio quality issues, copyright concerns, explicit content..."
+              placeholder="e.g., Audio is distorted / low quality — please re-export as WAV or 320kbps MP3 and re-upload. Or: Possible copyright match with another recording — if you own the rights, contact support with proof."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-500 focus:ring-2 focus:ring-red-500 focus:border-red-500 resize-none"
-              rows={3}
+              rows={4}
             />
+            {rejectionReason.trim().length > 0 &&
+              rejectionReason.trim().length < 10 && (
+                <p className="text-xs text-red-600 mt-2">
+                  Add a bit more detail (at least 10 characters).
+                </p>
+              )}
             <div className="flex justify-end gap-3 mt-4">
               <button
                 onClick={() => {
@@ -1273,7 +1284,10 @@ export default function AdminSongsPage() {
               </button>
               <button
                 onClick={handleReject}
-                disabled={actionLoading === rejectingId}
+                disabled={
+                  actionLoading === rejectingId ||
+                  rejectionReason.trim().length < 10
+                }
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
               >
                 {actionLoading === rejectingId ? 'Rejecting...' : 'Reject Song'}

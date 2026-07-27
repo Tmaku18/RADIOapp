@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import Hls from 'hls.js';
@@ -17,6 +17,10 @@ type WatchSession = {
   title?: string | null;
   playback_hls_url?: string | null;
   watch_url?: string | null;
+  /** WHEP (WebRTC) playback URL — the only way to watch WHIP-published streams. */
+  whep_url?: string | null;
+  /** 'whip' (in-app camera) | 'rtmp' (OBS) | null when unknown. */
+  ingest_mode?: string | null;
   current_viewers?: number;
 };
 
@@ -203,6 +207,156 @@ function HlsPlayer({ src }: { src: string }) {
   );
 }
 
+/**
+ * WHEP (WebRTC) live player. Streams published from the in-app camera use
+ * WHIP ingest, for which Cloudflare produces NO HLS/DASH — the iframe player
+ * and hls.js sit on a black screen forever. WHEP is the only playback path
+ * for those streams (and gives sub-second latency as a bonus).
+ */
+function WhepPlayer({
+  src,
+  onPermanentFailure,
+}: {
+  src: string;
+  onPermanentFailure?: () => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [status, setStatus] = useState<'connecting' | 'playing'>('connecting');
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    let destroyed = false;
+    let pc: RTCPeerConnection | null = null;
+    let resourceUrl: string | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let failures = 0;
+    const MAX_FAILURES = 8;
+
+    const teardown = () => {
+      if (resourceUrl) {
+        void fetch(resourceUrl, { method: 'DELETE' }).catch(() => undefined);
+        resourceUrl = null;
+      }
+      try {
+        pc?.close();
+      } catch {
+        // ignore
+      }
+      pc = null;
+    };
+
+    const scheduleRetry = () => {
+      if (destroyed) return;
+      failures += 1;
+      teardown();
+      if (failures > MAX_FAILURES) {
+        onPermanentFailure?.();
+        return;
+      }
+      setStatus('connecting');
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => {
+        if (!destroyed) void connect();
+      }, 2500);
+    };
+
+    const connect = async () => {
+      teardown();
+      const peer = new RTCPeerConnection({
+        iceServers: [{ urls: 'stun:stun.cloudflare.com:3478' }],
+      });
+      pc = peer;
+      peer.addTransceiver('video', { direction: 'recvonly' });
+      peer.addTransceiver('audio', { direction: 'recvonly' });
+      peer.ontrack = (event) => {
+        if (destroyed) return;
+        const stream = event.streams[0] ?? new MediaStream([event.track]);
+        if (video.srcObject !== stream) {
+          video.srcObject = stream;
+        }
+        setStatus('playing');
+        failures = 0;
+        video.play().catch(() => undefined);
+      };
+      peer.onconnectionstatechange = () => {
+        if (
+          peer.connectionState === 'failed' ||
+          peer.connectionState === 'disconnected'
+        ) {
+          scheduleRetry();
+        }
+      };
+
+      try {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        await new Promise<void>((resolve) => {
+          if (peer.iceGatheringState === 'complete') return resolve();
+          const timeout = setTimeout(() => resolve(), 2500);
+          const check = () => {
+            if (peer.iceGatheringState === 'complete') {
+              clearTimeout(timeout);
+              peer.removeEventListener('icegatheringstatechange', check);
+              resolve();
+            }
+          };
+          peer.addEventListener('icegatheringstatechange', check);
+        });
+
+        const res = await fetch(src, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/sdp' },
+          body: peer.localDescription?.sdp ?? offer.sdp ?? '',
+        });
+        if (!res.ok) throw new Error(`WHEP negotiation failed (${res.status})`);
+        const location = res.headers.get('Location');
+        if (location) {
+          try {
+            resourceUrl = new URL(location, src).toString();
+          } catch {
+            resourceUrl = location;
+          }
+        }
+        const answer = await res.text();
+        if (destroyed) return;
+        await peer.setRemoteDescription({ type: 'answer', sdp: answer });
+      } catch {
+        scheduleRetry();
+      }
+    };
+
+    void connect();
+
+    return () => {
+      destroyed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      teardown();
+      video.srcObject = null;
+    };
+  }, [src, onPermanentFailure]);
+
+  return (
+    <div className="relative">
+      <video
+        ref={videoRef}
+        className="aspect-video w-full rounded-lg border border-border bg-black"
+        controls
+        autoPlay
+        muted
+        playsInline
+      />
+      {status !== 'playing' && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <span className="rounded-full bg-black/70 px-3 py-1.5 text-xs text-white">
+            Connecting to live stream…
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function WatchArtistLivePage() {
   const params = useParams<{ artistId: string }>();
   const artistId = useMemo(
@@ -227,6 +381,22 @@ export default function WatchArtistLivePage() {
   const [donationNotice, setDonationNotice] = useState<string | null>(null);
 
   const isDj = hostRole === 'dj';
+
+  // WHEP is required for in-app camera (WHIP) broadcasts; when the ingest
+  // mode is unknown we try WHEP first and fall back to iframe/HLS if it
+  // never connects (i.e. the stream is actually RTMP).
+  const [whepFailedSessionId, setWhepFailedSessionId] = useState<string | null>(
+    null,
+  );
+  const sessionIdRef = useRef<string | null>(null);
+  sessionIdRef.current = session?.id ?? null;
+  const handleWhepFailure = useCallback(() => {
+    setWhepFailedSessionId(sessionIdRef.current);
+  }, []);
+  const useWhepPlayer =
+    !!session?.whep_url &&
+    session.ingest_mode !== 'rtmp' &&
+    whepFailedSessionId !== session.id;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -432,10 +602,26 @@ export default function WatchArtistLivePage() {
           ) : (
             <div className="space-y-3">
               <div className="relative">
-              {session?.watch_url ? (
-                // Cloudflare's own player handles the live startup window (WHIP →
-                // HLS) and low-latency playback far more reliably than a custom
-                // hls.js setup, so it's the primary viewer.
+              {useWhepPlayer && session?.whep_url ? (
+                // In-app camera broadcasts publish via WHIP, which Cloudflare
+                // only serves back over WHEP (WebRTC) — the iframe and HLS
+                // players would sit on a black screen forever.
+                <div className="relative">
+                  <WhepPlayer
+                    src={session.whep_url}
+                    onPermanentFailure={handleWhepFailure}
+                  />
+                  {session.status === 'starting' && (
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/55">
+                      <span className="rounded-full bg-black/80 px-3 py-1.5 text-xs text-white">
+                        Waiting for broadcaster to connect…
+                      </span>
+                    </div>
+                  )}
+                </div>
+              ) : session?.watch_url ? (
+                // OBS/RTMP broadcasts transcode to HLS, so Cloudflare's own
+                // player works and handles the live startup window well.
                 <div className="relative aspect-video w-full overflow-hidden rounded-lg border border-border bg-black">
                   <iframe
                     className="absolute inset-0 h-full w-full"

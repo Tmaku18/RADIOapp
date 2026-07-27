@@ -100,6 +100,29 @@ IOS_APP_STORE_TIP_199_PRODUCT_ID=nwx_tip_199
 3. No Stripe PaymentSheet on iOS/Android for those flows.
 4. Web Stripe checkout / tips still work.
 
+## Troubleshooting: `StoreKit: Failed to get response from platform`
+
+This is Apple returning **zero products** for the queried SKU (usually
+`nwx_pro_networx_monthly`). It is almost never a Flutter code bug.
+
+Fix in **App Store Connect** (in order):
+
+1. **Agreements** → Paid Apps Agreement, Banking, and Tax are **Active**.
+2. **Subscriptions** → group “Pro-Networx” → product ID exactly
+   `nwx_pro_networx_monthly` with at least one **localization** (display name +
+   description).
+3. Add the **$9.99/mo** price and a **$4.99 intro offer** (first month).
+4. Product status must not be blank / missing metadata. “Ready to Submit” is
+   enough for Sandbox; Waiting for Review with incomplete metadata often fails.
+5. On the test device: **Settings → Developer → Sandbox Apple Account** (or
+   sign out of a production App Store account before Sandbox testing).
+6. After creating/editing the product, wait a few minutes, force-quit the app,
+   retry. The paywall now prefetches the SKU and shows a Retry button.
+
+Local Xcode testing: open `ios/Runner.xcworkspace` → Product → Scheme → Edit
+Scheme → Run → Options → StoreKit Configuration →
+`Configuration.storekit`.
+
 ## What this is not
 
 - **Apple Pay** / **Google Wallet** via Stripe are not used for these digital goods on mobile.

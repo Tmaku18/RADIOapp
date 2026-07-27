@@ -394,6 +394,10 @@ class PushNotificationService {
       case 'song_approved':
       case 'song_rejected':
         return await settings.songApprovalAlertsEnabled;
+      case 'song_pending_review':
+      case 'admin_song_status':
+        // Admin review alerts — always surface when the device is an admin app.
+        return true;
       case 'followed_artist_new_upload':
       case 'app_update':
       case 'new_follower':

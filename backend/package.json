@@ -17,7 +17,9 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json --forceExit",
+    "test:routes:inventory": "ts-node -r tsconfig-paths/register scripts/list-routes.ts",
+    "test:routes": "npm run test:routes:inventory && jest --config ./test/jest-e2e.json --runInBand --forceExit --testPathPatterns=routes.auth"
   },
   "dependencies": {
     "@apple/app-store-server-library": "^3.1.0",

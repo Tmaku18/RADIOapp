@@ -159,6 +159,7 @@ export class DjBoothService {
         cloudflare_uid: ingest.inputUid,
         whip_url: ingest.webRtcUrl,
         hls_playback_url: ingest.hlsUrl,
+        whep_playback_url: ingest.whepUrl,
         status: 'active',
       })
       .select('*')
@@ -171,23 +172,23 @@ export class DjBoothService {
       );
     }
 
+    // The mic is NOT live yet: the admin's browser still has to complete the
+    // WHIP publish. The web booth calls POST /mic/on once publishing succeeds,
+    // which flips micActive and broadcasts mic_on to listeners.
     const booth: RadioBoothState = {
-      micActive: true,
+      micActive: false,
       duckVolume: 0.25,
       hlsUrl: ingest.hlsUrl,
+      whepUrl: ingest.whepUrl,
       sessionId: session.id,
     };
     await this.radioStateService.setBoothState(booth, radioId);
-    await this.realtime.broadcast(radioId, {
-      type: 'mic_on',
-      duckVolume: booth.duckVolume,
-      hlsUrl: ingest.hlsUrl,
-    });
 
     return {
       sessionId: session.id,
       whipUrl: ingest.webRtcUrl,
       hlsPlaybackUrl: ingest.hlsUrl,
+      whepPlaybackUrl: ingest.whepUrl,
       rtmpUrl: ingest.rtmpUrl,
       streamKey: ingest.streamKey,
     };
@@ -227,7 +228,28 @@ export class DjBoothService {
       (await this.radioStateService.getBoothState(radioId)) ??
       (await this.radioStateService.getDefaultBoothState());
 
-    if (!booth.hlsUrl) {
+    if (!booth.whepUrl) {
+      // Redis may have lost the booth state (restart/eviction); rebuild it
+      // from the active session row so mic-on still works.
+      const supabase = getSupabaseClient();
+      const { data: session } = await supabase
+        .from('dj_booth_sessions')
+        .select('id, cloudflare_uid, hls_playback_url, whep_playback_url')
+        .eq('station_id', radioId)
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (session) {
+        booth.sessionId = session.id;
+        booth.hlsUrl = session.hls_playback_url ?? booth.hlsUrl;
+        booth.whepUrl =
+          session.whep_playback_url ??
+          this.cloudflareStream.buildWhepUrl(session.cloudflare_uid);
+      }
+    }
+
+    if (!booth.whepUrl) {
       throw new BadRequestException('Connect mic session first');
     }
 
@@ -237,6 +259,7 @@ export class DjBoothService {
       type: 'mic_on',
       duckVolume: booth.duckVolume,
       hlsUrl: booth.hlsUrl,
+      whepUrl: booth.whepUrl,
     });
 
     return { micActive: true, duckVolume: booth.duckVolume };

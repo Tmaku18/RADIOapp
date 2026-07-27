@@ -107,10 +107,23 @@ If Play product IDs differ from defaults, configure `.env` keys:
 
 - `flutter analyze`
 - `flutter test`
+- `flutter test integration_test/app_smoke_test.dart` (device/emulator)
 - `flutter devices`
 - `flutter run -d <device-id>`
+
+## Testing
+
+```bash
+flutter pub get
+flutter test
+# Optional device smoke:
+flutter test integration_test/app_smoke_test.dart
+```
+
+See [`../docs/testing.md`](../docs/testing.md) for the full runbook (backend route matrix + CI).
 
 ## Related docs
 
 - Parity matrix: `../docs/mobile-web-parity-matrix.md`
+- Testing: `../docs/testing.md`
 - Troubleshooting: `./TROUBLESHOOTING.md`

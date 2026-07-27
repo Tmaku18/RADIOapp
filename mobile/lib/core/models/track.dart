@@ -213,20 +213,37 @@ class Track {
 
 class DjOverlay {
   final bool active;
+
+  /// Legacy HLS URL — Cloudflare never serves HLS for WHIP-published mics.
   final String? hlsUrl;
+
+  /// WHEP (WebRTC) playback URL — the stream listeners actually play.
+  final String? whepUrl;
   final double duckVolume;
 
   const DjOverlay({
     required this.active,
     this.hlsUrl,
+    this.whepUrl,
     this.duckVolume = 0.25,
   });
+
+  /// Best URL to play: prefer WHEP (works for WHIP-ingested mics), fall back
+  /// to HLS for legacy sessions.
+  String? get streamUrl {
+    final whep = whepUrl?.trim();
+    if (whep != null && whep.isNotEmpty) return whep;
+    final hls = hlsUrl?.trim();
+    if (hls != null && hls.isNotEmpty) return hls;
+    return null;
+  }
 
   factory DjOverlay.fromJson(Map<String, dynamic> json) {
     final duck = json['duck_volume'] ?? json['duckVolume'];
     return DjOverlay(
       active: json['active'] == true,
       hlsUrl: (json['hls_url'] ?? json['hlsUrl'])?.toString(),
+      whepUrl: (json['whep_url'] ?? json['whepUrl'])?.toString(),
       duckVolume: duck is num ? duck.toDouble() : 0.25,
     );
   }

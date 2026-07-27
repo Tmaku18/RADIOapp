@@ -10,6 +10,7 @@ import '../../core/services/livestream_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/play_billing_service.dart';
 import '../../core/utils/mobile_store.dart';
+import 'widgets/live_stream_viewer.dart';
 
 class WatchLiveScreen extends StatefulWidget {
   final String artistId;
@@ -238,6 +239,9 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
     }
   }
 
+  /// Browser fallback — only useful for OBS/RTMP streams, where Cloudflare's
+  /// iframe (an HLS player) actually works. WHIP (in-app camera) broadcasts
+  /// produce no HLS, so the browser player would sit on a black screen.
   Future<void> _openPlayback() async {
     final url =
         (_session?['watch_url'] ?? _session?['playback_hls_url'])?.toString();
@@ -246,6 +250,8 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
     if (uri == null) return;
     await launchUrl(uri, mode: LaunchMode.externalApplication);
   }
+
+  bool get _isRtmpStream => _session?['ingest_mode']?.toString() == 'rtmp';
 
   int get _amountCents {
     if (isMobileStorePlatform) {
@@ -380,11 +386,22 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
                       const SizedBox(height: 8),
                       Text('$_viewers watching now'),
                       const SizedBox(height: 12),
-                      FilledButton.icon(
-                        onPressed: _openPlayback,
-                        icon: const Icon(Icons.play_circle_fill),
-                        label: const Text('Open stream'),
+                      // In-app player. Key on the session so a new stream
+                      // rebuilds the player from scratch.
+                      LiveStreamViewer(
+                        key: ValueKey(_session?['id']?.toString() ?? 'live'),
+                        whepUrl: _session?['whep_url']?.toString(),
+                        hlsUrl: _session?['playback_hls_url']?.toString(),
+                        ingestMode: _session?['ingest_mode']?.toString(),
                       ),
+                      if (_isRtmpStream) ...[
+                        const SizedBox(height: 8),
+                        TextButton.icon(
+                          onPressed: _openPlayback,
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Open in browser'),
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       Text(
                         'Support this stream',

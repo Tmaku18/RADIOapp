@@ -39,9 +39,13 @@ export class ArtistLiveController {
   @Post('publishing')
   async markPublishing(
     @CurrentUser() user: FirebaseUser,
-    @Body() body?: { sessionId?: string },
+    @Body() body?: { sessionId?: string; ingestMode?: 'whip' | 'rtmp' },
   ) {
-    return this.artistLive.markPublishing(user.uid, body?.sessionId);
+    const ingestMode =
+      body?.ingestMode === 'whip' || body?.ingestMode === 'rtmp'
+        ? body.ingestMode
+        : undefined;
+    return this.artistLive.markPublishing(user.uid, body?.sessionId, ingestMode);
   }
 
   @Get('sessions')

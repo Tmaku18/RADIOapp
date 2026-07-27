@@ -39,9 +39,15 @@ class LivestreamService {
   }
 
   /// Promote starting → live after the device successfully publishes via WHIP.
-  Future<Map<String, dynamic>?> markPublishing({String? sessionId}) async {
+  /// [ingestMode] tells viewers which player works: 'whip' streams are only
+  /// playable via WHEP (WebRTC), 'rtmp' (OBS) via HLS.
+  Future<Map<String, dynamic>?> markPublishing({
+    String? sessionId,
+    String? ingestMode,
+  }) async {
     final data = await _api.post('artist-live/publishing', {
       if (sessionId != null) 'sessionId': sessionId,
+      if (ingestMode != null) 'ingestMode': ingestMode,
     });
     return data is Map<String, dynamic> ? data : null;
   }

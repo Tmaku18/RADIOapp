@@ -6,6 +6,7 @@ import { AdminModule } from '../admin/admin.module';
 import { CopyrightModule } from '../copyright/copyright.module';
 import { LyricsModule } from '../lyrics/lyrics.module';
 import { PushNotificationModule } from '../push-notifications/push-notification.module';
+import { EmailModule } from '../email/email.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { PushNotificationModule } from '../push-notifications/push-notification.
     CopyrightModule,
     LyricsModule,
     PushNotificationModule,
+    EmailModule,
   ],
   controllers: [SongsController],
   providers: [SongsService],

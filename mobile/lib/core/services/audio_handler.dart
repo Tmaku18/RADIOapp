@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../brand/brand_assets.dart';
+import 'whep_player.dart';
 
 /// App-wide audio handler that owns two [AudioPlayer]s so the live DJ voice
 /// can be layered on top of the radio music:
@@ -26,6 +27,17 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     music.setVolume(1.0);
     _wireMusicToNotification();
     _wireVoiceAutoRestore();
+    // If the WHEP mic connection dies for good (DJ vanished without mic_off),
+    // restore the music instead of leaving it ducked with no voice.
+    whepVoice.onPermanentFailure = () {
+      if (_overlayActive) {
+        _overlayActive = false;
+        _overlayUrl = null;
+        if (!_userPaused) {
+          music.setVolume(_baseMusicVolume);
+        }
+      }
+    };
   }
 
   /// Primary content player (radio + previews). Exposed via
@@ -52,8 +64,14 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     ),
   );
 
-  /// Secondary player used only for the DJ voice-over overlay.
+  /// Secondary player used only for the DJ voice-over overlay (legacy HLS /
+  /// soundboard clip URLs).
   final AudioPlayer voice = AudioPlayer();
+
+  /// WebRTC receiver for WHEP talk-over streams. Cloudflare only supports
+  /// WebRTC playback for WHIP-published DJ mics (no HLS is generated), so the
+  /// live booth overlay plays through this instead of [voice].
+  final WhepPlayer whepVoice = WhepPlayer();
 
   /// User-facing music volume (0..1) to restore to after a DJ talk-over ends.
   double _baseMusicVolume = 1.0;
@@ -113,12 +131,18 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   /// missed `mic_off`, the live HLS ending, or a network drop), make sure the
   /// music is restored to the user's base volume. Otherwise a ducked overlay
   /// that is no longer audible would leave the radio stuck playing quietly.
+  /// True when the active overlay streams over WebRTC (WHEP) rather than the
+  /// just_audio [voice] player.
+  bool get _overlayIsWhep => _overlayUrl?.contains('/webRTC/play') ?? false;
+
   void _wireVoiceAutoRestore() {
     voice.playerStateStream.listen((state) {
       final hasStopped = !state.playing &&
           (state.processingState == ProcessingState.idle ||
               state.processingState == ProcessingState.completed);
-      if (hasStopped && _overlayActive) {
+      // WHEP overlays don't use the just_audio voice player, so its idle
+      // state says nothing about the live talk-over.
+      if (hasStopped && _overlayActive && !_overlayIsWhep) {
         _overlayActive = false;
         _overlayUrl = null;
         if (!_userPaused) {
@@ -126,7 +150,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
         }
       }
     }, onError: (Object _, StackTrace _) {
-      if (_overlayActive) {
+      if (_overlayActive && !_overlayIsWhep) {
         _overlayActive = false;
         _overlayUrl = null;
         if (!_userPaused) {
@@ -209,14 +233,16 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       // Do NOT pause the music — keep it playing silently so it never drifts
       // off the live position.
       await music.setVolume(0);
+      whepVoice.setMuted(true);
       try {
         await voice.pause();
         await voice.setVolume(0);
       } catch (_) {}
     } else {
       await applyOutputVolume();
+      whepVoice.setMuted(false);
       try {
-        if (_overlayActive) {
+        if (_overlayActive && !_overlayIsWhep) {
           await voice.setVolume(1.0);
         }
       } catch (_) {}
@@ -259,8 +285,9 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     }
   }
 
-  /// Duck the music and start playing the DJ voice [url] (typically an HLS
-  /// stream) layered on top. Safe to call repeatedly; restarts only when the
+  /// Duck the music and start playing the DJ voice [url] layered on top.
+  /// WHEP URLs (`…/webRTC/play`) stream over WebRTC; anything else uses the
+  /// legacy just_audio path. Safe to call repeatedly; restarts only when the
   /// source URL changes.
   Future<void> startVoiceOverlay(
     String url, {
@@ -271,6 +298,32 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     final duck = duckVolume.clamp(0.0, 1.0);
     _overlayDuckVolume = duck;
 
+    if (url.contains('/webRTC/play')) {
+      // Already connected to this talk-over: just (re)apply the duck level.
+      if (_overlayUrl == url && whepVoice.isActive) {
+        _overlayActive = true;
+        await music.setVolume(duck);
+        return;
+      }
+      // Make sure the legacy overlay player isn't also running.
+      try {
+        await voice.stop();
+      } catch (_) {}
+      _overlayUrl = url;
+      try {
+        whepVoice.setMuted(false);
+        await whepVoice.start(url);
+        await music.setVolume(duck);
+        _overlayActive = true;
+      } catch (_) {
+        _overlayUrl = null;
+        _overlayActive = false;
+        await whepVoice.stop();
+        await music.setVolume(_baseMusicVolume);
+      }
+      return;
+    }
+
     // Already streaming this talk-over: just (re)apply the duck level.
     if (_overlayUrl == url && voice.playing) {
       _overlayActive = true;
@@ -278,6 +331,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
+    await whepVoice.stop();
     _overlayUrl = url;
     try {
       await voice.setAudioSource(AudioSource.uri(Uri.parse(url)));
@@ -310,6 +364,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> stopVoiceOverlay() async {
     _overlayActive = false;
     _overlayUrl = null;
+    await whepVoice.stop();
     try {
       await voice.stop();
     } catch (_) {
@@ -320,6 +375,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> dispose() async {
+    await whepVoice.stop();
     await voice.dispose();
     await music.dispose();
   }

@@ -57,7 +57,19 @@ export default function SongsPage() {
       const token = await getIdToken();
       if (!token) return;
 
-      await adminApi.updateSongStatus(token, songId, newStatus);
+      let reason: string | undefined;
+      if (newStatus === 'rejected') {
+        const input = window.prompt(
+          'Explain why this song is rejected (required). The artist and other admins will see this:',
+        );
+        reason = (input || '').trim();
+        if (reason.length < 10) {
+          alert('A detailed rejection reason is required (at least 10 characters).');
+          return;
+        }
+      }
+
+      await adminApi.updateSongStatus(token, songId, newStatus, reason);
 
       // Update local state. Clear rejection context when approving.
       setSongs(songs =>
@@ -69,7 +81,7 @@ export default function SongsPage() {
                 updated_at: new Date().toISOString(),
                 ...(newStatus === 'approved'
                   ? { rejection_reason: null, rejected_at: null }
-                  : {}),
+                  : { rejection_reason: reason ?? null, rejected_at: new Date().toISOString() }),
               }
             : song
         )

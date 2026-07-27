@@ -209,7 +209,7 @@ export default function GoLiveStudioPage() {
                   startCameraOff={hostKind === 'dj'}
                   onPublishing={() => {
                     void artistLiveApi
-                      .markPublishing(sessionId ?? undefined)
+                      .markPublishing(sessionId ?? undefined, 'whip')
                       .catch(() => undefined);
                   }}
                   onError={(message) => {

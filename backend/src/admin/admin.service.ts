@@ -9,6 +9,7 @@ import { signSongAudioUrl } from '../common/song-audio.util';
 import { getFirebaseAuth } from '../config/firebase.config';
 import { EmailService } from '../email/email.service';
 import { RadioService } from '../radio/radio.service';
+import { PushNotificationService } from '../push-notifications/push-notification.service';
 import {
   normalizeSongStationId,
   STATION_IDS,
@@ -33,10 +34,12 @@ export class AdminService {
   private readonly songsCache = new Map<string, { data: any[]; updatedAt: number }>();
   private readonly queueCache = new Map<string, { data: any; updatedAt: number }>();
   private readonly cacheTtlMs = 5 * 60 * 1000;
+  private readonly minRejectionReasonLength = 10;
 
   constructor(
     private readonly emailService: EmailService,
     private readonly radioService: RadioService,
+    private readonly pushNotificationService: PushNotificationService,
   ) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
@@ -295,6 +298,15 @@ export class AdminService {
     adminId?: string,
   ) {
     const supabase = getSupabaseClient();
+    const trimmedReason = (reason || '').trim();
+
+    if (status === 'rejected') {
+      if (trimmedReason.length < this.minRejectionReasonLength) {
+        throw new BadRequestException(
+          `A detailed rejection reason is required (at least ${this.minRejectionReasonLength} characters) so the artist knows what to fix.`,
+        );
+      }
+    }
 
     // Get song with artist info
     const { data: existingSong, error: fetchError } = await supabase
@@ -311,6 +323,14 @@ export class AdminService {
 
     const previousStatus = existingSong.status;
     const now = new Date().toISOString();
+    const artistUser = existingSong.users as
+      | { id?: string; email?: string; display_name?: string }
+      | null;
+    const artistName =
+      artistUser?.display_name?.trim() ||
+      artistUser?.email ||
+      'Artist';
+    const artistEmail = artistUser?.email || null;
 
     // Build update object with audit columns
     const updateData: any = {
@@ -318,11 +338,11 @@ export class AdminService {
       updated_at: now,
       status_changed_at: now,
       status_changed_by: adminId || null,
-      status_change_reason: reason || null,
+      status_change_reason: trimmedReason || null,
     };
 
     if (status === 'rejected') {
-      updateData.rejection_reason = reason || null;
+      updateData.rejection_reason = trimmedReason;
       updateData.rejected_at = now;
       updateData.admin_free_rotation = false;
       // Keep rejected songs out of every public/rotation query.
@@ -363,7 +383,6 @@ export class AdminService {
 
     // Only send notifications if status actually changed
     if (previousStatus !== status) {
-      // Create notification for artist
       let notificationType: string;
       let notificationTitle: string;
       let notificationMessage: string;
@@ -371,37 +390,46 @@ export class AdminService {
       if (status === 'approved') {
         notificationType = 'song_approved';
         notificationTitle = 'Song Approved!';
-        notificationMessage = `Your song "${existingSong.title}" has been approved and is now live!`;
+        notificationMessage = `Your song "${existingSong.title}" has been approved and is now live on Networx Radio.`;
       } else if (status === 'rejected') {
         notificationType = 'song_rejected';
-        notificationTitle = 'Song Rejected';
-        notificationMessage = `Your song "${existingSong.title}" was not approved.${reason ? ` Reason: ${reason}` : ''} You have 48 hours to contact support.`;
+        notificationTitle = 'Song not approved';
+        notificationMessage = `Your song "${existingSong.title}" was not approved.\n\nWhy: ${trimmedReason}\n\nYou can fix this and upload again, or contact support within 48 hours if you believe this was a mistake.`;
       } else {
         notificationType = 'song_status_changed';
         notificationTitle = 'Song Status Updated';
         notificationMessage = `Your song "${existingSong.title}" has been moved back to pending review.`;
       }
 
-      await supabase.from('notifications').insert({
-        user_id: existingSong.artist_id,
-        type: notificationType,
-        title: notificationTitle,
-        message: notificationMessage,
-        metadata: {
-          songId,
-          songTitle: existingSong.title,
-          previousStatus,
-          newStatus: status,
-          reason: reason || null,
-        },
-      });
+      // FCM + in-app history for the artist
+      void this.pushNotificationService
+        .sendPushNotification({
+          userId: existingSong.artist_id,
+          title: notificationTitle,
+          body: notificationMessage,
+          data: {
+            type: notificationType,
+            songId,
+            songTitle: existingSong.title,
+            previousStatus: String(previousStatus ?? ''),
+            newStatus: status,
+            reason: trimmedReason,
+            action: 'open_studio',
+            route: '/studio',
+          },
+        })
+        .catch((err) => {
+          this.logger.warn(
+            `Artist status push failed for song ${songId}: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
 
       this.logger.log(
         `Song ${songId} status changed: ${previousStatus} -> ${status}`,
       );
 
-      // Send email notification for approve/reject
-      const artistEmail = (existingSong.users as any)?.email;
       if (artistEmail) {
         if (status === 'approved') {
           await this.emailService.sendSongApprovedEmail(
@@ -412,13 +440,98 @@ export class AdminService {
           await this.emailService.sendSongRejectedEmail(
             artistEmail,
             existingSong.title,
-            reason,
+            trimmedReason,
           );
+        }
+      }
+
+      // Keep other admins in the loop (especially on rejections with reasons).
+      if (status === 'approved' || status === 'rejected') {
+        void this.pushNotificationService
+          .notifyAdminsSongStatusChange({
+            songId,
+            songTitle: existingSong.title,
+            artistId: existingSong.artist_id,
+            artistName,
+            artistEmail,
+            status,
+            reason: trimmedReason || null,
+            excludeUserId: adminId || null,
+          })
+          .catch((err) => {
+            this.logger.warn(
+              `Admin status fanout failed for song ${songId}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
+
+        if (status === 'rejected') {
+          void this.emailAdminsSongRejected({
+            songId,
+            songTitle: existingSong.title,
+            artistName,
+            artistEmail,
+            reason: trimmedReason,
+            excludeUserId: adminId || null,
+          }).catch((err) => {
+            this.logger.warn(
+              `Admin rejection emails failed for song ${songId}: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+            );
+          });
         }
       }
     }
 
     return data;
+  }
+
+  private getAdminAllowlistEmails(): string[] {
+    const raw = process.env.ADMIN_EMAILS || '';
+    if (!raw.trim()) return [];
+    return raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  private async emailAdminsSongRejected(params: {
+    songId: string;
+    songTitle: string;
+    artistName: string;
+    artistEmail?: string | null;
+    reason: string;
+    excludeUserId?: string | null;
+  }): Promise<void> {
+    const supabase = getSupabaseClient();
+    const { data: admins } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('role', 'admin');
+
+    const emails = new Set<string>();
+    for (const admin of admins ?? []) {
+      if (params.excludeUserId && admin.id === params.excludeUserId) continue;
+      const email = (admin.email || '').trim().toLowerCase();
+      if (email) emails.add(email);
+    }
+    for (const email of this.getAdminAllowlistEmails()) {
+      emails.add(email);
+    }
+
+    await Promise.allSettled(
+      [...emails].map((to) =>
+        this.emailService.sendAdminSongRejectedEmail(to, {
+          songId: params.songId,
+          songTitle: params.songTitle,
+          artistName: params.artistName,
+          artistEmail: params.artistEmail,
+          reason: params.reason,
+        }),
+      ),
+    );
   }
 
   /**

@@ -1,0 +1,82 @@
+{
+  "identifier" : "NetworxRadioStoreKit",
+  "nonRenewingSubscriptions" : [
+
+  ],
+  "products" : [
+    {
+      "displayPrice" : "0.99",
+      "familyShareable" : false,
+      "internalID" : "nwx_credits_10",
+      "localizations" : [
+        {
+          "description" : "10 artist credits",
+          "displayName" : "10 Credits",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "nwx_credits_10",
+      "referenceName" : "Credits 10",
+      "type" : "Consumable"
+    }
+  ],
+  "settings" : {
+    "_failTransactionsEnabled" : false,
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "pro_networx_group",
+      "localizations" : [
+
+      ],
+      "name" : "Pro-Networx",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [
+
+          ],
+          "codeOffers" : [
+
+          ],
+          "displayPrice" : "9.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "nwx_pro_networx_monthly",
+          "introductoryOffer" : {
+            "displayPrice" : "4.99",
+            "internalID" : "nwx_pro_networx_intro",
+            "numberOfPeriods" : 1,
+            "paymentMode" : "payAsYouGo",
+            "subscriptionPeriod" : "P1M"
+          },
+          "localizations" : [
+            {
+              "description" : "Unlock Pro-Networx contact info, messaging, and booking.",
+              "displayName" : "Pro-Networx Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "nwx_pro_networx_monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Pro-Networx Monthly",
+          "subscriptionGroupID" : "pro_networx_group",
+          "type" : "RecurringSubscription",
+          "winbackOffers" : [
+
+          ]
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 3,
+    "minor" : 0
+  }
+}

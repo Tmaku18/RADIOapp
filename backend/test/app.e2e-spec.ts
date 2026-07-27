@@ -1,25 +1,35 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import { createTestApp } from './utils/create-test-app';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('App health (e2e)', () => {
+  let app: INestApplication;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
+  beforeAll(async () => {
+    const created = await createTestApp();
+    app = created.app;
+  }, 120_000);
 
-    app = moduleFixture.createNestApplication();
-    await app.init();
+  afterAll(async () => {
+    await app?.close();
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
-      .expect(200)
-      .expect('Hello World!');
+  it('GET /api/app/version is public', async () => {
+    const res = await request(app.getHttpServer()).get('/api/app/version');
+    expect(res.status).not.toBe(401);
+  });
+
+  it('GET /api/users/me without auth returns 401', async () => {
+    const res = await request(app.getHttpServer()).get('/api/users/me');
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /api/users/me with test auth is not 401/403', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/users/me')
+      .set('x-test-uid', 'user-1')
+      .set('x-test-role', 'listener');
+    expect(res.status).not.toBe(401);
+    expect(res.status).not.toBe(403);
   });
 });

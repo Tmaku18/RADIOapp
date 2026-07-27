@@ -10,7 +10,24 @@ class DjBoothRealtimeEvent {
   final double? duckVolume;
   final String? hlsUrl;
 
-  const DjBoothRealtimeEvent({required this.type, this.duckVolume, this.hlsUrl});
+  /// WHEP (WebRTC) playback URL — required to hear WHIP-published DJ mics.
+  final String? whepUrl;
+
+  const DjBoothRealtimeEvent({
+    required this.type,
+    this.duckVolume,
+    this.hlsUrl,
+    this.whepUrl,
+  });
+
+  /// Best URL to play: prefer WHEP, fall back to legacy HLS.
+  String? get streamUrl {
+    final whep = whepUrl?.trim();
+    if (whep != null && whep.isNotEmpty) return whep;
+    final hls = hlsUrl?.trim();
+    if (hls != null && hls.isNotEmpty) return hls;
+    return null;
+  }
 
   factory DjBoothRealtimeEvent.fromMap(Map<String, dynamic> map) {
     final duck = map['duckVolume'] ?? map['duck_volume'];
@@ -18,6 +35,7 @@ class DjBoothRealtimeEvent {
       type: (map['type'] ?? '').toString(),
       duckVolume: duck is num ? duck.toDouble() : null,
       hlsUrl: (map['hlsUrl'] ?? map['hls_url'])?.toString(),
+      whepUrl: (map['whepUrl'] ?? map['whep_url'])?.toString(),
     );
   }
 }

@@ -167,8 +167,56 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
   void _onDjBoothEvent(DjBoothRealtimeEvent event) {
     if (playerScreenActive) return;
-    if (event.type == 'queue_updated') {
-      unawaited(_syncCurrentTrack());
+    switch (event.type) {
+      case 'mic_on':
+        // Background listeners must hear the DJ too — not only while the
+        // player screen is open.
+        if (!_hasRadioSource) return;
+        final url = event.streamUrl;
+        if (url != null && url.isNotEmpty) {
+          unawaited(
+            AudioPlayerService.handler.startVoiceOverlay(
+              url,
+              duckVolume: event.duckVolume ?? 0.25,
+            ),
+          );
+        }
+        break;
+      case 'mic_off':
+        unawaited(AudioPlayerService.handler.stopVoiceOverlay());
+        break;
+      case 'duck_volume':
+        if (event.duckVolume != null) {
+          unawaited(
+            AudioPlayerService.handler.setDuckVolume(event.duckVolume!),
+          );
+        }
+        break;
+      case 'queue_updated':
+        unawaited(_syncCurrentTrack());
+        break;
+      default:
+        break;
+    }
+  }
+
+  /// Mirror of PlayerScreen booth overlay handling for background playback:
+  /// start/stop the DJ talk-over from the polled track's `dj_overlay`.
+  Future<void> _applyDjOverlay(Track track) async {
+    final handler = AudioPlayerService.handler;
+    if (handler.userPaused) return;
+    final overlay = track.djOverlay;
+    final overlayUrl = overlay?.streamUrl;
+    if (overlay != null &&
+        overlay.active &&
+        overlayUrl != null &&
+        overlayUrl.isNotEmpty) {
+      await handler.startVoiceOverlay(
+        overlayUrl,
+        duckVolume: overlay.duckVolume,
+      );
+    } else {
+      await handler.stopVoiceOverlay();
     }
   }
 
@@ -250,6 +298,8 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
 
       if (AudioPlayerService.handler.userPaused) return;
 
+      await _applyDjOverlay(serverTrack);
+
       final localSeconds = _player.position.inSeconds;
       final serverSeconds = serverTrack.positionSeconds;
       final forwardDrift = localSeconds - serverSeconds;
@@ -315,6 +365,9 @@ class RadioBackgroundSyncService with WidgetsBindingObserver {
     }
     if (reportPlay) {
       unawaited(_radio.reportPlay(track.id, radioId: effectiveRadioId));
+    }
+    if (!playerScreenActive) {
+      await _applyDjOverlay(track);
     }
   }
 }

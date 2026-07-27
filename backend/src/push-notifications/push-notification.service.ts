@@ -47,6 +47,27 @@ interface ArtistNewUploadFanoutDto {
   stationIds?: string[];
 }
 
+interface AdminSongUploadFanoutDto {
+  artistId: string;
+  artistName: string;
+  artistEmail?: string | null;
+  songId: string;
+  songTitle: string;
+  stationIds?: string[];
+}
+
+interface AdminSongStatusFanoutDto {
+  songId: string;
+  songTitle: string;
+  artistId: string;
+  artistName: string;
+  artistEmail?: string | null;
+  status: 'approved' | 'rejected' | 'pending';
+  reason?: string | null;
+  /** Acting admin — excluded from fanout so they don't notify themselves. */
+  excludeUserId?: string | null;
+}
+
 interface AppUpdateBroadcastDto {
   title: string;
   body: string;
@@ -960,6 +981,132 @@ export class PushNotificationService {
       `Follower new-upload fanout for ${dto.artistId}: ${notified}/${targets.size}`,
     );
     return { notified, followers: targets.size };
+  }
+
+  /**
+   * Load every admin account (role=admin) for upload/review fanouts.
+   */
+  private async loadAdminUsers(): Promise<
+    Array<{ id: string; email: string | null; display_name: string | null }>
+  > {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, email, display_name')
+      .eq('role', 'admin');
+    if (error) {
+      this.logger.warn(`Failed to load admins: ${error.message}`);
+      return [];
+    }
+    return (data ?? []) as Array<{
+      id: string;
+      email: string | null;
+      display_name: string | null;
+    }>;
+  }
+
+  /**
+   * Notify all admins that a song is awaiting review (in-app + FCM).
+   */
+  async notifyAdminsNewSongUpload(
+    dto: AdminSongUploadFanoutDto,
+  ): Promise<{ notified: number }> {
+    const admins = await this.loadAdminUsers();
+    if (admins.length === 0) {
+      this.logger.warn('No admin users found for new-upload fanout');
+      return { notified: 0 };
+    }
+
+    const stations = (dto.stationIds ?? [])
+      .map((id) => stationDisplayName(id))
+      .filter(Boolean);
+    const stationHint =
+      stations.length === 0
+        ? ''
+        : ` Stations: ${stations.slice(0, 3).join(', ')}.`;
+    const artistLabel = dto.artistEmail
+      ? `${dto.artistName} (${dto.artistEmail})`
+      : dto.artistName;
+    const title = 'New song pending review';
+    const body = `${artistLabel} uploaded "${dto.songTitle}".${stationHint} Open Admin → Songs to approve or reject.`;
+
+    let notified = 0;
+    await Promise.allSettled(
+      admins.map(async (admin) => {
+        await this.sendPushNotification({
+          userId: admin.id,
+          title,
+          body,
+          data: {
+            type: 'song_pending_review',
+            songId: dto.songId,
+            songTitle: dto.songTitle,
+            artistId: dto.artistId,
+            artistName: dto.artistName,
+            action: 'open_admin_songs',
+            route: '/admin',
+          },
+        });
+        notified += 1;
+      }),
+    );
+
+    this.logger.log(
+      `Admin new-upload fanout for song ${dto.songId}: ${notified}/${admins.length}`,
+    );
+    return { notified };
+  }
+
+  /**
+   * Notify admins about a song status change (e.g. rejection with reason).
+   */
+  async notifyAdminsSongStatusChange(
+    dto: AdminSongStatusFanoutDto,
+  ): Promise<{ notified: number }> {
+    const admins = (await this.loadAdminUsers()).filter(
+      (a) => !dto.excludeUserId || a.id !== dto.excludeUserId,
+    );
+    if (admins.length === 0) return { notified: 0 };
+
+    const reasonText = (dto.reason || '').trim();
+    const artistLabel = dto.artistEmail
+      ? `${dto.artistName} (${dto.artistEmail})`
+      : dto.artistName;
+    let title = 'Song status updated';
+    let body = `"${dto.songTitle}" by ${artistLabel} → ${dto.status}.`;
+    if (dto.status === 'rejected') {
+      title = 'Song rejected';
+      body = `"${dto.songTitle}" by ${artistLabel} was rejected.${
+        reasonText ? ` Reason: ${reasonText}` : ''
+      }`;
+    } else if (dto.status === 'approved') {
+      title = 'Song approved';
+      body = `"${dto.songTitle}" by ${artistLabel} was approved and is now live.`;
+    }
+
+    let notified = 0;
+    await Promise.allSettled(
+      admins.map(async (admin) => {
+        await this.sendPushNotification({
+          userId: admin.id,
+          title,
+          body,
+          data: {
+            type: 'admin_song_status',
+            songId: dto.songId,
+            songTitle: dto.songTitle,
+            artistId: dto.artistId,
+            status: dto.status,
+            reason: reasonText,
+            action: 'open_admin_songs',
+            route: '/admin',
+          },
+        });
+        notified += 1;
+      }),
+    );
+
+    return { notified };
   }
 
   /**

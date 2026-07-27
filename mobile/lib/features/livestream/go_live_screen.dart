@@ -168,7 +168,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
       final stream = await _broadcaster.start(whipUrl);
       _renderer.srcObject = stream;
       try {
-        await _live.markPublishing(sessionId: _sessionId);
+        await _live.markPublishing(sessionId: _sessionId, ingestMode: 'whip');
       } catch (_) {
         // Non-fatal — Cloudflare webhook may still promote the session.
       }
@@ -245,7 +245,7 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         final stream = await _broadcaster.start(whipUrl!);
         _renderer.srcObject = stream;
         try {
-          await _live.markPublishing(sessionId: _sessionId);
+          await _live.markPublishing(sessionId: _sessionId, ingestMode: 'whip');
         } catch (_) {}
         if (!mounted) return;
         setState(() {

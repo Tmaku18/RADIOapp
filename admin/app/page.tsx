@@ -70,7 +70,16 @@ export default function Dashboard() {
       const token = await getIdToken();
       if (!token) return;
 
-      await adminApi.updateSongStatus(token, songId, 'rejected');
+      const input = window.prompt(
+        'Explain why this song is rejected (required). The artist and other admins will see this:',
+      );
+      const reason = (input || '').trim();
+      if (reason.length < 10) {
+        alert('A detailed rejection reason is required (at least 10 characters).');
+        return;
+      }
+
+      await adminApi.updateSongStatus(token, songId, 'rejected', reason);
       
       // Update local state
       setPendingSongs(songs => songs.filter(s => s.id !== songId));

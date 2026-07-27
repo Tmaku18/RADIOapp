@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -47,7 +48,44 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
   final ProNetworxService _service = ProNetworxService();
   final PaymentsService _payments = PaymentsService();
   bool _busy = false;
+  bool _loadingProduct = false;
+  String? _storePriceLabel;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isMobileStorePlatform) {
+      unawaited(_prefetchStoreProduct());
+    }
+  }
+
+  Future<void> _prefetchStoreProduct() async {
+    setState(() {
+      _loadingProduct = true;
+      _error = null;
+    });
+    final productId =
+        PlayBillingService.instance.proNetworxMonthlyProductId;
+    try {
+      final product =
+          await PlayBillingService.instance.getProductDetails(productId);
+      if (!mounted) return;
+      setState(() {
+        _storePriceLabel = product.price;
+        _loadingProduct = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loadingProduct = false;
+        _error = PlayBillingService.instance.describeStoreError(
+          e,
+          productId: productId,
+        );
+      });
+    }
+  }
 
   Future<void> _subscribeWithStore() async {
     final productId =
@@ -73,9 +111,9 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
       _busy = true;
       _error = null;
     });
+    final productId =
+        PlayBillingService.instance.proNetworxMonthlyProductId;
     try {
-      final productId =
-          PlayBillingService.instance.proNetworxMonthlyProductId;
       final purchase =
           await PlayBillingService.instance.restoreSubscription(productId);
       if (purchase == null) {
@@ -97,7 +135,10 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Restore failed: $e');
+      setState(() {
+        _error =
+            'Restore failed: ${PlayBillingService.instance.describeStoreError(e, productId: productId)}';
+      });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -149,8 +190,15 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
       });
     } catch (e) {
       if (!mounted) return;
+      final productId =
+          PlayBillingService.instance.proNetworxMonthlyProductId;
       setState(() {
-        _error = 'Could not start checkout: $e';
+        _error = isMobileStorePlatform
+            ? PlayBillingService.instance.describeStoreError(
+                e,
+                productId: productId,
+              )
+            : 'Could not start checkout: $e';
       });
     } finally {
       if (mounted) {
@@ -240,16 +288,39 @@ class _ProNetworkPaywallSheetState extends State<ProNetworkPaywallSheet> {
                 color: cs.onSurfaceVariant,
               ),
             ),
+            if (storeCheckout && _storePriceLabel != null) ...[
+              const SizedBox(height: 6),
+              Text(
+                'Store price: $_storePriceLabel',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: cs.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: TextStyle(color: cs.error)),
+              if (storeCheckout) ...[
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: (_busy || _loadingProduct)
+                      ? null
+                      : _prefetchStoreProduct,
+                  child: const Text('Retry loading App Store product'),
+                ),
+              ],
             ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
               child: FilledButton(
-                onPressed: _busy ? null : _subscribe,
-                child: _busy
+                onPressed: (_busy ||
+                        _loadingProduct ||
+                        (storeCheckout && _storePriceLabel == null))
+                    ? null
+                    : _subscribe,
+                child: (_busy || _loadingProduct)
                     ? const SizedBox(
                         width: 20,
                         height: 20,

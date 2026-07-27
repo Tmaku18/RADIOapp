@@ -10,6 +10,7 @@ import { CreateSongDto } from './dto/create-song.dto';
 import { CopyrightService } from '../copyright/copyright.service';
 import { LyricsService } from '../lyrics/lyrics.service';
 import { PushNotificationService } from '../push-notifications/push-notification.service';
+import { EmailService } from '../email/email.service';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegStatic from 'ffmpeg-static';
 import { existsSync, promises as fs } from 'node:fs';
@@ -85,6 +86,7 @@ export class SongsService {
     private readonly copyrightService: CopyrightService,
     private readonly lyricsService: LyricsService,
     private readonly pushNotificationService: PushNotificationService,
+    private readonly emailService: EmailService,
   ) {
     const configuredPath = (process.env.FFMPEG_PATH || '').trim();
     const bundledPath = typeof ffmpegStatic === 'string' ? ffmpegStatic : '';
@@ -1216,7 +1218,7 @@ export class SongsService {
     // Everyone except listeners can upload songs.
     const { data: user } = await supabase
       .from('users')
-      .select('role')
+      .select('role, email, display_name')
       .eq('id', userId)
       .single();
 
@@ -1497,18 +1499,22 @@ export class SongsService {
         : insertRes.data?.station_id
           ? [String(insertRes.data.station_id)]
           : [];
+      const artistName =
+        (insertRes.data?.artist_name as string | undefined) ||
+        createSongDto.artistName ||
+        user.display_name ||
+        'An artist';
+      const songTitle =
+        (insertRes.data?.title as string | undefined) ||
+        createSongDto.title ||
+        'a new song';
+
       void this.pushNotificationService
         .notifyFollowersArtistNewUpload({
           artistId: userId,
-          artistName:
-            (insertRes.data?.artist_name as string | undefined) ||
-            createSongDto.artistName ||
-            'An artist you follow',
+          artistName,
           songId: newSongId,
-          songTitle:
-            (insertRes.data?.title as string | undefined) ||
-            createSongDto.title ||
-            'a new song',
+          songTitle,
           stationIds,
         })
         .catch((err) => {
@@ -1518,9 +1524,73 @@ export class SongsService {
             }`,
           );
         });
+
+      // Admins need a review alert whenever the song lands in pending.
+      const createdStatus = String(insertRes.data?.status ?? '');
+      if (createdStatus === 'pending') {
+        void this.notifyAdminsOfPendingUpload({
+          artistId: userId,
+          artistName,
+          artistEmail: user.email ?? null,
+          songId: newSongId,
+          songTitle,
+          stationIds,
+        }).catch((err) => {
+          this.logger.warn(
+            `Admin new-upload fanout failed: ${
+              err instanceof Error ? err.message : String(err)
+            }`,
+          );
+        });
+      }
     }
 
     return insertRes.data;
+  }
+
+  private getAdminAllowlistEmails(): string[] {
+    const raw = process.env.ADMIN_EMAILS || '';
+    if (!raw.trim()) return [];
+    return raw
+      .split(',')
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  private async notifyAdminsOfPendingUpload(params: {
+    artistId: string;
+    artistName: string;
+    artistEmail?: string | null;
+    songId: string;
+    songTitle: string;
+    stationIds: string[];
+  }): Promise<void> {
+    await this.pushNotificationService.notifyAdminsNewSongUpload(params);
+
+    const supabase = getSupabaseClient();
+    const { data: admins } = await supabase
+      .from('users')
+      .select('email')
+      .eq('role', 'admin');
+    const emails = new Set<string>();
+    for (const admin of admins ?? []) {
+      const email = (admin.email || '').trim().toLowerCase();
+      if (email) emails.add(email);
+    }
+    for (const email of this.getAdminAllowlistEmails()) {
+      emails.add(email);
+    }
+
+    await Promise.allSettled(
+      [...emails].map((to) =>
+        this.emailService.sendAdminNewSongUploadEmail(to, {
+          songId: params.songId,
+          songTitle: params.songTitle,
+          artistName: params.artistName,
+          artistEmail: params.artistEmail,
+        }),
+      ),
+    );
   }
 
   async publishSongToDiscover(

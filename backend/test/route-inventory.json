@@ -1,0 +1,3566 @@
+{
+  "generatedAt": "2026-07-25T17:20:56.266Z",
+  "count": 346,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/api",
+      "controller": "app.controller",
+      "handler": "getHello",
+      "public": false,
+      "roles": [],
+      "file": "app.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/analytics",
+      "controller": "admin.controller",
+      "handler": "getAnalytics",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/app-releases",
+      "controller": "admin.controller",
+      "handler": "publishAppRelease",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/chat/messages/:messageId",
+      "controller": "chat-admin.controller",
+      "handler": "deleteMessage",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "chat/chat-admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/chat/shadow-ban/:userId",
+      "controller": "chat-admin.controller",
+      "handler": "shadowBanUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "chat/chat-admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/chat/shadow-banned",
+      "controller": "chat-admin.controller",
+      "handler": "getShadowBannedUsers",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "chat/chat-admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/chat/toggle",
+      "controller": "chat-admin.controller",
+      "handler": "toggleChat",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "chat/chat-admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/chat/unban/:userId",
+      "controller": "chat-admin.controller",
+      "handler": "unbanUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "chat/chat-admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/discover-feed-posts/:postId",
+      "controller": "admin.controller",
+      "handler": "deleteDiscoverFeedPost",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/dj-booth/:stationId",
+      "controller": "dj-booth.controller",
+      "handler": "getStatus",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/dj-booth/:stationId/mic/duck-volume",
+      "controller": "dj-booth.controller",
+      "handler": "setDuckVolume",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/mic/off",
+      "controller": "dj-booth.controller",
+      "handler": "micOff",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/mic/on",
+      "controller": "dj-booth.controller",
+      "handler": "micOn",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/dj-booth/:stationId/mic/session",
+      "controller": "dj-booth.controller",
+      "handler": "deleteMicSession",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/mic/session",
+      "controller": "dj-booth.controller",
+      "handler": "createMicSession",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/dj-booth/:stationId/queue",
+      "controller": "dj-booth.controller",
+      "handler": "removeQueueEntry",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/dj-booth/:stationId/queue",
+      "controller": "dj-booth.controller",
+      "handler": "getQueue",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/dj-booth/:stationId/queue",
+      "controller": "dj-booth.controller",
+      "handler": "replaceQueue",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/queue",
+      "controller": "dj-booth.controller",
+      "handler": "addQueueEntries",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/queue/skip",
+      "controller": "dj-booth.controller",
+      "handler": "skipForward",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/soundboard/:clipId/play",
+      "controller": "dj-booth.controller",
+      "handler": "playSoundboardClip",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/transport/back",
+      "controller": "dj-booth.controller",
+      "handler": "skipBack",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/transport/pause",
+      "controller": "dj-booth.controller",
+      "handler": "pauseTransport",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/:stationId/transport/play",
+      "controller": "dj-booth.controller",
+      "handler": "playTransport",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/dj-booth/soundboard/clips",
+      "controller": "dj-booth.controller",
+      "handler": "listSoundboardClips",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/soundboard/clips",
+      "controller": "dj-booth.controller",
+      "handler": "registerSoundboardClip",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/dj-booth/soundboard/clips/:clipId",
+      "controller": "dj-booth.controller",
+      "handler": "deleteSoundboardClip",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/dj-booth/soundboard/upload-url",
+      "controller": "dj-booth.controller",
+      "handler": "createSoundboardUploadUrl",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "dj-booth/dj-booth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/fallback-songs",
+      "controller": "admin.controller",
+      "handler": "getFallbackSongs",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/fallback-songs",
+      "controller": "admin.controller",
+      "handler": "addFallbackSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/fallback-songs/:id",
+      "controller": "admin.controller",
+      "handler": "deleteFallbackSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/fallback-songs/:id",
+      "controller": "admin.controller",
+      "handler": "updateFallbackSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/fallback-songs/:id/group",
+      "controller": "admin.controller",
+      "handler": "deleteFallbackSongGroup",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/fallback-songs/:id/group",
+      "controller": "admin.controller",
+      "handler": "updateFallbackSongGroup",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/fallback-songs/:id/radios",
+      "controller": "admin.controller",
+      "handler": "setFallbackSongRadios",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/fallback-songs/from-song/:songId",
+      "controller": "admin.controller",
+      "handler": "addFallbackSongFromSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/fallback-songs/from-upload",
+      "controller": "admin.controller",
+      "handler": "addFallbackSongFromUpload",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/fallback-songs/grouped",
+      "controller": "admin.controller",
+      "handler": "getFallbackSongsGrouped",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/feed-media",
+      "controller": "admin.controller",
+      "handler": "getFeedMedia",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/feed-media/:contentId",
+      "controller": "admin.controller",
+      "handler": "deleteFeedMedia",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/feed-media/:contentId/remove",
+      "controller": "admin.controller",
+      "handler": "removeFromFeed",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/free-rotation/search/songs",
+      "controller": "admin.controller",
+      "handler": "searchSongsForFreeRotation",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/free-rotation/search/users",
+      "controller": "admin.controller",
+      "handler": "searchUsersForFreeRotation",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/free-rotation/songs",
+      "controller": "admin.controller",
+      "handler": "getSongsInFreeRotation",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/free-rotation/songs/:id",
+      "controller": "admin.controller",
+      "handler": "toggleFreeRotation",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/free-rotation/users/:id/songs",
+      "controller": "admin.controller",
+      "handler": "getUserSongsForFreeRotation",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/live/start",
+      "controller": "admin.controller",
+      "handler": "startLive",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/live/status",
+      "controller": "admin.controller",
+      "handler": "getLiveStatus",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/live/stop",
+      "controller": "admin.controller",
+      "handler": "stopLive",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/payouts/pending",
+      "controller": "admin.controller",
+      "handler": "getPendingPayouts",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/radios",
+      "controller": "admin.controller",
+      "handler": "getRadios",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/radios/:id/queue",
+      "controller": "admin.controller",
+      "handler": "removeRadioQueueEntry",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/radios/:id/queue",
+      "controller": "admin.controller",
+      "handler": "getRadioQueue",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/radios/:id/queue",
+      "controller": "admin.controller",
+      "handler": "replaceRadioQueue",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/radios/:id/queue",
+      "controller": "admin.controller",
+      "handler": "addRadioQueueEntry",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/radios/:id/queue-debug",
+      "controller": "admin.controller",
+      "handler": "getRadioQueueDebug",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/radios/:id/queue/skip",
+      "controller": "admin.controller",
+      "handler": "skipRadioQueueTrack",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/reports/posts",
+      "controller": "admin.controller",
+      "handler": "getDiscoverFeedPostReports",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/reports/users",
+      "controller": "admin.controller",
+      "handler": "getUserReports",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/songs",
+      "controller": "admin.controller",
+      "handler": "getSongs",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/songs/:id",
+      "controller": "admin.controller",
+      "handler": "deleteSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/songs/:id",
+      "controller": "admin.controller",
+      "handler": "updateSongStatus",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/songs/:id/metadata",
+      "controller": "admin.controller",
+      "handler": "updateSongMetadata",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/songs/:id/trim",
+      "controller": "admin.controller",
+      "handler": "trimSong",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/streamer-applications",
+      "controller": "admin.controller",
+      "handler": "getStreamerApplications",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/streamer-applications/:userId",
+      "controller": "admin.controller",
+      "handler": "setStreamerApproval",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/swipe",
+      "controller": "admin.controller",
+      "handler": "getSwipeCards",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/swipe/:songId/clip",
+      "controller": "admin.controller",
+      "handler": "deleteSwipeClip",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "controller": "admin.controller",
+      "handler": "getUsers",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/admin/users/:id",
+      "controller": "admin.controller",
+      "handler": "deleteUserAccount",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/:id",
+      "controller": "admin.controller",
+      "handler": "getUserProfile",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/:id/hard-ban",
+      "controller": "admin.controller",
+      "handler": "hardBanUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/:id/lifetime-ban",
+      "controller": "admin.controller",
+      "handler": "lifetimeBanUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/:id/restore",
+      "controller": "admin.controller",
+      "handler": "restoreUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/admin/users/:id/role",
+      "controller": "admin.controller",
+      "handler": "updateUserRole",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users/:id/shadow-ban",
+      "controller": "admin.controller",
+      "handler": "shadowBanUser",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "admin/admin.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/me",
+      "controller": "analytics.controller",
+      "handler": "getMyAnalytics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/me/discover-swipes",
+      "controller": "analytics.controller",
+      "handler": "getMyDiscoverSwipeAnalytics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/me/plays-by-region",
+      "controller": "analytics.controller",
+      "handler": "getMyPlaysByRegion",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/me/roi",
+      "controller": "analytics.controller",
+      "handler": "getMyRoi",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/platform",
+      "controller": "analytics.controller",
+      "handler": "getPlatformStats",
+      "public": true,
+      "roles": [],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/platform/live",
+      "controller": "analytics.controller",
+      "handler": "getPlatformLiveStats",
+      "public": true,
+      "roles": [],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/plays/:playId",
+      "controller": "analytics.controller",
+      "handler": "getPlayAnalytics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/analytics/profile-click",
+      "controller": "analytics.controller",
+      "handler": "recordProfileClick",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics/songs/:id",
+      "controller": "analytics.controller",
+      "handler": "getSongAnalytics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "analytics/analytics.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/app/version",
+      "controller": "app-version.controller",
+      "handler": "getVersion",
+      "public": true,
+      "roles": [],
+      "file": "app-version/app-version.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artist-live/:artistId/status",
+      "controller": "artist-live.controller",
+      "handler": "getStatus",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artist-live/:artistId/watch",
+      "controller": "artist-live.controller",
+      "handler": "getWatch",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/ads/impression",
+      "controller": "artist-live.controller",
+      "handler": "trackAdImpression",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artist-live/:sessionId/chat",
+      "controller": "artist-live.controller",
+      "handler": "listChat",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/chat",
+      "controller": "artist-live.controller",
+      "handler": "postChat",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/chat/:messageId/delete",
+      "controller": "artist-live.controller",
+      "handler": "deleteChat",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/donations/checkout",
+      "controller": "artist-live.controller",
+      "handler": "createDonationCheckout",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/donations/intent",
+      "controller": "artist-live.controller",
+      "handler": "createDonationIntent",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/heartbeat",
+      "controller": "artist-live.controller",
+      "handler": "heartbeat",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/join",
+      "controller": "artist-live.controller",
+      "handler": "join",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/leave",
+      "controller": "artist-live.controller",
+      "handler": "leave",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/:sessionId/report",
+      "controller": "artist-live.controller",
+      "handler": "reportStream",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/admin/artists/:artistId/ban",
+      "controller": "artist-live.controller",
+      "handler": "adminBanArtist",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/admin/sessions/:sessionId/force-stop",
+      "controller": "artist-live.controller",
+      "handler": "adminForceStop",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/apply",
+      "controller": "artist-live.controller",
+      "handler": "applyToStream",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/publishing",
+      "controller": "artist-live.controller",
+      "handler": "markPublishing",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artist-live/sessions",
+      "controller": "artist-live.controller",
+      "handler": "listSessions",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/start",
+      "controller": "artist-live.controller",
+      "handler": "startLive",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/stop",
+      "controller": "artist-live.controller",
+      "handler": "stopLive",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artist-live/streamer-status",
+      "controller": "artist-live.controller",
+      "handler": "getStreamerStatus",
+      "public": false,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artist-live/webhook",
+      "controller": "artist-live.controller",
+      "handler": "processWebhook",
+      "public": true,
+      "roles": [],
+      "file": "artist-live/artist-live.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/artists/:artistId/follow",
+      "controller": "live-services.controller",
+      "handler": "unfollow",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/artists/:artistId/follow",
+      "controller": "live-services.controller",
+      "handler": "isFollowing",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/artists/:artistId/follow",
+      "controller": "live-services.controller",
+      "handler": "follow",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/cross-domain-exchange",
+      "controller": "auth.controller",
+      "handler": "exchangeCrossDomainToken",
+      "public": true,
+      "roles": [],
+      "file": "auth/auth.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/cross-domain-token",
+      "controller": "auth.controller",
+      "handler": "createCrossDomainToken",
+      "public": true,
+      "roles": [],
+      "file": "auth/auth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/verify",
+      "controller": "auth.controller",
+      "handler": "verify",
+      "public": false,
+      "roles": [],
+      "file": "auth/auth.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/browse/bookmarks",
+      "controller": "browse.controller",
+      "handler": "getBookmarks",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/browse/feed",
+      "controller": "browse.controller",
+      "handler": "getFeed",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/browse/feed/:contentId/bookmark",
+      "controller": "browse.controller",
+      "handler": "removeBookmark",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/browse/feed/:contentId/bookmark",
+      "controller": "browse.controller",
+      "handler": "addBookmark",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/browse/feed/:contentId/like",
+      "controller": "browse.controller",
+      "handler": "toggleLike",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/browse/feed/:contentId/report",
+      "controller": "browse.controller",
+      "handler": "reportContent",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/browse/leaderboard",
+      "controller": "browse.controller",
+      "handler": "getLeaderboard",
+      "public": false,
+      "roles": [],
+      "file": "browse/browse.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/emoji",
+      "controller": "emoji.controller",
+      "handler": "sendEmoji",
+      "public": false,
+      "roles": [],
+      "file": "chat/emoji.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/history",
+      "controller": "chat.controller",
+      "handler": "getHistory",
+      "public": true,
+      "roles": [],
+      "file": "chat/chat.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/send",
+      "controller": "chat.controller",
+      "handler": "sendMessage",
+      "public": false,
+      "roles": [],
+      "file": "chat/chat.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/status",
+      "controller": "chat.controller",
+      "handler": "getStatus",
+      "public": true,
+      "roles": [],
+      "file": "chat/chat.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/current-week",
+      "controller": "competition.controller",
+      "handler": "getCurrentWeek",
+      "public": false,
+      "roles": [],
+      "file": "competition/competition.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/monthly-winners",
+      "controller": "competition.controller",
+      "handler": "getMonthlyWinners",
+      "public": false,
+      "roles": [],
+      "file": "competition/competition.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/competition/vote",
+      "controller": "competition.controller",
+      "handler": "vote",
+      "public": false,
+      "roles": [],
+      "file": "competition/competition.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/weekly-results",
+      "controller": "competition.controller",
+      "handler": "getWeeklyResults",
+      "public": false,
+      "roles": [],
+      "file": "competition/competition.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/competition/yearly-winners",
+      "controller": "competition.controller",
+      "handler": "getYearlyWinners",
+      "public": false,
+      "roles": [],
+      "file": "competition/competition.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/creator-network/access",
+      "controller": "creator-network.controller",
+      "handler": "hasAccess",
+      "public": false,
+      "roles": [],
+      "file": "creator-network/creator-network.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credits/allocations",
+      "controller": "credits.controller",
+      "handler": "getAllocations",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credits/balance",
+      "controller": "credits.controller",
+      "handler": "getBalance",
+      "public": false,
+      "roles": [],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/credits/songs/:songId/allocate",
+      "controller": "credits.controller",
+      "handler": "allocateCredits",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/credits/songs/:songId/withdraw",
+      "controller": "credits.controller",
+      "handler": "withdrawCredits",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/credits/transactions",
+      "controller": "credits.controller",
+      "handler": "getTransactions",
+      "public": false,
+      "roles": [],
+      "file": "credits/credits.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed",
+      "controller": "discovery.controller",
+      "handler": "listFeed",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/bookmarks",
+      "controller": "discovery.controller",
+      "handler": "listBookmarks",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/discovery/feed/comments/:id",
+      "controller": "discovery.controller",
+      "handler": "deleteComment",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/explore",
+      "controller": "discovery.controller",
+      "handler": "exploreTiles",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/explore-stream",
+      "controller": "discovery.controller",
+      "handler": "exploreStream",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/liked",
+      "controller": "discovery.controller",
+      "handler": "listLiked",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/discovery/feed/posts/:id",
+      "controller": "discovery.controller",
+      "handler": "deleteFeedPost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/discovery/feed/posts/:id/bookmark",
+      "controller": "discovery.controller",
+      "handler": "unbookmarkPost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/feed/posts/:id/bookmark",
+      "controller": "discovery.controller",
+      "handler": "bookmarkPost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/posts/:id/comments",
+      "controller": "discovery.controller",
+      "handler": "listComments",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/feed/posts/:id/comments",
+      "controller": "discovery.controller",
+      "handler": "createComment",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/discovery/feed/posts/:id/like",
+      "controller": "discovery.controller",
+      "handler": "unlikePost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/feed/posts/:id/like",
+      "controller": "discovery.controller",
+      "handler": "likePost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/discovery/feed/posts/:id/report",
+      "controller": "discovery.controller",
+      "handler": "reportPost",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/search",
+      "controller": "discovery.controller",
+      "handler": "searchFeed",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/feed/users/:userId/posts",
+      "controller": "discovery.controller",
+      "handler": "listUserPosts",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/map/artists",
+      "controller": "discovery.controller",
+      "handler": "getMapArtists",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/map/clusters",
+      "controller": "discovery.controller",
+      "handler": "getMapClusters",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/map/heat",
+      "controller": "discovery.controller",
+      "handler": "getMapHeat",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/people",
+      "controller": "discovery.controller",
+      "handler": "listPeople",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/discovery/people/directory",
+      "controller": "discovery.controller",
+      "handler": "listPeopleDirectory",
+      "public": false,
+      "roles": [],
+      "file": "discovery/discovery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/feed/news-promotions",
+      "controller": "feed.controller",
+      "handler": "getNewsPromotions",
+      "public": false,
+      "roles": [],
+      "file": "feed/feed.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "controller": "app.controller",
+      "handler": "getHealth",
+      "public": true,
+      "roles": [],
+      "file": "app.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/job-board/requests",
+      "controller": "job-board.controller",
+      "handler": "listRequests",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/job-board/requests",
+      "controller": "job-board.controller",
+      "handler": "createRequest",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/job-board/requests/:requestId",
+      "controller": "job-board.controller",
+      "handler": "deleteRequest",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/job-board/requests/:requestId",
+      "controller": "job-board.controller",
+      "handler": "getRequest",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/job-board/requests/:requestId/applications",
+      "controller": "job-board.controller",
+      "handler": "listApplications",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/job-board/requests/:requestId/applications",
+      "controller": "job-board.controller",
+      "handler": "apply",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "job-board/job-board.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/leaderboard/songs",
+      "controller": "leaderboard.controller",
+      "handler": "getSongs",
+      "public": false,
+      "roles": [],
+      "file": "leaderboard/leaderboard.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/leaderboard/songs/:id/like",
+      "controller": "leaderboard.controller",
+      "handler": "addLeaderboardLike",
+      "public": false,
+      "roles": [],
+      "file": "leaderboard/leaderboard.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/leaderboard/upvotes-per-minute",
+      "controller": "leaderboard.controller",
+      "handler": "getUpvotesPerMinute",
+      "public": false,
+      "roles": [],
+      "file": "leaderboard/leaderboard.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-services",
+      "controller": "live-services.controller",
+      "handler": "listMine",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/live-services",
+      "controller": "live-services.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/live-services/:id",
+      "controller": "live-services.controller",
+      "handler": "delete",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-services/:id",
+      "controller": "live-services.controller",
+      "handler": "getById",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/live-services/:id",
+      "controller": "live-services.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-services/artist/:artistId",
+      "controller": "live-services.controller",
+      "handler": "listByArtist",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/live-services/support",
+      "controller": "live-services.controller",
+      "handler": "submitSupport",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/live-services/upcoming",
+      "controller": "live-services.controller",
+      "handler": "upcomingFromFollowed",
+      "public": false,
+      "roles": [],
+      "file": "live-services/live-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/conversations",
+      "controller": "service-messages.controller",
+      "handler": "listConversations",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/conversations/:otherUserId",
+      "controller": "service-messages.controller",
+      "handler": "getThread",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/conversations/:otherUserId",
+      "controller": "service-messages.controller",
+      "handler": "sendMessage",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/conversations/:otherUserId/read",
+      "controller": "service-messages.controller",
+      "handler": "markThreadRead",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/conversations/:otherUserId/typing",
+      "controller": "service-messages.controller",
+      "handler": "typingHeartbeat",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/messages/messages/:messageId",
+      "controller": "service-messages.controller",
+      "handler": "editMessage",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/messages/messages/:messageId/reactions",
+      "controller": "service-messages.controller",
+      "handler": "removeReaction",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/messages/:messageId/reactions",
+      "controller": "service-messages.controller",
+      "handler": "addReaction",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/messages/:messageId/unsend",
+      "controller": "service-messages.controller",
+      "handler": "unsendMessage",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/messages/unread-summary",
+      "controller": "service-messages.controller",
+      "handler": "getUnreadSummary",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/messages/upload-url",
+      "controller": "service-messages.controller",
+      "handler": "getUploadUrl",
+      "public": false,
+      "roles": [],
+      "file": "service-messages/service-messages.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notifications",
+      "controller": "notification.controller",
+      "handler": "deleteAllNotifications",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "controller": "notification.controller",
+      "handler": "getNotifications",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/notifications/:id",
+      "controller": "notification.controller",
+      "handler": "deleteNotification",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/notifications/:id/read",
+      "controller": "notification.controller",
+      "handler": "markAsRead",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/mark-all-read",
+      "controller": "notification.controller",
+      "handler": "markAllAsRead",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/unread-count",
+      "controller": "notification.controller",
+      "handler": "getUnreadCount",
+      "public": false,
+      "roles": [],
+      "file": "notifications/notification.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/app-store/complete",
+      "controller": "payments.controller",
+      "handler": "completeAppStorePurchase",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/app-store/complete-subscription",
+      "controller": "payments.controller",
+      "handler": "completeAppStoreSubscription",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/app-store/notifications",
+      "controller": "payments.controller",
+      "handler": "appStoreNotifications",
+      "public": true,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/checkout-session-song-plays",
+      "controller": "payments.controller",
+      "handler": "createCheckoutSessionSongPlays",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/connect/login-link",
+      "controller": "payments.controller",
+      "handler": "connectLoginLink",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/connect/onboard",
+      "controller": "payments.controller",
+      "handler": "connectOnboard",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/connect/status",
+      "controller": "payments.controller",
+      "handler": "connectStatus",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-checkout-session",
+      "controller": "payments.controller",
+      "handler": "createCheckoutSession",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-creator-network-checkout-session",
+      "controller": "payments.controller",
+      "handler": "createCreatorNetworkCheckoutSession",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-intent",
+      "controller": "payments.controller",
+      "handler": "createPaymentIntent",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-intent-song-plays",
+      "controller": "payments.controller",
+      "handler": "createPaymentIntentSongPlays",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-pro-networx-checkout-session",
+      "controller": "payments.controller",
+      "handler": "createProNetworxCheckoutSession",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/create-pro-networx-payment-sheet",
+      "controller": "payments.controller",
+      "handler": "createProNetworxPaymentSheet",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/google-play/complete",
+      "controller": "payments.controller",
+      "handler": "completeGooglePlayPurchase",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/google-play/complete-subscription",
+      "controller": "payments.controller",
+      "handler": "completeGooglePlaySubscription",
+      "public": false,
+      "roles": [
+        "listener"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/google-play/rtdn",
+      "controller": "payments.controller",
+      "handler": "googlePlayRtdn",
+      "public": true,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/quick-add-minutes",
+      "controller": "payments.controller",
+      "handler": "quickAddMinutes",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/song-play-price",
+      "controller": "payments.controller",
+      "handler": "getSongPlayPrice",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/songs/:songId/checkout",
+      "controller": "payments.controller",
+      "handler": "createSongPurchaseCheckout",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payments/transactions",
+      "controller": "payments.controller",
+      "handler": "getTransactions",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments/webhook",
+      "controller": "payments.controller",
+      "handler": "handleWebhook",
+      "public": false,
+      "roles": [],
+      "file": "payments/payments.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-network-subscription/access",
+      "controller": "pro-network-subscription.controller",
+      "handler": "access",
+      "public": false,
+      "roles": [],
+      "file": "pro-network-subscription/pro-network-subscription.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/directory",
+      "controller": "pro-networx.controller",
+      "handler": "list",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/me/profile",
+      "controller": "pro-networx.controller",
+      "handler": "getMe",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/pro-networx/me/profile",
+      "controller": "pro-networx.controller",
+      "handler": "upsertMe",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/pro-networx/me/resume",
+      "controller": "pro-resume.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-resume.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/me/resume",
+      "controller": "pro-resume.controller",
+      "handler": "get",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-resume.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/me/services",
+      "controller": "pro-services.controller",
+      "handler": "listMine",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/pro-networx/me/services",
+      "controller": "pro-services.controller",
+      "handler": "create",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/pro-networx/me/services/:id",
+      "controller": "pro-services.controller",
+      "handler": "remove",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/pro-networx/me/services/:id",
+      "controller": "pro-services.controller",
+      "handler": "update",
+      "public": false,
+      "roles": [
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/profiles/:userId",
+      "controller": "pro-networx.controller",
+      "handler": "getProfile",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/public/directory",
+      "controller": "pro-networx.controller",
+      "handler": "listPublic",
+      "public": true,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/public/marketing-stats",
+      "controller": "pro-networx.controller",
+      "handler": "getPublicMarketingStats",
+      "public": true,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/public/profiles/:userId",
+      "controller": "pro-networx.controller",
+      "handler": "getPublicProfile",
+      "public": true,
+      "roles": [],
+      "file": "pro-networx/pro-networx.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/services",
+      "controller": "pro-services.controller",
+      "handler": "list",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/services/:id",
+      "controller": "pro-services.controller",
+      "handler": "getOne",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/pro-networx/users/:userId/services",
+      "controller": "pro-services.controller",
+      "handler": "listForUser",
+      "public": false,
+      "roles": [],
+      "file": "pro-networx/pro-services.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/prospector/check-in",
+      "controller": "prospector.controller",
+      "handler": "checkIn",
+      "public": false,
+      "roles": [],
+      "file": "radio/prospector.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/prospector/redeem",
+      "controller": "prospector.controller",
+      "handler": "redeem",
+      "public": false,
+      "roles": [],
+      "file": "radio/prospector.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/prospector/refinement",
+      "controller": "prospector.controller",
+      "handler": "refinement",
+      "public": false,
+      "roles": [],
+      "file": "radio/prospector.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/prospector/survey",
+      "controller": "prospector.controller",
+      "handler": "survey",
+      "public": false,
+      "roles": [],
+      "file": "radio/prospector.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/prospector/yield",
+      "controller": "prospector.controller",
+      "handler": "getYield",
+      "public": false,
+      "roles": [],
+      "file": "radio/prospector.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/push-notifications/devices",
+      "controller": "push-notification.controller",
+      "handler": "getDevices",
+      "public": false,
+      "roles": [],
+      "file": "push-notifications/push-notification.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/push-notifications/register-device",
+      "controller": "push-notification.controller",
+      "handler": "registerDevice",
+      "public": false,
+      "roles": [],
+      "file": "push-notifications/push-notification.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/push-notifications/test",
+      "controller": "push-notification.controller",
+      "handler": "sendTest",
+      "public": false,
+      "roles": [],
+      "file": "push-notifications/push-notification.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/push-notifications/unregister-device",
+      "controller": "push-notification.controller",
+      "handler": "unregisterDevice",
+      "public": false,
+      "roles": [],
+      "file": "push-notifications/push-notification.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/radio/current",
+      "controller": "radio.controller",
+      "handler": "getCurrentTrack",
+      "public": true,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/radio/heartbeat",
+      "controller": "radio.controller",
+      "handler": "heartbeat",
+      "public": false,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/radio/next",
+      "controller": "radio.controller",
+      "handler": "getNextTrack",
+      "public": true,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/radio/peek",
+      "controller": "radio.controller",
+      "handler": "peekNextTrack",
+      "public": true,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/radio/play",
+      "controller": "radio.controller",
+      "handler": "reportPlay",
+      "public": false,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/radio/presence",
+      "controller": "radio.controller",
+      "handler": "presence",
+      "public": true,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/radio/queue",
+      "controller": "radio.controller",
+      "handler": "clearQueue",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/radio/queue",
+      "controller": "radio.controller",
+      "handler": "getUpcomingQueue",
+      "public": true,
+      "roles": [],
+      "file": "radio/radio.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/reviewer/signup",
+      "controller": "refinery.controller",
+      "handler": "signUpReviewer",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/reviewer/status",
+      "controller": "refinery.controller",
+      "handler": "reviewerStatus",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/songs",
+      "controller": "refinery.controller",
+      "handler": "listQueue",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/songs/:id/analytics",
+      "controller": "refinery.controller",
+      "handler": "getAnalytics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/songs/:id/comments",
+      "controller": "refinery.controller",
+      "handler": "getComments",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/comments",
+      "controller": "refinery.controller",
+      "handler": "addComment",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/remove",
+      "controller": "refinery.controller",
+      "handler": "removeSong",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/review",
+      "controller": "refinery.controller",
+      "handler": "submitReview",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/songs/:id/review-form",
+      "controller": "refinery.controller",
+      "handler": "getReviewForm",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/reviews/:reviewId/favorite",
+      "controller": "refinery.controller",
+      "handler": "favoriteReview",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/reviews/:reviewId/quality",
+      "controller": "refinery.controller",
+      "handler": "rateReviewQuality",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/refinery/songs/:id/submit",
+      "controller": "refinery.controller",
+      "handler": "submitSong",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/refinery/standard-questions",
+      "controller": "refinery.controller",
+      "handler": "getStandardQuestions",
+      "public": false,
+      "roles": [],
+      "file": "refinery/refinery.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/service-providers/:userId",
+      "controller": "service-providers.controller",
+      "handler": "getProviderByUserId",
+      "public": false,
+      "roles": [],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/service-providers/me/listings",
+      "controller": "service-providers.controller",
+      "handler": "createListing",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/service-providers/me/listings/:listingId",
+      "controller": "service-providers.controller",
+      "handler": "deleteListing",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/service-providers/me/listings/:listingId",
+      "controller": "service-providers.controller",
+      "handler": "updateListing",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/service-providers/me/portfolio",
+      "controller": "service-providers.controller",
+      "handler": "addPortfolioItem",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/service-providers/me/portfolio/:portfolioItemId",
+      "controller": "service-providers.controller",
+      "handler": "deletePortfolioItem",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/service-providers/me/profile",
+      "controller": "service-providers.controller",
+      "handler": "getMyProfile",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/service-providers/me/profile",
+      "controller": "service-providers.controller",
+      "handler": "updateMyProfile",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/service-providers/portfolio/upload-url",
+      "controller": "service-providers.controller",
+      "handler": "getPortfolioUploadUrl",
+      "public": false,
+      "roles": [
+        "service_provider",
+        "admin"
+      ],
+      "file": "service-providers/service-providers.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs",
+      "controller": "songs.controller",
+      "handler": "getSongs",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs",
+      "controller": "songs.controller",
+      "handler": "createSong",
+      "public": false,
+      "roles": [
+        "artist"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/:id",
+      "controller": "songs.controller",
+      "handler": "deleteSong",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id",
+      "controller": "songs.controller",
+      "handler": "getSongById",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/songs/:id",
+      "controller": "songs.controller",
+      "handler": "updateSong",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/access",
+      "controller": "songs.controller",
+      "handler": "getSongAccess",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/backfill-duration",
+      "controller": "songs.controller",
+      "handler": "backfillDuration",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/discover/publish",
+      "controller": "songs.controller",
+      "handler": "publishToDiscoverFromLibrary",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/download",
+      "controller": "songs.controller",
+      "handler": "downloadFullSong",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/:id/favorite",
+      "controller": "songs.controller",
+      "handler": "unfavoriteSong",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/favorite",
+      "controller": "songs.controller",
+      "handler": "getFavoriteStatus",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/favorite",
+      "controller": "songs.controller",
+      "handler": "favoriteSong",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/:id/like",
+      "controller": "songs.controller",
+      "handler": "unlikeSong",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/like",
+      "controller": "songs.controller",
+      "handler": "getLikeStatus",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/like",
+      "controller": "songs.controller",
+      "handler": "toggleLike",
+      "public": false,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/likes",
+      "controller": "songs.controller",
+      "handler": "getSongLikes",
+      "public": true,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/lyrics",
+      "controller": "songs.controller",
+      "handler": "getLyrics",
+      "public": true,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/songs/:id/lyrics",
+      "controller": "songs.controller",
+      "handler": "upsertLyrics",
+      "public": false,
+      "roles": [
+        "artist",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/profile-listen",
+      "controller": "songs.controller",
+      "handler": "recordProfileListen",
+      "public": true,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/:id/sample",
+      "controller": "songs.controller",
+      "handler": "setSongSample",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/:id/stream",
+      "controller": "songs.controller",
+      "handler": "streamFullSong",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/admin/backfill-lyrics",
+      "controller": "songs.controller",
+      "handler": "backfillLyrics",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/admin/backfill-samples",
+      "controller": "songs.controller",
+      "handler": "backfillSamples",
+      "public": false,
+      "roles": [
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/artists/search",
+      "controller": "songs.controller",
+      "handler": "searchArtists",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/discover/feed",
+      "controller": "songs.controller",
+      "handler": "getDiscoverFeed",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/discover/history",
+      "controller": "songs.controller",
+      "handler": "getDiscoverHistory",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/discover/liked-artists",
+      "controller": "songs.controller",
+      "handler": "getDiscoverLikedArtists",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/discover/list",
+      "controller": "songs.controller",
+      "handler": "clearDiscoverLikedList",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/discover/list",
+      "controller": "songs.controller",
+      "handler": "getDiscoverLikedList",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/discover/list/:songId",
+      "controller": "songs.controller",
+      "handler": "removeDiscoverLikedSong",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/discover/swipe",
+      "controller": "songs.controller",
+      "handler": "swipeDiscover",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/discover/swipes",
+      "controller": "songs.controller",
+      "handler": "clearDiscoverSwipes",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/songs/discover/swipes/:songId",
+      "controller": "songs.controller",
+      "handler": "removeDiscoverSwipe",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/favorites",
+      "controller": "songs.controller",
+      "handler": "getFavoriteSongs",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin",
+        "dj",
+        "musician"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/library",
+      "controller": "songs.controller",
+      "handler": "getLibrarySongs",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin",
+        "dj",
+        "musician"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/mine",
+      "controller": "songs.controller",
+      "handler": "getMySongs",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin",
+        "dj",
+        "musician"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/public/trending",
+      "controller": "songs.controller",
+      "handler": "getPublicTrending",
+      "public": true,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/purchases",
+      "controller": "songs.controller",
+      "handler": "getPurchasedSongs",
+      "public": false,
+      "roles": [
+        "listener",
+        "artist",
+        "service_provider",
+        "admin"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/songs/station-counts",
+      "controller": "songs.controller",
+      "handler": "getStationCounts",
+      "public": true,
+      "roles": [],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/songs/upload-url",
+      "controller": "songs.controller",
+      "handler": "getUploadUrl",
+      "public": false,
+      "roles": [
+        "artist"
+      ],
+      "file": "songs/songs.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spotlight/can-listen-unlimited",
+      "controller": "spotlight.controller",
+      "handler": "canListenUnlimited",
+      "public": false,
+      "roles": [],
+      "file": "spotlight/spotlight.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/spotlight/listen",
+      "controller": "spotlight.controller",
+      "handler": "recordListen",
+      "public": false,
+      "roles": [],
+      "file": "spotlight/spotlight.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spotlight/today",
+      "controller": "spotlight.controller",
+      "handler": "getToday",
+      "public": false,
+      "roles": [],
+      "file": "spotlight/spotlight.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/spotlight/week",
+      "controller": "spotlight.controller",
+      "handler": "getWeek",
+      "public": false,
+      "roles": [],
+      "file": "spotlight/spotlight.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/suggestions/genre-artists",
+      "controller": "suggestions.controller",
+      "handler": "getGenreArtists",
+      "public": false,
+      "roles": [],
+      "file": "suggestions/suggestions.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/suggestions/local-artists",
+      "controller": "suggestions.controller",
+      "handler": "getLocalArtists",
+      "public": false,
+      "roles": [],
+      "file": "suggestions/suggestions.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users",
+      "controller": "users.controller",
+      "handler": "createUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id",
+      "controller": "users.controller",
+      "handler": "getUserById",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/artist-profile",
+      "controller": "users.controller",
+      "handler": "getArtistProfile",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/:id/block",
+      "controller": "users.controller",
+      "handler": "unblockUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/:id/block",
+      "controller": "users.controller",
+      "handler": "blockUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/block-status",
+      "controller": "users.controller",
+      "handler": "getBlockStatus",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/:id/favorite",
+      "controller": "users.controller",
+      "handler": "unfavoriteArtist",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/favorite",
+      "controller": "users.controller",
+      "handler": "isFavoritingArtist",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/:id/favorite",
+      "controller": "users.controller",
+      "handler": "favoriteArtist",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/:id/follow",
+      "controller": "users.controller",
+      "handler": "unfollowUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/follow",
+      "controller": "users.controller",
+      "handler": "isFollowingUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/:id/follow",
+      "controller": "users.controller",
+      "handler": "followUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/follow-counts",
+      "controller": "users.controller",
+      "handler": "getFollowCounts",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/followers",
+      "controller": "users.controller",
+      "handler": "getFollowers",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/following",
+      "controller": "users.controller",
+      "handler": "getFollowing",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/:id/friends",
+      "controller": "users.controller",
+      "handler": "getFriends",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/:id/report",
+      "controller": "users.controller",
+      "handler": "reportUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/by-username/:username",
+      "controller": "users.controller",
+      "handler": "getUserByUsername",
+      "public": true,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/users/me",
+      "controller": "users.controller",
+      "handler": "deleteCurrentUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me",
+      "controller": "users.controller",
+      "handler": "getCurrentUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me",
+      "controller": "users.controller",
+      "handler": "updateCurrentUser",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/artist-like-notifications",
+      "controller": "users.controller",
+      "handler": "getArtistLikeNotificationSettings",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/users/me/artist-like-notifications",
+      "controller": "users.controller",
+      "handler": "updateArtistLikeNotificationSettings",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/blocks",
+      "controller": "users.controller",
+      "handler": "listBlockedUsers",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/check-admin",
+      "controller": "users.controller",
+      "handler": "checkAdmin",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/me/favorites",
+      "controller": "users.controller",
+      "handler": "listMyFavorites",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/upgrade-to-artist",
+      "controller": "users.controller",
+      "handler": "upgradeToArtist",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/users/upgrade-to-catalyst",
+      "controller": "users.controller",
+      "handler": "upgradeToCatalyst",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/users/username-available",
+      "controller": "users.controller",
+      "handler": "checkUsernameAvailable",
+      "public": false,
+      "roles": [],
+      "file": "users/users.controller.ts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/venue-ads/current",
+      "controller": "venue-ads.controller",
+      "handler": "getCurrent",
+      "public": false,
+      "roles": [],
+      "file": "venue-ads/venue-ads.controller.ts"
+    },
+    {
+      "method": "POST",
+      "path": "/api/yield/redeem",
+      "controller": "yield.controller",
+      "handler": "redeem",
+      "public": false,
+      "roles": [],
+      "file": "yield/yield.controller.ts"
+    }
+  ]
+}

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/services/app_tutorial_service.dart';
 import '../../core/services/notification_settings_service.dart';
 import '../../core/services/push_notification_service.dart';
 import '../../core/services/users_service.dart';
@@ -781,6 +782,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ]),
 
                 _section('Help & Legal', [
+                  _navTile(
+                    context,
+                    icon: Icons.tour_outlined,
+                    title: 'App tour',
+                    subtitle:
+                        'Walk through Radio, Discover, Upload, and Pro-Networx',
+                    onTap: () async {
+                      // Pop Settings first so the tour overlays Home, not this page.
+                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      await AppTutorialService.instance.reset();
+                      AppTutorialService.instance.requestReplay();
+                    },
+                  ),
                   _navTile(
                     context,
                     icon: Icons.help_outline,

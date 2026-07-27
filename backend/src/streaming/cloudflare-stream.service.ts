@@ -11,6 +11,12 @@ export type CloudflareIngestDetails = {
   rtmpUrl: string | null;
   streamKey: string | null;
   webRtcUrl: string | null;
+  /**
+   * WHEP (WebRTC-HTTP Egress) playback URL. This is the ONLY way to play a
+   * stream that was published via WHIP — Cloudflare does not generate HLS/DASH
+   * manifests for WHIP-ingested live inputs.
+   */
+  whepUrl: string | null;
   hlsUrl: string | null;
   watchUrl: string | null;
 };
@@ -38,6 +44,21 @@ export class CloudflareStreamService {
       dashUrl: `${base}/manifest/video.mpd`,
       watchUrl: `${base}/iframe`,
     };
+  }
+
+  /**
+   * WHEP playback URL for a live input. Built from the live input UID — NOT
+   * from the WHIP publish URL, which embeds a publish secret that must never
+   * be shared with viewers.
+   */
+  buildWhepUrl(uid?: string | null): string | null {
+    const code = (
+      process.env.CLOUDFLARE_STREAM_CUSTOMER_CODE ||
+      process.env.CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN ||
+      ''
+    ).trim();
+    if (!uid || !code) return null;
+    return `https://customer-${code}.cloudflarestream.com/${uid}/webRTC/play`;
   }
 
   async request<T>(
@@ -90,6 +111,7 @@ export class CloudflareStreamService {
       rtmpUrl: created.rtmps?.url || 'rtmps://live.cloudflare.com:443/live/',
       streamKey: created.rtmps?.streamKey || null,
       webRtcUrl: created.webRTC?.url || null,
+      whepUrl: this.buildWhepUrl(created.uid),
       hlsUrl: playback.hlsUrl,
       watchUrl: playback.watchUrl,
     };
@@ -107,6 +129,7 @@ export class CloudflareStreamService {
         rtmpUrl: details.rtmps?.url || 'rtmps://live.cloudflare.com:443/live/',
         streamKey: details.rtmps?.streamKey || null,
         webRtcUrl: details.webRTC?.url || null,
+        whepUrl: this.buildWhepUrl(details.uid),
         hlsUrl: playback.hlsUrl,
         watchUrl: playback.watchUrl,
       };
@@ -120,6 +143,7 @@ export class CloudflareStreamService {
         rtmpUrl: 'rtmps://live.cloudflare.com:443/live/',
         streamKey: null,
         webRtcUrl: null,
+        whepUrl: this.buildWhepUrl(uid),
         hlsUrl: playback.hlsUrl,
         watchUrl: playback.watchUrl,
       };

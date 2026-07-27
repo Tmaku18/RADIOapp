@@ -40,7 +40,10 @@ export interface RadioTransportState {
 export interface RadioBoothState {
   micActive: boolean;
   duckVolume: number;
+  /** Legacy HLS URL — not playable for WHIP-ingested inputs; kept for shape compatibility. */
   hlsUrl: string | null;
+  /** WHEP (WebRTC) playback URL — the URL listeners actually play. */
+  whepUrl: string | null;
   sessionId: string | null;
 }
 
@@ -853,6 +856,7 @@ export class RadioStateService implements OnModuleInit {
       micActive: false,
       duckVolume: DEFAULT_DUCK_VOLUME,
       hlsUrl: null,
+      whepUrl: null,
       sessionId: null,
     };
   }

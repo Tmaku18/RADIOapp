@@ -3,10 +3,12 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:geolocator/geolocator.dart' show Position;
 import 'package:latlong2/latlong.dart';
 
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/location_permission_service.dart';
 import '../../core/services/nearby_service.dart';
 import '../../core/theme/networx_tokens.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import 'nearby_grouping.dart';
 
 class NearbyPeopleScreen extends StatefulWidget {
   const NearbyPeopleScreen({super.key});
@@ -64,9 +66,19 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
         limit: 300,
       );
 
-      final items = _asMapList(res['items']);
-      final byCity = _asMapList(res['byCity']);
-      final byZip = _asMapList(res['byZip']);
+      final items = asMapList(res['items']);
+      // Prefer server groups when present; otherwise build from items so
+      // By city / By ZIP stay in sync with the map (older APIs omit groups).
+      var byCity = asMapList(res['byCity'] ?? res['by_city']);
+      var byZip = asMapList(res['byZip'] ?? res['by_zip']);
+      if (items.isNotEmpty &&
+          (byCity.isEmpty || !groupsHavePeople(byCity))) {
+        byCity = groupNearbyByCity(items);
+      }
+      if (items.isNotEmpty &&
+          (byZip.isEmpty || !groupsHavePeople(byZip))) {
+        byZip = groupNearbyByZip(items);
+      }
 
       if (!mounted) return;
       setState(() {
@@ -92,14 +104,6 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     }
   }
 
-  List<Map<String, dynamic>> _asMapList(dynamic raw) {
-    if (raw is! List) return const [];
-    return raw
-        .whereType<Map>()
-        .map((m) => Map<String, dynamic>.from(m))
-        .toList();
-  }
-
   LatLng _mapCenter(List<Map<String, dynamic>> items, Position? pos) {
     if (pos != null) return LatLng(pos.latitude, pos.longitude);
     for (final item in items) {
@@ -121,12 +125,6 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
   String _headline(Map<String, dynamic> item) =>
       (item['headline'] ?? '').toString();
 
-  String _city(Map<String, dynamic> item) =>
-      (item['city'] ?? '').toString().trim();
-
-  String _zip(Map<String, dynamic> item) =>
-      (item['zipCode'] ?? item['zip_code'] ?? '').toString().trim();
-
   String? _distText(Map<String, dynamic> item) {
     final distKm = item['distanceKm'] ?? item['distance_km'];
     if (distKm is num) {
@@ -135,29 +133,29 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
     return null;
   }
 
+  void _openPersonProfile(Map<String, dynamic> person) {
+    final id = personId(person);
+    if (id == null) return;
+    Navigator.pushNamed(
+      context,
+      AppRoutes.artistProfile,
+      arguments: id,
+    );
+  }
+
   List<Marker> get _markers {
     final markers = <Marker>[];
     for (final item in _items) {
       final lat = _asDouble(item['lat']);
       final lng = _asDouble(item['lng']);
       if (lat == null || lng == null) continue;
-      final name = _name(item);
-      final city = _city(item);
       markers.add(
         Marker(
           point: LatLng(lat, lng),
           width: 44,
           height: 44,
           child: GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    city.isEmpty ? name : '$name · $city',
-                  ),
-                ),
-              );
-            },
+            onTap: () => _openPersonProfile(item),
             child: const Icon(
               Icons.location_on,
               color: NetworxTokens.electricCyan,
@@ -377,8 +375,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
           final city = (group['city'] ?? '').toString();
           final count = group['count'] is num
               ? (group['count'] as num).toInt()
-              : _asMapList(group['people']).length;
-          final people = _asMapList(group['people']);
+              : asMapList(group['people']).length;
+          final people = asMapList(group['people']);
           final title = isZip
               ? (city.isNotEmpty ? '$label · $city' : 'ZIP $label')
               : label;
@@ -395,8 +393,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
               children: people.map((person) {
                 final name = _name(person);
                 final headline = _headline(person);
-                final zip = _zip(person);
-                final cityName = _city(person);
+                final zip = personZip(person);
+                final cityName = personCity(person);
                 final dist = _distText(person);
                 final locationBits = [
                   if (!isZip && zip.isNotEmpty) zip,
@@ -424,7 +422,8 @@ class _NearbyPeopleScreenState extends State<NearbyPeopleScreen>
                                 fontWeight: FontWeight.w700,
                               ),
                         )
-                      : null,
+                      : const Icon(Icons.chevron_right),
+                  onTap: () => _openPersonProfile(person),
                 );
               }).toList(),
             ),

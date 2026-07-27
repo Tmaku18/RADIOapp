@@ -450,9 +450,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: Text('Reject: $title'),
         content: TextField(
           controller: reasonCtrl,
-          maxLines: 3,
+          maxLines: 4,
           decoration: const InputDecoration(
-            labelText: 'Reason (optional)',
+            labelText: 'Why is this rejected? (required)',
+            helperText:
+                'At least 10 characters. The artist and other admins will see this.',
             border: OutlineInputBorder(),
           ),
         ),
@@ -462,7 +464,19 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () {
+              if (reasonCtrl.text.trim().length < 10) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Add a detailed reason (at least 10 characters).',
+                    ),
+                  ),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
             child: const Text('Reject'),
           ),
         ],
@@ -471,11 +485,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     final reason = reasonCtrl.text.trim();
     reasonCtrl.dispose();
     if (confirmed != true) return;
+    if (reason.length < 10) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A detailed rejection reason is required.'),
+        ),
+      );
+      return;
+    }
     await _runSongAction(
       () => _admin.updateSongStatus(
         id,
         'rejected',
-        reason: reason.isEmpty ? null : reason,
+        reason: reason,
       ),
       'Song rejected.',
     );

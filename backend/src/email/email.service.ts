@@ -145,20 +145,85 @@ export class EmailService {
     songTitle: string,
     reason?: string,
   ): Promise<boolean> {
+    const detail =
+      reason?.trim() ||
+      'No detailed reason was provided. Contact support for clarification.';
     return this.send({
       to,
-      subject: `Update on your song "${songTitle}"`,
+      subject: `Your song "${songTitle}" was not approved`,
       html: `
-        <h2>Song Review Update</h2>
-        <p>We've reviewed your song <strong>${songTitle}</strong> and unfortunately it was not approved.</p>
-        ${reason ? `<p><strong>Reason:</strong> ${reason}</p>` : ''}
-        <p>You have <strong>48 hours</strong> to contact our support team if you believe this was a mistake.</p>
-        <p>After 48 hours, the song will be automatically removed from our system.</p>
+        <h2>Song not approved</h2>
+        <p>We've reviewed your song <strong>${songTitle}</strong> and it was not approved for Networx Radio.</p>
+        <p><strong>Why it was rejected:</strong></p>
+        <p style="background:#f8f8f8;padding:12px;border-radius:8px;white-space:pre-wrap;">${detail}</p>
+        <p>You can fix the issue and upload again, or contact support within <strong>48 hours</strong> if you believe this was a mistake.</p>
+        <p>After 48 hours, the rejected song may be automatically removed.</p>
         <p><a href="mailto:support@radioapp.com">Contact Support</a></p>
         <br>
-        <p>- The RadioApp Team</p>
+        <p>- The Networx Team</p>
       `,
-      text: `We've reviewed your song "${songTitle}" and unfortunately it was not approved. ${reason ? `Reason: ${reason}. ` : ''}You have 48 hours to contact support@radioapp.com if you believe this was a mistake.`,
+      text: `Your song "${songTitle}" was not approved.\n\nWhy it was rejected:\n${detail}\n\nYou can fix the issue and upload again, or contact support@radioapp.com within 48 hours if you believe this was a mistake.`,
+    });
+  }
+
+  async sendAdminNewSongUploadEmail(
+    to: string,
+    params: {
+      songTitle: string;
+      artistName: string;
+      artistEmail?: string | null;
+      songId: string;
+    },
+  ): Promise<boolean> {
+    const artistLine = params.artistEmail
+      ? `${params.artistName} &lt;${params.artistEmail}&gt;`
+      : params.artistName;
+    return this.send({
+      to,
+      subject: `[Admin] New song pending review: "${params.songTitle}"`,
+      html: `
+        <h2>New song pending review</h2>
+        <p><strong>${params.songTitle}</strong> was uploaded and is waiting for approval.</p>
+        <ul>
+          <li><strong>Artist:</strong> ${artistLine}</li>
+          <li><strong>Song ID:</strong> ${params.songId}</li>
+        </ul>
+        <p>Open the admin songs queue to approve or reject with a clear explanation for the artist.</p>
+        <br>
+        <p>- Networx Admin Alerts</p>
+      `,
+      text: `New song pending review: "${params.songTitle}" by ${params.artistName}${
+        params.artistEmail ? ` (${params.artistEmail})` : ''
+      }. Song ID: ${params.songId}. Open Admin → Songs to review.`,
+    });
+  }
+
+  async sendAdminSongRejectedEmail(
+    to: string,
+    params: {
+      songTitle: string;
+      artistName: string;
+      artistEmail?: string | null;
+      reason: string;
+      songId: string;
+    },
+  ): Promise<boolean> {
+    const artistLine = params.artistEmail
+      ? `${params.artistName} &lt;${params.artistEmail}&gt;`
+      : params.artistName;
+    return this.send({
+      to,
+      subject: `[Admin] Song rejected: "${params.songTitle}"`,
+      html: `
+        <h2>Song rejected</h2>
+        <p><strong>${params.songTitle}</strong> by ${artistLine} was rejected.</p>
+        <p><strong>Reason shared with the artist:</strong></p>
+        <p style="background:#f8f8f8;padding:12px;border-radius:8px;white-space:pre-wrap;">${params.reason}</p>
+        <p>Song ID: ${params.songId}</p>
+        <br>
+        <p>- Networx Admin Alerts</p>
+      `,
+      text: `Song rejected: "${params.songTitle}" by ${params.artistName}. Reason: ${params.reason}. Song ID: ${params.songId}`,
     });
   }
 }

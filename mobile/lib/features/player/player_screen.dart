@@ -633,8 +633,10 @@ class _PlayerScreenState extends State<PlayerScreen>
     final handler = AudioPlayerService.handler;
     switch (event.type) {
       case 'mic_on':
-        final url = event.hlsUrl;
-        if (url != null && url.trim().isNotEmpty) {
+        // Prefer the WHEP (WebRTC) URL — Cloudflare produces no HLS for
+        // WHIP-published DJ mics, so the HLS URL alone is unplayable.
+        final url = event.streamUrl;
+        if (url != null && url.isNotEmpty) {
           await handler.startVoiceOverlay(
             url,
             duckVolume: event.duckVolume ?? 0.25,
@@ -696,11 +698,11 @@ class _PlayerScreenState extends State<PlayerScreen>
     // Layer the live DJ talk-over over the music (ducking the music) via the
     // handler's separate voice player. Stop it when the booth goes off-air.
     final overlay = track.djOverlay;
-    final overlayUrl = overlay?.hlsUrl;
+    final overlayUrl = overlay?.streamUrl;
     if (overlay != null &&
         overlay.active &&
         overlayUrl != null &&
-        overlayUrl.trim().isNotEmpty) {
+        overlayUrl.isNotEmpty) {
       await AudioPlayerService.handler.startVoiceOverlay(
         overlayUrl,
         duckVolume: overlay.duckVolume,

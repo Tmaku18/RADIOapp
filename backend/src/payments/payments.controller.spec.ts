@@ -37,8 +37,75 @@ describe('PaymentsController', () => {
         amount: 500,
         credits: 25,
       },
+      undefined,
     );
     expect(result).toEqual({ clientSecret: 'secret' });
+  });
+
+  it('completes App Store subscription for current user', async () => {
+    const paymentsService = {
+      completeAppStoreSubscription: jest
+        .fn()
+        .mockResolvedValue({ ok: true, status: 'active' }),
+    };
+    const stripeService = { verifyWebhookSignature: jest.fn() };
+    const controller = new PaymentsController(
+      paymentsService as any,
+      stripeService as any,
+    );
+    const supabase = createSupabaseMock();
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
+    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
+
+    const result = await controller.completeAppStoreSubscription(
+      { uid: 'firebase-uid' } as any,
+      {
+        productId: 'nwx_pro_networx_monthly',
+        signedTransaction: 'jws',
+      } as any,
+    );
+
+    expect(paymentsService.completeAppStoreSubscription).toHaveBeenCalledWith(
+      'user-id',
+      expect.objectContaining({ productId: 'nwx_pro_networx_monthly' }),
+    );
+    expect(result).toEqual({ ok: true, status: 'active' });
+  });
+
+  it('completes Google Play subscription for current user', async () => {
+    const paymentsService = {
+      completeGooglePlaySubscription: jest
+        .fn()
+        .mockResolvedValue({ ok: true, status: 'active' }),
+    };
+    const stripeService = { verifyWebhookSignature: jest.fn() };
+    const controller = new PaymentsController(
+      paymentsService as any,
+      stripeService as any,
+    );
+    const supabase = createSupabaseMock();
+    supabase.__builder.single.mockResolvedValue({
+      data: { id: 'user-id' },
+      error: null,
+    });
+    (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
+
+    const result = await controller.completeGooglePlaySubscription(
+      { uid: 'firebase-uid' } as any,
+      {
+        productId: 'nwx_pro_networx_monthly',
+        purchaseToken: 'token',
+      } as any,
+    );
+
+    expect(paymentsService.completeGooglePlaySubscription).toHaveBeenCalledWith(
+      'user-id',
+      expect.objectContaining({ purchaseToken: 'token' }),
+    );
+    expect(result).toEqual({ ok: true, status: 'active' });
   });
 
   it('handles payment_intent.succeeded webhook', async () => {

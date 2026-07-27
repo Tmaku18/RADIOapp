@@ -1,11 +1,17 @@
 export type SupabaseBuilderMock = {
   select: jest.Mock;
   eq: jest.Mock;
+  neq: jest.Mock;
   is: jest.Mock;
+  in: jest.Mock;
   ilike: jest.Mock;
+  or: jest.Mock;
+  not: jest.Mock;
   single: jest.Mock;
+  maybeSingle: jest.Mock;
   insert: jest.Mock;
   update: jest.Mock;
+  upsert: jest.Mock;
   delete: jest.Mock;
   order: jest.Mock;
   limit: jest.Mock;
@@ -22,11 +28,17 @@ export const createSupabaseMock = () => {
   } = {
     select: jest.fn(() => builder),
     eq: jest.fn(() => builder),
+    neq: jest.fn(() => builder),
     is: jest.fn(() => builder),
+    in: jest.fn(() => builder),
     ilike: jest.fn(() => builder),
+    or: jest.fn(() => builder),
+    not: jest.fn(() => builder),
     single: jest.fn(),
+    maybeSingle: jest.fn(),
     insert: jest.fn(() => builder),
     update: jest.fn(() => builder),
+    upsert: jest.fn(() => builder),
     delete: jest.fn(() => builder),
     order: jest.fn(() => builder),
     limit: jest.fn(() => builder),
@@ -37,16 +49,33 @@ export const createSupabaseMock = () => {
     },
   };
 
-  const storage = {
-    from: jest.fn(() => ({
-      createSignedUrl: jest.fn(),
-      createSignedUploadUrl: jest.fn(),
-      upload: jest.fn(),
-      remove: jest.fn(),
-      getPublicUrl: jest.fn(() => ({
-        data: { publicUrl: 'https://example.com/file' },
-      })),
+  const bucketApi = () => ({
+    createSignedUrl: jest.fn().mockResolvedValue({
+      data: { signedUrl: 'https://example.com/signed' },
+      error: null,
+    }),
+    createSignedUploadUrl: jest.fn(async (path: string) => ({
+      data: {
+        signedUrl: 'https://example.com/upload',
+        path,
+      },
+      error: null,
     })),
+    upload: jest.fn(async (_path: string, _body: unknown, _opts?: unknown) => ({
+      data: { path: _path },
+      error: null,
+    })),
+    remove: jest.fn().mockResolvedValue({ data: null, error: null }),
+    getPublicUrl: jest.fn(() => ({
+      data: { publicUrl: 'https://example.com/file' },
+    })),
+  });
+
+  const storage = {
+    from: jest.fn(() => bucketApi()),
+    getBucket: jest.fn().mockResolvedValue({ data: null, error: null }),
+    updateBucket: jest.fn().mockResolvedValue({ data: null, error: null }),
+    createBucket: jest.fn().mockResolvedValue({ data: null, error: null }),
   };
 
   const channel = jest.fn(() => ({

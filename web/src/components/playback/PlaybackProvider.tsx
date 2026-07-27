@@ -19,7 +19,8 @@ import { resolveRadioResumePosition } from '@/lib/radio-sync';
 import { radioApi } from '@/lib/api';
 import {
   applyDuckToMain,
-  syncOverlayHls,
+  syncOverlayStream,
+  teardownOverlayWhep,
   applyOverlayVolume,
   playSoundboardClipOnOverlay,
   type DjBoothEvent,
@@ -302,7 +303,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           return;
         }
         if (ctrl) {
-          syncOverlayHls(ctrl, opts.djOverlay, true);
+          syncOverlayStream(ctrl, opts.djOverlay, true);
         }
         refreshMainVolume();
       }
@@ -321,6 +322,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           djOverlay: {
             active: true,
             hlsUrl: event.hlsUrl ?? djOverlayRef.current?.hlsUrl ?? null,
+            whepUrl: event.whepUrl ?? djOverlayRef.current?.whepUrl ?? null,
             duckVolume: event.duckVolume,
           },
         });
@@ -329,6 +331,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
           djOverlay: {
             active: false,
             hlsUrl: djOverlayRef.current?.hlsUrl ?? null,
+            whepUrl: djOverlayRef.current?.whepUrl ?? null,
             duckVolume: djOverlayRef.current?.duckVolume ?? 0.25,
           },
         });
@@ -361,6 +364,7 @@ export function PlaybackProvider({ children }: PlaybackProviderProps) {
     overlayAudioRef.current = overlay;
     return () => {
       overlay.pause();
+      teardownOverlayWhep(overlay);
       if (overlayHlsRef.current) {
         overlayHlsRef.current.destroy();
         overlayHlsRef.current = null;

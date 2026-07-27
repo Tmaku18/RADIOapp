@@ -13,6 +13,8 @@ class Song {
   final int likeCount;
   final int skipCount;
   final String status;
+  /// Present when [status] is `rejected` — shown to the artist in Studio.
+  final String? rejectionReason;
   final DateTime createdAt;
   final DateTime updatedAt;
   /// True when the song is in The Refinery for Prospector review (`/songs/mine`).
@@ -43,6 +45,7 @@ class Song {
     required this.likeCount,
     required this.skipCount,
     required this.status,
+    this.rejectionReason,
     required this.createdAt,
     required this.updatedAt,
     this.inRefinery = false,
@@ -92,6 +95,8 @@ class Song {
       likeCount: (json['like_count'] ?? json['likeCount'] ?? 0) as int,
       skipCount: (json['skip_count'] ?? json['skipCount'] ?? 0) as int,
       status: json['status']?.toString() ?? 'pending',
+      rejectionReason: (json['rejection_reason'] ?? json['rejectionReason'])
+          ?.toString(),
       inRefinery: json['inRefinery'] == true || json['in_refinery'] == true,
       sampleUrl: (json['sample_url'] ?? json['sampleUrl'])?.toString(),
       sampleStartSeconds: parseDoubleOr(
@@ -139,6 +144,7 @@ class Song {
       'like_count': likeCount,
       'skip_count': skipCount,
       'status': status,
+      'rejection_reason': rejectionReason,
       'in_refinery': inRefinery,
       'sample_url': sampleUrl,
       'sample_start_seconds': sampleStartSeconds,

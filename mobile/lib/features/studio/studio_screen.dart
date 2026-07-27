@@ -576,6 +576,30 @@ class _StudioScreenState extends State<StudioScreen>
                                     ),
                                   ],
                                 ),
+                                if (s.status == 'rejected') ...[
+                                  const SizedBox(height: 10),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: Colors.red.withValues(alpha: 0.35),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      s.rejectionReason?.trim().isNotEmpty == true
+                                          ? 'Not approved — ${s.rejectionReason!.trim()}'
+                                          : 'Not approved. Check notifications for details, or contact support.',
+                                      style: TextStyle(
+                                        color: surfaces.textPrimary,
+                                        fontSize: 12,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                                 if (s.status == 'approved') ...[
                                   const SizedBox(height: 10),
                                   Wrap(

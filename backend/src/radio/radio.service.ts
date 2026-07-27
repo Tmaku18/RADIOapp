@@ -1051,10 +1051,11 @@ export class RadioService implements OnModuleInit, OnModuleDestroy {
       payload.position_seconds = Math.floor((now - startedAt) / 1000);
     }
 
-    if (booth?.hlsUrl) {
+    if (booth?.whepUrl || booth?.hlsUrl) {
       payload.dj_overlay = {
         active: !!booth.micActive,
         hls_url: booth.hlsUrl,
+        whep_url: booth.whepUrl ?? null,
         duck_volume: booth.duckVolume ?? 0.25,
       };
     } else {

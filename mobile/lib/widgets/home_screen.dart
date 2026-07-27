@@ -14,6 +14,8 @@ import '../features/pro_networx/pro_networx_shell_screen.dart';
 import '../core/auth/auth_service.dart';
 import '../core/services/push_notification_service.dart';
 import '../core/services/location_permission_service.dart';
+import '../core/services/app_tutorial_service.dart';
+import '../features/tutorial/app_tutorial.dart';
 import 'dimension/dimension_radio_bar.dart';
 import 'dimension/cyber_backdrop.dart';
 import 'dimension/dimension_nav_drawer.dart';
@@ -32,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   /// 0 = Networx Home (post-sign-in landing). Radio player is index 1.
   int _currentIndex = 0;
   app_user.User? _user;
+  bool _tutorialInFlight = false;
 
   static const int _tabRadio = 1;
   static const int _tabFeed = 2;
@@ -41,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     HomeTabIntent.selectTab = _selectTab;
+    AppTutorialService.instance.requestShow.addListener(_onTutorialReplayRequested);
     _loadUserProfile();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(_promptLaunchPermissions());
@@ -49,10 +53,16 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    AppTutorialService.instance.requestShow
+        .removeListener(_onTutorialReplayRequested);
     if (identical(HomeTabIntent.selectTab, _selectTab)) {
       HomeTabIntent.selectTab = null;
     }
     super.dispose();
+  }
+
+  void _onTutorialReplayRequested() {
+    unawaited(_startAppTutorial(force: true));
   }
 
   Future<void> _loadUserProfile() async {
@@ -81,6 +91,56 @@ class _HomeScreenState extends State<HomeScreen> {
     await Future<void>.delayed(const Duration(milliseconds: 400));
     if (!mounted) return;
     await LocationPermissionService.instance.promptOnLaunch(context);
+    if (!mounted) return;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!mounted) return;
+    await _startAppTutorial(force: false);
+  }
+
+  Future<void> _startAppTutorial({required bool force}) async {
+    if (!mounted || _tutorialInFlight || AppTutorial.isShowing) return;
+    if (!force) {
+      final done = await AppTutorialService.instance.hasCompleted();
+      if (done) return;
+    }
+    // Ensure we have a role for the correct tour track.
+    if (_user == null) {
+      await _loadUserProfile();
+    }
+    if (!mounted) return;
+    final role = _user?.role;
+    final canUpload = hasArtistCapability(role);
+    final proNetworxTab = canUpload ? 4 : null;
+    final voteTab = canUpload ? null : 4;
+
+    _tutorialInFlight = true;
+    try {
+      await AppTutorial.show(
+        context,
+        role: role,
+        selectTab: _selectTab,
+        openRoute: (route, [arguments]) async {
+          if (!mounted) return;
+          await Navigator.of(context).pushNamed(route, arguments: arguments);
+        },
+        popToHome: _popToHomeShell,
+        proNetworxTabIndex: proNetworxTab,
+        voteTabIndex: voteTab,
+      );
+    } finally {
+      _tutorialInFlight = false;
+    }
+  }
+
+  /// Pop routes pushed above the home shell (Upload, Studio, etc.).
+  Future<void> _popToHomeShell() async {
+    if (!mounted) return;
+    final nav = Navigator.of(context);
+    while (nav.canPop()) {
+      nav.pop();
+      await Future<void>.delayed(const Duration(milliseconds: 16));
+      if (!mounted) return;
+    }
   }
 
   void _openNavDrawer() => _scaffoldKey.currentState?.openDrawer();

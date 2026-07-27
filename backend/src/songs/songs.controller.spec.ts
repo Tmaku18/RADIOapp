@@ -8,14 +8,23 @@ jest.mock('../config/supabase.config', () => ({
   getSupabaseClient: jest.fn(),
 }));
 
+jest.mock('../common/song-audio.util', () => ({
+  signSongAudioUrl: jest.fn(async (url: string | null) => url),
+}));
+
 const createAdminServiceMock = () => ({}) as any;
 const createImageModerationMock = () =>
-  ({ checkImage: jest.fn() }) as any;
+  ({
+    checkImage: jest.fn(),
+    assertImageUrlAllowed: jest.fn().mockResolvedValue(undefined),
+    assertImageBufferAllowed: jest.fn().mockResolvedValue(undefined),
+  }) as any;
 const createLyricsServiceMock = () =>
   ({
     getLyrics: jest.fn(),
     upsertLyrics: jest.fn(),
     backfillMissingLyrics: jest.fn(),
+    transcribeLyricsInBackground: jest.fn(),
   }) as any;
 
 describe('SongsController', () => {
@@ -58,7 +67,11 @@ describe('SongsController', () => {
       getSongById: jest.fn(),
     };
     const uploadsService = {
-      getSignedUploadUrl: jest.fn().mockResolvedValue({ url: 'signed-url' }),
+      getSignedUploadUrl: jest.fn().mockResolvedValue({
+        signedUrl: 'signed-url',
+        path: 'artist-id/track.mp3',
+        expiresIn: 60,
+      }),
     };
     const durationService = { extractDuration: jest.fn() };
     const controller = new SongsController(
@@ -71,8 +84,12 @@ describe('SongsController', () => {
     );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({
-      data: { id: 'artist-id' },
+    supabase.__builder.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'artist-id',
+        display_name: 'Artist',
+        avatar_url: null,
+      },
       error: null,
     });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
@@ -92,7 +109,11 @@ describe('SongsController', () => {
       'track.mp3',
       'audio/mpeg',
     );
-    expect(result).toEqual({ url: 'signed-url' });
+    expect(result).toEqual({
+      signedUrl: 'signed-url',
+      path: 'artist-id/track.mp3',
+      expiresIn: 60,
+    });
   });
 
   it('creates song from storage paths', async () => {
@@ -102,19 +123,26 @@ describe('SongsController', () => {
       getSongById: jest.fn(),
     };
     const uploadsService = { getSignedUploadUrl: jest.fn() };
-    const durationService = { extractDuration: jest.fn() };
+    const durationService = {
+      extractDuration: jest.fn().mockResolvedValue(180),
+    };
+    const imageModeration = createImageModerationMock();
     const controller = new SongsController(
       songsService as any,
       uploadsService as any,
       durationService as any,
       createAdminServiceMock(),
-      createImageModerationMock(),
+      imageModeration,
       createLyricsServiceMock(),
     );
     const supabase = createSupabaseMock();
 
-    supabase.__builder.single.mockResolvedValue({
-      data: { id: 'artist-id' },
+    supabase.__builder.maybeSingle.mockResolvedValue({
+      data: {
+        id: 'artist-id',
+        display_name: 'Artist',
+        avatar_url: null,
+      },
       error: null,
     });
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
@@ -123,20 +151,38 @@ describe('SongsController', () => {
       { uid: 'firebase-uid' } as any,
       {
         title: 'Track',
-        artistName: 'Artist',
+        artistOriginCity: 'Atlanta',
+        artistOriginState: 'GA',
+        stationId: 'us-hip-hop',
         audioPath: 'songs/track.mp3',
         artworkPath: 'artwork/cover.jpg',
         durationSeconds: 180,
+        sampleStartSeconds: 5,
+        sampleEndSeconds: 25,
+        discoverClipStartSeconds: 10,
+        discoverClipEndSeconds: 20,
+        optInFullSongRadio: true,
       } as any,
     );
 
-    expect(songsService.createSong).toHaveBeenCalledWith('artist-id', {
-      title: 'Track',
-      artistName: 'Artist',
-      audioUrl: 'https://example.com/file',
-      artworkUrl: 'https://example.com/file',
-      durationSeconds: 180,
-    });
+    expect(imageModeration.assertImageUrlAllowed).toHaveBeenCalled();
+    expect(songsService.createSong).toHaveBeenCalledWith(
+      'artist-id',
+      expect.objectContaining({
+        title: 'Track',
+        artistName: 'Artist',
+        artistOriginCity: 'Atlanta',
+        artistOriginState: 'GA',
+        audioUrl: 'https://example.com/file',
+        artworkUrl: 'https://example.com/file',
+        stationId: 'us-hip-hop',
+        optInFullSongRadio: true,
+        sampleStartSeconds: 5,
+        sampleEndSeconds: 25,
+        discoverClipStartSeconds: 10,
+        discoverClipEndSeconds: 20,
+      }),
+    );
     expect(result).toEqual({ id: 'song-1' });
   });
 
@@ -165,9 +211,27 @@ describe('SongsController', () => {
       })
       .mockResolvedValueOnce({ data: { artist_id: 'artist-id' }, error: null })
       .mockResolvedValueOnce({
-        data: { id: 'song-1', title: 'Track', opt_in_free_play: true },
+        data: {
+          id: 'song-1',
+          title: 'Track',
+          opt_in_free_play: true,
+          opt_in_full_song_radio: true,
+          opt_in_dj_livestreams: false,
+          opt_in_dj_archived_mixes: false,
+          artwork_url: null,
+          station_id: 'us-hip-hop',
+          station_ids: ['us-hip-hop'],
+          discover_enabled: false,
+          discover_clip_url: null,
+          discover_background_url: null,
+          discover_clip_start_seconds: null,
+          discover_clip_end_seconds: null,
+          discover_clip_duration_seconds: null,
+          is_explicit: true,
+        },
         error: null,
       });
+    supabase.__builder.__result = { data: [], error: null };
     (getSupabaseClient as jest.Mock).mockReturnValue(supabase);
 
     const result = await controller.updateSong(
@@ -176,10 +240,12 @@ describe('SongsController', () => {
       { optInFreePlay: true },
     );
 
-    expect(result).toEqual({
-      id: 'song-1',
-      title: 'Track',
-      optInFreePlay: true,
-    });
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'song-1',
+        title: 'Track',
+        optInFreePlay: true,
+      }),
+    );
   });
 });

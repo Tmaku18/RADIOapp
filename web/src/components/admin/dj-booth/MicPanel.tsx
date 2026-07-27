@@ -40,6 +40,27 @@ export function MicPanel({
     }
   };
 
+  // The mic only goes ON AIR once the browser's WHIP publish actually
+  // succeeds — broadcasting mic_on earlier would make listeners duck the
+  // music and try to play a stream that isn't live yet.
+  const handlePublishing = useCallback(async () => {
+    try {
+      await djBoothApi.micOn(stationId);
+      onRefresh();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Failed to go on air');
+    }
+  }, [onRefresh, stationId]);
+
+  const handleBroadcastError = useCallback(
+    (message: string) => {
+      setError(message);
+      // Best-effort: make sure listeners aren't left ducked with no voice.
+      void djBoothApi.micOff(stationId).then(() => onRefresh()).catch(() => undefined);
+    },
+    [onRefresh, stationId],
+  );
+
   const disconnect = async () => {
     setBusy(true);
     setError(null);
@@ -139,7 +160,12 @@ export function MicPanel({
           <p className="text-xs text-muted-foreground mb-2">
             Audio-only broadcast to station listeners (Cloudflare WHIP).
           </p>
-          <CameraBroadcaster whipUrl={whipUrl} startCameraOff />
+          <CameraBroadcaster
+            whipUrl={whipUrl}
+            startCameraOff
+            onPublishing={handlePublishing}
+            onError={handleBroadcastError}
+          />
         </div>
       )}
     </Card>

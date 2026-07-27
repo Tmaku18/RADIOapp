@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../env.dart';
@@ -26,7 +27,8 @@ class PlayBillingService {
   PlayBillingService._();
   static final PlayBillingService instance = PlayBillingService._();
 
-  final InAppPurchase _iap = InAppPurchase.instance;
+  /// Lazy so unit tests can call [describeStoreError] without binding IAP.
+  InAppPurchase get _iap => InAppPurchase.instance;
 
   static const String _defaultCredits10 = 'nwx_credits_10';
   static const String _defaultCredits25 = 'nwx_credits_25';
@@ -219,20 +221,88 @@ class PlayBillingService {
     return _iap.isAvailable();
   }
 
+  /// Maps StoreKit / Play Billing failures into actionable copy.
+  String describeStoreError(Object error, {String? productId}) {
+    final raw = error is PlatformException
+        ? (error.message ?? error.code)
+        : error.toString();
+    final lower = raw.toLowerCase();
+    final sku = productId ?? 'this product';
+
+    if (lower.contains('storekit_no_response') ||
+        lower.contains('failed to get response from platform')) {
+      return 'App Store could not load $sku. In App Store Connect check: '
+          '(1) Paid Apps Agreement is Active, '
+          '(2) subscription $sku exists with a localization, '
+          '(3) you are signed into a Sandbox Apple ID on this device '
+          '(Settings → Developer → Sandbox Apple Account), '
+          '(4) wait a few minutes after creating the product, then retry.';
+    }
+    if (lower.contains('not found') || lower.contains('notfound')) {
+      return 'Product $sku is not available in $_storeLabel for this build. '
+          'Confirm the Product ID matches App Store Connect / Play Console '
+          'exactly, and that the subscription is cleared for sale.';
+    }
+    if (lower.contains('billing is not available') ||
+        lower.contains('canmakepayments') ||
+        lower.contains('not available')) {
+      return '$_storeLabel purchases are not available on this device '
+          '(Restrictions / Screen Time may be blocking In-App Purchases).';
+    }
+    // Strip redundant Exception: prefixes from nested throws.
+    return raw.replaceFirst(RegExp(r'^(Exception:\s*)+'), '');
+  }
+
   Future<ProductDetails> getProductDetails(String productId) async {
-    final response = await _iap.queryProductDetails({productId});
-    if (response.error != null) {
-      throw Exception(
-        response.error?.message ?? 'Failed to load $_storeLabel product',
-      );
+    Object? lastError;
+
+    // StoreKit sometimes returns empty on the first cold query after launch.
+    for (var attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) {
+        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
+      }
+      try {
+        final response = await _iap.queryProductDetails({productId});
+        if (response.productDetails.isNotEmpty &&
+            !response.notFoundIDs.contains(productId)) {
+          return response.productDetails.firstWhere(
+            (p) => p.id == productId,
+            orElse: () => response.productDetails.first,
+          );
+        }
+        if (response.error != null) {
+          final err = response.error!;
+          lastError = Exception(err.message.isNotEmpty ? err.message : err.code);
+          final code = err.code.toLowerCase();
+          final msg = err.message.toLowerCase();
+          final retryable = code.contains('storekit_no_response') ||
+              msg.contains('failed to get response from platform');
+          if (!retryable) break;
+          continue;
+        }
+        lastError = Exception(
+          'Product $productId not found in $_storeLabel for this app build.',
+        );
+      } on PlatformException catch (e) {
+        lastError = e;
+        final retryable = e.code.toLowerCase().contains('storekit_no_response') ||
+            (e.message ?? '')
+                .toLowerCase()
+                .contains('failed to get response from platform');
+        if (!retryable) break;
+      } catch (e) {
+        lastError = e;
+        break;
+      }
     }
-    if (response.notFoundIDs.contains(productId) ||
-        response.productDetails.isEmpty) {
-      throw Exception(
-        'Product $productId not found in $_storeLabel for this app build.',
-      );
-    }
-    return response.productDetails.first;
+
+    throw Exception(
+      describeStoreError(
+        lastError ??
+            Exception('Failed to load $_storeLabel product $productId'),
+        productId: productId,
+      ),
+    );
   }
 
   Future<PlayPurchaseResult> buyConsumable(String productId) async {
@@ -317,85 +387,100 @@ class PlayBillingService {
     required String productId,
     required Future<bool> Function(ProductDetails product) startPurchase,
   }) async {
-    final available = await isAvailable();
-    if (!available) {
-      throw Exception('$_storeLabel Billing is not available on this device.');
-    }
+    try {
+      final available = await isAvailable();
+      if (!available) {
+        throw Exception(
+          '$_storeLabel Billing is not available on this device.',
+        );
+      }
 
-    final product = await getProductDetails(productId);
-    final completer = Completer<PlayPurchaseResult>();
-    late final StreamSubscription<List<PurchaseDetails>> subscription;
-    subscription = _iap.purchaseStream.listen(
-      (updates) async {
-        for (final purchase in updates) {
-          if (purchase.productID != productId) continue;
+      final product = await getProductDetails(productId);
+      final completer = Completer<PlayPurchaseResult>();
+      late final StreamSubscription<List<PurchaseDetails>> subscription;
+      // Listen before starting purchase — StoreKit can emit updates immediately.
+      subscription = _iap.purchaseStream.listen(
+        (updates) async {
+          for (final purchase in updates) {
+            if (purchase.productID != productId) continue;
 
-          if (purchase.status == PurchaseStatus.canceled) {
-            await _finishPurchaseIfNeeded(purchase);
-            if (!completer.isCompleted) {
-              completer.completeError(Exception('Purchase was cancelled.'));
-            }
-            continue;
-          }
-
-          if (purchase.status == PurchaseStatus.error) {
-            await _finishPurchaseIfNeeded(purchase);
-            final message =
-                purchase.error?.message ?? '$_storeLabel purchase failed.';
-            if (!completer.isCompleted) {
-              completer.completeError(Exception(message));
-            }
-            continue;
-          }
-
-          if (purchase.status == PurchaseStatus.purchased ||
-              purchase.status == PurchaseStatus.restored) {
-            await _finishPurchaseIfNeeded(purchase);
-            final token = purchase.verificationData.serverVerificationData;
-            if (token.isEmpty &&
-                (purchase.purchaseID == null || purchase.purchaseID!.isEmpty)) {
+            if (purchase.status == PurchaseStatus.canceled) {
+              await _finishPurchaseIfNeeded(purchase);
               if (!completer.isCompleted) {
-                completer.completeError(
-                  Exception(
-                    'Missing verification data from $_storeLabel purchase.',
+                completer.completeError(Exception('Purchase was cancelled.'));
+              }
+              continue;
+            }
+
+            if (purchase.status == PurchaseStatus.error) {
+              await _finishPurchaseIfNeeded(purchase);
+              final message = describeStoreError(
+                purchase.error?.message ?? '$_storeLabel purchase failed.',
+                productId: productId,
+              );
+              if (!completer.isCompleted) {
+                completer.completeError(Exception(message));
+              }
+              continue;
+            }
+
+            if (purchase.status == PurchaseStatus.purchased ||
+                purchase.status == PurchaseStatus.restored) {
+              await _finishPurchaseIfNeeded(purchase);
+              final token = purchase.verificationData.serverVerificationData;
+              if (token.isEmpty &&
+                  (purchase.purchaseID == null ||
+                      purchase.purchaseID!.isEmpty)) {
+                if (!completer.isCompleted) {
+                  completer.completeError(
+                    Exception(
+                      'Missing verification data from $_storeLabel purchase.',
+                    ),
+                  );
+                }
+              } else if (!completer.isCompleted) {
+                completer.complete(
+                  PlayPurchaseResult(
+                    productId: productId,
+                    purchaseToken: token,
+                    transactionId: purchase.purchaseID,
                   ),
                 );
               }
-            } else if (!completer.isCompleted) {
-              completer.complete(
-                PlayPurchaseResult(
-                  productId: productId,
-                  purchaseToken: token,
-                  transactionId: purchase.purchaseID,
-                ),
-              );
             }
           }
-        }
-      },
-      onError: (Object error, StackTrace stackTrace) {
-        if (!completer.isCompleted) {
-          completer.completeError(error, stackTrace);
-        }
-      },
-    );
-
-    try {
-      final started = await startPurchase(product);
-      if (!started) {
-        throw Exception(
-          '$_storeLabel did not start purchase flow for $productId.',
-        );
-      }
-      final result = await completer.future.timeout(
-        const Duration(minutes: 2),
-        onTimeout: () {
-          throw Exception('Purchase timed out. Please try again.');
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (!completer.isCompleted) {
+            completer.completeError(
+              Exception(describeStoreError(error, productId: productId)),
+              stackTrace,
+            );
+          }
         },
       );
-      return result;
-    } finally {
-      await subscription.cancel();
+
+      try {
+        // Yield so the purchaseStream onListen hooks (StoreKit listeners) attach.
+        await Future<void>.delayed(Duration.zero);
+        final started = await startPurchase(product);
+        if (!started) {
+          throw Exception(
+            '$_storeLabel did not start purchase flow for $productId.',
+          );
+        }
+        final result = await completer.future.timeout(
+          const Duration(minutes: 2),
+          onTimeout: () {
+            throw Exception('Purchase timed out. Please try again.');
+          },
+        );
+        return result;
+      } finally {
+        await subscription.cancel();
+      }
+    } catch (e) {
+      throw Exception(describeStoreError(e, productId: productId));
     }
   }
 

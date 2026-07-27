@@ -48,10 +48,15 @@ export const adminApi = {
     return apiRequest<{ songs: Song[]; total: number }>(endpoint, { token });
   },
 
-  async updateSongStatus(token: string, songId: string, status: 'approved' | 'rejected') {
+  async updateSongStatus(
+    token: string,
+    songId: string,
+    status: 'approved' | 'rejected',
+    reason?: string,
+  ) {
     return apiRequest<{ song: Song }>(`admin/songs/${songId}`, {
       method: 'PATCH',
-      body: { status },
+      body: { status, ...(reason ? { reason } : {}) },
       token,
     });
   },

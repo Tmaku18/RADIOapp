@@ -956,10 +956,13 @@ export const artistLiveApi = {
     hostType?: 'dj' | 'artist' | 'musician';
   }) => api.post('/artist-live/start', data ?? {}),
   stop: () => api.post('/artist-live/stop'),
-  markPublishing: (sessionId?: string) =>
+  markPublishing: (sessionId?: string, ingestMode?: 'whip' | 'rtmp') =>
     api.post<{ live: boolean; sessionId: string; alreadyLive?: boolean }>(
       '/artist-live/publishing',
-      sessionId ? { sessionId } : {},
+      {
+        ...(sessionId ? { sessionId } : {}),
+        ...(ingestMode ? { ingestMode } : {}),
+      },
     ),
   listSessions: () => api.get<{ sessions: Array<{ sessionId: string; artistId: string; displayName: string; avatarUrl: string | null; title: string | null; currentViewers: number; peakViewers: number; startedAt: string; status: string; hostRole?: string }> }>('/artist-live/sessions'),
   getStreamerStatus: () =>
