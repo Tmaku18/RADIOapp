@@ -11,6 +11,10 @@ import {
   signOut,
   getIdToken,
   createSessionCookie,
+  completeRedirectSignIn,
+  mapFirebaseAuthError,
+  resolveAuthEmail,
+  peekOAuthRedirectPending,
 } from '@/lib/firebase-client';
 import { usersApi } from '@/lib/api';
 import { DisplayNameGate } from '@/components/DisplayNameGate';
@@ -138,11 +142,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Display name is required');
       }
       const current = user;
-      if (!current?.email) {
+      if (!current) {
         throw new Error('You must be signed in to finish setting up your account.');
       }
+      // Apple Hide My Email / re-auth can leave Firebase email null.
       await usersApi.create({
-        email: current.email,
+        email: resolveAuthEmail(current),
         displayName: name,
         role,
       });
@@ -151,6 +156,63 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     [user, fetchProfile],
   );
+
+  /** Shared post-OAuth steps for popup and redirect returns. */
+  const finishOAuthSignIn = useCallback(
+    async (firebaseUser: User, label: 'Google' | 'Apple') => {
+      setUser(firebaseUser);
+      const idToken = await firebaseUser.getIdToken();
+      try {
+        await createSessionCookie(idToken);
+      } catch (sessionErr) {
+        console.warn(
+          `Session cookie creation failed during ${label} sign-in:`,
+          sessionErr,
+        );
+      }
+      try {
+        const response = await usersApi.getMe();
+        if (response.data) {
+          setProfile(response.data);
+          setPendingProfileSetup(false);
+          return;
+        }
+      } catch (err) {
+        if (getHttpStatus(err) !== 404) {
+          return;
+        }
+        setProfile(null);
+        setPendingProfileSetup(true);
+        return;
+      }
+    },
+    [getHttpStatus],
+  );
+
+  // Complete full-page OAuth redirect (Apple/Google) before wiring auth listener.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const pendingProvider = peekOAuthRedirectPending();
+      try {
+        const redirected = await completeRedirectSignIn();
+        if (cancelled || !redirected) return;
+        await finishOAuthSignIn(
+          redirected,
+          pendingProvider === 'google' ? 'Google' : 'Apple',
+        );
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            mapFirebaseAuthError(err, 'Failed to finish sign-in after redirect'),
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [finishOAuthSignIn]);
 
   // Listen for auth state changes (e.g. page load after redirect)
   useEffect(() => {
@@ -223,41 +285,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const firebaseUser = await signInWithGoogle();
-      const idToken = await firebaseUser.getIdToken();
-      try {
-        await createSessionCookie(idToken);
-      } catch (sessionErr) {
-        // Keep auth usable when local session endpoint is unavailable.
-        console.warn('Session cookie creation failed during Google sign-in:', sessionErr);
-      }
-      try {
-        const response = await usersApi.getMe();
-        if (response.data) {
-          setProfile(response.data);
-          setPendingProfileSetup(false);
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        if (getHttpStatus(err) !== 404) {
-          setLoading(false);
-          return;
-        }
-        // New user: require a display name before creating the account. The
-        // gate (rendered globally) collects it and finishes setup. We pre-fill
-        // with the Google profile name when available, never the email prefix.
-        setProfile(null);
-        setPendingProfileSetup(true);
-        setLoading(false);
-        return;
-      }
+      // Redirect fallback never resolves here — page navigates away.
+      await finishOAuthSignIn(firebaseUser, 'Google');
       setLoading(false);
     } catch (err) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? (err instanceof Error ? err.message : 'Failed to sign in with Google');
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      const message =
+        apiMessage ??
+        mapFirebaseAuthError(err, 'Failed to sign in with Google');
       setError(message);
       setLoading(false);
-      throw err;
+      throw Object.assign(err instanceof Error ? err : new Error(message), {
+        message,
+      });
     }
   };
 
@@ -266,38 +307,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     try {
       const firebaseUser = await signInWithApple();
-      const idToken = await firebaseUser.getIdToken();
-      try {
-        await createSessionCookie(idToken);
-      } catch (sessionErr) {
-        console.warn('Session cookie creation failed during Apple sign-in:', sessionErr);
-      }
-      try {
-        const response = await usersApi.getMe();
-        if (response.data) {
-          setProfile(response.data);
-          setPendingProfileSetup(false);
-          setLoading(false);
-          return;
-        }
-      } catch (err) {
-        if (getHttpStatus(err) !== 404) {
-          setLoading(false);
-          return;
-        }
-        // New Apple user: require a display name before creating the account.
-        setProfile(null);
-        setPendingProfileSetup(true);
-        setLoading(false);
-        return;
-      }
+      // Redirect fallback never resolves here — page navigates away.
+      await finishOAuthSignIn(firebaseUser, 'Apple');
       setLoading(false);
     } catch (err) {
-      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-        ?? (err instanceof Error ? err.message : 'Failed to sign in with Apple');
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      const message =
+        apiMessage ??
+        mapFirebaseAuthError(err, 'Failed to sign in with Apple');
       setError(message);
       setLoading(false);
-      throw err;
+      throw Object.assign(err instanceof Error ? err : new Error(message), {
+        message,
+        code: (err as { code?: string })?.code,
+      });
     }
   };
 
@@ -405,7 +429,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       {pendingProfileSetup && user && (
         <DisplayNameGate
           suggestedName={providerDisplayName(user)}
-          email={user.email ?? ''}
+          email={resolveAuthEmail(user)}
           onSubmit={completeProfileSetup}
           onCancel={handleSignOut}
         />

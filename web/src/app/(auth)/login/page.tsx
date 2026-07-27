@@ -10,6 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
+import {
+  stashOAuthRedirectPath,
+  takeOAuthRedirectPath,
+  peekOAuthRedirectPending,
+  mapFirebaseAuthError,
+} from '@/lib/firebase-client';
 
 function LoginForm() {
   const router = useRouter();
@@ -27,6 +33,7 @@ function LoginForm() {
   const [password, setPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthRedirectPending, setOauthRedirectPending] = useState(false);
 
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
@@ -40,9 +47,19 @@ function LoginForm() {
     }
   }, [redirectParam]);
 
+  // Resume after full-page Apple/Google redirect.
+  useEffect(() => {
+    const pending = peekOAuthRedirectPending();
+    if (pending) {
+      setOauthRedirectPending(true);
+      setRedirectTo(takeOAuthRedirectPath(redirectTo));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- run once on mount
+
   useEffect(() => {
     if (profile) {
-      router.push(redirectTo);
+      const dest = takeOAuthRedirectPath(redirectTo);
+      router.push(dest);
     }
   }, [profile, router, redirectTo]);
 
@@ -64,33 +81,54 @@ function LoginForm() {
   const handleGoogleLogin = async () => {
     setLocalError(null);
     setIsSubmitting(true);
+    stashOAuthRedirectPath(redirectTo);
 
     try {
       await signInWithGoogle();
+      // If redirect fallback started, the page navigates away and this never
+      // settles — keep the button in a "continuing" state.
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
+        return;
+      }
     } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign in with Google'));
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setLocalError(
+        apiMessage ??
+          mapFirebaseAuthError(err, 'Failed to sign in with Google'),
+      );
     } finally {
-      setIsSubmitting(false);
+      if (!peekOAuthRedirectPending()) setIsSubmitting(false);
     }
   };
 
   const handleAppleLogin = async () => {
     setLocalError(null);
     setIsSubmitting(true);
+    stashOAuthRedirectPath(redirectTo);
 
     try {
       await signInWithApple();
-    } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const code = (err as { code?: string })?.code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        setLocalError(null);
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
         return;
       }
-      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign in with Apple'));
+    } catch (err) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      // Redirect fallback handles popup-blocked / closed; only show cancel
+      // when we did NOT start a redirect.
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
+        return;
+      }
+      setLocalError(
+        apiMessage ??
+          mapFirebaseAuthError(err, 'Failed to sign in with Apple'),
+      );
     } finally {
-      setIsSubmitting(false);
+      if (!peekOAuthRedirectPending()) setIsSubmitting(false);
     }
   };
 
@@ -106,6 +144,14 @@ function LoginForm() {
       {sessionExpired && (
         <Alert className="mb-6 border-warning/50 bg-warning/10 text-foreground">
           <AlertDescription>Your session has expired. Please sign in again.</AlertDescription>
+        </Alert>
+      )}
+
+      {oauthRedirectPending && !profile && (
+        <Alert className="mb-6 border-border bg-muted/40 text-foreground">
+          <AlertDescription>
+            Continuing with Apple / Google… finish signing in in the other window, or wait while we bring you back.
+          </AlertDescription>
         </Alert>
       )}
 

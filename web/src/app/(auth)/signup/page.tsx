@@ -10,11 +10,24 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PRO_NETWORX_APP_HOME, isProNetworxAppHost } from '@/lib/site-url';
+import {
+  stashOAuthRedirectPath,
+  takeOAuthRedirectPath,
+  peekOAuthRedirectPending,
+  mapFirebaseAuthError,
+} from '@/lib/firebase-client';
 
 function SignupForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { signUpWithEmail, signInWithGoogle, signInWithApple, loading, error } = useAuth();
+  const {
+    profile,
+    signUpWithEmail,
+    signInWithGoogle,
+    signInWithApple,
+    loading,
+    error,
+  } = useAuth();
   const redirectParam = searchParams.get('redirect');
   const [redirectTo, setRedirectTo] = useState(redirectParam || '/dashboard');
 
@@ -25,6 +38,7 @@ function SignupForm() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [oauthRedirectPending, setOauthRedirectPending] = useState(false);
 
   // On pro-networx.com, land in the app home (Discover Catalysts) after signup
   useEffect(() => {
@@ -33,6 +47,20 @@ function SignupForm() {
       setRedirectTo(PRO_NETWORX_APP_HOME);
     }
   }, [redirectParam]);
+
+  useEffect(() => {
+    const pending = peekOAuthRedirectPending();
+    if (pending) {
+      setOauthRedirectPending(true);
+      setRedirectTo(takeOAuthRedirectPath(redirectTo));
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- run once on mount
+
+  useEffect(() => {
+    if (profile) {
+      router.push(takeOAuthRedirectPath(redirectTo));
+    }
+  }, [profile, router, redirectTo]);
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,33 +96,50 @@ function SignupForm() {
   const handleGoogleSignup = async () => {
     setLocalError(null);
     setIsSubmitting(true);
+    stashOAuthRedirectPath(redirectTo);
     try {
       await signInWithGoogle();
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
+        return;
+      }
       router.push(redirectTo);
     } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign up with Google'));
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      setLocalError(
+        apiMessage ??
+          mapFirebaseAuthError(err, 'Failed to sign up with Google'),
+      );
     } finally {
-      setIsSubmitting(false);
+      if (!peekOAuthRedirectPending()) setIsSubmitting(false);
     }
   };
 
   const handleAppleSignup = async () => {
     setLocalError(null);
     setIsSubmitting(true);
+    stashOAuthRedirectPath(redirectTo);
     try {
       await signInWithApple();
-      router.push(redirectTo);
-    } catch (err) {
-      const apiMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      const code = (err as { code?: string })?.code;
-      if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        setLocalError(null);
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
         return;
       }
-      setLocalError(apiMessage ?? (err instanceof Error ? err.message : 'Failed to sign up with Apple'));
+      router.push(redirectTo);
+    } catch (err) {
+      const apiMessage = (err as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message;
+      if (peekOAuthRedirectPending()) {
+        setOauthRedirectPending(true);
+        return;
+      }
+      setLocalError(
+        apiMessage ??
+          mapFirebaseAuthError(err, 'Failed to sign up with Apple'),
+      );
     } finally {
-      setIsSubmitting(false);
+      if (!peekOAuthRedirectPending()) setIsSubmitting(false);
     }
   };
 
@@ -106,6 +151,14 @@ function SignupForm() {
         <h1 className="text-2xl font-bold text-foreground">Create your account</h1>
         <p className="text-muted-foreground mt-2">Join Networx — discover artists, share your music, or offer your craft</p>
       </div>
+
+      {oauthRedirectPending && !profile && (
+        <Alert className="mb-6 border-border bg-muted/40 text-foreground">
+          <AlertDescription>
+            Continuing with Apple / Google… finish signing in in the other window, or wait while we bring you back.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {displayError && (
         <Alert variant="destructive" className="mb-6">
