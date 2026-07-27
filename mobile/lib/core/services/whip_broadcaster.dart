@@ -42,6 +42,9 @@ class WhipBroadcaster {
 
   /// Acquire camera/mic (if needed), then negotiate a WHIP session.
   /// Returns the local [MediaStream] for self-preview.
+  ///
+  /// Completes only after ICE reaches connected (or a short timeout) so callers
+  /// like DJ Booth don't broadcast `mic_on` before Cloudflare has media.
   Future<MediaStream> start(String whipUrl, {bool video = true}) async {
     final stream = await acquireLocalMedia(video: video);
     // Drop any half-open peer from a previous attempt before renegotiating.
@@ -55,8 +58,23 @@ class WhipBroadcaster {
     });
     _pc = pc;
 
-    for (final track in stream.getTracks()) {
+    // Audio sender(s).
+    for (final track in stream.getAudioTracks()) {
       await pc.addTrack(track, stream);
+    }
+
+    // Always create exactly one video m-line (matches web CameraBroadcaster).
+    // Cloudflare WHIP for DJ booth is published audio-only on web with an empty
+    // sendonly video transceiver — omitting it can yield an unplayable ingest.
+    final videoTracks = stream.getVideoTracks();
+    if (videoTracks.isNotEmpty) {
+      await pc.addTrack(videoTracks.first, stream);
+    } else {
+      // Empty sendonly video m-line — required for Cloudflare WHIP parity with web.
+      await pc.addTransceiver(
+        kind: RTCRtpMediaType.RTCRtpMediaTypeVideo,
+        init: RTCRtpTransceiverInit(direction: TransceiverDirection.SendOnly),
+      );
     }
 
     final offer = await pc.createOffer({});
@@ -89,6 +107,10 @@ class WhipBroadcaster {
     await pc.setRemoteDescription(
       RTCSessionDescription(res.body, 'answer'),
     );
+    await _waitForConnection(pc);
+    // Brief Cloudflare warm-up so WHEP listeners don't connect to an empty
+    // input the moment mic_on is broadcast.
+    await Future<void>.delayed(const Duration(milliseconds: 800));
     return stream;
   }
 
@@ -116,6 +138,36 @@ class WhipBroadcaster {
     };
     await completer.future;
     timer.cancel();
+  }
+
+  Future<void> _waitForConnection(RTCPeerConnection pc) async {
+    if (pc.connectionState ==
+        RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+      return;
+    }
+    final completer = Completer<void>();
+    final timer = Timer(const Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        // Negotiation succeeded; media may still be connecting. Don't hard-fail
+        // — mic_on can still proceed after the warm-up delay.
+        completer.complete();
+      }
+    });
+    pc.onConnectionState = (state) {
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected &&
+          !completer.isCompleted) {
+        completer.complete();
+      } else if (state ==
+              RTCPeerConnectionState.RTCPeerConnectionStateFailed &&
+          !completer.isCompleted) {
+        completer.completeError(Exception('WHIP connection failed'));
+      }
+    };
+    try {
+      await completer.future;
+    } finally {
+      timer.cancel();
+    }
   }
 
   bool toggleMic() {

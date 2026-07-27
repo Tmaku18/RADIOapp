@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../brand/brand_assets.dart';
+import 'webrtc_audio_session.dart';
 import 'whep_player.dart';
 
 /// App-wide audio handler that owns two [AudioPlayer]s so the live DJ voice
@@ -300,7 +301,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
     if (url.contains('/webRTC/play')) {
       // Already connected to this talk-over: just (re)apply the duck level.
-      if (_overlayUrl == url && whepVoice.isActive) {
+      if (_overlayUrl == url && whepVoice.isActive && whepVoice.hasRemoteAudio) {
         _overlayActive = true;
         await music.setVolume(duck);
         return;
@@ -311,8 +312,20 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
       } catch (_) {}
       _overlayUrl = url;
       try {
+        // iOS: music/`playback` session silences remote WebRTC audio — switch
+        // before negotiating WHEP so the talk-over is actually audible.
+        await WebRtcAudioSession.prepareForReceive();
         whepVoice.setMuted(false);
         await whepVoice.start(url);
+        if (!whepVoice.hasRemoteAudio) {
+          // Cloudflare still warming — leave music full and clear so the next
+          // mic_on / poll retries instead of staying ducked forever.
+          _overlayUrl = null;
+          _overlayActive = false;
+          await whepVoice.stop();
+          await WebRtcAudioSession.restoreMusic();
+          return;
+        }
         await music.setVolume(duck);
         _overlayActive = true;
       } catch (_) {
@@ -320,6 +333,9 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
         _overlayActive = false;
         await whepVoice.stop();
         await music.setVolume(_baseMusicVolume);
+        try {
+          await WebRtcAudioSession.restoreMusic();
+        } catch (_) {}
       }
       return;
     }
@@ -362,6 +378,7 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
 
   /// Stop the DJ voice-over and restore the music to the user's base volume.
   Future<void> stopVoiceOverlay() async {
+    final wasWhep = _overlayIsWhep || whepVoice.isActive;
     _overlayActive = false;
     _overlayUrl = null;
     await whepVoice.stop();
@@ -372,6 +389,11 @@ class NetworxAudioHandler extends BaseAudioHandler with SeekHandler {
     }
     // Respect soft-pause / user mute — never blast music back on while muted.
     await applyOutputVolume();
+    if (wasWhep) {
+      try {
+        await WebRtcAudioSession.restoreMusic();
+      } catch (_) {}
+    }
   }
 
   Future<void> dispose() async {

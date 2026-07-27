@@ -5,6 +5,7 @@ import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import 'audio_handler.dart';
+import 'webrtc_audio_session.dart';
 
 /// App-wide audio entry point. Used by [PlayerScreen] (radio), [MiniPlayerBar],
 /// artist profile playback, Discover, and Refinery so that playback persists
@@ -94,37 +95,18 @@ class AudioPlayerService {
 
   /// Switch to playAndRecord before WebRTC getUserMedia so iOS grants mic/cam
   /// instead of hanging on a music-only session held by the radio player.
-  static Future<void> prepareForBroadcast() async {
-    try {
-      final session = await AudioSession.instance;
-      await session.configure(
-        AudioSessionConfiguration(
-          avAudioSessionCategory: AVAudioSessionCategory.playAndRecord,
-          avAudioSessionCategoryOptions:
-              AVAudioSessionCategoryOptions.allowBluetooth |
-                  AVAudioSessionCategoryOptions.defaultToSpeaker |
-                  AVAudioSessionCategoryOptions.mixWithOthers,
-          avAudioSessionMode: AVAudioSessionMode.videoChat,
-          androidAudioAttributes: const AndroidAudioAttributes(
-            contentType: AndroidAudioContentType.speech,
-            usage: AndroidAudioUsage.voiceCommunication,
-          ),
-          androidAudioFocusGainType: AndroidAudioFocusGainType.gain,
-          androidWillPauseWhenDucked: false,
-        ),
-      );
-      await session.setActive(true);
-    } catch (_) {}
-  }
+  static Future<void> prepareForBroadcast() =>
+      WebRtcAudioSession.prepareForBroadcast();
+
+  /// Prepare the AVAudioSession so WHEP / WebRTC *receive* audio is audible
+  /// while radio music keeps playing.
+  static Future<void> prepareForWebRtcReceive() =>
+      WebRtcAudioSession.prepareForReceive();
 
   /// Restore the standard music session after camera/mic (`playAndRecord`) use
   /// so radio output returns to a normal route/gain instead of staying ducked.
   static Future<void> restoreMusicSession() async {
-    try {
-      final session = await AudioSession.instance;
-      await session.configure(const AudioSessionConfiguration.music());
-      await session.setActive(true);
-    } catch (_) {}
+    await WebRtcAudioSession.restoreMusic();
     try {
       await handler.applyOutputVolume();
     } catch (_) {}

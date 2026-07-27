@@ -40,8 +40,6 @@ void main() async {
   // Stands up the audio_service handler (music + DJ voice-over players) and
   // configures the audio session for background playback.
   await AudioPlayerService.ensureInitialized();
-  RadioPresenceService.instance.start();
-  RadioBackgroundSyncService.instance.start();
 
   // Initialize Stripe
   final stripePublishableKey = env('STRIPE_PUBLISHABLE_KEY');
@@ -51,6 +49,28 @@ void main() async {
   } else {
     debugPrint('Warning: STRIPE_PUBLISHABLE_KEY not found in .env');
   }
+
+  // Initialize Supabase BEFORE radio sync so DJ booth realtime (`mic_on`)
+  // can subscribe on cold start instead of permanently skipping.
+  final supabaseUrl = env('SUPABASE_URL');
+  final supabaseAnonKey = env('SUPABASE_ANON_KEY');
+  if (supabaseUrl != null &&
+      supabaseAnonKey != null &&
+      supabaseUrl.isNotEmpty &&
+      supabaseAnonKey.isNotEmpty) {
+    try {
+      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
+      debugPrint('Supabase initialized successfully');
+    } catch (e) {
+      // Already initialized or unavailable in this environment.
+      debugPrint('Supabase init skipped: $e');
+    }
+  } else {
+    debugPrint('Warning: SUPABASE_URL / SUPABASE_ANON_KEY missing in .env');
+  }
+
+  RadioPresenceService.instance.start();
+  RadioBackgroundSyncService.instance.start();
 
   // Initialize Firebase with timeout so app doesn't hang on emulator/slow network
   bool firebaseInitialized = false;
@@ -85,24 +105,6 @@ void main() async {
   } catch (e) {
     debugPrint('Error initializing Firebase: $e');
     debugPrint('App will continue but authentication features will not work');
-  }
-
-  // Initialize Supabase (for Realtime events beyond chat)
-  final supabaseUrl = env('SUPABASE_URL');
-  final supabaseAnonKey = env('SUPABASE_ANON_KEY');
-  if (supabaseUrl != null &&
-      supabaseAnonKey != null &&
-      supabaseUrl.isNotEmpty &&
-      supabaseAnonKey.isNotEmpty) {
-    try {
-      await Supabase.initialize(url: supabaseUrl, anonKey: supabaseAnonKey);
-      debugPrint('Supabase initialized successfully');
-    } catch (e) {
-      // Already initialized or unavailable in this environment.
-      debugPrint('Supabase init skipped: $e');
-    }
-  } else {
-    debugPrint('Warning: SUPABASE_URL / SUPABASE_ANON_KEY missing in .env');
   }
 
   final navigatorKey = GlobalKey<NavigatorState>();

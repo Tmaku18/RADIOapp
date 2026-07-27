@@ -127,15 +127,18 @@ class StationEventsService {
   Future<void> start({String stationId = 'global'}) async {
     _stationId = stationId.trim().isEmpty ? 'global' : stationId.trim();
     if (_started) return;
-    _started = true;
 
     SupabaseClient client;
     try {
       client = Supabase.instance.client;
     } catch (e) {
+      // Do NOT mark _started — RadioBackgroundSync used to call this before
+      // Supabase.initialize, which permanently skipped DJ booth realtime.
       debugPrint('StationEventsService: Supabase not initialized: $e');
       return;
     }
+
+    _started = true;
 
     // DJ booth live events (mic on/off, duck volume) so listeners hear the
     // admin go live immediately instead of waiting for the 30s radio poll.

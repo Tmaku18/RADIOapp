@@ -65,7 +65,12 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     _pollTimer?.cancel();
     _realtimeRefreshTimer?.cancel();
     unawaited(_eventSub?.cancel() ?? Future.value());
-    unawaited(_micBroadcaster.dispose());
+    unawaited(() async {
+      await _micBroadcaster.dispose();
+      if (_publishing) {
+        await AudioPlayerService.restoreMusicSession();
+      }
+    }());
     super.dispose();
   }
 
@@ -283,6 +288,9 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       }
     } catch (e) {
       await _micBroadcaster.dispose();
+      try {
+        await AudioPlayerService.restoreMusicSession();
+      } catch (_) {}
       if (!mounted) return;
       setState(() {
         _publishing = false;
@@ -320,6 +328,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       await _micBroadcaster.dispose();
       _publishing = false;
       await _booth.deleteMicSession(stationId);
+      await AudioPlayerService.restoreMusicSession();
     });
   }
 
