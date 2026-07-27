@@ -336,10 +336,18 @@ export class ArtistLiveService {
     // Honor explicit host intent (e.g. launched from "Go live as DJ" or
     // "Go live as musician"), falling back to the account role so a `dj` or
     // `musician` user always gets the right kind of session.
+    // Explicit go-live intent wins over account role so admin/"Go live as X"
+    // lands on the matching Live tab. Fall back to role only when omitted.
     let hostType: 'dj' | 'artist' | 'musician';
-    if (payload.hostType === 'musician' || dbUser.role === 'musician') {
+    if (
+      payload.hostType === 'musician' ||
+      payload.hostType === 'dj' ||
+      payload.hostType === 'artist'
+    ) {
+      hostType = payload.hostType;
+    } else if (dbUser.role === 'musician') {
       hostType = 'musician';
-    } else if (payload.hostType === 'dj' || dbUser.role === 'dj') {
+    } else if (dbUser.role === 'dj') {
       hostType = 'dj';
     } else {
       hostType = 'artist';
@@ -636,11 +644,15 @@ export class ArtistLiveService {
         const u = userMap.get(r.artist_id);
         // Prefer the snapshot taken when the session started (metadata.hostType)
         // so a DJ/musician session keeps its kind, then fall back to the host's
-        // current role.
+        // current role. Do NOT OR role into the snapshot — that mis-filed
+        // musician sessions under Live DJ (and vice versa) when roles differed.
+        const snap = r.metadata?.hostType;
         let hostRole: string;
-        if (r.metadata?.hostType === 'musician' || u?.role === 'musician') {
+        if (snap === 'musician' || snap === 'dj' || snap === 'artist') {
+          hostRole = snap;
+        } else if (u?.role === 'musician') {
           hostRole = 'musician';
-        } else if (r.metadata?.hostType === 'dj' || u?.role === 'dj') {
+        } else if (u?.role === 'dj') {
           hostRole = 'dj';
         } else {
           hostRole = u?.role ?? 'artist';
@@ -720,10 +732,13 @@ export class ArtistLiveService {
       );
     }
 
+    const snap = (session?.metadata as { hostType?: string } | null)?.hostType;
     let hostRole: string;
-    if (session?.metadata?.hostType === 'musician' || artist.role === 'musician') {
+    if (snap === 'musician' || snap === 'dj' || snap === 'artist') {
+      hostRole = snap;
+    } else if (artist.role === 'musician') {
       hostRole = 'musician';
-    } else if (session?.metadata?.hostType === 'dj' || artist.role === 'dj') {
+    } else if (artist.role === 'dj') {
       hostRole = 'dj';
     } else {
       hostRole = artist.role ?? 'artist';

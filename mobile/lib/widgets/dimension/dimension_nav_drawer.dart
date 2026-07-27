@@ -246,6 +246,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
                           setState(() => _adminOpen = !_adminOpen),
                       children: [
                         _subRow('Admin Dashboard', AppRoutes.adminDashboard),
+                        _subRow('DJ Booth', AppRoutes.adminDjBooth),
                       ],
                     ),
                 ],

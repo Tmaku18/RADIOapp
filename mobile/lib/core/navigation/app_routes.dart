@@ -45,6 +45,7 @@ class AppRoutes {
   static const liveDj = '/live-dj';
   static const livePerformances = '/live-performances';
   static const adminDashboard = '/admin';
+  static const adminDjBooth = '/admin/dj-booth';
   static const allocatePlays = '/allocate-plays';
   static const discoverCreateVideo = '/discover-create-video';
 }

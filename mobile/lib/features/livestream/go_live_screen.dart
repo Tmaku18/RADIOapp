@@ -150,22 +150,26 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
         return;
       }
 
-      setState(() => _statusText = 'Requesting camera & mic…');
+      // Live DJ matches web: audio-first (camera off). Live Performances keep
+      // the camera on so the stage is visible.
+      final wantVideo = widget.hostType != 'dj';
+      setState(() => _statusText =
+          wantVideo ? 'Requesting camera & mic…' : 'Requesting microphone…');
       // Show local preview immediately so the host isn't stuck on a black
       // "Connecting…" screen while WHIP negotiates.
-      final local = await _broadcaster.acquireLocalMedia();
+      final local = await _broadcaster.acquireLocalMedia(video: wantVideo);
       _renderer.srcObject = local;
       if (mounted) {
         setState(() {
           _live2 = true;
           _streamSource = 'device';
           _micOn = true;
-          _camOn = true;
+          _camOn = wantVideo;
           _statusText = 'Connecting to stream…';
         });
       }
 
-      final stream = await _broadcaster.start(whipUrl);
+      final stream = await _broadcaster.start(whipUrl, video: wantVideo);
       _renderer.srcObject = stream;
       try {
         await _live.markPublishing(sessionId: _sessionId, ingestMode: 'whip');
@@ -230,19 +234,21 @@ class _GoLiveScreenState extends State<GoLiveScreen> {
           _statusText = null;
         });
       } else {
-        setState(() => _statusText = 'Requesting camera & mic…');
+        final wantVideo = widget.hostType != 'dj';
+        setState(() => _statusText =
+            wantVideo ? 'Requesting camera & mic…' : 'Requesting microphone…');
         await AudioPlayerService.prepareForBroadcast();
-        final local = await _broadcaster.acquireLocalMedia();
+        final local = await _broadcaster.acquireLocalMedia(video: wantVideo);
         _renderer.srcObject = local;
         if (mounted) {
           setState(() {
             _streamSource = 'device';
             _micOn = true;
-            _camOn = true;
+            _camOn = wantVideo;
             _statusText = 'Connecting to stream…';
           });
         }
-        final stream = await _broadcaster.start(whipUrl!);
+        final stream = await _broadcaster.start(whipUrl!, video: wantVideo);
         _renderer.srcObject = stream;
         try {
           await _live.markPublishing(sessionId: _sessionId, ingestMode: 'whip');

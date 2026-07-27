@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
 import '../../core/analytics/analytics_metrics.dart';
 import '../../core/models/admin_models.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/services/admin_service.dart';
 import '../../core/services/songs_service.dart';
 import '../../widgets/clip_window_sheet.dart';
@@ -901,6 +902,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         title: 'Admin Dashboard',
         showNeonLine: true,
         actions: [
+          IconButton(
+            tooltip: 'DJ Booth',
+            onPressed: () =>
+                Navigator.pushNamed(context, AppRoutes.adminDjBooth),
+            icon: const Icon(Icons.headphones),
+          ),
           IconButton(onPressed: _loadInitial, icon: const Icon(Icons.refresh)),
         ],
         body: Column(

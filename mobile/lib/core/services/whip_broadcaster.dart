@@ -18,25 +18,32 @@ class WhipBroadcaster {
   bool get isFrontCamera => _facingMode == 'user';
   bool get isPublishing => _pc != null;
 
-  /// Acquire camera/mic only so the host can see a local preview before WHIP
-  /// negotiation finishes (or if publish fails).
-  Future<MediaStream> acquireLocalMedia() async {
-    if (_localStream != null) return _localStream!;
+  /// Acquire mic (and optionally camera) so the host can preview before WHIP
+  /// negotiation finishes (or if publish fails). Pass [video]: false for
+  /// audio-only DJ / radio-booth talk-overs (matches web `startCameraOff`).
+  Future<MediaStream> acquireLocalMedia({bool video = true}) async {
+    if (_localStream != null) {
+      // If we already have a stream but now need video (or vice versa), rebuild.
+      final hasVideo = _localStream!.getVideoTracks().isNotEmpty;
+      if (hasVideo == video) return _localStream!;
+      await dispose();
+    }
     _localStream = await navigator.mediaDevices.getUserMedia({
       'audio': true,
-      'video': {
-        'facingMode': _facingMode,
-        'mandatory': {'minFrameRate': '24'},
-        'optional': [],
-      },
+      if (video)
+        'video': {
+          'facingMode': _facingMode,
+          'mandatory': {'minFrameRate': '24'},
+          'optional': [],
+        },
     });
     return _localStream!;
   }
 
   /// Acquire camera/mic (if needed), then negotiate a WHIP session.
   /// Returns the local [MediaStream] for self-preview.
-  Future<MediaStream> start(String whipUrl) async {
-    final stream = await acquireLocalMedia();
+  Future<MediaStream> start(String whipUrl, {bool video = true}) async {
+    final stream = await acquireLocalMedia(video: video);
     // Drop any half-open peer from a previous attempt before renegotiating.
     await _closePeerOnly();
 

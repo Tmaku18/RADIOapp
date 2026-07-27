@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../features/about/about_screen.dart';
 import '../../features/admin/admin_dashboard_screen.dart';
+import '../../features/admin/dj_booth_screen.dart';
 import '../../features/analytics/analytics_screen.dart';
 import '../../features/apply/apply_screen.dart';
 import '../../features/artist/artist_profile_screen.dart';
@@ -191,6 +192,11 @@ class AppRouter {
       case AppRoutes.adminDashboard:
         return _route(
           const RequireAdmin(child: AdminDashboardScreen()),
+          settings,
+        );
+      case AppRoutes.adminDjBooth:
+        return _route(
+          const RequireAdmin(child: DjBoothScreen()),
           settings,
         );
       case AppRoutes.allocatePlays:

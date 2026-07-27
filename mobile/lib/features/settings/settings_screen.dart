@@ -779,6 +779,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       subtitle: 'Moderation, fallback, users',
                       onTap: () => Navigator.pushNamed(context, AppRoutes.adminDashboard),
                     ),
+                    _navTile(
+                      context,
+                      icon: Icons.headphones,
+                      title: 'DJ Booth',
+                      subtitle: 'Radio transport, mic, and queue',
+                      onTap: () => Navigator.pushNamed(context, AppRoutes.adminDjBooth),
+                    ),
                   ]),
 
                 _section('Help & Legal', [
