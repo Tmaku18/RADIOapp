@@ -593,7 +593,9 @@ class _StudioScreenState extends State<StudioScreen>
                                           ? 'Not approved — ${s.rejectionReason!.trim()}'
                                           : 'Not approved. Check notifications for details, or contact support.',
                                       style: TextStyle(
-                                        color: surfaces.textPrimary,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurface,
                                         fontSize: 12,
                                         height: 1.35,
                                       ),
