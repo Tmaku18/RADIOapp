@@ -6,6 +6,7 @@ import 'package:flutter_stripe/flutter_stripe.dart' hide Card;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/auth_service.dart';
+import '../../core/services/audio_player_service.dart';
 import '../../core/services/livestream_service.dart';
 import '../../core/services/payments_service.dart';
 import '../../core/services/play_billing_service.dart';
@@ -52,12 +53,33 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
 
   bool _isAdmin = false;
   bool _ending = false;
+  bool _didSoftPauseRadio = false;
 
   @override
   void initState() {
     super.initState();
+    // Silence the radio so the livestream audio can be heard clearly.
+    unawaited(_softPauseRadio());
     _load();
     _loadAdmin();
+  }
+
+  Future<void> _softPauseRadio() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioIfNeeded() async {
+    if (!_didSoftPauseRadio) return;
+    _didSoftPauseRadio = false;
+    try {
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
   }
 
   Future<void> _loadAdmin() async {
@@ -119,6 +141,7 @@ class _WatchLiveScreenState extends State<WatchLiveScreen> {
     if (sid != null && vid != null) {
       _live.leave(sid, vid).catchError((_) => null);
     }
+    unawaited(_softResumeRadioIfNeeded());
     _customAmount.dispose();
     _message.dispose();
     _chatInput.dispose();

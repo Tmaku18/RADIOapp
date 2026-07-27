@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LiveChat } from '@/components/stream/LiveChat';
 import { useAuth } from '@/contexts/AuthContext';
+import { usePlaybackOptional } from '@/components/playback/PlaybackProvider';
 
 type WatchSession = {
   id: string;
@@ -40,12 +41,19 @@ function getViewerToken(): string {
   return token;
 }
 
+/** Unmute after playback starts — radio is soft-paused on this page. */
+function unmuteLiveVideo(video: HTMLVideoElement) {
+  video.muted = false;
+  video.volume = 1;
+  void video.play().catch(() => undefined);
+}
+
 /**
  * Cross-browser HLS player: uses hls.js where MSE is supported, native HLS
  * otherwise. Built to tolerate a *just-started* live stream where the HLS
  * manifest/segments aren't ready for the first several seconds — it keeps
- * retrying instead of getting stuck. Starts muted so browser autoplay policies
- * don't silently block playback (viewers can unmute via the controls).
+ * retrying instead of getting stuck. Starts muted for autoplay, then unmutes
+ * once the stream is playing (radio is soft-paused while watching).
  */
 function HlsPlayer({ src }: { src: string }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -60,7 +68,15 @@ function HlsPlayer({ src }: { src: string }) {
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
     const tryPlay = () => {
-      video.play().catch(() => undefined);
+      video.play()
+        .then(() => {
+          if (!destroyed) unmuteLiveVideo(video);
+        })
+        .catch(() => undefined);
+    };
+    const onPlaying = () => {
+      setStatus('playing');
+      if (!destroyed) unmuteLiveVideo(video);
     };
 
     // Safari / iOS play HLS natively; let the browser retry the live edge.
@@ -71,7 +87,6 @@ function HlsPlayer({ src }: { src: string }) {
           setStatus('playing');
           tryPlay();
         };
-        const onPlaying = () => setStatus('playing');
         const onError = () => {
           if (destroyed) return;
           // Live edge may not be ready yet — reload shortly.
@@ -171,11 +186,13 @@ function HlsPlayer({ src }: { src: string }) {
       });
     };
 
+    video.addEventListener('playing', onPlaying);
     create();
 
     return () => {
       destroyed = true;
       if (retryTimer) clearTimeout(retryTimer);
+      video.removeEventListener('playing', onPlaying);
       try {
         hls?.destroy();
       } catch {
@@ -277,7 +294,15 @@ function WhepPlayer({
         }
         setStatus('playing');
         failures = 0;
-        video.play().catch(() => undefined);
+        // Start muted for autoplay, then unmute so the live stream is audible
+        // (radio soft-pause runs on the watch page).
+        video.muted = true;
+        video
+          .play()
+          .then(() => {
+            if (!destroyed) unmuteLiveVideo(video);
+          })
+          .catch(() => undefined);
       };
       peer.onconnectionstatechange = () => {
         if (
@@ -364,6 +389,8 @@ export default function WatchArtistLivePage() {
     [params],
   );
   const { profile } = useAuth();
+  const playback = usePlaybackOptional();
+  const didSoftPauseRadioRef = useRef(false);
   const isAdmin = profile?.role === 'admin';
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<WatchSession | null>(null);
@@ -371,6 +398,19 @@ export default function WatchArtistLivePage() {
   const [error, setError] = useState<string | null>(null);
   const [viewers, setViewers] = useState(0);
   const [ending, setEnding] = useState(false);
+
+  // Mute radio while watching so the livestream can be heard; restore on leave.
+  useEffect(() => {
+    const actions = playback?.actions;
+    if (!actions || didSoftPauseRadioRef.current) return;
+    actions.softPause();
+    didSoftPauseRadioRef.current = true;
+    return () => {
+      if (!didSoftPauseRadioRef.current) return;
+      didSoftPauseRadioRef.current = false;
+      void actions.softResume();
+    };
+  }, [playback?.actions]);
 
   // Donation UI state
   const [presetAmount, setPresetAmount] = useState<number | 'custom'>(5);
@@ -627,7 +667,7 @@ export default function WatchArtistLivePage() {
                     className="absolute inset-0 h-full w-full"
                     src={`${session.watch_url}${
                       session.watch_url.includes('?') ? '&' : '?'
-                    }autoplay=true&muted=true`}
+                    }autoplay=true&muted=false`}
                     allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
                     allowFullScreen
                     title={isDj ? 'Live DJ set' : 'Artist livestream'}

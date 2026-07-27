@@ -75,6 +75,9 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
     _whep = whep;
     whep.onRemoteStream = (stream) {
       if (!mounted) return;
+      // Ensure livestream audio is audible as soon as tracks arrive (radio was
+      // soft-paused by WatchLiveScreen).
+      whep.setMuted(false);
       _renderer.srcObject = stream;
       setState(() => _hasRemoteStream = true);
     };
@@ -87,6 +90,7 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
         setState(() => _failed = true);
       }
     };
+    whep.setMuted(false);
     await whep.start(whepUrl);
   }
 
@@ -100,6 +104,8 @@ class _LiveStreamViewerState extends State<LiveStreamViewer> {
     _hlsController = controller;
     try {
       await controller.initialize();
+      await controller.setVolume(1.0);
+      await controller.setLooping(false);
       await controller.play();
       if (!mounted) return;
       setState(() {
