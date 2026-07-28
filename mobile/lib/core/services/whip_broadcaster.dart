@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 import 'package:http/http.dart' as http;
 
@@ -29,7 +30,11 @@ class WhipBroadcaster {
       await dispose();
     }
     _localStream = await navigator.mediaDevices.getUserMedia({
-      'audio': true,
+      'audio': {
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+      },
       if (video)
         'video': {
           'facingMode': _facingMode,
@@ -37,6 +42,11 @@ class WhipBroadcaster {
           'optional': [],
         },
     });
+    // Force-enable every audio track — some iOS sessions hand back a disabled
+    // track after an audio-session fight with just_audio.
+    for (final track in _localStream!.getAudioTracks()) {
+      track.enabled = true;
+    }
     return _localStream!;
   }
 
@@ -59,7 +69,13 @@ class WhipBroadcaster {
     _pc = pc;
 
     // Audio sender(s).
-    for (final track in stream.getAudioTracks()) {
+    final audioTracks = stream.getAudioTracks();
+    if (audioTracks.isEmpty) {
+      await _closePeerOnly();
+      throw Exception('No microphone track available. Check mic permission.');
+    }
+    for (final track in audioTracks) {
+      track.enabled = true;
       await pc.addTrack(track, stream);
     }
 
@@ -108,9 +124,22 @@ class WhipBroadcaster {
       RTCSessionDescription(res.body, 'answer'),
     );
     await _waitForConnection(pc);
-    // Brief Cloudflare warm-up so WHEP listeners don't connect to an empty
-    // input the moment mic_on is broadcast.
-    await Future<void>.delayed(const Duration(milliseconds: 800));
+
+    // Kick the device list — known flutter_webrtc iOS workaround that wakes a
+    // silent first-call mic capture unit.
+    try {
+      await navigator.mediaDevices.enumerateDevices();
+    } catch (_) {}
+
+    // Re-assert tracks enabled after ICE (session changes can flip them).
+    for (final track in stream.getAudioTracks()) {
+      track.enabled = true;
+    }
+
+    try {
+      await Helper.ensureAudioSession();
+    } catch (_) {}
+
     return stream;
   }
 
@@ -149,7 +178,7 @@ class WhipBroadcaster {
     final timer = Timer(const Duration(seconds: 10), () {
       if (!completer.isCompleted) {
         // Negotiation succeeded; media may still be connecting. Don't hard-fail
-        // — mic_on can still proceed after the warm-up delay.
+        // — callers can still wait for outbound RTP separately.
         completer.complete();
       }
     });
@@ -171,27 +200,55 @@ class WhipBroadcaster {
   }
 
   /// True when the peer connection reports outbound audio RTP flowing.
-  /// Used by the DJ booth to verify the mic is actually reaching Cloudflare
-  /// (a connected WHIP session can still carry silence if the OS killed the
-  /// capture unit, e.g. after an audio-session reconfigure).
   Future<bool> hasOutboundAudio() async {
     final pc = _pc;
     if (pc == null) return false;
     try {
       final stats = await pc.getStats();
       for (final report in stats) {
-        if (report.type != 'outbound-rtp') continue;
+        final type = report.type;
         final values = report.values;
         final kind = (values['kind'] ?? values['mediaType'])?.toString();
-        if (kind != 'audio') continue;
-        final packets = values['packetsSent'];
-        final sent = packets is num
-            ? packets.toInt()
-            : int.tryParse(packets?.toString() ?? '') ?? 0;
-        if (sent > 0) return true;
+
+        if (type == 'outbound-rtp' && (kind == null || kind == 'audio')) {
+          final packets = _asInt(values['packetsSent']);
+          final bytes = _asInt(values['bytesSent']);
+          if (packets > 0 || bytes > 0) return true;
+        }
+        // Some iOS builds only expose media-source / track samples.
+        if ((type == 'media-source' || type == 'track') &&
+            (kind == null || kind == 'audio')) {
+          final samples = _asInt(
+            values['totalSamplesDuration'] ?? values['audioLevel'],
+          );
+          if (samples > 0) return true;
+        }
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('WhipBroadcaster.hasOutboundAudio: $e');
+    }
     return false;
+  }
+
+  /// Poll until outbound audio RTP is observed, or [timeout] elapses.
+  Future<bool> waitForOutboundAudio({
+    Duration timeout = const Duration(seconds: 6),
+  }) async {
+    final deadline = DateTime.now().add(timeout);
+    while (DateTime.now().isBefore(deadline)) {
+      if (await hasOutboundAudio()) return true;
+      // Nudge capture — re-enable tracks each poll.
+      for (final track in _localStream?.getAudioTracks() ?? const []) {
+        track.enabled = true;
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return hasOutboundAudio();
+  }
+
+  static int _asInt(Object? value) {
+    if (value is num) return value.toInt();
+    return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
   bool toggleMic() {

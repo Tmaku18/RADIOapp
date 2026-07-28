@@ -53,6 +53,8 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
   Timer? _realtimeRefreshTimer;
   StreamSubscription<DjBoothRealtimeEvent>? _eventSub;
   bool _hasQueueEdits = false;
+  /// True when we muted radio so WHIP mic capture can own the audio session.
+  bool _didSoftPauseRadio = false;
 
   @override
   void initState() {
@@ -68,11 +70,37 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
     unawaited(() async {
       await _micBroadcaster.dispose();
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
-      if (_publishing) {
-        await AudioPlayerService.restoreMusicSession();
-      }
+      await _softResumeRadioAfterMic();
     }());
     super.dispose();
+  }
+
+  /// Mute radio on THIS device before WHIP publish. Leaving music playing
+  /// while opening the mic is the main reason booth talk-over is silent on
+  /// iOS: just_audio keeps the audio unit and WebRTC captures empty frames.
+  /// (Same pattern as Go Live.)
+  Future<void> _softPauseRadioForMic() async {
+    try {
+      final handler = AudioPlayerService.handler;
+      if (!handler.userPaused) {
+        await handler.setUserPaused(true);
+        _didSoftPauseRadio = true;
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _softResumeRadioAfterMic() async {
+    if (!_didSoftPauseRadio) {
+      try {
+        await AudioPlayerService.restoreMusicSession();
+      } catch (_) {}
+      return;
+    }
+    _didSoftPauseRadio = false;
+    try {
+      await AudioPlayerService.restoreMusicSession();
+      await AudioPlayerService.handler.setUserPaused(false);
+    } catch (_) {}
   }
 
   Future<void> _bootstrap() async {
@@ -110,6 +138,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       await _micBroadcaster.dispose();
       _publishing = false;
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
+      await _softResumeRadioAfterMic();
     }
     setState(() {
       _stationId = stationId;
@@ -283,22 +312,34 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       // back to itself. Starting the local WHEP overlay reconfigures the iOS
       // audio session mid-publish, which silences the outgoing mic.
       await AudioPlayerService.handler.setSuppressVoiceOverlay(true);
+      // Mute radio so WebRTC can own the mic (matches Go Live).
+      await _softPauseRadioForMic();
       await AudioPlayerService.prepareForBroadcast();
+      // Let the audio session settle before getUserMedia.
+      await Future<void>.delayed(const Duration(milliseconds: 350));
       await _micBroadcaster.start(whip, video: false);
       if (!mounted) return;
       setState(() => _publishing = true);
-      // Mic only goes on-air after WHIP succeeds (same as web MicPanel).
+
+      // Do NOT broadcast mic_on until outbound audio RTP is flowing — otherwise
+      // listeners duck music and connect to a silent Cloudflare input.
       if (goOnAir) {
+        final flowing = await _micBroadcaster.waitForOutboundAudio(
+          timeout: const Duration(seconds: 6),
+        );
+        if (!flowing) {
+          throw Exception(
+            'Microphone connected but no audio is being sent. '
+            'Check mic permission, then Disconnect and Connect Mic again.',
+          );
+        }
         await _booth.micOn(stationId);
         await _loadStatus();
       }
-      unawaited(_verifyOutboundAudio());
     } catch (e) {
       await _micBroadcaster.dispose();
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
-      try {
-        await AudioPlayerService.restoreMusicSession();
-      } catch (_) {}
+      await _softResumeRadioAfterMic();
       if (!mounted) return;
       setState(() {
         _publishing = false;
@@ -307,21 +348,6 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       try {
         await _booth.micOff(stationId);
       } catch (_) {}
-    }
-  }
-
-  /// A connected WHIP session can still carry silence if the OS killed the
-  /// capture unit. Check outbound RTP a moment after publish and surface a
-  /// clear warning instead of leaving listeners with ducked music and no voice.
-  Future<void> _verifyOutboundAudio() async {
-    await Future<void>.delayed(const Duration(seconds: 3));
-    if (!mounted || !_publishing) return;
-    final flowing = await _micBroadcaster.hasOutboundAudio();
-    if (!mounted || !_publishing) return;
-    if (!flowing) {
-      setState(() => _error =
-          'Mic connected but no audio is being sent. Toggle Mic Off/On to '
-          'restart the capture, and make sure no other app holds the mic.');
     }
   }
 
@@ -352,7 +378,7 @@ class _DjBoothScreenState extends State<DjBoothScreen> {
       _publishing = false;
       await AudioPlayerService.handler.setSuppressVoiceOverlay(false);
       await _booth.deleteMicSession(stationId);
-      await AudioPlayerService.restoreMusicSession();
+      await _softResumeRadioAfterMic();
     });
   }
 
@@ -781,7 +807,7 @@ class _MicSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          'Audio-only talk-over for station listeners (same Cloudflare path as web).',
+          'Audio-only talk-over for station listeners. Radio mutes on this phone while the mic is connected so your voice can be captured.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
