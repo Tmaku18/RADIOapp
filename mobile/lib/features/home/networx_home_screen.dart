@@ -288,6 +288,8 @@ class _NetworxHomeScreenState extends State<NetworxHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // DimensionTokens are static — depend on Theme so light/dark applies now.
+    DimensionTokens.watch(context);
     final auth = Provider.of<AuthService>(context, listen: false);
 
     return FutureBuilder(

@@ -97,7 +97,7 @@ export class CreateSongFromPathDto {
   @IsOptional()
   lyricsPlainText?: string;
 
-  /** Required to submit for NETWORX Radio rotation. */
+  /** Required to submit for NETWORX Radio rotation (songs only, not beats). */
   @IsBoolean()
   @IsOptional()
   optInFullSongRadio?: boolean;
@@ -109,4 +109,18 @@ export class CreateSongFromPathDto {
   @IsBoolean()
   @IsOptional()
   optInDjArchivedMixes?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['song', 'beat'])
+  productKind?: 'song' | 'beat';
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  priceCents?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  forSale?: boolean;
 }

@@ -54,6 +54,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
   String? _activeSongId;
   bool _isPlaying = false;
   final Map<String, bool> _likedBySongId = <String, bool>{};
+  final Map<String, bool> _favoritedBySongId = <String, bool>{};
   final Set<String> _recordedListenForSongIds = <String>{};
   final Set<String> _ownedSongIds = <String>{};
   String? _buyingId;
@@ -311,12 +312,18 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     final me = await auth.getUserProfile();
     if (!mounted) return;
     if (me == null) return;
-    // Fetch like status best-effort (one-by-one, can be optimized later).
+    // Fetch like / favorite status best-effort (one-by-one, can be optimized later).
     for (final s in _tracks) {
       try {
-        final liked = await _songs.getLikeStatus(s.id);
+        final results = await Future.wait([
+          _songs.getLikeStatus(s.id),
+          _songs.getFavoriteStatus(s.id),
+        ]);
         if (!mounted) return;
-        setState(() => _likedBySongId[s.id] = liked);
+        setState(() {
+          _likedBySongId[s.id] = results[0];
+          _favoritedBySongId[s.id] = results[1];
+        });
       } catch (_) {
         // ignore
       }
@@ -357,9 +364,10 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
 
     final owns = _ownsSong(s);
-    // Owners/buyers stream the full track; everyone else gets the 30s sample.
+    // Beats: full listen-before-buy via stream. Songs: 30s sample only.
+    final isBeat = s.isBeat;
     String? playUrl;
-    if (owns) {
+    if (owns || isBeat) {
       playUrl = (await _songs.getStreamUrl(s.id)) ?? s.audioUrl;
     } else {
       playUrl = (s.sampleUrl ?? '').isNotEmpty ? s.sampleUrl : s.audioUrl;
@@ -371,13 +379,21 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         _isPlaying = false;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Preview not available yet.')),
+        SnackBar(
+          content: Text(
+            isBeat
+                ? 'Full beat preview not available yet.'
+                : 'Preview not available yet.',
+          ),
+        ),
       );
       return;
     }
 
-    final usingFallbackSample =
-        !owns && ((s.sampleUrl ?? '').isEmpty) && s.audioUrl.isNotEmpty;
+    final usingFallbackSample = !owns &&
+        !isBeat &&
+        ((s.sampleUrl ?? '').isEmpty) &&
+        s.audioUrl.isNotEmpty;
 
     try {
       await AudioPlayerService().loadSource(
@@ -389,10 +405,12 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
             artist: s.artistName,
             artUri: BrandAssets.mediaArtUri(s.artworkUrl),
             extras: {
-              'source': owns ? 'discography' : 'sample',
-              // Non-owners must not scrub: the emulated sample plays the full
-              // file with a 30s stop timer, so seeking would expose the track.
-              'noSeek': !owns,
+              'source': owns
+                  ? 'discography'
+                  : (isBeat ? 'beat_preview' : 'sample'),
+              // Non-owners must not scrub song samples (30s timer). Beats allow
+              // full listen-before-buy so seeking is OK for marketplace previews.
+              'noSeek': !owns && !isBeat,
             },
           ),
         ),
@@ -415,7 +433,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
     }
 
     // When no rendered sample exists, stop after 30s so non-buyers can't hear
-    // the full track.
+    // the full song (beats are intentionally full-length previews).
     if (usingFallbackSample) {
       _sampleStopTimer = Timer(const Duration(seconds: 30), () async {
         try {
@@ -559,6 +577,34 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Like failed: $e')));
+    }
+  }
+
+  Future<void> _toggleSongFavorite(Song s) async {
+    final auth = Provider.of<AuthService>(context, listen: false);
+    final me = await auth.getUserProfile();
+    if (!mounted) return;
+    if (me == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Log in to favorite songs.')),
+      );
+      return;
+    }
+    final current = _favoritedBySongId[s.id] == true;
+    setState(() => _favoritedBySongId[s.id] = !current);
+    try {
+      HapticFeedback.selectionClick();
+      if (current) {
+        await _songs.unfavorite(s.id);
+      } else {
+        await _songs.favorite(s.id);
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _favoritedBySongId[s.id] = current);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Favorite failed: $e')));
     }
   }
 
@@ -950,203 +996,7 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
                 ];
               })(),
               const SizedBox(height: 16),
-              Text(
-                'Songs',
-                style: DimensionTypography.cardTitle(fontSize: 20),
-              ),
-              const SizedBox(height: 8),
-              if (_tracks.isEmpty)
-                Text(
-                  _isOwnerProfile ? 'No songs yet.' : 'No approved songs yet.',
-                  style: TextStyle(color: surfaces.textSecondary),
-                )
-              else
-                ..._tracks.map((s) {
-                  final active = _activeSongId == s.id;
-                  final liked = _likedBySongId[s.id] == true;
-                  final accessLabel = _ownsSong(s)
-                      ? (_isOwnerProfile
-                            ? 'Your track · full play'
-                            : 'Purchased · full play')
-                      : 'Sample · 30s preview';
-                  final focused = _highlightedSongId == s.id;
-                  return Padding(
-                    key: _keyForSong(s.id),
-                    padding: const EdgeInsets.only(bottom: 10),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 280),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        border: focused
-                            ? Border.all(color: scheme.primary, width: 2)
-                            : Border.all(color: Colors.transparent, width: 2),
-                      ),
-                      child: glass(
-                      // Two rows so play/buy never crush the title into
-                      // mid-word wraps like "previe/w" or "View/likes".
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: SizedBox(
-                                  width: 52,
-                                  height: 52,
-                                  child: (s.artworkUrl ?? '').isNotEmpty
-                                      ? CachedNetworkImage(
-                                          imageUrl: s.artworkUrl!,
-                                          fit: BoxFit.cover,
-                                          errorWidget: (context, url, error) =>
-                                              Container(
-                                                color: surfaces.elevated,
-                                                child: const Icon(
-                                                  Icons.music_note,
-                                                ),
-                                              ),
-                                        )
-                                      : Container(
-                                          decoration: BoxDecoration(
-                                            gradient:
-                                                surfaces.signatureGradient,
-                                          ),
-                                          child: const Icon(Icons.music_note),
-                                        ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      s.title,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: true,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.25,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      '${s.likeCount} likes · ${s.listenCount ?? s.playCount} listens',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: surfaces.textMuted,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                    Text(
-                                      accessLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      softWrap: false,
-                                      style: TextStyle(
-                                        color: _ownsSong(s)
-                                            ? scheme.primary
-                                            : surfaces.textMuted,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => _showLikesSheet(s),
-                                      style: TextButton.styleFrom(
-                                        minimumSize: Size.zero,
-                                        padding: const EdgeInsets.only(top: 2),
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        alignment: Alignment.centerLeft,
-                                      ),
-                                      child: const Text('View likes'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              IconButton(
-                                visualDensity: VisualDensity.compact,
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(
-                                  minWidth: 40,
-                                  minHeight: 40,
-                                ),
-                                onPressed: () => _toggleLike(s),
-                                icon: Icon(
-                                  liked
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: liked
-                                      ? scheme.primary
-                                      : surfaces.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              FilledButton.icon(
-                                onPressed: () => _playSong(s),
-                                icon: Icon(
-                                  active && _isPlaying
-                                      ? Icons.pause
-                                      : Icons.play_arrow,
-                                  size: 20,
-                                ),
-                                label: Text(
-                                  active && _isPlaying ? 'Pause' : 'Play',
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              if (_ownsSong(s))
-                                OutlinedButton.icon(
-                                  onPressed: _downloadingId == s.id
-                                      ? null
-                                      : () => _downloadSong(s),
-                                  icon: _downloadingId == s.id
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.download_outlined,
-                                          size: 18,
-                                        ),
-                                  label: const Text('Download'),
-                                )
-                              else if (s.forSale)
-                                OutlinedButton(
-                                  onPressed: _buyingId == s.id
-                                      ? null
-                                      : () => _buySong(s),
-                                  child: _buyingId == s.id
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : Text(
-                                          'Buy ${_formatPrice(s.priceCents)}',
-                                        ),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      ),
-                    ),
-                  );
-                }),
+              ..._buildDiscographySections(surfaces, scheme, glass),
             ],
           ),
 
@@ -1237,5 +1087,339 @@ class _ArtistProfileScreenState extends State<ArtistProfileScreen> {
         ],
       ),
     );
+  }
+
+  List<Widget> _buildDiscographySections(
+    NetworxSurfaces surfaces,
+    ColorScheme scheme,
+    Widget Function({required Widget child}) glass,
+  ) {
+    final beats = _tracks.where((t) => t.isBeat).toList();
+    final songs = _tracks.where((t) => !t.isBeat).toList();
+    final widgets = <Widget>[];
+
+    if (beats.isNotEmpty) {
+      widgets.add(
+        Text(
+          'Beats for sale',
+          style: DimensionTypography.cardTitle(fontSize: 20),
+        ),
+      );
+      widgets.add(const SizedBox(height: 4));
+      widgets.add(
+        Text(
+          'Full listen before you buy — not a 30s sample.',
+          style: TextStyle(color: surfaces.textSecondary, fontSize: 12),
+        ),
+      );
+      widgets.add(const SizedBox(height: 8));
+      widgets.addAll(
+        beats.map((s) => _buildTrackCard(s, surfaces, scheme, glass)),
+      );
+      widgets.add(const SizedBox(height: 16));
+    }
+
+    widgets.add(
+      Text(
+        'Songs',
+        style: DimensionTypography.cardTitle(fontSize: 20),
+      ),
+    );
+    widgets.add(const SizedBox(height: 8));
+    if (songs.isEmpty) {
+      widgets.add(
+        Text(
+          _tracks.isEmpty
+              ? (_isOwnerProfile ? 'No tracks yet.' : 'No approved tracks yet.')
+              : (beats.isNotEmpty
+                  ? 'No songs in this portfolio (beats listed above).'
+                  : (_isOwnerProfile
+                      ? 'No songs yet.'
+                      : 'No approved songs yet.')),
+          style: TextStyle(color: surfaces.textSecondary),
+        ),
+      );
+    } else {
+      widgets.addAll(
+        songs.map((s) => _buildTrackCard(s, surfaces, scheme, glass)),
+      );
+    }
+    return widgets;
+  }
+
+  Widget _buildTrackCard(
+    Song s,
+    NetworxSurfaces surfaces,
+    ColorScheme scheme,
+    Widget Function({required Widget child}) glass,
+  ) {
+                  final active = _activeSongId == s.id;
+                  final liked = _likedBySongId[s.id] == true;
+                  final favorited = _favoritedBySongId[s.id] == true;
+                  final accessLabel = _ownsSong(s)
+                      ? (_isOwnerProfile
+                            ? (s.isBeat
+                                ? 'Your beat · full play'
+                                : 'Your track · full play')
+                            : 'Purchased · full play')
+                      : (s.isBeat
+                          ? (s.forSale
+                              ? 'BEAT FOR SALE · full preview'
+                              : 'Beat · full preview')
+                          : 'Song · 30s sample only');
+                  final focused = _highlightedSongId == s.id;
+                  return Padding(
+                    key: _keyForSong(s.id),
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 280),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: focused
+                            ? Border.all(color: scheme.primary, width: 2)
+                            : Border.all(color: Colors.transparent, width: 2),
+                      ),
+                      child: glass(
+                      // Two rows so play/buy never crush the title into
+                      // mid-word wraps like "previe/w" or "View/likes".
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: SizedBox(
+                                  width: 52,
+                                  height: 52,
+                                  child: (s.artworkUrl ?? '').isNotEmpty
+                                      ? CachedNetworkImage(
+                                          imageUrl: s.artworkUrl!,
+                                          fit: BoxFit.cover,
+                                          errorWidget: (context, url, error) =>
+                                              Container(
+                                                color: surfaces.elevated,
+                                                child: const Icon(
+                                                  Icons.music_note,
+                                                ),
+                                              ),
+                                        )
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            gradient:
+                                                surfaces.signatureGradient,
+                                          ),
+                                          child: const Icon(Icons.music_note),
+                                        ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (s.isBeat) ...[
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFF4D03F)
+                                              .withValues(alpha: 0.18),
+                                          borderRadius: BorderRadius.circular(999),
+                                          border: Border.all(
+                                            color: const Color(0xFFF4D03F)
+                                                .withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          s.forSale
+                                              ? 'BEAT FOR SALE'
+                                              : 'BEAT',
+                                          style: TextStyle(
+                                            color: scheme.brightness ==
+                                                    Brightness.dark
+                                                ? const Color(0xFFF4D03F)
+                                                : const Color(0xFFB45309),
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w800,
+                                            letterSpacing: 1.2,
+                                          ),
+                                        ),
+                                      ),
+                                    ] else ...[
+                                      Container(
+                                        margin: const EdgeInsets.only(bottom: 4),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 2,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: surfaces.border
+                                              .withValues(alpha: 0.35),
+                                          borderRadius: BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          'SONG · SAMPLE ONLY',
+                                          style: TextStyle(
+                                            color: surfaces.textMuted,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1.0,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                    Text(
+                                      s.title,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: true,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        height: 1.25,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${s.likeCount} likes · ${s.listenCount ?? s.playCount} listens',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: surfaces.textMuted,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                    Text(
+                                      accessLabel,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      softWrap: false,
+                                      style: TextStyle(
+                                        color: _ownsSong(s) || s.isBeat
+                                            ? scheme.primary
+                                            : surfaces.textMuted,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => _showLikesSheet(s),
+                                      style: TextButton.styleFrom(
+                                        minimumSize: Size.zero,
+                                        padding: const EdgeInsets.only(top: 2),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        alignment: Alignment.centerLeft,
+                                      ),
+                                      child: const Text('View likes'),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 40,
+                                ),
+                                tooltip: favorited
+                                    ? 'Remove favorite'
+                                    : 'Favorite for alerts',
+                                onPressed: () => _toggleSongFavorite(s),
+                                icon: Icon(
+                                  favorited ? Icons.star : Icons.star_border,
+                                  color: favorited
+                                      ? scheme.primary
+                                      : surfaces.textSecondary,
+                                ),
+                              ),
+                              IconButton(
+                                visualDensity: VisualDensity.compact,
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 40,
+                                ),
+                                tooltip: liked ? 'Unlike' : 'Like',
+                                onPressed: () => _toggleLike(s),
+                                icon: Icon(
+                                  liked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: liked
+                                      ? scheme.primary
+                                      : surfaces.textSecondary,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              FilledButton.icon(
+                                onPressed: () => _playSong(s),
+                                icon: Icon(
+                                  active && _isPlaying
+                                      ? Icons.pause
+                                      : Icons.play_arrow,
+                                  size: 20,
+                                ),
+                                label: Text(
+                                  active && _isPlaying
+                                      ? 'Pause'
+                                      : (s.isBeat ? 'Play full beat' : 'Play sample'),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              if (_ownsSong(s))
+                                OutlinedButton.icon(
+                                  onPressed: _downloadingId == s.id
+                                      ? null
+                                      : () => _downloadSong(s),
+                                  icon: _downloadingId == s.id
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.download_outlined,
+                                          size: 18,
+                                        ),
+                                  label: const Text('Download'),
+                                )
+                              else if (s.forSale)
+                                OutlinedButton(
+                                  onPressed: _buyingId == s.id
+                                      ? null
+                                      : () => _buySong(s),
+                                  child: _buyingId == s.id
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                          ),
+                                        )
+                                      : Text(
+                                          s.isBeat
+                                              ? 'Buy beat ${_formatPrice(s.priceCents)}'
+                                              : 'Buy ${_formatPrice(s.priceCents)}',
+                                        ),
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      ),
+                    ),
+                  );
   }
 }

@@ -32,6 +32,7 @@ class DimensionScreenShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     return Scaffold(
       backgroundColor: DimensionTokens.bgBase,
       appBar: title == null

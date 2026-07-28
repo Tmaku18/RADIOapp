@@ -57,6 +57,7 @@ class DimensionRadioBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     return AnimatedBuilder(
       animation: dimensionPlayerController,
       builder: (context, _) {
@@ -69,34 +70,30 @@ class DimensionRadioBar extends StatelessWidget {
             final item = media is MediaItem ? media : null;
             if (item == null) return const SizedBox.shrink();
 
-            return ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(
-                  sigmaX: DimensionTokens.glassStrongBlur,
-                  sigmaY: DimensionTokens.glassStrongBlur,
-                ),
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: DimensionTokens.isDark
-                        ? const Color(0xFF08080A).withValues(alpha: 0.92)
-                        : DimensionTokens.bgSurface.withValues(alpha: 0.96),
-                    border: Border(
-                      top: BorderSide(
-                        color: DimensionTokens.neonCyan.withValues(alpha: 0.15),
-                      ),
+            final bar = DecoratedBox(
+              decoration: BoxDecoration(
+                color: DimensionTokens.isDark
+                    ? const Color(0xFF08080A).withValues(alpha: 0.92)
+                    : const Color(0xFFF8FAFC),
+                border: Border(
+                  top: BorderSide(
+                    color: DimensionTokens.neonCyan.withValues(
+                      alpha: DimensionTokens.isDark ? 0.15 : 0.28,
                     ),
                   ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const NeonLine(),
-                      SafeArea(
-                        top: false,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                          child: Column(
-                            children: [
-                              LayoutBuilder(
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const NeonLine(),
+                  SafeArea(
+                    top: false,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                      child: Column(
+                        children: [
+                          LayoutBuilder(
                                 builder: (context, constraints) {
                                   final shortestSide =
                                       MediaQuery.sizeOf(context).shortestSide;
@@ -261,9 +258,11 @@ class DimensionRadioBar extends StatelessWidget {
                                               trackHeight: 4,
                                               activeTrackColor:
                                                   DimensionTokens.neonCyan,
-                                              inactiveTrackColor: Colors.white
-                                                  .withValues(alpha: 0.08),
-                                              thumbColor: Colors.white,
+                                              inactiveTrackColor:
+                                                  DimensionTokens.textMuted
+                                                      .withValues(alpha: 0.35),
+                                              thumbColor:
+                                                  DimensionTokens.textPrimary,
                                               thumbShape:
                                                   const RoundSliderThumbShape(
                                                 enabledThumbRadius: 6,
@@ -291,8 +290,9 @@ class DimensionRadioBar extends StatelessWidget {
                                               child: LinearProgressIndicator(
                                                 value: ctrl.progress / 100,
                                                 minHeight: 4,
-                                                backgroundColor: Colors.white
-                                                    .withValues(alpha: 0.08),
+                                                backgroundColor:
+                                                    DimensionTokens.textMuted
+                                                        .withValues(alpha: 0.35),
                                                 valueColor:
                                                     AlwaysStoppedAnimation(
                                                   DimensionTokens.neonCyan,
@@ -310,13 +310,22 @@ class DimensionRadioBar extends StatelessWidget {
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                        ),
+                        ],
                       ),
-                    ],
+                    ),
                   ),
+                ],
+              ),
+            );
+
+            if (!DimensionTokens.isDark) return bar;
+            return ClipRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: DimensionTokens.glassStrongBlur,
+                  sigmaY: DimensionTokens.glassStrongBlur,
                 ),
+                child: bar,
               ),
             );
           },
@@ -387,7 +396,7 @@ class _VoteBtn extends StatelessWidget {
     return Material(
       color: selected
           ? DimensionTokens.neonCyan.withValues(alpha: 0.15)
-          : Colors.white.withValues(alpha: 0.05),
+          : DimensionTokens.textMuted.withValues(alpha: 0.12),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
@@ -417,7 +426,7 @@ class _FavoriteBtn extends StatelessWidget {
     return Material(
       color: selected
           ? const Color(0xFFFFC107).withValues(alpha: 0.2)
-          : Colors.white.withValues(alpha: 0.05),
+          : DimensionTokens.textMuted.withValues(alpha: 0.12),
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),

@@ -27,6 +27,7 @@ class _UploadScreenState extends State<UploadScreen> {
   final _artistNameController = TextEditingController();
   final _cityController = TextEditingController();
   final _lyricsController = TextEditingController();
+  final _priceController = TextEditingController(text: '9.99');
   final ApiService _apiService = ApiService();
   File? _audioFile;
   File? _artworkFile;
@@ -40,8 +41,14 @@ class _UploadScreenState extends State<UploadScreen> {
   bool _optInFullSongRadio = false;
   bool _optInDjLivestreams = false;
   bool _optInDjArchivedMixes = false;
+  /// `song` (radio + 30s sample) or `beat` (marketplace, full listen-before-buy).
+  String _productKind = 'song';
+  bool _forSale = true;
+  bool _beatArgsApplied = false;
   String? _originState;
   final Set<String> _stationIds = {};
+
+  bool get _isBeat => _productKind == 'beat';
 
   // Discover clip (5–15s) — required.
   double? _discoverClipStart = 0;
@@ -56,6 +63,22 @@ class _UploadScreenState extends State<UploadScreen> {
   static const int _kSampleMax = 30;
   static const int _kMaxAudioBytes = 100 * 1024 * 1024;
   static const int _kMaxImageBytes = 15 * 1024 * 1024;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_beatArgsApplied) return;
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['productKind']?.toString() == 'beat') {
+      _beatArgsApplied = true;
+      _productKind = 'beat';
+      _forSale = true;
+      _stationIds
+        ..clear()
+        ..add('us-beats');
+      _optInFullSongRadio = false;
+    }
+  }
 
   Future<void> _pickAudioFile() async {
     final result = await FilePicker.pickFiles(
@@ -364,50 +387,65 @@ class _UploadScreenState extends State<UploadScreen> {
       return;
     }
     if (_stationIds.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select at least one station / category.'),
-        ),
-      );
-      return;
-    }
-    final sampleValid = _sampleStart != null &&
-        _sampleEnd != null &&
-        _sampleEnd! > _sampleStart! &&
-        (_sampleEnd! - _sampleStart!) >= _kSampleMin &&
-        (_sampleEnd! - _sampleStart!) <= _kSampleMax;
-    if (!sampleValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Set a sample preview window (5–30s) before uploading.'),
-        ),
-      );
-      return;
-    }
-    final discoverValid = _discoverClipStart != null &&
-        _discoverClipEnd != null &&
-        _discoverClipEnd! > _discoverClipStart! &&
-        (_discoverClipEnd! - _discoverClipStart!) >= _kDiscoverClipMin &&
-        (_discoverClipEnd! - _discoverClipStart!) <= _kDiscoverClipMax;
-    if (!discoverValid) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Set a Discover clip window (5–15s) before uploading.',
+      if (_isBeat) {
+        _stationIds.add('us-beats');
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Select at least one station / category.'),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
     }
-    if (!_optInFullSongRadio) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Accept the NETWORX Full-Song Radio Opt-In Agreement to submit for rotation.',
+    if (!_isBeat) {
+      final sampleValid = _sampleStart != null &&
+          _sampleEnd != null &&
+          _sampleEnd! > _sampleStart! &&
+          (_sampleEnd! - _sampleStart!) >= _kSampleMin &&
+          (_sampleEnd! - _sampleStart!) <= _kSampleMax;
+      if (!sampleValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('Set a sample preview window (5–30s) before uploading.'),
           ),
-        ),
-      );
-      return;
+        );
+        return;
+      }
+      final discoverValid = _discoverClipStart != null &&
+          _discoverClipEnd != null &&
+          _discoverClipEnd! > _discoverClipStart! &&
+          (_discoverClipEnd! - _discoverClipStart!) >= _kDiscoverClipMin &&
+          (_discoverClipEnd! - _discoverClipStart!) <= _kDiscoverClipMax;
+      if (!discoverValid) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Set a Discover clip window (5–15s) before uploading.',
+            ),
+          ),
+        );
+        return;
+      }
+      if (!_optInFullSongRadio) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Accept the NETWORX Full-Song Radio Opt-In Agreement to submit for rotation.',
+            ),
+          ),
+        );
+        return;
+      }
+    } else {
+      final price = double.tryParse(_priceController.text.trim());
+      if (price == null || price < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Enter a valid sale price.')),
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -447,6 +485,8 @@ class _UploadScreenState extends State<UploadScreen> {
       final stations = _stationIds.toList();
       // Hit Nest/Railway directly — Vercel’s /api/songs proxy can time out or
       // strip useful 400 bodies while the server creates the song record.
+      final priceDollars = double.tryParse(_priceController.text.trim()) ?? 9.99;
+      final priceCents = (priceDollars * 100).round();
       await _apiService.post(
         'songs',
         {
@@ -458,19 +498,24 @@ class _UploadScreenState extends State<UploadScreen> {
           'stationIds': stations,
           'audioPath': audioPath,
           if (artworkPath != null) 'artworkPath': artworkPath,
-          if (discoverBackgroundPath != null)
+          if (!_isBeat && discoverBackgroundPath != null)
             'discoverBackgroundPath': discoverBackgroundPath,
           if (_durationSeconds != null) 'durationSeconds': _durationSeconds,
           'isExplicit': _isExplicit,
-          'sampleStartSeconds': _sampleStart,
-          'sampleEndSeconds': _sampleEnd,
-          'discoverClipStartSeconds': _discoverClipStart,
-          'discoverClipEndSeconds': _discoverClipEnd,
-          if (_lyricsController.text.trim().isNotEmpty)
+          'productKind': _productKind,
+          'forSale': _forSale,
+          'priceCents': priceCents,
+          if (!_isBeat) ...{
+            'sampleStartSeconds': _sampleStart,
+            'sampleEndSeconds': _sampleEnd,
+            'discoverClipStartSeconds': _discoverClipStart,
+            'discoverClipEndSeconds': _discoverClipEnd,
+          },
+          if (!_isBeat && _lyricsController.text.trim().isNotEmpty)
             'lyricsPlainText': _lyricsController.text.trim(),
-          'optInFullSongRadio': _optInFullSongRadio,
-          'optInDjLivestreams': _optInDjLivestreams,
-          'optInDjArchivedMixes': _optInDjArchivedMixes,
+          'optInFullSongRadio': _isBeat ? false : _optInFullSongRadio,
+          'optInDjLivestreams': _isBeat ? false : _optInDjLivestreams,
+          'optInDjArchivedMixes': _isBeat ? false : _optInDjArchivedMixes,
         },
         preferDirectBackend: true,
         timeout: const Duration(seconds: 90),
@@ -505,6 +550,7 @@ class _UploadScreenState extends State<UploadScreen> {
     _artistNameController.dispose();
     _cityController.dispose();
     _lyricsController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -512,7 +558,7 @@ class _UploadScreenState extends State<UploadScreen> {
   Widget build(BuildContext context) {
     final surfaces = context.networxSurfaces;
     return DimensionScreenShell(
-      title: 'Upload Music',
+      title: _isBeat ? 'Upload Beat' : 'Upload Music',
       showNeonLine: true,
       body: _readyForRotation
           ? Padding(
@@ -582,13 +628,37 @@ class _UploadScreenState extends State<UploadScreen> {
                 padding: const EdgeInsets.all(16),
                 children: [
                   Text(
-                    'Upload Song',
+                    _isBeat ? 'Upload Beat for Sale' : 'Upload Song',
                     style: DimensionTypography.cardTitle(fontSize: 20),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Submit your track for review and radio rotation',
+                    _isBeat
+                        ? 'List a full beat buyers can preview completely before purchasing'
+                        : 'Submit your track for review and radio rotation',
                     style: TextStyle(color: surfaces.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'song', label: Text('Song'), icon: Icon(Icons.music_note)),
+                      ButtonSegment(value: 'beat', label: Text('Beat'), icon: Icon(Icons.graphic_eq)),
+                    ],
+                    selected: {_productKind},
+                    onSelectionChanged: _isUploading
+                        ? null
+                        : (v) {
+                            setState(() {
+                              _productKind = v.first;
+                              if (_isBeat) {
+                                _stationIds
+                                  ..clear()
+                                  ..add('us-beats');
+                                _optInFullSongRadio = false;
+                                _forSale = true;
+                              }
+                            });
+                          },
                   ),
                   const SizedBox(height: 14),
                   if (_error != null)
@@ -601,14 +671,50 @@ class _UploadScreenState extends State<UploadScreen> {
                     ),
                   TextFormField(
                     controller: _titleController,
-                    decoration: const InputDecoration(labelText: 'Song Title *'),
+                    decoration: InputDecoration(
+                      labelText: _isBeat ? 'Beat Title *' : 'Song Title *',
+                    ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
-                        return 'Please enter a song title';
+                        return _isBeat
+                            ? 'Please enter a beat title'
+                            : 'Please enter a song title';
                       }
                       return null;
                     },
                   ),
+                  if (_isBeat) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _priceController,
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'Sale price (USD) *',
+                        hintText: '9.99',
+                        prefixText: '\$ ',
+                        helperText:
+                            'Buyers can listen to the full beat before checkout',
+                      ),
+                      validator: (value) {
+                        final n = double.tryParse((value ?? '').trim());
+                        if (n == null || n < 0) return 'Enter a valid price';
+                        return null;
+                      },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('List for sale'),
+                      subtitle: const Text(
+                        'Shown in Beat Marketplace and on your profile',
+                      ),
+                      value: _forSale,
+                      onChanged: _isUploading
+                          ? null
+                          : (v) => setState(() => _forSale = v),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _artistNameController,
@@ -704,6 +810,23 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
                     ),
+                  if (_isBeat) ...[
+                    const SizedBox(height: 14),
+                    GlassCard(
+                      padding: const EdgeInsets.all(12),
+                      child: Text(
+                        'Buyers can play this entire beat before purchasing. '
+                        'Listed in Pro-Networx → Beats and on your artist profile '
+                        'as BEAT FOR SALE (not a 30s song sample).',
+                        style: TextStyle(
+                          color: surfaces.textSecondary,
+                          fontSize: 13,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
+                  if (!_isBeat) ...[
                   const SizedBox(height: 14),
                   Text(
                     'Sample preview (required)',
@@ -790,18 +913,22 @@ class _UploadScreenState extends State<UploadScreen> {
                         ),
                       ),
                     ),
+                  ],
                   const SizedBox(height: 12),
                   SwitchListTile.adaptive(
                     contentPadding: EdgeInsets.zero,
                     title: const Text('Mark as explicit'),
-                    subtitle: const Text(
-                      'Songs are explicit by default. Turn off only if this track has no explicit language/content.',
+                    subtitle: Text(
+                      _isBeat
+                          ? 'Beats are marked explicit by default. Turn off if this beat has no explicit content.'
+                          : 'Songs are explicit by default. Turn off only if this track has no explicit language/content.',
                     ),
                     value: _isExplicit,
                     onChanged: _isUploading
                         ? null
                         : (value) => setState(() => _isExplicit = value),
                   ),
+                  if (!_isBeat) ...[
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _lyricsController,
@@ -879,6 +1006,7 @@ class _UploadScreenState extends State<UploadScreen> {
                       ),
                     ),
                   ),
+                  ],
                   const SizedBox(height: 16),
                   if (_isUploading)
                     Column(
@@ -898,10 +1026,12 @@ class _UploadScreenState extends State<UploadScreen> {
                     child: FilledButton(
                       onPressed: _isUploading ||
                               _audioFile == null ||
-                              !_optInFullSongRadio
+                              (!_isBeat && !_optInFullSongRadio)
                           ? null
                           : _uploadSong,
-                      child: const Text('Submit for Rotation'),
+                      child: Text(
+                        _isBeat ? 'List Beat for Sale' : 'Submit for Rotation',
+                      ),
                     ),
                   ),
                 ],

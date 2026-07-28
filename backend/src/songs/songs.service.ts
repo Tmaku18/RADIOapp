@@ -646,13 +646,24 @@ export class SongsService {
     const supabase = getSupabaseClient();
     const { data: song, error } = await supabase
       .from('songs')
-      .select('id, artist_id, title, artist_name, audio_url')
+      .select(
+        'id, artist_id, title, artist_name, audio_url, product_kind, is_for_sale, status',
+      )
       .eq('id', songId)
       .single();
     if (error || !song) throw new NotFoundException('Song not found');
 
     const entitled = await this.hasSongEntitlement(userId, userRole, song);
-    if (!entitled) {
+    const isBeatPreview =
+      !options?.download &&
+      (song as { product_kind?: string }).product_kind === 'beat' &&
+      (song as { is_for_sale?: boolean }).is_for_sale !== false &&
+      ((song as { status?: string }).status === 'approved' ||
+        (song as { status?: string }).status === 'active');
+    if (!entitled && options?.download) {
+      throw new ForbiddenException('Purchase this track to download it');
+    }
+    if (!entitled && !isBeatPreview) {
       throw new ForbiddenException('Purchase this song to play or download it');
     }
     const downloadName = options?.download
@@ -673,6 +684,94 @@ export class SongsService {
       title: song.title ?? '',
       artistName: song.artist_name ?? null,
     };
+  }
+
+  /**
+   * Pro-Networx Beat Marketplace — approved beats listed for sale.
+   * Buyers can stream the full beat before purchasing; download still requires
+   * entitlement via [getEntitledFullUrl].
+   */
+  async listMarketplaceBeats(options?: {
+    q?: string;
+    artistId?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const supabase = getSupabaseClient();
+    const limit = Math.min(Math.max(options?.limit ?? 24, 1), 100);
+    const offset = Math.max(options?.offset ?? 0, 0);
+    const q = (options?.q ?? '').trim();
+    const artistId = (options?.artistId ?? '').trim();
+
+    let query = supabase
+      .from('songs')
+      .select(
+        'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, listen_count, price_cents, is_for_sale, product_kind, status, created_at',
+      )
+      .eq('product_kind', 'beat')
+      .eq('is_for_sale', true)
+      .in('status', ['approved', 'active'])
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (artistId) query = query.eq('artist_id', artistId);
+    if (q) {
+      // title/artist ilike search
+      query = query.or(
+        `title.ilike.%${q}%,artist_name.ilike.%${q}%`,
+      );
+    }
+
+    let { data, error } = await query;
+    if (error && this.isMissingColumnError(error, 'product_kind')) {
+      return [];
+    }
+    if (error && this.isMissingColumnError(error, 'deleted_at')) {
+      let retry = supabase
+        .from('songs')
+        .select(
+          'id, title, artist_name, artist_id, artwork_url, audio_url, sample_url, duration_seconds, like_count, play_count, listen_count, price_cents, is_for_sale, product_kind, status, created_at',
+        )
+        .eq('product_kind', 'beat')
+        .eq('is_for_sale', true)
+        .in('status', ['approved', 'active'])
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+      if (artistId) retry = retry.eq('artist_id', artistId);
+      if (q) retry = retry.or(`title.ilike.%${q}%,artist_name.ilike.%${q}%`);
+      const again = await retry;
+      data = again.data;
+      error = again.error;
+    }
+    if (error) {
+      throw new BadRequestException(`Failed to load beats: ${error.message}`);
+    }
+
+    const rows = data ?? [];
+    return Promise.all(
+      rows.map(async (song) => ({
+        id: song.id,
+        title: song.title,
+        artistName: song.artist_name,
+        artistId: song.artist_id,
+        artworkUrl: song.artwork_url,
+        durationSeconds: song.duration_seconds,
+        likeCount: song.like_count ?? 0,
+        playCount: song.play_count ?? 0,
+        listenCount: song.listen_count ?? song.play_count ?? 0,
+        priceCents: song.price_cents ?? 999,
+        forSale: song.is_for_sale !== false,
+        productKind: 'beat' as const,
+        status: song.status,
+        createdAt: song.created_at,
+        // Full listen-before-buy: signed stream of the master (not a 30s sample).
+        previewUrl:
+          (await signSongAudioUrl(song.audio_url ?? song.sample_url ?? null, {
+            expiresInSeconds: 60 * 30,
+          })) ?? null,
+      })),
+    );
   }
 
   /**
@@ -1208,8 +1307,12 @@ export class SongsService {
 
   async createSong(userId: string, createSongDto: CreateSongDto) {
     const supabase = getSupabaseClient();
+    const productKind =
+      createSongDto.productKind === 'beat' ? 'beat' : 'song';
+    const isBeat = productKind === 'beat';
 
-    if (createSongDto.optInFullSongRadio !== true) {
+    // Songs need the radio opt-in; beats are marketplace inventory (not rotation).
+    if (!isBeat && createSongDto.optInFullSongRadio !== true) {
       throw new BadRequestException(
         'You must accept the NETWORX Full-Song Radio Opt-In Agreement to submit for rotation.',
       );
@@ -1316,6 +1419,20 @@ export class SongsService {
     const primaryStationId = normalizedStationIds[0];
 
     const statusFields = this.uploadStatusFields();
+    const priceCentsRaw = createSongDto.priceCents;
+    const priceCents =
+      priceCentsRaw != null && Number.isFinite(Number(priceCentsRaw))
+        ? Math.max(0, Math.round(Number(priceCentsRaw)))
+        : isBeat
+          ? 999
+          : 99;
+    const forSale =
+      createSongDto.forSale !== undefined
+        ? createSongDto.forSale === true
+        : isBeat
+          ? true
+          : true;
+
     const baseInsertPayload = {
       artist_id: userId,
       title: createSongDto.title,
@@ -1331,10 +1448,22 @@ export class SongsService {
       sample_end_seconds: sampleEndSeconds,
       // Songs are explicit by default; uploaders opt out by unchecking the box.
       is_explicit: createSongDto.isExplicit !== false,
-      opt_in_full_song_radio: true,
-      opt_in_dj_livestreams: createSongDto.optInDjLivestreams === true,
-      opt_in_dj_archived_mixes: createSongDto.optInDjArchivedMixes === true,
+      opt_in_full_song_radio: isBeat
+        ? false
+        : createSongDto.optInFullSongRadio === true,
+      opt_in_dj_livestreams: isBeat
+        ? false
+        : createSongDto.optInDjLivestreams === true,
+      opt_in_dj_archived_mixes: isBeat
+        ? false
+        : createSongDto.optInDjArchivedMixes === true,
+      product_kind: productKind,
+      price_cents: priceCents,
+      is_for_sale: forSale,
       ...statusFields,
+      // Beats stay off radio rotation; buyers browse the marketplace.
+      // Applied after statusFields so beta auto-approve cannot force public.
+      ...(isBeat ? { is_public: false, opt_in_full_song_radio: false } : {}),
     };
     const legacyBaseInsertPayload = {
       artist_id: userId,
@@ -1381,11 +1510,38 @@ export class SongsService {
     };
     let explicitColumnMissing = false;
 
+    const stripBeatColumns = <T extends Record<string, unknown>>(payload: T) => {
+      const {
+        product_kind: _pk,
+        price_cents: _pc,
+        is_for_sale: _fs,
+        is_public: _ip,
+        ...rest
+      } = payload;
+      return rest;
+    };
+
     let insertRes = await supabase
       .from('songs')
       .insert(discoverInsertPayload)
       .select()
       .single();
+
+    if (
+      insertRes.error &&
+      this.isMissingAnyColumnError(insertRes.error, [
+        'product_kind',
+        'price_cents',
+        'is_for_sale',
+        'is_public',
+      ])
+    ) {
+      insertRes = await supabase
+        .from('songs')
+        .insert(stripBeatColumns(discoverInsertPayload))
+        .select()
+        .single();
+    }
 
     if (
       insertRes.error &&

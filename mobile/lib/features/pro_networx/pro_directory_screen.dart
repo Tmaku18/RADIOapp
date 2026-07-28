@@ -65,22 +65,35 @@ class _ProNetworxDirectoryScreenState extends State<ProNetworxDirectoryScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Widget glass({required Widget child}) {
+      final panel = Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: surfaces.glassBgOpacity)
+              : surfaces.elevated,
+          border: Border.all(
+            color: isDark
+                ? scheme.primary.withValues(alpha: 0.22)
+                : surfaces.border,
+          ),
+          boxShadow: surfaces.glassShadow,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        padding: const EdgeInsets.all(12),
+        child: child,
+      );
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: surfaces.glassBlur, sigmaY: surfaces.glassBlur),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
-              border: Border.all(color: scheme.primary.withValues(alpha: 0.22)),
-              boxShadow: surfaces.glassShadow,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: child,
-          ),
-        ),
+        child: isDark
+            ? BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: surfaces.glassBlur,
+                  sigmaY: surfaces.glassBlur,
+                ),
+                child: panel,
+              )
+            : panel,
       );
     }
 

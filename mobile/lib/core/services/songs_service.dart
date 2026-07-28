@@ -316,6 +316,8 @@ class SongAccess {
   final int priceCents;
   final bool forSale;
   final String? sampleUrl;
+  final String productKind;
+  final bool fullPreviewAllowed;
 
   const SongAccess({
     required this.owned,
@@ -323,7 +325,11 @@ class SongAccess {
     required this.priceCents,
     required this.forSale,
     required this.sampleUrl,
+    this.productKind = 'song',
+    this.fullPreviewAllowed = false,
   });
+
+  bool get isBeat => productKind == 'beat';
 
   factory SongAccess.fromJson(Map<String, dynamic> json) {
     int parseInt(dynamic value, {int fallback = 0}) {
@@ -332,12 +338,77 @@ class SongAccess {
       return int.tryParse(value?.toString() ?? '') ?? fallback;
     }
 
+    final kind = (json['productKind'] ?? json['product_kind'] ?? 'song')
+        .toString();
     return SongAccess(
       owned: json['owned'] == true,
       isOwner: json['isOwner'] == true,
-      priceCents: parseInt(json['priceCents'], fallback: 99),
+      priceCents: parseInt(
+        json['priceCents'],
+        fallback: kind == 'beat' ? 999 : 99,
+      ),
       forSale: json['forSale'] != false,
       sampleUrl: json['sampleUrl']?.toString(),
+      productKind: kind == 'beat' ? 'beat' : 'song',
+      fullPreviewAllowed: json['fullPreviewAllowed'] == true || kind == 'beat',
+    );
+  }
+}
+
+class MarketplaceBeat {
+  final String id;
+  final String title;
+  final String artistName;
+  final String artistId;
+  final String? artworkUrl;
+  final int? durationSeconds;
+  final int priceCents;
+  final bool forSale;
+  final String? previewUrl;
+  final int likeCount;
+  final int listenCount;
+
+  const MarketplaceBeat({
+    required this.id,
+    required this.title,
+    required this.artistName,
+    required this.artistId,
+    required this.artworkUrl,
+    required this.durationSeconds,
+    required this.priceCents,
+    required this.forSale,
+    required this.previewUrl,
+    required this.likeCount,
+    required this.listenCount,
+  });
+
+  factory MarketplaceBeat.fromJson(Map<String, dynamic> json) {
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    return MarketplaceBeat(
+      id: (json['id'] ?? '').toString(),
+      title: (json['title'] ?? '').toString(),
+      artistName: (json['artistName'] ?? json['artist_name'] ?? '').toString(),
+      artistId: (json['artistId'] ?? json['artist_id'] ?? '').toString(),
+      artworkUrl: (json['artworkUrl'] ?? json['artwork_url'])?.toString(),
+      durationSeconds: json['durationSeconds'] != null ||
+              json['duration_seconds'] != null
+          ? parseInt(json['durationSeconds'] ?? json['duration_seconds'])
+          : null,
+      priceCents: parseInt(
+        json['priceCents'] ?? json['price_cents'],
+        fallback: 999,
+      ),
+      forSale: (json['forSale'] ?? json['is_for_sale']) != false,
+      previewUrl: (json['previewUrl'] ?? json['preview_url'])?.toString(),
+      likeCount: parseInt(json['likeCount'] ?? json['like_count']),
+      listenCount: parseInt(
+        json['listenCount'] ?? json['listen_count'] ?? json['play_count'],
+      ),
     );
   }
 }
@@ -407,6 +478,13 @@ class SongsService {
   Future<bool> getLikeStatus(String songId) async {
     final res = await _api.get('songs/$songId/like');
     if (res is Map<String, dynamic>) return res['liked'] == true;
+    return false;
+  }
+
+  /// Whether the user starred this song (radio alerts). Separate from 🔥 likes.
+  Future<bool> getFavoriteStatus(String songId) async {
+    final res = await _api.get('songs/$songId/favorite');
+    if (res is Map<String, dynamic>) return res['favorited'] == true;
     return false;
   }
 
@@ -541,6 +619,38 @@ class SongsService {
     final res = await _api.get('songs/$songId/access');
     if (res is Map<String, dynamic>) return SongAccess.fromJson(res);
     return null;
+  }
+
+  /// Approved beats listed for sale (Pro-Networx marketplace).
+  Future<List<MarketplaceBeat>> listMarketplaceBeats({
+    String? q,
+    String? artistId,
+    int limit = 24,
+    int offset = 0,
+  }) async {
+    final params = <String, String>{
+      'limit': '${limit.clamp(1, 100)}',
+      'offset': '${offset < 0 ? 0 : offset}',
+    };
+    final query = (q ?? '').trim();
+    if (query.isNotEmpty) params['q'] = query;
+    final artist = (artistId ?? '').trim();
+    if (artist.isNotEmpty) params['artistId'] = artist;
+    final qs = params.entries
+        .map((e) => '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}')
+        .join('&');
+    final res = await _api.get('songs/beats/marketplace?$qs');
+    if (res is List) {
+      return res
+          .whereType<Map>()
+          .map(
+            (e) => MarketplaceBeat.fromJson(
+              e.map((k, v) => MapEntry(k.toString(), v)),
+            ),
+          )
+          .toList();
+    }
+    return const <MarketplaceBeat>[];
   }
 
   Future<String?> getStreamUrl(String songId) async {

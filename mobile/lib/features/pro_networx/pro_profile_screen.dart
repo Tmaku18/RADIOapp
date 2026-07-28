@@ -108,22 +108,35 @@ class _ProNetworxProfileScreenState extends State<ProNetworxProfileScreen> {
     final surfaces = context.networxSurfaces;
     final scheme = Theme.of(context).colorScheme;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     Widget glass({required Widget child}) {
+      final panel = Container(
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: surfaces.glassBgOpacity)
+              : surfaces.elevated,
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withValues(alpha: surfaces.glassBorderOpacity)
+                : surfaces.border,
+          ),
+          boxShadow: surfaces.glassShadow,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        padding: const EdgeInsets.all(14),
+        child: child,
+      );
       return ClipRRect(
         borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: surfaces.glassBlur, sigmaY: surfaces.glassBlur),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: surfaces.glassBgOpacity),
-              border: Border.all(color: Colors.white.withValues(alpha: surfaces.glassBorderOpacity)),
-              boxShadow: surfaces.glassShadow,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: child,
-          ),
-        ),
+        child: isDark
+            ? BackdropFilter(
+                filter: ImageFilter.blur(
+                  sigmaX: surfaces.glassBlur,
+                  sigmaY: surfaces.glassBlur,
+                ),
+                child: panel,
+              )
+            : panel,
       );
     }
 

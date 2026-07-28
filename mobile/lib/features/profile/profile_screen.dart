@@ -827,6 +827,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       itemBuilder: (context, index) {
                                         final item = items[index];
                                         return ListTile(
+                                          onTap: () {
+                                            final artistId = item.id.trim();
+                                            if (artistId.isEmpty) return;
+                                            // Close the sheet, then open profile
+                                            // on the root stack so back returns
+                                            // to Profile (not an empty sheet).
+                                            Navigator.of(context).pop();
+                                            AppRoutes.openArtistProfile(
+                                              this.context,
+                                              artistId: artistId,
+                                            );
+                                          },
                                           leading: CircleAvatar(
                                             backgroundImage:
                                                 item.avatarUrl != null

@@ -2,9 +2,11 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../core/models/pro_networx_models.dart';
 import '../../core/navigation/home_tab_intent.dart';
+import '../../core/services/api_service.dart';
 import '../../core/services/pro_networx_service.dart';
 import '../../core/theme/networx_extensions.dart';
 
@@ -19,8 +21,9 @@ class ProCreatePostScreen extends StatefulWidget {
 }
 
 class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
-  static const int _maxVideoDurationSec = 60;
-  static const int _maxFileSizeBytes = 25 * 1024 * 1024;
+  /// Must match backend `maxFeedVideoDurationSeconds` / web FEED_VIDEO_MAX_SECONDS.
+  static const int _maxVideoDurationSec = 15;
+  static const int _maxFileSizeBytes = 75 * 1024 * 1024;
 
   final ProNetworxService _service = ProNetworxService();
   final TextEditingController _captionCtrl = TextEditingController();
@@ -62,13 +65,37 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
     }
   }
 
+  Future<Duration?> _readVideoDuration(File file) async {
+    final controller = VideoPlayerController.file(file);
+    try {
+      await controller.initialize();
+      return controller.value.duration;
+    } catch (_) {
+      return null;
+    } finally {
+      await controller.dispose();
+    }
+  }
+
   Future<void> _setPicked(XFile? picked, {required bool isVideo}) async {
     if (picked == null) return;
     final file = File(picked.path);
     final size = await file.length();
     if (size > _maxFileSizeBytes) {
-      if (mounted) setState(() => _error = 'File too large (max 25 MB).');
+      if (mounted) setState(() => _error = 'File too large (max 75 MB).');
       return;
+    }
+    if (isVideo) {
+      // Gallery picks ignore image_picker maxDuration on iOS — enforce here.
+      final duration = await _readVideoDuration(file);
+      if (duration != null &&
+          duration.inMilliseconds > (_maxVideoDurationSec + 1) * 1000) {
+        if (mounted) {
+          setState(() => _error =
+              'Video length must be $_maxVideoDurationSec seconds or less.');
+        }
+        return;
+      }
     }
     if (!mounted) return;
     setState(() {
@@ -138,6 +165,7 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
       final post = await _service.createFeedPost(
         file,
         caption: caption.isEmpty ? null : caption,
+        isVideo: _isVideo,
       );
       if (!mounted) return;
       SocialFeedRefresh.request();
@@ -145,9 +173,22 @@ class _ProCreatePostScreenState extends State<ProCreatePostScreen> {
         const SnackBar(content: Text('Posted to Feed')),
       );
       Navigator.pop(context, post);
-    } catch (_) {
+    } catch (e) {
       if (!mounted) return;
-      setState(() => _error = 'Could not publish your post. Please try again.');
+      final raw = e is ApiException ? e.message : e.toString();
+      setState(() {
+        if (raw.contains('Video length') ||
+            raw.contains('Unsupported file') ||
+            raw.contains('File size') ||
+            raw.contains('No file')) {
+          _error = raw;
+        } else if (raw.contains('413')) {
+          _error =
+              'Upload failed: file too large for the network path. Try a shorter take.';
+        } else {
+          _error = 'Could not publish your post. Please try again.';
+        }
+      });
     } finally {
       if (mounted) setState(() => _uploading = false);
     }

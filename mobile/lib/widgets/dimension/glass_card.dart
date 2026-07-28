@@ -22,24 +22,27 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     final radius = borderRadius ?? BorderRadius.circular(16);
     final decoration = strong
         ? DimensionTokens.glassStrongDecoration(borderRadius: radius)
         : DimensionTokens.glassDecoration(borderRadius: radius);
     final blur = strong ? DimensionTokens.glassStrongBlur : DimensionTokens.glassBlur;
+    final padded = Padding(
+      padding: padding ?? const EdgeInsets.all(16),
+      child: child,
+    );
 
+    // Light mode skips backdrop blur — frosted glass over dark orbs made
+    // slate text unreadable. Dark mode keeps the glass effect.
     Widget content = ClipRRect(
       borderRadius: radius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
-        child: DecoratedBox(
-          decoration: decoration,
-          child: Padding(
-            padding: padding ?? const EdgeInsets.all(16),
-            child: child,
-          ),
-        ),
-      ),
+      child: DimensionTokens.isDark
+          ? BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+              child: DecoratedBox(decoration: decoration, child: padded),
+            )
+          : DecoratedBox(decoration: decoration, child: padded),
     );
 
     if (onTap != null) {

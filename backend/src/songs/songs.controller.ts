@@ -605,6 +605,9 @@ export class SongsController {
       optInFullSongRadio: dto.optInFullSongRadio === true,
       optInDjLivestreams: dto.optInDjLivestreams === true,
       optInDjArchivedMixes: dto.optInDjArchivedMixes === true,
+      productKind: dto.productKind === 'beat' ? 'beat' : 'song',
+      priceCents: dto.priceCents,
+      forSale: dto.forSale,
     };
     if (
       createSongDto.discoverClipStartSeconds != null &&
@@ -1107,6 +1110,10 @@ export class SongsController {
       sampleEndSeconds: song.sample_end_seconds ?? null,
       priceCents: song.price_cents ?? 99,
       forSale: song.is_for_sale !== false,
+      productKind:
+        (song as { product_kind?: string }).product_kind === 'beat'
+          ? 'beat'
+          : 'song',
       artworkUrl: song.artwork_url,
       durationSeconds: song.duration_seconds,
       creditsRemaining: song.credits_remaining || 0,
@@ -1176,6 +1183,23 @@ export class SongsController {
     return this.songsService.getFavoriteSongs(id);
   }
 
+  /** Pro-Networx Beat Marketplace — full listen-before-buy previews. */
+  @Get('beats/marketplace')
+  @Public()
+  async listBeatMarketplace(
+    @Query('q') q?: string,
+    @Query('artistId') artistId?: string,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
+  ) {
+    return this.songsService.listMarketplaceBeats({
+      q,
+      artistId,
+      limit: limit ? Number(limit) : undefined,
+      offset: offset ? Number(offset) : undefined,
+    });
+  }
+
   // ─── Song sales: samples, purchases, entitled playback/download ──────
 
   private async resolveUserIdAndRole(
@@ -1241,18 +1265,28 @@ export class SongsController {
     const supabase = getSupabaseClient();
     const { data: song } = await supabase
       .from('songs')
-      .select('id, artist_id, price_cents, is_for_sale, sample_url')
+      .select(
+        'id, artist_id, price_cents, is_for_sale, sample_url, product_kind, audio_url, status',
+      )
       .eq('id', songId)
       .single();
     if (!song) throw new NotFoundException('Song not found');
     const isOwner = song.artist_id === id;
     const owned = await this.songsService.isSongOwnedByUser(id, song);
+    const productKind =
+      (song as { product_kind?: string }).product_kind === 'beat'
+        ? 'beat'
+        : 'song';
+    const fullPreviewAllowed =
+      productKind === 'beat' && song.is_for_sale !== false;
     return {
       songId: song.id,
       owned,
       isOwner,
-      priceCents: song.price_cents ?? 99,
+      priceCents: song.price_cents ?? (productKind === 'beat' ? 999 : 99),
       forSale: song.is_for_sale !== false,
+      productKind,
+      fullPreviewAllowed,
       sampleUrl: (await signSongAudioUrl(song.sample_url ?? null)) ?? null,
     };
   }
@@ -1490,6 +1524,20 @@ export class SongsController {
     }
     if (body.isPublic !== undefined) {
       updateData.is_public = body.isPublic;
+    }
+    if (body.productKind !== undefined) {
+      updateData.product_kind = body.productKind === 'beat' ? 'beat' : 'song';
+      if (body.productKind === 'beat') {
+        // Beats are marketplace inventory — keep them off radio rotation.
+        updateData.opt_in_full_song_radio = false;
+        updateData.is_public = false;
+      }
+    }
+    if (body.priceCents !== undefined) {
+      updateData.price_cents = Math.max(0, Math.round(Number(body.priceCents)));
+    }
+    if (body.forSale !== undefined) {
+      updateData.is_for_sale = body.forSale === true;
     }
     if (
       updateData.discover_clip_start_seconds != null &&

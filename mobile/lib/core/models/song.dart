@@ -26,6 +26,8 @@ class Song {
   final double? sampleEndSeconds;
   final int priceCents;
   final bool forSale;
+  /// `song` (sample-gated) or `beat` (full listen-before-buy marketplace).
+  final String productKind;
   final bool discoverEnabled;
   final double? discoverClipStartSeconds;
   final double? discoverClipEndSeconds;
@@ -54,6 +56,7 @@ class Song {
     this.sampleEndSeconds,
     this.priceCents = 99,
     this.forSale = true,
+    this.productKind = 'song',
     this.discoverEnabled = false,
     this.discoverClipStartSeconds,
     this.discoverClipEndSeconds,
@@ -111,6 +114,11 @@ class Song {
         99,
       ),
       forSale: (json['is_for_sale'] ?? json['forSale']) != false,
+      productKind: () {
+        final raw =
+            (json['product_kind'] ?? json['productKind'] ?? 'song').toString();
+        return raw == 'beat' ? 'beat' : 'song';
+      }(),
       discoverEnabled:
           (json['discover_enabled'] ?? json['discoverEnabled']) == true,
       discoverClipStartSeconds: parseDoubleOrNull(
@@ -151,6 +159,7 @@ class Song {
       'sample_end_seconds': sampleEndSeconds,
       'price_cents': priceCents,
       'is_for_sale': forSale,
+      'product_kind': productKind,
       'discover_enabled': discoverEnabled,
       'discover_clip_start_seconds': discoverClipStartSeconds,
       'discover_clip_end_seconds': discoverClipEndSeconds,
@@ -158,4 +167,6 @@ class Song {
       'updated_at': updatedAt.toIso8601String(),
     };
   }
+
+  bool get isBeat => productKind == 'beat';
 }

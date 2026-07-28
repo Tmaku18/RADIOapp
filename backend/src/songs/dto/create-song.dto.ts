@@ -93,7 +93,7 @@ export class CreateSongDto {
   @IsOptional()
   lyricsPlainText?: string;
 
-  /** Required to submit for NETWORX Radio rotation. */
+  /** Required to submit for NETWORX Radio rotation (songs only, not beats). */
   @IsBoolean()
   @IsOptional()
   optInFullSongRadio?: boolean;
@@ -105,4 +105,20 @@ export class CreateSongDto {
   @IsBoolean()
   @IsOptional()
   optInDjArchivedMixes?: boolean;
+
+  /** `song` (default) or `beat` — beats support full listen-before-buy. */
+  @IsString()
+  @IsOptional()
+  @IsIn(['song', 'beat'])
+  productKind?: 'song' | 'beat';
+
+  /** Sale price in cents. Beats default to listed for sale. */
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  priceCents?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  forSale?: boolean;
 }

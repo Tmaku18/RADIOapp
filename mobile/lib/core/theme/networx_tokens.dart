@@ -58,7 +58,7 @@ class NetworxTokens {
 
   static const Color lightTextPrimary = Color(0xFF0F172A);
   static const Color lightTextSecondary = Color(0xFF334155);
-  static const Color lightTextMuted = Color(0xFF64748B);
+  static const Color lightTextMuted = Color(0xFF475569);
 
   /// Web light `--primary` teal (dark mode keeps [electricCyan]).
   static const Color lightPrimary = Color(0xFF0E9AA7);

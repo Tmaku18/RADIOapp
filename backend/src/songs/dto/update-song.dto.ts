@@ -81,4 +81,18 @@ export class UpdateSongDto {
   @IsBoolean()
   @IsOptional()
   isPublic?: boolean;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['song', 'beat'])
+  productKind?: 'song' | 'beat';
+
+  @IsNumber()
+  @IsOptional()
+  @Min(0)
+  priceCents?: number;
+
+  @IsBoolean()
+  @IsOptional()
+  forSale?: boolean;
 }

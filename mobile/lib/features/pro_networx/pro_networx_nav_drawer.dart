@@ -27,6 +27,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
     'Home',
     'Discover',
     'Search',
+    'Beats',
     'Services',
     'Projects',
     'Radio',
@@ -36,6 +37,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
     _ProNavTab(icon: Icons.home_outlined, label: 'Home'),
     _ProNavTab(icon: Icons.explore_outlined, label: 'Discover'),
     _ProNavTab(icon: Icons.search, label: 'Search'),
+    _ProNavTab(icon: Icons.graphic_eq, label: 'Beats'),
     _ProNavTab(icon: Icons.work_outline, label: 'Services'),
     _ProNavTab(icon: Icons.assignment_outlined, label: 'Projects'),
     _ProNavTab(icon: Icons.radio, label: 'Radio'),
@@ -58,6 +60,7 @@ class ProNetworxNavDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     return Drawer(
       width: 300,
       backgroundColor: DimensionTokens.bgSurface,
@@ -191,11 +194,17 @@ class _ProNavRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = active
-        ? Colors.black
-        : muted
-            ? Colors.white.withValues(alpha: 0.55)
-            : Colors.white.withValues(alpha: 0.85);
+    DimensionTokens.watch(context);
+    // Active cyan pill always uses black for contrast on neonCyan.
+    // Inactive rows must follow theme — white-on-light was unreadable.
+    final Color fg;
+    if (active) {
+      fg = Colors.black;
+    } else if (muted) {
+      fg = DimensionTokens.textMuted;
+    } else {
+      fg = DimensionTokens.textSecondary;
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Material(

@@ -310,8 +310,16 @@ class ProNetworxService {
   }
 
   /// Upload an image or short video as a feed post.
-  Future<ProFeedPost> createFeedPost(File file, {String? caption}) async {
-    final mime = _inferImageMime(file.path) ?? 'application/octet-stream';
+  ///
+  /// [isVideo] helps when iOS `image_picker` temp paths lack an extension —
+  /// without it we'd send `application/octet-stream` and the API rejects.
+  Future<ProFeedPost> createFeedPost(
+    File file, {
+    String? caption,
+    bool? isVideo,
+  }) async {
+    final mime = _inferMediaMime(file.path, isVideo: isVideo) ??
+        (isVideo == true ? 'video/quicktime' : 'image/jpeg');
     final res = await _api.postMultipart(
       'discovery/feed',
       {if (caption != null && caption.trim().isNotEmpty) 'caption': caption.trim()},
@@ -320,6 +328,7 @@ class ProNetworxService {
           'file',
           file.path,
           contentType: MediaType.parse(mime),
+          filename: _multipartFilename(file.path, mime),
         ),
       ],
     );
@@ -620,14 +629,38 @@ class ProNetworxService {
     return (items: <ProFeedPost>[], nextCursor: null);
   }
 
-  String? _inferImageMime(String path) {
+  String? _inferImageMime(String path) => _inferMediaMime(path);
+
+  String? _inferMediaMime(String path, {bool? isVideo}) {
     final lower = path.toLowerCase();
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.gif')) return 'image/gif';
-    if (lower.endsWith('.mp4')) return 'video/mp4';
-    if (lower.endsWith('.mov')) return 'video/quicktime';
+    if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4';
+    if (lower.endsWith('.webm')) return 'video/webm';
+    if (lower.endsWith('.mov') || lower.endsWith('.qt')) {
+      return 'video/quicktime';
+    }
+    if (isVideo == true) return 'video/quicktime';
+    if (isVideo == false) return 'image/jpeg';
     return null;
+  }
+
+  /// Ensure multipart has a usable filename + extension (Nest/multer + storage).
+  String _multipartFilename(String path, String mime) {
+    final base = path.split(Platform.pathSeparator).last;
+    final hasExt = base.contains('.') && !base.endsWith('.');
+    if (hasExt) return base;
+    final ext = switch (mime) {
+      'image/jpeg' => 'jpg',
+      'image/png' => 'png',
+      'image/webp' => 'webp',
+      'video/mp4' => 'mp4',
+      'video/webm' => 'webm',
+      'video/quicktime' => 'mov',
+      _ => 'bin',
+    };
+    return '$base.$ext';
   }
 }

@@ -180,6 +180,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final proNetworxTab = canUpload ? 4 : null;
     final voteTab = canUpload ? null : 4;
 
+    // Rebuild Dimension chrome when ThemeMode changes (tokens are static).
+    DimensionTokens.watch(context);
+
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: DimensionTokens.bgBase,

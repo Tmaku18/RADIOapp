@@ -15,6 +15,17 @@ class DimensionTokens {
     _brightness = brightness;
   }
 
+  /// Call at the start of [State.build] / [StatelessWidget.build] for any
+  /// widget that paints with [DimensionTokens] static colors.
+  ///
+  /// Registers a [Theme] dependency so light/dark switches rebuild immediately
+  /// (static getters alone do not listen to [ThemeMode] changes).
+  static Brightness watch(BuildContext context) {
+    final brightness = Theme.of(context).brightness;
+    bindBrightness(brightness);
+    return brightness;
+  }
+
   static bool get isDark => _brightness == Brightness.dark;
 
   // —— Dark (web `:root` / `[data-dimension]`) ——
@@ -40,8 +51,8 @@ class DimensionTokens {
   static const Color _pink400Light = Color(0xFFBE185D);
   static const Color _textPrimaryLight = Color(0xFF0F172A);
   static const Color _textSecondaryLight = Color(0xFF334155);
-  static const Color _textMutedLight = Color(0xFF64748B);
-  static const Color _glassStrongLight = Color(0xFFE2E8F0);
+  // Slate-600 — readable on near-white glass cards (was too faint at 64748B).
+  static const Color _textMutedLight = Color(0xFF475569);
 
   static Color get bgBase => isDark ? _bgBaseDark : _bgBaseLight;
   static Color get bgSurface => isDark ? _bgSurfaceDark : _bgSurfaceLight;
@@ -113,24 +124,19 @@ class DimensionTokens {
 
   static BoxDecoration glassDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
+      // Light mode: near-opaque so CyberBackdrop orbs cannot muddy card text.
       color: isDark
-          ? bgSurface.withValues(alpha: 0.55)
-          : const Color(0xFFF1F5F9).withValues(alpha: 0.82),
+          ? bgSurface.withValues(alpha: 0.72)
+          : const Color(0xFFF8FAFC),
       borderRadius: borderRadius ?? BorderRadius.circular(cardRadius),
       border: Border.all(color: glassBorder),
       boxShadow: isDark
           ? null
           : [
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.8),
-                blurRadius: 0,
-                offset: const Offset(0, 1),
-                spreadRadius: 0,
-              ),
-              BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-                blurRadius: 32,
-                offset: const Offset(0, 8),
+                color: const Color(0xFF0F172A).withValues(alpha: 0.08),
+                blurRadius: 28,
+                offset: const Offset(0, 10),
               ),
             ],
     );
@@ -139,16 +145,16 @@ class DimensionTokens {
   static BoxDecoration glassStrongDecoration({BorderRadius? borderRadius}) {
     return BoxDecoration(
       color: isDark
-          ? _glassStrongDark.withValues(alpha: 0.8)
-          : _glassStrongLight.withValues(alpha: 0.95),
+          ? _glassStrongDark.withValues(alpha: 0.88)
+          : const Color(0xFFF1F5F9),
       gradient: isDark
           ? null
-          : LinearGradient(
+          : const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFFE2E8F0).withValues(alpha: 0.97),
-                const Color(0xFFF1F5F9).withValues(alpha: 0.94),
+                Color(0xFFFFFFFF),
+                Color(0xFFF1F5F9),
               ],
             ),
       borderRadius: borderRadius ?? BorderRadius.circular(16),
@@ -157,7 +163,7 @@ class DimensionTokens {
           ? null
           : [
               BoxShadow(
-                color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+                color: const Color(0xFF0F172A).withValues(alpha: 0.08),
                 blurRadius: 24,
                 offset: const Offset(0, 4),
               ),

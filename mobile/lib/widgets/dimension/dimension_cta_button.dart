@@ -21,6 +21,7 @@ class DimensionCtaButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     final style = switch (variant) {
       DimensionCtaVariant.primary => _Style(
           bg: DimensionTokens.neonCyan,
@@ -31,7 +32,9 @@ class DimensionCtaButton extends StatelessWidget {
       DimensionCtaVariant.secondary => _Style(
           bg: Colors.transparent,
           fg: DimensionTokens.textPrimary,
-          border: Colors.white.withValues(alpha: 0.2),
+          border: DimensionTokens.isDark
+              ? Colors.white.withValues(alpha: 0.28)
+              : DimensionTokens.textSecondary.withValues(alpha: 0.45),
           glow: const [],
         ),
       DimensionCtaVariant.pink => _Style(

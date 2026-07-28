@@ -167,6 +167,7 @@ class _DimensionNavDrawerState extends State<DimensionNavDrawer> {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     return Drawer(
       width: 300,
       backgroundColor: DimensionTokens.bgSurface,

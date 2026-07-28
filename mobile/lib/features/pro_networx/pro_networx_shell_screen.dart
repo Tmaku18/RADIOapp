@@ -6,6 +6,7 @@ import '../../features/job_board/job_board_screen.dart';
 import '../../features/social/social_feed_screen.dart';
 import '../../widgets/dimension/dimension_radio_bar.dart';
 import '../../widgets/dimension/dimension_widgets.dart';
+import 'pro_beats_marketplace_screen.dart';
 import 'pro_home_feed_screen.dart';
 import 'pro_networx_nav_drawer.dart';
 import 'pro_radio_screen.dart';
@@ -13,8 +14,8 @@ import 'pro_search_screen.dart';
 import 'pro_services_screen.dart';
 
 /// Authenticated Pro-Networx app shell — side menu parity with web
-/// [ProNetworxAppShell] (Home / Discover / Search / Services / Projects /
-/// Radio / My profile), plus the persistent radio mini-bar.
+/// [ProNetworxAppShell] (Home / Discover / Search / Beats / Services /
+/// Projects / Radio / My profile), plus the persistent radio mini-bar.
 class ProNetworxShellScreen extends StatefulWidget {
   const ProNetworxShellScreen({
     super.key,
@@ -31,10 +32,11 @@ class ProNetworxShellScreen extends StatefulWidget {
   static const int tabHome = 0;
   static const int tabDiscover = 1;
   static const int tabSearch = 2;
-  static const int tabServices = 3;
-  static const int tabProjects = 4;
-  static const int tabRadio = 5;
-  static const int tabCount = 6;
+  static const int tabBeats = 3;
+  static const int tabServices = 4;
+  static const int tabProjects = 5;
+  static const int tabRadio = 6;
+  static const int tabCount = 7;
 
   @override
   State<ProNetworxShellScreen> createState() => _ProNetworxShellScreenState();
@@ -77,6 +79,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     return Scaffold(
       key: _scaffoldKey,
       backgroundColor: DimensionTokens.bgBase,
@@ -88,6 +91,8 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
       ),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
+        foregroundColor: DimensionTokens.textPrimary,
+        iconTheme: IconThemeData(color: DimensionTokens.textPrimary),
         leading: IconButton(
           tooltip: 'Menu',
           icon: const Icon(Icons.menu),
@@ -100,7 +105,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
             Text(
               'NETWORX / PRO-NETWORX',
               style: TextStyle(
-                color: DimensionTokens.cyan300.withValues(alpha: 0.85),
+                color: DimensionTokens.cyan300,
                 fontSize: 9,
                 letterSpacing: 2.2,
                 fontWeight: FontWeight.w600,
@@ -108,10 +113,11 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
             ),
             Text(
               _sectionLabel.toUpperCase(),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.6,
+                color: DimensionTokens.textPrimary,
               ),
             ),
           ],
@@ -137,6 +143,7 @@ class _ProNetworxShellScreenState extends State<ProNetworxShellScreen> {
                     ProHomeFeedScreen(),
                     SocialFeedScreen(embeddedInProShell: true),
                     ProSearchScreen(),
+                    ProBeatsMarketplaceScreen(),
                     ProServicesScreen(),
                     JobBoardScreen(embedded: true),
                     ProRadioScreen(),

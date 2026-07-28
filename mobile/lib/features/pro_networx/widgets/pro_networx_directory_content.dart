@@ -457,6 +457,7 @@ class _DirectoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     final cardTitle = (item.serviceTitle ??
             (item.skills.isNotEmpty ? item.skills.first : null) ??
             (item.role == 'service_provider' ? 'Service' : 'Artist'))
@@ -505,7 +506,10 @@ class _DirectoryCard extends StatelessWidget {
                       subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: DimensionTypography.monoCaps(fontSize: 10),
+                      style: DimensionTypography.monoCaps(
+                        fontSize: 10,
+                        color: DimensionTokens.textSecondary,
+                      ),
                     ),
                   ],
                 ),
@@ -591,7 +595,7 @@ class _DirectoryCard extends StatelessWidget {
                   .map(
                     (s) => _Badge(
                       label: s.replaceAll('_', ' '),
-                      color: DimensionTokens.textMuted,
+                      color: DimensionTokens.textSecondary,
                       outline: true,
                     ),
                   )
@@ -602,7 +606,10 @@ class _DirectoryCard extends StatelessWidget {
           Text.rich(
             TextSpan(
               text: 'Starting at ',
-              style: DimensionTypography.bodyMuted(fontSize: 13),
+              style: DimensionTypography.body(
+                fontSize: 13,
+                color: DimensionTokens.textSecondary,
+              ),
               children: [
                 TextSpan(
                   text: _formatStartingAt(
@@ -700,12 +707,21 @@ class _Badge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
+    final borderColor = color.withValues(
+      alpha: outline ? (DimensionTokens.isDark ? 0.55 : 0.65) : 0.55,
+    );
+    final fill = outline
+        ? (DimensionTokens.isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : DimensionTokens.neonCyan.withValues(alpha: 0.08))
+        : color.withValues(alpha: 0.14);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: outline ? 0.35 : 0.5)),
-        color: outline ? null : color.withValues(alpha: 0.12),
+        border: Border.all(color: borderColor),
+        color: fill,
       ),
       child: Text(
         label.toUpperCase(),

@@ -758,6 +758,8 @@ class _LibraryTab extends StatefulWidget {
 class _LibraryTabState extends State<_LibraryTab> {
   final SongsService _songs = SongsService();
   final DiscoverAudioService _discover = DiscoverAudioService();
+  final AudioPlayer _player = AudioPlayerService().player;
+  StreamSubscription<PlayerState>? _playerStateSub;
 
   // favorites = ⭐ · liked/disliked = Discover swipes · music = purchases.
   String _section = 'favorites';
@@ -774,12 +776,81 @@ class _LibraryTabState extends State<_LibraryTab> {
   List<PurchasedSong> _purchases = const [];
   String? _busyPurchaseId;
 
+  /// Song currently loaded from this Library tab (clip or purchase).
+  String? _activeSongId;
+  bool _isPlaying = false;
+
   @override
   void initState() {
     super.initState();
     _loadFavorites();
     _loadHistory();
     _loadPurchases();
+    _playerStateSub = _player.playerStateStream.listen((s) {
+      if (!mounted) return;
+      final activeId = _mediaSongId;
+      if (activeId == null) {
+        if (_isPlaying || _activeSongId != null) {
+          setState(() {
+            _isPlaying = false;
+            _activeSongId = null;
+          });
+        }
+        return;
+      }
+      final handler = AudioPlayerService.handler;
+      final audible = s.playing && !handler.userPaused;
+      if (_activeSongId != activeId || _isPlaying != audible) {
+        setState(() {
+          _activeSongId = activeId;
+          _isPlaying = audible;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    unawaited(_playerStateSub?.cancel() ?? Future<void>.value());
+    super.dispose();
+  }
+
+  String? get _mediaSongId {
+    final tag = _player.sequenceState.currentSource?.tag;
+    if (tag is! MediaItem) return null;
+    final source = tag.extras?['source']?.toString();
+    // Library plays clips as sample and purchases as discography.
+    if (source != 'sample' && source != 'discography') return null;
+    return tag.id;
+  }
+
+  bool _isAudiblyPlaying(String songId) =>
+      _activeSongId == songId && _isPlaying;
+
+  Future<void> _toggleOrPlay({
+    required String songId,
+    required Future<void> Function() startPlayback,
+  }) async {
+    final same = _mediaSongId == songId;
+    final handler = AudioPlayerService.handler;
+    if (same) {
+      if (_player.playing && !handler.userPaused && _player.volume > 0) {
+        await _player.pause();
+        if (mounted) setState(() => _isPlaying = false);
+      } else {
+        await handler.setUserPaused(false);
+        await handler.applyOutputVolume();
+        await _player.play();
+        if (mounted) {
+          setState(() {
+            _activeSongId = songId;
+            _isPlaying = true;
+          });
+        }
+      }
+      return;
+    }
+    await startPlayback();
   }
 
   Future<void> reload() async {
@@ -870,20 +941,32 @@ class _LibraryTabState extends State<_LibraryTab> {
       return;
     }
     try {
-      final player = AudioPlayerService().player;
-      await player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(item.clipUrl),
-          tag: MediaItem(
-            id: item.songId,
-            title: item.title,
-            artist: item.artistDisplayName ?? item.artistName,
-            artUri: BrandAssets.mediaArtUri(item.backgroundUrl),
-            extras: const {'source': 'sample', 'noSeek': true},
-          ),
-        ),
+      await _toggleOrPlay(
+        songId: item.songId,
+        startPlayback: () async {
+          await _player.setAudioSource(
+            AudioSource.uri(
+              Uri.parse(item.clipUrl),
+              tag: MediaItem(
+                id: item.songId,
+                title: item.title,
+                artist: item.artistDisplayName ?? item.artistName,
+                artUri: BrandAssets.mediaArtUri(item.backgroundUrl),
+                extras: const {'source': 'sample', 'noSeek': true},
+              ),
+            ),
+          );
+          await AudioPlayerService.handler.setUserPaused(false);
+          await AudioPlayerService.handler.applyOutputVolume();
+          await _player.play();
+          if (mounted) {
+            setState(() {
+              _activeSongId = item.songId;
+              _isPlaying = true;
+            });
+          }
+        },
       );
-      await player.play();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -895,26 +978,38 @@ class _LibraryTabState extends State<_LibraryTab> {
   Future<void> _playPurchased(PurchasedSong item) async {
     setState(() => _busyPurchaseId = item.id);
     try {
-      final url = await _songs.getStreamUrl(item.id);
-      if (url == null || url.isEmpty) {
-        throw Exception('Stream unavailable.');
-      }
-      final player = AudioPlayerService().player;
-      // Tag the source so the bottom bar shows this track with a seek slider
-      // (purchased = full entitled stream, scrubbing allowed).
-      await player.setAudioSource(
-        AudioSource.uri(
-          Uri.parse(url),
-          tag: MediaItem(
-            id: item.id,
-            title: item.title,
-            artist: item.artistName,
-            artUri: BrandAssets.mediaArtUri(item.artworkUrl),
-            extras: const {'source': 'discography'},
-          ),
-        ),
+      await _toggleOrPlay(
+        songId: item.id,
+        startPlayback: () async {
+          final url = await _songs.getStreamUrl(item.id);
+          if (url == null || url.isEmpty) {
+            throw Exception('Stream unavailable.');
+          }
+          // Tag the source so the bottom bar shows this track with a seek slider
+          // (purchased = full entitled stream, scrubbing allowed).
+          await _player.setAudioSource(
+            AudioSource.uri(
+              Uri.parse(url),
+              tag: MediaItem(
+                id: item.id,
+                title: item.title,
+                artist: item.artistName,
+                artUri: BrandAssets.mediaArtUri(item.artworkUrl),
+                extras: const {'source': 'discography'},
+              ),
+            ),
+          );
+          await AudioPlayerService.handler.setUserPaused(false);
+          await AudioPlayerService.handler.applyOutputVolume();
+          await _player.play();
+          if (mounted) {
+            setState(() {
+              _activeSongId = item.id;
+              _isPlaying = true;
+            });
+          }
+        },
       );
-      await player.play();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1158,6 +1253,7 @@ class _LibraryTabState extends State<_LibraryTab> {
         itemBuilder: (context, i) {
           final item = items[i];
           final busy = _busyHistoryId == item.songId;
+          final playing = _isAudiblyPlaying(item.songId);
           final art = item.backgroundUrl;
           return Card(
             child: ListTile(
@@ -1213,9 +1309,9 @@ class _LibraryTabState extends State<_LibraryTab> {
                       icon: const Icon(Icons.videocam_outlined),
                     ),
                   IconButton(
-                    tooltip: 'Play clip',
+                    tooltip: playing ? 'Pause clip' : 'Play clip',
                     onPressed: busy ? null : () => _playDiscoverClip(item),
-                    icon: const Icon(Icons.play_arrow),
+                    icon: Icon(playing ? Icons.pause : Icons.play_arrow),
                   ),
                   IconButton(
                     tooltip: 'Remove (show in Discover again)',
@@ -1263,6 +1359,7 @@ class _LibraryTabState extends State<_LibraryTab> {
         itemBuilder: (context, i) {
           final item = _purchases[i];
           final busy = _busyPurchaseId == item.id;
+          final playing = _isAudiblyPlaying(item.id);
           return Card(
             child: ListTile(
               onTap: () => _openArtistSong(
@@ -1291,7 +1388,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   IconButton(
-                    tooltip: 'Play',
+                    tooltip: playing ? 'Pause' : 'Play',
                     icon: busy
                         ? const SizedBox(
                             width: 18,
@@ -1299,7 +1396,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                             child:
                                 CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : const Icon(Icons.play_arrow),
+                        : Icon(playing ? Icons.pause : Icons.play_arrow),
                     onPressed: busy ? null : () => _playPurchased(item),
                   ),
                   IconButton(

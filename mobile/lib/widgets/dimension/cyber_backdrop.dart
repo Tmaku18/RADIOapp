@@ -19,6 +19,7 @@ class CyberBackdrop extends StatefulWidget {
 class _CyberBackdropState extends State<CyberBackdrop> {
   @override
   Widget build(BuildContext context) {
+    DimensionTokens.watch(context);
     final i = math.min(1.0, widget.bassLevel * 1.6);
     final isDark = DimensionTokens.isDark;
     final fade = DimensionTokens.backdropFade;
